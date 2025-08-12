@@ -69,13 +69,42 @@ export default function FeedPage() {
       return
     }
 
-    // TODO: Validate token and get user info
-    // For now, set a mock user
-    setUser({
-      id: "current-user",
-      name: "You",
-      email: "user@example.com"
-    })
+    // Get user info from API
+    const fetchUserInfo = async () => {
+      try {
+        const response = await fetch('/api/users/me/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (response.ok) {
+          const userData = await response.json()
+          setUser({
+            id: userData.id.toString(),
+            name: userData.username,
+            email: userData.email
+          })
+        } else {
+          // Fallback to mock user if API fails
+          setUser({
+            id: "current-user",
+            name: "You",
+            email: "user@example.com"
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching user info:', error)
+        // Fallback to mock user
+        setUser({
+          id: "current-user",
+          name: "You",
+          email: "user@example.com"
+        })
+      }
+    }
+
+    fetchUserInfo()
     
     setIsLoading(false)
   }, [router])
@@ -164,6 +193,12 @@ export default function FeedPage() {
           
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">Welcome, {user?.name}!</span>
+            <button
+              onClick={() => router.push("/profile")}
+              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+            >
+              Profile
+            </button>
             <button
               onClick={handleLogout}
               className="text-purple-600 hover:text-purple-700 text-sm font-medium"
