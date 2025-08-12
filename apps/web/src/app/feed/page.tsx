@@ -130,7 +130,12 @@ export default function FeedPage() {
   }
 
   const handleUserClick = (userId: string) => {
-    alert(`Navigate to user profile: ${userId} - Coming soon!`)
+    if (userId === "current-user") {
+      router.push("/profile")
+    } else {
+      // For now, navigate to own profile. In the future, we'll implement other user profiles
+      router.push("/profile")
+    }
   }
 
   if (isLoading) {
@@ -149,10 +154,13 @@ export default function FeedPage() {
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => router.push("/feed")}
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+          >
             <span className="text-2xl">💜</span>
             <h1 className="text-xl font-bold text-purple-700">Grateful</h1>
-          </div>
+          </button>
           
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">Welcome, {user?.name}!</span>

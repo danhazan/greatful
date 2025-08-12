@@ -19,6 +19,29 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Write comprehensive unit and integration tests for all components
 **Acceptance Criteria:** Users can react to posts with positive emojis, see reaction counts, and change their reactions. All interactions are properly validated and tested.
 
+### **TASK 1.5: User Profile System** (Week 1.5)
+**Module Reference:** Requirements 8 - User Profiles & Networking (Basic)
+- [x] Create user profile page with basic information display
+- [x] Implement profile editing functionality (username, bio, profile image)
+- [x] Add user profile API endpoints (GET/PUT /api/v1/users/me/profile)
+- [x] Create profile navigation from navbar and user clicks
+- [ ] Display user's posts on their profile page
+- [ ] Add basic user stats (posts count, join date)
+- [ ] Write tests for profile functionality
+**Acceptance Criteria:** Users can view and edit their profiles, see their posts, and navigate to other users' profiles from post interactions.
+
+### **TASK 1.6: Post Creation System** (Week 1.6)
+**Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Basic)
+- [ ] Create post creation modal with form validation
+- [ ] Implement post type selection (Daily, Photo, Spontaneous) with visual hierarchy
+- [ ] Add character limits per post type (Daily: 500, Photo: 300, Spontaneous: 200)
+- [ ] Create POST /api/v1/posts API endpoint for post creation
+- [ ] Add image upload functionality (optional for MVP)
+- [ ] Implement draft saving in localStorage
+- [ ] Update feed to show newly created posts
+- [ ] Write comprehensive tests for post creation
+**Acceptance Criteria:** Users can create posts of different types with proper validation, see them immediately in their feed, and save drafts locally.
+
 ### **TASK 2: Reaction Viewer and Enhanced Interactions** (Week 2)
 **Module Reference:** Requirements 1 - Emoji Reaction System
 - [ ] Create ReactionViewer modal component showing all users and their reactions
