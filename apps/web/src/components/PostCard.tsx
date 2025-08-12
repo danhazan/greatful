@@ -74,6 +74,12 @@ export default function PostCard({
   const handleReactionButtonClick = (event: React.MouseEvent) => {
     event.preventDefault()
     
+    // If user already has a reaction, remove it
+    if (post.currentUserReaction && onRemoveReaction) {
+      onRemoveReaction(post.id)
+      return
+    }
+    
     if (reactionButtonRef.current) {
       const rect = reactionButtonRef.current.getBoundingClientRect()
       setEmojiPickerPosition({
@@ -266,11 +272,7 @@ export default function PostCard({
                 )}
               </button>
 
-              {/* Comment Button */}
-              <button className={`flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors ${styling.textSize}`}>
-                <MessageCircle className={styling.iconSize} />
-                <span>0</span>
-              </button>
+
 
               {/* Share Button */}
               <button 

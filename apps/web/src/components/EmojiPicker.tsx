@@ -51,8 +51,10 @@ export default function EmojiPicker({
       if (!isOpen) return
 
       if (event.key === 'Escape') {
+        event.preventDefault()
         onClose()
       } else if (event.key >= '1' && event.key <= '8') {
+        event.preventDefault()
         const index = parseInt(event.key) - 1
         if (EMOJI_OPTIONS[index]) {
           onEmojiSelect(EMOJI_OPTIONS[index].code)
@@ -61,8 +63,12 @@ export default function EmojiPicker({
     }
 
     if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
+      // Focus the modal when it opens
+      if (modalRef.current) {
+        modalRef.current.focus()
+      }
+      document.addEventListener('keydown', handleKeyDown, true)
+      return () => document.removeEventListener('keydown', handleKeyDown, true)
     }
   }, [isOpen, onClose, onEmojiSelect])
 
@@ -78,10 +84,10 @@ export default function EmojiPicker({
         ref={modalRef}
         className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px]"
         style={{
-          position: 'absolute',
-          left: `${position.x}px`,
-          top: `${position.y - 8}px`, // subtract 8px marginTop
+          left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 296)),
+          top: Math.max(16, position.y - 160),
         }}
+        tabIndex={-1}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
