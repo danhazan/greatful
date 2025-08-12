@@ -97,8 +97,8 @@ async def get_my_profile(
             id=user.id,
             username=user.username,
             email=user.email,
-            bio=getattr(user, 'bio', None),
-            profile_image_url=getattr(user, 'profile_image_url', None),
+            bio=user.bio,
+            profile_image_url=user.profile_image_url,
             created_at=user.created_at.isoformat(),
             posts_count=posts_count,
             followers_count=0,  # TODO: Implement with follow system
@@ -142,16 +142,10 @@ async def update_my_profile(
             user.username = profile_update.username
 
         if profile_update.bio is not None:
-            # Add bio field to user model if it doesn't exist
-            if not hasattr(user, 'bio'):
-                # For now, we'll store bio in a simple way
-                # In production, you'd add this field to the User model
-                pass
-            # user.bio = profile_update.bio
+            user.bio = profile_update.bio
 
         if profile_update.profile_image_url is not None:
-            # user.profile_image_url = profile_update.profile_image_url
-            pass
+            user.profile_image_url = profile_update.profile_image_url
 
         await db.commit()
         await db.refresh(user)
@@ -166,8 +160,8 @@ async def update_my_profile(
             id=user.id,
             username=user.username,
             email=user.email,
-            bio=profile_update.bio,  # Return the updated bio
-            profile_image_url=profile_update.profile_image_url,
+            bio=user.bio,
+            profile_image_url=user.profile_image_url,
             created_at=user.created_at.isoformat(),
             posts_count=posts_count,
             followers_count=0,
@@ -246,8 +240,8 @@ async def get_user_profile(
             id=user.id,
             username=user.username,
             email=user.email,  # In production, don't expose email to other users
-            bio=getattr(user, 'bio', None),
-            profile_image_url=getattr(user, 'profile_image_url', None),
+            bio=user.bio,
+            profile_image_url=user.profile_image_url,
             created_at=user.created_at.isoformat(),
             posts_count=posts_count,
             followers_count=0,

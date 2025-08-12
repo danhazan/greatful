@@ -25,8 +25,8 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Implement profile editing functionality (username, bio, profile image)
 - [x] Add user profile API endpoints (GET/PUT /api/v1/users/me/profile)
 - [x] Create profile navigation from navbar and user clicks
-- [ ] Display user's posts on their profile page
-- [ ] Add basic user stats (posts count, join date)
+- [x] Display user's posts on their profile page
+- [x] Add basic user stats (posts count, join date)
 - [ ] Write tests for profile functionality
 **Acceptance Criteria:** Users can view and edit their profiles, see their posts, and navigate to other users' profiles from post interactions.
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { User, Edit3, Calendar, MapPin, Heart, MessageCircle, Share } from "lucide-react"
+import { User, Edit3, Calendar, Heart } from "lucide-react"
 import PostCard from "@/components/PostCard"
 
 interface UserProfile {
@@ -81,39 +81,20 @@ export default function ProfilePage() {
             bio: userProfile.bio || ""
           })
 
-          // Mock posts for now - will be replaced with real API call
-          const mockPosts: Post[] = [
-            {
-              id: "user-post-1",
-              content: "I'm grateful for this beautiful morning and the opportunity to reflect on all the good things in my life! 🌅",
-              author: {
-                id: userProfile.id,
-                name: userProfile.username,
-              },
-              createdAt: new Date().toISOString(),
-              postType: "daily",
-              heartsCount: 15,
-              isHearted: false,
-              reactionsCount: 8,
-              currentUserReaction: undefined
-            },
-            {
-              id: "user-post-2",
-              content: "Grateful for my morning coffee ritual ☕",
-              author: {
-                id: userProfile.id,
-                name: userProfile.username,
-              },
-              createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-              postType: "photo",
-              imageUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&h=400&fit=crop",
-              heartsCount: 8,
-              isHearted: true,
-              reactionsCount: 5,
-              currentUserReaction: "heart_eyes"
+          // Fetch user's posts
+          const postsResponse = await fetch('/api/users/me/posts', {
+            headers: {
+              'Authorization': `Bearer ${token}`
             }
-          ]
-          setPosts(mockPosts)
+          })
+
+          if (postsResponse.ok) {
+            const userPosts = await postsResponse.json()
+            setPosts(userPosts)
+          } else {
+            console.error('Failed to fetch user posts')
+            setPosts([])
+          }
         } else {
           console.error('Failed to fetch profile')
           router.push("/auth/login")
@@ -224,7 +205,7 @@ export default function ProfilePage() {
     alert(`Share functionality for post ${postId} - Coming in TASK 3!`)
   }
 
-  const handleUserClick = (userId: string) => {
+  const handleUserClick = () => {
     // Stay on current profile since it's the user's own profile
   }
 
@@ -278,7 +259,10 @@ export default function ProfilePage() {
               Feed
             </button>
             <button
-              onClick={() => localStorage.removeItem("access_token") || router.push("/")}
+              onClick={() => {
+              localStorage.removeItem("access_token")
+              router.push("/")
+            }}
               className="text-purple-600 hover:text-purple-700 text-sm font-medium"
             >
               Logout
