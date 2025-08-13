@@ -184,11 +184,11 @@ export default function FeedPage() {
             return {
               ...post,
               reactionsCount: wasReacted ? post.reactionsCount || 1 : (post.reactionsCount || 0) + 1,
-              currentUserReaction: emojiCode
+              currentUserReaction: emojiCode as string | undefined
             }
           }
           return post
-        }))
+        }) as typeof posts)
       } else {
         console.error('Failed to add reaction')
       }
@@ -223,7 +223,7 @@ export default function FeedPage() {
             }
           }
           return post
-        }))
+        }) as typeof posts)
       } else {
         console.error('Failed to remove reaction')
       }
@@ -237,11 +237,11 @@ export default function FeedPage() {
   }
 
   const handleUserClick = (userId: string) => {
-    if (userId === "current-user") {
+    if (userId === "current-user" || userId === user?.id) {
       router.push("/profile")
     } else {
-      // For now, navigate to own profile. In the future, we'll implement other user profiles
-      router.push("/profile")
+      // Navigate to specific user's profile
+      router.push(`/profile/${userId}`)
     }
   }
 

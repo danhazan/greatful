@@ -45,9 +45,14 @@ const POST_TYPES = [
 ]
 
 export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
-  const [postData, setPostData] = useState({
+  const [postData, setPostData] = useState<{
+    content: string
+    postType: 'daily' | 'photo' | 'spontaneous'
+    imageUrl?: string
+    location?: string
+  }>({
     content: '',
-    postType: 'daily' as const,
+    postType: 'daily',
     imageUrl: '',
     location: ''
   })
@@ -310,12 +315,12 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             )}
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-200">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div className="text-xs text-gray-500 flex-shrink-0">
+            <div className="p-6">
+              <div className="flex justify-between items-center">
+                <div className="text-xs text-gray-500">
                   Draft saved automatically
                 </div>
-                <div className="flex space-x-3 flex-shrink-0">
+                <div className="flex space-x-3">
                   <button
                     type="button"
                     onClick={onClose}

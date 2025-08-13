@@ -79,11 +79,11 @@ export default function DemoPage() {
         return {
           ...post,
           reactionsCount: wasReacted ? post.reactionsCount || 1 : (post.reactionsCount || 0) + 1,
-          currentUserReaction: emojiCode
+          currentUserReaction: emojiCode as string | undefined
         }
       }
       return post
-    }))
+    }) as typeof posts)
   }
 
   const handleRemoveReaction = (postId: string) => {
@@ -96,7 +96,7 @@ export default function DemoPage() {
         }
       }
       return post
-    }))
+    }) as typeof posts)
   }
 
   const handleShare = (postId: string) => {
