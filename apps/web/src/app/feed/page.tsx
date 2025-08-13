@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Heart, Plus } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
+import NotificationSystem from "@/components/NotificationSystem"
 
 // Mock data for now - will be replaced with real API calls
 const mockPosts = [
@@ -316,6 +317,7 @@ export default function FeedPage() {
           
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">Welcome, {user?.name}!</span>
+            {user && <NotificationSystem userId={user.id} />}
             <button
               onClick={() => router.push("/profile")}
               className="text-purple-600 hover:text-purple-700 text-sm font-medium"
