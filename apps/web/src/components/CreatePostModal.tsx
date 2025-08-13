@@ -150,8 +150,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       })
       localStorage.removeItem('grateful_post_draft')
       onClose()
-    } catch (error) {
-      setError('Failed to create post. Please try again.')
+    } catch (error: any) {
+      setError(error.message || 'Failed to create post. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -310,25 +310,27 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             )}
 
             {/* Footer */}
-            <div className="flex justify-between items-center p-6 border-t border-gray-200">
-              <div className="text-xs text-gray-500">
-                Draft saved automatically
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !postData.content.trim()}
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'Sharing...' : 'Share Gratitude'}
-                </button>
+            <div className="p-6 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <div className="text-xs text-gray-500 flex-shrink-0">
+                  Draft saved automatically
+                </div>
+                <div className="flex space-x-3 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !postData.content.trim()}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? 'Sharing...' : 'Share Gratitude'}
+                  </button>
+                </div>
               </div>
             </div>
           </form>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Heart, Plus } from "lucide-react"
 import PostCard from "@/components/PostCard"
+import CreatePostModal from "@/components/CreatePostModal"
 
 // Mock data for now - will be replaced with real API calls
 const mockPosts = [
@@ -60,6 +61,32 @@ export default function FeedPage() {
   const [posts, setPosts] = useState(mockPosts)
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isCreatingPost, setIsCreatingPost] = useState(false)
+
+  // Load posts from API
+  const loadPosts = async (token: string) => {
+    try {
+      const response = await fetch('/api/posts', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const apiPosts = await response.json()
+        setPosts(apiPosts)
+      } else {
+        // Fallback to mock data if API fails
+        console.warn('Failed to load posts from API, using mock data')
+        setPosts(mockPosts)
+      }
+    } catch (error) {
+      console.error('Error loading posts:', error)
+      // Fallback to mock data
+      setPosts(mockPosts)
+    }
+  }
 
   // Check authentication and load user data
   useEffect(() => {
@@ -104,9 +131,13 @@ export default function FeedPage() {
       }
     }
 
-    fetchUserInfo()
-    
-    setIsLoading(false)
+    const initializePage = async () => {
+      await fetchUserInfo()
+      await loadPosts(token)
+      setIsLoading(false)
+    }
+
+    initializePage()
   }, [router])
 
   const handleLogout = () => {
@@ -164,6 +195,52 @@ export default function FeedPage() {
     } else {
       // For now, navigate to own profile. In the future, we'll implement other user profiles
       router.push("/profile")
+    }
+  }
+
+  const handleCreatePost = async (postData: {
+    content: string
+    postType: 'daily' | 'photo' | 'spontaneous'
+    imageUrl?: string
+    location?: string
+  }) => {
+    setIsCreatingPost(true)
+    
+    try {
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        router.push("/auth/login")
+        return
+      }
+
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(postData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create post')
+      }
+
+      const newPost = await response.json()
+      
+      // Add the new post to the beginning of the posts array
+      setPosts(prevPosts => [newPost, ...prevPosts])
+      
+      // Close the modal
+      setIsCreateModalOpen(false)
+      
+    } catch (error) {
+      console.error('Error creating post:', error)
+      // The error will be handled by the CreatePostModal component
+      throw error
+    } finally {
+      setIsCreatingPost(false)
     }
   }
 
@@ -240,13 +317,20 @@ export default function FeedPage() {
           {/* Floating Create Post Button */}
           <div className="fixed bottom-6 right-6">
             <button
-              onClick={() => alert("Post creation coming in TASK 2!")}
+              onClick={() => setIsCreateModalOpen(true)}
               className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 transition-all duration-200 hover:scale-110"
               title="Create New Post"
             >
               <Plus className="h-6 w-6" />
             </button>
           </div>
+
+          {/* Create Post Modal */}
+          <CreatePostModal
+            isOpen={isCreateModalOpen}
+            onClose={() => setIsCreateModalOpen(false)}
+            onSubmit={handleCreatePost}
+          />
         </div>
       </main>
     </div>
