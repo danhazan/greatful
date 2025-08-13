@@ -136,7 +136,7 @@ export default function PostCard({
           badge: 'text-sm px-3 py-2 bg-purple-100 text-purple-700 rounded-full capitalize font-medium',
           content: 'p-6',
           text: 'text-lg leading-relaxed',
-          image: 'w-full h-80 object-cover rounded-lg mt-4',
+          image: 'w-full h-80 object-contain rounded-lg mt-4 bg-gray-50',
           actions: 'px-6 py-4 border-t border-gray-100',
           iconSize: 'h-6 w-6',
           textSize: 'text-base font-medium'
@@ -150,7 +150,7 @@ export default function PostCard({
           badge: 'text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full capitalize',
           content: 'p-5',
           text: 'text-base leading-relaxed',
-          image: 'w-full h-64 object-cover rounded-lg mt-4',
+          image: 'w-full h-64 object-contain rounded-lg mt-4 bg-gray-50',
           actions: 'px-5 py-3 border-t border-gray-100',
           iconSize: 'h-5 w-5',
           textSize: 'text-sm'
@@ -164,7 +164,7 @@ export default function PostCard({
           badge: 'text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full capitalize',
           content: 'p-3',
           text: 'text-sm leading-relaxed',
-          image: 'w-full h-48 object-cover rounded-lg mt-3',
+          image: 'w-full h-48 object-contain rounded-lg mt-3 bg-gray-50',
           actions: 'px-3 py-2 border-t border-gray-100',
           iconSize: 'h-4 w-4',
           textSize: 'text-xs'

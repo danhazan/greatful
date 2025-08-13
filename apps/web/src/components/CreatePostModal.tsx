@@ -126,7 +126,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   // Cleanup blob URLs when modal closes
   useEffect(() => {
     return () => {
-      revokeImagePreview(postData.imageUrl || '')
+      if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
+        revokeImagePreview(postData.imageUrl)
+      }
     }
   }, [postData.imageUrl])
 
@@ -155,7 +157,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       })
 
       // Clear form and draft on successful submission
-      revokeImagePreview(postData.imageUrl || '')
+      if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
+        revokeImagePreview(postData.imageUrl)
+      }
       setPostData({
         content: '',
         postType: 'daily',
@@ -215,23 +219,39 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       // Create a preview URL for immediate display
       const previewUrl = createImagePreview(file)
       
-      // Store the preview URL for now
-      // In production, you would upload to a storage service
+      // Show preview immediately
       setPostData({
         ...postData,
         imageUrl: previewUrl
       })
 
-      // TODO: Uncomment for actual server upload
-      // const uploadResult = await uploadImage(file)
-      // if (uploadResult.success) {
-      //   setPostData({
-      //     ...postData,
-      //     imageUrl: uploadResult.imageUrl
-      //   })
-      // } else {
-      //   setError(uploadResult.error || 'Failed to upload image')
-      // }
+      // Upload the image to get a persistent URL
+      const formData = new FormData()
+      formData.append('image', file)
+
+      const token = localStorage.getItem('access_token')
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (uploadResponse.ok) {
+        const result = await uploadResponse.json()
+        // Replace the blob URL with the uploaded image URL
+        setPostData(prev => ({
+          ...prev,
+          imageUrl: result.imageUrl
+        }))
+        // Clean up the blob URL
+        revokeImagePreview(previewUrl)
+      } else {
+        const errorData = await uploadResponse.json()
+        setError(errorData.error || 'Failed to upload image')
+        // Keep the preview URL as fallback
+      }
 
     } catch (error) {
       console.error('Error handling image:', error)
@@ -240,7 +260,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   }
 
   const handleRemoveImage = () => {
-    revokeImagePreview(postData.imageUrl || '')
+    // Only revoke blob URLs, not data URLs
+    if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
+      revokeImagePreview(postData.imageUrl)
+    }
     setPostData({
       ...postData,
       imageUrl: ''
@@ -263,11 +286,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div 
           ref={modalRef}
+          role="dialog"
+          aria-labelledby="modal-title"
+          aria-modal="true"
           className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl max-h-[90vh] flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Share Your Gratitude</h2>
+            <h2 id="modal-title" className="text-xl font-semibold text-gray-900">Share Your Gratitude</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors p-1"
@@ -278,9 +304,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
-            {/* Post Type Selection */}
-            <div className="p-6 border-b border-gray-200">
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              {/* Post Type Selection */}
+              <div className="p-6 border-b border-gray-200">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Post Type
               </label>
@@ -353,7 +381,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     <img
                       src={postData.imageUrl}
                       alt="Post preview"
-                      className="max-w-full h-48 object-cover rounded-lg border border-gray-200"
+                      className="max-w-full h-32 object-cover rounded-lg border border-gray-200"
                     />
                     <button
                       type="button"
@@ -369,7 +397,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             </div>
 
             {/* Additional Options */}
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-8">
               <div className="flex space-x-3">
                 <button
                   type="button"
@@ -394,6 +422,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   <span className="text-sm text-gray-700">Add Location</span>
                 </button>
               </div>
+            </div>
             </div>
 
             {/* Error Message */}

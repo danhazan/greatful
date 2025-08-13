@@ -36,19 +36,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Implement actual image upload to storage service
-    // For now, we'll return a mock URL
-    // In a real implementation, you would:
-    // 1. Upload to AWS S3, Cloudinary, or similar service
-    // 2. Generate a unique filename
-    // 3. Return the public URL
-
-    // Mock implementation - in production, replace with actual upload
-    const mockImageUrl = `https://example.com/uploads/${Date.now()}-${file.name}`
+    // For MVP: Convert image to data URL for storage
+    // In production, you would upload to AWS S3, Cloudinary, etc.
+    
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+    
+    // Convert to base64 data URL
+    const base64 = buffer.toString('base64')
+    const dataUrl = `data:${file.type};base64,${base64}`
 
     return NextResponse.json({
-      imageUrl: mockImageUrl,
-      message: 'Image uploaded successfully'
+      imageUrl: dataUrl,
+      message: 'Image processed successfully'
     })
 
   } catch (error) {
