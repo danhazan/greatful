@@ -6,6 +6,7 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 from app.models.emoji_reaction import EmojiReaction
 from app.models.user import User
 from app.models.post import Post
@@ -159,7 +160,7 @@ class ReactionService:
             dict: Dictionary with emoji codes as keys and counts as values
         """
         result = await db.execute(
-            select(EmojiReaction.emoji_code, db.func.count(EmojiReaction.id))
+            select(EmojiReaction.emoji_code, func.count(EmojiReaction.id))
             .where(EmojiReaction.post_id == post_id)
             .group_by(EmojiReaction.emoji_code)
         )
@@ -183,7 +184,7 @@ class ReactionService:
             int: Total reaction count
         """
         result = await db.execute(
-            select(db.func.count(EmojiReaction.id))
+            select(func.count(EmojiReaction.id))
             .where(EmojiReaction.post_id == post_id)
         )
         return result.scalar() or 0
