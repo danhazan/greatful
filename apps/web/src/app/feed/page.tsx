@@ -158,31 +158,77 @@ export default function FeedPage() {
     }))
   }
 
-  const handleReaction = (postId: string, emojiCode: string) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        const wasReacted = !!post.currentUserReaction
-        return {
-          ...post,
-          reactionsCount: wasReacted ? post.reactionsCount || 1 : (post.reactionsCount || 0) + 1,
-          currentUserReaction: emojiCode
-        }
+  const handleReaction = async (postId: string, emojiCode: string) => {
+    try {
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        router.push("/auth/login")
+        return
       }
-      return post
-    }))
+
+      const response = await fetch(`/api/posts/${postId}/reactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ emojiCode })
+      })
+
+      if (response.ok) {
+        // Update the local state
+        setPosts(posts.map(post => {
+          if (post.id === postId) {
+            const wasReacted = !!post.currentUserReaction
+            return {
+              ...post,
+              reactionsCount: wasReacted ? post.reactionsCount || 1 : (post.reactionsCount || 0) + 1,
+              currentUserReaction: emojiCode
+            }
+          }
+          return post
+        }))
+      } else {
+        console.error('Failed to add reaction')
+      }
+    } catch (error) {
+      console.error('Error adding reaction:', error)
+    }
   }
 
-  const handleRemoveReaction = (postId: string) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          reactionsCount: Math.max(0, (post.reactionsCount || 1) - 1),
-          currentUserReaction: undefined
-        }
+  const handleRemoveReaction = async (postId: string) => {
+    try {
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        router.push("/auth/login")
+        return
       }
-      return post
-    }))
+
+      const response = await fetch(`/api/posts/${postId}/reactions`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        // Update the local state
+        setPosts(posts.map(post => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              reactionsCount: Math.max(0, (post.reactionsCount || 1) - 1),
+              currentUserReaction: undefined
+            }
+          }
+          return post
+        }))
+      } else {
+        console.error('Failed to remove reaction')
+      }
+    } catch (error) {
+      console.error('Error removing reaction:', error)
+    }
   }
 
   const handleShare = (postId: string) => {

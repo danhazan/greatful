@@ -1,19 +1,15 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import { X, User } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { X } from "lucide-react"
 
 interface Reaction {
   id: string
-  user_id: number
-  emoji_code: string
-  emoji_display: string
-  created_at: string
-  user: {
-    id: number
-    username: string
-    email: string
-  }
+  userId: string
+  userName: string
+  userImage?: string
+  emojiCode: string
+  createdAt: string
 }
 
 interface ReactionViewerProps {
@@ -24,24 +20,19 @@ interface ReactionViewerProps {
   onUserClick?: (userId: number) => void
 }
 
-const EMOJI_LABELS: Record<string, string> = {
-  'heart_eyes': 'Heart Eyes',
-  'hug': 'Hug',
-  'pray': 'Pray',
-  'muscle': 'Strong',
-  'star': 'Star',
-  'fire': 'Fire',
-  'heart_face': 'Heart Face',
-  'clap': 'Clap'
+// Emoji mapping for display
+const EMOJI_MAP: Record<string, string> = {
+  'heart_eyes': '😍',
+  'hugging': '🤗',
+  'pray': '🙏',
+  'muscle': '💪',
+  'star': '🌟',
+  'fire': '🔥',
+  'smiling_face_with_hearts': '🥰',
+  'clap': '👏'
 }
 
-export default function ReactionViewer({ 
-  isOpen, 
-  onClose, 
-  postId, 
-  reactions,
-  onUserClick 
-}: ReactionViewerProps) {
+export default function ReactionViewer({ isOpen, onClose, postId, reactions, onUserClick }: ReactionViewerProps) {
   const modalRef = useRef<HTMLDivElement>(null)
 
   // Handle click outside to close
@@ -74,52 +65,39 @@ export default function ReactionViewer({
 
   // Group reactions by emoji
   const groupedReactions = reactions.reduce((acc, reaction) => {
-    if (!acc[reaction.emoji_code]) {
-      acc[reaction.emoji_code] = []
+    const emoji = EMOJI_MAP[reaction.emojiCode] || reaction.emojiCode
+    if (!acc[emoji]) {
+      acc[emoji] = []
     }
-    acc[reaction.emoji_code].push(reaction)
+    acc[emoji].push(reaction)
     return acc
   }, {} as Record<string, Reaction[]>)
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    
-    if (diffInHours < 1) return "Just now"
-    if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`
-    return date.toLocaleDateString()
-  }
-
-  const handleUserClick = (userId: number) => {
-    if (onUserClick) {
-      onUserClick(userId)
-    }
-    onClose()
-  }
+  // Get total count
+  const totalCount = reactions.length
 
   if (!isOpen) return null
 
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" />
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50" />
       
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div 
           ref={modalRef}
-          className="bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-md max-h-[80vh] flex flex-col"
+          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[80vh] flex flex-col"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Reactions ({reactions.length})
-            </h3>
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Reactions ({totalCount})
+            </h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-              aria-label="Close reaction viewer"
+              aria-label="Close modal"
             >
               <X className="h-5 w-5" />
             </button>
@@ -127,57 +105,63 @@ export default function ReactionViewer({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            {reactions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                <div className="text-4xl mb-2">😊</div>
-                <p className="text-sm">No reactions yet</p>
-                <p className="text-xs text-gray-400 mt-1">Be the first to react!</p>
+            {totalCount === 0 ? (
+              <div className="p-8 text-center">
+                <div className="text-gray-400 text-4xl mb-4">😊</div>
+                <p className="text-gray-500">No reactions yet</p>
+                <p className="text-sm text-gray-400 mt-1">Be the first to react!</p>
               </div>
             ) : (
               <div className="p-4 space-y-4">
-                {Object.entries(groupedReactions).map(([emojiCode, emojiReactions]) => (
-                  <div key={emojiCode} className="space-y-2">
-                    {/* Emoji Section Header */}
-                    <div className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                      <span className="text-lg">
-                        {emojiReactions[0].emoji_display}
-                      </span>
-                      <span>
-                        {EMOJI_LABELS[emojiCode]} ({emojiReactions.length})
+                {Object.entries(groupedReactions).map(([emoji, emojiReactions]) => (
+                  <div key={emoji} className="space-y-2">
+                    {/* Emoji Header */}
+                    <div className="flex items-center space-x-2 px-2">
+                      <span className="text-xl">{emoji}</span>
+                      <span className="text-sm text-gray-500 font-medium">
+                        {emojiReactions.length}
                       </span>
                     </div>
-
+                    
                     {/* Users who reacted with this emoji */}
-                    <div className="space-y-2 ml-6">
+                    <div className="space-y-2">
                       {emojiReactions.map((reaction) => (
-                        <div
+                        <div 
                           key={reaction.id}
-                          className={`flex items-center space-x-3 p-2 rounded-lg transition-colors ${
-                            onUserClick 
-                              ? 'hover:bg-gray-50 cursor-pointer' 
-                              : ''
-                          }`}
-                          onClick={() => handleUserClick(reaction.user.id)}
+                          className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                          onClick={() => onUserClick?.(parseInt(reaction.userId))}
                         >
                           {/* User Avatar */}
-                          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                            <User className="h-4 w-4 text-purple-600" />
+                          <div className="flex-shrink-0">
+                            {reaction.userImage ? (
+                              <img
+                                src={reaction.userImage}
+                                alt={reaction.userName}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                                <span className="text-purple-600 text-sm font-medium">
+                                  {reaction.userName.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
                           </div>
-
+                          
                           {/* User Info */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              {reaction.user.username}
+                              {reaction.userName}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {formatDate(reaction.created_at)}
+                              {new Date(reaction.createdAt).toLocaleDateString()}
                             </p>
                           </div>
-
+                          
                           {/* Emoji */}
-                          <span className="text-lg">
-                            {reaction.emoji_display}
-                          </span>
+                          <div className="flex-shrink-0">
+                            <span className="text-lg">{emoji}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -188,10 +172,13 @@ export default function ReactionViewer({
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-200 bg-gray-50">
-            <p className="text-xs text-gray-500 text-center">
-              Click on users to view their profiles
-            </p>
+          <div className="p-4 border-t border-gray-200">
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>
