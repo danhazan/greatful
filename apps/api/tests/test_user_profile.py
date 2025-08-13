@@ -13,8 +13,8 @@ from app.core.security import get_password_hash
 import uuid
 from datetime import datetime
 
-# Test database URL
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_profile.db"
+# Test database URL - use in-memory database to avoid conflicts
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Create test engine and session
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=True)

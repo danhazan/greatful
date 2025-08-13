@@ -27,7 +27,7 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Create profile navigation from navbar and user clicks
 - [x] Display user's posts on their profile page
 - [x] Add basic user stats (posts count, join date)
-- [ ] Write tests for profile functionality
+- [x] Write tests for profile functionality
 **Acceptance Criteria:** Users can view and edit their profiles, see their posts, and navigate to other users' profiles from post interactions.
 
 ### **TASK 1.6: Post Creation System** (Week 1.6)

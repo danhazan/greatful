@@ -14,7 +14,7 @@ from app.core.security import get_password_hash
 import uuid
 
 # Test database URL
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Create test engine and session
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=True)
@@ -57,7 +57,7 @@ async def test_post(db_session: AsyncSession, test_user: User):
         id=str(uuid.uuid4()),
         author_id=test_user.id,
         content="I'm grateful for testing!",
-        post_type=PostType.DAILY,
+        post_type=PostType.daily,
         is_public=True
     )
     db_session.add(post)

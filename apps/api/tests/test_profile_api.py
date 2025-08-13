@@ -14,8 +14,8 @@ from app.core.security import create_access_token, get_password_hash
 from main import app
 import uuid
 
-# Test database URL
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_profile_api.db"
+# Test database URL - use unique name to avoid conflicts
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Create test engine and session
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=True)

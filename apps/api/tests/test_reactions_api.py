@@ -14,7 +14,7 @@ from main import app
 import uuid
 
 # Test database URL
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_api.db"
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Create test engine and session
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=True)
@@ -61,7 +61,7 @@ async def test_user_and_post(setup_database):
             id=str(uuid.uuid4()),
             author_id=user.id,
             content="I'm grateful for testing!",
-            post_type=PostType.DAILY,
+            post_type=PostType.daily,
             is_public=True
         )
         session.add(post)
