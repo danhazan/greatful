@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { X, Camera, MapPin, Type, Image as ImageIcon, Zap } from "lucide-react"
+import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
 
 interface CreatePostModalProps {
   isOpen: boolean
@@ -122,6 +123,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
   }, [postData])
 
+  // Cleanup blob URLs when modal closes
+  useEffect(() => {
+    return () => {
+      revokeImagePreview(postData.imageUrl || '')
+    }
+  }, [postData.imageUrl])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -147,6 +155,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       })
 
       // Clear form and draft on successful submission
+      revokeImagePreview(postData.imageUrl || '')
       setPostData({
         content: '',
         postType: 'daily',
@@ -179,8 +188,63 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   }
 
   const handleAddPhoto = () => {
-    // TODO: Implement image upload
-    alert('Image upload coming soon!')
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        handleImageUpload(file)
+      }
+    }
+    input.click()
+  }
+
+  const handleImageUpload = async (file: File) => {
+    // Clear any previous errors
+    setError('')
+
+    // Validate the file
+    const validation = validateImageFile(file)
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid image file')
+      return
+    }
+
+    try {
+      // Create a preview URL for immediate display
+      const previewUrl = createImagePreview(file)
+      
+      // Store the preview URL for now
+      // In production, you would upload to a storage service
+      setPostData({
+        ...postData,
+        imageUrl: previewUrl
+      })
+
+      // TODO: Uncomment for actual server upload
+      // const uploadResult = await uploadImage(file)
+      // if (uploadResult.success) {
+      //   setPostData({
+      //     ...postData,
+      //     imageUrl: uploadResult.imageUrl
+      //   })
+      // } else {
+      //   setError(uploadResult.error || 'Failed to upload image')
+      // }
+
+    } catch (error) {
+      console.error('Error handling image:', error)
+      setError('Failed to process image. Please try again.')
+    }
+  }
+
+  const handleRemoveImage = () => {
+    revokeImagePreview(postData.imageUrl || '')
+    setPostData({
+      ...postData,
+      imageUrl: ''
+    })
   }
 
   const handleAddLocation = () => {
@@ -281,6 +345,27 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   {postData.content.length}/{maxChars}
                 </div>
               </div>
+
+              {/* Image Preview */}
+              {postData.imageUrl && (
+                <div className="mt-4">
+                  <div className="relative inline-block">
+                    <img
+                      src={postData.imageUrl}
+                      alt="Post preview"
+                      className="max-w-full h-48 object-cover rounded-lg border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      title="Remove image"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Additional Options */}
@@ -289,10 +374,16 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 <button
                   type="button"
                   onClick={handleAddPhoto}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${
+                    postData.imageUrl 
+                      ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100' 
+                      : 'border-gray-300 hover:bg-gray-50'
+                  }`}
                 >
-                  <Camera className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-700">Add Photo</span>
+                  <Camera className={`h-4 w-4 ${postData.imageUrl ? 'text-purple-600' : 'text-gray-500'}`} />
+                  <span className="text-sm">
+                    {postData.imageUrl ? 'Change Photo' : 'Add Photo'}
+                  </span>
                 </button>
                 <button
                   type="button"

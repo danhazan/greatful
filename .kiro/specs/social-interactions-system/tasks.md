@@ -36,7 +36,7 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Implement post type selection (Daily, Photo, Spontaneous) with visual hierarchy
 - [x] Add character limits per post type (Daily: 500, Photo: 300, Spontaneous: 200)
 - [x] Create POST /api/v1/posts API endpoint for post creation
-- [ ] Add image upload functionality (optional for MVP)
+- [x] Add image upload functionality (optional for MVP)
 - [x] Implement draft saving in localStorage
 - [x] Update feed to show newly created posts
 - [x] Write comprehensive tests for post creation
