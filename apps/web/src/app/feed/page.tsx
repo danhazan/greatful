@@ -231,17 +231,19 @@ export default function FeedPage() {
     router.push("/")
   }
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
-    const newHearted = !isCurrentlyHearted
+  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {
+    // If we have server data, use it; otherwise fallback to optimistic update
+    const newHearted = heartInfo ? heartInfo.is_hearted : !isCurrentlyHearted
+    const newCount = heartInfo ? heartInfo.hearts_count : (isCurrentlyHearted ? (posts.find(p => p.id === postId)?.heartsCount || 1) - 1 : (posts.find(p => p.id === postId)?.heartsCount || 0) + 1)
     
-    // Update ONLY the user's individual heart state - keep global counts unchanged
+    // Update both the user's individual heart state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          // Keep global count unchanged (server-authoritative)
-          heartsCount: post.heartsCount,
-          // Update only user's individual heart state
+          // Update global count with server data (server-authoritative)
+          heartsCount: newCount,
+          // Update user's individual heart state
           isHearted: newHearted
         }
       }

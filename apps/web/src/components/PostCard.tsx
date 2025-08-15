@@ -28,7 +28,7 @@ interface Post {
 interface PostCardProps {
   post: Post
   currentUserId?: string
-  onHeart?: (postId: string, isCurrentlyHearted: boolean) => void
+  onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => void
   onReaction?: (postId: string, emojiCode: string) => void
   onRemoveReaction?: (postId: string) => void
   onShare?: (postId: string) => void
@@ -296,8 +296,21 @@ export default function PostCard({
                     })
                     
                     if (response.ok) {
-                      // Call the original handler to update UI state
-                      onHeart?.(post.id, isCurrentlyHearted)
+                      // Get updated heart info from server
+                      const heartInfoResponse = await fetch(`/api/posts/${post.id}/hearts`, {
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                        },
+                      })
+                      
+                      if (heartInfoResponse.ok) {
+                        const heartInfo = await heartInfoResponse.json()
+                        // Call handler with updated server data
+                        onHeart?.(post.id, isCurrentlyHearted, heartInfo)
+                      } else {
+                        // Fallback to original handler if heart info fetch fails
+                        onHeart?.(post.id, isCurrentlyHearted)
+                      }
                     } else {
                       console.error('Failed to update heart status')
                     }
