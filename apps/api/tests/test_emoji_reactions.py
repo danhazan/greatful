@@ -71,7 +71,7 @@ class TestEmojiReactionModel:
 
     def test_valid_emojis(self):
         """Test that valid emoji codes are recognized."""
-        valid_codes = ['heart_eyes', 'hug', 'pray', 'muscle', 'star', 'fire', 'heart_face', 'clap']
+        valid_codes = ['heart_eyes', 'heart_face', 'hug', 'pray', 'muscle', 'star', 'fire', 'clap', 'joy', 'thinking']
         
         for code in valid_codes:
             assert EmojiReaction.is_valid_emoji(code)
@@ -88,11 +88,26 @@ class TestEmojiReactionModel:
         reaction = EmojiReaction(emoji_code='heart_eyes')
         assert reaction.emoji_display == '😍'
         
-        reaction.emoji_code = 'pray'
-        assert reaction.emoji_display == '🙏'
+    def test_missing_emojis_now_supported(self):
+        """Test that previously missing emojis (joy, thinking) are now supported."""
+        # These were causing issues before - now they should work
+        assert EmojiReaction.is_valid_emoji('joy')
+        assert EmojiReaction.is_valid_emoji('thinking')
         
-        reaction.emoji_code = 'invalid'
-        assert reaction.emoji_display == '❓'
+        # Test their display
+        joy_reaction = EmojiReaction(emoji_code='joy')
+        assert joy_reaction.emoji_display == '😂'
+        
+        thinking_reaction = EmojiReaction(emoji_code='thinking')
+        assert thinking_reaction.emoji_display == '🤔'
+        
+        # Test other emojis as well
+        pray_reaction = EmojiReaction(emoji_code='pray')
+        assert pray_reaction.emoji_display == '🙏'
+        
+        # Test invalid emoji fallback
+        invalid_reaction = EmojiReaction(emoji_code='invalid')
+        assert invalid_reaction.emoji_display == '❓'
 
     async def test_create_emoji_reaction(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test creating an emoji reaction."""

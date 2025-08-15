@@ -261,16 +261,20 @@ export default function FeedPage() {
     saveLocalReactions(newLocalReactions)
   }
 
-  const handleReaction = async (postId: string, emojiCode: string) => {
-    // Update ONLY the user's individual reaction state - keep global counts unchanged
+  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+    // If we have server data, use it; otherwise fallback to optimistic update
+    const newReaction = reactionSummary ? reactionSummary.user_reaction : emojiCode
+    const newCount = reactionSummary ? reactionSummary.total_count : (posts.find(p => p.id === postId)?.reactionsCount || 0) + 1
+    
+    // Update both the user's individual reaction state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          // Keep global count unchanged (server-authoritative)
-          reactionsCount: post.reactionsCount,
-          // Update only user's individual reaction state
-          currentUserReaction: emojiCode as string | undefined
+          // Update global count with server data (server-authoritative)
+          reactionsCount: newCount,
+          // Update user's individual reaction state
+          currentUserReaction: newReaction as string | undefined
         }
       }
       return post
@@ -281,49 +285,26 @@ export default function FeedPage() {
       ...localReactions,
       [postId]: {
         ...localReactions[postId],
-        reaction: emojiCode
+        reaction: newReaction || undefined
       }
     }
     saveLocalReactions(newLocalReactions)
-
-    // Try to sync with backend, but don't block UI if it fails
-    try {
-      const token = localStorage.getItem("access_token")
-      if (!token) {
-        router.push("/auth/login")
-        return
-      }
-
-      const response = await fetch(`/api/posts/${postId}/reactions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ emojiCode })
-      })
-
-      if (!response.ok && process.env.NODE_ENV === 'development') {
-        console.debug('Backend sync failed for reaction, but local state updated')
-      }
-    } catch (error) {
-      // Silently handle errors - local state is already updated
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('Backend unavailable for reaction sync:', error)
-      }
-    }
   }
 
-  const handleRemoveReaction = async (postId: string) => {
-    // Update ONLY the user's individual reaction state - keep global counts unchanged
+  const handleRemoveReaction = async (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+    // If we have server data, use it; otherwise fallback to optimistic update
+    const newReaction = reactionSummary ? reactionSummary.user_reaction : undefined
+    const newCount = reactionSummary ? reactionSummary.total_count : Math.max((posts.find(p => p.id === postId)?.reactionsCount || 1) - 1, 0)
+    
+    // Update both the user's individual reaction state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          // Keep global count unchanged (server-authoritative)
-          reactionsCount: post.reactionsCount,
-          // Clear only user's individual reaction state
-          currentUserReaction: undefined
+          // Update global count with server data (server-authoritative)
+          reactionsCount: newCount,
+          // Clear user's individual reaction state
+          currentUserReaction: newReaction as string | undefined
         }
       }
       return post
@@ -334,35 +315,10 @@ export default function FeedPage() {
       ...localReactions,
       [postId]: {
         ...localReactions[postId],
-        reaction: undefined
+        reaction: newReaction || undefined
       }
     }
     saveLocalReactions(newLocalReactions)
-
-    // Try to sync with backend, but don't block UI if it fails
-    try {
-      const token = localStorage.getItem("access_token")
-      if (!token) {
-        router.push("/auth/login")
-        return
-      }
-
-      const response = await fetch(`/api/posts/${postId}/reactions`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok && process.env.NODE_ENV === 'development') {
-        console.debug('Backend sync failed for reaction removal, but local state updated')
-      }
-    } catch (error) {
-      // Silently handle errors - local state is already updated
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('Backend unavailable for reaction removal sync:', error)
-      }
-    }
   }
 
   const handleShare = (postId: string) => {

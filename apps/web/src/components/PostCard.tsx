@@ -29,8 +29,8 @@ interface PostCardProps {
   post: Post
   currentUserId?: string
   onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => void
-  onReaction?: (postId: string, emojiCode: string) => void
-  onRemoveReaction?: (postId: string) => void
+  onReaction?: (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => void
+  onRemoveReaction?: (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => void
   onShare?: (postId: string) => void
   onUserClick?: (userId: string) => void
 }
@@ -71,7 +71,7 @@ export default function PostCard({
     return date.toLocaleDateString()
   }
 
-  const handleReactionButtonClick = (event: React.MouseEvent) => {
+  const handleReactionButtonClick = async (event: React.MouseEvent) => {
     event.preventDefault()
     
     // If user already has a reaction, remove it
@@ -86,7 +86,40 @@ export default function PostCard({
           post.currentUserReaction
         )
       }
-      onRemoveReaction(post.id)
+      
+      try {
+        const token = localStorage.getItem("access_token")
+        
+        // Make API call to remove reaction
+        const response = await fetch(`/api/posts/${post.id}/reactions`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+        
+        if (response.ok) {
+          // Get updated reaction summary from server
+          const summaryResponse = await fetch(`/api/posts/${post.id}/reactions/summary`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          })
+          
+          if (summaryResponse.ok) {
+            const reactionSummary = await summaryResponse.json()
+            // Call handler with updated server data
+            onRemoveReaction(post.id, reactionSummary)
+          } else {
+            // Fallback to original handler if summary fetch fails
+            onRemoveReaction(post.id)
+          }
+        } else {
+          console.error('Failed to remove reaction')
+        }
+      } catch (error) {
+        console.error('Error removing reaction:', error)
+      }
       return
     }
     
@@ -101,7 +134,7 @@ export default function PostCard({
     setShowEmojiPicker(true)
   }
 
-  const handleEmojiSelect = (emojiCode: string) => {
+  const handleEmojiSelect = async (emojiCode: string) => {
     // Track analytics event
     if (currentUserId) {
       const eventType = post.currentUserReaction ? 'reaction_change' : 'reaction_add'
@@ -114,9 +147,42 @@ export default function PostCard({
       )
     }
     
-    if (onReaction) {
-      onReaction(post.id, emojiCode)
+    try {
+      const token = localStorage.getItem("access_token")
+      
+      // Make API call to add/update reaction
+      const response = await fetch(`/api/posts/${post.id}/reactions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ emojiCode })
+      })
+      
+      if (response.ok) {
+        // Get updated reaction summary from server
+        const summaryResponse = await fetch(`/api/posts/${post.id}/reactions/summary`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+        
+        if (summaryResponse.ok) {
+          const reactionSummary = await summaryResponse.json()
+          // Call handler with updated server data
+          onReaction?.(post.id, emojiCode, reactionSummary)
+        } else {
+          // Fallback to original handler if summary fetch fails
+          onReaction?.(post.id, emojiCode)
+        }
+      } else {
+        console.error('Failed to update reaction')
+      }
+    } catch (error) {
+      console.error('Error updating reaction:', error)
     }
+    
     setShowEmojiPicker(false)
   }
 

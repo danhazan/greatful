@@ -12,8 +12,8 @@ class EmojiReaction(Base):
     """
     EmojiReaction model for storing user emoji reactions on posts.
     
-    Supports 8 positive emotions: heart_eyes, hug, pray, muscle, star, fire, heart_face, clap
-    Corresponding to emojis: 😍, 🤗, 🙏, 💪, 🌟, 🔥, 🥰, 👏
+    Supports 10 positive emotions: heart_eyes, heart_face, hug, pray, muscle, star, fire, clap, joy, thinking
+    Corresponding to emojis: 😍, 😍, 🤗, 🙏, 💪, ⭐, 🔥, 👏, 😂, 🤔
     """
     __tablename__ = "emoji_reactions"
 
@@ -32,13 +32,15 @@ class EmojiReaction(Base):
     # Valid emoji codes mapping to actual emojis
     VALID_EMOJIS = {
         'heart_eyes': '😍',
+        'heart_face': '😍',  # Using same emoji as heart_eyes for consistency
         'hug': '🤗', 
         'pray': '🙏',
         'muscle': '💪',
-        'star': '🌟',
+        'star': '⭐',  # Using ⭐ to match frontend
         'fire': '🔥',
-        'heart_face': '🥰',
-        'clap': '👏'
+        'clap': '👏',
+        'joy': '😂',  # Adding missing joy emoji
+        'thinking': '🤔'  # Adding missing thinking emoji
     }
 
     def __repr__(self):
