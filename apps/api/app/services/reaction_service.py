@@ -63,6 +63,8 @@ class ReactionService:
             existing_reaction.emoji_code = emoji_code
             await db.commit()
             await db.refresh(existing_reaction)
+            # Load the user relationship
+            existing_reaction.user = user
             logger.info(f"Updated reaction for user {user_id} on post {post_id} to {emoji_code}")
             return existing_reaction
         else:
@@ -75,6 +77,8 @@ class ReactionService:
             db.add(reaction)
             await db.commit()
             await db.refresh(reaction)
+            # Load the user relationship
+            reaction.user = user
             logger.info(f"Created new reaction for user {user_id} on post {post_id}: {emoji_code}")
             return reaction
 

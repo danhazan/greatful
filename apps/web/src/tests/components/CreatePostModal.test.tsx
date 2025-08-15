@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CreatePostModal from '@/components/CreatePostModal'
 
@@ -81,7 +81,9 @@ describe('CreatePostModal', () => {
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
     const longText = 'a'.repeat(250) // Exceeds 200 char limit
     
-    await user.type(textarea, longText)
+    await act(async () => {
+      await user.type(textarea, longText)
+    })
     
     // Should be truncated to 200 characters
     expect(textarea).toHaveValue('a'.repeat(200))
@@ -98,7 +100,9 @@ describe('CreatePostModal', () => {
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
     const nearLimitText = 'a'.repeat(190) // 95% of 200 char limit
     
-    await user.type(textarea, nearLimitText)
+    await act(async () => {
+      await user.type(textarea, nearLimitText)
+    })
     
     // Check that the textarea has the correct content
     expect(textarea).toHaveValue(nearLimitText)
@@ -123,11 +127,15 @@ describe('CreatePostModal', () => {
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
     
     // Add some content first to enable the button
-    await user.type(textarea, 'test')
+    await act(async () => {
+      await user.type(textarea, 'test')
+    })
     
     // Then clear it with just spaces
-    await user.clear(textarea)
-    await user.type(textarea, '   ')
+    await act(async () => {
+      await user.clear(textarea)
+      await user.type(textarea, '   ')
+    })
     
     const submitButton = screen.getByText('Share Gratitude')
     
@@ -161,7 +169,9 @@ describe('CreatePostModal', () => {
     render(<CreatePostModal {...defaultProps} />)
     
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
-    await user.type(textarea, 'I am grateful for this beautiful day!')
+    await act(async () => {
+      await user.type(textarea, 'I am grateful for this beautiful day!')
+    })
     
     const submitButton = screen.getByText('Share Gratitude')
     await user.click(submitButton)
@@ -183,10 +193,14 @@ describe('CreatePostModal', () => {
     render(<CreatePostModal {...defaultProps} />)
     
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
-    await user.type(textarea, 'Test content')
+    await act(async () => {
+      await user.type(textarea, 'Test content')
+    })
     
     const submitButton = screen.getByText('Share Gratitude')
-    await user.click(submitButton)
+    await act(async () => {
+      await user.click(submitButton)
+    })
     
     await waitFor(() => {
       expect(screen.getByText('Network error')).toBeInTheDocument()
@@ -198,7 +212,9 @@ describe('CreatePostModal', () => {
     render(<CreatePostModal {...defaultProps} />)
     
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
-    await user.type(textarea, 'Draft content')
+    await act(async () => {
+      await user.type(textarea, 'Draft content')
+    })
     
     await waitFor(() => {
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
@@ -242,10 +258,14 @@ describe('CreatePostModal', () => {
     render(<CreatePostModal {...defaultProps} />)
     
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
-    await user.type(textarea, 'Test content')
+    await act(async () => {
+      await user.type(textarea, 'Test content')
+    })
     
     const submitButton = screen.getByText('Share Gratitude')
-    await user.click(submitButton)
+    await act(async () => {
+      await user.click(submitButton)
+    })
     
     await waitFor(() => {
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('grateful_post_draft')
@@ -268,7 +288,9 @@ describe('CreatePostModal', () => {
     render(<CreatePostModal {...defaultProps} />)
     
     const cancelButton = screen.getByText('Cancel')
-    await user.click(cancelButton)
+    await act(async () => {
+      await user.click(cancelButton)
+    })
     
     expect(mockOnClose).toHaveBeenCalled()
   })
@@ -281,10 +303,16 @@ describe('CreatePostModal', () => {
     render(<CreatePostModal {...defaultProps} />)
     
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
-    await user.type(textarea, 'Test content')
+    
+    await act(async () => {
+      await user.type(textarea, 'Test content')
+    })
     
     const submitButton = screen.getByText('Share Gratitude')
-    await user.click(submitButton)
+    
+    await act(async () => {
+      await user.click(submitButton)
+    })
     
     expect(screen.getByText('Sharing...')).toBeInTheDocument()
     expect(submitButton).toBeDisabled()

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { X } from "lucide-react"
+import { getEmojiFromCode } from "@/utils/emojiMapping"
 
 interface Reaction {
   id: string
@@ -20,17 +21,7 @@ interface ReactionViewerProps {
   onUserClick?: (userId: number) => void
 }
 
-// Emoji mapping for display
-const EMOJI_MAP: Record<string, string> = {
-  'heart_eyes': '😍',
-  'hugging': '🤗',
-  'pray': '🙏',
-  'muscle': '💪',
-  'star': '🌟',
-  'fire': '🔥',
-  'smiling_face_with_hearts': '🥰',
-  'clap': '👏'
-}
+// Remove old emoji mapping - now using utility function
 
 export default function ReactionViewer({ isOpen, onClose, postId, reactions, onUserClick }: ReactionViewerProps) {
   const modalRef = useRef<HTMLDivElement>(null)
@@ -65,7 +56,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
 
   // Group reactions by emoji
   const groupedReactions = reactions.reduce((acc, reaction) => {
-    const emoji = EMOJI_MAP[reaction.emojiCode] || reaction.emojiCode
+    const emoji = getEmojiFromCode(reaction.emojiCode)
     if (!acc[emoji]) {
       acc[emoji] = []
     }

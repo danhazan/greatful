@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { X } from "lucide-react"
+import { getAvailableEmojis } from "@/utils/emojiMapping"
 
 interface EmojiPickerProps {
   isOpen: boolean
@@ -11,16 +12,8 @@ interface EmojiPickerProps {
   position?: { x: number, y: number }
 }
 
-const EMOJI_OPTIONS = [
-  { code: 'heart_eyes', emoji: '😍', label: 'Heart Eyes' },
-  { code: 'hug', emoji: '🤗', label: 'Hug' },
-  { code: 'pray', emoji: '🙏', label: 'Pray' },
-  { code: 'muscle', emoji: '💪', label: 'Strong' },
-  { code: 'star', emoji: '🌟', label: 'Star' },
-  { code: 'fire', emoji: '🔥', label: 'Fire' },
-  { code: 'heart_face', emoji: '🥰', label: 'Heart Face' },
-  { code: 'clap', emoji: '👏', label: 'Clap' }
-]
+// Get emoji options from utility
+const EMOJI_OPTIONS = getAvailableEmojis()
 
 export default function EmojiPicker({ 
   isOpen, 

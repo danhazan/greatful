@@ -1,9 +1,11 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Heart, MessageCircle, Share, Calendar, MapPin, Plus } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Heart, Share, Calendar, MapPin, Plus } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
+import analyticsService from "@/services/analytics"
+import { getEmojiFromCode } from "@/utils/emojiMapping"
 
 interface Post {
   id: string
@@ -25,6 +27,7 @@ interface Post {
 
 interface PostCardProps {
   post: Post
+  currentUserId?: string
   onHeart?: (postId: string, isCurrentlyHearted: boolean) => void
   onReaction?: (postId: string, emojiCode: string) => void
   onRemoveReaction?: (postId: string) => void
@@ -32,23 +35,11 @@ interface PostCardProps {
   onUserClick?: (userId: string) => void
 }
 
-const EMOJI_MAP: Record<string, string> = {
-  'heart_eyes': '😍',
-  'hug': '🤗',
-  'pray': '🙏',
-  'muscle': '💪',
-  'star': '🌟',
-  'fire': '🔥',
-  'heart_face': '🥰',
-  'clap': '👏'
-}
-
-const getEmojiFromCode = (code: string): string => {
-  return EMOJI_MAP[code] || '😊'
-}
+// Removed local emoji mapping - now using utility function
 
 export default function PostCard({ 
   post, 
+  currentUserId,
   onHeart, 
   onReaction,
   onRemoveReaction,
@@ -59,7 +50,16 @@ export default function PostCard({
   const [showReactionViewer, setShowReactionViewer] = useState(false)
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
+  const [hasTrackedView, setHasTrackedView] = useState(false)
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Track post view when component mounts
+  useEffect(() => {
+    if (!hasTrackedView && currentUserId) {
+      analyticsService.trackViewEvent(post.id, currentUserId)
+      setHasTrackedView(true)
+    }
+  }, [post.id, hasTrackedView, currentUserId])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -76,6 +76,16 @@ export default function PostCard({
     
     // If user already has a reaction, remove it
     if (post.currentUserReaction && onRemoveReaction) {
+      // Track analytics event for reaction removal
+      if (currentUserId) {
+        analyticsService.trackReactionEvent(
+          'reaction_remove',
+          post.id,
+          currentUserId,
+          undefined,
+          post.currentUserReaction
+        )
+      }
       onRemoveReaction(post.id)
       return
     }
@@ -92,6 +102,18 @@ export default function PostCard({
   }
 
   const handleEmojiSelect = (emojiCode: string) => {
+    // Track analytics event
+    if (currentUserId) {
+      const eventType = post.currentUserReaction ? 'reaction_change' : 'reaction_add'
+      analyticsService.trackReactionEvent(
+        eventType,
+        post.id,
+        currentUserId,
+        emojiCode,
+        post.currentUserReaction
+      )
+    }
+    
     if (onReaction) {
       onReaction(post.id, emojiCode)
     }
@@ -224,30 +246,84 @@ export default function PostCard({
 
         {/* Post Actions */}
         <div className={styling.actions}>
+          {/* Engagement Summary for highly engaged posts */}
+          {((post.heartsCount || 0) + (post.reactionsCount || 0)) > 5 && (
+            <div className="mb-2 px-2 py-1 bg-gradient-to-r from-purple-50 to-red-50 rounded-full">
+              <div className="flex items-center space-x-2 text-xs text-gray-600">
+                <span className="flex items-center space-x-1">
+                  <Heart className="h-3 w-3 text-red-400 fill-current" />
+                  <span>{post.heartsCount || 0}</span>
+                </span>
+                {(post.reactionsCount || 0) > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center space-x-1">
+                      <span className="text-purple-400">😊</span>
+                      <span>{post.reactionsCount}</span>
+                    </span>
+                  </>
+                )}
+                <span className="text-gray-400">•</span>
+                <span className="font-medium text-purple-600">
+                  {(post.heartsCount || 0) + (post.reactionsCount || 0)} total reactions
+                </span>
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4">
               {/* Heart Button */}
               <button 
-                onClick={() => onHeart?.(post.id, post.isHearted || false)}
-                className={`flex items-center space-x-2 transition-colors ${
+                onClick={async () => {
+                  const isCurrentlyHearted = post.isHearted || false
+                  
+                  // Track analytics event
+                  if (currentUserId) {
+                    analyticsService.trackHeartEvent(post.id, currentUserId, !isCurrentlyHearted)
+                  }
+                  
+                  try {
+                    const token = localStorage.getItem("access_token")
+                    const method = isCurrentlyHearted ? 'DELETE' : 'POST'
+                    
+                    const response = await fetch(`/api/posts/${post.id}/heart`, {
+                      method,
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                    })
+                    
+                    if (response.ok) {
+                      // Call the original handler to update UI state
+                      onHeart?.(post.id, isCurrentlyHearted)
+                    } else {
+                      console.error('Failed to update heart status')
+                    }
+                  } catch (error) {
+                    console.error('Error updating heart:', error)
+                  }
+                }}
+                className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 ${
                   post.isHearted 
-                    ? 'text-red-500 hover:text-red-600' 
-                    : 'text-gray-500 hover:text-red-500'
+                    ? 'text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100' 
+                    : 'text-gray-500 hover:text-red-500 hover:bg-red-50'
                 }`}
               >
                 <Heart className={`${styling.iconSize} ${post.isHearted ? 'fill-current' : ''}`} />
-                <span className={styling.textSize}>{post.heartsCount || 0}</span>
+                <span className={`${styling.textSize} font-medium`}>{post.heartsCount || 0}</span>
               </button>
 
               {/* Emoji Reaction Button */}
               <button
                 ref={reactionButtonRef}
                 onClick={handleReactionButtonClick}
-                className={`flex items-center space-x-2 transition-colors ${
+                className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 ${
                   post.currentUserReaction
-                    ? 'text-purple-500 hover:text-purple-600'
-                    : 'text-gray-500 hover:text-purple-500'
-                }`}
+                    ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
+                    : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
+                } ${(post.reactionsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
                 title="React with emoji"
               >
                 {post.currentUserReaction ? (
@@ -259,28 +335,32 @@ export default function PostCard({
                     <Plus className="h-3 w-3" />
                   </div>
                 )}
-                {(post.reactionsCount || 0) > 0 && (
-                  <span 
-                    className={`${styling.textSize} cursor-pointer hover:underline`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleReactionCountClick()
-                    }}
-                  >
-                    {post.reactionsCount}
-                  </span>
-                )}
+                <span 
+                  className={`${styling.textSize} font-medium cursor-pointer hover:underline`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleReactionCountClick()
+                  }}
+                >
+                  {post.reactionsCount || 0}
+                </span>
               </button>
 
 
 
               {/* Share Button */}
               <button 
-                onClick={() => onShare?.(post.id)}
-                className={`flex items-center space-x-2 text-gray-500 hover:text-green-500 transition-colors ${styling.textSize}`}
+                onClick={() => {
+                  // Track analytics event for share
+                  if (currentUserId) {
+                    analyticsService.trackShareEvent(post.id, currentUserId, 'url')
+                  }
+                  onShare?.(post.id)
+                }}
+                className={`flex items-center space-x-1.5 px-2 py-1 rounded-full text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 ${styling.textSize}`}
               >
                 <Share className={styling.iconSize} />
-                <span>Share</span>
+                <span className="font-medium">Share</span>
               </button>
             </div>
           </div>

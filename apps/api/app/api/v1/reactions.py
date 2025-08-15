@@ -48,7 +48,7 @@ class ReactionSummary(BaseModel):
     """Summary of reactions for a post."""
     total_count: int
     emoji_counts: dict
-    user_reaction: str = None  # Current user's reaction emoji_code
+    user_reaction: str | None = None  # Current user's reaction emoji_code
 
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
