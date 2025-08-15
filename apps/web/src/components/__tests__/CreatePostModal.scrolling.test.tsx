@@ -1,11 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import CreatePostModal from '../CreatePostModal'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { beforeEach } from 'node:test'
-import { describe } from 'node:test'
+import { describe, it, beforeEach } from '@jest/globals'
 
 // Mock the image upload utilities
 jest.mock('@/utils/imageUpload', () => ({

@@ -1,20 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import ReactionViewer from '../ReactionViewer'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { beforeEach } from 'node:test'
-import { describe } from 'node:test'
+import { describe, it, beforeEach } from '@jest/globals'
 
 // Mock reactions data - transformed to match ReactionViewer expected format
 const mockReactions = [

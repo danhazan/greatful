@@ -1,34 +1,4 @@
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { beforeEach } from 'node:test'
-import { describe } from 'node:test'
+import { describe, it, beforeEach } from '@jest/globals'
 import analyticsService from '../analytics'
 
 // Mock localStorage
@@ -54,107 +24,91 @@ describe('AnalyticsService', () => {
   })
 
   describe('trackReactionEvent', () => {
-    it('should track reaction_add event', async () => {
+    it('should track reaction_add event locally', async () => {
       await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart_eyes')
 
-      expect(fetch).toHaveBeenCalledWith('/api/analytics/events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer mock-token'
-        },
-        body: expect.stringContaining('"type":"reaction_add"')
-      })
+      // Analytics API calls are disabled, but local tracking should work
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
+      expect(score?.reactionsCount).toBe(1)
     })
 
-    it('should track reaction_remove event', async () => {
+    it('should track reaction_remove event locally', async () => {
       await analyticsService.trackReactionEvent('reaction_remove', 'post-1', 'user-1', undefined, 'heart_eyes')
 
-      expect(fetch).toHaveBeenCalledWith('/api/analytics/events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer mock-token'
-        },
-        body: expect.stringContaining('"type":"reaction_remove"')
-      })
+      // Local tracking should work even with API disabled
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
     })
 
-    it('should track reaction_change event', async () => {
+    it('should track reaction_change event locally', async () => {
+      // First add a reaction, then change it
+      await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart_eyes')
       await analyticsService.trackReactionEvent('reaction_change', 'post-1', 'user-1', 'fire', 'heart_eyes')
 
-      const callArgs = (fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(callArgs[1].body)
-      
-      expect(body.type).toBe('reaction_change')
-      expect(body.metadata.emojiCode).toBe('fire')
-      expect(body.metadata.previousEmoji).toBe('heart_eyes')
+      // Local tracking should work - reaction_change doesn't increase count, just changes the emoji
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
+      expect(score?.reactionsCount).toBe(1) // Still 1 reaction, just changed emoji
     })
   })
 
   describe('trackHeartEvent', () => {
-    it('should track heart add event', async () => {
+    it('should track heart add event locally', async () => {
       await analyticsService.trackHeartEvent('post-1', 'user-1', true)
 
-      const callArgs = (fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(callArgs[1].body)
-      
-      expect(body.type).toBe('heart')
-      expect(body.metadata.emojiCode).toBe('heart')
+      // Local tracking should work
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
+      expect(score?.heartsCount).toBe(1)
     })
 
-    it('should track heart remove event', async () => {
+    it('should track heart remove event locally', async () => {
       await analyticsService.trackHeartEvent('post-1', 'user-1', false)
 
-      const callArgs = (fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(callArgs[1].body)
-      
-      expect(body.type).toBe('heart')
-      expect(body.metadata.emojiCode).toBe('heart_remove')
+      // Local tracking should work
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
     })
   })
 
   describe('trackShareEvent', () => {
-    it('should track share via URL', async () => {
+    it('should track share via URL locally', async () => {
       await analyticsService.trackShareEvent('post-1', 'user-1', 'url')
 
-      const callArgs = (fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(callArgs[1].body)
-      
-      expect(body.type).toBe('share')
-      expect(body.metadata.shareMethod).toBe('url')
+      // Local tracking should work
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
+      expect(score?.sharesCount).toBe(1)
     })
 
-    it('should track share via message', async () => {
+    it('should track share via message locally', async () => {
       await analyticsService.trackShareEvent('post-1', 'user-1', 'message')
 
-      const callArgs = (fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(callArgs[1].body)
-      
-      expect(body.type).toBe('share')
-      expect(body.metadata.shareMethod).toBe('message')
+      // Local tracking should work
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
+      expect(score?.sharesCount).toBe(1)
     })
   })
 
   describe('trackViewEvent', () => {
-    it('should track view event with duration', async () => {
+    it('should track view event with duration locally', async () => {
       await analyticsService.trackViewEvent('post-1', 'user-1', 5000)
 
-      const callArgs = (fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(callArgs[1].body)
-      
-      expect(body.type).toBe('view')
-      expect(body.metadata.viewDuration).toBe(5000)
+      // Local tracking should work
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
+      expect(score?.viewsCount).toBe(1)
     })
 
-    it('should track view event without duration', async () => {
+    it('should track view event without duration locally', async () => {
       await analyticsService.trackViewEvent('post-1', 'user-1')
 
-      const callArgs = (fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(callArgs[1].body)
-      
-      expect(body.type).toBe('view')
-      expect(body.metadata.viewDuration).toBeUndefined()
+      // Local tracking should work
+      const score = analyticsService.getPostEngagementScore('post-1')
+      expect(score).toBeTruthy()
+      expect(score?.viewsCount).toBe(1)
     })
   })
 

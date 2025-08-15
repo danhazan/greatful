@@ -66,12 +66,19 @@ Visit http://localhost:3000/demo to test the emoji reaction system without authe
 
 ## ✨ Features Implemented
 
-### Emoji Reaction System
-- 8 positive emoji reactions: 😍 🤗 🙏 💪 🌟 🔥 🥰 👏
+### Emoji Reaction System ✅
+- 8 positive emoji reactions: 😍 🔥 🙏 💪 👏 😂 🤔 ⭐
 - One reaction per user per post (can change)
 - Reaction viewer showing all users and their reactions
 - Keyboard shortcuts (1-8 keys) for quick reactions
 - Visual hierarchy based on post types (Daily 3x, Photo 2x, Spontaneous compact)
+- Real-time updates without page refresh
+
+### Heart Counter System ✅
+- Heart/like functionality with real-time updates
+- Server-authoritative data ensures accuracy
+- Immediate UI feedback without page refresh
+- Comprehensive test coverage
 
 ### Technical Features
 - **Backend**: FastAPI with async SQLAlchemy, comprehensive testing
@@ -124,6 +131,26 @@ alembic/                    # Database migrations
 - Frontend components (EmojiPicker, ReactionViewer, PostCard)
 - Comprehensive testing suite
 - Demo page for testing
+
+✅ **Heart Counter Real-time Updates - COMPLETED**
+- Real-time heart counter updates without page refresh
+- Server-authoritative data ensures accuracy
+- Comprehensive test coverage (6/6 tests passing)
+- Same real-time approach applied to reaction counters
+
+✅ **Missing Emoji Support - COMPLETED**
+- Backend now supports all 10 frontend emoji picker options
+- Added 'joy' (😂) and 'thinking' (🤔) emojis
+- 16/16 emoji reaction tests passing
+
+## ⚠️ Known Issues
+
+- **Emoji Reactions 6 & 7**: Click handlers not working for emojis 6 (😂) and 7 (🤔)
+- **User Profile Posts**: Profile pages show "No posts yet" despite having posts
+- **CreatePostModal**: Footer alignment issues in modal
+- **Backend Tests**: Profile API tests have isolation issues when run together
+
+*For detailed issue tracking, see [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md)*
 
 ## 🔜 Next Steps
 

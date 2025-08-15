@@ -60,7 +60,9 @@ describe('CreatePostModal', () => {
     render(<CreatePostModal {...defaultProps} />)
     
     const photoButton = screen.getByText('Photo Gratitude').closest('button')!
-    await user.click(photoButton)
+    await act(async () => {
+      await user.click(photoButton)
+    })
     
     // Check that photo type is selected by looking for the purple styling
     expect(photoButton).toHaveClass('border-purple-500', 'bg-purple-50')
@@ -76,7 +78,9 @@ describe('CreatePostModal', () => {
     
     // Switch to spontaneous (200 char limit)
     const spontaneousButton = screen.getByText('Spontaneous Text').closest('button')!
-    await user.click(spontaneousButton)
+    await act(async () => {
+      await user.click(spontaneousButton)
+    })
     
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
     const longText = 'a'.repeat(250) // Exceeds 200 char limit
@@ -95,7 +99,9 @@ describe('CreatePostModal', () => {
     
     // Switch to spontaneous (200 char limit)
     const spontaneousButton = screen.getByText('Spontaneous Text').closest('button')!
-    await user.click(spontaneousButton)
+    await act(async () => {
+      await user.click(spontaneousButton)
+    })
     
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
     const nearLimitText = 'a'.repeat(190) // 95% of 200 char limit
@@ -149,14 +155,20 @@ describe('CreatePostModal', () => {
     
     // Switch to spontaneous (200 char limit)
     const spontaneousButton = screen.getByText('Spontaneous Text').closest('button')!
-    await user.click(spontaneousButton)
+    await act(async () => {
+      await user.click(spontaneousButton)
+    })
     
     const textarea = screen.getByPlaceholderText('Share what you\'re grateful for today...')
     // Manually set a value that exceeds the limit (simulating paste)
-    fireEvent.change(textarea, { target: { value: 'a'.repeat(250) } })
+    act(() => {
+      fireEvent.change(textarea, { target: { value: 'a'.repeat(250) } })
+    })
     
     const submitButton = screen.getByText('Share Gratitude')
-    await user.click(submitButton)
+    await act(async () => {
+      await user.click(submitButton)
+    })
     
     expect(screen.getByText('Content is too long. Maximum 200 characters for Spontaneous Text')).toBeInTheDocument()
     expect(mockOnSubmit).not.toHaveBeenCalled()
@@ -174,7 +186,9 @@ describe('CreatePostModal', () => {
     })
     
     const submitButton = screen.getByText('Share Gratitude')
-    await user.click(submitButton)
+    await act(async () => {
+      await user.click(submitButton)
+    })
     
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledWith({
@@ -278,7 +292,9 @@ describe('CreatePostModal', () => {
     render(<CreatePostModal {...defaultProps} />)
     
     const closeButton = screen.getByLabelText('Close modal')
-    await user.click(closeButton)
+    await act(async () => {
+      await user.click(closeButton)
+    })
     
     expect(mockOnClose).toHaveBeenCalled()
   })
