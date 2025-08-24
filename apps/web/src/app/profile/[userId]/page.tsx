@@ -158,47 +158,64 @@ export default function UserProfilePage() {
     }
   }, [userId, router])
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
-    // Handle heart functionality (same as feed)
+  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {
+    // If we have server data, use it; otherwise fallback to optimistic update
+    const newHearted = heartInfo ? heartInfo.is_hearted : !isCurrentlyHearted
+    const newCount = heartInfo ? heartInfo.hearts_count : (isCurrentlyHearted ? (posts.find(p => p.id === postId)?.heartsCount || 1) - 1 : (posts.find(p => p.id === postId)?.heartsCount || 0) + 1)
+    
+    // Update both the user's individual heart state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          heartsCount: isCurrentlyHearted ? (post.heartsCount || 1) - 1 : (post.heartsCount || 0) + 1,
-          isHearted: !isCurrentlyHearted
+          // Update global count with server data (server-authoritative)
+          heartsCount: newCount,
+          // Update user's individual heart state
+          isHearted: newHearted
         }
       }
       return post
     }))
   }
 
-  const handleReaction = (postId: string, emojiCode: string) => {
-    // Handle reaction functionality (same as feed)
+  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+    // If we have server data, use it; otherwise fallback to optimistic update
+    const newReaction = reactionSummary ? reactionSummary.user_reaction : emojiCode
+    const newCount = reactionSummary ? reactionSummary.total_count : (posts.find(p => p.id === postId)?.reactionsCount || 0) + 1
+    
+    // Update both the user's individual reaction state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
-        const wasReacted = !!post.currentUserReaction
         return {
           ...post,
-          reactionsCount: wasReacted ? post.reactionsCount || 1 : (post.reactionsCount || 0) + 1,
-          currentUserReaction: emojiCode
+          // Update global count with server data (server-authoritative)
+          reactionsCount: newCount,
+          // Update user's individual reaction state
+          currentUserReaction: newReaction as string | undefined
         }
       }
       return post
-    }))
+    }) as typeof posts)
   }
 
-  const handleRemoveReaction = (postId: string) => {
-    // Handle remove reaction functionality (same as feed)
+  const handleRemoveReaction = async (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+    // If we have server data, use it; otherwise fallback to optimistic update
+    const newReaction = reactionSummary ? reactionSummary.user_reaction : undefined
+    const newCount = reactionSummary ? reactionSummary.total_count : Math.max((posts.find(p => p.id === postId)?.reactionsCount || 1) - 1, 0)
+    
+    // Update both the user's individual reaction state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          reactionsCount: Math.max(0, (post.reactionsCount || 1) - 1),
-          currentUserReaction: undefined
+          // Update global count with server data (server-authoritative)
+          reactionsCount: newCount,
+          // Clear user's individual reaction state
+          currentUserReaction: newReaction as string | undefined
         }
       }
       return post
-    }))
+    }) as typeof posts)
   }
 
   const handleShare = (postId: string) => {
@@ -368,6 +385,7 @@ export default function UserProfilePage() {
                   <PostCard
                     key={post.id}
                     post={post}
+                    currentUserId={currentUser?.id}
                     onHeart={handleHeart}
                     onReaction={handleReaction}
                     onRemoveReaction={handleRemoveReaction}

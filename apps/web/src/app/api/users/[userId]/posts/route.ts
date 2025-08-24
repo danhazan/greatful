@@ -54,7 +54,7 @@ export async function GET(
       postType: post.post_type,
       imageUrl: post.image_url,
       heartsCount: post.hearts_count || 0,
-      isHearted: false, // TODO: Will be implemented with heart system
+      isHearted: post.is_hearted || false,
       reactionsCount: post.reactions_count || 0,
       currentUserReaction: post.current_user_reaction
     }))
