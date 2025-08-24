@@ -6,7 +6,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from app.core.database import get_db
 from app.services.reaction_service import ReactionService
 from app.models.emoji_reaction import EmojiReaction
@@ -22,12 +22,13 @@ class ReactionRequest(BaseModel):
     """Request model for adding/updating reactions."""
     emoji_code: str = Field(..., description="Emoji code (e.g., 'heart_eyes', 'pray')")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "emoji_code": "heart_eyes"
             }
         }
+    )
 
 
 class ReactionResponse(BaseModel):
@@ -40,8 +41,7 @@ class ReactionResponse(BaseModel):
     created_at: str
     user: dict = Field(..., description="User information")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReactionSummary(BaseModel):

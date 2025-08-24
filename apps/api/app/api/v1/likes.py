@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
 from app.models.like import Like
 from app.models.post import Post
@@ -29,8 +29,7 @@ class LikeResponse(BaseModel):
     created_at: str
     user: dict
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:

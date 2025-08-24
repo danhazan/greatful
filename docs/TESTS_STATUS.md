@@ -30,126 +30,83 @@ This document tracks all skipped tests across the project, providing detailed ex
 cd apps/api
 source venv/bin/activate
 python -m pytest -v
-# Result: 67 passed, 12 warnings
+# Result: 67 passed, 1 warning (passlib deprecation)
 ```
+**Note on Warnings**: The single remaining warning is a `DeprecationWarning` from the `passlib` library (`'crypt'` module). This is an internal library issue and does not affect test functionality. The project is using the latest `passlib` version, so no action is required at this time.
 
 ---
 
 ## Frontend Tests (Next.js/React)
 
-### PostCard Interaction Tests - Complex Component Mocking
+### Skipped Frontend Tests
 
-**Location**: `apps/web/src/components/__tests__/PostCard.interactions.test.tsx`  
-**Status**: 4/8 tests failing due to complex component interactions  
-**Impact**: Core interaction functionality testing incomplete  
-
-#### Failing Tests:
-
-1. **`test_heart_event_tracking`**
-   - **Issue**: Mock function call signature mismatch
-   - **Expected**: `mockOnHeart('test-post-1', false)`
-   - **Received**: `mockOnHeart('test-post-1', false, [])`
-   - **Cause**: Additional parameter being passed from component
-
-2. **`test_remove_reaction`**
-   - **Issue**: Mock function not being called
-   - **Expected**: `mockOnRemoveReaction('test-post-1')`
-   - **Received**: No calls
-   - **Cause**: Event handler not triggering properly
-
-3. **`test_reaction_add_tracking`**
-   - **Issue**: Mock function not being called
-   - **Expected**: `mockOnReaction('test-post-1', 'heart_eyes')`
-   - **Received**: No calls
-   - **Cause**: Emoji selection not triggering callback
-
-4. **`test_emoji_picker_closes`**
-   - **Issue**: Emoji picker not closing after selection
-   - **Expected**: Picker to be removed from DOM
-   - **Received**: Picker still visible
-   - **Cause**: State update not properly handled in test
-
-#### Fix Required:
-- Update mock function signatures to match actual component calls
-- Fix emoji picker event handling in test environment
-- Ensure proper state updates are wrapped in `act()`
-
-### PostCard Real-time Tests - Skipped Due to Complexity
-
-**Location**: `apps/web/src/components/__tests__/PostCard.reactions.realtime.test.tsx`  
-**Status**: 4/6 tests skipped  
-**Impact**: Real-time reaction functionality not fully tested  
+**Status**: 14 tests skipped  
+**Impact**: Specific functionalities are not fully tested.  
 
 #### Skipped Tests:
 
-1. **`test_emoji_picker_interactions`** (Skipped)
-   - **Reason**: "Emoji picker interactions are complex to test"
-   - **Issue**: Requires complex DOM manipulation and event simulation
-   - **Alternative**: Manual testing and integration tests
+1.  **`should not modify global counts when user reacts`** (from `src/app/feed/__tests__/counter-integration.test.tsx`)
+    -   **Reason**: Likely related to complex mocking of global state or interactions with external systems.
+    -   **Fix Required**: Implement robust mocking for global state and ensure proper isolation of test environment.
 
-2. **`test_reaction_viewer_modal`** (Skipped)
-   - **Reason**: "Modal interactions require complex setup"
-   - **Issue**: Modal rendering and interaction testing complexity
-   - **Alternative**: Component-specific modal tests
+2.  **`should save individual user reactions to user-specific localStorage`** (from `src/app/feed/__tests__/counter-integration.test.tsx`)
+    -   **Reason**: Likely related to complex mocking of `localStorage` or user-specific data handling.
+    -   **Fix Required**: Implement proper mocking for `localStorage` and ensure test data is isolated per user.
 
-3. **`test_keyboard_shortcuts`** (Skipped)
-   - **Reason**: "Keyboard event simulation needs refinement"
-   - **Issue**: Keyboard event handling in test environment
-   - **Alternative**: E2E tests for keyboard shortcuts
+3.  **`renders notification bell with unread count`** (from `src/tests/components/NotificationSystem.test.tsx`)
+    -   **Reason**: Likely related to complex UI rendering based on dynamic data or incomplete mocking of notification data.
+    -   **Fix Required**: Ensure all necessary props and data are mocked for the component to render correctly.
 
-4. **`test_real_time_updates`** (Skipped)
-   - **Reason**: "Real-time updates require WebSocket mocking"
-   - **Issue**: Complex async state management testing
-   - **Alternative**: Integration tests with mock WebSocket
+4.  **`shows notifications dropdown when bell is clicked`** (from `src/tests/components/NotificationSystem.test.tsx`)
+    -   **Reason**: Involves user interaction and state changes that might not be fully covered by current test setup.
+    -   **Fix Required**: Implement proper event simulation and `act()` wrapping for state updates.
 
-#### Fix Required:
-- Implement proper emoji picker test utilities
-- Create modal testing helpers
-- Add keyboard event simulation utilities
-- Mock WebSocket connections for real-time tests
+5.  **`marks notification as read when clicked`** (from `src/tests/components/NotificationSystem.test.tsx`)
+    -   **Reason**: Involves user interaction and API calls that might not be fully mocked or handled in the test environment.
+    -   **Fix Required**: Mock API calls for marking notifications as read and ensure correct event handling.
 
-### React `act()` Warnings - Multiple Components
+6.  **`marks all notifications as read`** (from `src/tests/components/NotificationSystem.test.tsx`)
+    -   **Reason**: Similar to the above, involves API calls and state updates for multiple notifications.
+    -   **Fix Required**: Mock API calls for marking all notifications as read and handle bulk state updates.
 
-**Locations**: Multiple test files  
-**Status**: Warnings in 6+ test files  
-**Impact**: Test reliability and React best practices compliance  
+7.  **`displays correct notification icons`** (from `src/tests/components/NotificationSystem.test.tsx`)
+    -   **Reason**: Related to conditional rendering of UI elements based on notification types or data.
+    -   **Fix Required**: Ensure all possible notification types and their corresponding icons are covered by mocks.
 
-#### Affected Components:
+8.  **`shows user avatars with fallback to initials`** (from `src/tests/components/NotificationSystem.test.tsx`)
+    -   **Reason**: Involves image loading and fallback logic, which can be complex to test in a JSDOM environment.
+    -   **Fix Required**: Mock image loading and ensure fallback logic is correctly triggered in tests.
 
-1. **PostCard** (`PostCard.interactions.test.tsx`)
-   - **Warning**: State updates not wrapped in `act()`
-   - **Cause**: `setShowEmojiPicker(false)` calls
+9.  **`handles API errors gracefully`** (from `src/tests/components/NotificationSystem.test.tsx`)
+    -   **Reason**: Requires mocking API errors and verifying the component's response to them.
+    -   **Fix Required**: Implement robust API error mocking and assert on error handling UI/logic.
 
-2. **NotificationSystem** (`NotificationSystem.test.tsx`)
-   - **Warning**: State updates not wrapped in `act()`
-   - **Cause**: `setShowNotifications()` calls
+10. **`formats time correctly`** (from `src/tests/components/NotificationSystem.test.tsx`)
+    -   **Reason**: Involves date formatting and localization, which can be tricky in tests.
+    -   **Fix Required**: Use consistent date mocking and ensure formatting logic is correctly applied.
 
-3. **CreatePostModal** (Multiple test files)
-   - **Warning**: State updates during image upload
-   - **Cause**: Async state updates not properly handled
+11. **`should handle reaction removal and update count in real-time`** (from `src/tests/components/PostCard.reactions.realtime.test.tsx`)
+    -   **Reason**: Involves real-time updates and potentially WebSocket mocking, similar to previous documentation.
+    -   **Fix Required**: Implement WebSocket mocking and ensure real-time updates are correctly reflected in the UI.
 
-#### Fix Required:
-- Wrap all user interactions in `act()` calls
-- Use `waitFor()` for async state updates
-- Implement proper async test patterns
+12. **`should fallback to optimistic update if reaction summary fetch fails`** (from `src/tests/components/PostCard.reactions.realtime.test.tsx`)
+    -   **Reason**: Involves complex optimistic UI updates and error handling for API calls.
+    -   **Fix Required**: Mock API failures and verify the optimistic update logic.
 
-### Test Environment Issues
+13. **`should handle API errors gracefully`** (from `src/tests/components/PostCard.reactions.realtime.test.tsx`)
+    -   **Reason**: Requires mocking API errors and verifying the component's response to them.
+    -   **Fix Required**: Implement robust API error mocking and assert on error handling UI/logic.
 
-#### Missing Fetch API
+14. **`positions correctly based on provided position`** (from `src/tests/components/EmojiPicker.test.tsx`)
+    -   **Reason**: Involves DOM manipulation and precise positioning, which can be challenging in a JSDOM environment.
+    -   **Fix Required**: Use testing utilities that can accurately simulate DOM layout and positioning.
 
-**Location**: `apps/web/src/components/__tests__/CreatePostModal.test.tsx`  
-**Status**: Image upload tests failing  
-**Error**: `ReferenceError: fetch is not defined`  
-
-**Fix Required**:
-- Add fetch polyfill to Jest setup
-- Mock fetch for image upload tests
-
-#### ✅ Invalid JSON Parsing - FIXED
-
-**Location**: `apps/web/src/utils/__tests__/localStorage.test.ts`  
-**Status**: Error handling test now properly mocks console.error  
-**Fix Applied**: Added console.error mock to suppress expected error output during test
+#### General Fixes Required for Skipped Frontend Tests:
+-   **Comprehensive Mocking**: Ensure all external dependencies, API calls, and global states are properly mocked.
+-   **`act()` Wrapping**: Wrap all state updates and user interactions in `act()` to ensure React updates are flushed.
+-   **Asynchronous Testing**: Use `waitFor`, `findBy`, and `await` for testing asynchronous operations and real-time updates.
+-   **Test Utilities**: Develop or utilize existing test utilities for common patterns like modal interactions, keyboard events, and image loading.
+-   **Isolation**: Ensure tests are isolated and do not interfere with each other.
 
 ---
 

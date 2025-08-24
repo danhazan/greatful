@@ -9,7 +9,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from app.core.database import get_db
 from app.models.user import User
 from app.models.post import Post, PostType
@@ -48,8 +48,7 @@ class PostResponse(BaseModel):
     reactions_count: int = 0
     current_user_reaction: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:

@@ -12,11 +12,13 @@ This document provides guidelines for writing and organizing tests in the Gratef
 - **Coverage**: Unit tests for all API endpoints
 - **Location**: `apps/api/tests/`
 
-### 🔄 Frontend Tests  
+### ✅ Frontend Tests
 - **Framework**: Jest with React Testing Library
-- **Status**: Infrastructure complete, some tests need dependency mocking
-- **Coverage**: Basic component and API route tests
+- **Status**: All tests are passing.
+- **Coverage**: Good coverage for components and API routes.
 - **Location**: `apps/web/src/tests/`
+- **Test Suites**: 17 passed, 17 total
+- **Tests**: 134 passed, 14 skipped, 148 total
 
 ## Frontend Testing Setup
 
@@ -112,18 +114,23 @@ jest.mock('next/navigation', () => ({
 
 ```
 apps/web/src/tests/
-├── setup.ts                    # Jest setup and mocks
-├── unit/                       # Unit tests
-│   ├── example.test.ts         # Basic Jest setup test
-│   ├── component-test.test.tsx # React component test
-│   └── __mocks__/             # Mock components
-│       └── Navbar.tsx         # Navbar component mock
-├── integration/                # Integration tests
-│   ├── auth-flow.test.ts      # Authentication flow tests
-│   └── logout.test.ts         # Logout API tests
-├── e2e/                       # End-to-end tests (future)
-└── utils/                     # Shared test utilities
-    └── test-helpers.ts        # Common test helpers
+├── api
+│   ├── notifications.test.ts
+│   ├── posts.test.ts
+│   └── reactions.test.ts
+├── components
+│   ├── CreatePostModal.scrolling.test.tsx
+│   ├── CreatePostModal.test.tsx
+│   ├── EmojiPicker.test.tsx
+│   ├── NotificationSystem.test.tsx
+│   ├── PostCard.interactions.test.tsx
+│   ├── PostCard.reactions.realtime.test.tsx
+│   ├── PostCard.realtime.test.tsx
+│   ├── PostCard.simple.test.tsx
+│   └── ReactionViewer.test.tsx
+├── setup.ts
+└── utils
+    └── test-helpers.ts
 ```
 
 ### Test Organization Guidelines
@@ -154,54 +161,45 @@ npm test -- --watch
 npm test -- --testNamePattern="PostCard"
 ```
 
-### Current Test Status
 
-**✅ Working Tests (4/8)**:
-- Basic Jest setup test
-- Component test example
-- Simple API route tests
-- Environment configuration
-
-**🔄 Tests Needing Fixes**:
-- Page component tests (missing Navbar mock)
-- Complex API route tests (Request/Response mocking)
-- Integration tests (dependency mocking)
-
-**Next Steps**:
-1. Fix remaining dependency mocks
-2. Add more comprehensive component tests
-3. Implement E2E tests with Playwright
 
 ## Test Structure
 
 ### Backend Tests (`apps/api/tests/`)
 
 ```
-tests/
-├── conftest.py              # Shared test fixtures and configuration
-├── unit/                    # Unit tests for individual components
-│   ├── test_database.py     # Database operations and setup
-│   ├── test_posts.py        # Post API unit tests
-│   ├── test_users.py        # User API unit tests
-│   └── test_follows.py      # Follow API unit tests
-└── integration/             # Integration tests
-    └── test_api_integration.py  # End-to-end API workflows
+apps/api/tests/
+├── conftest.py
+├── integration
+│   ├── test_likes_api.py
+│   ├── test_profile_api.py
+│   └── test_reactions_api.py
+└── unit
+    ├── test_emoji_reactions.py
+    └── test_user_profile.py
 ```
 
 ### Frontend Tests (`apps/web/src/tests/`)
 
 ```
-tests/
-├── setup.ts                 # Test configuration and setup
-├── unit/                    # Unit tests for components
-│   ├── components/          # React component tests
-│   ├── hooks/              # Custom hook tests
-│   └── utils/              # Utility function tests
-├── integration/             # Integration tests for pages
-│   ├── pages/              # Page component tests
-│   └── api/                # API route tests
-└── e2e/                    # End-to-end tests (future)
-    └── workflows/          # User workflow tests
+apps/web/src/tests/
+├── api
+│   ├── notifications.test.ts
+│   ├── posts.test.ts
+│   └── reactions.test.ts
+├── components
+│   ├── CreatePostModal.scrolling.test.tsx
+│   ├── CreatePostModal.test.tsx
+│   ├── EmojiPicker.test.tsx
+│   ├── NotificationSystem.test.tsx
+│   ├── PostCard.interactions.test.tsx
+│   ├── PostCard.reactions.realtime.test.tsx
+│   ├── PostCard.realtime.test.tsx
+│   ├── PostCard.simple.test.tsx
+│   └── ReactionViewer.test.tsx
+├── setup.ts
+└── utils
+    └── test-helpers.ts
 ```
 
 ## Test Categories

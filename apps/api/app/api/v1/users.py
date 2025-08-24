@@ -9,7 +9,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
 from app.models.user import User
 from app.models.post import Post
@@ -39,8 +39,7 @@ class UserProfileResponse(BaseModel):
     followers_count: int = 0  # Will be implemented with follow system
     following_count: int = 0  # Will be implemented with follow system
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PublicUserProfileResponse(BaseModel):
@@ -54,8 +53,7 @@ class PublicUserProfileResponse(BaseModel):
     followers_count: int = 0  # Will be implemented with follow system
     following_count: int = 0  # Will be implemented with follow system
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserPostResponse(BaseModel):
@@ -70,8 +68,7 @@ class UserPostResponse(BaseModel):
     hearts_count: int = 0
     reactions_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
