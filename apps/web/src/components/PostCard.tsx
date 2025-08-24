@@ -160,7 +160,7 @@ export default function PostCard({
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ emojiCode })
+        body: JSON.stringify({ emoji_code: emojiCode })
       })
       
       if (response.ok) {
