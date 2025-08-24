@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { X, Heart } from "lucide-react"
+import { formatTimeAgo } from "@/utils/timeAgo"
 
 interface HeartUser {
   id: string
@@ -120,7 +121,7 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
                         {heart.userName}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {new Date(heart.createdAt).toLocaleString()}
+                        {formatTimeAgo(heart.createdAt)}
                       </p>
                     </div>
                     

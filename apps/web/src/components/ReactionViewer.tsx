@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { X } from "lucide-react"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
+import { formatTimeAgo } from "@/utils/timeAgo"
 
 interface Reaction {
   id: string
@@ -145,7 +146,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                               {reaction.userName}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {new Date(reaction.createdAt).toLocaleString()}
+                              {formatTimeAgo(reaction.createdAt)}
                             </p>
                           </div>
                           

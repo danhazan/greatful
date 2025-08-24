@@ -120,7 +120,7 @@ describe('HeartsViewer', () => {
     expect(avatarFallback).toBeInTheDocument()
   })
 
-  it('should display exact date and time for each heart', () => {
+  it('should display time ago format for each heart', () => {
     render(
       <HeartsViewer
         isOpen={true}
@@ -131,13 +131,11 @@ describe('HeartsViewer', () => {
       />
     )
 
-    // Should show full date and time, not just date
-    const timestamps = screen.getAllByText(/2024/)
-    expect(timestamps.length).toBeGreaterThan(0)
-    
-    // Check that it includes time (should have colons for time format)
-    const timestampWithTime = screen.getByText(/12:30:45 PM/)
-    expect(timestampWithTime).toBeInTheDocument()
+    // Should show time ago format (e.g., "2m", "1h", "3d")
+    // Since the mock dates are from 2024 and we're testing in current time,
+    // they should show as time ago format
+    const timeElements = screen.getAllByText(/\d+[smhdwy]/)
+    expect(timeElements.length).toBeGreaterThan(0)
   })
 
   it('should call onUserClick when user is clicked', () => {
