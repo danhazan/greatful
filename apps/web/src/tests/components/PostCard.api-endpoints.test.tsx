@@ -2,6 +2,19 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import PostCard from '../../components/PostCard'
+import { it } from 'node:test'
+import { it } from 'node:test'
+import { it } from 'node:test'
+import { describe } from 'node:test'
+import { it } from 'node:test'
+import { it } from 'node:test'
+import { it } from 'node:test'
+import { describe } from 'node:test'
+import { it } from 'node:test'
+import { it } from 'node:test'
+import { describe } from 'node:test'
+import { beforeEach } from 'node:test'
+import { describe } from 'node:test'
 
 // Mock fetch
 global.fetch = jest.fn()
@@ -223,6 +236,48 @@ describe('PostCard API Endpoints Regression Tests', () => {
       // Verify the format is correct
       expect(correctBody).toBe('{"emoji_code":"heart_face"}')
       expect(correctBody).not.toBe(incorrectBody)
+    })
+
+    it('should use correct parameter format in actual PostCard component', async () => {
+      // Mock successful reaction add
+      ;(fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      })
+      // Mock successful reaction summary fetch
+      ;(fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          total_count: 1,
+          reactions: { 'heart_face': 1 },
+          user_reaction: 'heart_face',
+        }),
+      })
+
+      render(<PostCard post={mockPost} onUserClick={jest.fn()} />)
+
+      // Find and click the reaction button to open emoji picker
+      const reactionButton = screen.getByTitle('React with emoji')
+      fireEvent.click(reactionButton)
+
+      // Wait for emoji picker to appear and click an emoji
+      await waitFor(() => {
+        const emojiButton = screen.getByText('😍')
+        fireEvent.click(emojiButton)
+      })
+
+      await waitFor(() => {
+        // Verify the API call uses correct snake_case parameter format
+        const calls = (fetch as jest.Mock).mock.calls
+        const reactionCall = calls.find(call => 
+          call[0].includes('/api/posts/test-post-1/reactions') && 
+          call[1]?.method === 'POST'
+        )
+        
+        expect(reactionCall).toBeDefined()
+        expect(reactionCall[1].body).toContain('"emoji_code"')
+        expect(reactionCall[1].body).not.toContain('"emojiCode"')
+      })
     })
   })
 })

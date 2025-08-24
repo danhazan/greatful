@@ -136,7 +136,7 @@ describe('/api/posts/[id]/reactions', () => {
           'content-type': 'application/json'
         },
         body: JSON.stringify({
-          emojiCode: 'heart_eyes'
+          emoji_code: 'heart_eyes'
         })
       })
 
@@ -188,7 +188,7 @@ describe('/api/posts/[id]/reactions', () => {
       const request = new NextRequest('http://localhost:3000/api/posts/post-123/reactions', {
         method: 'POST',
         body: JSON.stringify({
-          emojiCode: 'heart_eyes'
+          emoji_code: 'heart_eyes'
         })
       })
 
