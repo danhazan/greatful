@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Heart, MessageCircle } from "lucide-react"
+import { X } from "lucide-react"
 
 interface Notification {
   id: string
@@ -137,16 +137,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     }
   }
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'reaction':
-        return <Heart className="h-4 w-4 text-red-500" />
-      case 'comment':
-        return <MessageCircle className="h-4 w-4 text-blue-500" />
-      default:
-        return <Heart className="h-4 w-4 text-gray-500" />
-    }
-  }
+
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
@@ -161,16 +152,15 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
   return (
     <>
-      {/* Notification Bell with Purple Heart Styling */}
+      {/* Notification Bell */}
       <div className="relative">
         <button
           onClick={() => setShowNotifications(!showNotifications)}
-          className="relative p-2 text-gray-600 hover:text-purple-600 transition-colors flex items-center space-x-1"
+          className="relative p-2 text-purple-600 hover:text-purple-700 transition-colors"
           aria-label="Notifications"
         >
-          <span className="text-lg">💜</span>
           <svg
-            className="h-5 w-5"
+            className="h-6 w-6"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -243,13 +233,15 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                         {/* User Avatar */}
                         <div className="flex-shrink-0">
                           {notification.fromUser.image ? (
-                            <img
-                              src={notification.fromUser.image}
-                              alt={notification.fromUser.name}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100">
+                              <img
+                                src={notification.fromUser.image}
+                                alt={notification.fromUser.name}
+                                className="w-full h-full object-cover object-center"
+                              />
+                            </div>
                           ) : (
-                            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
                               <span className="text-purple-600 text-sm font-medium">
                                 {notification.fromUser.name.charAt(0).toUpperCase()}
                               </span>
@@ -259,14 +251,11 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
                         {/* Notification Content */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            {getNotificationIcon(notification.type)}
-                            <p className="text-sm text-gray-900">
-                              <span className="font-medium">{notification.fromUser.name}</span>
-                              {' '}
-                              {notification.message}
-                            </p>
-                          </div>
+                          <p className="text-sm text-gray-900">
+                            <span className="font-medium">{notification.fromUser.name}</span>
+                            {' '}
+                            {notification.message}
+                          </p>
                           <p className="text-xs text-gray-500 mt-1">
                             {formatTime(notification.createdAt)}
                           </p>
