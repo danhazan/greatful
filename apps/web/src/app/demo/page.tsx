@@ -111,7 +111,7 @@ export default function DemoPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
           <button
             onClick={() => router.push("/")}
             className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -131,7 +131,7 @@ export default function DemoPage() {
 
       {/* Demo Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Demo Instructions */}
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 mb-8">
             <h2 className="text-lg font-semibold text-purple-900 mb-3">
