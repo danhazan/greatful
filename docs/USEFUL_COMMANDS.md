@@ -67,6 +67,16 @@ pytest -v  # Verbose output
 pytest -k "test_name"  # Run specific test
 ```
 
+#### Test Backend Server Startup
+
+A quick way to check if the server starts up correctly. The server will run for 10 seconds and then shut down.
+
+```bash
+cd apps/api
+source venv/bin/activate
+timeout 10s uvicorn main:app --reload --host 0.0.0.0 --port 8000 || true
+```
+
 #### Database Migrations
 ```bash
 cd apps/api
