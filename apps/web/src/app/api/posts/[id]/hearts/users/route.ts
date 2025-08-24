@@ -16,7 +16,7 @@ export async function GET(
       )
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/${params.id}/hearts`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/posts/${params.id}/hearts/users`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -26,7 +26,7 @@ export async function GET(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       return NextResponse.json(
-        { error: errorData.detail || 'Failed to get hearts info' },
+        { error: errorData.detail || 'Failed to get hearts users' },
         { status: response.status }
       )
     }
@@ -34,7 +34,7 @@ export async function GET(
     const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Error getting hearts info:', error)
+    console.error('Error getting hearts users:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

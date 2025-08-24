@@ -76,7 +76,7 @@ describe('PostCard Hearts Counter', () => {
 
     // Wait for the API call
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/hearts', {
+      expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/hearts/users', {
         headers: {
           Authorization: 'Bearer fake-token',
         },

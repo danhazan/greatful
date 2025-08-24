@@ -94,7 +94,7 @@ export default function PostCard({
         const token = localStorage.getItem("access_token")
         
         // Make API call to remove reaction
-        const response = await fetch(`/api/v1/posts/${post.id}/reactions`, {
+        const response = await fetch(`/api/posts/${post.id}/reactions`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -103,7 +103,7 @@ export default function PostCard({
         
         if (response.ok) {
           // Get updated reaction summary from server
-          const summaryResponse = await fetch(`/api/v1/posts/${post.id}/reactions/summary`, {
+          const summaryResponse = await fetch(`/api/posts/${post.id}/reactions/summary`, {
             headers: {
               'Authorization': `Bearer ${token}`,
             },
@@ -154,7 +154,7 @@ export default function PostCard({
       const token = localStorage.getItem("access_token")
       
       // Make API call to add/update reaction
-      const response = await fetch(`/api/v1/posts/${post.id}/reactions`, {
+      const response = await fetch(`/api/posts/${post.id}/reactions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -213,7 +213,7 @@ export default function PostCard({
     // Fetch hearts from API
     try {
       const token = localStorage.getItem("access_token")
-      const response = await fetch(`/api/posts/${post.id}/hearts`, {
+      const response = await fetch(`/api/posts/${post.id}/hearts/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
