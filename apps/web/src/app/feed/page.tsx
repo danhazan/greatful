@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Heart, Plus } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
-import NotificationSystem from "@/components/NotificationSystem"
+import Navbar from "@/components/Navbar"
 import { loadUserReactions, saveUserReactions, clearGenericReactionData } from "@/utils/localStorage"
 
 // Mock data for now - will be replaced with real API calls
@@ -74,7 +74,7 @@ export default function FeedPage() {
   const saveLocalReactions = (reactions: {[postId: string]: {reaction?: string, hearted?: boolean}}) => {
     setLocalReactions(reactions)
     if (user?.id) {
-      saveUserReactions(user.id, reactions)
+      saveUserReactions(user.id.toString(), reactions)
       if (process.env.NODE_ENV === 'development') {
         console.debug('Saved user-specific reactions for user', user.id, ':', reactions)
       }
@@ -161,14 +161,14 @@ export default function FeedPage() {
         if (response.ok) {
           const userData = await response.json()
           const currentUser = {
-            id: userData.id.toString(),
+            id: userData.id, // Keep as integer, don't convert to string
             name: userData.username,
             email: userData.email
           }
           setUser(currentUser)
           
           // Load user-specific reactions after user is set
-          const userReactions = loadUserReactions(currentUser.id)
+          const userReactions = loadUserReactions(currentUser.id.toString())
           setLocalReactions(userReactions)
           loadedReactions = userReactions
           
@@ -394,34 +394,7 @@ export default function FeedPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <button 
-            onClick={() => router.push("/feed")}
-            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
-          >
-            <span className="text-2xl">💜</span>
-            <h1 className="text-xl font-bold text-purple-700">Grateful</h1>
-          </button>
-          
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">Welcome, {user?.name}!</span>
-            {user && <NotificationSystem userId={user.id} />}
-            <button
-              onClick={() => router.push("/profile")}
-              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              Profile
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Navbar user={user} onLogout={handleLogout} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

@@ -18,7 +18,7 @@ interface Notification {
 }
 
 interface NotificationSystemProps {
-  userId: string
+  userId: number
 }
 
 export default function NotificationSystem({ userId }: NotificationSystemProps) {
@@ -26,11 +26,55 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
+
+
+
+
   // Fetch notifications on mount and periodically
   useEffect(() => {
-    // Completely disable notification fetching to eliminate console errors
-    // Notifications will be implemented when backend is stable
-    return
+    if (!userId) return
+
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem("access_token")
+        if (!token) {
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('No access token found for notifications')
+          }
+          return
+        }
+
+        const response = await fetch('/api/notifications', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setNotifications(data)
+          
+          const unreadCount = data.filter((n: Notification) => !n.read).length
+          setUnreadCount(unreadCount)
+        } else {
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Failed to fetch notifications:', response.status, await response.text())
+          }
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Failed to fetch notifications:', error)
+        }
+      }
+    }
+
+    // Fetch immediately
+    fetchNotifications()
+
+    // Set up periodic fetching every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000)
+
+    return () => clearInterval(interval)
   }, [userId])
 
   const markAsRead = async (notificationId: string) => {
@@ -117,15 +161,16 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
   return (
     <>
-      {/* Notification Bell */}
+      {/* Notification Bell with Purple Heart Styling */}
       <div className="relative">
         <button
           onClick={() => setShowNotifications(!showNotifications)}
-          className="relative p-2 text-gray-600 hover:text-purple-600 transition-colors"
+          className="relative p-2 text-gray-600 hover:text-purple-600 transition-colors flex items-center space-x-1"
           aria-label="Notifications"
         >
+          <span className="text-lg">💜</span>
           <svg
-            className="h-6 w-6"
+            className="h-5 w-5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -140,7 +185,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
           
           {/* Unread Badge */}
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}

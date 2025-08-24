@@ -4,9 +4,10 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { User, Edit3, Calendar, Heart } from "lucide-react"
 import PostCard from "@/components/PostCard"
+import Navbar from "@/components/Navbar"
 
 interface UserProfile {
-  id: string
+  id: number
   username: string
   email: string
   bio?: string
@@ -45,6 +46,7 @@ export default function ProfilePage() {
     username: "",
     bio: ""
   })
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   // Load user profile data
   useEffect(() => {
@@ -65,7 +67,7 @@ export default function ProfilePage() {
         if (response.ok) {
           const profileData = await response.json()
           const userProfile: UserProfile = {
-            id: profileData.id.toString(),
+            id: profileData.id,
             username: profileData.username,
             email: profileData.email,
             bio: profileData.bio || "No bio yet - add one by editing your profile!",
@@ -76,6 +78,11 @@ export default function ProfilePage() {
           }
 
           setUser(userProfile)
+          setCurrentUser({
+            id: userProfile.id,
+            name: userProfile.username,
+            email: userProfile.email
+          })
           setEditForm({
             username: userProfile.username,
             bio: userProfile.bio || ""
@@ -238,38 +245,15 @@ export default function ProfilePage() {
     )
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("access_token")
+    router.push("/")
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <button 
-            onClick={() => router.push("/feed")}
-            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
-          >
-            <span className="text-2xl">💜</span>
-            <h1 className="text-xl font-bold text-purple-700">Grateful</h1>
-          </button>
-          
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => router.push("/feed")}
-              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              Feed
-            </button>
-            <button
-              onClick={() => {
-              localStorage.removeItem("access_token")
-              router.push("/")
-            }}
-              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Navbar user={currentUser} onLogout={handleLogout} />
 
       {/* Profile Content */}
       <main className="container mx-auto px-4 py-8">

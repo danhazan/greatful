@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { ArrowLeft, Calendar } from "lucide-react"
+import { Calendar } from "lucide-react"
 import PostCard from "@/components/PostCard"
+import Navbar from "@/components/Navbar"
 
 interface UserProfile {
-  id: string
+  id: number
   username: string
   email: string
   bio?: string
@@ -66,7 +67,7 @@ export default function UserProfilePage() {
         if (currentUserResponse.ok) {
           currentUserData = await currentUserResponse.json()
           setCurrentUser({
-            id: currentUserData.id.toString(),
+            id: currentUserData.id,
             name: currentUserData.username,
             email: currentUserData.email
           })
@@ -90,7 +91,7 @@ export default function UserProfilePage() {
 
         const profileData = await profileResponse.json()
         setProfile({
-          id: profileData.id.toString(),
+          id: profileData.id,
           username: profileData.username,
           email: profileData.email,
           bio: profileData.bio,
@@ -265,40 +266,7 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => router.back()}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </button>
-            <button 
-              onClick={() => router.push("/feed")}
-              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
-            >
-              <span className="text-2xl">💜</span>
-              <h1 className="text-xl font-bold text-purple-700">Grateful</h1>
-            </button>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => router.push("/feed")}
-              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              Feed
-            </button>
-            <button
-              onClick={() => router.push("/profile")}
-              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              My Profile
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Navbar user={currentUser} showBackButton={true} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

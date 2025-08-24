@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // Transform the notifications to match the frontend format
     const transformedNotifications = notifications.map((notification: any) => ({
       id: notification.id,
-      type: notification.type,
+      type: notification.type === 'emoji_reaction' ? 'reaction' : notification.type,
       message: notification.message,
       postId: notification.post_id,
       fromUser: {

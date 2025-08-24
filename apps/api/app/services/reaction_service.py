@@ -10,6 +10,7 @@ from sqlalchemy import func
 from app.models.emoji_reaction import EmojiReaction
 from app.models.user import User
 from app.models.post import Post
+from app.services.notification_service import NotificationService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,9 @@ class ReactionService:
             ValueError: If emoji_code is invalid
             Exception: If user or post doesn't exist
         """
+
+        print(f"🔍 DEBUG: Starting add_reaction - user: {user_id}, post: {post_id}, emoji: {emoji_code}")
+        
         # Validate emoji code
         if not EmojiReaction.is_valid_emoji(emoji_code):
             raise ValueError(f"Invalid emoji code: {emoji_code}")
@@ -66,6 +70,27 @@ class ReactionService:
             # Load the user relationship
             existing_reaction.user = user
             logger.info(f"Updated reaction for user {user_id} on post {post_id} to {emoji_code}")
+            
+            # Create notification for updated reaction (only if it's a different emoji)
+            if post.author_id != user_id:  # Don't notify if user reacts to their own post
+                print(f"🔍 DEBUG: Calling notification service for updated reaction...")
+                print(f"🔍 DEBUG: Post author: {post.author_id}, Reactor: {user_id}")
+                try:
+                    notification = await NotificationService.create_emoji_reaction_notification(
+                        db=db,
+                        post_author_id=post.author_id,
+                        reactor_username=user.username,
+                        emoji_code=emoji_code,
+                        post_id=post_id
+                    )
+                    print(f"🔍 DEBUG: Notification service returned: {notification}")
+                except Exception as e:
+                    logger.error(f"Failed to create notification for reaction update: {e}")
+                    print(f"❌ DEBUG: Exception in notification creation: {e}")
+                    # Don't fail the reaction if notification fails
+            else:
+                print(f"⚠️ DEBUG: Self-notification prevented (user {user_id} updating own post reaction)")
+            
             return existing_reaction
         else:
             # Create new reaction
@@ -80,6 +105,27 @@ class ReactionService:
             # Load the user relationship
             reaction.user = user
             logger.info(f"Created new reaction for user {user_id} on post {post_id}: {emoji_code}")
+            
+            # Create notification for new reaction
+            if post.author_id != user_id:  # Don't notify if user reacts to their own post
+                print(f"🔍 DEBUG: Calling notification service for new reaction...")
+                print(f"🔍 DEBUG: Post author: {post.author_id}, Reactor: {user_id}")
+                try:
+                    notification = await NotificationService.create_emoji_reaction_notification(
+                        db=db,
+                        post_author_id=post.author_id,
+                        reactor_username=user.username,
+                        emoji_code=emoji_code,
+                        post_id=post_id
+                    )
+                    print(f"🔍 DEBUG: Notification service returned: {notification}")
+                except Exception as e:
+                    logger.error(f"Failed to create notification for new reaction: {e}")
+                    print(f"❌ DEBUG: Exception in notification creation: {e}")
+                    # Don't fail the reaction if notification fails
+            else:
+                print(f"⚠️ DEBUG: Self-notification prevented (user {user_id} reacting to own post)")
+            
             return reaction
 
     @staticmethod

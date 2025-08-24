@@ -1,0 +1,250 @@
+"""
+Tests for notification integration with reactions.
+"""
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.services.reaction_service import ReactionService
+from app.services.notification_service import NotificationService
+from app.models.user import User
+from app.models.post import Post
+from app.models.notification import Notification
+
+
+class TestNotificationIntegration:
+    """Test notification creation when reactions are added."""
+
+    @pytest.mark.asyncio
+    async def test_reaction_creates_notification(self, db_session: AsyncSession):
+        """Test that adding a reaction creates a notification for the post author."""
+        # Create two users - one post author, one reactor
+        author = User(
+            email="author@example.com",
+            username="author",
+            hashed_password="hashed_password"
+        )
+        reactor = User(
+            email="reactor@example.com", 
+            username="reactor",
+            hashed_password="hashed_password"
+        )
+        
+        db_session.add(author)
+        db_session.add(reactor)
+        await db_session.commit()
+        await db_session.refresh(author)
+        await db_session.refresh(reactor)
+
+        # Create a post by the author
+        post = Post(
+            id="test-post-1",
+            author_id=author.id,
+            content="Test gratitude post",
+            post_type="daily"
+        )
+        db_session.add(post)
+        await db_session.commit()
+
+        # Add a reaction from the reactor
+        reaction = await ReactionService.add_reaction(
+            db=db_session,
+            user_id=reactor.id,
+            post_id=post.id,
+            emoji_code="heart_eyes"
+        )
+
+        assert reaction is not None
+        assert reaction.emoji_code == "heart_eyes"
+
+        # Check that a notification was created for the author
+        notifications = await NotificationService.get_user_notifications(
+            db=db_session,
+            user_id=author.id
+        )
+
+        assert len(notifications) == 1
+        notification = notifications[0]
+        assert notification.type == "emoji_reaction"
+        assert notification.user_id == author.id
+        assert "reactor" in notification.message
+        assert "😍" in notification.message
+        assert notification.data["post_id"] == post.id
+        assert notification.data["emoji_code"] == "heart_eyes"
+        assert notification.data["reactor_username"] == "reactor"
+        assert not notification.read
+
+    @pytest.mark.asyncio
+    async def test_self_reaction_no_notification(self, db_session: AsyncSession):
+        """Test that reacting to your own post doesn't create a notification."""
+        # Create a user
+        user = User(
+            email="user@example.com",
+            username="user",
+            hashed_password="hashed_password"
+        )
+        
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+
+        # Create a post by the user
+        post = Post(
+            id="test-post-2",
+            author_id=user.id,
+            content="Test gratitude post",
+            post_type="daily"
+        )
+        db_session.add(post)
+        await db_session.commit()
+
+        # Add a reaction from the same user (self-reaction)
+        reaction = await ReactionService.add_reaction(
+            db=db_session,
+            user_id=user.id,
+            post_id=post.id,
+            emoji_code="heart_eyes"
+        )
+
+        assert reaction is not None
+        assert reaction.emoji_code == "heart_eyes"
+
+        # Check that no notification was created
+        notifications = await NotificationService.get_user_notifications(
+            db=db_session,
+            user_id=user.id
+        )
+
+        assert len(notifications) == 0
+
+    @pytest.mark.asyncio
+    async def test_reaction_update_creates_notification(self, db_session: AsyncSession):
+        """Test that updating a reaction creates a new notification."""
+        # Create two users - one post author, one reactor
+        author = User(
+            email="author2@example.com",
+            username="author2",
+            hashed_password="hashed_password"
+        )
+        reactor = User(
+            email="reactor2@example.com", 
+            username="reactor2",
+            hashed_password="hashed_password"
+        )
+        
+        db_session.add(author)
+        db_session.add(reactor)
+        await db_session.commit()
+        await db_session.refresh(author)
+        await db_session.refresh(reactor)
+
+        # Create a post by the author
+        post = Post(
+            id="test-post-3",
+            author_id=author.id,
+            content="Test gratitude post",
+            post_type="daily"
+        )
+        db_session.add(post)
+        await db_session.commit()
+
+        # Add initial reaction
+        await ReactionService.add_reaction(
+            db=db_session,
+            user_id=reactor.id,
+            post_id=post.id,
+            emoji_code="heart_eyes"
+        )
+
+        # Update the reaction to a different emoji
+        updated_reaction = await ReactionService.add_reaction(
+            db=db_session,
+            user_id=reactor.id,
+            post_id=post.id,
+            emoji_code="fire"
+        )
+
+        assert updated_reaction.emoji_code == "fire"
+
+        # Check that notifications were created (one for each reaction)
+        notifications = await NotificationService.get_user_notifications(
+            db=db_session,
+            user_id=author.id
+        )
+
+        # Should have 2 notifications - one for initial reaction, one for update
+        assert len(notifications) == 2
+        
+        # Check the most recent notification (first in list due to ordering)
+        latest_notification = notifications[0]
+        assert latest_notification.type == "emoji_reaction"
+        assert "🔥" in latest_notification.message
+        assert latest_notification.data["emoji_code"] == "fire"
+
+    @pytest.mark.asyncio
+    async def test_multiple_users_reactions_create_multiple_notifications(self, db_session: AsyncSession):
+        """Test that reactions from multiple users create separate notifications."""
+        # Create one author and two reactors
+        author = User(
+            email="author3@example.com",
+            username="author3",
+            hashed_password="hashed_password"
+        )
+        reactor1 = User(
+            email="reactor3@example.com", 
+            username="reactor3",
+            hashed_password="hashed_password"
+        )
+        reactor2 = User(
+            email="reactor4@example.com", 
+            username="reactor4",
+            hashed_password="hashed_password"
+        )
+        
+        db_session.add_all([author, reactor1, reactor2])
+        await db_session.commit()
+        await db_session.refresh(author)
+        await db_session.refresh(reactor1)
+        await db_session.refresh(reactor2)
+
+        # Create a post by the author
+        post = Post(
+            id="test-post-4",
+            author_id=author.id,
+            content="Test gratitude post",
+            post_type="daily"
+        )
+        db_session.add(post)
+        await db_session.commit()
+
+        # Add reactions from both reactors
+        await ReactionService.add_reaction(
+            db=db_session,
+            user_id=reactor1.id,
+            post_id=post.id,
+            emoji_code="heart_eyes"
+        )
+
+        await ReactionService.add_reaction(
+            db=db_session,
+            user_id=reactor2.id,
+            post_id=post.id,
+            emoji_code="pray"
+        )
+
+        # Check that two notifications were created
+        notifications = await NotificationService.get_user_notifications(
+            db=db_session,
+            user_id=author.id
+        )
+
+        assert len(notifications) == 2
+        
+        # Check that both notifications are for emoji reactions
+        for notification in notifications:
+            assert notification.type == "emoji_reaction"
+            assert notification.user_id == author.id
+            assert not notification.read
+            
+        # Check that we have notifications from both reactors
+        reactor_usernames = {n.data["reactor_username"] for n in notifications}
+        assert reactor_usernames == {"reactor3", "reactor4"}
