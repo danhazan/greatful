@@ -1,7 +1,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import PostCard from '../PostCard'
+import PostCard from '@/components/PostCard'
 import analyticsService from '@/services/analytics'
+import { 
+  setupTestEnvironment, 
+  cleanupTestEnvironment,
+  createTestPost
+} from '../utils/test-helpers'
 
 // Mock the analytics service
 jest.mock('@/services/analytics', () => ({
@@ -12,56 +17,33 @@ jest.mock('@/services/analytics', () => ({
 }))
 
 // Mock the EmojiPicker and ReactionViewer components
-jest.mock('../EmojiPicker', () => {
+jest.mock('@/components/EmojiPicker', () => {
   return function MockEmojiPicker({ isOpen, onEmojiSelect, onClose }: any) {
     if (!isOpen) return null
     return (
       <div data-testid="emoji-picker">
         <button onClick={() => onEmojiSelect('heart_eyes')}>😍</button>
         <button onClick={() => onEmojiSelect('fire')}>🔥</button>
+        <button onClick={() => onEmojiSelect('pray')}>🙏</button>
         <button onClick={onClose}>Close</button>
       </div>
     )
   }
 })
 
-jest.mock('../ReactionViewer', () => {
+jest.mock('@/components/ReactionViewer', () => {
   return function MockReactionViewer({ isOpen, onClose }: any) {
     if (!isOpen) return null
     return (
       <div data-testid="reaction-viewer">
+        <div>Reactions</div>
         <button onClick={onClose}>Close Viewer</button>
       </div>
     )
   }
 })
 
-// Mock localStorage
-const mockLocalStorage = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-}
-Object.defineProperty(window, 'localStorage', { value: mockLocalStorage })
-
-// Mock fetch
-global.fetch = jest.fn()
-
-const mockPost = {
-  id: 'test-post-1',
-  content: 'Test gratitude post',
-  author: {
-    id: 'author-1',
-    name: 'Test Author',
-    image: 'https://example.com/author.jpg'
-  },
-  createdAt: '2024-01-15T10:00:00Z',
-  postType: 'daily' as const,
-  heartsCount: 5,
-  isHearted: false,
-  reactionsCount: 3,
-  currentUserReaction: undefined
-}
+const mockPost = createTestPost()
 
 describe('PostCard Interactions', () => {
   const mockOnHeart = jest.fn()
@@ -69,14 +51,16 @@ describe('PostCard Interactions', () => {
   const mockOnRemoveReaction = jest.fn()
   const mockOnShare = jest.fn()
   const mockOnUserClick = jest.fn()
+  
+  let testEnv: ReturnType<typeof setupTestEnvironment>
 
   beforeEach(() => {
+    testEnv = setupTestEnvironment()
     jest.clearAllMocks()
-    mockLocalStorage.getItem.mockReturnValue('mock-token')
-    ;(fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([])
-    })
+  })
+
+  afterEach(() => {
+    cleanupTestEnvironment()
   })
 
   it('should track view event when post is displayed', () => {
@@ -124,7 +108,7 @@ describe('PostCard Interactions', () => {
     })
 
     await waitFor(() => {
-      expect(mockOnHeart).toHaveBeenCalledWith('test-post-1', false)
+      expect(mockOnHeart).toHaveBeenCalledWith('test-post-1', false, expect.any(Object))
     })
 
     // Verify API call was made
@@ -176,7 +160,21 @@ describe('PostCard Interactions', () => {
     expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
   })
 
-  it('should remove reaction when reaction button is clicked (has current reaction)', () => {
+  it('should remove reaction when reaction button is clicked (has current reaction)', async () => {
+    // Mock successful API responses for reaction removal
+    ;(fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          total_count: 2,
+          reactions: { fire: 2 },
+          user_reaction: null
+        })
+      })
+
     const postWithReaction = {
       ...mockPost,
       currentUserReaction: 'heart_eyes'
@@ -204,10 +202,29 @@ describe('PostCard Interactions', () => {
       undefined,
       'heart_eyes'
     )
-    expect(mockOnRemoveReaction).toHaveBeenCalledWith('test-post-1')
+
+    // Wait for async operations to complete
+    await waitFor(() => {
+      expect(mockOnRemoveReaction).toHaveBeenCalledWith('test-post-1', expect.any(Object))
+    })
   })
 
-  it('should track reaction_add when selecting emoji for first time', () => {
+  it('should track reaction_add when selecting emoji for first time', async () => {
+    // Mock successful API responses for adding reaction
+    ;(fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'reaction-1' })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          total_count: 4,
+          reactions: { heart_eyes: 1, fire: 3 },
+          user_reaction: 'heart_eyes'
+        })
+      })
+
     render(
       <PostCard
         post={mockPost}
@@ -235,7 +252,11 @@ describe('PostCard Interactions', () => {
       'heart_eyes',
       undefined
     )
-    expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'heart_eyes')
+
+    // Wait for async operations to complete
+    await waitFor(() => {
+      expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'heart_eyes', expect.any(Object))
+    })
   })
 
   it('should track reaction_change when changing existing reaction', () => {
@@ -402,7 +423,18 @@ describe('PostCard Interactions', () => {
     expect(postImage).toHaveAttribute('src', 'https://example.com/photo.jpg')
   })
 
-  it('should close emoji picker when emoji is selected', () => {
+  it('should close emoji picker when emoji is selected', async () => {
+    // Mock successful API responses
+    ;(fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'reaction-1' })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ total_count: 1, reactions: { heart_eyes: 1 }, user_reaction: 'heart_eyes' })
+      })
+
     render(
       <PostCard
         post={mockPost}
@@ -425,7 +457,9 @@ describe('PostCard Interactions', () => {
     const heartEyesEmoji = screen.getByText('😍')
     fireEvent.click(heartEyesEmoji)
 
-    // Picker should be closed
-    expect(screen.queryByTestId('emoji-picker')).not.toBeInTheDocument()
+    // Wait for async operations to complete and picker to close
+    await waitFor(() => {
+      expect(screen.queryByTestId('emoji-picker')).not.toBeInTheDocument()
+    })
   })
 })

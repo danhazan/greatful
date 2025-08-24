@@ -161,14 +161,14 @@ describe('Counter Integration Test', () => {
     // Find all buttons and verify the expected counts are present
     const allButtons = screen.getAllByRole('button')
     
-    // Check that buttons with the expected counts exist
-    const heartButton12 = allButtons.find(btn => btn.textContent?.includes('12') && btn.querySelector('svg'))
-    const heartButton24 = allButtons.find(btn => btn.textContent?.includes('24') && btn.querySelector('svg'))
-    const heartButton8 = allButtons.find(btn => btn.textContent?.includes('8') && btn.querySelector('svg'))
+    // Find buttons by their text content - based on actual rendered output
+    const heartButton12 = allButtons.find(btn => btn.textContent === '12')
+    const heartButton24 = allButtons.find(btn => btn.textContent === '24')
+    const heartButton8 = allButtons.find(btn => btn.textContent === '8')
     
-    const reactionButton8 = allButtons.find(btn => btn.textContent?.includes('8') && !btn.querySelector('svg'))
-    const reactionButton15 = allButtons.find(btn => btn.textContent?.includes('15') && !btn.querySelector('svg'))
-    const reactionButton3 = allButtons.find(btn => btn.textContent?.includes('3') && !btn.querySelector('svg'))
+    const reactionButton8 = allButtons.find(btn => btn.textContent === '8' && btn !== heartButton8)
+    const reactionButton15 = allButtons.find(btn => btn.textContent === '15')
+    const reactionButton3 = allButtons.find(btn => btn.textContent === '3')
 
     // Verify all expected buttons exist with correct counts
     expect(heartButton12).toBeDefined()

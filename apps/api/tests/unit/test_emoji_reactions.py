@@ -1,69 +1,19 @@
 """
 Unit tests for emoji reactions functionality.
+Uses shared fixtures from conftest.py files.
 """
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-from app.core.database import Base
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.models.post import Post, PostType
 from app.models.emoji_reaction import EmojiReaction
 from app.services.reaction_service import ReactionService
-from app.core.security import get_password_hash
 import uuid
 
-# Test database URL
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-# Create test engine and session
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=True)
-TestSessionLocal = sessionmaker(
-    test_engine, class_=AsyncSession, expire_on_commit=False
-)
-
-
-@pytest.fixture
-async def db_session():
-    """Create a test database session."""
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    async with TestSessionLocal() as session:
-        yield session
-    
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-
-@pytest.fixture
-async def test_user(db_session: AsyncSession):
-    """Create a test user."""
-    user = User(
-        email="test@example.com",
-        username="testuser",
-        hashed_password=get_password_hash("testpassword")
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest.fixture
-async def test_post(db_session: AsyncSession, test_user: User):
-    """Create a test post."""
-    post = Post(
-        id=str(uuid.uuid4()),
-        author_id=test_user.id,
-        content="I'm grateful for testing!",
-        post_type=PostType.daily,
-        is_public=True
-    )
-    db_session.add(post)
-    await db_session.commit()
-    await db_session.refresh(post)
-    return post
+# Using shared test_post fixture from conftest.py
 
 
 class TestEmojiReactionModel:

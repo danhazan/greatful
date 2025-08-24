@@ -74,10 +74,19 @@ describe('localStorage utilities', () => {
     });
 
     it('should return empty object for invalid JSON', () => {
+      // Mock console.error to suppress expected error output during test
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       localStorageMock.setItem('user_user123_reactions', 'invalid json');
       
       const reactions = loadUserReactions('user123');
       expect(reactions).toEqual({});
+      
+      // Verify that error was logged
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to load user reactions:', expect.any(SyntaxError));
+      
+      // Restore console.error
+      consoleSpy.mockRestore();
     });
 
     it('should return empty object for empty userId', () => {

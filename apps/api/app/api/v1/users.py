@@ -43,6 +43,21 @@ class UserProfileResponse(BaseModel):
         from_attributes = True
 
 
+class PublicUserProfileResponse(BaseModel):
+    """Public user profile response model (no email)."""
+    id: int
+    username: str
+    bio: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    created_at: str
+    posts_count: int
+    followers_count: int = 0  # Will be implemented with follow system
+    following_count: int = 0  # Will be implemented with follow system
+
+    class Config:
+        from_attributes = True
+
+
 class UserPostResponse(BaseModel):
     """User post response model."""
     id: str
@@ -215,7 +230,7 @@ async def get_my_posts(
         )
 
 
-@router.get("/{user_id}/profile", response_model=UserProfileResponse)
+@router.get("/{user_id}/profile", response_model=PublicUserProfileResponse)
 async def get_user_profile(
     user_id: int,
     current_user_id: int = Depends(get_current_user_id),
@@ -236,10 +251,9 @@ async def get_user_profile(
         )
         posts_count = len(posts_result.scalars().all())
 
-        return UserProfileResponse(
+        return PublicUserProfileResponse(
             id=user.id,
             username=user.username,
-            email=user.email,  # In production, don't expose email to other users
             bio=user.bio,
             profile_image_url=user.profile_image_url,
             created_at=user.created_at.isoformat(),

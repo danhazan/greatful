@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import PostCard from '../PostCard'
+import PostCard from '../../components/PostCard'
+import { expect, it, beforeEach, describe } from '@jest/globals'
 
 // Mock the analytics service
 jest.mock('@/services/analytics', () => ({
@@ -67,49 +68,50 @@ describe('PostCard Reactions Real-time Updates', () => {
     mockLocalStorage.getItem.mockReturnValue('mock-token')
   })
 
-  it('should call onReaction with server data when handleEmojiSelect is called directly', async () => {
-    const mockOnReaction = jest.fn()
+  it('should call localStorage when removing existing reaction', async () => {
+    const mockOnRemoveReaction = jest.fn()
     
-    // Mock successful reaction API call
+    // Create a post with an existing reaction to trigger the removal flow
+    const postWithReaction = {
+      ...mockPost,
+      currentUserReaction: 'heart_eyes'
+    }
+    
+    // Mock successful reaction removal API call
     ;(fetch as jest.Mock)
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ id: 'reaction-1', emoji_code: 'joy' }),
       })
-      // Mock successful reaction summary fetch with updated count
+      // Mock successful reaction summary fetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          total_count: 3,
-          reactions: { joy: 1, fire: 2 },
-          user_reaction: 'joy'
+          total_count: 1,
+          reactions: { fire: 1 },
+          user_reaction: null
         }),
       })
-
-    const { container } = render(
+    
+    render(
       <PostCard
-        post={mockPost}
+        post={postWithReaction}
         currentUserId="current-user"
-        onReaction={mockOnReaction}
+        onRemoveReaction={mockOnRemoveReaction}
       />
     )
 
-    // Directly call the handleEmojiSelect function by simulating emoji selection
-    // This is a simpler approach than trying to mock the entire EmojiPicker component
-    const postCardInstance = container.querySelector('article')
-    expect(postCardInstance).toBeInTheDocument()
-
-    // Simulate emoji selection by directly calling the handler
-    // In a real scenario, this would be triggered by the EmojiPicker component
+    // Click the reaction button to remove the existing reaction
+    const reactionButton = screen.getByTitle('React with emoji')
+    
     await act(async () => {
-      // We'll simulate this by triggering the function directly
-      // This tests the core API call logic without the UI complexity
+      fireEvent.click(reactionButton)
     })
 
-    // For now, let's test the API call pattern by checking localStorage and fetch setup
+    // The component should attempt to get the access token when removing reactions
     expect(mockLocalStorage.getItem).toHaveBeenCalledWith('access_token')
   })
 
+  // Complex real-time testing - see docs/TESTS_STATUS.md for details
   it.skip('should handle reaction removal and update count in real-time', async () => {
     const mockOnRemoveReaction = jest.fn()
     const postWithReaction = { 
@@ -166,6 +168,7 @@ describe('PostCard Reactions Real-time Updates', () => {
     })
   })
 
+  // Complex async testing - see docs/TESTS_STATUS.md for details
   it.skip('should fallback to optimistic update if reaction summary fetch fails', async () => {
     const mockOnReaction = jest.fn()
     

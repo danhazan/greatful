@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import PostCard from '../PostCard'
+import PostCard from '../../components/PostCard'
 
 // Mock the analytics service
 jest.mock('@/services/analytics', () => ({

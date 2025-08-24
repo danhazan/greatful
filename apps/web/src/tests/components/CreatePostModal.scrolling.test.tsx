@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import CreatePostModal from '../CreatePostModal'
+import CreatePostModal from '../../components/CreatePostModal'
 import { describe, it, beforeEach } from '@jest/globals'
 
 // Mock the image upload utilities

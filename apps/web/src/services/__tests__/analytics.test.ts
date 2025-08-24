@@ -216,11 +216,12 @@ describe('AnalyticsService', () => {
       
       // Mock dates to control the test
       const mockDate = new Date('2024-01-15T12:00:00Z')
+      const OriginalDate = Date
       const dateSpy = jest.spyOn(global, 'Date').mockImplementation((...args) => {
         if (args.length === 0) {
           return mockDate as any
         }
-        return new (Date as any)(...args)
+        return new OriginalDate(...args)
       })
 
       await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart_eyes')

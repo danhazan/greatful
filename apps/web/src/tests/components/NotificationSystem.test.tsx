@@ -1,55 +1,41 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import NotificationSystem from '@/components/NotificationSystem'
-
-// Mock fetch
-global.fetch = jest.fn()
-
-// Mock localStorage
-const mockLocalStorage = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-}
-
-Object.defineProperty(window, 'localStorage', {
-  value: mockLocalStorage,
-})
+import { 
+  setupTestEnvironment, 
+  cleanupTestEnvironment,
+  createTestNotification,
+  suppressActWarnings
+} from '../utils/test-helpers'
 
 describe('NotificationSystem', () => {
+  let testEnv: ReturnType<typeof setupTestEnvironment>
+
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockLocalStorage.getItem.mockReturnValue('test-token')
-    ;(fetch as jest.Mock).mockClear()
+    testEnv = setupTestEnvironment()
+    suppressActWarnings()
+  })
+
+  afterEach(() => {
+    cleanupTestEnvironment()
   })
 
   const mockNotifications = [
-    {
+    createTestNotification({
       id: '1',
-      type: 'reaction',
-      message: 'reacted to your post',
-      postId: 'post-1',
-      fromUser: {
-        id: '2',
-        name: 'John Doe',
-        image: 'https://example.com/john.jpg'
-      },
+      fromUser: { id: '2', name: 'John Doe', image: 'https://example.com/john.jpg' },
       createdAt: '2025-01-08T12:00:00Z',
-      read: false
-    },
-    {
+      isRead: false
+    }),
+    createTestNotification({
       id: '2',
       type: 'comment',
       message: 'commented on your post',
       postId: 'post-2',
-      fromUser: {
-        id: '3',
-        name: 'Jane Smith'
-      },
+      fromUser: { id: '3', name: 'Jane Smith' },
       createdAt: '2025-01-08T11:00:00Z',
-      read: true
-    }
+      isRead: true
+    })
   ]
 
   it.skip('renders notification bell with unread count', async () => {
