@@ -212,3 +212,46 @@ async def get_post_hearts(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get heart information"
         )
+
+
+@router.get("/posts/{post_id}/hearts/users")
+async def get_post_hearts_users(
+    post_id: str,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get list of users who hearted a post.
+    
+    - **post_id**: ID of the post to get hearts for
+    
+    Returns a list of users who hearted the post with their information and timestamp.
+    """
+    try:
+        # Get all hearts for the post with user information
+        from sqlalchemy.orm import selectinload
+        hearts_result = await db.execute(
+            select(Like)
+            .options(selectinload(Like.user))
+            .where(Like.post_id == post_id)
+            .order_by(Like.created_at.desc())
+        )
+        hearts = hearts_result.scalars().all()
+        
+        return [
+            {
+                "id": heart.id,
+                "userId": str(heart.user_id),
+                "userName": heart.user.username,
+                "userImage": None,  # Add profile image URL when available
+                "createdAt": heart.created_at.isoformat()
+            }
+            for heart in hearts
+        ]
+        
+    except Exception as e:
+        logger.error(f"Error getting post hearts users: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get hearts users"
+        )

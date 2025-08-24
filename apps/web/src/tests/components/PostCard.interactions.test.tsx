@@ -319,9 +319,10 @@ describe('PostCard Interactions', () => {
       />
     )
 
-    // Find the reaction count in the engagement summary (clickable to open viewer)
-    const reactionCount = screen.getByText('5', { selector: 'span.cursor-pointer' })
-    fireEvent.click(reactionCount)
+    // Find the reaction button (has the plus icon and ring styling)
+    const reactionButton = screen.getByTitle('React with emoji')
+    const reactionCount = reactionButton.querySelector('span.cursor-pointer')
+    fireEvent.click(reactionCount!)
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/reactions', {

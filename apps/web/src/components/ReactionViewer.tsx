@@ -145,7 +145,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                               {reaction.userName}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {new Date(reaction.createdAt).toLocaleDateString()}
+                              {new Date(reaction.createdAt).toLocaleString()}
                             </p>
                           </div>
                           

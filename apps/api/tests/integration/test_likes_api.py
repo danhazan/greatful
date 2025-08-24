@@ -27,6 +27,10 @@ class TestLikesAPI:
         # Test GET endpoint (should return 401 or 403 without auth)
         response = client.get(f"/api/v1/posts/{test_post_id}/hearts")
         assert response.status_code in [401, 403]
+        
+        # Test GET hearts users endpoint (should return 401 or 403 without auth)
+        response = client.get(f"/api/v1/posts/{test_post_id}/hearts/users")
+        assert response.status_code in [401, 403]
 
     def test_heart_without_auth(self):
         """Test hearting without authentication."""
@@ -55,6 +59,12 @@ class TestLikesAPI:
         
         response = client.get(
             f"/api/v1/posts/{test_post_id}/hearts",
+            headers={"Authorization": "Bearer invalid_token"}
+        )
+        assert response.status_code == 401
+        
+        response = client.get(
+            f"/api/v1/posts/{test_post_id}/hearts/users",
             headers={"Authorization": "Bearer invalid_token"}
         )
         assert response.status_code == 401

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Heart, Share, Calendar, MapPin, Plus } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
+import HeartsViewer from "./HeartsViewer"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 
@@ -48,8 +49,10 @@ export default function PostCard({
 }: PostCardProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionViewer, setShowReactionViewer] = useState(false)
+  const [showHeartsViewer, setShowHeartsViewer] = useState(false)
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
+  const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -203,6 +206,26 @@ export default function PostCard({
       }
     } catch (error) {
       console.error('Failed to fetch reactions:', error)
+    }
+  }
+
+  const handleHeartsCountClick = async () => {
+    // Fetch hearts from API
+    try {
+      const token = localStorage.getItem("access_token")
+      const response = await fetch(`/api/posts/${post.id}/hearts/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        const heartsData = await response.json()
+        setHearts(heartsData)
+        setShowHeartsViewer(true)
+      }
+    } catch (error) {
+      console.error('Failed to fetch hearts:', error)
     }
   }
 
@@ -391,7 +414,15 @@ export default function PostCard({
                 }`}
               >
                 <Heart className={`${styling.iconSize} ${post.isHearted ? 'fill-current' : ''}`} />
-                <span className={`${styling.textSize} font-medium`}>{post.heartsCount || 0}</span>
+                <span 
+                  className={`${styling.textSize} font-medium cursor-pointer hover:underline`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleHeartsCountClick()
+                  }}
+                >
+                  {post.heartsCount || 0}
+                </span>
               </button>
 
               {/* Emoji Reaction Button */}
@@ -461,6 +492,15 @@ export default function PostCard({
         onClose={() => setShowReactionViewer(false)}
         postId={post.id}
         reactions={reactions}
+        onUserClick={handleUserClick}
+      />
+
+      {/* Hearts Viewer Modal */}
+      <HeartsViewer
+        isOpen={showHeartsViewer}
+        onClose={() => setShowHeartsViewer(false)}
+        postId={post.id}
+        hearts={hearts}
         onUserClick={handleUserClick}
       />
     </>
