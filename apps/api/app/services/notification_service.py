@@ -39,7 +39,7 @@ class NotificationService:
             bool: True if under rate limit, False if exceeded
         """
         # Calculate the time threshold (1 hour ago)
-        one_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
+        one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
         print(f"🔍 DEBUG: Rate limit check - user: {user_id}, type: {notification_type}")
         print(f"🔍 DEBUG: Checking notifications since: {one_hour_ago}")
         
@@ -496,13 +496,13 @@ class NotificationService:
             base_query = base_query.where(Notification.type == notification_type)
         
         # Count in last hour
-        one_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
+        one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
         hour_query = base_query.where(Notification.created_at >= one_hour_ago)
         hour_result = await db.execute(select(func.count()).select_from(hour_query.subquery()))
         hour_count = hour_result.scalar() or 0
         
         # Count in last day
-        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        one_day_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
         day_query = base_query.where(Notification.created_at >= one_day_ago)
         day_result = await db.execute(select(func.count()).select_from(day_query.subquery()))
         day_count = day_result.scalar() or 0
