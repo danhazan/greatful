@@ -70,7 +70,7 @@ describe('/api/notifications', () => {
         message: 'reacted to your post',
         postId: 'post-1',
         fromUser: {
-          id: '2',
+          id: 2,
           name: 'john_doe',
           image: 'https://example.com/john.jpg'
         },
@@ -159,7 +159,7 @@ describe('/api/notifications', () => {
         }
       })
 
-      const response = await MarkAsRead(request, { params: { id: 'notification-1' } })
+      const response = await MarkAsRead(request, { params: { notificationId: 'notification-1' } })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -182,7 +182,7 @@ describe('/api/notifications', () => {
         method: 'POST'
       })
 
-      const response = await MarkAsRead(request, { params: { id: 'notification-1' } })
+      const response = await MarkAsRead(request, { params: { notificationId: 'notification-1' } })
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -203,7 +203,7 @@ describe('/api/notifications', () => {
         }
       })
 
-      const response = await MarkAsRead(request, { params: { id: 'notification-1' } })
+      const response = await MarkAsRead(request, { params: { notificationId: 'notification-1' } })
       const data = await response.json()
 
       expect(response.status).toBe(404)
