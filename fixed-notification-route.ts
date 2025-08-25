@@ -4,7 +4,7 @@ const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { notificationId: string } }
 ) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -15,7 +15,7 @@ export async function POST(
       )
     }
 
-    const notificationId = params.id
+    const notificationId = params.notificationId
 
     // Forward the request to the FastAPI backend
     const response = await fetch(`${API_BASE_URL}/api/v1/notifications/${notificationId}/read`, {

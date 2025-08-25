@@ -7,7 +7,7 @@ global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>
 
 import { NextRequest } from 'next/server'
 import { GET } from '@/app/api/notifications/route'
-import { POST as MarkAsRead } from '@/app/api/notifications/[id]/read/route'
+import { POST as MarkAsRead } from '@/app/api/notifications/[notificationId]/read/route'
 import { POST as MarkAllAsRead } from '@/app/api/notifications/read-all/route'
 
 describe('/api/notifications', () => {

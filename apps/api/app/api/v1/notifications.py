@@ -22,13 +22,11 @@ class NotificationResponse(BaseModel):
     """Response model for notification data."""
     id: str
     type: str
-    title: str
     message: str
-    data: dict
+    postId: str | None = None
+    fromUser: dict | None = None
+    createdAt: str
     read: bool
-    created_at: str
-    post_id: str | None = None
-    from_user: dict | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,23 +86,24 @@ async def get_notifications(
             if notification.data and 'reactor_username' in notification.data:
                 from_user = {
                     'id': '0',  # We don't store user ID in notification data yet
-                    'username': notification.data['reactor_username'],
-                    'profile_image_url': None
+                    'name': notification.data['reactor_username'],  # Frontend expects 'name'
+                    'image': None
                 }
             
-            response_notifications.append(NotificationResponse(
-                id=notification.id,
-                type=notification.type,
-                title=notification.title,
-                message=notification.message,
-                data=notification.data or {},
-                read=notification.read,
-                created_at=notification.created_at.isoformat(),
-                post_id=post_id,
-                from_user=from_user
-            ))
+            # Create response with frontend-compatible format
+            response_data = {
+                'id': notification.id,
+                'type': notification.type.replace('emoji_', ''),  # Convert 'emoji_reaction' to 'reaction'
+                'message': notification.message,
+                'postId': post_id,  # Frontend expects 'postId' not 'post_id'
+                'fromUser': from_user,  # Frontend expects 'fromUser' not 'from_user'
+                'createdAt': notification.created_at.isoformat(),  # Frontend expects 'createdAt'
+                'read': notification.read
+            }
+            
+            response_notifications.append(response_data)
         
-        return response_notifications
+        return [NotificationResponse(**data) for data in response_notifications]
         
     except Exception as e:
         logger.error(f"Error getting notifications: {e}")

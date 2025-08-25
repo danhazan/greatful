@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,15 +16,19 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = searchParams.get('limit') || '20'
     const offset = searchParams.get('offset') || '0'
+    const unreadOnly = searchParams.get('unread_only') || 'false'
 
     // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications?limit=${limit}&offset=${offset}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
-    })
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/notifications?limit=${limit}&offset=${offset}&unread_only=${unreadOnly}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
@@ -34,12 +38,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const notifications = await response.json()
-
-    // Transform the notifications to match the frontend format
-    const transformedNotifications = notifications.map((notification: any) => ({
+    const data = await response.json()
+    
+    // Transform snake_case to camelCase for frontend
+    const transformedData = data.map((notification: any) => ({
       id: notification.id,
-      type: notification.type === 'emoji_reaction' ? 'reaction' : notification.type,
+      type: notification.type,
       message: notification.message,
       postId: notification.data?.post_id || '',
       fromUser: {
@@ -51,7 +55,7 @@ export async function GET(request: NextRequest) {
       read: notification.read
     }))
 
-    return NextResponse.json(transformedNotifications)
+    return NextResponse.json(transformedData)
 
   } catch (error) {
     console.error('Error fetching notifications:', error)
