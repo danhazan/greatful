@@ -21,7 +21,7 @@ class Notification(Base):
     message = Column(Text, nullable=False)
     data = Column(JSON, nullable=True)  # Additional data like post_id, emoji_code, etc.
     read = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC).replace(tzinfo=None), nullable=False)
     read_at = Column(DateTime, nullable=True)
 
     # Relationships
@@ -33,7 +33,7 @@ class Notification(Base):
     def mark_as_read(self):
         """Mark notification as read."""
         self.read = True
-        self.read_at = datetime.datetime.now(datetime.UTC)
+        self.read_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
     @classmethod
     def create_emoji_reaction_notification(
