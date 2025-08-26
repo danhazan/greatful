@@ -36,24 +36,24 @@ export async function GET(request: NextRequest) {
 
     const notifications = await response.json()
 
-    // Transform the notifications to match the frontend format
+    // Transform the notifications to match the frontend format (camelCase)
     const transformedNotifications = notifications.map((notification: any) => ({
       id: notification.id,
       type: notification.type === 'emoji_reaction' ? 'reaction' : notification.type,
       message: notification.message,
-      post_id: notification.post_id || notification.data?.post_id || '',
-      from_user: {
+      postId: notification.post_id || notification.data?.post_id || '',
+      fromUser: {
         id: notification.from_user?.id || notification.data?.reactor_username || 'unknown',
-        username: notification.from_user?.username || notification.data?.reactor_username || 'Unknown User',
-        profile_image_url: notification.from_user?.profile_image_url || undefined
+        name: notification.from_user?.username || notification.data?.reactor_username || 'Unknown User',
+        image: notification.from_user?.profile_image_url || undefined
       },
-      created_at: notification.created_at,
-      last_updated_at: notification.last_updated_at,
+      createdAt: notification.created_at,
+      lastUpdatedAt: notification.last_updated_at,
       read: notification.read,
       // Batching fields
-      is_batch: notification.is_batch || false,
-      batch_count: notification.batch_count || 1,
-      parent_id: notification.parent_id || null
+      isBatch: notification.is_batch || false,
+      batchCount: notification.batch_count || 1,
+      parentId: notification.parent_id || null
     }))
 
     return NextResponse.json(transformedNotifications)

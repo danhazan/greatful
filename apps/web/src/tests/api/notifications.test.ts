@@ -75,7 +75,10 @@ describe('/api/notifications', () => {
           image: 'https://example.com/john.jpg'
         },
         createdAt: '2025-01-08T12:00:00Z',
-        read: false
+        read: false,
+        isBatch: false,
+        batchCount: 1,
+        parentId: null
       })
 
       expect(fetch).toHaveBeenCalledWith(

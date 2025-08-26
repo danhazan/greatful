@@ -206,7 +206,10 @@ class TestNotificationBatching:
         # Check database operations
         mock_db.add.assert_called()
         mock_db.commit.assert_called_once()
-        mock_db.refresh.assert_called_once_with(batch)
+        # Should refresh both batch and new notification
+        assert mock_db.refresh.call_count == 2
+        mock_db.refresh.assert_any_call(batch)
+        mock_db.refresh.assert_any_call(new_notification)
 
     @patch('app.models.user.User.get_by_username')
     async def test_create_emoji_reaction_notification_new_single(self, mock_get_user, mock_db):

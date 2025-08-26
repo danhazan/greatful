@@ -171,14 +171,15 @@ class TestNotificationIntegration:
             user_id=author.id
         )
 
-        # Should have 2 notifications - one for initial reaction, one for update
-        assert len(notifications) == 2
+        # Should have 1 batch notification (first notification converted to batch)
+        assert len(notifications) == 1
         
-        # Check the most recent notification (first in list due to ordering)
-        latest_notification = notifications[0]
-        assert latest_notification.type == "emoji_reaction"
-        assert "🔥" in latest_notification.message
-        assert latest_notification.data["emoji_code"] == "fire"
+        # Check the batch notification
+        batch_notification = notifications[0]
+        assert batch_notification.type == "emoji_reaction"
+        assert batch_notification.is_batch == True
+        assert batch_notification.batch_count == 2
+        assert "2 people reacted" in batch_notification.message
 
     @pytest.mark.asyncio
     async def test_multiple_users_reactions_create_multiple_notifications(self, db_session: AsyncSession):
@@ -237,14 +238,14 @@ class TestNotificationIntegration:
             user_id=author.id
         )
 
-        assert len(notifications) == 2
+        # Should have 1 batch notification (first notification converted to batch)
+        assert len(notifications) == 1
         
-        # Check that both notifications are for emoji reactions
-        for notification in notifications:
-            assert notification.type == "emoji_reaction"
-            assert notification.user_id == author.id
-            assert not notification.read
-            
-        # Check that we have notifications from both reactors
-        reactor_usernames = {n.data["reactor_username"] for n in notifications}
-        assert reactor_usernames == {"reactor3", "reactor4"}
+        # Check the batch notification
+        batch_notification = notifications[0]
+        assert batch_notification.type == "emoji_reaction"
+        assert batch_notification.user_id == author.id
+        assert not batch_notification.read
+        assert batch_notification.is_batch == True
+        assert batch_notification.batch_count == 2
+        assert "2 people reacted" in batch_notification.message

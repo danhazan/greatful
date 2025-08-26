@@ -59,7 +59,10 @@ class TestBatchBehavior:
         # Verify database operations
         mock_db.add.assert_called()
         mock_db.commit.assert_called_once()
-        mock_db.refresh.assert_called_once_with(batch)
+        # Should refresh both batch and new notification
+        assert mock_db.refresh.call_count == 2
+        mock_db.refresh.assert_any_call(batch)
+        mock_db.refresh.assert_any_call(new_notification)
 
     async def test_convert_to_batch_marks_as_unread(self, mock_db):
         """Test that converting to batch marks it as unread and updates last_updated_at."""

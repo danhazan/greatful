@@ -248,9 +248,10 @@ class NotificationService:
         
         await db.commit()
         await db.refresh(batch_notification)
+        await db.refresh(new_notification)
         
         logger.info(f"Added notification to batch {batch_notification.id}, now has {batch_notification.batch_count} items")
-        return batch_notification
+        return new_notification
 
     @staticmethod
     async def create_emoji_reaction_notification(

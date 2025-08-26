@@ -2,10 +2,18 @@
  * Tests for NotificationSystem time display functionality
  */
 
+/**
+ * Tests for NotificationSystem time display functionality
+ */
+
 import React from 'react'
 import { render, screen, act } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import NotificationSystem from '@/components/NotificationSystem'
+
+// Jest globals
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals'
+
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -37,31 +45,31 @@ describe('NotificationSystem Time Display', () => {
         id: '1',
         type: 'reaction',
         message: 'User1 reacted to your post',
-        post_id: 'post1',
-        from_user: { id: '1', username: 'user1' },
-        created_at: '2025-08-26T17:00:00.000Z', // 1 hour ago
+        postId: 'post1',
+        fromUser: { id: '1', name: 'user1' },
+        createdAt: '2025-08-26T17:00:00.000Z', // 1 hour ago
         read: false,
-        is_batch: false
+        isBatch: false
       },
       {
         id: '2',
         type: 'reaction',
         message: 'User2 reacted to your post',
-        post_id: 'post2',
-        from_user: { id: '2', username: 'user2' },
-        created_at: '2025-08-26T17:30:00.000Z', // 30 minutes ago
+        postId: 'post2',
+        fromUser: { id: '2', name: 'user2' },
+        createdAt: '2025-08-26T17:30:00.000Z', // 30 minutes ago
         read: false,
-        is_batch: false
+        isBatch: false
       },
       {
         id: '3',
         type: 'reaction',
         message: 'User3 reacted to your post',
-        post_id: 'post3',
-        from_user: { id: '3', username: 'user3' },
-        created_at: '2025-08-26T17:59:00.000Z', // 1 minute ago
+        postId: 'post3',
+        fromUser: { id: '3', name: 'user3' },
+        createdAt: '2025-08-26T17:59:00.000Z', // 1 minute ago
         read: false,
-        is_batch: false
+        isBatch: false
       }
     ]
 
@@ -74,7 +82,7 @@ describe('NotificationSystem Time Display', () => {
 
     // Wait for component to mount and fetch data
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100))
+      jest.advanceTimersByTime(100)
     })
 
     // Open notifications
@@ -98,11 +106,11 @@ describe('NotificationSystem Time Display', () => {
         id: '1',
         type: 'reaction',
         message: 'User1 reacted to your post',
-        post_id: 'post1',
-        from_user: { id: '1', username: 'user1' },
-        created_at: '2025-08-26T17:59:00.000Z', // 1 minute ago initially
+        postId: 'post1',
+        fromUser: { id: '1', name: 'user1' },
+        createdAt: '2025-08-26T17:59:00.000Z', // 1 minute ago initially
         read: false,
-        is_batch: false
+        isBatch: false
       }
     ]
 
@@ -121,7 +129,7 @@ describe('NotificationSystem Time Display', () => {
 
     // Wait for notifications to load
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0))
+      jest.advanceTimersByTime(0)
     })
 
     // Initially should show "1m ago"
@@ -146,11 +154,11 @@ describe('NotificationSystem Time Display', () => {
         id: '1',
         type: 'reaction',
         message: 'User1 reacted to your post',
-        post_id: 'post1',
-        from_user: { id: '1', username: 'user1' },
-        created_at: '2025-08-26T17:59:30.000Z', // 30 seconds ago
+        postId: 'post1',
+        fromUser: { id: '1', name: 'user1' },
+        createdAt: '2025-08-26T17:59:30.000Z', // 30 seconds ago
         read: false,
-        is_batch: false
+        isBatch: false
       }
     ]
 
@@ -169,7 +177,7 @@ describe('NotificationSystem Time Display', () => {
 
     // Wait for notifications to load
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0))
+      jest.advanceTimersByTime(0)
     })
 
     // Should show "Just now" for notifications less than 1 minute old

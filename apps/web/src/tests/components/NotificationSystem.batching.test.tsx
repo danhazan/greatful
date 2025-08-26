@@ -27,21 +27,28 @@ describe('NotificationSystem Batching', () => {
     mockLocalStorage.getItem.mockReturnValue('mock-token')
   })
 
+  afterEach(() => {
+    // Clean up any timers
+    jest.clearAllTimers()
+    // Reset DOM
+    document.body.innerHTML = ''
+  })
+
   const mockBatchNotification = {
     id: 'batch-123',
     type: 'reaction',
     message: '3 people reacted to your post',
-    post_id: 'post-123',
-    from_user: {
+    postId: 'post-123',
+    fromUser: {
       id: 'batch',
-      username: 'Multiple Users',
-      profile_image_url: undefined
+      name: 'Multiple Users',
+      image: undefined
     },
-    created_at: '2025-08-26T10:00:00Z',
+    createdAt: '2025-08-26T10:00:00Z',
     read: false,
-    is_batch: true,
-    batch_count: 3,
-    parent_id: null
+    isBatch: true,
+    batchCount: 3,
+    parentId: null
   }
 
   const mockBatchChildren = [
@@ -49,33 +56,33 @@ describe('NotificationSystem Batching', () => {
       id: 'child-1',
       type: 'reaction',
       message: 'reacted with 😍 to your post',
-      post_id: 'post-123',
-      from_user: {
+      postId: 'post-123',
+      fromUser: {
         id: 'user1',
-        username: 'User One',
-        profile_image_url: undefined
+        name: 'User One',
+        image: undefined
       },
-      created_at: '2025-08-26T09:00:00Z',
+      createdAt: '2025-08-26T09:00:00Z',
       read: false,
-      is_batch: false,
-      batch_count: 1,
-      parent_id: 'batch-123'
+      isBatch: false,
+      batchCount: 1,
+      parentId: 'batch-123'
     },
     {
       id: 'child-2',
       type: 'reaction',
       message: 'reacted with 🙏 to your post',
-      post_id: 'post-123',
-      from_user: {
+      postId: 'post-123',
+      fromUser: {
         id: 'user2',
-        username: 'User Two',
-        profile_image_url: undefined
+        name: 'User Two',
+        image: undefined
       },
-      created_at: '2025-08-26T09:30:00Z',
+      createdAt: '2025-08-26T09:30:00Z',
       read: false,
-      is_batch: false,
-      batch_count: 1,
-      parent_id: 'batch-123'
+      isBatch: false,
+      batchCount: 1,
+      parentId: 'batch-123'
     }
   ]
 
@@ -138,13 +145,15 @@ describe('NotificationSystem Batching', () => {
 
     // Debug: Check if the API call was made
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(3) // Initial fetch + children fetch + mark as read
+      expect(mockFetch).toHaveBeenCalledTimes(3) // Initial fetch + mark as read + children fetch
     })
+
+
 
     await waitFor(() => {
       expect(screen.getByText('User One')).toBeInTheDocument()
       expect(screen.getByText('User Two')).toBeInTheDocument()
-    })
+    }, { timeout: 3000 })
 
     // Should show individual reactions
     expect(screen.getByText('reacted with 😍 to your post')).toBeInTheDocument()
@@ -398,41 +407,38 @@ describe('NotificationSystem Batching', () => {
   })
 
   it('handles mixed batch and single notifications', async () => {
-    // Clear all previous mocks to avoid interference
-    mockFetch.mockClear()
-    
     const singleNotification = {
       id: 'single-456',
       type: 'reaction',
       message: 'reacted with ❤️ to your post',
-      post_id: 'post-456',
-      from_user: {
+      postId: 'post-456',
+      fromUser: {
         id: 'user3',
-        username: 'User Three',
-        profile_image_url: undefined
+        name: 'User Three',
+        image: undefined
       },
-      created_at: '2025-08-26T11:00:00Z',
+      createdAt: '2025-08-26T11:00:00Z',
       read: false,
-      is_batch: false,
-      batch_count: 1,
-      parent_id: null
+      isBatch: false,
+      batchCount: 1,
+      parentId: null
     }
 
-    // Set up mock with implementation that can be called multiple times
-    mockFetch.mockImplementation((url) => {
-      if (url === '/api/notifications') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => [mockBatchNotification, singleNotification]
-        })
-      }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ success: true })
-      })
+    // Reset and set up fresh mock
+    mockFetch.mockReset()
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => [mockBatchNotification, singleNotification]
     })
 
     render(<NotificationSystem userId={1} />)
+
+    // Wait for initial fetch to complete
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/notifications', {
+        headers: { Authorization: 'Bearer mock-token' }
+      })
+    })
 
     // Open notifications
     const bellButton = screen.getByLabelText('Notifications')
@@ -440,8 +446,9 @@ describe('NotificationSystem Batching', () => {
 
     await waitFor(() => {
       expect(screen.getByText('3 people reacted to your post')).toBeInTheDocument()
-      expect(screen.getByText('User Three')).toBeInTheDocument()
     })
+    
+    expect(screen.getByText('User Three')).toBeInTheDocument()
 
     // Batch should have expand arrow, single should not
     const expandArrows = document.querySelectorAll('svg')

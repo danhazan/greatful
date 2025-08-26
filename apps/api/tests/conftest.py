@@ -107,9 +107,46 @@ async def test_user(db_session):
 
 
 @pytest_asyncio.fixture
+async def test_user_2(db_session):
+    """Create a second test user."""
+    user = User(
+        email="test2@example.com",
+        username="testuser2",
+        hashed_password=get_password_hash("testpassword2"),
+        bio="Test bio 2"
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_user_3(db_session):
+    """Create a third test user."""
+    user = User(
+        email="test3@example.com",
+        username="testuser3",
+        hashed_password=get_password_hash("testpassword3"),
+        bio="Test bio 3"
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
 async def auth_headers(test_user):
     """Create authentication headers for test user."""
     token = create_access_token({"sub": str(test_user.id)})
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def auth_headers_2(test_user_2):
+    """Create authentication headers for second test user."""
+    token = create_access_token({"sub": str(test_user_2.id)})
     return {"Authorization": f"Bearer {token}"}
 
 

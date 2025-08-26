@@ -36,24 +36,24 @@ export async function GET(
 
     const children = await response.json()
 
-    // Transform the children to match the frontend format
+    // Transform the children to match the frontend format (camelCase)
     const transformedChildren = children.map((child: any) => ({
       id: child.id,
       type: child.type === 'emoji_reaction' ? 'reaction' : child.type,
       message: child.message,
-      post_id: child.post_id || child.data?.post_id || '',
-      from_user: {
+      postId: child.post_id || child.data?.post_id || '',
+      fromUser: {
         id: child.from_user?.id || child.data?.reactor_username || 'unknown',
-        username: child.from_user?.username || child.data?.reactor_username || 'Unknown User',
-        profile_image_url: child.from_user?.profile_image_url || undefined
+        name: child.from_user?.username || child.data?.reactor_username || 'Unknown User',
+        image: child.from_user?.profile_image_url || undefined
       },
-      created_at: child.created_at,
-      last_updated_at: child.last_updated_at,
+      createdAt: child.created_at,
+      lastUpdatedAt: child.last_updated_at,
       read: child.read,
       // Batching fields
-      is_batch: child.is_batch || false,
-      batch_count: child.batch_count || 1,
-      parent_id: child.parent_id || null
+      isBatch: child.is_batch || false,
+      batchCount: child.batch_count || 1,
+      parentId: child.parent_id || null
     }))
 
     return NextResponse.json(transformedChildren)

@@ -67,9 +67,9 @@ async def test_notification_batching_flow(
     assert notification1.title == "New Reactions"
     assert notification1.message == "2 people reacted to your post"
     
-    # Second notification should be a child
-    assert notification2.parent_id == notification1.id
-    assert notification2.is_batch == False
+    # Second call returns the batch notification (same as first)
+    assert notification2.id == notification1.id
+    assert notification2.is_batch == True
     
     # Test API: Get notifications (should only return parent)
     response = await async_client.get("/api/v1/notifications", headers=auth_headers)
