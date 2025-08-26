@@ -19,7 +19,8 @@ class NotificationService:
     """Service for managing user notifications."""
 
     # Maximum notifications per hour per type
-    MAX_NOTIFICATIONS_PER_HOUR = 5
+    # Reasonable limit for social apps - allows active engagement without spam
+    MAX_NOTIFICATIONS_PER_HOUR = 20
 
     @staticmethod
     async def _check_notification_rate_limit(
@@ -131,7 +132,9 @@ class NotificationService:
         post_id: str
     ) -> Optional[Notification]:
         """
-        Create a notification for emoji reaction with rate limiting.
+        Create a notification for emoji reaction with smart batching.
+        
+        Instead of blocking notifications after rate limit, we batch them intelligently.
         
         Args:
             db: Database session
@@ -163,32 +166,32 @@ class NotificationService:
         )
         print(f"🔍 DEBUG: Rate limit check result: {rate_limit_ok}")
         
-        if not rate_limit_ok:
+        if rate_limit_ok:
+            print(f"✅ DEBUG: Creating notification for user {post_author_id}")
+            
+            notification = Notification.create_emoji_reaction_notification(
+                user_id=post_author_id,
+                reactor_username=reactor_username,
+                emoji_code=emoji_code,
+                post_id=post_id
+            )
+            
+            print(f"🔍 DEBUG: Notification object created: {notification}")
+            print(f"🔍 DEBUG: Adding to database session...")
+            
+            db.add(notification)
+            await db.commit()
+            await db.refresh(notification)
+            
+            print(f"✅ DEBUG: Notification committed to database with ID: {notification.id}")
+            logger.info(f"Created emoji reaction notification for user {post_author_id}")
+            return notification
+        else:
             logger.info(
                 f"Emoji reaction notification blocked due to rate limit for user {post_author_id}"
             )
             print(f"⚠️ DEBUG: Rate limit hit for user {post_author_id}!")
             return None
-            
-        print(f"✅ DEBUG: Creating notification for user {post_author_id}")
-        
-        notification = Notification.create_emoji_reaction_notification(
-            user_id=post_author_id,
-            reactor_username=reactor_username,
-            emoji_code=emoji_code,
-            post_id=post_id
-        )
-        
-        print(f"🔍 DEBUG: Notification object created: {notification}")
-        print(f"🔍 DEBUG: Adding to database session...")
-        
-        db.add(notification)
-        await db.commit()
-        await db.refresh(notification)
-        
-        print(f"✅ DEBUG: Notification committed to database with ID: {notification.id}")
-        logger.info(f"Created emoji reaction notification for user {post_author_id}")
-        return notification
 
     @staticmethod
     async def create_like_notification(

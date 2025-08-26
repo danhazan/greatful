@@ -87,6 +87,22 @@ The system builds upon the existing stable authentication, navbar, and basic pos
 8. WHEN a user views notifications THEN they SHALL be marked as read automatically
 9. WHEN notifications accumulate THEN the system SHALL implement batching to avoid spam (max 5 notifications per hour per interaction type)
 
+### Requirement 5.1: Notification Batching System
+
+**User Story:** As a user, I want similar notifications for the same post to be grouped together, so I can see a clean notification list without spam while still being able to view individual interaction details.
+
+#### Acceptance Criteria
+
+1. WHEN multiple users react to the same post with the same notification type THEN the system SHALL create a parent batch notification
+2. WHEN a batch notification exists THEN individual notifications SHALL be grouped under it and not counted toward the unread counter
+3. WHEN a user clicks on a batch notification THEN it SHALL expand/collapse to show the list of individual notifications
+4. WHEN a user clicks on a batch notification THEN it SHALL be marked as read along with all its individual notifications
+5. WHEN a batch notification is displayed THEN it SHALL show a summary like "[3 people] reacted to your post" with the most recent reaction emoji
+6. WHEN individual notifications are displayed within a batch THEN they SHALL show "[Username] reacted with [emoji]" with timestamps
+7. WHEN a new notification of the same type arrives for the same post THEN it SHALL be added to the existing batch
+8. WHEN a batch contains only one notification THEN it SHALL be displayed as a regular individual notification
+9. IF a batch notification is expanded THEN clicking elsewhere SHALL collapse it back to the summary view
+
 ### Requirement 6: Follow System Integration
 
 **User Story:** As a user, I want to follow other users whose gratitude posts inspire me, so I can see their content prioritized in my feed and build meaningful connections.

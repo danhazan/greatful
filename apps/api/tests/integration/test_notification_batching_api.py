@@ -97,7 +97,7 @@ class TestNotificationBatchingAPI:
         assert data['user_id'] == author.id
         assert data['notification_type'] == "emoji_reaction"
         assert data['last_hour'] == 3
-        assert data['rate_limit_remaining'] == 2  # 5 - 3 = 2
+        assert data['rate_limit_remaining'] == 17  # 20 - 3 = 17
 
     async def test_notification_batching_with_emoji_reactions(
         self, 
@@ -114,8 +114,8 @@ class TestNotificationBatchingAPI:
         reactor_token = create_access_token(data={"sub": str(reactor.id)})
         reactor_headers = {"Authorization": f"Bearer {reactor_token}"}
         
-        # Create 5 emoji reactions (at the limit)
-        for i in range(5):
+        # Create 20 emoji reactions (at the limit)
+        for i in range(20):
             response = client.post(
                 f"/api/v1/posts/{test_post.id}/reactions",
                 json={"emoji_code": "heart_eyes"},
@@ -124,7 +124,7 @@ class TestNotificationBatchingAPI:
             assert response.status_code == 201
             
             # Remove the reaction to create a new one
-            if i < 4:  # Don't remove the last one
+            if i < 19:  # Don't remove the last one
                 client.delete(
                     f"/api/v1/posts/{test_post.id}/reactions",
                     headers=reactor_headers
@@ -139,9 +139,9 @@ class TestNotificationBatchingAPI:
         assert response.status_code == 200
         notifications = response.json()
         
-        # Should have exactly 5 notifications (at the rate limit)
+        # Should have exactly 20 notifications (at the rate limit)
         emoji_notifications = [n for n in notifications if n['type'] == 'emoji_reaction']
-        assert len(emoji_notifications) == 5
+        assert len(emoji_notifications) == 20
         
         # Try to create one more reaction (should not create a notification due to rate limiting)
         client.delete(
@@ -156,7 +156,7 @@ class TestNotificationBatchingAPI:
         )
         assert response.status_code == 201
         
-        # Check notifications again - should still be 5
+        # Check notifications again - should still be 20
         response = client.get(
             "/api/v1/notifications",
             headers=auth_headers
@@ -165,7 +165,7 @@ class TestNotificationBatchingAPI:
         assert response.status_code == 200
         notifications = response.json()
         emoji_notifications = [n for n in notifications if n['type'] == 'emoji_reaction']
-        assert len(emoji_notifications) == 5  # No new notification due to rate limiting
+        assert len(emoji_notifications) == 20  # No new notification due to rate limiting
 
     async def test_notification_stats_shows_rate_limit_info(
         self, 
@@ -178,7 +178,7 @@ class TestNotificationBatchingAPI:
         author, _ = test_users
         
         # Create notifications up to the limit
-        for i in range(5):
+        for i in range(20):
             await NotificationService.create_notification(
                 db=db_session,
                 user_id=author.id,
@@ -196,7 +196,7 @@ class TestNotificationBatchingAPI:
         assert response.status_code == 200
         data = response.json()
         
-        assert data['last_hour'] == 5
+        assert data['last_hour'] == 20
         assert data['rate_limit_remaining'] == 0  # At the limit
         
         # Try to create one more (should be blocked)
@@ -219,7 +219,7 @@ class TestNotificationBatchingAPI:
         assert response.status_code == 200
         data = response.json()
         
-        assert data['last_hour'] == 5
+        assert data['last_hour'] == 20
         assert data['rate_limit_remaining'] == 0
 
     async def test_different_notification_types_separate_limits_api(
@@ -233,7 +233,7 @@ class TestNotificationBatchingAPI:
         author, _ = test_users
         
         # Fill up emoji_reaction limit
-        for i in range(5):
+        for i in range(20):
             await NotificationService.create_notification(
                 db=db_session,
                 user_id=author.id,
@@ -271,7 +271,7 @@ class TestNotificationBatchingAPI:
         assert response.status_code == 200
         data = response.json()
         assert data['last_hour'] == 3
-        assert data['rate_limit_remaining'] == 2  # 5 - 3 = 2
+        assert data['rate_limit_remaining'] == 17  # 20 - 3 = 17
 
     async def test_unauthorized_access_to_stats(self, client: AsyncClient):
         """Test that unauthorized users cannot access notification stats."""

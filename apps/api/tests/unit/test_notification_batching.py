@@ -47,10 +47,10 @@ class TestNotificationBatching:
 
     async def test_check_notification_rate_limit_at_limit(self, mock_db):
         """Test rate limit check when at the limit."""
-        # Mock the database query to return 5 notifications (at limit)
+        # Mock the database query to return 20 notifications (at limit)
         from unittest.mock import Mock
         mock_result = Mock()
-        mock_result.scalar.return_value = 5
+        mock_result.scalar.return_value = 20
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         result = await NotificationService._check_notification_rate_limit(
@@ -62,10 +62,10 @@ class TestNotificationBatching:
 
     async def test_check_notification_rate_limit_over_limit(self, mock_db):
         """Test rate limit check when over the limit."""
-        # Mock the database query to return 6 notifications (over limit)
+        # Mock the database query to return 21 notifications (over limit)
         from unittest.mock import Mock
         mock_result = Mock()
-        mock_result.scalar.return_value = 6
+        mock_result.scalar.return_value = 21
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         result = await NotificationService._check_notification_rate_limit(
@@ -268,7 +268,7 @@ class TestNotificationBatching:
         assert stats['last_hour'] == 2
         assert stats['last_day'] == 8
         assert stats['total'] == 25
-        assert stats['rate_limit_remaining'] == 3  # 5 - 2 = 3
+        assert stats['rate_limit_remaining'] == 18  # 20 - 2 = 18
 
     async def test_rate_limit_time_window(self, mock_db):
         """Test that rate limit uses correct time window (1 hour)."""
