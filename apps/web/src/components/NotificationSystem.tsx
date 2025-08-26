@@ -32,10 +32,20 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
   const [unreadCount, setUnreadCount] = useState(0)
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
   const [batchChildren, setBatchChildren] = useState<Record<string, Notification[]>>({})
+  const [currentTime, setCurrentTime] = useState(new Date())
 
 
 
 
+
+  // Update current time every minute for live relative time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 60000) // Update every minute
+    
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch notifications on mount and periodically
   useEffect(() => {
@@ -63,6 +73,11 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
           // Debug logging in development
           if (process.env.NODE_ENV === 'development' && data.length > 0) {
             console.debug('Notification data sample:', data[0])
+            console.debug('All notification timestamps:', data.map((n: any) => ({
+              id: n.id,
+              created_at: n.created_at,
+              last_updated_at: n.last_updated_at
+            })))
           }
           
           setNotifications(data)
@@ -205,8 +220,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return "Invalid date"
     
-    const now = new Date()
-    const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60)
+    // Use currentTime state instead of new Date() for live updates
+    const diffInMinutes = (currentTime.getTime() - date.getTime()) / (1000 * 60)
     
     if (diffInMinutes < 1) return "Just now"
     if (diffInMinutes < 60) return `${Math.floor(diffInMinutes)}m ago`
