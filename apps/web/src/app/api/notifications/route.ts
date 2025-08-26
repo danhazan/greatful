@@ -48,7 +48,11 @@ export async function GET(request: NextRequest) {
         image: notification.from_user?.profile_image_url || undefined
       },
       createdAt: notification.created_at,
-      read: notification.read
+      read: notification.read,
+      // Batching fields
+      isBatch: notification.is_batch || false,
+      batchCount: notification.batch_count || 1,
+      parentId: notification.parent_id || null
     }))
 
     return NextResponse.json(transformedNotifications)

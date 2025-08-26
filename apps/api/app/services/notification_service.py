@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func, desc, and_
+from sqlalchemy import func, desc, and_, or_
 from app.models.notification import Notification
 from app.models.user import User
 import logging
@@ -124,6 +124,124 @@ class NotificationService:
         return notification
 
     @staticmethod
+    async def _find_existing_batch(
+        db: AsyncSession,
+        user_id: int,
+        batch_key: str,
+        max_age_hours: int = 24
+    ) -> Optional[Notification]:
+        """
+        Find an existing batch notification for the given batch key.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user
+            batch_key: Key for grouping similar notifications
+            max_age_hours: Maximum age of batch to consider (default 24 hours)
+            
+        Returns:
+            Optional[Notification]: Existing batch notification or None
+        """
+        cutoff_time = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=max_age_hours)
+        cutoff_time = cutoff_time.replace(tzinfo=None)
+        
+        result = await db.execute(
+            select(Notification)
+            .where(
+                and_(
+                    Notification.user_id == user_id,
+                    Notification.batch_key == batch_key,
+                    Notification.is_batch == True,
+                    Notification.created_at >= cutoff_time
+                )
+            )
+            .order_by(desc(Notification.created_at))
+            .limit(1)
+        )
+        
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def _convert_to_batch(
+        db: AsyncSession,
+        existing_notification: Notification,
+        new_notification: Notification
+    ) -> Notification:
+        """
+        Convert an existing single notification to a batch and add the new one as a child.
+        
+        Args:
+            db: Database session
+            existing_notification: The existing single notification
+            new_notification: The new notification to add to the batch
+            
+        Returns:
+            Notification: The batch notification
+        """
+        # Mark existing notification as a batch
+        existing_notification.is_batch = True
+        existing_notification.batch_count = 2
+        
+        # Update title and message to batch format
+        title, message = existing_notification.create_batch_summary(2)
+        existing_notification.title = title
+        existing_notification.message = message
+        
+        # Set the new notification as a child
+        new_notification.parent_id = existing_notification.id
+        
+        # Add both to session
+        db.add(existing_notification)
+        db.add(new_notification)
+        
+        await db.commit()
+        await db.refresh(existing_notification)
+        
+        logger.info(f"Converted notification {existing_notification.id} to batch with 2 items")
+        return existing_notification
+
+    @staticmethod
+    async def _add_to_batch(
+        db: AsyncSession,
+        batch_notification: Notification,
+        new_notification: Notification
+    ) -> Notification:
+        """
+        Add a new notification to an existing batch.
+        
+        Args:
+            db: Database session
+            batch_notification: The existing batch notification
+            new_notification: The new notification to add to the batch
+            
+        Returns:
+            Notification: The updated batch notification
+        """
+        # Increment batch count
+        batch_notification.batch_count += 1
+        
+        # Update title and message to reflect new count
+        title, message = batch_notification.create_batch_summary(batch_notification.batch_count)
+        batch_notification.title = title
+        batch_notification.message = message
+        
+        # Update timestamp to show latest activity
+        batch_notification.created_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        
+        # Set the new notification as a child
+        new_notification.parent_id = batch_notification.id
+        
+        # Add both to session
+        db.add(batch_notification)
+        db.add(new_notification)
+        
+        await db.commit()
+        await db.refresh(batch_notification)
+        
+        logger.info(f"Added notification to batch {batch_notification.id}, now has {batch_notification.batch_count} items")
+        return batch_notification
+
+    @staticmethod
     async def create_emoji_reaction_notification(
         db: AsyncSession,
         post_author_id: int,
@@ -133,8 +251,6 @@ class NotificationService:
     ) -> Optional[Notification]:
         """
         Create a notification for emoji reaction with smart batching.
-        
-        Instead of blocking notifications after rate limit, we batch them intelligently.
         
         Args:
             db: Database session
@@ -160,38 +276,59 @@ class NotificationService:
             print(f"⚠️ DEBUG: Self-notification prevented (reactor {reactor.id} == author {post_author_id})")
             return None
         
-        # Check rate limit for emoji_reaction notifications
-        rate_limit_ok = await NotificationService._check_notification_rate_limit(
-            db, post_author_id, 'emoji_reaction'
+        # Create the new notification
+        notification = Notification.create_emoji_reaction_notification(
+            user_id=post_author_id,
+            reactor_username=reactor_username,
+            emoji_code=emoji_code,
+            post_id=post_id
         )
-        print(f"🔍 DEBUG: Rate limit check result: {rate_limit_ok}")
         
-        if rate_limit_ok:
-            print(f"✅ DEBUG: Creating notification for user {post_author_id}")
-            
-            notification = Notification.create_emoji_reaction_notification(
-                user_id=post_author_id,
-                reactor_username=reactor_username,
-                emoji_code=emoji_code,
-                post_id=post_id
-            )
-            
-            print(f"🔍 DEBUG: Notification object created: {notification}")
-            print(f"🔍 DEBUG: Adding to database session...")
-            
-            db.add(notification)
-            await db.commit()
-            await db.refresh(notification)
-            
-            print(f"✅ DEBUG: Notification committed to database with ID: {notification.id}")
-            logger.info(f"Created emoji reaction notification for user {post_author_id}")
-            return notification
+        # Check for existing batch
+        existing_batch = await NotificationService._find_existing_batch(
+            db, post_author_id, notification.batch_key
+        )
+        
+        if existing_batch:
+            # Add to existing batch
+            print(f"🔍 DEBUG: Adding to existing batch {existing_batch.id}")
+            return await NotificationService._add_to_batch(db, existing_batch, notification)
         else:
-            logger.info(
-                f"Emoji reaction notification blocked due to rate limit for user {post_author_id}"
+            # Check for existing single notification to convert to batch
+            one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
+            one_hour_ago = one_hour_ago.replace(tzinfo=None)
+            
+            result = await db.execute(
+                select(Notification)
+                .where(
+                    and_(
+                        Notification.user_id == post_author_id,
+                        Notification.batch_key == notification.batch_key,
+                        Notification.is_batch == False,
+                        Notification.parent_id.is_(None),
+                        Notification.created_at >= one_hour_ago
+                    )
+                )
+                .order_by(desc(Notification.created_at))
+                .limit(1)
             )
-            print(f"⚠️ DEBUG: Rate limit hit for user {post_author_id}!")
-            return None
+            
+            existing_single = result.scalar_one_or_none()
+            
+            if existing_single:
+                # Convert to batch
+                print(f"🔍 DEBUG: Converting single notification {existing_single.id} to batch")
+                return await NotificationService._convert_to_batch(db, existing_single, notification)
+            else:
+                # Create as single notification
+                print(f"🔍 DEBUG: Creating new single notification")
+                db.add(notification)
+                await db.commit()
+                await db.refresh(notification)
+                
+                print(f"✅ DEBUG: Notification committed to database with ID: {notification.id}")
+                logger.info(f"Created emoji reaction notification for user {post_author_id}")
+                return notification
 
     @staticmethod
     async def create_like_notification(
@@ -376,10 +513,11 @@ class NotificationService:
         user_id: int,
         limit: int = 20,
         offset: int = 0,
-        unread_only: bool = False
+        unread_only: bool = False,
+        include_children: bool = False
     ) -> List[Notification]:
         """
-        Get notifications for a user.
+        Get notifications for a user, excluding child notifications by default.
         
         Args:
             db: Database session
@@ -387,11 +525,16 @@ class NotificationService:
             limit: Maximum number of notifications to return
             offset: Number of notifications to skip
             unread_only: If True, only return unread notifications
+            include_children: If True, include child notifications
             
         Returns:
             List[Notification]: List of notifications
         """
         query = select(Notification).where(Notification.user_id == user_id)
+        
+        if not include_children:
+            # Only show parent notifications (batch parents or standalone notifications)
+            query = query.where(Notification.parent_id.is_(None))
         
         if unread_only:
             query = query.where(Notification.read == False)
@@ -402,9 +545,39 @@ class NotificationService:
         return result.scalars().all()
 
     @staticmethod
+    async def get_batch_children(
+        db: AsyncSession,
+        batch_id: str,
+        user_id: int
+    ) -> List[Notification]:
+        """
+        Get child notifications for a batch.
+        
+        Args:
+            db: Database session
+            batch_id: ID of the batch notification
+            user_id: ID of the user (for security)
+            
+        Returns:
+            List[Notification]: List of child notifications
+        """
+        result = await db.execute(
+            select(Notification)
+            .where(
+                and_(
+                    Notification.parent_id == batch_id,
+                    Notification.user_id == user_id
+                )
+            )
+            .order_by(desc(Notification.created_at))
+        )
+        
+        return result.scalars().all()
+
+    @staticmethod
     async def get_unread_count(db: AsyncSession, user_id: int) -> int:
         """
-        Get count of unread notifications for a user.
+        Get count of unread notifications for a user (only parent notifications).
         
         Args:
             db: Database session
@@ -415,14 +588,20 @@ class NotificationService:
         """
         result = await db.execute(
             select(func.count(Notification.id))
-            .where(Notification.user_id == user_id, Notification.read == False)
+            .where(
+                and_(
+                    Notification.user_id == user_id,
+                    Notification.read == False,
+                    Notification.parent_id.is_(None)  # Only count parent notifications
+                )
+            )
         )
         return result.scalar() or 0
 
     @staticmethod
     async def mark_as_read(db: AsyncSession, notification_id: str, user_id: int) -> bool:
         """
-        Mark a notification as read.
+        Mark a notification as read. If it's a batch, mark all children as read too.
         
         Args:
             db: Database session
@@ -443,6 +622,26 @@ class NotificationService:
         
         if notification and not notification.read:
             notification.mark_as_read()
+            
+            # If it's a batch notification, mark all children as read too
+            if notification.is_batch:
+                children_result = await db.execute(
+                    select(Notification)
+                    .where(
+                        and_(
+                            Notification.parent_id == notification_id,
+                            Notification.user_id == user_id,
+                            Notification.read == False
+                        )
+                    )
+                )
+                children = children_result.scalars().all()
+                
+                for child in children:
+                    child.mark_as_read()
+                
+                logger.info(f"Marked batch notification {notification_id} and {len(children)} children as read")
+            
             await db.commit()
             logger.info(f"Marked notification {notification_id} as read for user {user_id}")
             return True
@@ -452,14 +651,14 @@ class NotificationService:
     @staticmethod
     async def mark_all_as_read(db: AsyncSession, user_id: int) -> int:
         """
-        Mark all notifications as read for a user.
+        Mark all notifications as read for a user (including children).
         
         Args:
             db: Database session
             user_id: ID of the user
             
         Returns:
-            int: Number of notifications marked as read
+            int: Number of parent notifications marked as read
         """
         result = await db.execute(
             select(Notification)
@@ -467,16 +666,18 @@ class NotificationService:
         )
         notifications = result.scalars().all()
         
-        count = 0
+        parent_count = 0
         for notification in notifications:
             notification.mark_as_read()
-            count += 1
+            # Only count parent notifications for the return value
+            if notification.parent_id is None:
+                parent_count += 1
             
-        if count > 0:
+        if len(notifications) > 0:
             await db.commit()
-            logger.info(f"Marked {count} notifications as read for user {user_id}")
+            logger.info(f"Marked {len(notifications)} total notifications ({parent_count} parents) as read for user {user_id}")
             
-        return count
+        return parent_count
 
     @staticmethod
     async def get_notification_stats(

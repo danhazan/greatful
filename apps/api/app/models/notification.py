@@ -23,9 +23,17 @@ class Notification(Base):
     read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC).replace(tzinfo=None), nullable=False)
     read_at = Column(DateTime, nullable=True)
+    
+    # Batching fields
+    parent_id = Column(String, ForeignKey("notifications.id"), nullable=True, index=True)
+    is_batch = Column(Boolean, default=False, nullable=False)
+    batch_count = Column(Integer, default=1, nullable=False)
+    batch_key = Column(String, nullable=True, index=True)  # For grouping similar notifications
 
     # Relationships
     user = relationship("User", back_populates="notifications")
+    parent = relationship("Notification", remote_side=[id], back_populates="children")
+    children = relationship("Notification", back_populates="parent", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Notification(id={self.id}, user_id={self.user_id}, type={self.type})>"
@@ -34,6 +42,68 @@ class Notification(Base):
         """Mark notification as read."""
         self.read = True
         self.read_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
+    def generate_batch_key(self) -> str:
+        """Generate a key for grouping similar notifications."""
+        data = self.data or {}
+        if self.type == 'emoji_reaction':
+            return f"emoji_reaction_{self.user_id}_{data.get('post_id')}"
+        elif self.type == 'like':
+            return f"like_{self.user_id}_{data.get('post_id')}"
+        elif self.type == 'new_follower':
+            return f"new_follower_{self.user_id}"
+        elif self.type == 'post_shared':
+            return f"post_shared_{self.user_id}_{data.get('post_id')}"
+        elif self.type == 'mention':
+            return f"mention_{self.user_id}_{data.get('post_id')}"
+        else:
+            return f"{self.type}_{self.user_id}"
+
+    def create_batch_summary(self, count: int) -> tuple[str, str]:
+        """Create batch summary title and message."""
+        if self.type == 'emoji_reaction':
+            data = self.data or {}
+            emoji_display = {
+                'heart_eyes': '😍',
+                'hugs': '🤗', 
+                'pray': '🙏',
+                'muscle': '💪',
+                'star': '🌟',
+                'fire': '🔥',
+                'heart_face': '🥰',
+                'clap': '👏'
+            }.get(data.get('emoji_code', ''), '😊')
+            
+            if count == 1:
+                return "New Reaction", f"{data.get('reactor_username')} reacted with {emoji_display} to your post"
+            else:
+                return "New Reactions", f"{count} people reacted to your post"
+        elif self.type == 'like':
+            data = self.data or {}
+            if count == 1:
+                return "New Like", f"{data.get('liker_username')} liked your post"
+            else:
+                return "New Likes", f"{count} people liked your post"
+        elif self.type == 'new_follower':
+            data = self.data or {}
+            if count == 1:
+                return "New Follower", f"{data.get('follower_username')} started following you"
+            else:
+                return "New Followers", f"{count} people started following you"
+        elif self.type == 'post_shared':
+            data = self.data or {}
+            if count == 1:
+                return "Post Shared", f"{data.get('sharer_username')} shared your post"
+            else:
+                return "Post Shared", f"Your post was shared {count} times"
+        elif self.type == 'mention':
+            data = self.data or {}
+            if count == 1:
+                return "You were mentioned", f"{data.get('author_username')} mentioned you in a post"
+            else:
+                return "You were mentioned", f"You were mentioned in {count} posts"
+        else:
+            return self.title, self.message
 
     @classmethod
     def create_emoji_reaction_notification(
@@ -55,7 +125,7 @@ class Notification(Base):
             'clap': '👏'
         }.get(emoji_code, '😊')
         
-        return cls(
+        notification = cls(
             user_id=user_id,
             type='emoji_reaction',
             title='New Reaction',
@@ -66,3 +136,5 @@ class Notification(Base):
                 'reactor_username': reactor_username
             }
         )
+        notification.batch_key = notification.generate_batch_key()
+        return notification

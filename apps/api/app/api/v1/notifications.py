@@ -29,6 +29,10 @@ class NotificationResponse(BaseModel):
     created_at: str
     post_id: str | None = None
     from_user: dict | None = None
+    # Batching fields
+    is_batch: bool = False
+    batch_count: int = 1
+    parent_id: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -101,7 +105,10 @@ async def get_notifications(
                 read=notification.read,
                 created_at=notification.created_at.isoformat(),
                 post_id=post_id,
-                from_user=from_user
+                from_user=from_user,
+                is_batch=notification.is_batch,
+                batch_count=notification.batch_count,
+                parent_id=notification.parent_id
             ))
         
         return response_notifications
@@ -209,6 +216,64 @@ async def mark_all_notifications_as_read(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to mark all notifications as read"
+        )
+
+
+@router.get("/notifications/{batch_id}/children", response_model=List[NotificationResponse])
+async def get_batch_children(
+    batch_id: str,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get child notifications for a batch notification.
+    
+    - **batch_id**: ID of the batch notification
+    
+    Returns a list of child notifications.
+    """
+    try:
+        children = await NotificationService.get_batch_children(
+            db=db,
+            batch_id=batch_id,
+            user_id=current_user_id
+        )
+        
+        response_notifications = []
+        for notification in children:
+            # Extract post_id and from_user from data if available
+            post_id = notification.data.get('post_id') if notification.data else None
+            from_user = None
+            
+            if notification.data and 'reactor_username' in notification.data:
+                from_user = {
+                    'id': '0',  # We don't store user ID in notification data yet
+                    'username': notification.data['reactor_username'],
+                    'profile_image_url': None
+                }
+            
+            response_notifications.append(NotificationResponse(
+                id=notification.id,
+                type=notification.type,
+                title=notification.title,
+                message=notification.message,
+                data=notification.data or {},
+                read=notification.read,
+                created_at=notification.created_at.isoformat(),
+                post_id=post_id,
+                from_user=from_user,
+                is_batch=notification.is_batch,
+                batch_count=notification.batch_count,
+                parent_id=notification.parent_id
+            ))
+        
+        return response_notifications
+        
+    except Exception as e:
+        logger.error(f"Error getting batch children: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get batch children"
         )
 
 

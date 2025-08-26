@@ -15,6 +15,10 @@ interface Notification {
   }
   createdAt: string
   read: boolean
+  // Batching fields
+  isBatch?: boolean
+  batchCount?: number
+  parentId?: string | null
 }
 
 interface NotificationSystemProps {
@@ -25,6 +29,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
+  const [batchChildren, setBatchChildren] = useState<Record<string, Notification[]>>({})
 
 
 
@@ -137,6 +143,53 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     }
   }
 
+  const toggleBatchExpansion = async (batchId: string) => {
+    const isExpanded = expandedBatches.has(batchId)
+    
+    if (isExpanded) {
+      // Collapse the batch
+      setExpandedBatches(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(batchId)
+        return newSet
+      })
+    } else {
+      // Expand the batch - fetch children if not already loaded
+      if (!batchChildren[batchId]) {
+        try {
+          const token = localStorage.getItem("access_token")
+          if (!token) return
+
+          const response = await fetch(`/api/notifications/${batchId}/batch/children`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+
+          if (response.ok) {
+            const children = await response.json()
+            setBatchChildren(prev => ({
+              ...prev,
+              [batchId]: children
+            }))
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Failed to fetch batch children:', error)
+          }
+          return // Don't expand if we can't fetch children
+        }
+      }
+      
+      // Expand the batch
+      setExpandedBatches(prev => {
+        const newSet = new Set(prev)
+        newSet.add(batchId)
+        return newSet
+      })
+    }
+  }
+
 
 
   const formatTime = (dateString: string) => {
@@ -216,58 +269,150 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
               ) : (
                 <div className="divide-y divide-gray-100">
                   {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                        !notification.read ? 'bg-purple-50' : ''
-                      }`}
-                      onClick={() => {
-                        if (!notification.read) {
-                          markAsRead(notification.id)
-                        }
-                        // Navigate to post (you can implement this)
-                        setShowNotifications(false)
-                      }}
-                    >
-                      <div className="flex items-start space-x-3">
-                        {/* User Avatar */}
-                        <div className="flex-shrink-0">
-                          {notification.fromUser.image ? (
-                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100">
-                              <img
-                                src={notification.fromUser.image}
-                                alt={notification.fromUser.name}
-                                className="w-full h-full object-cover object-center"
-                              />
+                    <div key={notification.id}>
+                      {/* Main notification */}
+                      <div
+                        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                          !notification.read ? 'bg-purple-50' : ''
+                        }`}
+                        onClick={() => {
+                          if (notification.isBatch) {
+                            // Toggle batch expansion
+                            toggleBatchExpansion(notification.id)
+                          } else {
+                            if (!notification.read) {
+                              markAsRead(notification.id)
+                            }
+                            // Navigate to post (you can implement this)
+                            setShowNotifications(false)
+                          }
+                        }}
+                      >
+                        <div className="flex items-start space-x-3">
+                          {/* User Avatar or Batch Icon */}
+                          <div className="flex-shrink-0">
+                            {notification.isBatch ? (
+                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                <span className="text-purple-600 text-xs font-medium">
+                                  {notification.batchCount}
+                                </span>
+                              </div>
+                            ) : notification.fromUser.image ? (
+                              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100">
+                                <img
+                                  src={notification.fromUser.image}
+                                  alt={notification.fromUser.name}
+                                  className="w-full h-full object-cover object-center"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                <span className="text-purple-600 text-sm font-medium">
+                                  {notification.fromUser.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Notification Content */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900">
+                              {notification.isBatch ? (
+                                notification.message
+                              ) : (
+                                <>
+                                  <span className="font-medium">{notification.fromUser.name}</span>
+                                  {' '}
+                                  {notification.message}
+                                </>
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatTime(notification.createdAt)}
+                            </p>
+                          </div>
+
+                          {/* Expand/Collapse indicator for batches */}
+                          {notification.isBatch && (
+                            <div className="flex-shrink-0">
+                              <svg
+                                className={`w-4 h-4 text-gray-400 transition-transform ${
+                                  expandedBatches.has(notification.id) ? 'rotate-180' : ''
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
                             </div>
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                              <span className="text-purple-600 text-sm font-medium">
-                                {notification.fromUser.name.charAt(0).toUpperCase()}
-                              </span>
+                          )}
+
+                          {/* Unread Indicator */}
+                          {!notification.read && (
+                            <div className="flex-shrink-0">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                             </div>
                           )}
                         </div>
-
-                        {/* Notification Content */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900">
-                            <span className="font-medium">{notification.fromUser.name}</span>
-                            {' '}
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {formatTime(notification.createdAt)}
-                          </p>
-                        </div>
-
-                        {/* Unread Indicator */}
-                        {!notification.read && (
-                          <div className="flex-shrink-0">
-                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                          </div>
-                        )}
                       </div>
+
+                      {/* Batch children */}
+                      {notification.isBatch && expandedBatches.has(notification.id) && batchChildren[notification.id] && Array.isArray(batchChildren[notification.id]) && (
+                        <div className="bg-gray-50">
+                          {batchChildren[notification.id].map((child) => (
+                            <div
+                              key={child.id}
+                              className="pl-8 pr-4 py-3 hover:bg-gray-100 cursor-pointer transition-colors border-l-2 border-purple-200"
+                              onClick={() => {
+                                if (!child.read) {
+                                  markAsRead(child.id)
+                                }
+                                // Navigate to post (you can implement this)
+                                setShowNotifications(false)
+                              }}
+                            >
+                              <div className="flex items-start space-x-3">
+                                {/* Child User Avatar */}
+                                <div className="flex-shrink-0">
+                                  {child.fromUser.image ? (
+                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100">
+                                      <img
+                                        src={child.fromUser.image}
+                                        alt={child.fromUser.name}
+                                        className="w-full h-full object-cover object-center"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                                      <span className="text-purple-600 text-xs font-medium">
+                                        {child.fromUser.name.charAt(0).toUpperCase()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Child Content */}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-700">
+                                    <span className="font-medium">{child.fromUser.name}</span>
+                                    {' '}
+                                    {child.message}
+                                  </p>
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    {formatTime(child.createdAt)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

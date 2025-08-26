@@ -64,7 +64,17 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Write tests for notification creation, batching, and UI interactions
 - [x] Add polling-based notification updates (every 30 seconds)
 - [x] Implement mark as read functionality for individual and bulk operations
-**Acceptance Criteria:** Users receive timely notifications for emoji reactions, can view them in a dropdown with unread count, notifications are properly batched to prevent spam, and the complete notification flow works end-to-end from backend to frontend.
+- [x] **3.1 Implement Notification Batching System**
+  - Create parent-child notification relationship in database schema
+  - Implement batch notification creation logic in NotificationService
+  - Update notification display to show batch summaries (e.g., "[3 people] reacted to your post")
+  - Add expand/collapse functionality for batch notifications in UI
+  - Implement batch read marking (parent + all children marked as read)
+  - Update unread counter to only count parent notifications, not individual ones
+  - Add logic to convert single notifications to batches when new similar notifications arrive
+  - Write comprehensive tests for batching logic, UI interactions, and read state management
+  - _Requirements: 5.1_
+**Acceptance Criteria:** Users receive timely notifications for emoji reactions, can view them in a dropdown with unread count, notifications are properly batched to prevent spam, batch notifications can be expanded to show individual interactions, and the complete notification flow works end-to-end from backend to frontend.
 
 ### **TASK 4: Share System with URL Generation** 
 **Module Reference:** Requirements 2 - Share System with URL Generation

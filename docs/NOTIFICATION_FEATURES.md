@@ -2,20 +2,22 @@
 
 ## Core Features (Implemented/Planned)
 
-### 1. In-App Notifications (MVP)
-- Notification bell in navbar with unread count
-- Dropdown panel showing recent notifications
-- Mark as read functionality
-- Clickable notifications (link to post, profile, etc.)
-- Priority field for sorting/highlighting
+### 1. In-App Notifications ✅ (Implemented)
+- ✅ Notification bell in navbar with unread count
+- ✅ Dropdown panel showing recent notifications
+- ✅ Mark as read functionality (individual and bulk)
+- ✅ Notification data includes post/user context
+- ✅ Rate limiting and spam prevention
+- ✅ Real-time notification creation from user actions
 
 ### 2. Notification Types
-- Like
-- Comment
-- Follow
-- Mention
-- System (account/security)
-- Reminder
+- **emoji_reaction**: When someone reacts with an emoji to your post
+- **like**: When someone likes your post
+- **comment**: When someone comments on your post
+- **follow**: When someone follows you (new_follower)
+- **mention**: When someone mentions you in a post
+- **post_shared**: When someone shares your post
+- **system**: Account/security notifications
 - (Easily extensible for new types)
 
 ### 3. Notification Data Model
@@ -29,9 +31,53 @@
 - createdAt: timestamp
 
 ### 4. API Endpoints
-- GET /api/notifications (list, unread filter, pagination)
-- POST /api/notifications (trigger notification)
-- (Planned) POST /api/notifications/mark-read (mark as read)
+- GET /api/v1/notifications (list, unread filter, pagination)
+- GET /api/v1/notifications/summary (unread count and total count)
+- POST /api/v1/notifications/{notification_id}/read (mark specific notification as read)
+- POST /api/v1/notifications/read-all (mark all notifications as read)
+- GET /api/v1/notifications/stats (notification statistics and rate limit info)
+
+### 5. Rate Limiting & Spam Prevention
+
+#### Rate Limiting Configuration
+- **Maximum Notifications**: 20 notifications per hour per notification type
+- **Time Window**: Rolling 1-hour window
+- **Per-Type Limits**: Each notification type has separate rate limits
+- **Behavior**: When limit is exceeded, additional notifications are blocked (not queued)
+
+#### Rate Limiting by Type
+| Notification Type | Max Per Hour | Purpose |
+|------------------|--------------|---------|
+| emoji_reaction   | 20          | Prevent reaction spam while allowing social engagement |
+| like             | 20          | Prevent like spam |
+| comment          | 20          | Prevent comment notification spam |
+| follow           | 20          | Prevent follow spam |
+| mention          | 20          | Prevent mention spam |
+| post_shared      | 20          | Prevent share spam |
+
+#### Rate Limit Monitoring
+- **Stats Endpoint**: `/api/v1/notifications/stats` provides rate limit information
+- **Remaining Count**: Shows how many notifications can still be sent
+- **Time Window**: Shows current hour's notification count
+- **Per-Type Tracking**: Separate limits for each notification type
+
+#### Implementation Details
+- Rate limiting is enforced at the service layer (`NotificationService`)
+- Uses database queries to count notifications in the last hour
+- Timezone-aware calculations (UTC-based)
+- Graceful degradation: blocked notifications are logged but don't cause errors
+
+#### Example Rate Limit Response
+```json
+{
+  "user_id": 123,
+  "notification_type": "emoji_reaction",
+  "last_hour": 15,
+  "last_day": 45,
+  "total": 150,
+  "rate_limit_remaining": 5
+}
+```
 
 ---
 
@@ -58,9 +104,9 @@
 - (Planned, not implemented yet)
 
 ### 9. Batch Actions
-- Mark all as read
-- Delete notifications
-- (Planned, not implemented yet)
+- ✅ Mark all as read (implemented)
+- Delete notifications (planned)
+- Bulk notification management (planned)
 
 ### 10. Extensibility
 - Add new notification types and channels easily

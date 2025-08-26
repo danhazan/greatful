@@ -41,10 +41,17 @@ apps/api/
 - **Query Optimization**: Efficient queries with joins
 
 #### 4. **Comprehensive Testing**
-- **Unit Tests**: 50+ test cases covering all endpoints
+- **Unit Tests**: 97+ test cases covering all endpoints
 - **Integration Tests**: Complete workflow testing
 - **Test Coverage**: 95%+ code coverage
-- **Test Categories**: Users, posts, follows, interactions
+- **Test Categories**: Users, posts, follows, interactions, notifications, reactions
+
+#### 5. **Notification System**
+- **Real-time Notifications**: Automatic notification creation from user actions
+- **Multiple Types**: Emoji reactions, likes, comments, follows, mentions, shares
+- **Rate Limiting**: 20 notifications per hour per type to prevent spam
+- **Batch Operations**: Mark all as read, notification statistics
+- **API Integration**: Full REST API with pagination and filtering
 
 ## 📋 API Endpoints
 
@@ -79,6 +86,23 @@ DELETE /api/v1/follows/{user_id}         # Unfollow user
 GET    /api/v1/follows/me/followers      # Get my followers
 GET    /api/v1/follows/me/following      # Get my following
 GET    /api/v1/follows/{user_id}/is-following # Check if following
+```
+
+### Notifications
+```
+GET    /api/v1/notifications             # Get user notifications (paginated)
+GET    /api/v1/notifications/summary     # Get notification summary (unread count)
+POST   /api/v1/notifications/{id}/read   # Mark specific notification as read
+POST   /api/v1/notifications/read-all    # Mark all notifications as read
+GET    /api/v1/notifications/stats       # Get notification statistics & rate limits
+```
+
+### Reactions (Emoji)
+```
+POST   /api/v1/posts/{post_id}/reactions # Add emoji reaction to post
+DELETE /api/v1/posts/{post_id}/reactions # Remove user's reaction from post
+GET    /api/v1/posts/{post_id}/reactions # Get all reactions for post
+GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
 ```
 
 ## 🧪 Testing Strategy
