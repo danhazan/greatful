@@ -15,7 +15,7 @@ export async function GET(
       )
     }
 
-    const { notificationId } = params
+    const notificationId = params.notificationId
 
     // Forward the request to the FastAPI backend
     const response = await fetch(`${API_BASE_URL}/api/v1/notifications/${notificationId}/children`, {
@@ -37,22 +37,23 @@ export async function GET(
     const children = await response.json()
 
     // Transform the children to match the frontend format
-    const transformedChildren = children.map((notification: any) => ({
-      id: notification.id,
-      type: notification.type === 'emoji_reaction' ? 'reaction' : notification.type,
-      message: notification.message,
-      postId: notification.post_id || notification.data?.post_id || '',
-      fromUser: {
-        id: notification.from_user?.id || notification.data?.reactor_username || 'unknown',
-        name: notification.from_user?.username || notification.data?.reactor_username || 'Unknown User',
-        image: notification.from_user?.profile_image_url || undefined
+    const transformedChildren = children.map((child: any) => ({
+      id: child.id,
+      type: child.type === 'emoji_reaction' ? 'reaction' : child.type,
+      message: child.message,
+      post_id: child.post_id || child.data?.post_id || '',
+      from_user: {
+        id: child.from_user?.id || child.data?.reactor_username || 'unknown',
+        username: child.from_user?.username || child.data?.reactor_username || 'Unknown User',
+        profile_image_url: child.from_user?.profile_image_url || undefined
       },
-      createdAt: notification.created_at,
-      read: notification.read,
+      created_at: child.created_at,
+      last_updated_at: child.last_updated_at,
+      read: child.read,
       // Batching fields
-      isBatch: notification.is_batch || false,
-      batchCount: notification.batch_count || 1,
-      parentId: notification.parent_id || null
+      is_batch: child.is_batch || false,
+      batch_count: child.batch_count || 1,
+      parent_id: child.parent_id || null
     }))
 
     return NextResponse.json(transformedChildren)

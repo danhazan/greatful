@@ -7,19 +7,19 @@ interface Notification {
   id: string
   type: 'reaction' | 'comment' | 'share'
   message: string
-  postId: string
-  fromUser: {
+  post_id: string
+  from_user: {
     id: string
-    name: string
-    image?: string
+    username: string
+    profile_image_url?: string
   }
-  createdAt: string
-  lastUpdatedAt?: string
+  created_at?: string
+  last_updated_at?: string
   read: boolean
   // Batching fields
-  isBatch?: boolean
-  batchCount?: number
-  parentId?: string | null
+  is_batch?: boolean
+  batch_count?: number
+  parent_id?: string | null
 }
 
 interface NotificationSystemProps {
@@ -59,6 +59,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
         if (response.ok) {
           const data = await response.json()
+          
+          // Debug logging in development
+          if (process.env.NODE_ENV === 'development' && data.length > 0) {
+            console.debug('Notification data sample:', data[0])
+          }
+          
           setNotifications(data)
           
           const unreadCount = data.filter((n: Notification) => !n.read).length
@@ -161,7 +167,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
           const token = localStorage.getItem("access_token")
           if (!token) return
 
-          const response = await fetch(`/api/notifications/${batchId}/batch/children`, {
+          const response = await fetch(`/api/notifications/${batchId}/children`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -193,8 +199,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
 
 
-  const formatTime = (dateString: string) => {
+  const formatTime = (dateString: string | undefined) => {
+    if (!dateString) return "Unknown time"
+    
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return "Invalid date"
+    
     const now = new Date()
     const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60)
     
@@ -269,7 +279,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {notifications.map((notification) => (
+                  {Array.isArray(notifications) && notifications.map((notification) => (
                     <div key={notification.id}>
                       {/* Main notification */}
                       <div
@@ -277,7 +287,11 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                           !notification.read ? 'bg-purple-50' : ''
                         }`}
                         onClick={() => {
-                          if (notification.isBatch) {
+                          if (notification.is_batch) {
+                            // Mark batch as read when clicked
+                            if (!notification.read) {
+                              markAsRead(notification.id)
+                            }
                             // Toggle batch expansion
                             toggleBatchExpansion(notification.id)
                           } else {
@@ -292,24 +306,24 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                         <div className="flex items-start space-x-3">
                           {/* User Avatar or Batch Icon */}
                           <div className="flex-shrink-0">
-                            {notification.isBatch ? (
+                            {notification.is_batch ? (
                               <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
                                 <span className="text-purple-600 text-xs font-medium">
-                                  {notification.batchCount}
+                                  {notification.batch_count}
                                 </span>
                               </div>
-                            ) : notification.fromUser.image ? (
+                            ) : notification.from_user?.profile_image_url ? (
                               <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100">
                                 <img
-                                  src={notification.fromUser.image}
-                                  alt={notification.fromUser.name}
+                                  src={notification.from_user?.profile_image_url}
+                                  alt={notification.from_user?.username}
                                   className="w-full h-full object-cover object-center"
                                 />
                               </div>
                             ) : (
                               <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
                                 <span className="text-purple-600 text-sm font-medium">
-                                  {notification.fromUser.name.charAt(0).toUpperCase()}
+                                  {notification.from_user?.username?.charAt(0).toUpperCase()}
                                 </span>
                               </div>
                             )}
@@ -318,23 +332,23 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                           {/* Notification Content */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-900">
-                              {notification.isBatch ? (
+                              {notification.is_batch ? (
                                 notification.message
                               ) : (
                                 <>
-                                  <span className="font-medium">{notification.fromUser.name}</span>
+                                  <span className="font-medium">{notification.from_user?.username}</span>
                                   {' '}
                                   {notification.message}
                                 </>
                               )}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
-                              {formatTime(notification.lastUpdatedAt || notification.createdAt)}
+                              {formatTime(notification.last_updated_at || notification.created_at)}
                             </p>
                           </div>
 
                           {/* Expand/Collapse indicator for batches */}
-                          {notification.isBatch && (
+                          {notification.is_batch && (
                             <div className="flex-shrink-0">
                               <svg
                                 className={`w-4 h-4 text-gray-400 transition-transform ${
@@ -364,7 +378,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                       </div>
 
                       {/* Batch children */}
-                      {notification.isBatch && expandedBatches.has(notification.id) && batchChildren[notification.id] && Array.isArray(batchChildren[notification.id]) && (
+                      {notification.is_batch && expandedBatches.has(notification.id) && batchChildren[notification.id] && Array.isArray(batchChildren[notification.id]) && (
                         <div className="bg-gray-50">
                           {batchChildren[notification.id].map((child) => (
                             <div
@@ -381,18 +395,18 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                               <div className="flex items-start space-x-3">
                                 {/* Child User Avatar */}
                                 <div className="flex-shrink-0">
-                                  {child.fromUser.image ? (
+                                  {child.from_user?.profile_image_url ? (
                                     <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100">
                                       <img
-                                        src={child.fromUser.image}
-                                        alt={child.fromUser.name}
+                                        src={child.from_user?.profile_image_url}
+                                        alt={child.from_user?.username}
                                         className="w-full h-full object-cover object-center"
                                       />
                                     </div>
                                   ) : (
                                     <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
                                       <span className="text-purple-600 text-xs font-medium">
-                                        {child.fromUser.name.charAt(0).toUpperCase()}
+                                        {child.from_user?.username?.charAt(0).toUpperCase()}
                                       </span>
                                     </div>
                                   )}
@@ -401,12 +415,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                 {/* Child Content */}
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm text-gray-700">
-                                    <span className="font-medium">{child.fromUser.name}</span>
+                                    <span className="font-medium">{child.from_user?.username}</span>
                                     {' '}
                                     {child.message}
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
-                                    {formatTime(child.lastUpdatedAt || child.createdAt)}
+                                    {formatTime(child.last_updated_at || child.created_at)}
                                   </p>
                                 </div>
                               </div>

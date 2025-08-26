@@ -31,17 +31,17 @@ describe('NotificationSystem Batching', () => {
     id: 'batch-123',
     type: 'reaction',
     message: '3 people reacted to your post',
-    postId: 'post-123',
-    fromUser: {
+    post_id: 'post-123',
+    from_user: {
       id: 'batch',
-      name: 'Multiple Users',
-      image: undefined
+      username: 'Multiple Users',
+      profile_image_url: undefined
     },
-    createdAt: '2025-08-26T10:00:00Z',
+    created_at: '2025-08-26T10:00:00Z',
     read: false,
-    isBatch: true,
-    batchCount: 3,
-    parentId: null
+    is_batch: true,
+    batch_count: 3,
+    parent_id: null
   }
 
   const mockBatchChildren = [
@@ -49,33 +49,33 @@ describe('NotificationSystem Batching', () => {
       id: 'child-1',
       type: 'reaction',
       message: 'reacted with 😍 to your post',
-      postId: 'post-123',
-      fromUser: {
+      post_id: 'post-123',
+      from_user: {
         id: 'user1',
-        name: 'User One',
-        image: undefined
+        username: 'User One',
+        profile_image_url: undefined
       },
-      createdAt: '2025-08-26T09:00:00Z',
+      created_at: '2025-08-26T09:00:00Z',
       read: false,
-      isBatch: false,
-      batchCount: 1,
-      parentId: 'batch-123'
+      is_batch: false,
+      batch_count: 1,
+      parent_id: 'batch-123'
     },
     {
       id: 'child-2',
       type: 'reaction',
       message: 'reacted with 🙏 to your post',
-      postId: 'post-123',
-      fromUser: {
+      post_id: 'post-123',
+      from_user: {
         id: 'user2',
-        name: 'User Two',
-        image: undefined
+        username: 'User Two',
+        profile_image_url: undefined
       },
-      createdAt: '2025-08-26T09:30:00Z',
+      created_at: '2025-08-26T09:30:00Z',
       read: false,
-      isBatch: false,
-      batchCount: 1,
-      parentId: 'batch-123'
+      is_batch: false,
+      batch_count: 1,
+      parent_id: 'batch-123'
     }
   ]
 
@@ -110,6 +110,12 @@ describe('NotificationSystem Batching', () => {
       json: async () => [mockBatchNotification]
     })
 
+    // Mock mark as read call
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true })
+    })
+
     // Mock batch children fetch
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -130,6 +136,11 @@ describe('NotificationSystem Batching', () => {
     const batchNotification = screen.getByText('3 people reacted to your post')
     fireEvent.click(batchNotification)
 
+    // Debug: Check if the API call was made
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledTimes(3) // Initial fetch + children fetch + mark as read
+    })
+
     await waitFor(() => {
       expect(screen.getByText('User One')).toBeInTheDocument()
       expect(screen.getByText('User Two')).toBeInTheDocument()
@@ -141,7 +152,7 @@ describe('NotificationSystem Batching', () => {
 
     // Verify API call for batch children
     expect(mockFetch).toHaveBeenCalledWith(
-      '/api/notifications/batch-123/batch/children',
+      '/api/notifications/batch-123/children',
       expect.objectContaining({
         headers: expect.objectContaining({
           'Authorization': 'Bearer mock-token'
@@ -155,6 +166,12 @@ describe('NotificationSystem Batching', () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [mockBatchNotification]
+    })
+
+    // Mock mark as read call
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true })
     })
 
     // Mock batch children fetch
@@ -246,6 +263,12 @@ describe('NotificationSystem Batching', () => {
       json: async () => [mockBatchNotification]
     })
 
+    // Mock mark as read call
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true })
+    })
+
     // Mock batch children fetch
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -321,10 +344,22 @@ describe('NotificationSystem Batching', () => {
       json: async () => [mockBatchNotification]
     })
 
+    // Mock mark as read call (will be called twice - once for each click)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true })
+    })
+
     // Mock batch children fetch (should only be called once)
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => mockBatchChildren
+    })
+
+    // Mock second mark as read call
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true })
     })
 
     render(<NotificationSystem userId={1} />)
@@ -357,31 +392,44 @@ describe('NotificationSystem Batching', () => {
       expect(screen.getByText('User One')).toBeInTheDocument()
     })
 
-    // Should only have made 2 API calls total (notifications + children once)
-    expect(mockFetch).toHaveBeenCalledTimes(2)
+    // Should only have made 3 API calls total (notifications + mark as read + children)
+    // The second click doesn't trigger mark as read because it's already read
+    expect(mockFetch).toHaveBeenCalledTimes(3)
   })
 
   it('handles mixed batch and single notifications', async () => {
+    // Clear all previous mocks to avoid interference
+    mockFetch.mockClear()
+    
     const singleNotification = {
       id: 'single-456',
       type: 'reaction',
       message: 'reacted with ❤️ to your post',
-      postId: 'post-456',
-      fromUser: {
+      post_id: 'post-456',
+      from_user: {
         id: 'user3',
-        name: 'User Three',
-        image: undefined
+        username: 'User Three',
+        profile_image_url: undefined
       },
-      createdAt: '2025-08-26T11:00:00Z',
+      created_at: '2025-08-26T11:00:00Z',
       read: false,
-      isBatch: false,
-      batchCount: 1,
-      parentId: null
+      is_batch: false,
+      batch_count: 1,
+      parent_id: null
     }
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [mockBatchNotification, singleNotification]
+    // Set up mock with implementation that can be called multiple times
+    mockFetch.mockImplementation((url) => {
+      if (url === '/api/notifications') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [mockBatchNotification, singleNotification]
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true })
+      })
     })
 
     render(<NotificationSystem userId={1} />)

@@ -41,18 +41,19 @@ export async function GET(request: NextRequest) {
       id: notification.id,
       type: notification.type === 'emoji_reaction' ? 'reaction' : notification.type,
       message: notification.message,
-      postId: notification.post_id || notification.data?.post_id || '',
-      fromUser: {
+      post_id: notification.post_id || notification.data?.post_id || '',
+      from_user: {
         id: notification.from_user?.id || notification.data?.reactor_username || 'unknown',
-        name: notification.from_user?.username || notification.data?.reactor_username || 'Unknown User',
-        image: notification.from_user?.profile_image_url || undefined
+        username: notification.from_user?.username || notification.data?.reactor_username || 'Unknown User',
+        profile_image_url: notification.from_user?.profile_image_url || undefined
       },
-      createdAt: notification.created_at,
+      created_at: notification.created_at,
+      last_updated_at: notification.last_updated_at,
       read: notification.read,
       // Batching fields
-      isBatch: notification.is_batch || false,
-      batchCount: notification.batch_count || 1,
-      parentId: notification.parent_id || null
+      is_batch: notification.is_batch || false,
+      batch_count: notification.batch_count || 1,
+      parent_id: notification.parent_id || null
     }))
 
     return NextResponse.json(transformedNotifications)

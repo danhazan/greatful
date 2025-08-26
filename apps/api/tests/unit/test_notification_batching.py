@@ -3,7 +3,7 @@ Tests for notification batching functionality.
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.notification_service import NotificationService
 from app.models.notification import Notification
@@ -114,7 +114,7 @@ class TestNotificationBatching:
         )
         
         # Mock the async database operation
-        mock_result = AsyncMock()
+        mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_batch
         mock_db.execute.return_value = mock_result
 
@@ -216,7 +216,9 @@ class TestNotificationBatching:
         mock_get_user.return_value = mock_user
 
         # Mock no existing batch or single notification
-        mock_db.execute.return_value.scalar_one_or_none.return_value = None
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
 
         result = await NotificationService.create_emoji_reaction_notification(
             mock_db, 1, 'reactor', 'heart_eyes', 'post-123'
@@ -244,7 +246,11 @@ class TestNotificationBatching:
         )
         
         # First call returns existing batch, second returns None (no single notification)
-        mock_db.execute.return_value.scalar_one_or_none.side_effect = [mock_batch, None]
+        mock_result1 = MagicMock()
+        mock_result1.scalar_one_or_none.return_value = mock_batch
+        mock_result2 = MagicMock()
+        mock_result2.scalar_one_or_none.return_value = None
+        mock_db.execute.side_effect = [mock_result1, mock_result2]
 
         result = await NotificationService.create_emoji_reaction_notification(
             mock_db, 1, 'reactor', 'heart_eyes', 'post-123'
@@ -272,7 +278,11 @@ class TestNotificationBatching:
         )
         
         # First call returns None (no batch), second returns single notification
-        mock_db.execute.return_value.scalar_one_or_none.side_effect = [None, mock_single]
+        mock_result1 = MagicMock()
+        mock_result1.scalar_one_or_none.return_value = None
+        mock_result2 = MagicMock()
+        mock_result2.scalar_one_or_none.return_value = mock_single
+        mock_db.execute.side_effect = [mock_result1, mock_result2]
 
         result = await NotificationService.create_emoji_reaction_notification(
             mock_db, 1, 'reactor', 'heart_eyes', 'post-123'
@@ -292,8 +302,8 @@ class TestNotificationBatching:
         ]
         
         # Mock the async database operation chain
-        mock_result = AsyncMock()
-        mock_scalars = AsyncMock()
+        mock_result = MagicMock()
+        mock_scalars = MagicMock()
         mock_scalars.all.return_value = mock_notifications
         mock_result.scalars.return_value = mock_scalars
         mock_db.execute.return_value = mock_result
@@ -311,7 +321,12 @@ class TestNotificationBatching:
             Notification(id="child-2", user_id=1, parent_id="batch-123")
         ]
         
-        mock_db.execute.return_value.scalars.return_value.all.return_value = mock_children
+        # Mock the async database operation chain
+        mock_result = MagicMock()
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = mock_children
+        mock_result.scalars.return_value = mock_scalars
+        mock_db.execute.return_value = mock_result
 
         result = await NotificationService.get_batch_children(mock_db, "batch-123", 1)
 
@@ -321,7 +336,10 @@ class TestNotificationBatching:
 
     async def test_get_unread_count_only_parents(self, mock_db):
         """Test that unread count only includes parent notifications."""
-        mock_db.execute.return_value.scalar.return_value = 3
+        # Mock the async database operation
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 3
+        mock_db.execute.return_value = mock_result
 
         result = await NotificationService.get_unread_count(mock_db, 1)
 
@@ -345,9 +363,16 @@ class TestNotificationBatching:
             Notification(id="child-2", user_id=1, parent_id="batch-123", read=False)
         ]
         
-        # Mock database calls
-        mock_db.execute.return_value.scalar_one_or_none.side_effect = [batch]
-        mock_db.execute.return_value.scalars.return_value.all.return_value = children
+        # Mock database calls - first call gets the notification, second gets children
+        mock_result1 = MagicMock()
+        mock_result1.scalar_one_or_none.return_value = batch
+        
+        mock_result2 = MagicMock()
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = children
+        mock_result2.scalars.return_value = mock_scalars
+        
+        mock_db.execute.side_effect = [mock_result1, mock_result2]
 
         result = await NotificationService.mark_as_read(mock_db, "batch-123", 1)
 
@@ -365,7 +390,12 @@ class TestNotificationBatching:
             Notification(id="child-2", user_id=1, parent_id="parent-2", read=False)
         ]
         
-        mock_db.execute.return_value.scalars.return_value.all.return_value = notifications
+        # Mock the async database operation chain
+        mock_result = MagicMock()
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = notifications
+        mock_result.scalars.return_value = mock_scalars
+        mock_db.execute.return_value = mock_result
 
         result = await NotificationService.mark_all_as_read(mock_db, 1)
 
