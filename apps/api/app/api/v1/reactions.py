@@ -6,7 +6,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from app.core.database import get_db
 from app.services.reaction_service import ReactionService
 from app.models.emoji_reaction import EmojiReaction
@@ -30,6 +30,14 @@ class ReactionRequest(BaseModel):
         }
     )
 
+    @field_validator('emoji_code')
+    @classmethod
+    def validate_emoji_code(cls, v):
+        valid_emojis = ['heart_eyes', 'hug', 'pray', 'muscle', 'star', 'fire', 'heart_face', 'clap']
+        if v not in valid_emojis:
+            raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
+        return v
+
 
 class ReactionResponse(BaseModel):
     """Response model for reaction data."""
@@ -42,6 +50,14 @@ class ReactionResponse(BaseModel):
     user: dict = Field(..., description="User information")
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('emoji_code')
+    @classmethod
+    def validate_emoji_code(cls, v):
+        valid_emojis = ['heart_eyes', 'hug', 'pray', 'muscle', 'star', 'fire', 'heart_face', 'clap']
+        if v not in valid_emojis:
+            raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
+        return v
 
 
 class ReactionSummary(BaseModel):
@@ -88,20 +104,23 @@ async def add_reaction(
             emoji_code=reaction_request.emoji_code
         )
         
-        # Format response
-        return ReactionResponse(
-            id=reaction.id,
-            user_id=reaction.user_id,
-            post_id=reaction.post_id,
-            emoji_code=reaction.emoji_code,
-            emoji_display=reaction.emoji_display,
-            created_at=reaction.created_at.isoformat(),
-            user={
+        # Create response data and validate with Pydantic
+        response_data = {
+            "id": reaction.id,
+            "user_id": reaction.user_id,
+            "post_id": reaction.post_id,
+            "emoji_code": reaction.emoji_code,
+            "emoji_display": reaction.emoji_display,
+            "created_at": reaction.created_at.isoformat(),
+            "user": {
                 "id": reaction.user.id,
                 "username": reaction.user.username,
                 "email": reaction.user.email
             }
-        )
+        }
+        
+        # Validate response structure at runtime
+        return ReactionResponse(**response_data)
         
     except ValueError as e:
         raise HTTPException(

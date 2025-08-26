@@ -14,8 +14,10 @@ import {
 } from './core'
 
 // User model
-export interface User extends BaseEntity {
-  id: number // Override BaseEntity id to be number for users
+export interface User {
+  id: number
+  created_at: string
+  updated_at?: string
   username: string
   email: string
   hashed_password: string

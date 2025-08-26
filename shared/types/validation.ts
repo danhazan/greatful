@@ -1,5 +1,5 @@
 /**
- * Validation schemas and type definitions
+ * Runtime type validation guards and schemas
  */
 
 import { 
@@ -10,11 +10,283 @@ import {
   FollowStatus, 
   PrivacyLevel,
   POST_TYPE_LIMITS,
-  RATE_LIMITS
+  RATE_LIMITS,
+  UserInfo
 } from './core'
 
+import {
+  PostResponse,
+  ReactionResponse,
+  NotificationResponse,
+  CreatePostRequest,
+  AddReactionRequest,
+  SignupRequest,
+  LoginRequest,
+  SessionResponse
+} from './api'
+
 // ============================================================================
-// Validation Schema Interfaces
+// Runtime Type Guards
+// ============================================================================
+
+/**
+ * Type guard for PostType enum
+ */
+export function isValidPostType(value: string): value is PostType {
+  return Object.values(PostType).includes(value as PostType)
+}
+
+/**
+ * Type guard for EmojiCode enum
+ */
+export function isValidEmojiCode(value: string): value is EmojiCode {
+  return Object.values(EmojiCode).includes(value as EmojiCode)
+}
+
+/**
+ * Type guard for NotificationType enum
+ */
+export function isValidNotificationType(value: string): value is NotificationType {
+  return Object.values(NotificationType).includes(value as NotificationType)
+}
+
+/**
+ * Type guard for ShareMethod enum
+ */
+export function isValidShareMethod(value: string): value is ShareMethod {
+  return Object.values(ShareMethod).includes(value as ShareMethod)
+}
+
+/**
+ * Type guard for FollowStatus enum
+ */
+export function isValidFollowStatus(value: string): value is FollowStatus {
+  return Object.values(FollowStatus).includes(value as FollowStatus)
+}
+
+/**
+ * Type guard for PrivacyLevel enum
+ */
+export function isValidPrivacyLevel(value: string): value is PrivacyLevel {
+  return Object.values(PrivacyLevel).includes(value as PrivacyLevel)
+}
+
+/**
+ * Type guard for UserInfo
+ */
+export function validateUserInfo(data: any): data is UserInfo {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'number' &&
+    data.id > 0 &&
+    typeof data.username === 'string' &&
+    data.username.length >= 3 &&
+    data.username.length <= 30 &&
+    /^[a-zA-Z0-9_-]+$/.test(data.username) &&
+    typeof data.email === 'string' &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) &&
+    (data.bio === undefined || data.bio === null || typeof data.bio === 'string') &&
+    (data.profile_image_url === undefined || data.profile_image_url === null || typeof data.profile_image_url === 'string') &&
+    typeof data.created_at === 'string'
+  )
+}
+
+/**
+ * Type guard for PostResponse
+ */
+export function validatePostResponse(data: any): data is PostResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    data.id.length > 0 &&
+    typeof data.author_id === 'number' &&
+    data.author_id > 0 &&
+    typeof data.content === 'string' &&
+    data.content.length > 0 &&
+    isValidPostType(data.post_type) &&
+    typeof data.is_public === 'boolean' &&
+    typeof data.created_at === 'string' &&
+    (data.updated_at === null || data.updated_at === undefined || typeof data.updated_at === 'string') &&
+    (data.title === null || data.title === undefined || typeof data.title === 'string') &&
+    (data.image_url === null || data.image_url === undefined || typeof data.image_url === 'string') &&
+    (data.location === null || data.location === undefined || typeof data.location === 'string') &&
+    validateUserInfo(data.author) &&
+    typeof data.hearts_count === 'number' &&
+    data.hearts_count >= 0 &&
+    typeof data.reactions_count === 'number' &&
+    data.reactions_count >= 0 &&
+    (data.current_user_reaction === null || data.current_user_reaction === undefined || isValidEmojiCode(data.current_user_reaction)) &&
+    (data.is_hearted === undefined || typeof data.is_hearted === 'boolean')
+  )
+}
+
+/**
+ * Type guard for ReactionResponse
+ */
+export function validateReactionResponse(data: any): data is ReactionResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    data.id.length > 0 &&
+    typeof data.user_id === 'number' &&
+    data.user_id > 0 &&
+    typeof data.post_id === 'string' &&
+    data.post_id.length > 0 &&
+    isValidEmojiCode(data.emoji_code) &&
+    typeof data.emoji_display === 'string' &&
+    data.emoji_display.length > 0 &&
+    typeof data.created_at === 'string' &&
+    validateUserInfo(data.user)
+  )
+}
+
+/**
+ * Type guard for NotificationResponse
+ */
+export function validateNotificationResponse(data: any): data is NotificationResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    data.id.length > 0 &&
+    typeof data.user_id === 'number' &&
+    data.user_id > 0 &&
+    typeof data.type === 'string' &&
+    typeof data.message === 'string' &&
+    typeof data.read === 'boolean' &&
+    typeof data.created_at === 'string' &&
+    (data.post_id === null || data.post_id === undefined || typeof data.post_id === 'string') &&
+    (data.related_user_id === null || data.related_user_id === undefined || typeof data.related_user_id === 'number') &&
+    (data.emoji_code === null || data.emoji_code === undefined || isValidEmojiCode(data.emoji_code)) &&
+    (data.last_updated_at === null || data.last_updated_at === undefined || typeof data.last_updated_at === 'string') &&
+    typeof data.is_batch === 'boolean' &&
+    typeof data.batch_count === 'number' &&
+    data.batch_count >= 1 &&
+    (data.parent_id === null || data.parent_id === undefined || typeof data.parent_id === 'string') &&
+    (data.related_user === null || data.related_user === undefined || validateUserInfo(data.related_user)) &&
+    (data.post === null || data.post === undefined || validatePostResponse(data.post))
+  )
+}
+
+/**
+ * Type guard for CreatePostRequest
+ */
+export function validateCreatePostRequest(data: any): data is CreatePostRequest {
+  if (
+    typeof data !== 'object' ||
+    data === null ||
+    typeof data.content !== 'string' ||
+    data.content.length === 0 ||
+    !isValidPostType(data.post_type)
+  ) {
+    return false
+  }
+
+  // Validate content length based on post type
+  const maxLength = POST_TYPE_LIMITS[data.post_type as PostType]
+  if (data.content.length > maxLength) {
+    return false
+  }
+
+  return (
+    (data.title === undefined || data.title === null || (typeof data.title === 'string' && data.title.length <= 100)) &&
+    (data.image_url === undefined || data.image_url === null || typeof data.image_url === 'string') &&
+    (data.location === undefined || data.location === null || (typeof data.location === 'string' && data.location.length <= 100)) &&
+    (data.is_public === undefined || typeof data.is_public === 'boolean')
+  )
+}
+
+/**
+ * Type guard for AddReactionRequest
+ */
+export function validateAddReactionRequest(data: any): data is AddReactionRequest {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    isValidEmojiCode(data.emoji_code)
+  )
+}
+
+/**
+ * Type guard for SignupRequest
+ */
+export function validateSignupRequest(data: any): data is SignupRequest {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.username === 'string' &&
+    data.username.length >= 3 &&
+    data.username.length <= 30 &&
+    /^[a-zA-Z0-9_-]+$/.test(data.username) &&
+    typeof data.email === 'string' &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) &&
+    typeof data.password === 'string' &&
+    data.password.length >= 8 &&
+    data.password.length <= 128
+  )
+}
+
+/**
+ * Type guard for LoginRequest
+ */
+export function validateLoginRequest(data: any): data is LoginRequest {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.email === 'string' &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) &&
+    typeof data.password === 'string' &&
+    data.password.length > 0
+  )
+}
+
+/**
+ * Type guard for SessionResponse
+ */
+export function validateSessionResponse(data: any): data is SessionResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'number' &&
+    data.id > 0 &&
+    typeof data.email === 'string' &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) &&
+    typeof data.username === 'string' &&
+    data.username.length >= 3 &&
+    data.username.length <= 30
+  )
+}
+
+// ============================================================================
+// Array Validation Guards
+// ============================================================================
+
+/**
+ * Type guard for array of PostResponse
+ */
+export function validatePostResponseArray(data: any): data is PostResponse[] {
+  return Array.isArray(data) && data.every(validatePostResponse)
+}
+
+/**
+ * Type guard for array of ReactionResponse
+ */
+export function validateReactionResponseArray(data: any): data is ReactionResponse[] {
+  return Array.isArray(data) && data.every(validateReactionResponse)
+}
+
+/**
+ * Type guard for array of NotificationResponse
+ */
+export function validateNotificationResponseArray(data: any): data is NotificationResponse[] {
+  return Array.isArray(data) && data.every(validateNotificationResponse)
+}
+
+// ============================================================================
+// Validation Schema Interfaces (keeping existing for compatibility)
 // ============================================================================
 
 export interface ValidationSchema<T = any> {

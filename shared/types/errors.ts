@@ -173,7 +173,7 @@ export const createNotFoundError = (
 ): NotFoundError => ({
   error: ErrorType.NOT_FOUND,
   message,
-  details: { resource, id }
+  details: { resource, ...(id !== undefined && { id }) }
 })
 
 export const createPermissionDeniedError = (
@@ -184,5 +184,5 @@ export const createPermissionDeniedError = (
 ): PermissionDeniedError => ({
   error: ErrorType.PERMISSION_DENIED,
   message,
-  details: { resource, action, reason }
+  details: { resource, action, ...(reason !== undefined && { reason }) }
 })

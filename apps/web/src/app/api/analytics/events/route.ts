@@ -3,16 +3,18 @@ import {
   handleApiError, 
   createAuthHeaders, 
   makeBackendRequest, 
-  createErrorResponse 
+  createErrorResponse,
+  hasValidAuth
 } from '@/lib/api-utils'
 
 export async function POST(request: NextRequest) {
   try {
-    // Create auth headers
-    const authHeaders = createAuthHeaders(request)
-    if (!authHeaders['Authorization']) {
+    // Check authorization
+    if (!hasValidAuth(request)) {
       return createErrorResponse('Authorization header required', 401)
     }
+    
+    const authHeaders = createAuthHeaders(request)
 
     const body = await request.json()
 

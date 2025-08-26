@@ -5,7 +5,8 @@ import {
   makeBackendRequest, 
   createErrorResponse,
   validateRequiredParams,
-  createSuccessResponse 
+  createSuccessResponse,
+  hasValidAuth
 } from '@/lib/api-utils'
 
 export async function POST(
@@ -21,11 +22,12 @@ export async function POST(
 
     const { notificationId } = params
 
-    // Create auth headers
-    const authHeaders = createAuthHeaders(request)
-    if (!authHeaders['Authorization']) {
+    // Check authorization
+    if (!hasValidAuth(request)) {
       return createErrorResponse('Authorization header required', 401)
     }
+    
+    const authHeaders = createAuthHeaders(request)
 
     // Forward request to backend
     const response = await makeBackendRequest(`/api/v1/notifications/${notificationId}/read`, {

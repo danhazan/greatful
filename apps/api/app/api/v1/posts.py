@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -49,8 +49,27 @@ class PostResponse(BaseModel):
     hearts_count: int = 0
     reactions_count: int = 0
     current_user_reaction: Optional[str] = None
+    is_hearted: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('post_type')
+    @classmethod
+    def validate_post_type(cls, v):
+        valid_types = ['daily', 'photo', 'spontaneous']
+        if v not in valid_types:
+            raise ValueError(f'Invalid post type. Must be one of: {valid_types}')
+        return v
+
+    @field_validator('current_user_reaction')
+    @classmethod
+    def validate_emoji_code(cls, v):
+        if v is None:
+            return v
+        valid_emojis = ['heart_eyes', 'hug', 'pray', 'muscle', 'star', 'fire', 'heart_face', 'clap']
+        if v not in valid_emojis:
+            raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
+        return v
 
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
@@ -121,27 +140,31 @@ async def create_post(
         await db.commit()
         await db.refresh(post)
 
-        # Return post with author information
-        return PostResponse(
-            id=post.id,
-            author_id=post.author_id,
-            title=post.title,
-            content=post.content,
-            post_type=post.post_type.value,
-            image_url=post.image_url,
-            location=post_data.location,
-            is_public=post.is_public,
-            created_at=post.created_at.isoformat(),
-            updated_at=post.updated_at.isoformat() if post.updated_at else None,
-            author={
+        # Create response data and validate with Pydantic
+        response_data = {
+            "id": post.id,
+            "author_id": post.author_id,
+            "title": post.title,
+            "content": post.content,
+            "post_type": post.post_type.value,
+            "image_url": post.image_url,
+            "location": post_data.location,
+            "is_public": post.is_public,
+            "created_at": post.created_at.isoformat(),
+            "updated_at": post.updated_at.isoformat() if post.updated_at else None,
+            "author": {
                 "id": user.id,
                 "username": user.username,
                 "email": user.email
             },
-            hearts_count=0,
-            reactions_count=0,
-            current_user_reaction=None
-        )
+            "hearts_count": 0,
+            "reactions_count": 0,
+            "current_user_reaction": None,
+            "is_hearted": False
+        }
+        
+        # Validate response structure at runtime
+        return PostResponse(**response_data)
 
     except HTTPException:
         raise

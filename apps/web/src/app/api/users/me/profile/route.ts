@@ -4,16 +4,18 @@ import {
   createAuthHeaders, 
   makeBackendRequest, 
   createErrorResponse,
-  proxyBackendResponse 
+  proxyBackendResponse,
+  hasValidAuth
 } from '@/lib/api-utils'
 
 export async function GET(request: NextRequest) {
   try {
-    // Create auth headers
-    const authHeaders = createAuthHeaders(request)
-    if (!authHeaders['Authorization']) {
+    // Check authorization
+    if (!hasValidAuth(request)) {
       return createErrorResponse('Authorization header required', 401)
     }
+    
+    const authHeaders = createAuthHeaders(request)
 
     const response = await makeBackendRequest('/api/v1/users/me/profile', {
       method: 'GET',
@@ -30,11 +32,12 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // Create auth headers
-    const authHeaders = createAuthHeaders(request)
-    if (!authHeaders['Authorization']) {
+    // Check authorization
+    if (!hasValidAuth(request)) {
       return createErrorResponse('Authorization header required', 401)
     }
+    
+    const authHeaders = createAuthHeaders(request)
 
     const response = await makeBackendRequest('/api/v1/users/me/profile', {
       method: 'PUT',

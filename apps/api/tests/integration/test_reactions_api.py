@@ -41,7 +41,7 @@ class TestReactionsAPI:
             headers={"Authorization": f"Bearer {user_data['token']}"}
         )
         
-        assert response.status_code == 400
+        assert response.status_code == 422  # FastAPI returns 422 for validation errors
 
     @pytest.mark.asyncio
     async def test_add_reaction_unauthorized(self, client, test_user_and_post):

@@ -4,7 +4,8 @@ import {
   createAuthHeaders, 
   makeBackendRequest, 
   createErrorResponse,
-  validateRequiredParams 
+  validateRequiredParams,
+  hasValidAuth
 } from '@/lib/api-utils'
 import { transformReactions, transformReaction, type BackendReaction } from '@/lib/transformers'
 
@@ -21,11 +22,12 @@ export async function GET(
 
     const { id } = params
 
-    // Create auth headers
-    const authHeaders = createAuthHeaders(request)
-    if (!authHeaders['Authorization']) {
+    // Check authorization
+    if (!hasValidAuth(request)) {
       return createErrorResponse('Authorization header required', 401)
     }
+    
+    const authHeaders = createAuthHeaders(request)
 
     // Forward the request to the FastAPI backend
     const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions`, {
@@ -66,11 +68,12 @@ export async function POST(
 
     const { id } = params
 
-    // Create auth headers
-    const authHeaders = createAuthHeaders(request)
-    if (!authHeaders['Authorization']) {
+    // Check authorization
+    if (!hasValidAuth(request)) {
       return createErrorResponse('Authorization header required', 401)
     }
+    
+    const authHeaders = createAuthHeaders(request)
 
     const body = await request.json()
 
@@ -121,11 +124,12 @@ export async function DELETE(
 
     const { id } = params
 
-    // Create auth headers
-    const authHeaders = createAuthHeaders(request)
-    if (!authHeaders['Authorization']) {
+    // Check authorization
+    if (!hasValidAuth(request)) {
       return createErrorResponse('Authorization header required', 401)
     }
+    
+    const authHeaders = createAuthHeaders(request)
 
     // Forward the request to the FastAPI backend
     const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions`, {

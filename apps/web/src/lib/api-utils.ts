@@ -68,9 +68,9 @@ export function getAuthToken(request: NextRequest): string | null {
 /**
  * Create authorization headers for backend requests
  */
-export function createAuthHeaders(request: NextRequest): HeadersInit {
+export function createAuthHeaders(request: NextRequest): Record<string, string> {
   const token = getAuthToken(request)
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
   
@@ -79,6 +79,13 @@ export function createAuthHeaders(request: NextRequest): HeadersInit {
   }
   
   return headers
+}
+
+/**
+ * Check if request has valid authorization
+ */
+export function hasValidAuth(request: NextRequest): boolean {
+  return getAuthToken(request) !== null
 }
 
 /**

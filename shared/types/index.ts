@@ -8,17 +8,11 @@
 // Core types
 export * from './core'
 
-// API contract types
+// API contract types  
 export * from './api'
 
 // Database model types
 export * from './models'
 
-// Error types
-export * from './errors'
-
-// Service layer types
-export * from './services'
-
-// Validation schemas
+// Validation guards (most important for runtime validation)
 export * from './validation'
