@@ -31,7 +31,7 @@ class Notification(Base):
     batch_key = Column(String, nullable=True, index=True)  # For grouping similar notifications
     last_updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC).replace(tzinfo=None), nullable=False)  # Track when notification was last updated
 
-    # Relationships
+    # Relationships (using string references to avoid circular imports)
     user = relationship("User", back_populates="notifications")
     parent = relationship("Notification", remote_side=[id], back_populates="children")
     children = relationship("Notification", back_populates="parent", cascade="all, delete-orphan")

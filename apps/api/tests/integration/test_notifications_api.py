@@ -201,6 +201,119 @@ class TestNotificationsAPI:
             assert notification.read_at is not None
 
     @pytest.mark.asyncio
+    async def test_notification_timestamp_format(self, client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_user: User):
+        """Test that notification timestamps are returned in correct format for frontend timezone handling."""
+        import datetime
+        
+        # Use the existing test_user from fixture
+        user = test_user
+
+        # Create a notification
+        notification = await NotificationService.create_notification(
+            db=db_session,
+            user_id=user.id,
+            notification_type="emoji_reaction",
+            title="Timestamp Test",
+            message="Testing timestamp format",
+            data={"post_id": "test-post"}
+        )
+
+        # Get the notification via API
+        response = client.get("/api/v1/notifications", headers=auth_headers)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        
+        notification_data = data[0]
+        
+        # Check that created_at is present and in correct format
+        assert "created_at" in notification_data
+        created_at_str = notification_data["created_at"]
+        
+        # The timestamp should be parseable as ISO format
+        try:
+            parsed_time = datetime.datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+            assert parsed_time is not None
+        except ValueError:
+            pytest.fail(f"Timestamp '{created_at_str}' is not in valid ISO format")
+        
+        # Check that the timestamp is recent (within last minute)
+        now = datetime.datetime.now(datetime.UTC)
+        # Ensure both timestamps are timezone-aware for comparison
+        if parsed_time.tzinfo is None:
+            parsed_time = parsed_time.replace(tzinfo=datetime.timezone.utc)
+        time_diff = now - parsed_time
+        assert time_diff.total_seconds() < 60, f"Timestamp seems too old: {time_diff.total_seconds()} seconds"
+
+    @pytest.mark.asyncio
+    async def test_batch_children_timestamp_format(self, client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_user: User):
+        """Test that batch children timestamps are returned in correct format for frontend timezone handling."""
+        import datetime
+        
+        # Use the existing test_user from fixture
+        user = test_user
+
+        # Create two emoji reaction notifications for the same post to trigger batching
+        notification1 = await NotificationService.create_emoji_reaction_notification(
+            db=db_session,
+            post_author_id=user.id,
+            reactor_username="reactor1",
+            emoji_code="heart_eyes",
+            post_id="test-post-batch"
+        )
+
+        notification2 = await NotificationService.create_emoji_reaction_notification(
+            db=db_session,
+            post_author_id=user.id,
+            reactor_username="reactor2", 
+            emoji_code="fire",
+            post_id="test-post-batch"
+        )
+
+        # Get notifications to find the batch
+        response = client.get("/api/v1/notifications", headers=auth_headers)
+        assert response.status_code == 200
+        notifications = response.json()
+        
+        # Find the batch notification
+        batch_notification = None
+        for notif in notifications:
+            if notif.get("is_batch", False):
+                batch_notification = notif
+                break
+        
+        assert batch_notification is not None, "No batch notification found"
+        
+        # Get batch children
+        batch_id = batch_notification["id"]
+        response = client.get(f"/api/v1/notifications/{batch_id}/children", headers=auth_headers)
+        
+        assert response.status_code == 200
+        children = response.json()
+        assert len(children) >= 1
+        
+        # Check timestamp format for each child
+        for child in children:
+            assert "created_at" in child
+            created_at_str = child["created_at"]
+            
+            # The timestamp should be parseable as ISO format
+            try:
+                parsed_time = datetime.datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                assert parsed_time is not None
+            except ValueError:
+                pytest.fail(f"Child timestamp '{created_at_str}' is not in valid ISO format")
+            
+            # Check that the timestamp is recent (within last minute)
+            now = datetime.datetime.now(datetime.UTC)
+            # Ensure both timestamps are timezone-aware for comparison
+            if parsed_time.tzinfo is None:
+                parsed_time = parsed_time.replace(tzinfo=datetime.timezone.utc)
+            time_diff = now - parsed_time
+            assert time_diff.total_seconds() < 60, f"Child timestamp seems too old: {time_diff.total_seconds()} seconds"
+
+    @pytest.mark.asyncio
     async def test_unauthorized_access(self, client: AsyncClient):
         """Test that notification endpoints require authentication."""
         # Test without auth headers
