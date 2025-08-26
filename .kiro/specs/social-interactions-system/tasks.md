@@ -76,6 +76,34 @@ The implementation maintains consistency with the reference implementation's pur
   - _Requirements: 5.1_
 **Acceptance Criteria:** Users receive timely notifications for emoji reactions, can view them in a dropdown with unread count, notifications are properly batched to prevent spam, batch notifications can be expanded to show individual interactions, and the complete notification flow works end-to-end from backend to frontend.
 
+### **TASK 3.5: Backend Organization + Type Safety (Combined Refactoring)**
+**Module Reference:** Code Quality & Architecture Enhancement
+- [x] **3.5.1 Create Shared Type Definitions**
+  - Create shared/types/ directory with API contracts for all endpoints
+  - Define TypeScript interfaces for all API requests/responses
+  - Establish error type hierarchies and validation schemas
+  - Create shared types for database models and service layer
+  - _Requirements: Code organization and type safety_
+- [ ] **3.5.2 Backend Service Layer Refactoring**
+  - Standardize FastAPI error handling using shared types
+  - Create service layer patterns (similar to frontend utilities)
+  - Implement consistent response formatting across all endpoints
+  - Add request/response validation middleware
+  - _Requirements: Backend code organization_
+- [ ] **3.5.3 API Contract Validation**
+  - Add runtime type checking on API boundaries
+  - Implement request/response validation middleware
+  - Create automated API contract testing
+  - Add OpenAPI schema generation and validation
+  - _Requirements: Type safety and API reliability_
+- [ ] **3.5.4 Database Query Organization**
+  - Standardize database query patterns across all models
+  - Create reusable query builders and repository patterns
+  - Implement consistent error handling for DB operations
+  - Add query performance monitoring and optimization
+  - _Requirements: Database layer organization_
+**Acceptance Criteria:** Backend code follows consistent patterns with shared types, API contracts are validated at runtime, database queries are standardized and performant, and the entire codebase maintains type safety across frontend/backend boundaries.
+
 ### **TASK 4: Share System with URL Generation** 
 **Module Reference:** Requirements 2 - Share System with URL Generation
 - [ ] Create Share database model and ShareService for URL generation
