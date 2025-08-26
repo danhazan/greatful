@@ -47,8 +47,16 @@ export async function GET(
         name: child.from_user?.username || child.data?.reactor_username || 'Unknown User',
         image: child.from_user?.profile_image_url || undefined
       },
-      createdAt: child.created_at,
-      lastUpdatedAt: child.last_updated_at,
+      createdAt: child.created_at ? (
+        child.created_at.endsWith('Z') 
+          ? child.created_at 
+          : child.created_at.replace(' ', 'T') + 'Z'
+      ) : child.created_at,
+      lastUpdatedAt: child.last_updated_at ? (
+        child.last_updated_at.endsWith('Z') 
+          ? child.last_updated_at 
+          : child.last_updated_at.replace(' ', 'T') + 'Z'
+      ) : child.last_updated_at,
       read: child.read,
       // Batching fields
       isBatch: child.is_batch || false,
