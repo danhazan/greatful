@@ -1,35 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { API_BASE_URL, validateAuth, getAuthHeader, createFetchOptions, handleApiError } from '@/lib/api-utils'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse,
+  validateRequiredParams,
+  createSuccessResponse 
+} from '@/lib/api-utils'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { notificationId: string } }
 ) {
-  // Validate authorization
-  const authError = validateAuth(request)
-  if (authError) return authError
-
-  const authHeader = getAuthHeader(request)!
-  const notificationId = params.notificationId
-
   try {
-    // Forward the request to the FastAPI backend
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/notifications/${notificationId}/read`,
-      createFetchOptions('POST', authHeader)
-    )
+    // Validate required parameters
+    const validationError = validateRequiredParams(params, ['notificationId'])
+    if (validationError) {
+      return createErrorResponse(validationError, 400)
+    }
+
+    const { notificationId } = params
+
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
+    }
+
+    // Forward request to backend
+    const response = await makeBackendRequest(`/api/v1/notifications/${notificationId}/read`, {
+      method: 'POST',
+      authHeaders,
+    })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      const errorData = await response.json()
       return NextResponse.json(
         { error: errorData.detail || 'Failed to mark notification as read' },
         { status: response.status }
       )
     }
 
-    return NextResponse.json({ success: true })
+    return createSuccessResponse(undefined, 'Notification marked as read')
 
   } catch (error) {
-    return handleApiError(error, 'mark notification as read')
+    return handleApiError(error, 'marking notification as read')
   }
 }

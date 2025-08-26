@@ -1,31 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { API_BASE_URL, validateAuth, getAuthHeader, createFetchOptions, handleApiError } from '@/lib/api-utils'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse,
+  createSuccessResponse 
+} from '@/lib/api-utils'
 
 export async function POST(request: NextRequest) {
-  // Validate authorization
-  const authError = validateAuth(request)
-  if (authError) return authError
-
-  const authHeader = getAuthHeader(request)!
-
   try {
-    // Forward the request to the FastAPI backend
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/notifications/read-all`,
-      createFetchOptions('POST', authHeader)
-    )
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
+    }
+
+    // Forward request to backend
+    const response = await makeBackendRequest('/api/v1/notifications/read-all', {
+      method: 'POST',
+      authHeaders,
+    })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      const errorData = await response.json()
       return NextResponse.json(
         { error: errorData.detail || 'Failed to mark all notifications as read' },
         { status: response.status }
       )
     }
 
-    return NextResponse.json({ success: true })
+    return createSuccessResponse(undefined, 'All notifications marked as read')
 
   } catch (error) {
-    return handleApiError(error, 'mark all notifications as read')
+    return handleApiError(error, 'marking all notifications as read')
   }
 }
