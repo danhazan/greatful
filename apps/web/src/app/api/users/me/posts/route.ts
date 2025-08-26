@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse 
+} from '@/lib/api-utils'
+import { transformUserPosts, type BackendUserPost } from '@/lib/transformers'
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
     }
 
     // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/users/me/posts`, {
+    const response = await makeBackendRequest('/api/v1/users/me/posts', {
       method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
+      authHeaders,
     })
 
     if (!response.ok) {
@@ -32,12 +32,9 @@ export async function GET(request: NextRequest) {
     const posts = await response.json()
 
     // Get user profile to include author information
-    const profileResponse = await fetch(`${API_BASE_URL}/api/v1/users/me/profile`, {
+    const profileResponse = await makeBackendRequest('/api/v1/users/me/profile', {
       method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
+      authHeaders,
     })
 
     let userProfile = null
@@ -46,30 +43,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform the posts to match the frontend format
-    const transformedPosts = posts.map((post: any) => ({
-      id: post.id,
-      content: post.content,
-      author: {
-        id: userProfile?.id?.toString() || '1',
-        name: userProfile?.username || 'Unknown User',
-        image: userProfile?.profile_image_url
-      },
-      createdAt: post.created_at,
-      postType: post.post_type,
-      imageUrl: post.image_url,
-      heartsCount: post.hearts_count || 0,
-      isHearted: post.is_hearted || false,
-      reactionsCount: post.reactions_count || 0,
-      currentUserReaction: post.current_user_reaction
-    }))
+    const transformedPosts = transformUserPosts(posts as BackendUserPost[], userProfile)
 
     return NextResponse.json(transformedPosts)
 
   } catch (error) {
-    console.error('Error fetching user posts:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'fetching user posts')
   }
 }

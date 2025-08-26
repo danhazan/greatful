@@ -1,43 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse,
+  validateRequiredParams,
+  proxyBackendResponse 
+} from '@/lib/api-utils'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
-    
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
+    // Validate required parameters
+    const validationError = validateRequiredParams(params, ['id'])
+    if (validationError) {
+      return createErrorResponse(validationError, 400)
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/${params.id}/hearts/users`, {
+    const { id } = params
+
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
+    }
+
+    // Forward request to backend
+    const response = await makeBackendRequest(`/api/v1/posts/${id}/hearts/users`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      authHeaders,
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
-        { error: errorData.detail || 'Failed to get hearts users' },
-        { status: response.status }
-      )
-    }
+    return proxyBackendResponse(response)
 
-    const data = await response.json()
-    return NextResponse.json(data)
   } catch (error) {
-    console.error('Error getting hearts users:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'getting hearts users')
   }
 }

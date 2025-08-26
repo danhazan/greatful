@@ -1,30 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { API_BASE_URL, validateAuth, getAuthHeader, createFetchOptions, handleApiError } from '@/lib/api-utils'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { notificationId: string } }
 ) {
+  // Validate authorization
+  const authError = validateAuth(request)
+  if (authError) return authError
+
+  const authHeader = getAuthHeader(request)!
+  const notificationId = params.notificationId
+
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
-    }
-
-    const notificationId = params.notificationId
-
     // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications/${notificationId}/read`, {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
-    })
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/notifications/${notificationId}/read`,
+      createFetchOptions('POST', authHeader)
+    )
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
@@ -37,10 +30,6 @@ export async function POST(
     return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error('Error marking notification as read:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'mark notification as read')
   }
 }

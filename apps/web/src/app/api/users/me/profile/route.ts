@@ -1,64 +1,49 @@
 import { NextRequest, NextResponse } from "next/server"
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse,
+  proxyBackendResponse 
+} from '@/lib/api-utils'
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, '') || 'http://localhost:8000'
-    
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
     }
 
-    const response = await fetch(`${backendUrl}/api/v1/users/me/profile`, {
+    const response = await makeBackendRequest('/api/v1/users/me/profile', {
       method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-      },
+      authHeaders,
     })
 
-    const data = await response.json()
-    return NextResponse.json(data, { status: response.status })
+    return proxyBackendResponse(response)
   } catch (error) {
-    console.error('Error getting profile:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'getting profile')
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const authHeader = request.headers.get('authorization')
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, '') || 'http://localhost:8000'
     
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
     }
 
-    const response = await fetch(`${backendUrl}/api/v1/users/me/profile`, {
+    const response = await makeBackendRequest('/api/v1/users/me/profile', {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader,
-      },
+      authHeaders,
       body: JSON.stringify(body),
     })
 
-    const data = await response.json()
-    return NextResponse.json(data, { status: response.status })
+    return proxyBackendResponse(response)
   } catch (error) {
-    console.error('Error updating profile:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'updating profile')
   }
 }

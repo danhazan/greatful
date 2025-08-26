@@ -1,29 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse,
+  validateRequiredParams 
+} from '@/lib/api-utils'
+import { transformReactions, transformReaction, type BackendReaction } from '@/lib/transformers'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
+    // Validate required parameters
+    const validationError = validateRequiredParams(params, ['id'])
+    if (validationError) {
+      return createErrorResponse(validationError, 400)
     }
 
-    const postId = params.id
+    const { id } = params
+
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
+    }
 
     // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/reactions`, {
+    const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions`, {
       method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
+      authHeaders,
     })
 
     if (!response.ok) {
@@ -37,23 +44,12 @@ export async function GET(
     const reactions = await response.json()
 
     // Transform the reactions to match the frontend format
-    const transformedReactions = reactions.map((reaction: any) => ({
-      id: reaction.id,
-      userId: reaction.user_id.toString(),
-      userName: reaction.user?.username || 'Unknown User',
-      userImage: reaction.user?.profile_image_url,
-      emojiCode: reaction.emoji_code,
-      createdAt: reaction.created_at
-    }))
+    const transformedReactions = transformReactions(reactions as BackendReaction[])
 
     return NextResponse.json(transformedReactions)
 
   } catch (error) {
-    console.error('Error fetching reactions:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'fetching reactions')
   }
 }
 
@@ -62,32 +58,31 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
+    // Validate required parameters
+    const validationError = validateRequiredParams(params, ['id'])
+    if (validationError) {
+      return createErrorResponse(validationError, 400)
     }
 
-    const postId = params.id
+    const { id } = params
+
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
+    }
+
     const body = await request.json()
 
     // Validate required fields
     if (!body.emoji_code) {
-      return NextResponse.json(
-        { error: 'Emoji code is required' },
-        { status: 400 }
-      )
+      return createErrorResponse('Emoji code is required', 400)
     }
 
     // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/reactions`, {
+    const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions`, {
       method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
+      authHeaders,
       body: JSON.stringify({
         emoji_code: body.emoji_code
       })
@@ -104,23 +99,12 @@ export async function POST(
     const reaction = await response.json()
 
     // Transform the response to match the frontend format
-    const transformedReaction = {
-      id: reaction.id,
-      userId: reaction.user_id.toString(),
-      userName: reaction.user?.username || 'Unknown User',
-      userImage: reaction.user?.profile_image_url,
-      emojiCode: reaction.emoji_code,
-      createdAt: reaction.created_at
-    }
+    const transformedReaction = transformReaction(reaction as BackendReaction)
 
     return NextResponse.json(transformedReaction, { status: 201 })
 
   } catch (error) {
-    console.error('Error adding reaction:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'adding reaction')
   }
 }
 
@@ -129,23 +113,24 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
+    // Validate required parameters
+    const validationError = validateRequiredParams(params, ['id'])
+    if (validationError) {
+      return createErrorResponse(validationError, 400)
     }
 
-    const postId = params.id
+    const { id } = params
+
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
+    }
 
     // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/reactions`, {
+    const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
+      authHeaders,
     })
 
     if (!response.ok) {
@@ -159,10 +144,6 @@ export async function DELETE(
     return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error('Error removing reaction:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'removing reaction')
   }
 }

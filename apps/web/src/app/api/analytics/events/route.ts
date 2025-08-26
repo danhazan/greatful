@@ -1,34 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse 
+} from '@/lib/api-utils'
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
+    // Create auth headers
+    const authHeaders = createAuthHeaders(request)
+    if (!authHeaders['Authorization']) {
+      return createErrorResponse('Authorization header required', 401)
     }
 
     const body = await request.json()
 
     // Validate the analytics event
     if (!body.type || !body.postId || !body.userId) {
-      return NextResponse.json(
-        { error: 'Missing required fields: type, postId, userId' },
-        { status: 400 }
-      )
+      return createErrorResponse('Missing required fields: type, postId, userId', 400)
     }
 
     // Validate event type
     const validTypes = ['reaction_add', 'reaction_remove', 'reaction_change', 'heart', 'share', 'view']
     if (!validTypes.includes(body.type)) {
-      return NextResponse.json(
-        { error: 'Invalid event type' },
-        { status: 400 }
-      )
+      return createErrorResponse('Invalid event type', 400)
     }
 
     // Transform the request to match the backend API format
@@ -41,12 +37,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/analytics/events`, {
+    const response = await makeBackendRequest('/api/v1/analytics/events', {
       method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
+      authHeaders,
       body: JSON.stringify(analyticsData)
     })
 
@@ -62,10 +55,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result)
 
   } catch (error) {
-    console.error('Error recording analytics event:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'recording analytics event')
   }
 }
