@@ -27,6 +27,7 @@ class NotificationResponse(BaseModel):
     data: dict
     read: bool
     created_at: str
+    last_updated_at: str | None = None
     post_id: str | None = None
     from_user: dict | None = None
     # Batching fields
@@ -104,6 +105,7 @@ async def get_notifications(
                 data=notification.data or {},
                 read=notification.read,
                 created_at=notification.created_at.isoformat(),
+                last_updated_at=notification.last_updated_at.isoformat() if notification.last_updated_at else None,
                 post_id=post_id,
                 from_user=from_user,
                 is_batch=notification.is_batch,
@@ -260,6 +262,7 @@ async def get_batch_children(
                 data=notification.data or {},
                 read=notification.read,
                 created_at=notification.created_at.isoformat(),
+                last_updated_at=notification.last_updated_at.isoformat() if notification.last_updated_at else None,
                 post_id=post_id,
                 from_user=from_user,
                 is_batch=notification.is_batch,

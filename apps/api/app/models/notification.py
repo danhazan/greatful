@@ -29,6 +29,7 @@ class Notification(Base):
     is_batch = Column(Boolean, default=False, nullable=False)
     batch_count = Column(Integer, default=1, nullable=False)
     batch_key = Column(String, nullable=True, index=True)  # For grouping similar notifications
+    last_updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC).replace(tzinfo=None), nullable=False)  # Track when notification was last updated
 
     # Relationships
     user = relationship("User", back_populates="notifications")

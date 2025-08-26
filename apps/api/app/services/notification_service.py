@@ -187,6 +187,13 @@ class NotificationService:
         existing_notification.title = title
         existing_notification.message = message
         
+        # Update last_updated_at to show latest activity (moves to top of list)
+        existing_notification.last_updated_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        
+        # Mark batch as unread when converting to batch
+        existing_notification.read = False
+        existing_notification.read_at = None
+        
         # Set the new notification as a child
         new_notification.parent_id = existing_notification.id
         
@@ -225,8 +232,12 @@ class NotificationService:
         batch_notification.title = title
         batch_notification.message = message
         
-        # Update timestamp to show latest activity
-        batch_notification.created_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        # Update last_updated_at to show latest activity (this moves it to top of list)
+        batch_notification.last_updated_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        
+        # Mark batch as unread when new notifications are added
+        batch_notification.read = False
+        batch_notification.read_at = None
         
         # Set the new notification as a child
         new_notification.parent_id = batch_notification.id
@@ -539,7 +550,10 @@ class NotificationService:
         if unread_only:
             query = query.where(Notification.read == False)
             
-        query = query.order_by(desc(Notification.created_at)).limit(limit).offset(offset)
+        # Order by last_updated_at for proper batch ordering, fallback to created_at
+        query = query.order_by(
+            desc(func.coalesce(Notification.last_updated_at, Notification.created_at))
+        ).limit(limit).offset(offset)
         
         result = await db.execute(query)
         return result.scalars().all()

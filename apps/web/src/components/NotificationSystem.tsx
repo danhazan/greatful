@@ -14,6 +14,7 @@ interface Notification {
     image?: string
   }
   createdAt: string
+  lastUpdatedAt?: string
   read: boolean
   // Batching fields
   isBatch?: boolean
@@ -328,7 +329,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                               )}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
-                              {formatTime(notification.createdAt)}
+                              {formatTime(notification.lastUpdatedAt || notification.createdAt)}
                             </p>
                           </div>
 
@@ -405,7 +406,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                     {child.message}
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
-                                    {formatTime(child.createdAt)}
+                                    {formatTime(child.lastUpdatedAt || child.createdAt)}
                                   </p>
                                 </div>
                               </div>
