@@ -396,11 +396,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
                       {/* Batch children */}
                       {notification.isBatch && expandedBatches.has(notification.id) && batchChildren[notification.id] && Array.isArray(batchChildren[notification.id]) && (
-                        <div className="bg-gray-50 max-h-60 overflow-y-auto border-l-4 border-purple-200 ml-4">
+                        <div className="bg-gray-50 max-h-60 overflow-y-auto border-l-4 border-purple-200 ml-4" style={{ direction: 'rtl' }}>
                           {batchChildren[notification.id].map((child) => (
                             <div
                               key={child.id}
                               className="pl-4 pr-4 py-3 hover:bg-gray-100 cursor-pointer transition-colors"
+                              style={{ direction: 'ltr' }}
                               onClick={() => {
                                 if (!child.read) {
                                   markAsRead(child.id)
