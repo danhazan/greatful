@@ -3,18 +3,20 @@ Posts API endpoints.
 """
 
 import logging
+import uuid
 from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from pydantic import BaseModel, Field, ConfigDict
+
 from app.core.database import get_db
-from app.models.user import User
-from app.models.post import Post, PostType
 from app.core.security import decode_token
-import uuid
+from app.models.post import Post, PostType
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

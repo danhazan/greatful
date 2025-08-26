@@ -2,16 +2,18 @@
 API endpoints for notifications.
 """
 
+import logging
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
-from app.services.notification_service import NotificationService
-from app.models.notification import Notification
 from app.core.security import decode_token
-import logging
+from app.models.notification import Notification
+from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

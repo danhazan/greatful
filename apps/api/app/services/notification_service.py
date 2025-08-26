@@ -2,15 +2,17 @@
 NotificationService for handling notification business logic.
 """
 
+import datetime
+import logging
 from typing import List, Optional
+
+from sqlalchemy import func, desc, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func, desc, and_, or_
+
 from app.models.notification import Notification
 from app.models.user import User
-import logging
-import datetime
 
 logger = logging.getLogger(__name__)
 

@@ -2,11 +2,13 @@
 Notification model for handling user notifications.
 """
 
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, JSON, Integer, Boolean
-from sqlalchemy.orm import relationship
-from app.core.database import Base
 import datetime
 import uuid
+
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, JSON, Integer, Boolean
+from sqlalchemy.orm import relationship
+
+from app.core.database import Base
 
 
 class Notification(Base):
