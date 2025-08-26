@@ -47,8 +47,16 @@ export async function GET(request: NextRequest) {
         name: notification.from_user?.username || notification.data?.reactor_username || 'Unknown User',
         image: notification.from_user?.profile_image_url || undefined
       },
-      createdAt: notification.created_at,
-      lastUpdatedAt: notification.last_updated_at,
+      createdAt: notification.created_at ? (
+        notification.created_at.endsWith('Z') 
+          ? notification.created_at 
+          : notification.created_at.replace(' ', 'T') + 'Z'
+      ) : notification.created_at,
+      lastUpdatedAt: notification.last_updated_at ? (
+        notification.last_updated_at.endsWith('Z') 
+          ? notification.last_updated_at 
+          : notification.last_updated_at.replace(' ', 'T') + 'Z'
+      ) : notification.last_updated_at,
       read: notification.read,
       // Batching fields
       isBatch: notification.is_batch || false,
