@@ -278,6 +278,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                 <button
                   onClick={() => setShowNotifications(false)}
                   className="text-gray-400 hover:text-gray-600"
+                  aria-label="Close notifications"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -309,12 +310,13 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                             }
                             // Toggle batch expansion
                             toggleBatchExpansion(notification.id)
+                            // Don't close notifications dropdown for batch clicks
                           } else {
                             if (!notification.read) {
                               markAsRead(notification.id)
                             }
                             // Navigate to post (you can implement this)
-                            setShowNotifications(false)
+                            // Don't close notifications dropdown for individual notification clicks
                           }
                         }}
                       >
@@ -394,17 +396,17 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
                       {/* Batch children */}
                       {notification.isBatch && expandedBatches.has(notification.id) && batchChildren[notification.id] && Array.isArray(batchChildren[notification.id]) && (
-                        <div className="bg-gray-50">
+                        <div className="bg-gray-50 max-h-60 overflow-y-auto border-l-4 border-purple-200 ml-4">
                           {batchChildren[notification.id].map((child) => (
                             <div
                               key={child.id}
-                              className="pl-8 pr-4 py-3 hover:bg-gray-100 cursor-pointer transition-colors border-l-2 border-purple-200"
+                              className="pl-4 pr-4 py-3 hover:bg-gray-100 cursor-pointer transition-colors"
                               onClick={() => {
                                 if (!child.read) {
                                   markAsRead(child.id)
                                 }
                                 // Navigate to post (you can implement this)
-                                setShowNotifications(false)
+                                // Don't close notifications dropdown for child notification clicks
                               }}
                             >
                               <div className="flex items-start space-x-3">

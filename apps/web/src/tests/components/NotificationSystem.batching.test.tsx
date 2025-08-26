@@ -306,8 +306,9 @@ describe('NotificationSystem Batching', () => {
     expect(childElements).toHaveLength(2)
 
     // Children should have smaller avatars and indented styling
-    const childContainers = document.querySelectorAll('.border-l-2.border-purple-200')
-    expect(childContainers).toHaveLength(2)
+    // The batch children container now has border-l-4 and the individual children don't have border classes
+    const batchChildrenContainer = document.querySelector('.border-l-4.border-purple-200')
+    expect(batchChildrenContainer).toBeInTheDocument()
   })
 
   it('marks batch and children as read when batch is clicked for non-expansion', async () => {
