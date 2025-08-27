@@ -95,7 +95,8 @@ class ShareService(BaseService):
         share = await self.share_repo.create(
             user_id=user_id,
             post_id=post_id,
-            share_method=ShareMethod.url.value
+            share_method=ShareMethod.url.value,
+            recipient_user_ids=None  # URL shares don't have recipients
         )
         
         # Generate share URL

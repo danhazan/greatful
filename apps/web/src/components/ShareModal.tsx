@@ -74,44 +74,57 @@ export default function ShareModal({
     setIsSharing(true)
     
     try {
-      const token = localStorage.getItem("access_token")
+      // Generate the share URL directly (fallback approach)
+      const url = `${window.location.origin}/post/${post.id}`
       
-      // Make API call to share via URL
-      const response = await fetch(`/api/posts/${post.id}/share`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          share_method: 'url' 
-        })
-      })
+      // Copy to clipboard first (this is the main functionality)
+      await navigator.clipboard.writeText(url)
+      setShareUrl(url)
+      setCopySuccess(true)
       
-      if (response.ok) {
-        const shareData = await response.json()
-        const url = shareData.share_url || `${window.location.origin}/post/${post.id}`
+      // Try to record the share in the backend (optional)
+      try {
+        const token = localStorage.getItem("access_token")
         
-        // Copy to clipboard
-        await navigator.clipboard.writeText(url)
-        setShareUrl(url)
-        setCopySuccess(true)
-        
-        // Call onShare callback
-        onShare?.('url', { shareUrl: url, shareId: shareData.id })
-        
-        // Reset success state after 2 seconds
-        setTimeout(() => {
-          setCopySuccess(false)
-        }, 2000)
-      } else {
-        const errorData = await response.json()
-        console.error('Failed to share post:', errorData)
-        // TODO: Show error toast
+        if (token) {
+          const response = await fetch(`/api/posts/${post.id}/share`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              share_method: 'url' 
+            })
+          })
+          
+          if (response.ok) {
+            const shareData = await response.json()
+            // Call onShare callback with backend data
+            onShare?.('url', { shareUrl: url, shareId: shareData.id })
+          } else {
+            // Still call callback even if backend fails
+            onShare?.('url', { shareUrl: url, shareId: null })
+            console.warn('Failed to record share in backend, but clipboard copy succeeded')
+          }
+        } else {
+          // No token, still call callback
+          onShare?.('url', { shareUrl: url, shareId: null })
+        }
+      } catch (apiError) {
+        // API failed, but clipboard copy succeeded
+        console.warn('Share API failed, but clipboard copy succeeded:', apiError)
+        onShare?.('url', { shareUrl: url, shareId: null })
       }
-    } catch (error) {
-      console.error('Error sharing post:', error)
-      // TODO: Show error toast
+      
+      // Reset success state after 2 seconds
+      setTimeout(() => {
+        setCopySuccess(false)
+      }, 2000)
+      
+    } catch (clipboardError) {
+      console.error('Failed to copy to clipboard:', clipboardError)
+      // TODO: Show error toast for clipboard failure
     } finally {
       setIsSharing(false)
     }

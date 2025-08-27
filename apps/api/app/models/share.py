@@ -10,6 +10,7 @@ from app.core.database import Base
 import uuid
 import enum
 import json
+import os
 
 class ShareMethod(str, enum.Enum):
     url = "url"
@@ -29,8 +30,12 @@ class Share(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     post_id = Column(String, ForeignKey("posts.id"), nullable=False)
     share_method = Column(String(20), nullable=False)  # 'url' or 'message'
-    # Use JSON for SQLite compatibility, ARRAY for PostgreSQL
-    recipient_user_ids = Column(Text, nullable=True)  # JSON string for message shares
+    # Use ARRAY for PostgreSQL, Text for SQLite (tests)
+    recipient_user_ids = Column(
+        ARRAY(Integer) if os.getenv("DATABASE_URL", "").startswith("postgresql") else Text, 
+        nullable=True, 
+        default=None
+    )  # Array of user IDs for message shares (PostgreSQL) or JSON string (SQLite)
     message_content = Column(Text, nullable=True)  # Optional message with share
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -56,17 +61,25 @@ class Share(Base):
     def recipient_ids_list(self) -> list:
         """Get recipient user IDs as a list."""
         if self.recipient_user_ids:
-            try:
-                return json.loads(self.recipient_user_ids)
-            except (json.JSONDecodeError, TypeError):
-                return []
+            # Handle both PostgreSQL ARRAY and SQLite JSON string
+            if isinstance(self.recipient_user_ids, list):
+                return list(self.recipient_user_ids)
+            else:
+                try:
+                    return json.loads(self.recipient_user_ids)
+                except (json.JSONDecodeError, TypeError):
+                    return []
         return []
     
     @recipient_ids_list.setter
     def recipient_ids_list(self, value: list):
         """Set recipient user IDs from a list."""
         if value:
-            self.recipient_user_ids = json.dumps(value)
+            # For PostgreSQL, store as array; for SQLite, store as JSON string
+            if os.getenv("DATABASE_URL", "").startswith("postgresql"):
+                self.recipient_user_ids = value
+            else:
+                self.recipient_user_ids = json.dumps(value)
         else:
             self.recipient_user_ids = None
 

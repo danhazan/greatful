@@ -149,7 +149,16 @@ describe('ShareModal', () => {
 
     fireEvent.click(screen.getByText('Copy Link'))
 
-    // Wait for API call and clipboard operation
+    // Wait for clipboard operation (this happens first now)
+    await waitFor(() => {
+      expect(mockClipboard).toHaveBeenCalledWith('http://localhost/post/test-post-1')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Link Copied!')).toBeInTheDocument()
+    })
+
+    // API call should still happen in the background
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/posts/test-post-1/share', {
         method: 'POST',
@@ -161,16 +170,8 @@ describe('ShareModal', () => {
       })
     })
 
-    await waitFor(() => {
-      expect(mockClipboard).toHaveBeenCalledWith('https://example.com/post/test-post-1')
-    })
-
-    await waitFor(() => {
-      expect(screen.getByText('Link Copied!')).toBeInTheDocument()
-    })
-
     expect(onShare).toHaveBeenCalledWith('url', {
-      shareUrl: 'https://example.com/post/test-post-1',
+      shareUrl: 'http://localhost/post/test-post-1',
       shareId: 'share-1'
     })
   })
@@ -209,7 +210,8 @@ describe('ShareModal', () => {
 
   it('handles API errors gracefully', async () => {
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    const mockClipboard = navigator.clipboard.writeText as jest.MockedFunction<typeof navigator.clipboard.writeText>
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
     
     // Mock API error
     mockFetch.mockResolvedValueOnce({
@@ -227,8 +229,18 @@ describe('ShareModal', () => {
 
     fireEvent.click(screen.getByText('Copy Link'))
 
+    // Clipboard should still work even if API fails
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to share post:', { error: 'Rate limit exceeded' })
+      expect(mockClipboard).toHaveBeenCalledWith('http://localhost/post/test-post-1')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Link Copied!')).toBeInTheDocument()
+    })
+
+    // Should warn about API failure but not error
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to record share in backend, but clipboard copy succeeded')
     })
 
     consoleSpy.mockRestore()
