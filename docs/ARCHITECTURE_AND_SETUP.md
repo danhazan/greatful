@@ -71,13 +71,17 @@ See each folder’s README (if present) for more details.
 
 ## Architecture
 
-- **Backend:** FastAPI (Python, SQLAlchemy, JWT) with Service Layer Architecture
+- **Backend:** FastAPI (Python, SQLAlchemy, JWT) with Service Layer Architecture and Shared Types
   - Location: `apps/api`
-  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, etc.)
-  - **Standardized Responses**: Consistent API response formatting with error handling
-  - **Custom Exceptions**: Proper HTTP status codes and structured error messages
-  - **Middleware**: Request validation, error handling, and logging
-  - Handles all business logic, authentication, and database access
+  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, ReactionService, NotificationService)
+  - **Repository Pattern**: Standardized data access layer with query builders and performance monitoring
+  - **Shared Type System**: Comprehensive type definitions shared between frontend and backend (`shared/types/`)
+  - **API Contract Validation**: Runtime validation of requests/responses against shared type contracts
+  - **Standardized Responses**: Consistent API response formatting with structured error handling
+  - **Custom Exceptions**: Proper HTTP status codes, error hierarchies, and detailed error messages
+  - **Middleware**: Request validation, error handling, performance monitoring, and logging
+  - **OpenAPI Integration**: Automatic schema generation and validation from shared types
+  - Handles all business logic, authentication, database access, and type safety
 - **Frontend:** Next.js (React, TypeScript)
   - Location: `apps/web`
   - Proxies authentication and user-related requests to the backend
@@ -167,7 +171,18 @@ npm run dev
   ```sh
   cd apps/api
   source venv/bin/activate
-  pytest
+  pytest                    # All tests
+  pytest -v                 # Verbose output
+  pytest tests/unit/        # Unit tests only
+  pytest tests/integration/ # Integration tests only
+  pytest tests/contract/    # API contract tests only
+  ```
+
+- **Run tests with coverage:**
+  ```sh
+  cd apps/api
+  source venv/bin/activate
+  pytest --cov=app --cov-report=html
   ```
 
 - **Create database migration:**
@@ -178,9 +193,17 @@ npm run dev
   alembic upgrade head
   ```
 
+- **Validate shared types:**
+  ```sh
+  cd shared/types
+  npm run type-check        # TypeScript type checking
+  npm run build            # Build shared types
+  ```
+
 - **Check API documentation:**
-  - Visit [http://localhost:8000/docs](http://localhost:8000/docs) for interactive API docs
+  - Visit [http://localhost:8000/docs](http://localhost:8000/docs) for interactive API docs with shared type schemas
   - Visit [http://localhost:8000/redoc](http://localhost:8000/redoc) for alternative docs
+  - Visit [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) for OpenAPI schema
 
 ### Frontend Development
 

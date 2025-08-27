@@ -62,9 +62,27 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```bash
 cd apps/api
 source venv/bin/activate
+
+# Run all tests
 pytest
-pytest -v  # Verbose output
-pytest -k "test_name"  # Run specific test
+
+# Run with verbose output
+pytest -v
+
+# Run specific test categories
+pytest tests/unit/                    # Unit tests only
+pytest tests/integration/             # Integration tests only
+pytest tests/contract/                # API contract tests only
+
+# Run specific test files
+pytest tests/unit/test_user_service.py
+pytest tests/integration/test_reactions_api.py
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+
+# Run specific test by name
+pytest -k "test_create_post"
 ```
 
 #### Test Backend Server Startup
@@ -110,11 +128,25 @@ pnpm dev
 #### Run Tests
 ```bash
 cd apps/web
+
+# Run all tests
 npm test
-# or
-yarn test
-# or
-pnpm test
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Run specific test files
+npm test PostCard.test.tsx
+npm test -- --testPathPattern=components
+
+# Run with coverage
+npm test -- --coverage
+
+# Run API tests specifically
+npm test -- tests/api/
+
+# Type checking
+npm run type-check
 ```
 
 #### Build for Production
@@ -150,6 +182,43 @@ docker-compose down
 ### Rebuild Services
 ```bash
 docker-compose up -d --build
+```
+
+### Shared Types
+
+#### Type Checking and Building
+```bash
+cd shared/types
+
+# Install dependencies
+npm install
+
+# Type checking
+npm run type-check
+
+# Build shared types
+npm run build
+
+# Lint types
+npm run lint
+
+# Format types
+npm run format
+```
+
+#### Validate Type Consistency
+```bash
+# Check that frontend uses shared types correctly
+cd apps/web
+npm run type-check
+
+# Check that backend Python types are consistent
+cd apps/api
+source venv/bin/activate
+python -c "from app.schemas.api import *; print('Python types OK')"
+
+# Run contract tests to validate API consistency
+pytest tests/contract/ -v
 ```
 
 ## 🔧 Utility Commands
@@ -234,4 +303,33 @@ df -h
 
 # Check memory usage
 free -h
+```
+
+## 🔄 CI/CD Commands
+
+### Run Full Test Suite (as CI would)
+```bash
+# Shared types validation
+cd shared/types && npm run type-check && npm run build
+
+# Backend tests (including contract validation)
+cd apps/api && source venv/bin/activate && pytest --cov=app
+
+# Frontend tests (including type checking)
+cd apps/web && npm run type-check && npm test
+```
+
+### Validate Entire System
+```bash
+# Full system validation
+cd shared/types && npm run build
+cd apps/api && source venv/bin/activate && pytest tests/contract/
+cd apps/web && npm run type-check && npm test
+
+# Check API contract consistency
+cd apps/api && source venv/bin/activate && pytest tests/contract/test_api_contracts.py -v
+
+# Validate shared types are properly used
+cd apps/web && npm run type-check
+cd shared/types && npm run lint
 ``` 

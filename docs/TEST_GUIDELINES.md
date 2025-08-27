@@ -2,23 +2,25 @@
 
 ## Overview
 
-This document provides guidelines for writing and organizing tests in the Grateful project. We follow a structured approach to testing with clear separation between unit, integration, and end-to-end tests.
+This document provides guidelines for writing and organizing tests in the Grateful project. We follow a structured approach to testing with clear separation between unit, integration, contract, and end-to-end tests. The testing strategy includes comprehensive validation of shared type contracts and API consistency.
 
 ## Current Test Status
 
 ### ✅ Backend Tests
 - **Framework**: Pytest with async support
-- **Status**: Fully configured and working
-- **Coverage**: Unit tests for all API endpoints
+- **Status**: Fully configured and working (113/113 tests passing)
+- **Coverage**: Unit tests for services, repositories, models, and API endpoints
+- **Contract Tests**: API contract validation against shared type definitions
 - **Location**: `apps/api/tests/`
 
 ### ✅ Frontend Tests
 - **Framework**: Jest with React Testing Library
-- **Status**: All tests are passing.
-- **Coverage**: Good coverage for components and API routes.
+- **Status**: All tests are passing (231/231 tests passing)
+- **Coverage**: Comprehensive coverage for components, API routes, and utilities
+- **Type Safety**: Tests validate usage of shared type definitions
 - **Location**: `apps/web/src/tests/`
 - **Test Suites**: 17 passed, 17 total
-- **Tests**: 134 passed, 14 skipped, 148 total
+- **Tests**: 231 passed, 0 skipped, 231 total
 
 ## Frontend Testing Setup
 
@@ -205,6 +207,134 @@ apps/web/src/tests/
 ├── setup.ts
 └── utils
     └── test-helpers.ts
+```
+
+## Shared Types Testing
+
+### Type Safety Validation
+
+The shared type system ensures consistency between frontend and backend through comprehensive testing:
+
+#### Shared Type Structure
+```
+shared/types/
+├── api.ts               # API contract types for all endpoints
+├── models.ts            # Database model types and interfaces
+├── services.ts          # Service layer interface definitions
+├── core.ts              # Core types, enums, and constants
+├── errors.ts            # Error type hierarchies
+├── validation.ts        # Validation schemas and rules
+└── python/models.py     # Python equivalents of TypeScript types
+```
+
+#### Type Testing Strategies
+
+1. **Compilation Tests**: Ensure all TypeScript code compiles without type errors
+2. **API Contract Tests**: Validate that API responses match shared type definitions
+3. **Cross-Platform Consistency**: Verify Python and TypeScript types remain synchronized
+4. **Runtime Validation**: Test that runtime validation matches compile-time types
+
+#### Usage in Tests
+
+**Frontend Type Usage**:
+```typescript
+import { PostResponse, CreatePostRequest, EmojiCode } from '@/shared/types'
+
+// Type-safe test data
+const mockPost: PostResponse = {
+  id: 'test-id',
+  content: 'Test post content',
+  post_type: 'daily',
+  author: { id: 1, username: 'testuser' },
+  // ... other required fields with proper types
+}
+
+// Type-safe API testing
+const createRequest: CreatePostRequest = {
+  content: 'New post',
+  post_type: 'daily',
+  is_public: true
+}
+```
+
+**Backend Type Usage**:
+```python
+# Python equivalents of TypeScript types
+from app.schemas.api import CreatePostRequest, PostResponse
+from app.models import Post, User
+
+# Type-safe service testing
+async def test_create_post_with_types():
+    request_data = CreatePostRequest(
+        content="Test post",
+        post_type="daily",
+        is_public=True
+    )
+    
+    post = await post_service.create_post(user_id=1, **request_data.dict())
+    response = PostResponse.from_model(post)
+    
+    assert response.content == request_data.content
+    assert response.post_type == request_data.post_type
+```
+
+### Contract Testing
+
+API contract tests validate that endpoints conform to shared type definitions:
+
+```python
+# Backend contract test
+async def test_post_creation_api_contract(async_client, auth_headers):
+    """Test that POST /posts endpoint matches API contract."""
+    request_data = {
+        "content": "Test post content",
+        "post_type": "daily",
+        "is_public": True
+    }
+    
+    response = await async_client.post("/api/v1/posts/", json=request_data, headers=auth_headers)
+    
+    assert response.status_code == 201
+    data = response.json()
+    
+    # Validate response structure matches PostResponse type
+    assert "id" in data["data"]
+    assert "content" in data["data"]
+    assert "post_type" in data["data"]
+    assert "author" in data["data"]
+    assert "created_at" in data["data"]
+    
+    # Validate data types
+    assert isinstance(data["data"]["id"], str)
+    assert isinstance(data["data"]["content"], str)
+    assert data["data"]["post_type"] in ["daily", "photo", "spontaneous"]
+```
+
+```typescript
+// Frontend contract test
+describe('API Contract Validation', () => {
+  it('should match PostResponse type for created posts', async () => {
+    const createRequest: CreatePostRequest = {
+      content: 'Test post',
+      post_type: 'daily',
+      is_public: true
+    }
+    
+    const response = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createRequest)
+    })
+    
+    const data: PostResponse = await response.json()
+    
+    // TypeScript compiler ensures this matches PostResponse interface
+    expect(data.id).toBeDefined()
+    expect(data.content).toBe(createRequest.content)
+    expect(data.post_type).toBe(createRequest.post_type)
+    expect(data.author).toBeDefined()
+  })
+})
 ```
 
 ## Test Categories

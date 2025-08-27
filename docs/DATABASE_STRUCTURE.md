@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Grateful application uses PostgreSQL as the primary database with SQLAlchemy ORM for data modeling. This document describes the current database schema and relationships.
+The Grateful application uses PostgreSQL as the primary database with SQLAlchemy ORM for data modeling and a standardized repository pattern for data access. This document describes the current database schema, relationships, and query patterns implemented through the repository layer.
 
 ## Database Schema
 
@@ -191,21 +191,97 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 - Post types must be valid enum values
 - Notification priorities must be valid enum values
 
+## Repository Pattern & Query Optimization
+
+### Repository Layer Architecture
+
+The application uses a standardized repository pattern for data access:
+
+#### BaseRepository Features
+- **Query Builder Pattern**: Fluent interface for constructing complex queries
+- **Standardized Error Handling**: Consistent exception handling across all repositories
+- **Performance Monitoring**: Query performance tracking and optimization
+- **Relationship Loading**: Efficient eager loading of related entities
+- **Pagination Support**: Built-in pagination with total count optimization
+
+#### Repository Classes
+- **UserRepository**: User data access with profile and relationship queries
+- **PostRepository**: Post data access with engagement metrics and feed generation
+- **EmojiReactionRepository**: Reaction data access with aggregation and validation
+- **LikeRepository**: Like/heart data access with user relationship tracking
+- **NotificationRepository**: Notification data access with batching and filtering
+
+### Query Patterns
+
+#### Standard CRUD Operations
+```python
+# Repository usage example
+user_repo = UserRepository(db, User)
+
+# Get with relationships
+user = await user_repo.get_by_id(user_id, load_relationships=['posts', 'followers'])
+
+# Paginated queries with filters
+users, total = await user_repo.paginate(
+    page=1, 
+    per_page=20, 
+    filters={'is_active': True},
+    order_by=User.created_at.desc()
+)
+
+# Complex queries with builder pattern
+posts = await post_repo.query()\
+    .filter(Post.is_public == True)\
+    .filter(Post.created_at >= datetime.now() - timedelta(days=7))\
+    .join(User)\
+    .order_by(Post.created_at.desc())\
+    .limit(50)\
+    .build()
+```
+
+#### Performance Optimizations
+- **Selective Loading**: Load only required relationships to minimize queries
+- **Query Monitoring**: Automatic logging of slow queries and N+1 detection
+- **Index Usage**: Strategic indexes on foreign keys, timestamps, and filter columns
+- **Bulk Operations**: Efficient bulk create/update operations for large datasets
+
 ## Migration History
 
-The database uses Alembic for migrations. Current migration files:
-- `72643033bc6a_create_users_table.py` - Initial users table
-- `a9d80b235a14_fix_user_foreign_key_types.py` - Foreign key type fixes
-- `9174914e1b2d_fix_user_base_import_for_alembic.py` - Alembic import fixes
+The database uses Alembic for migrations with proper versioning:
+
+### Core Migrations
+- `000_create_base_tables.py` - Initial users and posts tables
+- `001_create_emoji_reactions_table.py` - Emoji reactions system
+- `002_add_user_profile_fields.py` - User profile enhancements
+- `003_create_likes_table.py` - Hearts/likes system
+- `004_add_notification_batching_fields.py` - Notification batching support
+- `005_add_last_updated_at_field.py` - Timestamp tracking improvements
+
+### Recent Migrations
+- `1acf9fb80bfb_add_location_field_to_posts.py` - Location support for posts
+- `d0081466f2ad_add_location_field_to_posts_table.py` - Location field migration
+- `ecb4d319f326_add_notifications_table.py` - Enhanced notifications system
 
 ## Development Notes
 
+### Database Configuration
 - **Test Database**: Uses PostgreSQL test database for production-like testing
-- **Production Database**: Uses PostgreSQL with proper indexing
+- **Production Database**: Uses PostgreSQL with proper indexing and connection pooling
 - **Async Operations**: All database operations are async using SQLAlchemy 2.0
-- **UUID Usage**: Posts, likes, comments, follows, and notifications use UUID primary keys
-- **Integer IDs**: Users use integer primary keys for performance
+- **Connection Management**: Proper session management with automatic cleanup
+
+### Data Types & Performance
+- **UUID Usage**: Posts, likes, comments, follows, and notifications use UUID primary keys for scalability
+- **Integer IDs**: Users use integer primary keys for performance and foreign key efficiency
+- **Timestamp Indexing**: Strategic indexes on created_at and updated_at fields
+- **Relationship Optimization**: Efficient loading strategies for complex relationships
+
+### Repository Pattern Benefits
+- **Consistent Error Handling**: Standardized exception handling across all data operations
+- **Query Reusability**: Common query patterns abstracted into reusable methods
+- **Performance Monitoring**: Built-in query performance tracking and optimization
+- **Type Safety**: Integration with shared type definitions for compile-time safety
 
 ---
 
-*Last updated: [Current Date]* 
+*Last updated: August 27, 2025* 

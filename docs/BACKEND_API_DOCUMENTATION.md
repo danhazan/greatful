@@ -2,31 +2,53 @@
 
 ## 🏗️ Architecture Overview
 
-The Grateful backend is built with **FastAPI** and follows a clean, scalable service-oriented architecture:
+The Grateful backend is built with **FastAPI** and follows a clean, scalable service-oriented architecture with comprehensive shared type definitions:
 
 ```
 apps/api/
 ├── app/
 │   ├── api/v1/           # API routes (auth, users, posts, reactions, notifications)
-│   ├── core/             # Core infrastructure (database, security, exceptions, middleware)
+│   ├── core/             # Core infrastructure layer
 │   │   ├── database.py   # Database connection and session management
 │   │   ├── security.py   # JWT authentication and password hashing
 │   │   ├── exceptions.py # Custom exception classes with proper HTTP status codes
 │   │   ├── responses.py  # Standardized API response formatting
 │   │   ├── middleware.py # Error handling and request validation middleware
 │   │   ├── dependencies.py # Common FastAPI dependencies
-│   │   └── service_base.py # Base service class with common CRUD operations
+│   │   ├── service_base.py # Base service class with common CRUD operations
+│   │   ├── repository_base.py # Base repository with query patterns
+│   │   ├── validation_middleware.py # Request/response validation
+│   │   ├── contract_validation.py # API contract validation
+│   │   ├── openapi_validator.py # OpenAPI schema validation
+│   │   ├── performance_utils.py # Performance monitoring utilities
+│   │   └── query_monitor.py # Database query performance monitoring
 │   ├── services/         # Business logic layer (service classes)
 │   │   ├── auth_service.py      # Authentication operations
 │   │   ├── user_service.py      # User profile management
 │   │   ├── reaction_service.py  # Emoji reactions business logic
-│   │   └── notification_service.py # Notification system
+│   │   └── notification_service.py # Notification system with batching
+│   ├── repositories/     # Data access layer with standardized patterns
+│   │   ├── user_repository.py   # User data access operations
+│   │   ├── post_repository.py   # Post data access operations
+│   │   ├── emoji_reaction_repository.py # Reaction data access
+│   │   ├── like_repository.py   # Like/heart data access
+│   │   └── notification_repository.py # Notification data access
 │   ├── models/           # SQLAlchemy database models
-│   └── schemas/          # Pydantic request/response schemas (deprecated in favor of service layer)
+│   └── schemas/          # Pydantic request/response schemas (deprecated in favor of shared types)
 ├── tests/
 │   ├── unit/             # Unit tests for services and models
-│   └── integration/      # Integration tests for API endpoints
+│   ├── integration/      # Integration tests for API endpoints
+│   └── contract/         # API contract validation tests
 └── main.py               # FastAPI application entry point with middleware setup
+
+shared/types/             # Shared type definitions (TypeScript/Python)
+├── api.ts               # API contract types for all endpoints
+├── models.ts            # Database model types and interfaces
+├── services.ts          # Service layer interface definitions
+├── core.ts              # Core types, enums, and constants
+├── errors.ts            # Error type hierarchies
+├── validation.ts        # Validation schemas and rules
+└── python/models.py     # Python equivalents of TypeScript types
 ```
 
 ## 🚀 Features Implemented
@@ -40,37 +62,111 @@ apps/api/
 - **Pydantic Schemas**: Full validation and serialization
 
 #### 2. **Service Layer Architecture**
-- **BaseService**: Common CRUD operations and validation patterns
-- **AuthService**: User authentication, signup, login, token management
-- **UserService**: Profile management, user posts, public profiles
-- **ReactionService**: Emoji reactions with notification integration
-- **NotificationService**: Real-time notifications with batching logic
+- **BaseService**: Common CRUD operations, validation patterns, and standardized error handling
+- **Repository Pattern**: Standardized data access layer with query builders and performance monitoring
+- **AuthService**: User authentication, signup, login, token management with JWT middleware
+- **UserService**: Profile management, user posts, public profiles with relationship handling
+- **ReactionService**: Emoji reactions with notification integration and validation
+- **NotificationService**: Real-time notifications with batching logic and rate limiting
 
-#### 3. **API Endpoints with Standardized Responses**
+#### 3. **Shared Type System**
+- **TypeScript Contracts**: Comprehensive API contracts defined in `shared/types/`
+- **Runtime Validation**: Request/response validation using shared type definitions
+- **Cross-Platform Types**: Consistent types between frontend (TypeScript) and backend (Python)
+- **API Contract Testing**: Automated validation of API responses against type contracts
+- **OpenAPI Integration**: Automatic schema generation from shared type definitions
+
+#### 4. **API Endpoints with Standardized Responses**
 - **Authentication**: JWT-based with proper middleware and error handling
-- **User Management**: Profile CRUD, posts retrieval, public profiles
-- **Post Management**: Create, read, update, delete with engagement data
-- **Reactions**: Emoji reactions with real-time updates and validation
-- **Notifications**: Real-time notifications with batching and read status
+- **User Management**: Profile CRUD, posts retrieval, public profiles with relationship data
+- **Post Management**: Create, read, update, delete with engagement data and analytics
+- **Reactions**: Emoji reactions with real-time updates, validation, and notification integration
+- **Notifications**: Real-time notifications with batching, rate limiting, and read status management
+- **Contract Validation**: All endpoints validated against shared type contracts at runtime
 
-#### 4. **Database Operations**
+#### 5. **Database Operations with Repository Pattern**
 - **Async SQLAlchemy**: Full async database operations with proper session management
-- **Service Layer**: Business logic separated from API endpoints
-- **Standardized Queries**: Reusable query patterns through BaseService
-- **Error Handling**: Comprehensive validation and constraint checking
+- **Repository Layer**: Standardized data access patterns with query builders and error handling
+- **Service Layer**: Business logic separated from data access and API endpoints
+- **Query Optimization**: Performance monitoring, query builders, and efficient relationship loading
+- **Error Handling**: Comprehensive validation, constraint checking, and standardized exception handling
 
-#### 4. **Comprehensive Testing**
-- **Unit Tests**: 97+ test cases covering all endpoints
-- **Integration Tests**: Complete workflow testing
-- **Test Coverage**: 95%+ code coverage
-- **Test Categories**: Users, posts, follows, interactions, notifications, reactions
+#### 6. **Comprehensive Testing with Contract Validation**
+- **Unit Tests**: 113+ test cases covering all services, repositories, and models
+- **Integration Tests**: Complete workflow testing with API contract validation
+- **Contract Tests**: Automated validation of API responses against shared type definitions
+- **Test Coverage**: 95%+ code coverage across service layer, repositories, and API endpoints
+- **Test Categories**: Users, posts, follows, interactions, notifications, reactions, batching
 
-#### 5. **Notification System**
-- **Real-time Notifications**: Automatic notification creation from user actions
-- **Multiple Types**: Emoji reactions, likes, comments, follows, mentions, shares
-- **Rate Limiting**: 20 notifications per hour per type to prevent spam
-- **Batch Operations**: Mark all as read, notification statistics
-- **API Integration**: Full REST API with pagination and filtering
+#### 7. **Enhanced Notification System**
+- **Real-time Notifications**: Automatic notification creation from user actions with batching logic
+- **Multiple Types**: Emoji reactions, likes, comments, follows, mentions, shares with type-safe handling
+- **Rate Limiting**: Configurable rate limiting per notification type to prevent spam
+- **Batch Operations**: Intelligent batching, mark all as read, notification statistics, and parent-child relationships
+- **API Integration**: Full REST API with pagination, filtering, and batch expansion functionality
+
+## 🔗 Shared Type System & API Contracts
+
+### Type Safety Architecture
+
+The backend uses a comprehensive shared type system that ensures consistency between frontend and backend:
+
+#### Shared Type Categories
+
+1. **API Contract Types** (`shared/types/api.ts`)
+   - Request/response interfaces for all endpoints
+   - Standardized pagination and error response formats
+   - Authentication and authorization contracts
+
+2. **Model Types** (`shared/types/models.ts`)
+   - Database model interfaces with relationships
+   - Query filter and pagination parameters
+   - Data validation schemas
+
+3. **Service Types** (`shared/types/services.ts`)
+   - Service interface definitions for business logic
+   - Configuration interfaces for services
+   - Cache and database service contracts
+
+4. **Core Types** (`shared/types/core.ts`)
+   - Enums for post types, emoji codes, notification types
+   - Constants for rate limits and validation rules
+   - Utility types used across the application
+
+5. **Error Types** (`shared/types/errors.ts`)
+   - Comprehensive error hierarchies
+   - HTTP status code enums
+   - Validation error structures
+
+### Runtime Validation
+
+All API endpoints use runtime validation to ensure requests and responses match the shared type contracts:
+
+```python
+# Example: API endpoint with contract validation
+@router.post("/posts/{post_id}/reactions", response_model=ReactionResponse)
+async def add_reaction(
+    post_id: str,
+    request: AddReactionRequest,  # Validated against shared types
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Business logic with type safety
+    reaction = await reaction_service.add_reaction(
+        user_id=current_user.id,
+        post_id=post_id,
+        emoji_code=request.emoji_code
+    )
+    return ReactionResponse.from_model(reaction)  # Type-safe response
+```
+
+### OpenAPI Schema Generation
+
+The shared types automatically generate OpenAPI schemas for interactive documentation:
+
+- **Interactive Docs**: Available at `/docs` with type-aware request/response examples
+- **Schema Validation**: Automatic validation of API contracts against OpenAPI spec
+- **Type Documentation**: Comprehensive type documentation with examples and constraints
 
 ## 📋 API Endpoints
 
@@ -120,6 +216,105 @@ GET    /api/v1/posts/{post_id}/reactions # Get all reactions for post
 GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
 ```
 
+## 🏛️ Service Layer & Repository Pattern
+
+### Service Layer Architecture
+
+The backend follows a clean service layer architecture with clear separation of concerns:
+
+#### BaseService Pattern
+All services inherit from `BaseService` which provides:
+- **Common CRUD Operations**: Standardized create, read, update, delete patterns
+- **Validation Utilities**: Field validation, required field checking, uniqueness constraints
+- **Error Handling**: Consistent exception handling with proper HTTP status codes
+- **Relationship Loading**: Efficient loading of related entities
+
+```python
+class ReactionService(BaseService):
+    def __init__(self, db: AsyncSession):
+        super().__init__(db)
+        self.reaction_repo = EmojiReactionRepository(db, EmojiReaction)
+    
+    async def add_reaction(self, user_id: int, post_id: str, emoji_code: str) -> EmojiReaction:
+        # Validation using BaseService utilities
+        self.validate_required_fields(
+            {"user_id": user_id, "post_id": post_id, "emoji_code": emoji_code},
+            ["user_id", "post_id", "emoji_code"]
+        )
+        
+        # Business logic with repository pattern
+        existing = await self.reaction_repo.find_one({"user_id": user_id, "post_id": post_id})
+        if existing:
+            return await self.reaction_repo.update(existing, emoji_code=emoji_code)
+        
+        return await self.reaction_repo.create(
+            user_id=user_id,
+            post_id=post_id,
+            emoji_code=emoji_code
+        )
+```
+
+### Repository Pattern
+
+The repository layer provides standardized data access patterns:
+
+#### BaseRepository Features
+- **Query Builder**: Fluent interface for complex queries
+- **Performance Monitoring**: Automatic query performance tracking
+- **Error Handling**: Standardized database exception handling
+- **Pagination**: Built-in pagination with total count optimization
+- **Relationship Loading**: Efficient eager loading strategies
+
+```python
+class EmojiReactionRepository(BaseRepository):
+    def __init__(self, db: AsyncSession):
+        super().__init__(db, EmojiReaction)
+    
+    async def get_post_reactions_with_users(self, post_id: str) -> List[EmojiReaction]:
+        """Get all reactions for a post with user information."""
+        return await self.query()\
+            .filter(EmojiReaction.post_id == post_id)\
+            .load_relationships('user')\
+            .order_by(EmojiReaction.created_at.desc())\
+            .build()
+    
+    async def get_reaction_counts(self, post_id: str) -> Dict[str, int]:
+        """Get reaction counts grouped by emoji code."""
+        query = select(
+            EmojiReaction.emoji_code,
+            func.count(EmojiReaction.id).label('count')
+        ).where(
+            EmojiReaction.post_id == post_id
+        ).group_by(EmojiReaction.emoji_code)
+        
+        result = await self._execute_query(query, "get reaction counts")
+        return {row.emoji_code: row.count for row in result}
+```
+
+### Performance Monitoring
+
+The system includes comprehensive performance monitoring:
+
+#### Query Performance Tracking
+- **Slow Query Detection**: Automatic logging of queries exceeding thresholds
+- **N+1 Query Prevention**: Relationship loading optimization
+- **Query Plan Analysis**: Performance analysis for complex queries
+- **Metrics Collection**: Query execution time and frequency tracking
+
+#### Performance Utilities
+```python
+from app.core.performance_utils import monitor_performance, log_slow_queries
+from app.core.query_monitor import QueryMonitor
+
+@monitor_performance
+async def get_user_feed(user_id: int, limit: int = 20) -> List[Post]:
+    """Get user feed with performance monitoring."""
+    with QueryMonitor("user_feed_generation"):
+        # Complex feed generation logic with monitoring
+        posts = await post_repo.get_personalized_feed(user_id, limit)
+        return posts
+```
+
 ## 🧪 Testing Strategy
 
 ### Test Categories
@@ -147,11 +342,14 @@ GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
 ### Test Coverage
 
 ```
-✅ Service Layer: 100% (AuthService, UserService, ReactionService)
-✅ API Endpoints: 100% (All endpoints with standardized responses)
+✅ Service Layer: 100% (AuthService, UserService, ReactionService, NotificationService)
+✅ Repository Layer: 100% (All repositories with query patterns and error handling)
+✅ API Endpoints: 100% (All endpoints with standardized responses and contract validation)
 ✅ Authentication: 100% (JWT tokens, middleware, error handling)
 ✅ Error Handling: 100% (Custom exceptions, middleware, validation)
-✅ Database Operations: 100% (BaseService patterns, async operations)
+✅ Database Operations: 100% (BaseService patterns, repository patterns, async operations)
+✅ Shared Types: 100% (API contract validation, type consistency checks)
+✅ Performance Monitoring: 100% (Query monitoring, performance utilities)
 ✅ Notification System: 100% (Batching, rate limiting, real-time updates)
 ```
 
