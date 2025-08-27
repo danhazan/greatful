@@ -39,7 +39,8 @@ export async function GET(
       )
     }
 
-    const posts = await response.json()
+    const postsResponse = await response.json()
+    const posts = postsResponse.data || postsResponse
 
     // Transform the posts to match the frontend format
     const transformedPosts = posts.map((post: any) => ({

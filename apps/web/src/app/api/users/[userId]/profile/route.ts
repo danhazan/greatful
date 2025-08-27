@@ -34,9 +34,10 @@ export async function GET(
       )
     }
 
-    const profile = await response.json()
+    const profileResponse = await response.json()
+    const profileData = profileResponse.data || profileResponse
 
-    return NextResponse.json(profile)
+    return NextResponse.json(profileData)
 
   } catch (error) {
     console.error('Error fetching user profile:', error)
