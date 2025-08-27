@@ -31,8 +31,8 @@ class TestNotificationsAPI:
         user = test_user
 
         # Create some test notifications
-        notification1 = await NotificationService.create_notification(
-            db=db_session,
+        notification_service = NotificationService(db_session)
+        notification1 = await notification_service.create_notification(
             user_id=user.id,
             notification_type="emoji_reaction",
             title="New Reaction",
@@ -40,8 +40,7 @@ class TestNotificationsAPI:
             data={"post_id": "test-post", "emoji_code": "heart_eyes"}
         )
 
-        notification2 = await NotificationService.create_notification(
-            db=db_session,
+        notification2 = await notification_service.create_notification(
             user_id=user.id,
             notification_type="emoji_reaction",
             title="Another Reaction",
@@ -74,9 +73,9 @@ class TestNotificationsAPI:
         user = test_user
 
         # Create multiple notifications
+        notification_service = NotificationService(db_session)
         for i in range(5):
-            await NotificationService.create_notification(
-                db=db_session,
+            await notification_service.create_notification(
                 user_id=user.id,
                 notification_type="emoji_reaction",
                 title=f"Reaction {i}",
@@ -103,8 +102,8 @@ class TestNotificationsAPI:
         user = test_user
 
         # Create some notifications (some read, some unread)
-        notification1 = await NotificationService.create_notification(
-            db=db_session,
+        notification_service = NotificationService(db_session)
+        notification1 = await notification_service.create_notification(
             user_id=user.id,
             notification_type="emoji_reaction",
             title="Unread Notification",
@@ -112,8 +111,7 @@ class TestNotificationsAPI:
             data={}
         )
 
-        notification2 = await NotificationService.create_notification(
-            db=db_session,
+        notification2 = await notification_service.create_notification(
             user_id=user.id,
             notification_type="emoji_reaction",
             title="Read Notification",
@@ -140,8 +138,8 @@ class TestNotificationsAPI:
         user = test_user
 
         # Create a notification
-        notification = await NotificationService.create_notification(
-            db=db_session,
+        notification_service = NotificationService(db_session)
+        notification = await notification_service.create_notification(
             user_id=user.id,
             notification_type="emoji_reaction",
             title="Test Notification",
@@ -170,10 +168,10 @@ class TestNotificationsAPI:
         user = test_user
 
         # Create multiple notifications
+        notification_service = NotificationService(db_session)
         notifications = []
         for i in range(3):
-            notification = await NotificationService.create_notification(
-                db=db_session,
+            notification = await notification_service.create_notification(
                 user_id=user.id,
                 notification_type="emoji_reaction",
                 title=f"Notification {i}",
@@ -209,8 +207,8 @@ class TestNotificationsAPI:
         user = test_user
 
         # Create a notification
-        notification = await NotificationService.create_notification(
-            db=db_session,
+        notification_service = NotificationService(db_session)
+        notification = await notification_service.create_notification(
             user_id=user.id,
             notification_type="emoji_reaction",
             title="Timestamp Test",

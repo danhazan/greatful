@@ -339,6 +339,7 @@ export default function FeedPage() {
     postType: 'daily' | 'photo' | 'spontaneous'
     imageUrl?: string
     location?: string
+    imageFile?: File  // Add support for actual file
   }) => {
     setIsCreatingPost(true)
     
@@ -349,14 +350,40 @@ export default function FeedPage() {
         return
       }
 
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(postData)
-      })
+      let response: Response
+
+      // If there's an image file, send as FormData to the upload endpoint
+      if (postData.imageFile) {
+        const formData = new FormData()
+        formData.append('content', postData.content.trim())
+        formData.append('post_type', postData.postType)
+        if (postData.location) formData.append('location', postData.location)
+        formData.append('image', postData.imageFile)
+
+        response = await fetch('/api/posts', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+            // Don't set Content-Type for FormData
+          },
+          body: formData
+        })
+      } else {
+        // Send as JSON if no image
+        response = await fetch('/api/posts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            content: postData.content.trim(),
+            postType: postData.postType,
+            imageUrl: postData.imageUrl,
+            location: postData.location
+          })
+        })
+      }
 
       if (!response.ok) {
         const errorData = await response.json()

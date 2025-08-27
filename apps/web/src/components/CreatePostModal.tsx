@@ -12,6 +12,7 @@ interface CreatePostModalProps {
     postType: 'daily' | 'photo' | 'spontaneous'
     imageUrl?: string
     location?: string
+    imageFile?: File
   }) => void
 }
 
@@ -57,6 +58,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     imageUrl: '',
     location: ''
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const modalRef = useRef<HTMLDivElement>(null)
@@ -153,13 +155,15 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         content: postData.content.trim(),
         postType: postData.postType,
         imageUrl: postData.imageUrl || undefined,
-        location: postData.location || undefined
+        location: postData.location || undefined,
+        imageFile: imageFile || undefined
       })
 
       // Clear form and draft on successful submission
       if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
         revokeImagePreview(postData.imageUrl)
       }
+      setImageFile(null)
       setPostData({
         content: '',
         postType: 'daily',
@@ -177,7 +181,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   const handlePostTypeChange = (newType: 'daily' | 'photo' | 'spontaneous') => {
     const newMaxChars = POST_TYPES.find(type => type.id === newType)!.maxChars
-    
+
     // Truncate content if it exceeds new limit
     let newContent = postData.content
     if (newContent.length > newMaxChars) {
@@ -218,40 +222,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     try {
       // Create a preview URL for immediate display
       const previewUrl = createImagePreview(file)
-      
-      // Show preview immediately
+
+      // Store both the file and preview URL
+      setImageFile(file)
       setPostData({
         ...postData,
         imageUrl: previewUrl
       })
-
-      // Upload the image to get a persistent URL
-      const formData = new FormData()
-      formData.append('image', file)
-
-      const token = localStorage.getItem('access_token')
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      })
-
-      if (uploadResponse.ok) {
-        const result = await uploadResponse.json()
-        // Replace the blob URL with the uploaded image URL
-        setPostData(prev => ({
-          ...prev,
-          imageUrl: result.imageUrl
-        }))
-        // Clean up the blob URL
-        revokeImagePreview(previewUrl)
-      } else {
-        const errorData = await uploadResponse.json()
-        setError(errorData.error || 'Failed to upload image')
-        // Keep the preview URL as fallback
-      }
 
     } catch (error) {
       console.error('Error handling image:', error)
@@ -264,6 +241,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
       revokeImagePreview(postData.imageUrl)
     }
+    setImageFile(null)
     setPostData({
       ...postData,
       imageUrl: ''
@@ -281,10 +259,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black bg-opacity-50 z-40" />
-      
+
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div 
+        <div
           ref={modalRef}
           role="dialog"
           aria-labelledby="modal-title"
@@ -309,120 +287,115 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
               {/* Post Type Selection */}
               <div className="p-6 border-b border-gray-200">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Post Type
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {POST_TYPES.map((type) => {
-                  const Icon = type.icon
-                  const isSelected = postData.postType === type.id
-                  
-                  return (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => handlePostTypeChange(type.id)}
-                      className={`p-4 rounded-lg border-2 transition-all text-left ${
-                        isSelected
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Post Type
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {POST_TYPES.map((type) => {
+                    const Icon = type.icon
+                    const isSelected = postData.postType === type.id
+
+                    return (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() => handlePostTypeChange(type.id)}
+                        className={`p-4 rounded-lg border-2 transition-all text-left ${isSelected
                           ? 'border-purple-500 bg-purple-50'
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <Icon className={`h-5 w-5 ${
-                          isSelected ? 'text-purple-600' : 'text-gray-500'
-                        }`} />
-                        <span className={`font-medium ${
-                          isSelected ? 'text-purple-900' : 'text-gray-900'
-                        }`}>
-                          {type.name}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mb-1">{type.description}</p>
-                      <p className="text-xs text-gray-400">
-                        {type.maxChars} chars • {type.prominence}
-                      </p>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Content Input */}
-            <div className="flex-1 p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                What are you grateful for?
-              </label>
-              <textarea
-                ref={textareaRef}
-                value={postData.content}
-                onChange={(e) => setPostData({ ...postData, content: e.target.value })}
-                className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                placeholder={`Share what you're grateful for today...`}
-                maxLength={maxChars}
-              />
-              <div className="flex justify-between items-center mt-2">
-                <div className="text-xs text-gray-500">
-                  {currentPostType.name} • {currentPostType.prominence}
+                          }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <Icon className={`h-5 w-5 ${isSelected ? 'text-purple-600' : 'text-gray-500'
+                            }`} />
+                          <span className={`font-medium ${isSelected ? 'text-purple-900' : 'text-gray-900'
+                            }`}>
+                            {type.name}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-1">{type.description}</p>
+                        <p className="text-xs text-gray-400">
+                          {type.maxChars} chars • {type.prominence}
+                        </p>
+                      </button>
+                    )
+                  })}
                 </div>
-                <div className={`text-sm ${
-                  postData.content.length > maxChars * 0.9 
-                    ? 'text-red-500' 
+              </div>
+
+              {/* Content Input */}
+              <div className="flex-1 p-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  What are you grateful for?
+                </label>
+                <textarea
+                  ref={textareaRef}
+                  value={postData.content}
+                  onChange={(e) => setPostData({ ...postData, content: e.target.value })}
+                  className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                  placeholder={`Share what you're grateful for today...`}
+                  maxLength={maxChars}
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <div className="text-xs text-gray-500">
+                    {currentPostType.name} • {currentPostType.prominence}
+                  </div>
+                  <div className={`text-sm ${postData.content.length > maxChars * 0.9
+                    ? 'text-red-500'
                     : 'text-gray-500'
-                }`}>
-                  {postData.content.length}/{maxChars}
-                </div>
-              </div>
-
-              {/* Image Preview */}
-              {postData.imageUrl && (
-                <div className="mt-4">
-                  <div className="relative inline-block">
-                    <img
-                      src={postData.imageUrl}
-                      alt="Post preview"
-                      className="max-w-full h-32 object-cover rounded-lg border border-gray-200"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                      title="Remove image"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    }`}>
+                    {postData.content.length}/{maxChars}
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Additional Options */}
-            <div className="px-6 pb-8">
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={handleAddPhoto}
-                  className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${
-                    postData.imageUrl 
-                      ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100' 
-                      : 'border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <Camera className={`h-4 w-4 ${postData.imageUrl ? 'text-purple-600' : 'text-gray-500'}`} />
-                  <span className="text-sm">
-                    {postData.imageUrl ? 'Change Photo' : 'Add Photo'}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddLocation}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <MapPin className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-700">Add Location</span>
-                </button>
+                {/* Image Preview */}
+                {postData.imageUrl && (
+                  <div className="mt-4">
+                    <div className="relative inline-block">
+                      <img
+                        src={postData.imageUrl}
+                        alt="Post preview"
+                        className="max-w-full h-32 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                        title="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+
+              {/* Additional Options */}
+              <div className="px-6 pb-8">
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleAddPhoto}
+                    className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${postData.imageUrl
+                      ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                      : 'border-gray-300 hover:bg-gray-50'
+                      }`}
+                  >
+                    <Camera className={`h-4 w-4 ${postData.imageUrl ? 'text-purple-600' : 'text-gray-500'}`} />
+                    <span className="text-sm">
+                      {postData.imageUrl ? 'Change Photo' : 'Add Photo'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddLocation}
+                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-700">Add Location</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Error Message */}

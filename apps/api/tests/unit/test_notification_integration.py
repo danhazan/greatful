@@ -46,15 +46,15 @@ class TestNotificationIntegration:
         await db_session.commit()
 
         # Add a reaction from the reactor
-        reaction = await ReactionService.add_reaction(
-            db=db_session,
+        reaction_service = ReactionService(db_session)
+        reaction_data = await reaction_service.add_reaction(
             user_id=reactor.id,
             post_id=post.id,
             emoji_code="heart_eyes"
         )
 
-        assert reaction is not None
-        assert reaction.emoji_code == "heart_eyes"
+        assert reaction_data is not None
+        assert reaction_data["emoji_code"] == "heart_eyes"
 
         # Check that a notification was created for the author
         notifications = await NotificationService.get_user_notifications(
@@ -98,15 +98,15 @@ class TestNotificationIntegration:
         await db_session.commit()
 
         # Add a reaction from the same user (self-reaction)
-        reaction = await ReactionService.add_reaction(
-            db=db_session,
+        reaction_service = ReactionService(db_session)
+        reaction_data = await reaction_service.add_reaction(
             user_id=user.id,
             post_id=post.id,
             emoji_code="heart_eyes"
         )
 
-        assert reaction is not None
-        assert reaction.emoji_code == "heart_eyes"
+        assert reaction_data is not None
+        assert reaction_data["emoji_code"] == "heart_eyes"
 
         # Check that no notification was created
         notifications = await NotificationService.get_user_notifications(
@@ -148,22 +148,21 @@ class TestNotificationIntegration:
         await db_session.commit()
 
         # Add initial reaction
-        await ReactionService.add_reaction(
-            db=db_session,
+        reaction_service = ReactionService(db_session)
+        await reaction_service.add_reaction(
             user_id=reactor.id,
             post_id=post.id,
             emoji_code="heart_eyes"
         )
 
         # Update the reaction to a different emoji
-        updated_reaction = await ReactionService.add_reaction(
-            db=db_session,
+        updated_reaction_data = await reaction_service.add_reaction(
             user_id=reactor.id,
             post_id=post.id,
             emoji_code="fire"
         )
 
-        assert updated_reaction.emoji_code == "fire"
+        assert updated_reaction_data["emoji_code"] == "fire"
 
         # Check that notifications were created (one for each reaction)
         notifications = await NotificationService.get_user_notifications(
@@ -218,15 +217,14 @@ class TestNotificationIntegration:
         await db_session.commit()
 
         # Add reactions from both reactors
-        await ReactionService.add_reaction(
-            db=db_session,
+        reaction_service = ReactionService(db_session)
+        await reaction_service.add_reaction(
             user_id=reactor1.id,
             post_id=post.id,
             emoji_code="heart_eyes"
         )
 
-        await ReactionService.add_reaction(
-            db=db_session,
+        await reaction_service.add_reaction(
             user_id=reactor2.id,
             post_id=post.id,
             emoji_code="pray"

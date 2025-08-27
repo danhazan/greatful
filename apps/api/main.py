@@ -5,6 +5,8 @@ Main FastAPI application for Grateful backend.
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from app.api.v1.reactions import router as reactions_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
@@ -12,6 +14,7 @@ from app.api.v1.posts import router as posts_router
 from app.api.v1.likes import router as likes_router
 from app.api.v1.notifications import router as notifications_router
 from app.core.database import init_db
+from app.core.middleware import ErrorHandlingMiddleware, RequestValidationMiddleware
 import logging
 
 # Configure logging
@@ -37,6 +40,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Add middleware (order matters - first added is outermost)
+app.add_middleware(ErrorHandlingMiddleware)
+app.add_middleware(RequestValidationMiddleware)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -45,6 +52,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for uploads
+uploads_dir = Path("uploads")
+uploads_dir.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routers
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])

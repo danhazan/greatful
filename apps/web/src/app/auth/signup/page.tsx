@@ -53,13 +53,14 @@ export default function SignupPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Store the access token if returned
-        if (data.access_token) {
-          localStorage.setItem("access_token", data.access_token)
+        // Store the access token if returned (backend wraps response in data field)
+        const accessToken = data.data?.access_token || data.access_token
+        if (accessToken) {
+          localStorage.setItem("access_token", accessToken)
         }
         
         // Redirect to feed or login
-        router.push(data.access_token ? "/feed" : "/auth/login")
+        router.push(accessToken ? "/feed" : "/auth/login")
       } else {
         setError(data.detail || "Signup failed. Please try again.")
       }

@@ -215,12 +215,12 @@ export interface FrontendReaction {
  */
 export function transformReaction(reaction: BackendReaction): FrontendReaction {
   return {
-    id: reaction.id,
-    userId: reaction.user_id.toString(),
+    id: reaction.id || '',
+    userId: reaction.user_id?.toString() || '0',
     userName: reaction.user?.username || 'Unknown User',
     userImage: reaction.user?.profile_image_url,
-    emojiCode: reaction.emoji_code,
-    createdAt: ensureTimezoneIndicator(reaction.created_at),
+    emojiCode: reaction.emoji_code || '',
+    createdAt: ensureTimezoneIndicator(reaction.created_at || ''),
   }
 }
 
@@ -228,6 +228,10 @@ export function transformReaction(reaction: BackendReaction): FrontendReaction {
  * Transform array of backend reactions to frontend format
  */
 export function transformReactions(reactions: BackendReaction[]): FrontendReaction[] {
+  if (!Array.isArray(reactions)) {
+    console.error('transformReactions: reactions is not an array:', reactions)
+    return []
+  }
   return reactions.map(transformReaction)
 }
 

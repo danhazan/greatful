@@ -7,6 +7,9 @@
 - **🧪 Backend Test Isolation**: Profile API tests fail when run with all tests together
 - **🎨 CreatePostModal Footer**: Alignment issues in modal footer
 - **👤 User Profile Posts**: Profile pages show "No posts yet" despite having posts
+- **🔔 Batch Notification Missing First Item**: Batch notification list doesn't include the first notification
+- **😀 Emoji Display Inconsistency**: Emojis sometimes display differently in notifications
+- **🔄 Post UI Update Lag**: Posts don't update in UI when notification bell updates
 
 ### ✅ Recently Resolved
 - **Heart Counter Real-time Updates**: ✅ COMPLETED - Real-time updates without page refresh
@@ -170,6 +173,99 @@ When navigating to another user's profile page, the posts section shows "No post
 - `apps/web/src/app/profile/[userId]/page.tsx`
 - `apps/web/src/app/api/users/[userId]/posts/route.ts`
 
+### Batch Notification Missing First Item
+**Issue**: Batch notification list doesn't include the first notification due to implementation logic  
+**Status**: ⚠️ Active Issue  
+**Priority**: Medium  
+**Impact**: User Experience  
+**Discovered**: August 27, 2025  
+
+**Description**:
+When notifications are batched together (e.g., "John and 2 others reacted to your post"), the notification list modal doesn't display the first notification in the batch. This is due to how the batching logic is implemented - it creates a parent notification and child notifications, but the first notification gets excluded from the display.
+
+**Technical Details**:
+- Backend: Notification batching creates parent/child relationships ✅
+- Database: All notifications are stored correctly ✅
+- Frontend: Batch display logic excludes first notification ❌
+- Impact: Users miss seeing who was the first person to interact
+
+**Reproduction Steps**:
+1. Have multiple users react to the same post
+2. Wait for notifications to be batched
+3. Click on the notification bell to view notifications
+4. Observe that the batch shows "John and 2 others" but the detailed list only shows 2 people
+
+**Root Cause**: The batching implementation treats the first notification as the "parent" and doesn't include it in the child notification list.
+
+**Workaround**: Individual notifications still work correctly; only the batched view is affected.
+
+**Priority**: Medium - Affects user experience but doesn't break core functionality.
+
+### Emoji Display Inconsistency in Notifications
+**Issue**: Emojis sometimes display differently in notifications compared to the main interface  
+**Status**: ⚠️ Active Issue  
+**Priority**: Low  
+**Impact**: Visual Consistency  
+**Discovered**: August 27, 2025  
+
+**Description**:
+Emojis in notification messages sometimes render differently than they appear in the main post interface. This creates visual inconsistency and can confuse users about which reaction was actually used.
+
+**Technical Details**:
+- Backend: Emoji codes stored consistently ✅
+- Database: Emoji data is correct ✅
+- Frontend: Different emoji rendering between components ❌
+- Issue: Notification component uses different emoji rendering logic
+
+**Reproduction Steps**:
+1. Add an emoji reaction to a post
+2. Wait for the notification to be generated
+3. Compare the emoji in the notification with the emoji on the post
+4. Observe potential visual differences
+
+**Root Cause**: Different components may be using different emoji libraries, fonts, or rendering methods.
+
+**Examples**:
+- Post shows 😍 but notification shows a slightly different variant
+- Emoji sizing or styling differs between contexts
+
+**Workaround**: Functionality is correct; only visual representation varies.
+
+**Priority**: Low - Cosmetic issue that doesn't affect core functionality.
+
+### Post UI Update Lag When Notification Bell Updates
+**Issue**: When the notification bell gets updated, the relevant post should also update in the UI simultaneously  
+**Status**: ⚠️ Active Issue  
+**Priority**: Medium  
+**Impact**: Real-time User Experience  
+**Discovered**: August 27, 2025  
+
+**Description**:
+When a user receives a notification (bell icon updates with new count), the corresponding post in the feed doesn't immediately reflect the new interaction (like updated reaction counts or heart counts). Users have to manually refresh or navigate away and back to see the updated post state.
+
+**Technical Details**:
+- Backend: Notifications and post updates happen correctly ✅
+- Database: Data is consistent and up-to-date ✅
+- Frontend: Notification updates don't trigger post re-fetching ❌
+- Issue: Missing real-time synchronization between notification system and post display
+
+**Expected Behavior**:
+- When notification bell updates, affected posts should automatically refresh their interaction counts
+- Real-time updates should be bidirectional (post interactions → notifications, notifications → post updates)
+
+**Reproduction Steps**:
+1. Have another user react to your post
+2. Observe notification bell updates with new count
+3. Look at the post in your feed
+4. Notice that reaction count hasn't updated yet
+5. Refresh page to see the updated count
+
+**Root Cause**: The notification system and post display components are not synchronized for real-time updates.
+
+**Workaround**: Manual page refresh shows correct data; only real-time sync is affected.
+
+**Priority**: Medium - Affects real-time user experience and perceived responsiveness.
+
 ---
 
 ## 📊 Test Status Summary
@@ -202,6 +298,8 @@ When navigating to another user's profile page, the posts section shows "No post
 - ✅ **Post Creation**: Working correctly
 - ✅ **Database Operations**: All CRUD operations working
 - ⚠️ **Emoji Picker**: 8/10 emojis working (emojis 6&7 have click handler issues)
+- ⚠️ **Notification Batching**: Missing first notification in batch display
+- ⚠️ **Real-time Sync**: Post UI doesn't update when notifications arrive
 
 ### Performance
 - ✅ **API Response Times**: Fast and responsive
@@ -504,5 +602,5 @@ export async function GET(request: NextRequest, params: any) {
 
 ---
 
-*Last Updated: August 15, 2025*  
-*Next Review: When emoji picker issues are resolved* 
+*Last Updated: August 27, 2025*  
+*Next Review: When notification batching and real-time sync issues are resolved* 

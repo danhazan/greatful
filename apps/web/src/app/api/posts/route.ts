@@ -12,19 +12,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
+    // Check if this is FormData (file upload) or JSON
+    const contentType = request.headers.get('content-type') || ''
+    let body: any
+    let isFormData = false
+
+    if (contentType.includes('multipart/form-data')) {
+      // Handle FormData for file uploads
+      const formData = await request.formData()
+      body = {
+        content: formData.get('content') as string,
+        postType: formData.get('post_type') as string,
+        title: formData.get('title') as string,
+        location: formData.get('location') as string,
+        image: formData.get('image') as File
+      }
+      isFormData = true
+    } else {
+      // Handle JSON
+      body = await request.json()
+    }
 
     // Validate required fields
-    if (!body.content || !body.postType) {
+    if (!body.content || !(body.postType || body.post_type)) {
       return NextResponse.json(
         { error: 'Content and post type are required' },
         { status: 400 }
       )
     }
 
+    const postType = body.postType || body.post_type
+
     // Validate post type
     const validPostTypes = ['daily', 'photo', 'spontaneous']
-    if (!validPostTypes.includes(body.postType)) {
+    if (!validPostTypes.includes(postType)) {
       return NextResponse.json(
         { error: 'Invalid post type. Must be daily, photo, or spontaneous' },
         { status: 400 }
@@ -38,33 +59,53 @@ export async function POST(request: NextRequest) {
       spontaneous: 200
     }
     
-    const maxLength = maxLengths[body.postType as keyof typeof maxLengths]
+    const maxLength = maxLengths[postType as keyof typeof maxLengths]
     if (body.content.length > maxLength) {
       return NextResponse.json(
-        { error: `Content too long. Maximum ${maxLength} characters for ${body.postType} posts` },
+        { error: `Content too long. Maximum ${maxLength} characters for ${postType} posts` },
         { status: 400 }
       )
     }
 
-    // Transform the request to match the backend API format
-    const postData = {
-      content: body.content.trim(),
-      post_type: body.postType,
-      title: body.title || null,
-      image_url: body.imageUrl || null,
-      location: body.location || null,
-      is_public: body.isPublic !== false // Default to true
-    }
+    let response: Response
 
-    // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(postData)
-    })
+    if (isFormData) {
+      // Forward FormData to backend for file upload
+      const backendFormData = new FormData()
+      backendFormData.append('content', body.content.trim())
+      backendFormData.append('post_type', postType)
+      if (body.title) backendFormData.append('title', body.title)
+      if (body.location) backendFormData.append('location', body.location)
+      if (body.image) backendFormData.append('image', body.image)
+
+      response = await fetch(`${API_BASE_URL}/api/v1/posts/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          // Don't set Content-Type for FormData, let fetch set it with boundary
+        },
+        body: backendFormData
+      })
+    } else {
+      // Transform the request to match the backend API format for JSON
+      const postData = {
+        content: body.content.trim(),
+        post_type: postType,
+        title: body.title || null,
+        image_url: body.imageUrl || null,
+        location: body.location || null,
+        is_public: body.isPublic !== false // Default to true
+      }
+
+      response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postData)
+      })
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))

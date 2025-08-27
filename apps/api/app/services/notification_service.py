@@ -4,29 +4,29 @@ NotificationService for handling notification business logic.
 
 import datetime
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from sqlalchemy import func, desc, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
+from app.core.service_base import BaseService
 from app.models.notification import Notification
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
 
-class NotificationService:
+class NotificationService(BaseService):
     """Service for managing user notifications."""
 
     # Maximum notifications per hour per type
     # Reasonable limit for social apps - allows active engagement without spam
     MAX_NOTIFICATIONS_PER_HOUR = 20
 
-    @staticmethod
     async def _check_notification_rate_limit(
-        db: AsyncSession,
+        self,
         user_id: int,
         notification_type: str
     ) -> bool:
@@ -49,7 +49,7 @@ class NotificationService:
         print(f"🔍 DEBUG: Checking notifications since: {one_hour_ago}")
         
         # Count notifications of this type in the last hour
-        result = await db.execute(
+        result = await self.db.execute(
             select(func.count(Notification.id))
             .where(
                 and_(
@@ -74,9 +74,8 @@ class NotificationService:
         
         return is_under_limit
 
-    @staticmethod
     async def create_notification(
-        db: AsyncSession,
+        self,
         user_id: int,
         notification_type: str,
         title: str,
@@ -101,8 +100,8 @@ class NotificationService:
         """
         # Check rate limit if enabled
         if respect_rate_limit:
-            if not await NotificationService._check_notification_rate_limit(
-                db, user_id, notification_type
+            if not await self._check_notification_rate_limit(
+                user_id, notification_type
             ):
                 logger.info(
                     f"Notification creation blocked due to rate limit: "
@@ -110,17 +109,14 @@ class NotificationService:
                 )
                 return None
         
-        notification = Notification(
+        notification = await self.create_entity(
+            Notification,
             user_id=user_id,
             type=notification_type,
             title=title,
             message=message,
             data=data or {}
         )
-        
-        db.add(notification)
-        await db.commit()
-        await db.refresh(notification)
         
         logger.info(f"Created notification for user {user_id}: {notification_type}")
         return notification

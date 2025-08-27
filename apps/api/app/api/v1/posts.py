@@ -4,11 +4,13 @@ Posts API endpoints.
 
 import logging
 import uuid
+import os
+from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -25,12 +27,36 @@ security = HTTPBearer()
 
 class PostCreate(BaseModel):
     """Post creation request model."""
-    content: str = Field(..., min_length=1, max_length=500)
+    content: str = Field(..., min_length=1)
     post_type: str = Field(..., description="Post type: daily, photo, or spontaneous")
     title: Optional[str] = Field(None, max_length=100)
     image_url: Optional[str] = None
     location: Optional[str] = Field(None, max_length=100)
     is_public: bool = True
+
+    @field_validator('post_type')
+    @classmethod
+    def validate_post_type(cls, v):
+        valid_types = ['daily', 'photo', 'spontaneous']
+        if v not in valid_types:
+            raise ValueError(f'Invalid post type. Must be one of: {valid_types}')
+        return v
+
+    @model_validator(mode='after')
+    def validate_content_length(self):
+        # Define max lengths based on post type
+        max_lengths = {
+            'daily': 500,
+            'photo': 300,
+            'spontaneous': 200
+        }
+        
+        if self.post_type in max_lengths:
+            max_length = max_lengths[self.post_type]
+            if len(self.content) > max_length:
+                raise ValueError(f'Content too long. Maximum {max_length} characters for {self.post_type} posts')
+        
+        return self
 
 
 class PostResponse(BaseModel):
@@ -86,36 +112,123 @@ async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(secur
         )
 
 
+# Removed old create_post function - replaced with create_post_with_file below
+
+
+def _save_uploaded_file(file: UploadFile) -> str:
+    """Save uploaded file and return the URL path."""
+    try:
+        # Create uploads directory if it doesn't exist
+        upload_dir = Path("uploads/posts")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        file_extension = Path(file.filename).suffix if file.filename else '.jpg'
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = upload_dir / unique_filename
+        
+        # Save the file
+        with open(file_path, "wb") as buffer:
+            content = file.file.read()
+            buffer.write(content)
+        
+        # Return the URL path (relative to the server)
+        return f"/uploads/posts/{unique_filename}"
+    except Exception as e:
+        logger.error(f"Error saving uploaded file: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save uploaded file"
+        )
+
+
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
-async def create_post(
+async def create_post_json(
     post_data: PostCreate,
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a new gratitude post."""
+    """Create a new gratitude post (JSON only)."""
     try:
-        # Validate post type
-        try:
-            post_type_enum = PostType(post_data.post_type)
-        except ValueError:
+        # Get user to verify they exist
+        user = await User.get_by_id(db, current_user_id)
+        if not user:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid post type. Must be one of: {[t.value for t in PostType]}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
             )
 
-        # Validate content length based on post type
-        max_lengths = {
-            PostType.daily: 500,
-            PostType.photo: 300,
-            PostType.spontaneous: 200
+        # Create post directly
+        db_post = Post(
+            id=str(uuid.uuid4()),
+            author_id=current_user_id,
+            title=post_data.title,
+            content=post_data.content,
+            post_type=PostType(post_data.post_type),
+            image_url=post_data.image_url,
+            location=post_data.location,
+            is_public=post_data.is_public
+        )
+        
+        db.add(db_post)
+        await db.commit()
+        await db.refresh(db_post)
+        
+        # Format response
+        return PostResponse(
+            id=db_post.id,
+            author_id=db_post.author_id,
+            title=db_post.title,
+            content=db_post.content,
+            post_type=db_post.post_type.value,
+            image_url=db_post.image_url,
+            location=db_post.location,
+            is_public=db_post.is_public,
+            created_at=db_post.created_at.isoformat(),
+            updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
+            author={
+                "id": user.id,
+                "username": user.username,
+                "email": user.email
+            },
+            hearts_count=0,
+            reactions_count=0,
+            current_user_reaction=None,
+            is_hearted=False
+        )
+
+    except Exception as e:
+        logger.error(f"Error creating post: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create post"
+        )
+
+
+@router.post("/upload", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+async def create_post_with_file(
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    # FormData parameters
+    content: str = Form(...),
+    post_type: str = Form(...),
+    title: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
+    image: Optional[UploadFile] = File(None)
+):
+    """Create a new gratitude post with optional file upload."""
+    try:
+        # Create PostCreate object and validate it
+        post_data_dict = {
+            "content": content,
+            "post_type": post_type,
+            "title": title,
+            "location": location,
+            "is_public": True
         }
         
-        max_length = max_lengths[post_type_enum]
-        if len(post_data.content) > max_length:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Content too long. Maximum {max_length} characters for {post_type_enum.value} posts"
-            )
+        # This will trigger Pydantic validation and raise 422 if invalid
+        post_data = PostCreate(**post_data_dict)
 
         # Get user to verify they exist
         user = await User.get_by_id(db, current_user_id)
@@ -125,51 +238,69 @@ async def create_post(
                 detail="User not found"
             )
 
+        # Handle image upload if provided
+        image_url = None
+        if image and image.filename:
+            # Validate file type
+            allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+            file_extension = Path(image.filename).suffix.lower()
+            if file_extension not in allowed_extensions:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}"
+                )
+            
+            # Validate file size (max 5MB)
+            max_size = 5 * 1024 * 1024  # 5MB
+            if image.size and image.size > max_size:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File too large. Maximum size is 5MB"
+                )
+            
+            image_url = _save_uploaded_file(image)
+
         # Create post
-        post = Post(
+        db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
             title=post_data.title,
             content=post_data.content,
-            post_type=post_type_enum,
-            image_url=post_data.image_url,
+            post_type=PostType(post_data.post_type),
+            image_url=image_url,
+            location=post_data.location,
             is_public=post_data.is_public
         )
 
-        db.add(post)
+        db.add(db_post)
         await db.commit()
-        await db.refresh(post)
+        await db.refresh(db_post)
 
-        # Create response data and validate with Pydantic
-        response_data = {
-            "id": post.id,
-            "author_id": post.author_id,
-            "title": post.title,
-            "content": post.content,
-            "post_type": post.post_type.value,
-            "image_url": post.image_url,
-            "location": post_data.location,
-            "is_public": post.is_public,
-            "created_at": post.created_at.isoformat(),
-            "updated_at": post.updated_at.isoformat() if post.updated_at else None,
-            "author": {
+        # Format response
+        return PostResponse(
+            id=db_post.id,
+            author_id=db_post.author_id,
+            title=db_post.title,
+            content=db_post.content,
+            post_type=db_post.post_type.value,
+            image_url=db_post.image_url,
+            location=db_post.location,
+            is_public=db_post.is_public,
+            created_at=db_post.created_at.isoformat(),
+            updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
+            author={
                 "id": user.id,
                 "username": user.username,
                 "email": user.email
             },
-            "hearts_count": 0,
-            "reactions_count": 0,
-            "current_user_reaction": None,
-            "is_hearted": False
-        }
-        
-        # Validate response structure at runtime
-        return PostResponse(**response_data)
+            hearts_count=0,
+            reactions_count=0,
+            current_user_reaction=None,
+            is_hearted=False
+        )
 
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error creating post: {e}")
+        logger.error(f"Error creating post with file: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create post"

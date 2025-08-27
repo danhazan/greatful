@@ -7,6 +7,7 @@ import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
+import { getImageUrl } from "@/utils/imageUtils"
 
 interface Post {
   id: string
@@ -326,7 +327,7 @@ export default function PostCard({
           <p className={`${styling.text} text-gray-900`}>{post.content}</p>
           {post.imageUrl && (
             <img
-              src={post.imageUrl}
+              src={getImageUrl(post.imageUrl) || post.imageUrl}
               alt="Post image"
               className={styling.image}
             />

@@ -21,7 +21,8 @@ class TestGetMyProfile:
         response = client.get("/api/v1/users/me/profile", headers=auth_headers)
         
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert data["email"] == test_user.email
         assert data["username"] == test_user.username
         assert data["bio"] == test_user.bio
@@ -65,7 +66,8 @@ class TestUpdateMyProfile:
         response = client.put("/api/v1/users/me/profile", json=update_data, headers=auth_headers)
         
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert data["bio"] == update_data["bio"]
         assert data["username"] == update_data["username"]
 
@@ -77,7 +79,8 @@ class TestUpdateMyProfile:
         response = client.put("/api/v1/users/me/profile", json=update_data, headers=auth_headers)
         
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert data["bio"] == update_data["bio"]
         # Other fields should remain unchanged
         assert data["username"] == test_user.username
@@ -132,7 +135,8 @@ class TestUpdateMyProfile:
         
         assert response.status_code == 200
         # Profile should remain unchanged
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert data["username"] == test_user.username
 
 
@@ -145,7 +149,8 @@ class TestGetMyPosts:
         response = client.get("/api/v1/users/me/posts", headers=auth_headers)
         
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert len(data) >= 1
         assert "id" in data[0]  # Check that post has an ID
         assert "content" in data[0]  # Check that post has content
@@ -186,7 +191,8 @@ class TestGetMyPosts:
         response = client.get("/api/v1/users/me/posts", headers=auth_headers)
         
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         
         # Should be ordered by created_at descending (newest first)
         if len(data) >= 2:
@@ -213,7 +219,8 @@ class TestGetUserProfile:
         response = client.get(f"/api/v1/users/{other_user.id}/profile", headers=auth_headers)
         
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert data["username"] == other_user.username
         # Email should not be included in public profile
         assert "email" not in data
@@ -277,7 +284,8 @@ class TestProfileDataIntegrity:
         get_response = client.get("/api/v1/users/me/profile", headers=auth_headers)
         assert get_response.status_code == 200
         
-        data = get_response.json()
+        response_data = get_response.json()
+        data = response_data["data"]
         assert data["bio"] == update_data["bio"]
 
     @pytest.mark.asyncio
@@ -286,7 +294,8 @@ class TestProfileDataIntegrity:
         response = client.get("/api/v1/users/me/profile", headers=auth_headers)
         
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         
         # Check data types
         assert isinstance(data["id"], int)

@@ -83,22 +83,22 @@ class TestReactionService:
 
     async def test_add_reaction_success(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test successfully adding a reaction."""
-        reaction = await ReactionService.add_reaction(
-            db=db_session,
+        service = ReactionService(db_session)
+        reaction_data = await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
             emoji_code='heart_eyes'
         )
         
-        assert reaction.user_id == test_user.id
-        assert reaction.post_id == test_post.id
-        assert reaction.emoji_code == 'heart_eyes'
+        assert reaction_data["user_id"] == test_user.id
+        assert reaction_data["post_id"] == test_post.id
+        assert reaction_data["emoji_code"] == 'heart_eyes'
 
     async def test_add_reaction_invalid_emoji(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test adding reaction with invalid emoji code."""
-        with pytest.raises(ValueError, match="Invalid emoji code"):
-            await ReactionService.add_reaction(
-                db=db_session,
+        service = ReactionService(db_session)
+        with pytest.raises(Exception, match="Invalid emoji code"):
+            await service.add_reaction(
                 user_id=test_user.id,
                 post_id=test_post.id,
                 emoji_code='invalid_emoji'
@@ -106,59 +106,61 @@ class TestReactionService:
 
     async def test_add_reaction_nonexistent_user(self, db_session: AsyncSession, test_post: Post):
         """Test adding reaction with nonexistent user."""
-        with pytest.raises(Exception, match="User .* not found"):
-            await ReactionService.add_reaction(
-                db=db_session,
+        from app.core.exceptions import NotFoundError
+        service = ReactionService(db_session)
+        with pytest.raises(NotFoundError) as exc_info:
+            await service.add_reaction(
                 user_id=99999,
                 post_id=test_post.id,
                 emoji_code='heart_eyes'
             )
+        assert "User not found" in exc_info.value.detail
 
     async def test_add_reaction_nonexistent_post(self, db_session: AsyncSession, test_user: User):
         """Test adding reaction with nonexistent post."""
-        with pytest.raises(Exception, match="Post .* not found"):
-            await ReactionService.add_reaction(
-                db=db_session,
+        from app.core.exceptions import NotFoundError
+        service = ReactionService(db_session)
+        with pytest.raises(NotFoundError) as exc_info:
+            await service.add_reaction(
                 user_id=test_user.id,
                 post_id="nonexistent-post-id",
                 emoji_code='heart_eyes'
             )
+        assert "Post not found" in exc_info.value.detail
 
     async def test_update_existing_reaction(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test updating an existing reaction."""
+        service = ReactionService(db_session)
         # Add initial reaction
-        reaction1 = await ReactionService.add_reaction(
-            db=db_session,
+        reaction1 = await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
             emoji_code='heart_eyes'
         )
         
         # Update to different emoji
-        reaction2 = await ReactionService.add_reaction(
-            db=db_session,
+        reaction2 = await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
             emoji_code='pray'
         )
         
         # Should be the same reaction object, just updated
-        assert reaction1.id == reaction2.id
-        assert reaction2.emoji_code == 'pray'
+        assert reaction1["id"] == reaction2["id"]
+        assert reaction2["emoji_code"] == 'pray'
 
     async def test_remove_reaction_success(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test successfully removing a reaction."""
+        service = ReactionService(db_session)
         # Add reaction first
-        await ReactionService.add_reaction(
-            db=db_session,
+        await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
             emoji_code='heart_eyes'
         )
         
         # Remove reaction
-        removed = await ReactionService.remove_reaction(
-            db=db_session,
+        removed = await service.remove_reaction(
             user_id=test_user.id,
             post_id=test_post.id
         )
@@ -167,8 +169,8 @@ class TestReactionService:
 
     async def test_remove_nonexistent_reaction(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test removing a reaction that doesn't exist."""
-        removed = await ReactionService.remove_reaction(
-            db=db_session,
+        service = ReactionService(db_session)
+        removed = await service.remove_reaction(
             user_id=test_user.id,
             post_id=test_post.id
         )
@@ -177,37 +179,35 @@ class TestReactionService:
 
     async def test_get_post_reactions(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test getting all reactions for a post."""
+        service = ReactionService(db_session)
         # Add a reaction
-        await ReactionService.add_reaction(
-            db=db_session,
+        await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
             emoji_code='heart_eyes'
         )
         
         # Get reactions
-        reactions = await ReactionService.get_post_reactions(
-            db=db_session,
+        reactions = await service.get_post_reactions(
             post_id=test_post.id
         )
         
         assert len(reactions) == 1
-        assert reactions[0].emoji_code == 'heart_eyes'
-        assert reactions[0].user.username == test_user.username
+        assert reactions[0]["emoji_code"] == 'heart_eyes'
+        assert reactions[0]["user"]["username"] == test_user.username
 
     async def test_get_user_reaction(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test getting a specific user's reaction."""
+        service = ReactionService(db_session)
         # Add reaction
-        await ReactionService.add_reaction(
-            db=db_session,
+        await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
             emoji_code='pray'
         )
         
         # Get user's reaction
-        reaction = await ReactionService.get_user_reaction(
-            db=db_session,
+        reaction = await service.get_user_reaction(
             user_id=test_user.id,
             post_id=test_post.id
         )
@@ -217,17 +217,16 @@ class TestReactionService:
 
     async def test_get_reaction_counts(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test getting reaction counts grouped by emoji."""
+        service = ReactionService(db_session)
         # Add reaction
-        await ReactionService.add_reaction(
-            db=db_session,
+        await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
             emoji_code='heart_eyes'
         )
         
         # Get counts
-        counts = await ReactionService.get_reaction_counts(
-            db=db_session,
+        counts = await service.get_reaction_counts(
             post_id=test_post.id
         )
         
@@ -235,24 +234,22 @@ class TestReactionService:
 
     async def test_get_total_reaction_count(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test getting total reaction count for a post."""
+        service = ReactionService(db_session)
         # Initially should be 0
-        count = await ReactionService.get_total_reaction_count(
-            db=db_session,
+        count = await service.get_total_reaction_count(
             post_id=test_post.id
         )
         assert count == 0
         
         # Add reaction
-        await ReactionService.add_reaction(
-            db=db_session,
+        await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
             emoji_code='heart_eyes'
         )
         
         # Should now be 1
-        count = await ReactionService.get_total_reaction_count(
-            db=db_session,
+        count = await service.get_total_reaction_count(
             post_id=test_post.id
         )
         assert count == 1

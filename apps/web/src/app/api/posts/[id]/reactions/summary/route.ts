@@ -1,36 +1,53 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from 'next/server'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse,
+  validateRequiredParams,
+  hasValidAuth
+} from '@/lib/api-utils'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    // Validate required parameters
+    const validationError = validateRequiredParams(params, ['id'])
+    if (validationError) {
+      return createErrorResponse(validationError, 400)
+    }
+
     const { id } = params
-    const authHeader = request.headers.get('authorization')
+
+    // Check authorization
+    if (!hasValidAuth(request)) {
+      return createErrorResponse('Authorization header required', 401)
+    }
     
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, '') || 'http://localhost:8000'
-    
-    if (!authHeader) {
+    const authHeaders = createAuthHeaders(request)
+
+    // Forward the request to the FastAPI backend
+    const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions/summary`, {
+      method: 'GET',
+      authHeaders,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
       return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
+        { error: errorData.detail || 'Failed to fetch reaction summary' },
+        { status: response.status }
       )
     }
 
-    const response = await fetch(`${backendUrl}/api/v1/posts/${id}/reactions/summary`, {
-      method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-      },
-    })
+    const summaryResponse = await response.json()
+    const summary = summaryResponse.data || summaryResponse
 
-    const data = await response.json()
-    return NextResponse.json(data, { status: response.status })
+    return NextResponse.json(summary)
+
   } catch (error) {
-    console.error('Error getting reaction summary:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'fetching reaction summary')
   }
 }

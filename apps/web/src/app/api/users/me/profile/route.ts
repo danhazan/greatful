@@ -4,7 +4,6 @@ import {
   createAuthHeaders, 
   makeBackendRequest, 
   createErrorResponse,
-  proxyBackendResponse,
   hasValidAuth
 } from '@/lib/api-utils'
 
@@ -22,7 +21,17 @@ export async function GET(request: NextRequest) {
       authHeaders,
     })
 
-    return proxyBackendResponse(response)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return NextResponse.json(
+        { error: errorData.detail || 'Failed to fetch profile' },
+        { status: response.status }
+      )
+    }
+
+    const profileResponse = await response.json()
+    const profileData = profileResponse.data || profileResponse
+    return NextResponse.json(profileData)
   } catch (error) {
     return handleApiError(error, 'getting profile')
   }
@@ -45,7 +54,17 @@ export async function PUT(request: NextRequest) {
       body: JSON.stringify(body),
     })
 
-    return proxyBackendResponse(response)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return NextResponse.json(
+        { error: errorData.detail || 'Failed to update profile' },
+        { status: response.status }
+      )
+    }
+
+    const profileResponse = await response.json()
+    const profileData = profileResponse.data || profileResponse
+    return NextResponse.json(profileData)
   } catch (error) {
     return handleApiError(error, 'updating profile')
   }

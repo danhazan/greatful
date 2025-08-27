@@ -27,7 +27,8 @@ class TestReactionsAPI:
         )
         
         assert response.status_code == 201
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert data["emoji_code"] == "heart_eyes"
 
     @pytest.mark.asyncio
@@ -75,7 +76,8 @@ class TestReactionsAPI:
         )
         
         assert response.status_code == 201  # API returns 201 for updates
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert data["emoji_code"] == "fire"
 
     @pytest.mark.asyncio
@@ -149,7 +151,8 @@ class TestReactionsAPI:
         )
         
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert "total_count" in data
         assert "emoji_counts" in data  # API returns emoji_counts instead of reactions
 
@@ -162,7 +165,8 @@ class TestReactionsAPI:
         )
         
         assert response.status_code == 200  # API returns empty list for nonexistent posts
-        data = response.json()
+        response_data = response.json()
+        data = response_data["data"]
         assert len(data) == 0  # Should return empty list
 
     @pytest.mark.asyncio

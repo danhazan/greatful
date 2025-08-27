@@ -43,7 +43,8 @@ export async function GET(
       )
     }
 
-    const reactions = await response.json()
+    const reactionsResponse = await response.json()
+    const reactions = reactionsResponse.data || reactionsResponse
 
     // Transform the reactions to match the frontend format
     const transformedReactions = transformReactions(reactions as BackendReaction[])
@@ -99,7 +100,8 @@ export async function POST(
       )
     }
 
-    const reaction = await response.json()
+    const reactionResponse = await response.json()
+    const reaction = reactionResponse.data || reactionResponse
 
     // Transform the response to match the frontend format
     const transformedReaction = transformReaction(reaction as BackendReaction)

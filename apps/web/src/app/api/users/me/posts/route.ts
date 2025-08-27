@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const posts = await response.json()
+    const postsResponse = await response.json()
+    const posts = postsResponse.data || []
 
     // Get user profile to include author information
     const profileResponse = await makeBackendRequest('/api/v1/users/me/profile', {
@@ -41,7 +42,8 @@ export async function GET(request: NextRequest) {
 
     let userProfile = null
     if (profileResponse.ok) {
-      userProfile = await profileResponse.json()
+      const profileData = await profileResponse.json()
+      userProfile = profileData.data || profileData
     }
 
     // Transform the posts to match the frontend format

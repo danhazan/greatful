@@ -32,8 +32,9 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Store the access token
-        localStorage.setItem("access_token", data.access_token)
+        // Store the access token (backend wraps response in data field)
+        const accessToken = data.data?.access_token || data.access_token
+        localStorage.setItem("access_token", accessToken)
         
         // Redirect to feed
         router.push("/feed")

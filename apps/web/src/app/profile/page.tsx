@@ -68,13 +68,13 @@ export default function ProfilePage() {
           const profileData = await response.json()
           const userProfile: UserProfile = {
             id: profileData.id,
-            username: profileData.username,
+            username: profileData.username || 'Unknown User',
             email: profileData.email,
             bio: profileData.bio || "No bio yet - add one by editing your profile!",
-            joinDate: profileData.created_at,
-            postsCount: profileData.posts_count,
-            followersCount: profileData.followers_count,
-            followingCount: profileData.following_count
+            joinDate: profileData.created_at || new Date().toISOString(),
+            postsCount: profileData.posts_count || 0,
+            followersCount: profileData.followers_count || 0,
+            followingCount: profileData.following_count || 0
           }
 
           setUser(userProfile)
@@ -217,7 +217,9 @@ export default function ProfilePage() {
   }
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'Unknown'
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Invalid Date'
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long' 
