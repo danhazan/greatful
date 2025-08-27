@@ -30,8 +30,9 @@ class Share(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     post_id = Column(String, ForeignKey("posts.id"), nullable=False)
     share_method = Column(String(20), nullable=False)  # 'url' or 'message'
-    # Use Text for both PostgreSQL and SQLite to avoid array conversion issues
-    recipient_user_ids = Column(Text, nullable=True, default=None)  # JSON string of user IDs for message shares
+    # Hotfix: Remove default=None to avoid NULL::VARCHAR cast issues
+    # Database column is still integer[] but we'll omit this field for URL shares
+    recipient_user_ids = Column(Text, nullable=True)  # Will be migrated to JSON later
     message_content = Column(Text, nullable=True)  # Optional message with share
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

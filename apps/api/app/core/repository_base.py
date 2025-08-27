@@ -175,6 +175,10 @@ class BaseRepository:
             raise NotFoundError(self.model_class.__name__, str(entity_id))
         return entity
     
+    def _omit_none(self, kwargs: dict) -> dict:
+        """Remove None values from kwargs to avoid NULL::VARCHAR cast issues."""
+        return {k: v for k, v in kwargs.items() if v is not None}
+
     async def create(self, **kwargs) -> T:
         """
         Create a new entity.
@@ -186,7 +190,9 @@ class BaseRepository:
             T: The created entity
         """
         try:
-            entity = self.model_class(**kwargs)
+            # Omit None values to let database use proper NULL types
+            clean_kwargs = self._omit_none(kwargs)
+            entity = self.model_class(**clean_kwargs)
             self.db.add(entity)
             await self.db.commit()
             await self.db.refresh(entity)
