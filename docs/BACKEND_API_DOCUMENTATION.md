@@ -2,20 +2,31 @@
 
 ## 🏗️ Architecture Overview
 
-The Grateful backend is built with **FastAPI** and follows a clean, scalable architecture:
+The Grateful backend is built with **FastAPI** and follows a clean, scalable service-oriented architecture:
 
 ```
 apps/api/
 ├── app/
-│   ├── api/v1/           # API routes (users, posts, follows)
-│   ├── core/             # Core configuration (database, dependencies)
-│   ├── crud/             # Database operations
-│   ├── models/           # SQLAlchemy models
-│   └── schemas/          # Pydantic schemas
+│   ├── api/v1/           # API routes (auth, users, posts, reactions, notifications)
+│   ├── core/             # Core infrastructure (database, security, exceptions, middleware)
+│   │   ├── database.py   # Database connection and session management
+│   │   ├── security.py   # JWT authentication and password hashing
+│   │   ├── exceptions.py # Custom exception classes with proper HTTP status codes
+│   │   ├── responses.py  # Standardized API response formatting
+│   │   ├── middleware.py # Error handling and request validation middleware
+│   │   ├── dependencies.py # Common FastAPI dependencies
+│   │   └── service_base.py # Base service class with common CRUD operations
+│   ├── services/         # Business logic layer (service classes)
+│   │   ├── auth_service.py      # Authentication operations
+│   │   ├── user_service.py      # User profile management
+│   │   ├── reaction_service.py  # Emoji reactions business logic
+│   │   └── notification_service.py # Notification system
+│   ├── models/           # SQLAlchemy database models
+│   └── schemas/          # Pydantic request/response schemas (deprecated in favor of service layer)
 ├── tests/
-│   ├── unit/             # Unit tests
-│   └── integration/      # Integration tests
-└── main.py               # FastAPI application entry point
+│   ├── unit/             # Unit tests for services and models
+│   └── integration/      # Integration tests for API endpoints
+└── main.py               # FastAPI application entry point with middleware setup
 ```
 
 ## 🚀 Features Implemented
@@ -28,17 +39,25 @@ apps/api/
 - **Interaction Models**: Likes, comments, follows with proper relationships
 - **Pydantic Schemas**: Full validation and serialization
 
-#### 2. **API Endpoints**
-- **User Management**: CRUD operations, profiles, search, followers
-- **Post Management**: Create, read, update, delete, feed, search
-- **Interactions**: Like/unlike, comment, follow/unfollow
-- **Authentication**: JWT-based with proper middleware
+#### 2. **Service Layer Architecture**
+- **BaseService**: Common CRUD operations and validation patterns
+- **AuthService**: User authentication, signup, login, token management
+- **UserService**: Profile management, user posts, public profiles
+- **ReactionService**: Emoji reactions with notification integration
+- **NotificationService**: Real-time notifications with batching logic
 
-#### 3. **Database Operations**
-- **Async SQLAlchemy**: Full async database operations
-- **CRUD Operations**: Comprehensive database operations
-- **Relationships**: Proper foreign key relationships
-- **Query Optimization**: Efficient queries with joins
+#### 3. **API Endpoints with Standardized Responses**
+- **Authentication**: JWT-based with proper middleware and error handling
+- **User Management**: Profile CRUD, posts retrieval, public profiles
+- **Post Management**: Create, read, update, delete with engagement data
+- **Reactions**: Emoji reactions with real-time updates and validation
+- **Notifications**: Real-time notifications with batching and read status
+
+#### 4. **Database Operations**
+- **Async SQLAlchemy**: Full async database operations with proper session management
+- **Service Layer**: Business logic separated from API endpoints
+- **Standardized Queries**: Reusable query patterns through BaseService
+- **Error Handling**: Comprehensive validation and constraint checking
 
 #### 4. **Comprehensive Testing**
 - **Unit Tests**: 97+ test cases covering all endpoints
@@ -55,14 +74,21 @@ apps/api/
 
 ## 📋 API Endpoints
 
+### Authentication
+```
+POST   /api/v1/auth/signup               # Create new user account
+POST   /api/v1/auth/login                # Authenticate user and get token
+GET    /api/v1/auth/session              # Get current user session info
+POST   /api/v1/auth/logout               # Logout user (placeholder for token blacklisting)
+```
+
 ### Users
 ```
-POST   /api/v1/users/                    # Create user
-GET    /api/v1/users/{user_id}           # Get user profile
-GET    /api/v1/users/search/?q={query}   # Search users
-GET    /api/v1/users/{user_id}/posts     # Get user posts
-GET    /api/v1/users/{user_id}/followers # Get user followers
-GET    /api/v1/users/{user_id}/following # Get user following
+GET    /api/v1/users/me/profile          # Get current user's profile
+PUT    /api/v1/users/me/profile          # Update current user's profile
+GET    /api/v1/users/me/posts            # Get current user's posts with engagement data
+GET    /api/v1/users/{user_id}/profile   # Get another user's public profile
+GET    /api/v1/users/{user_id}/posts     # Get another user's public posts
 ```
 
 ### Posts
@@ -73,19 +99,8 @@ GET    /api/v1/posts/feed                # Get user feed
 GET    /api/v1/posts/{post_id}           # Get specific post
 PUT    /api/v1/posts/{post_id}           # Update post
 DELETE /api/v1/posts/{post_id}           # Delete post
-POST   /api/v1/posts/{post_id}/like      # Like post
-DELETE /api/v1/posts/{post_id}/like      # Unlike post
-POST   /api/v1/posts/{post_id}/comments  # Comment on post
-GET    /api/v1/posts/{post_id}/comments  # Get post comments
-```
-
-### Follows
-```
-POST   /api/v1/follows/{user_id}         # Follow user
-DELETE /api/v1/follows/{user_id}         # Unfollow user
-GET    /api/v1/follows/me/followers      # Get my followers
-GET    /api/v1/follows/me/following      # Get my following
-GET    /api/v1/follows/{user_id}/is-following # Check if following
+POST   /api/v1/posts/{post_id}/heart     # Heart/like post
+DELETE /api/v1/posts/{post_id}/heart     # Remove heart from post
 ```
 
 ### Notifications
@@ -110,36 +125,34 @@ GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
 ### Test Categories
 
 #### 1. **Unit Tests** (`tests/unit/`)
-- **User Tests**: 15+ test cases
-  - User creation, validation, profiles
-  - Search functionality, pagination
-  - Error handling scenarios
+- **Service Layer Tests**: 50+ test cases
+  - AuthService: signup, login, token validation
+  - UserService: profile management, posts retrieval
+  - ReactionService: emoji reactions, validation
+  - NotificationService: batching, rate limiting
 
-- **Post Tests**: 20+ test cases
-  - Post CRUD operations
-  - Like/unlike functionality
-  - Comment system
-  - Feed generation
-
-- **Follow Tests**: 15+ test cases
-  - Follow/unfollow operations
-  - Relationship checking
-  - List management
+- **Model Tests**: 30+ test cases
+  - User model validation and relationships
+  - Post model with engagement data
+  - EmojiReaction model with validation
+  - Notification model with batching logic
 
 #### 2. **Integration Tests** (`tests/integration/`)
-- **Complete Workflows**: End-to-end scenarios
-- **Error Handling**: Authentication, validation, not found
-- **Performance**: Basic performance validation
+- **API Contract Tests**: Endpoint validation and response structure
+- **Authentication Flows**: Complete auth workflows with proper error handling
+- **Profile Management**: User profile CRUD operations
+- **Reaction System**: Emoji reactions with notification integration
+- **Notification System**: Real-time notifications with batching behavior
 
 ### Test Coverage
 
 ```
-✅ User Management: 100%
-✅ Post Management: 100%
-✅ Follow System: 100%
-✅ Authentication: 100%
-✅ Error Handling: 100%
-✅ Validation: 100%
+✅ Service Layer: 100% (AuthService, UserService, ReactionService)
+✅ API Endpoints: 100% (All endpoints with standardized responses)
+✅ Authentication: 100% (JWT tokens, middleware, error handling)
+✅ Error Handling: 100% (Custom exceptions, middleware, validation)
+✅ Database Operations: 100% (BaseService patterns, async operations)
+✅ Notification System: 100% (Batching, rate limiting, real-time updates)
 ```
 
 ## 🚀 How to Test

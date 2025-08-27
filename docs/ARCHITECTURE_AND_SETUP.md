@@ -30,7 +30,13 @@ The Grateful project is organized for clarity and modularity, with each main com
 ```text
 grateful/
 ├── apps/
-│   ├── api/         # FastAPI backend (business logic, API, DB models)
+│   ├── api/         # FastAPI backend with service layer architecture
+│   │   ├── app/
+│   │   │   ├── api/v1/      # API endpoints (thin controllers)
+│   │   │   ├── core/        # Infrastructure (database, security, exceptions, middleware)
+│   │   │   ├── services/    # Business logic layer (service classes)
+│   │   │   └── models/      # SQLAlchemy database models
+│   │   └── tests/           # Comprehensive test suite (unit + integration)
 │   └── web/         # Next.js frontend (UI, static assets, SSR)
 ├── infrastructure/  # Docker, docker-compose, deployment configs
 ├── docs/            # Documentation (PRD, architecture, guides)
@@ -65,14 +71,18 @@ See each folder’s README (if present) for more details.
 
 ## Architecture
 
-- **Backend:** FastAPI (Python, SQLAlchemy, JWT)
+- **Backend:** FastAPI (Python, SQLAlchemy, JWT) with Service Layer Architecture
   - Location: `apps/api`
+  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, etc.)
+  - **Standardized Responses**: Consistent API response formatting with error handling
+  - **Custom Exceptions**: Proper HTTP status codes and structured error messages
+  - **Middleware**: Request validation, error handling, and logging
   - Handles all business logic, authentication, and database access
 - **Frontend:** Next.js (React, TypeScript)
   - Location: `apps/web`
   - Proxies authentication and user-related requests to the backend
 - **Database:** PostgreSQL
-  - Used by the backend for persistent storage
+  - Used by the backend for persistent storage with async SQLAlchemy
 
 ---
 

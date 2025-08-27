@@ -169,14 +169,19 @@ npm test -- --testNamePattern="PostCard"
 
 ```
 apps/api/tests/
-├── conftest.py
-├── integration
-│   ├── test_likes_api.py
-│   ├── test_profile_api.py
-│   └── test_reactions_api.py
-└── unit
-    ├── test_emoji_reactions.py
-    └── test_user_profile.py
+├── conftest.py                           # Test configuration and fixtures
+├── integration/                          # API endpoint integration tests
+│   ├── test_api_contracts.py            # API response structure validation
+│   ├── test_likes_api.py                 # Heart/like system API tests
+│   ├── test_profile_api.py               # User profile API tests
+│   ├── test_reactions_api.py             # Emoji reactions API tests
+│   ├── test_notifications_api.py         # Notification system API tests
+│   └── test_notification_batching_api.py # Notification batching tests
+└── unit/                                 # Service layer and model unit tests
+    ├── test_emoji_reactions.py           # EmojiReaction model and ReactionService tests
+    ├── test_user_profile.py              # User model and UserService tests
+    ├── test_notification_batching.py     # NotificationService batching logic tests
+    └── test_notification_integration.py  # Notification integration tests
 ```
 
 ### Frontend Tests (`apps/web/src/tests/`)
@@ -209,10 +214,11 @@ apps/web/src/tests/
 **Purpose**: Test individual functions, components, or API endpoints in isolation.
 
 **Backend Unit Tests**:
-- Test individual API endpoints
-- Mock database operations
-- Test validation logic
-- Test error handling
+- Test service layer business logic (AuthService, UserService, ReactionService)
+- Test database models and validation
+- Test custom exception handling
+- Test service layer validation and error handling
+- Mock external dependencies and database operations
 
 **Frontend Unit Tests**:
 - Test React components in isolation
@@ -231,10 +237,12 @@ apps/web/src/tests/
 **Purpose**: Test how components work together.
 
 **Backend Integration Tests**:
-- Test complete API workflows
-- Use test databases
-- Test data persistence
-- Test authentication flows
+- Test complete API workflows with standardized responses
+- Test API contract validation and response structure
+- Test authentication flows with JWT middleware
+- Test service layer integration with database operations
+- Test notification system with batching behavior
+- Use test databases with proper cleanup
 
 **Frontend Integration Tests**:
 - Test page components
@@ -294,14 +302,31 @@ apps/web/src/tests/
 
 ### Backend Test Examples
 
-#### API Endpoint Test
+#### Service Layer Test
 ```python
-async def test_create_post_success(async_client, auth_headers):
-    """Test successful post creation."""
+async def test_auth_service_signup_success(db_session):
+    """Test successful user signup through AuthService."""
+    auth_service = AuthService(db_session)
+    
+    result = await auth_service.signup(
+        username="testuser",
+        email="test@example.com",
+        password="securepassword123"
+    )
+    
+    assert result["username"] == "testuser"
+    assert result["email"] == "test@example.com"
+    assert "access_token" in result
+    assert result["token_type"] == "bearer"
+```
+
+#### API Integration Test
+```python
+async def test_create_post_api_contract(async_client, auth_headers):
+    """Test API response structure and standardized formatting."""
     post_data = {
         "content": "I'm grateful for this test!",
         "post_type": "daily_gratitude",
-        "title": "Test Post",
         "is_public": True
     }
     
@@ -313,27 +338,49 @@ async def test_create_post_success(async_client, auth_headers):
     
     assert response.status_code == 201
     data = response.json()
-    assert data["content"] == post_data["content"]
-    assert data["post_type"] == post_data["post_type"]
+    
+    # Test standardized response structure
+    assert data["success"] is True
+    assert "data" in data
+    assert "timestamp" in data
+    assert "request_id" in data
+    
+    # Test post data
+    post_data = data["data"]
+    assert post_data["content"] == "I'm grateful for this test!"
 ```
 
-#### Database Test
+#### Service Layer Validation Test
 ```python
-async def test_user_creation(db_session):
-    """Test user creation in database."""
-    user_data = {
-        "email": "test@example.com",
-        "username": "testuser",
-        "full_name": "Test User"
-    }
+async def test_user_service_validation(db_session):
+    """Test UserService validation and error handling."""
+    user_service = UserService(db_session)
     
-    user = User(**user_data)
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
+    # Test validation exception for missing fields
+    with pytest.raises(ValidationException) as exc_info:
+        await user_service.update_user_profile(
+            user_id=1,
+            username=""  # Invalid empty username
+        )
     
-    assert user.email == user_data["email"]
-    assert user.username == user_data["username"]
+    assert exc_info.value.status_code == 422
+    assert "username" in exc_info.value.details["fields"]
+```
+
+#### Database Model Test
+```python
+async def test_emoji_reaction_model_validation(db_session):
+    """Test EmojiReaction model validation."""
+    # Test valid emoji
+    assert EmojiReaction.is_valid_emoji("heart_eyes")
+    assert EmojiReaction.is_valid_emoji("pray")
+    
+    # Test invalid emoji
+    assert not EmojiReaction.is_valid_emoji("invalid_emoji")
+    
+    # Test emoji display property
+    reaction = EmojiReaction(emoji_code="heart_eyes")
+    assert reaction.emoji_display == "😍"
 ```
 
 ### Frontend Test Examples
@@ -492,6 +539,78 @@ npm test -- --watch
 - Use test utilities for common data
 - Reset state between tests
 
+## Service Layer Testing Patterns
+
+### Testing Service Classes
+
+**Service Layer Architecture**: All business logic is contained in service classes that inherit from `BaseService`. Test these services directly for unit tests.
+
+**Common Service Test Patterns**:
+
+```python
+# Test service initialization
+def test_service_initialization():
+    service = AuthService(db_session)
+    assert isinstance(service, BaseService)
+    assert service.db == db_session
+
+# Test service validation
+async def test_service_validation():
+    service = UserService(db_session)
+    
+    with pytest.raises(ValidationException):
+        await service.update_user_profile(user_id=1, username="")
+
+# Test service error handling
+async def test_service_not_found():
+    service = UserService(db_session)
+    
+    with pytest.raises(NotFoundError):
+        await service.get_user_profile(user_id=999999)
+
+# Test service business logic
+async def test_service_business_logic():
+    service = ReactionService(db_session)
+    
+    result = await service.add_reaction(
+        user_id=1, post_id="post123", emoji_code="heart_eyes"
+    )
+    
+    assert result["emoji_code"] == "heart_eyes"
+    assert result["emoji_display"] == "😍"
+```
+
+### Testing API Endpoints
+
+**API endpoints should be thin controllers** that delegate to service classes. Test the complete request/response cycle including standardized formatting.
+
+```python
+async def test_api_endpoint_success(async_client, auth_headers):
+    """Test API endpoint with standardized response."""
+    response = await async_client.get("/api/v1/users/me/profile", headers=auth_headers)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Test standardized response structure
+    assert data["success"] is True
+    assert "data" in data
+    assert "timestamp" in data
+    assert "request_id" in data
+
+async def test_api_endpoint_error_handling(async_client):
+    """Test API error handling with custom exceptions."""
+    response = await async_client.get("/api/v1/users/me/profile")  # No auth
+    
+    assert response.status_code == 401
+    data = response.json()
+    
+    # Test standardized error response
+    assert data["success"] is False
+    assert "error" in data
+    assert data["error"]["code"] == "authentication_error"
+```
+
 ## Best Practices
 
 ### General Guidelines
@@ -503,11 +622,83 @@ npm test -- --watch
 6. **Use fixtures for common setup**
 
 ### Backend Specific
-1. **Use async/await consistently**
-2. **Test database operations**
-3. **Verify API responses**
-4. **Test authentication and authorization**
-5. **Use test databases**
+1. **Test service layer directly** for business logic
+2. **Test API endpoints** for request/response contracts
+3. **Use async/await consistently**
+4. **Test custom exception handling**
+5. **Verify standardized response formatting**
+6. **Test authentication and authorization middleware**
+7. **Use test databases with proper cleanup**
+
+### Service Layer Architecture Patterns
+
+**BaseService Testing**: All services inherit from `BaseService` which provides common CRUD operations.
+
+```python
+# Test BaseService common operations
+async def test_base_service_get_by_id():
+    service = UserService(db_session)
+    user = await service.get_by_id(User, user_id)
+    assert user.id == user_id
+
+async def test_base_service_validation():
+    service = UserService(db_session)
+    service.validate_required_fields({"email": "test@example.com"}, ["email"])
+    # Should not raise exception
+    
+    with pytest.raises(ValidationException):
+        service.validate_required_fields({}, ["email"])
+```
+
+**Custom Exception Testing**: Test that services raise appropriate custom exceptions.
+
+```python
+# Test custom exceptions
+async def test_not_found_exception():
+    service = UserService(db_session)
+    
+    with pytest.raises(NotFoundError) as exc_info:
+        await service.get_user_profile(999999)
+    
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.error_code == "not_found"
+
+async def test_validation_exception():
+    service = AuthService(db_session)
+    
+    with pytest.raises(ValidationException) as exc_info:
+        await service.signup("", "invalid-email", "short")
+    
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.error_code == "validation_error"
+```
+
+**Standardized Response Testing**: Test that API endpoints return properly formatted responses.
+
+```python
+# Test standardized responses
+async def test_success_response_format(async_client, auth_headers):
+    response = await async_client.get("/api/v1/users/me/profile", headers=auth_headers)
+    data = response.json()
+    
+    # All success responses should have this structure
+    assert "success" in data and data["success"] is True
+    assert "data" in data
+    assert "timestamp" in data
+    assert "request_id" in data
+
+async def test_error_response_format(async_client):
+    response = await async_client.get("/api/v1/users/me/profile")  # No auth
+    data = response.json()
+    
+    # All error responses should have this structure
+    assert "success" in data and data["success"] is False
+    assert "error" in data
+    assert "code" in data["error"]
+    assert "message" in data["error"]
+    assert "timestamp" in data
+    assert "request_id" in data
+```
 
 ### Frontend Specific
 1. **Test user interactions**
