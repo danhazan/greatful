@@ -2,10 +2,10 @@
 Share model for handling post sharing functionality.
 """
 
-from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Text
+from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects import postgresql
 from app.core.database import Base
 import uuid
 import enum
@@ -30,9 +30,12 @@ class Share(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     post_id = Column(String, ForeignKey("posts.id"), nullable=False)
     share_method = Column(String(20), nullable=False)  # 'url' or 'message'
-    # Hotfix: Remove default=None to avoid NULL::VARCHAR cast issues
-    # Database column is still integer[] but we'll omit this field for URL shares
-    recipient_user_ids = Column(Text, nullable=True)  # Will be migrated to JSON later
+    # JSON/JSONB column for cross-dialect compatibility
+    # NULL for URL shares, JSON array for message shares
+    recipient_user_ids = Column(
+        JSON().with_variant(postgresql.JSONB, "postgresql"), 
+        nullable=True
+    )
     message_content = Column(Text, nullable=True)  # Optional message with share
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -69,17 +72,23 @@ class Share(Base):
     def recipient_ids_list(self) -> list:
         """Get recipient user IDs as a list."""
         if self.recipient_user_ids:
-            try:
-                return json.loads(self.recipient_user_ids)
-            except (json.JSONDecodeError, TypeError):
-                return []
+            # recipient_user_ids is now stored as JSON/JSONB directly
+            if isinstance(self.recipient_user_ids, list):
+                return self.recipient_user_ids
+            else:
+                # Fallback for any string data during migration
+                try:
+                    return json.loads(self.recipient_user_ids)
+                except (json.JSONDecodeError, TypeError):
+                    return []
         return []
     
     @recipient_ids_list.setter
     def recipient_ids_list(self, value: list):
         """Set recipient user IDs from a list."""
         if value:
-            self.recipient_user_ids = json.dumps(value)
+            # Store directly as JSON (SQLAlchemy handles serialization)
+            self.recipient_user_ids = value
         else:
             self.recipient_user_ids = None
 

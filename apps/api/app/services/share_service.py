@@ -19,6 +19,22 @@ import os
 
 logger = logging.getLogger(__name__)
 
+MAX_RECIPIENTS = 5
+
+
+def _validate_share_payload(share_method: str, recipients: Optional[List[int]], message: Optional[str]) -> None:
+    """Validate share payload based on method."""
+    if share_method == "url":
+        if recipients is not None:
+            raise ValidationException("URL share must not include recipients")
+    elif share_method == "message":
+        if not recipients:
+            raise ValidationException("Message share requires at least one recipient")
+        if len(recipients) > MAX_RECIPIENTS:
+            raise ValidationException(f"Maximum {MAX_RECIPIENTS} recipients allowed")
+    else:
+        raise ValidationException("Invalid share method")
+
 
 class ShareService(BaseService):
     """Service for managing post sharing using repository pattern."""
@@ -91,6 +107,9 @@ class ShareService(BaseService):
         if not await self._can_share_post(user_id, post):
             raise BusinessLogicError("This post cannot be shared due to privacy settings.")
         
+        # Validate payload
+        _validate_share_payload("url", None, None)
+        
         # Create share record (don't pass recipient_user_ids for URL shares)
         share = await self.share_repo.create(
             user_id=user_id,
@@ -154,13 +173,9 @@ class ShareService(BaseService):
             BusinessLogicError: If rate limit exceeded or privacy violation
         """
         # Validate inputs
-        if not recipient_ids:
-            raise ValidationException("At least one recipient is required for message sharing.")
+        _validate_share_payload("message", recipient_ids, message)
         
-        if len(recipient_ids) > 5:
-            raise ValidationException("Maximum 5 recipients allowed per share.")
-        
-        if len(message) > 200:
+        if len(message or "") > 200:
             raise ValidationException("Message cannot exceed 200 characters.")
         
         # Check rate limit
@@ -193,17 +208,14 @@ class ShareService(BaseService):
         if not valid_recipients:
             raise BusinessLogicError("No valid recipients found. Check privacy settings.")
         
-        # Create share record
+        # Create share record with recipients
         share = await self.share_repo.create(
             user_id=sender_id,
             post_id=post_id,
             share_method=ShareMethod.message.value,
+            recipient_user_ids=valid_recipients,  # Store directly as JSON array
             message_content=message.strip() if message else None
         )
-        
-        # Set recipient IDs using the property
-        share.recipient_ids_list = valid_recipients
-        await self.share_repo.update(share)
         
         # Create notifications for recipients
         for recipient_id in valid_recipients:

@@ -327,7 +327,7 @@ class TestShareService:
     ):
         """Test message sharing validation errors."""
         # No recipients
-        with pytest.raises(ValidationException, match="At least one recipient is required"):
+        with pytest.raises(ValidationException, match="Message share requires at least one recipient"):
             await share_service.share_via_message(
                 sender_id=test_user.id,
                 post_id=test_post.id,
