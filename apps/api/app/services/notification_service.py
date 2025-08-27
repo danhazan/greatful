@@ -430,24 +430,29 @@ class NotificationService(BaseService):
         db: AsyncSession,
         post_author_id: int,
         sharer_username: str,
-        post_id: str
+        post_id: str,
+        share_method: str = "url",
+        message_content: Optional[str] = None
     ) -> Optional[Notification]:
         """
         Create a notification for post share with rate limiting.
         
         Args:
             db: Database session
-            post_author_id: ID of the post author
+            post_author_id: ID of the post author (or recipient for message shares)
             sharer_username: Username of the person who shared
             post_id: ID of the shared post
+            share_method: Method of sharing ('url' or 'message')
+            message_content: Optional message content for message shares
             
         Returns:
             Optional[Notification]: The created notification, or None if not created
         """
-        # Don't create notification if user shared their own post
-        sharer = await User.get_by_username(db, sharer_username)
-        if sharer and sharer.id == post_author_id:
-            return None
+        # Don't create notification if user shared their own post (only for URL shares)
+        if share_method == "url":
+            sharer = await User.get_by_username(db, sharer_username)
+            if sharer and sharer.id == post_author_id:
+                return None
         
         # Check rate limit for share notifications
         if not await NotificationService._check_notification_rate_limit(
@@ -458,15 +463,28 @@ class NotificationService(BaseService):
             )
             return None
         
+        # Create different messages based on share method
+        if share_method == "message":
+            title = "Post Shared With You"
+            if message_content:
+                message = f'{sharer_username} shared a post with you: "{message_content[:50]}{"..." if len(message_content) > 50 else ""}"'
+            else:
+                message = f'{sharer_username} shared a post with you'
+        else:
+            title = "Post Shared"
+            message = f'{sharer_username} shared your post'
+        
         return await NotificationService.create_notification(
             db=db,
             user_id=post_author_id,
             notification_type='post_shared',
-            title='Post Shared',
-            message=f'{sharer_username} shared your post',
+            title=title,
+            message=message,
             data={
                 'post_id': post_id,
-                'sharer_username': sharer_username
+                'sharer_username': sharer_username,
+                'share_method': share_method,
+                'message_content': message_content
             },
             respect_rate_limit=False  # Already checked above
         )

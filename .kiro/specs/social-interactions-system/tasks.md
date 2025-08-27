@@ -124,8 +124,8 @@ The implementation maintains consistency with the reference implementation's pur
 
 ### **TASK 4: Share System with URL Generation** 
 **Module Reference:** Requirements 2 - Share System with URL Generation
-- [ ] Create Share database model and ShareService for URL generation
-- [ ] Implement POST /api/v1/posts/{id}/share endpoint with rate limiting (20/hour)
+- [x] Create Share database model and ShareService for URL generation
+- [x] Implement POST /api/v1/posts/{id}/share endpoint with rate limiting (20/hour)
 - [ ] Build ShareModal component with "Copy Link" functionality
 - [ ] Create /post/[post-id] public view page with SEO metadata
 - [ ] Add clipboard integration with success feedback
@@ -217,6 +217,23 @@ The implementation maintains consistency with the reference implementation's pur
 - Enhanced feed algorithm promotes engaging content based on social signals
 - All features work seamlessly on mobile with proper error handling
 - Comprehensive test coverage (95% backend, 90% frontend) achieved
+
+## General Guidelines
+
+### Git Commit Requirements
+**MANDATORY:** After completing each task and ensuring all tests pass, changes MUST be committed to git with a descriptive commit message. This applies to all tasks that modify code, configuration, or documentation.
+
+**Commit Process:**
+1. Complete the task implementation
+2. Run and pass all relevant tests (backend/frontend as applicable)
+3. Stage changes: `git add .`
+4. Commit with descriptive message: `git commit -m "feat: [task description] - [brief summary of changes]"`
+5. Only then consider the task fully complete
+
+**Commit Message Format:**
+- Use conventional commit format: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
+- Include task reference when applicable
+- Be descriptive about what was implemented or changed
 
 ## Testing Requirements
 

@@ -8,5 +8,6 @@ from .post import Post
 from .like import Like
 from .emoji_reaction import EmojiReaction
 from .notification import Notification
+from .share import Share
 
-__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification"]
+__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification", "Share"]

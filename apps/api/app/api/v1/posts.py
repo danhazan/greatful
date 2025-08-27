@@ -19,6 +19,7 @@ from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.post import Post, PostType
 from app.models.user import User
+from app.services.share_service import ShareService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -96,6 +97,45 @@ class PostResponse(BaseModel):
         if v not in valid_emojis:
             raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
         return v
+
+
+class ShareRequest(BaseModel):
+    """Share request model."""
+    share_method: str = Field(..., description="Share method: 'url' or 'message'")
+    recipient_ids: Optional[List[int]] = Field(None, description="User IDs for message sharing (max 5)")
+    message: Optional[str] = Field(None, max_length=200, description="Optional message for sharing")
+
+    @field_validator('share_method')
+    @classmethod
+    def validate_share_method(cls, v):
+        valid_methods = ['url', 'message']
+        if v not in valid_methods:
+            raise ValueError(f'Invalid share method. Must be one of: {valid_methods}')
+        return v
+
+    @field_validator('recipient_ids')
+    @classmethod
+    def validate_recipient_ids(cls, v, info):
+        if info.data.get('share_method') == 'message':
+            if not v:
+                raise ValueError('recipient_ids is required for message sharing')
+            if len(v) > 5:
+                raise ValueError('Maximum 5 recipients allowed per share')
+        return v
+
+
+class ShareResponse(BaseModel):
+    """Share response model."""
+    id: str
+    user_id: int
+    post_id: str
+    share_method: str
+    share_url: Optional[str] = None
+    recipient_count: Optional[int] = None
+    message_content: Optional[str] = None
+    created_at: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
@@ -439,3 +479,127 @@ async def get_feed(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get feed"
         )
+
+
+@router.post("/{post_id}/share", response_model=ShareResponse, status_code=status.HTTP_201_CREATED)
+async def share_post(
+    post_id: str,
+    share_data: ShareRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Share a post via URL or message with rate limiting (20 shares per hour).
+    
+    - **URL sharing**: Generates a shareable URL for the post
+    - **Message sharing**: Sends the post to specific users with optional message
+    - **Rate limiting**: Maximum 20 shares per hour per user
+    """
+    try:
+        share_service = ShareService(db)
+        
+        if share_data.share_method == "url":
+            # Share via URL
+            result = await share_service.share_via_url(
+                user_id=current_user_id,
+                post_id=post_id
+            )
+            
+            return ShareResponse(
+                id=result["id"],
+                user_id=result["user_id"],
+                post_id=result["post_id"],
+                share_method=result["share_method"],
+                share_url=result["share_url"],
+                created_at=result["created_at"]
+            )
+            
+        elif share_data.share_method == "message":
+            # Share via message
+            result = await share_service.share_via_message(
+                sender_id=current_user_id,
+                post_id=post_id,
+                recipient_ids=share_data.recipient_ids or [],
+                message=share_data.message or ""
+            )
+            
+            return ShareResponse(
+                id=result["id"],
+                user_id=result["user_id"],
+                post_id=result["post_id"],
+                share_method=result["share_method"],
+                recipient_count=result["recipient_count"],
+                message_content=result["message_content"],
+                created_at=result["created_at"]
+            )
+            
+    except Exception as e:
+        logger.error(f"Error sharing post {post_id}: {str(e)}")
+        
+        # Import custom exceptions
+        from app.core.exceptions import (
+            NotFoundError, ValidationException, BusinessLogicError, 
+            PermissionDeniedError, RateLimitError
+        )
+        
+        # Handle specific custom exceptions
+        if isinstance(e, NotFoundError):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(e)
+            )
+        elif isinstance(e, ValidationException):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(e)
+            )
+        elif isinstance(e, BusinessLogicError):
+            # Check if it's a rate limit error
+            if "rate limit exceeded" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=str(e)
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e)
+                )
+        elif isinstance(e, PermissionDeniedError):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str(e)
+            )
+        elif isinstance(e, RateLimitError):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=str(e)
+            )
+        else:
+            # Handle string-based error checking for backward compatibility
+            error_str = str(e).lower()
+            if "rate limit exceeded" in error_str:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=str(e)
+                )
+            elif "not found" in error_str:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(e)
+                )
+            elif any(keyword in error_str for keyword in ["validation", "invalid", "required", "maximum"]):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(e)
+                )
+            elif "privacy" in error_str or "cannot be shared" in error_str:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=str(e)
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to share post"
+                )
