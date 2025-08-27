@@ -1,17 +1,17 @@
 """
-NotificationService for handling notification business logic.
+NotificationService for handling notification business logic using repository pattern.
 """
 
 import datetime
 import logging
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import func, desc, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
 
 from app.core.service_base import BaseService
+from app.core.query_monitor import monitor_query
+from app.repositories.notification_repository import NotificationRepository
+from app.repositories.user_repository import UserRepository
 from app.models.notification import Notification
 from app.models.user import User
 
@@ -19,12 +19,18 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationService(BaseService):
-    """Service for managing user notifications."""
+    """Service for managing user notifications using repository pattern."""
 
     # Maximum notifications per hour per type
     # Reasonable limit for social apps - allows active engagement without spam
     MAX_NOTIFICATIONS_PER_HOUR = 20
 
+    def __init__(self, db: AsyncSession):
+        super().__init__(db)
+        self.notification_repo = NotificationRepository(db)
+        self.user_repo = UserRepository(db)
+
+    @monitor_query("check_notification_rate_limit")
     async def _check_notification_rate_limit(
         self,
         user_id: int,
@@ -34,46 +40,23 @@ class NotificationService(BaseService):
         Check if user has exceeded the notification rate limit for a specific type.
         
         Args:
-            db: Database session
             user_id: ID of the user to check
             notification_type: Type of notification to check
             
         Returns:
             bool: True if under rate limit, False if exceeded
         """
-        # Calculate the time threshold (1 hour ago)
-        one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
-        # Convert to naive datetime to match database format
-        one_hour_ago = one_hour_ago.replace(tzinfo=None)
         print(f"🔍 DEBUG: Rate limit check - user: {user_id}, type: {notification_type}")
-        print(f"🔍 DEBUG: Checking notifications since: {one_hour_ago}")
         
-        # Count notifications of this type in the last hour
-        result = await self.db.execute(
-            select(func.count(Notification.id))
-            .where(
-                and_(
-                    Notification.user_id == user_id,
-                    Notification.type == notification_type,
-                    Notification.created_at >= one_hour_ago
-                )
-            )
+        is_under_limit = await self.notification_repo.check_rate_limit(
+            user_id, notification_type, NotificationService.MAX_NOTIFICATIONS_PER_HOUR
         )
         
-        count = result.scalar() or 0
-        is_under_limit = count < NotificationService.MAX_NOTIFICATIONS_PER_HOUR
-        
-        print(f"🔍 DEBUG: Found {count} notifications in last hour (limit: {NotificationService.MAX_NOTIFICATIONS_PER_HOUR})")
         print(f"🔍 DEBUG: Under limit: {is_under_limit}")
-        
-        if not is_under_limit:
-            logger.info(
-                f"Rate limit exceeded for user {user_id}, type {notification_type}: "
-                f"{count} notifications in last hour"
-            )
         
         return is_under_limit
 
+    @monitor_query("create_notification")
     async def create_notification(
         self,
         user_id: int,
@@ -87,7 +70,6 @@ class NotificationService(BaseService):
         Create a new notification for a user.
         
         Args:
-            db: Database session
             user_id: ID of the user to notify
             notification_type: Type of notification
             title: Notification title
@@ -100,17 +82,14 @@ class NotificationService(BaseService):
         """
         # Check rate limit if enabled
         if respect_rate_limit:
-            if not await self._check_notification_rate_limit(
-                user_id, notification_type
-            ):
+            if not await self._check_notification_rate_limit(user_id, notification_type):
                 logger.info(
                     f"Notification creation blocked due to rate limit: "
                     f"user {user_id}, type {notification_type}"
                 )
                 return None
         
-        notification = await self.create_entity(
-            Notification,
+        notification = await self.notification_repo.create(
             user_id=user_id,
             type=notification_type,
             title=title,
@@ -140,24 +119,8 @@ class NotificationService(BaseService):
         Returns:
             Optional[Notification]: Existing batch notification or None
         """
-        cutoff_time = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=max_age_hours)
-        cutoff_time = cutoff_time.replace(tzinfo=None)
-        
-        result = await db.execute(
-            select(Notification)
-            .where(
-                and_(
-                    Notification.user_id == user_id,
-                    Notification.batch_key == batch_key,
-                    Notification.is_batch == True,
-                    Notification.created_at >= cutoff_time
-                )
-            )
-            .order_by(desc(Notification.created_at))
-            .limit(1)
-        )
-        
-        return result.scalar_one_or_none()
+        notification_repo = NotificationRepository(db)
+        return await notification_repo.find_existing_batch(user_id, batch_key, max_age_hours)
 
     @staticmethod
     async def _convert_to_batch(
@@ -195,7 +158,7 @@ class NotificationService(BaseService):
         # Set the new notification as a child
         new_notification.parent_id = existing_notification.id
         
-        # Add both to session
+        # Add both to session and commit once
         db.add(existing_notification)
         db.add(new_notification)
         
@@ -305,25 +268,10 @@ class NotificationService(BaseService):
             return await NotificationService._add_to_batch(db, existing_batch, notification)
         else:
             # Check for existing single notification to convert to batch
-            one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
-            one_hour_ago = one_hour_ago.replace(tzinfo=None)
-            
-            result = await db.execute(
-                select(Notification)
-                .where(
-                    and_(
-                        Notification.user_id == post_author_id,
-                        Notification.batch_key == notification.batch_key,
-                        Notification.is_batch == False,
-                        Notification.parent_id.is_(None),
-                        Notification.created_at >= one_hour_ago
-                    )
-                )
-                .order_by(desc(Notification.created_at))
-                .limit(1)
+            notification_repo = NotificationRepository(db)
+            existing_single = await notification_repo.find_existing_single_notification(
+                post_author_id, notification.batch_key, 1
             )
-            
-            existing_single = result.scalar_one_or_none()
             
             if existing_single:
                 # Convert to batch
@@ -332,13 +280,19 @@ class NotificationService(BaseService):
             else:
                 # Create as single notification
                 print(f"🔍 DEBUG: Creating new single notification")
-                db.add(notification)
-                await db.commit()
-                await db.refresh(notification)
+                notification_repo = NotificationRepository(db)
+                created_notification = await notification_repo.create(
+                    user_id=notification.user_id,
+                    type=notification.type,
+                    title=notification.title,
+                    message=notification.message,
+                    data=notification.data,
+                    batch_key=notification.batch_key
+                )
                 
-                print(f"✅ DEBUG: Notification committed to database with ID: {notification.id}")
+                print(f"✅ DEBUG: Notification committed to database with ID: {created_notification.id}")
                 logger.info(f"Created emoji reaction notification for user {post_author_id}")
-                return notification
+                return created_notification
 
     @staticmethod
     async def create_like_notification(
@@ -540,22 +494,10 @@ class NotificationService(BaseService):
         Returns:
             List[Notification]: List of notifications
         """
-        query = select(Notification).where(Notification.user_id == user_id)
-        
-        if not include_children:
-            # Only show parent notifications (batch parents or standalone notifications)
-            query = query.where(Notification.parent_id.is_(None))
-        
-        if unread_only:
-            query = query.where(Notification.read == False)
-            
-        # Order by last_updated_at for proper batch ordering, fallback to created_at
-        query = query.order_by(
-            desc(func.coalesce(Notification.last_updated_at, Notification.created_at))
-        ).limit(limit).offset(offset)
-        
-        result = await db.execute(query)
-        return result.scalars().all()
+        notification_repo = NotificationRepository(db)
+        return await notification_repo.get_user_notifications(
+            user_id, limit, offset, unread_only, include_children
+        )
 
     @staticmethod
     async def get_batch_children(
@@ -574,18 +516,8 @@ class NotificationService(BaseService):
         Returns:
             List[Notification]: List of child notifications
         """
-        result = await db.execute(
-            select(Notification)
-            .where(
-                and_(
-                    Notification.parent_id == batch_id,
-                    Notification.user_id == user_id
-                )
-            )
-            .order_by(desc(Notification.created_at))
-        )
-        
-        return result.scalars().all()
+        notification_repo = NotificationRepository(db)
+        return await notification_repo.get_batch_children(batch_id, user_id)
 
     @staticmethod
     async def get_unread_count(db: AsyncSession, user_id: int) -> int:
@@ -599,17 +531,8 @@ class NotificationService(BaseService):
         Returns:
             int: Number of unread notifications
         """
-        result = await db.execute(
-            select(func.count(Notification.id))
-            .where(
-                and_(
-                    Notification.user_id == user_id,
-                    Notification.read == False,
-                    Notification.parent_id.is_(None)  # Only count parent notifications
-                )
-            )
-        )
-        return result.scalar() or 0
+        notification_repo = NotificationRepository(db)
+        return await notification_repo.get_unread_count(user_id)
 
     @staticmethod
     async def mark_as_read(db: AsyncSession, notification_id: str, user_id: int) -> bool:
@@ -624,42 +547,8 @@ class NotificationService(BaseService):
         Returns:
             bool: True if notification was marked as read, False if not found
         """
-        result = await db.execute(
-            select(Notification)
-            .where(
-                Notification.id == notification_id,
-                Notification.user_id == user_id
-            )
-        )
-        notification = result.scalar_one_or_none()
-        
-        if notification and not notification.read:
-            notification.mark_as_read()
-            
-            # If it's a batch notification, mark all children as read too
-            if notification.is_batch:
-                children_result = await db.execute(
-                    select(Notification)
-                    .where(
-                        and_(
-                            Notification.parent_id == notification_id,
-                            Notification.user_id == user_id,
-                            Notification.read == False
-                        )
-                    )
-                )
-                children = children_result.scalars().all()
-                
-                for child in children:
-                    child.mark_as_read()
-                
-                logger.info(f"Marked batch notification {notification_id} and {len(children)} children as read")
-            
-            await db.commit()
-            logger.info(f"Marked notification {notification_id} as read for user {user_id}")
-            return True
-            
-        return False
+        notification_repo = NotificationRepository(db)
+        return await notification_repo.mark_as_read(notification_id, user_id)
 
     @staticmethod
     async def mark_all_as_read(db: AsyncSession, user_id: int) -> int:
@@ -673,24 +562,8 @@ class NotificationService(BaseService):
         Returns:
             int: Number of parent notifications marked as read
         """
-        result = await db.execute(
-            select(Notification)
-            .where(Notification.user_id == user_id, Notification.read == False)
-        )
-        notifications = result.scalars().all()
-        
-        parent_count = 0
-        for notification in notifications:
-            notification.mark_as_read()
-            # Only count parent notifications for the return value
-            if notification.parent_id is None:
-                parent_count += 1
-            
-        if len(notifications) > 0:
-            await db.commit()
-            logger.info(f"Marked {len(notifications)} total notifications ({parent_count} parents) as read for user {user_id}")
-            
-        return parent_count
+        notification_repo = NotificationRepository(db)
+        return await notification_repo.mark_all_as_read(user_id)
 
     @staticmethod
     async def get_notification_stats(

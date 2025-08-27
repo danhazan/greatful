@@ -1,14 +1,15 @@
 """
-ReactionService for handling emoji reactions business logic.
+ReactionService for handling emoji reactions business logic using repository pattern.
 """
 
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy import func
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, BusinessLogicError
+from app.core.query_monitor import monitor_query
+from app.repositories.emoji_reaction_repository import EmojiReactionRepository
+from app.repositories.user_repository import UserRepository
+from app.repositories.post_repository import PostRepository
 from app.models.emoji_reaction import EmojiReaction
 from app.models.user import User
 from app.models.post import Post
@@ -19,8 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 class ReactionService(BaseService):
-    """Service for managing emoji reactions on posts."""
+    """Service for managing emoji reactions on posts using repository pattern."""
 
+    def __init__(self, db: AsyncSession):
+        super().__init__(db)
+        self.reaction_repo = EmojiReactionRepository(db)
+        self.user_repo = UserRepository(db)
+        self.post_repo = PostRepository(db)
+
+    @monitor_query("add_reaction")
     async def add_reaction(
         self, 
         user_id: int, 
@@ -49,19 +57,17 @@ class ReactionService(BaseService):
             raise ValidationException(f"Invalid emoji code: {emoji_code}")
         
         # Check if user and post exist
-        user = await self.get_by_id_or_404(User, user_id, "User")
-        post = await self.get_by_id_or_404(Post, post_id, "Post")
+        user = await self.user_repo.get_by_id_or_404(user_id)
+        post = await self.post_repo.get_by_id_or_404(post_id)
         
         # Check if user already has a reaction on this post
-        existing_reaction = await self.get_user_reaction(user_id, post_id)
+        existing_reaction = await self.reaction_repo.get_user_reaction(user_id, post_id)
         
         if existing_reaction:
             # Update existing reaction
-            existing_reaction.emoji_code = emoji_code
-            await self.db.commit()
-            await self.db.refresh(existing_reaction)
+            updated_reaction = await self.reaction_repo.update(existing_reaction, emoji_code=emoji_code)
             # Load the user relationship
-            existing_reaction.user = user
+            updated_reaction.user = user
             logger.info(f"Updated reaction for user {user_id} on post {post_id} to {emoji_code}")
             
             # Create notification for updated reaction (only if it's a different emoji)
@@ -79,12 +85,12 @@ class ReactionService(BaseService):
                     # Don't fail the reaction if notification fails
             
             return {
-                "id": existing_reaction.id,
-                "user_id": existing_reaction.user_id,
-                "post_id": existing_reaction.post_id,
-                "emoji_code": existing_reaction.emoji_code,
-                "emoji_display": existing_reaction.emoji_display,
-                "created_at": existing_reaction.created_at.isoformat(),
+                "id": updated_reaction.id,
+                "user_id": updated_reaction.user_id,
+                "post_id": updated_reaction.post_id,
+                "emoji_code": updated_reaction.emoji_code,
+                "emoji_display": updated_reaction.emoji_display,
+                "created_at": updated_reaction.created_at.isoformat(),
                 "user": {
                     "id": user.id,
                     "username": user.username,
@@ -93,8 +99,7 @@ class ReactionService(BaseService):
             }
         else:
             # Create new reaction
-            reaction = await self.create_entity(
-                EmojiReaction,
+            reaction = await self.reaction_repo.create(
                 user_id=user_id,
                 post_id=post_id,
                 emoji_code=emoji_code
@@ -131,6 +136,7 @@ class ReactionService(BaseService):
                 }
             }
 
+    @monitor_query("remove_reaction")
     async def remove_reaction(self, user_id: int, post_id: str) -> bool:
         """
         Remove a user's reaction from a post.
@@ -142,15 +148,14 @@ class ReactionService(BaseService):
         Returns:
             bool: True if reaction was removed, False if no reaction existed
         """
-        reaction = await self.get_user_reaction(user_id, post_id)
+        removed = await self.reaction_repo.delete_user_reaction(user_id, post_id)
         
-        if reaction:
-            await self.delete_entity(reaction)
+        if removed:
             logger.info(f"Removed reaction for user {user_id} on post {post_id}")
-            return True
         
-        return False
+        return removed
 
+    @monitor_query("get_post_reactions")
     async def get_post_reactions(self, post_id: str) -> List[Dict[str, Any]]:
         """
         Get all reactions for a specific post with user information.
@@ -161,13 +166,7 @@ class ReactionService(BaseService):
         Returns:
             List[Dict]: List of reaction dictionaries with user data
         """
-        result = await self.db.execute(
-            select(EmojiReaction)
-            .options(selectinload(EmojiReaction.user))
-            .where(EmojiReaction.post_id == post_id)
-            .order_by(EmojiReaction.created_at.desc())
-        )
-        reactions = result.scalars().all()
+        reactions = await self.reaction_repo.get_post_reactions(post_id, load_users=True)
         
         return [
             {
@@ -201,15 +200,9 @@ class ReactionService(BaseService):
         Returns:
             Optional[EmojiReaction]: The user's reaction if it exists
         """
-        result = await self.db.execute(
-            select(EmojiReaction)
-            .where(
-                EmojiReaction.user_id == user_id,
-                EmojiReaction.post_id == post_id
-            )
-        )
-        return result.scalar_one_or_none()
+        return await self.reaction_repo.get_user_reaction(user_id, post_id)
 
+    @monitor_query("get_reaction_counts")
     async def get_reaction_counts(self, post_id: str) -> Dict[str, int]:
         """
         Get reaction counts grouped by emoji for a post.
@@ -220,18 +213,9 @@ class ReactionService(BaseService):
         Returns:
             dict: Dictionary with emoji codes as keys and counts as values
         """
-        result = await self.db.execute(
-            select(EmojiReaction.emoji_code, func.count(EmojiReaction.id))
-            .where(EmojiReaction.post_id == post_id)
-            .group_by(EmojiReaction.emoji_code)
-        )
-        
-        counts = {}
-        for emoji_code, count in result.fetchall():
-            counts[emoji_code] = count
-            
-        return counts
+        return await self.reaction_repo.get_reaction_counts(post_id)
 
+    @monitor_query("get_total_reaction_count")
     async def get_total_reaction_count(self, post_id: str) -> int:
         """
         Get total number of reactions for a post.
@@ -242,8 +226,4 @@ class ReactionService(BaseService):
         Returns:
             int: Total reaction count
         """
-        result = await self.db.execute(
-            select(func.count(EmojiReaction.id))
-            .where(EmojiReaction.post_id == post_id)
-        )
-        return result.scalar() or 0
+        return await self.reaction_repo.get_total_reaction_count(post_id)

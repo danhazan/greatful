@@ -121,3 +121,37 @@ class InternalServerError(BaseAPIException):
             error_code="internal_error",
             message=message
         )
+
+
+class DatabaseError(BaseAPIException):
+    """Exception for database operation errors."""
+    
+    def __init__(self, message: str, operation: Optional[str] = None):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="database_error",
+            message=message,
+            details={"operation": operation}
+        )
+
+
+class QueryTimeoutError(DatabaseError):
+    """Exception for database query timeouts."""
+    
+    def __init__(self, timeout_seconds: float, query_type: Optional[str] = None):
+        message = f"Database query timed out after {timeout_seconds} seconds"
+        super().__init__(
+            message=message,
+            operation=query_type
+        )
+        self.details.update({"timeout_seconds": timeout_seconds})
+
+
+class ConnectionError(DatabaseError):
+    """Exception for database connection failures."""
+    
+    def __init__(self, message: str = "Database connection failed"):
+        super().__init__(
+            message=message,
+            operation="connection"
+        )
