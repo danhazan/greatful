@@ -91,8 +91,8 @@ export default function PostCard({
     event.preventDefault()
     
     if (!isUserAuthenticated) {
-      // Redirect to login if not authenticated
-      window.location.href = '/auth/login'
+      // Call the onReaction handler which will handle the redirect
+      onReaction?.(post.id, 'heart_eyes') // Use a default emoji for the redirect
       return
     }
     
@@ -354,6 +354,34 @@ export default function PostCard({
 
         {/* Post Actions */}
         <div className={styling.actions}>
+          {/* Authentication Notice for logged-out users - only show if currentUserId is explicitly undefined */}
+          {currentUserId === undefined && !isUserAuthenticated && (
+            <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  <span className="text-sm text-blue-700 font-medium">
+                    Join to interact with this post
+                  </span>
+                </div>
+                <div className="flex space-x-2">
+                  <a
+                    href="/auth/login"
+                    className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Log In
+                  </a>
+                  <a
+                    href="/auth/signup"
+                    className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
+                  >
+                    Sign Up
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Engagement Summary for highly engaged posts */}
           {((post.heartsCount || 0) + (post.reactionsCount || 0)) > 5 && (
             <div className="mb-2 px-2 py-1 bg-gradient-to-r from-purple-50 to-red-50 rounded-full">
@@ -385,8 +413,8 @@ export default function PostCard({
               <button 
                 onClick={async () => {
                   if (!isUserAuthenticated) {
-                    // Redirect to login if not authenticated
-                    window.location.href = '/auth/login'
+                    // Call the onHeart handler which will handle the redirect
+                    onHeart?.(post.id, post.isHearted || false)
                     return
                   }
 
@@ -432,10 +460,9 @@ export default function PostCard({
                     console.error('Error updating heart:', error)
                   }
                 }}
-                disabled={!isUserAuthenticated}
                 className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 ${
                   !isUserAuthenticated
-                    ? 'text-gray-400 cursor-not-allowed'
+                    ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
                     : post.isHearted 
                       ? 'text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100' 
                       : 'text-gray-500 hover:text-red-500 hover:bg-red-50'
@@ -461,11 +488,13 @@ export default function PostCard({
                 ref={reactionButtonRef}
                 onClick={handleReactionButtonClick}
                 className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 ${
-                  post.currentUserReaction
-                    ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
-                    : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
+                  !isUserAuthenticated
+                    ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
+                    : post.currentUserReaction
+                      ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
+                      : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
                 } ${(post.reactionsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
-                title="React with emoji"
+                title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
               >
                 {post.currentUserReaction ? (
                   <span className={styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}>

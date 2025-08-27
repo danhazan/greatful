@@ -176,9 +176,18 @@ export default function ShareModal({
         }, 2000)
         
         // 3) Trigger analytics call after a delay to avoid any UI interference
-        setTimeout(() => {
-          setPendingShare({ url, timestamp: Date.now() })
-        }, 50) // Small delay to let UI settle
+        // Only track analytics if user is authenticated
+        const token = localStorage.getItem("access_token")
+        if (token) {
+          setTimeout(() => {
+            setPendingShare({ url, timestamp: Date.now() })
+          }, 50) // Small delay to let UI settle
+        } else {
+          // Still call onShare for unauthenticated users, but without analytics
+          setTimeout(() => {
+            onShare?.('url', { shareUrl: url, shareId: null })
+          }, 50)
+        }
       } else {
         // Only show error if clipboard actually failed
         console.warn('Failed to copy link to clipboard')

@@ -134,7 +134,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
                                 <span className="text-purple-600 text-sm font-medium">
-                                  {reaction.userName.charAt(0).toUpperCase()}
+                                  {reaction.userName?.charAt(0)?.toUpperCase() || '?'}
                                 </span>
                               </div>
                             )}

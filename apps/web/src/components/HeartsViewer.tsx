@@ -109,7 +109,7 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
                           <span className="text-red-600 text-sm font-medium">
-                            {heart.userName.charAt(0).toUpperCase()}
+                            {heart.userName?.charAt(0)?.toUpperCase() || '?'}
                           </span>
                         </div>
                       )}

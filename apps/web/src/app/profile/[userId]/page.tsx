@@ -278,14 +278,14 @@ export default function UserProfilePage() {
               <div className="flex-shrink-0">
                 {profile.profileImageUrl ? (
                   <img
-                    src={profile.profileImageUrl}
-                    alt={profile.username}
+                    src={profile?.profileImageUrl}
+                    alt={profile?.username || 'User'}
                     className="w-32 h-32 rounded-full object-cover border-4 border-purple-100"
                   />
                 ) : (
                   <div className="w-32 h-32 rounded-full bg-purple-100 flex items-center justify-center border-4 border-purple-200">
                     <span className="text-4xl font-bold text-purple-600">
-                      {profile.username.charAt(0).toUpperCase()}
+                      {profile?.username?.charAt(0)?.toUpperCase() || '?'}
                     </span>
                   </div>
                 )}
@@ -294,7 +294,7 @@ export default function UserProfilePage() {
               {/* Profile Info */}
               <div className="flex-1 text-center md:text-left">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {profile.username}
+                  {profile?.username || 'Unknown User'}
                 </h1>
                 
                 {profile.bio && (

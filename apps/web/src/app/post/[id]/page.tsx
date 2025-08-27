@@ -1,6 +1,11 @@
-import { Metadata } from 'next'
+"use client"
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import PostCard from '@/components/PostCard'
+import Navbar from '@/components/Navbar'
+import { loadUserReactions, saveUserReactions } from '@/utils/localStorage'
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -27,105 +32,286 @@ interface PageProps {
   params: { id: string }
 }
 
-async function getPost(id: string): Promise<Post | null> {
-  try {
-    // Fetch post from backend without authentication for public viewing
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/${id}`, {
-      method: 'GET',
-      headers: {
+// Landing page navbar for unauthenticated users
+function LandingNavbar() {
+  const router = useRouter()
+  
+  return (
+    <nav className="bg-white border-b border-gray-200 px-4 py-4">
+      <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <span className="text-2xl">💜</span>
+          <h1 className="text-xl font-bold text-gray-900">Grateful</h1>
+        </div>
+        <div className="flex items-center space-x-4">
+          <span className="text-sm text-gray-600">Shared gratitude post</span>
+          <button
+            onClick={() => router.push("/auth/login")}
+            className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+          >
+            Log In
+          </button>
+          <button
+            onClick={() => router.push("/auth/signup")}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
+          >
+            Sign Up
+          </button>
+        </div>
+      </div>
+    </nav>
+  )
+}
+
+export default function PostPage({ params }: PageProps) {
+  const router = useRouter()
+  const [post, setPost] = useState<Post | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [localReactions, setLocalReactions] = useState<{[postId: string]: {reaction?: string, hearted?: boolean}}>({})
+
+  // Fetch post data
+  const fetchPost = async (token?: string) => {
+    try {
+      const headers: any = {
         'Content-Type': 'application/json',
-      },
-      // Add cache control for better performance
-      next: { revalidate: 60 } // Revalidate every minute
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/posts/${params.id}`, {
+        method: 'GET',
+        headers,
+      })
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          notFound()
+          return null
+        }
+        throw new Error('Failed to fetch post')
+      }
+
+      const postData = await response.json()
+
+      // Transform the post to match the frontend format
+      const transformedPost: Post = {
+        id: postData.id,
+        content: postData.content,
+        title: postData.title,
+        author: {
+          id: postData.author.id.toString(),
+          name: postData.author.name || postData.author.username,
+          image: postData.author.profile_image_url
+        },
+        createdAt: postData.created_at,
+        postType: postData.post_type,
+        imageUrl: postData.image_url,
+        location: postData.location,
+        heartsCount: postData.hearts_count || 0,
+        isHearted: postData.is_hearted || false,
+        reactionsCount: postData.reactions_count || 0,
+        currentUserReaction: postData.current_user_reaction || undefined
+      }
+
+      return transformedPost
+    } catch (error) {
+      console.error('Error fetching post:', error)
+      return null
+    }
+  }
+
+  // Check authentication and load data
+  useEffect(() => {
+    const initializePage = async () => {
+      const token = localStorage.getItem("access_token")
+      
+      if (token) {
+        // User is authenticated - load user data and post with user-specific data
+        try {
+          const userResponse = await fetch('/api/users/me/profile', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+
+          if (userResponse.ok) {
+            const userData = await userResponse.json()
+            const currentUser = {
+              id: userData.id,
+              name: userData.username,
+              email: userData.email
+            }
+            setUser(currentUser)
+            setIsAuthenticated(true)
+
+            // Load user-specific reactions
+            const userReactions = loadUserReactions(currentUser.id.toString())
+            setLocalReactions(userReactions)
+
+            // Fetch post with authentication
+            const postData = await fetchPost(token)
+            if (postData) {
+              // Merge with local reactions
+              const localData = userReactions[postData.id]
+              setPost({
+                ...postData,
+                isHearted: localData?.hearted ?? postData.isHearted,
+                currentUserReaction: localData?.reaction ?? postData.currentUserReaction
+              })
+            }
+          } else {
+            // Token invalid, treat as unauthenticated
+            setIsAuthenticated(false)
+            const postData = await fetchPost()
+            setPost(postData)
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error)
+          setIsAuthenticated(false)
+          const postData = await fetchPost()
+          setPost(postData)
+        }
+      } else {
+        // User is not authenticated - load post without user-specific data
+        setIsAuthenticated(false)
+        const postData = await fetchPost()
+        setPost(postData)
+      }
+
+      setIsLoading(false)
+    }
+
+    initializePage()
+  }, [params.id])
+
+  // Save user-specific reactions to localStorage
+  const saveLocalReactions = (reactions: {[postId: string]: {reaction?: string, hearted?: boolean}}) => {
+    setLocalReactions(reactions)
+    if (user?.id) {
+      saveUserReactions(user.id.toString(), reactions)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("access_token")
+    setLocalReactions({})
+    setUser(null)
+    setIsAuthenticated(false)
+    router.push("/")
+  }
+
+  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {
+    if (!isAuthenticated) {
+      router.push('/auth/login')
+      return
+    }
+
+    if (!post) return
+
+    const newHearted = heartInfo ? heartInfo.is_hearted : !isCurrentlyHearted
+    const newCount = heartInfo ? heartInfo.hearts_count : (isCurrentlyHearted ? (post.heartsCount || 1) - 1 : (post.heartsCount || 0) + 1)
+    
+    setPost({
+      ...post,
+      heartsCount: newCount,
+      isHearted: newHearted
     })
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null
+    const newLocalReactions = {
+      ...localReactions,
+      [postId]: {
+        ...localReactions[postId],
+        hearted: newHearted
       }
-      throw new Error('Failed to fetch post')
     }
-
-    const post = await response.json()
-
-    // Transform the post to match the frontend format
-    return {
-      id: post.id,
-      content: post.content,
-      title: post.title,
-      author: {
-        id: post.author.id.toString(),
-        name: post.author.name || post.author.username,
-        image: post.author.profile_image_url
-      },
-      createdAt: post.created_at,
-      postType: post.post_type,
-      imageUrl: post.image_url,
-      location: post.location,
-      heartsCount: post.hearts_count || 0,
-      isHearted: false, // Not authenticated, so can't be hearted
-      reactionsCount: post.reactions_count || 0,
-      currentUserReaction: undefined // Not authenticated, so no user reaction
-    }
-  } catch (error) {
-    console.error('Error fetching post:', error)
-    return null
-  }
-}
-
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const post = await getPost(params.id)
-
-  if (!post) {
-    return {
-      title: 'Post Not Found - Grateful',
-      description: 'The requested gratitude post could not be found.',
-    }
+    saveLocalReactions(newLocalReactions)
   }
 
-  // Create SEO-friendly metadata
-  const title = post.title 
-    ? `${post.title} - Grateful` 
-    : `Gratitude post by ${post.author.name} - Grateful`
-  
-  const description = post.content.length > 160 
-    ? `${post.content.substring(0, 157)}...` 
-    : post.content
+  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+    if (!isAuthenticated) {
+      router.push('/auth/login')
+      return
+    }
 
-  const metadata: Metadata = {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'article',
-      authors: [post.author.name],
-      publishedTime: post.createdAt,
-      images: post.imageUrl ? [
-        {
-          url: post.imageUrl,
-          width: 1200,
-          height: 630,
-          alt: `Gratitude post by ${post.author.name}`,
-        }
-      ] : undefined,
-    },
-    twitter: {
-      card: post.imageUrl ? 'summary_large_image' : 'summary',
-      title,
-      description,
-      images: post.imageUrl ? [post.imageUrl] : undefined,
-    },
-    alternates: {
-      canonical: `/post/${post.id}`,
-    },
+    if (!post) return
+
+    const newReaction = reactionSummary ? reactionSummary.user_reaction : emojiCode
+    const newCount = reactionSummary ? reactionSummary.total_count : (post.reactionsCount || 0) + 1
+    
+    setPost({
+      ...post,
+      reactionsCount: newCount,
+      currentUserReaction: newReaction as string | undefined
+    })
+
+    const newLocalReactions = {
+      ...localReactions,
+      [postId]: {
+        ...localReactions[postId],
+        reaction: newReaction || undefined
+      }
+    }
+    saveLocalReactions(newLocalReactions)
   }
 
-  return metadata
-}
+  const handleRemoveReaction = async (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+    if (!isAuthenticated) {
+      router.push('/auth/login')
+      return
+    }
 
-export default async function PostPage({ params }: PageProps) {
-  const post = await getPost(params.id)
+    if (!post) return
+
+    const newReaction = reactionSummary ? reactionSummary.user_reaction : undefined
+    const newCount = reactionSummary ? reactionSummary.total_count : Math.max((post.reactionsCount || 1) - 1, 0)
+    
+    setPost({
+      ...post,
+      reactionsCount: newCount,
+      currentUserReaction: newReaction as string | undefined
+    })
+
+    const newLocalReactions = {
+      ...localReactions,
+      [postId]: {
+        ...localReactions[postId],
+        reaction: newReaction || undefined
+      }
+    }
+    saveLocalReactions(newLocalReactions)
+  }
+
+  const handleShare = (postId: string) => {
+    console.log('Post shared:', postId)
+  }
+
+  const handleUserClick = (userId: string) => {
+    if (isAuthenticated) {
+      if (userId === user?.id?.toString()) {
+        router.push("/profile")
+      } else {
+        router.push(`/profile/${userId}`)
+      }
+    } else {
+      // For unauthenticated users, redirect to login
+      router.push('/auth/login')
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading post...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!post) {
     notFound()
@@ -133,66 +319,84 @@ export default async function PostPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl">💜</span>
-              <h1 className="text-xl font-bold text-gray-900">Grateful</h1>
-            </div>
-            <div className="text-sm text-gray-600">
-              Shared gratitude post
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Navbar - different based on authentication */}
+      {isAuthenticated ? (
+        <Navbar user={user} onLogout={handleLogout} />
+      ) : (
+        <LandingNavbar />
+      )}
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <PostCard 
-            post={post}
-            // No currentUserId since this is public viewing
-            // No interaction handlers since user is not authenticated
-          />
-        </div>
-
-        {/* Call to Action */}
-        <div className="mt-8 text-center">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              Join the Grateful Community
-            </h2>
-            <p className="text-gray-600 mb-4">
-              Share your own gratitude and connect with others spreading positivity.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a
-                href="/auth/signup"
-                className="bg-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors"
-              >
-                Sign Up
-              </a>
-              <a
-                href="/auth/login"
-                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-              >
-                Log In
-              </a>
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* For authenticated users, show post like in feed */}
+          {isAuthenticated ? (
+            <div className="space-y-6">
+              <PostCard
+                post={post}
+                currentUserId={user?.id}
+                onHeart={handleHeart}
+                onReaction={handleReaction}
+                onRemoveReaction={handleRemoveReaction}
+                onShare={handleShare}
+                onUserClick={handleUserClick}
+              />
             </div>
-          </div>
+          ) : (
+            /* For unauthenticated users, show locked post with call to action */
+            <>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
+                <PostCard
+                  post={post}
+                  currentUserId={undefined}
+                  onHeart={handleHeart}
+                  onReaction={handleReaction}
+                  onRemoveReaction={handleRemoveReaction}
+                  onShare={handleShare}
+                  onUserClick={handleUserClick}
+                />
+              </div>
+
+              {/* Call to Action for unauthenticated users */}
+              <div className="text-center">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                    Join the Grateful Community
+                  </h2>
+                  <p className="text-gray-600 mb-4">
+                    Share your own gratitude and connect with others spreading positivity.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => router.push("/auth/signup")}
+                      className="bg-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                    >
+                      Sign Up
+                    </button>
+                    <button
+                      onClick={() => router.push("/auth/login")}
+                      className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      Log In
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="text-center text-sm text-gray-600">
-            <p>© 2025 Grateful. Spreading positivity, one gratitude at a time.</p>
+      {/* Footer for unauthenticated users */}
+      {!isAuthenticated && (
+        <footer className="bg-white border-t border-gray-200 mt-12">
+          <div className="max-w-4xl mx-auto px-4 py-6">
+            <div className="text-center text-sm text-gray-600">
+              <p>© 2025 Grateful. Spreading positivity, one gratitude at a time.</p>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   )
 }
