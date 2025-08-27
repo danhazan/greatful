@@ -29,15 +29,19 @@ The system builds upon the existing stable authentication, navbar, and basic pos
 
 #### Acceptance Criteria
 
-1. WHEN a user clicks the share button on any post THEN the system SHALL display a share popup modal with multiple sharing options
-2. WHEN a user selects "Copy Link" THEN the system SHALL generate a public URL in the format `/post/[post-id]` and copy it to clipboard
-3. WHEN the URL is copied THEN the system SHALL show success feedback to the user
-4. WHEN someone visits a shared URL THEN they SHALL be able to view the post with proper SEO metadata
-5. WHEN a private post is shared THEN the URL SHALL require authentication to view
-6. WHEN a follower-only post is shared THEN the system SHALL respect existing privacy settings
-7. WHEN a user's post is shared THEN they SHALL receive a notification about the share
-8. WHEN the system tracks shares THEN it SHALL implement rate limiting of 20 shares per hour per user
-9. IF a user has disabled sharing on their posts THEN the share button SHALL not appear on their posts
+1. WHEN a user clicks the share button on any post THEN the system SHALL display a small share popup box (similar to reactions popup) with sharing options
+2. WHEN the share popup opens THEN it SHALL show "Copy Link" option and "Send as Message" option (disabled for now)
+3. WHEN a user selects "Copy Link" THEN the system SHALL generate a public URL in the format `/post/[post-id]` and copy it to clipboard
+4. WHEN the URL is copied THEN the system SHALL show success feedback to the user
+5. WHEN someone visits a shared URL THEN they SHALL be able to view the post with proper SEO metadata and the same navbar as other pages
+6. WHEN a logged-in user visits a shared post page THEN they SHALL be able to interact with it (reactions/hearts)
+7. WHEN a logged-out user visits a shared post page THEN they SHALL only see the counters but cannot interact
+8. WHEN a user clicks on the post author's name or profile picture THEN they SHALL be navigated to the author's profile page
+9. WHEN a private post is shared THEN the URL SHALL require authentication to view
+10. WHEN a follower-only post is shared THEN the system SHALL respect existing privacy settings
+11. WHEN a user's post is shared THEN they SHALL receive a notification about the share
+12. WHEN the system tracks shares THEN it SHALL implement rate limiting of 20 shares per hour per user
+13. IF a user has disabled sharing on their posts THEN the share button SHALL not appear on their posts
 
 ### Requirement 3: Mention System with User Search
 

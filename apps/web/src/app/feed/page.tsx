@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Heart, Plus } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
+import ShareModal from "@/components/ShareModal"
 import Navbar from "@/components/Navbar"
 import { loadUserReactions, saveUserReactions, clearGenericReactionData } from "@/utils/localStorage"
 
@@ -63,6 +64,8 @@ export default function FeedPage() {
   const [user, setUser] = useState<any>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<any>(null)
   const [localReactions, setLocalReactions] = useState<{[postId: string]: {reaction?: string, hearted?: boolean}}>({})
 
   // Clear any old generic reaction data that might cause cross-user sharing
@@ -322,7 +325,11 @@ export default function FeedPage() {
   }
 
   const handleShare = (postId: string) => {
-    alert(`Share functionality for post ${postId} - Coming in TASK 3!`)
+    const post = posts.find(p => p.id === postId)
+    if (post) {
+      setSelectedPost(post)
+      setIsShareModalOpen(true)
+    }
   }
 
   const handleUserClick = (userId: string) => {
@@ -470,6 +477,18 @@ export default function FeedPage() {
             onClose={() => setIsCreateModalOpen(false)}
             onSubmit={handleCreatePost}
           />
+
+          {/* Share Modal */}
+          {selectedPost && (
+            <ShareModal
+              isOpen={isShareModalOpen}
+              onClose={() => {
+                setIsShareModalOpen(false)
+                setSelectedPost(null)
+              }}
+              post={selectedPost}
+            />
+          )}
         </div>
       </main>
     </div>

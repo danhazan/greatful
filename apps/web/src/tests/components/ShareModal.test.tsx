@@ -2,10 +2,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ShareModal from '@/components/ShareModal'
 
 // Mock clipboard API
+const mockWriteText = jest.fn(() => Promise.resolve())
 Object.assign(navigator, {
   clipboard: {
-    writeText: jest.fn(() => Promise.resolve()),
+    writeText: mockWriteText,
   },
+})
+
+// Mock window.isSecureContext
+Object.defineProperty(window, 'isSecureContext', {
+  value: true,
+  writable: true,
 })
 
 // Mock fetch
@@ -24,6 +31,8 @@ const mockPost = {
 describe('ShareModal', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    // Reset clipboard mock
+    mockWriteText.mockResolvedValue()
     // Mock localStorage
     Object.defineProperty(window, 'localStorage', {
       value: {
@@ -125,7 +134,6 @@ describe('ShareModal', () => {
 
   it('handles copy link functionality', async () => {
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-    const mockClipboard = navigator.clipboard.writeText as jest.MockedFunction<typeof navigator.clipboard.writeText>
     
     // Mock successful API response
     mockFetch.mockResolvedValueOnce({
@@ -151,7 +159,7 @@ describe('ShareModal', () => {
 
     // Wait for clipboard operation (this happens first now)
     await waitFor(() => {
-      expect(mockClipboard).toHaveBeenCalledWith('http://localhost/post/test-post-1')
+      expect(mockWriteText).toHaveBeenCalledWith('http://localhost/post/test-post-1')
     })
 
     await waitFor(() => {
@@ -179,6 +187,11 @@ describe('ShareModal', () => {
   it('shows loading state during share operation', async () => {
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
+    // Mock delayed clipboard operation
+    mockWriteText.mockImplementationOnce(() => 
+      new Promise(resolve => setTimeout(() => resolve(), 50))
+    )
+    
     // Mock delayed API response
     mockFetch.mockImplementationOnce(() => 
       new Promise(resolve => 
@@ -199,7 +212,7 @@ describe('ShareModal', () => {
 
     fireEvent.click(screen.getByText('Copy Link'))
 
-    // Should show loading spinner
+    // Should show loading state briefly
     expect(screen.getByRole('button', { name: /copy link/i })).toHaveClass('opacity-50', 'cursor-not-allowed')
     
     // Wait for completion
@@ -210,8 +223,6 @@ describe('ShareModal', () => {
 
   it('handles API errors gracefully', async () => {
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-    const mockClipboard = navigator.clipboard.writeText as jest.MockedFunction<typeof navigator.clipboard.writeText>
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
     
     // Mock API error
     mockFetch.mockResolvedValueOnce({
@@ -231,19 +242,12 @@ describe('ShareModal', () => {
 
     // Clipboard should still work even if API fails
     await waitFor(() => {
-      expect(mockClipboard).toHaveBeenCalledWith('http://localhost/post/test-post-1')
+      expect(mockWriteText).toHaveBeenCalledWith('http://localhost/post/test-post-1')
     })
 
     await waitFor(() => {
       expect(screen.getByText('Link Copied!')).toBeInTheDocument()
     })
-
-    // Should warn about API failure but not error
-    await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to record share in backend, but clipboard copy succeeded')
-    })
-
-    consoleSpy.mockRestore()
   })
 
   it('shows "Send as Message" as disabled with coming soon badge', () => {

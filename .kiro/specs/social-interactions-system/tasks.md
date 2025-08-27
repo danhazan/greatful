@@ -126,14 +126,16 @@ The implementation maintains consistency with the reference implementation's pur
 **Module Reference:** Requirements 2 - Share System with URL Generation
 - [x] Create Share database model and ShareService for URL generation
 - [x] Implement POST /api/v1/posts/{id}/share endpoint with rate limiting (20/hour)
-- [x] Build ShareModal component with "Copy Link" functionality
-- [x] Create /post/[post-id] public view page with SEO metadata
+- [x] Build ShareModal component with "Copy Link" functionality as small popup box (similar to reactions)
+- [x] Create /post/[post-id] public view page with SEO metadata and proper navbar
 - [x] Add clipboard integration with success feedback
+- [x] Implement authentication-based interaction controls (logged-in users can interact, logged-out users see counters only)
+- [x] Add clickable author name/profile picture navigation to profile page
 - [ ] Implement privacy controls for shared content access
 - [ ] Create share analytics tracking and rate limiting enforcement
 - [ ] Write tests for sharing workflows and privacy controls
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify Share model, ShareService, and API endpoints work correctly. Run frontend tests (`npm test`) to verify ShareModal component and clipboard functionality. Run integration tests to verify end-to-end sharing workflow including rate limiting and privacy controls.
-**Acceptance Criteria:** Users can share posts via URL copy, shared links work properly with SEO, rate limiting prevents abuse, and privacy settings are respected.
+**Acceptance Criteria:** Users can share posts via URL copy using a small popup box, shared links work properly with SEO and proper navbar, logged-in users can interact with shared posts while logged-out users only see counters, author names/pictures are clickable to profiles, rate limiting prevents abuse, and privacy settings are respected.
 
 ### **TASK 5: Mention System with User Search** 
 **Module Reference:** Requirements 3 - Mention System with User Search
