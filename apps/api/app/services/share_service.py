@@ -91,12 +91,11 @@ class ShareService(BaseService):
         if not await self._can_share_post(user_id, post):
             raise BusinessLogicError("This post cannot be shared due to privacy settings.")
         
-        # Create share record
+        # Create share record (don't pass recipient_user_ids for URL shares)
         share = await self.share_repo.create(
             user_id=user_id,
             post_id=post_id,
-            share_method=ShareMethod.url.value,
-            recipient_user_ids=None  # URL shares don't have recipients
+            share_method=ShareMethod.url.value
         )
         
         # Generate share URL
