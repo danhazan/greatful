@@ -127,10 +127,9 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Create Share database model and ShareService for URL generation
 - [x] Implement POST /api/v1/posts/{id}/share endpoint with rate limiting (20/hour)
 - [x] Build ShareModal component with "Copy Link" functionality as small popup box (similar to reactions)
-- [x] Create /post/[post-id] public view page with SEO metadata and proper navbar
 - [x] Add clipboard integration with success feedback
-- [x] Implement authentication-based interaction controls (logged-in users can interact, logged-out users see counters only)
-- [x] Add clickable author name/profile picture navigation to profile page
+- [ ] Implement authentication-based interaction controls (logged-in users can interact, logged-out users see counters only)
+- [ ] Add clickable author name/profile picture navigation to profile page
 - [ ] Implement privacy controls for shared content access
 - [ ] Create share analytics tracking and rate limiting enforcement
 - [ ] Write tests for sharing workflows and privacy controls

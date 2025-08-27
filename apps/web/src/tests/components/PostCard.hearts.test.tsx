@@ -18,10 +18,11 @@ Object.defineProperty(window, 'localStorage', {
 })
 
 // Mock analytics
-jest.mock('../../services/analytics', () => ({
-  analytics: {
-    track: jest.fn(),
-  },
+jest.mock('@/services/analytics', () => ({
+  trackHeartEvent: jest.fn(),
+  trackReactionEvent: jest.fn(),
+  trackShareEvent: jest.fn(),
+  trackViewEvent: jest.fn(),
 }))
 
 const mockPost = {
@@ -68,7 +69,7 @@ describe('PostCard Hearts Counter', () => {
       ],
     })
 
-    render(<PostCard post={mockPost} onUserClick={jest.fn()} />)
+    render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
     // Find and click the hearts counter
     const heartsCounter = screen.getByText('3')
@@ -98,7 +99,7 @@ describe('PostCard Hearts Counter', () => {
     // Mock console.error to avoid test output noise
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
 
-    render(<PostCard post={mockPost} onUserClick={jest.fn()} />)
+    render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
     // Find and click the hearts counter
     const heartsCounter = screen.getByText('3')

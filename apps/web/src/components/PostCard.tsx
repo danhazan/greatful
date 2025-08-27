@@ -9,6 +9,7 @@ import ShareModal from "./ShareModal"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
+import { isAuthenticated, canInteract, getAccessToken } from "@/utils/auth"
 
 interface Post {
   id: string
@@ -53,11 +54,20 @@ export default function PostCard({
   const [showReactionViewer, setShowReactionViewer] = useState(false)
   const [showHeartsViewer, setShowHeartsViewer] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [isUserAuthenticated, setIsUserAuthenticated] = useState(false)
+
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
+  const [shareModalPosition, setShareModalPosition] = useState({ x: 0, y: 0 })
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
   const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
+  const shareButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Check authentication status on mount and when currentUserId changes
+  useEffect(() => {
+    setIsUserAuthenticated(isAuthenticated() && !!currentUserId)
+  }, [currentUserId])
 
   // Track post view when component mounts
   useEffect(() => {
@@ -80,6 +90,12 @@ export default function PostCard({
   const handleReactionButtonClick = async (event: React.MouseEvent) => {
     event.preventDefault()
     
+    if (!isUserAuthenticated) {
+      // Redirect to login if not authenticated
+      window.location.href = '/auth/login'
+      return
+    }
+    
     // If user already has a reaction, remove it
     if (post.currentUserReaction && onRemoveReaction) {
       // Track analytics event for reaction removal
@@ -94,7 +110,7 @@ export default function PostCard({
       }
       
       try {
-        const token = localStorage.getItem("access_token")
+        const token = getAccessToken()
         
         // Make API call to remove reaction
         const response = await fetch(`/api/posts/${post.id}/reactions`, {
@@ -368,6 +384,12 @@ export default function PostCard({
               {/* Heart Button */}
               <button 
                 onClick={async () => {
+                  if (!isUserAuthenticated) {
+                    // Redirect to login if not authenticated
+                    window.location.href = '/auth/login'
+                    return
+                  }
+
                   const isCurrentlyHearted = post.isHearted || false
                   
                   // Track analytics event
@@ -376,7 +398,7 @@ export default function PostCard({
                   }
                   
                   try {
-                    const token = localStorage.getItem("access_token")
+                    const token = getAccessToken()
                     const method = isCurrentlyHearted ? 'DELETE' : 'POST'
                     
                     const response = await fetch(`/api/posts/${post.id}/heart`, {
@@ -410,18 +432,24 @@ export default function PostCard({
                     console.error('Error updating heart:', error)
                   }
                 }}
+                disabled={!isUserAuthenticated}
                 className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 ${
-                  post.isHearted 
-                    ? 'text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100' 
-                    : 'text-gray-500 hover:text-red-500 hover:bg-red-50'
+                  !isUserAuthenticated
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : post.isHearted 
+                      ? 'text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100' 
+                      : 'text-gray-500 hover:text-red-500 hover:bg-red-50'
                 }`}
+                title={!isUserAuthenticated ? 'Login to like posts' : undefined}
               >
-                <Heart className={`${styling.iconSize} ${post.isHearted ? 'fill-current' : ''}`} />
+                <Heart className={`${styling.iconSize} ${post.isHearted && isUserAuthenticated ? 'fill-current' : ''}`} />
                 <span 
-                  className={`${styling.textSize} font-medium cursor-pointer hover:underline`}
+                  className={`${styling.textSize} font-medium ${isUserAuthenticated ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleHeartsCountClick()
+                    if (isUserAuthenticated) {
+                      handleHeartsCountClick()
+                    }
                   }}
                 >
                   {post.heartsCount || 0}
@@ -463,7 +491,18 @@ export default function PostCard({
 
               {/* Share Button */}
               <button 
-                onClick={() => {
+                ref={shareButtonRef}
+                onClick={(event) => {
+                  event.preventDefault()
+                  
+                  if (shareButtonRef.current) {
+                    const rect = shareButtonRef.current.getBoundingClientRect()
+                    setShareModalPosition({
+                      x: rect.left + rect.width / 2,
+                      y: rect.top
+                    })
+                  }
+                  
                   setShowShareModal(true)
                 }}
                 className={`flex items-center space-x-1.5 px-2 py-1 rounded-full text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 ${styling.textSize}`}
@@ -508,6 +547,7 @@ export default function PostCard({
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
         post={post}
+        position={shareModalPosition}
         onShare={(method, data) => {
           // Track analytics event for share
           if (currentUserId) {

@@ -34,6 +34,18 @@ jest.mock('@/utils/emojiMapping', () => ({
   ]),
 }))
 
+// Mock the auth utilities
+jest.mock('@/utils/auth', () => ({
+  isAuthenticated: jest.fn(() => true),
+  canInteract: jest.fn(() => true),
+  getAccessToken: jest.fn(() => 'mock-token'),
+}))
+
+// Mock the image utilities
+jest.mock('@/utils/imageUtils', () => ({
+  getImageUrl: jest.fn((url) => url),
+}))
+
 const mockPost = {
   id: 'test-post-1',
   content: 'Test post content',

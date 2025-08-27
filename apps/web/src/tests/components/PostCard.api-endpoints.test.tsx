@@ -18,10 +18,11 @@ Object.defineProperty(window, 'localStorage', {
 })
 
 // Mock analytics
-jest.mock('../../services/analytics', () => ({
-  analytics: {
-    track: jest.fn(),
-  },
+jest.mock('@/services/analytics', () => ({
+  trackHeartEvent: jest.fn(),
+  trackReactionEvent: jest.fn(),
+  trackShareEvent: jest.fn(),
+  trackViewEvent: jest.fn(),
 }))
 
 const mockPost = {
@@ -60,7 +61,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
       })
 
       const onHeart = jest.fn()
-      render(<PostCard post={mockPost} onUserClick={jest.fn()} onHeart={onHeart} />)
+      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} onHeart={onHeart} />)
 
       // Find and click the heart button
       const heartButton = screen.getByRole('button', { name: /3/ })
@@ -99,7 +100,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
       const onHeart = jest.fn()
-      render(<PostCard post={mockPost} onUserClick={jest.fn()} onHeart={onHeart} />)
+      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} onHeart={onHeart} />)
 
       // Find and click the heart button
       const heartButton = screen.getByRole('button', { name: /3/ })
@@ -122,7 +123,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
         .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }) // heart action
         .mockResolvedValueOnce({ ok: true, json: async () => ({ hearts_count: 4, is_hearted: true }) }) // heart info
 
-      render(<PostCard post={mockPost} onUserClick={jest.fn()} />)
+      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
       // Test heart action
       const heartButton = screen.getByRole('button', { name: /3/ })
@@ -164,7 +165,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
         ],
       })
 
-      render(<PostCard post={mockPost} onUserClick={jest.fn()} />)
+      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
       // Find and click the hearts counter
       const heartsCounter = screen.getByText('3')
@@ -192,7 +193,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
         json: async () => [],
       })
 
-      render(<PostCard post={mockPost} onUserClick={jest.fn()} />)
+      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
       // Find and click the hearts counter
       const heartsCounter = screen.getByText('3')
@@ -241,7 +242,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
         }),
       })
 
-      render(<PostCard post={mockPost} onUserClick={jest.fn()} />)
+      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
       // Find and click the reaction button to open emoji picker
       const reactionButton = screen.getByTitle('React with emoji')

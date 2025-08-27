@@ -1,37 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ShareModal from '@/components/ShareModal'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { beforeEach } from '@jest/globals'
-import { describe } from '@jest/globals'
 
 // Mock clipboard API
 const mockWriteText = jest.fn(() => Promise.resolve())
@@ -82,6 +50,7 @@ describe('ShareModal', () => {
         isOpen={true}
         onClose={jest.fn()}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
       />
     )
 
@@ -96,42 +65,46 @@ describe('ShareModal', () => {
         isOpen={false}
         onClose={jest.fn()}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
       />
     )
 
     expect(screen.queryByText('Share Post')).not.toBeInTheDocument()
   })
 
-  it('displays post preview correctly', () => {
+  it('displays share options correctly', () => {
     render(
       <ShareModal
         isOpen={true}
         onClose={jest.fn()}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
       />
     )
 
-    expect(screen.getByText('Test User')).toBeInTheDocument()
-    expect(screen.getByText('This is a test gratitude post about being thankful for testing.')).toBeInTheDocument()
+    expect(screen.getByText('Copy Link')).toBeInTheDocument()
+    expect(screen.getByText('Get shareable URL')).toBeInTheDocument()
+    expect(screen.getByText('Send as Message')).toBeInTheDocument()
+    expect(screen.getByText('Share with users')).toBeInTheDocument()
   })
 
-  it('truncates long content in preview', () => {
-    const longPost = {
-      ...mockPost,
-      content: 'This is a very long gratitude post that should be truncated because it exceeds the maximum length limit for the preview display in the share modal component.'
-    }
-
-    render(
+  it('positions popup correctly', () => {
+    const { container } = render(
       <ShareModal
         isOpen={true}
         onClose={jest.fn()}
-        post={longPost}
+        post={mockPost}
+        position={{ x: 200, y: 150 }}
       />
     )
 
-    const previewText = screen.getByText(/This is a very long gratitude post/)
-    expect(previewText.textContent).toContain('...')
-    expect(previewText.textContent!.length).toBeLessThan(longPost.content.length)
+    const popup = container.querySelector('.fixed.z-50')
+    expect(popup).toBeInTheDocument()
+    // The popup should be positioned with inline styles
+    expect(popup).toHaveAttribute('style')
+    const style = popup?.getAttribute('style')
+    expect(style).toContain('left:')
+    expect(style).toContain('top:')
   })
 
   it('calls onClose when close button is clicked', () => {
@@ -142,6 +115,7 @@ describe('ShareModal', () => {
         isOpen={true}
         onClose={onClose}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
       />
     )
 
@@ -157,6 +131,7 @@ describe('ShareModal', () => {
         isOpen={true}
         onClose={onClose}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
       />
     )
 
@@ -164,7 +139,7 @@ describe('ShareModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('handles copy link functionality', async () => {
+  it('handles copy link functionality with decoupled clipboard and API', async () => {
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
     // Mock successful API response
@@ -183,22 +158,22 @@ describe('ShareModal', () => {
         isOpen={true}
         onClose={jest.fn()}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
         onShare={onShare}
       />
     )
 
     fireEvent.click(screen.getByText('Copy Link'))
 
-    // Wait for clipboard operation (this happens first now)
-    await waitFor(() => {
-      expect(mockWriteText).toHaveBeenCalledWith('http://localhost/post/test-post-1')
-    })
+    // Clipboard operation should happen immediately
+    expect(mockWriteText).toHaveBeenCalledWith('http://localhost/post/test-post-1')
 
+    // UI should update immediately without waiting for API
     await waitFor(() => {
       expect(screen.getByText('Link Copied!')).toBeInTheDocument()
     })
 
-    // API call should still happen in the background
+    // API call should happen in background (fire-and-forget)
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/posts/test-post-1/share', {
         method: 'POST',
@@ -210,50 +185,37 @@ describe('ShareModal', () => {
       })
     })
 
-    expect(onShare).toHaveBeenCalledWith('url', {
-      shareUrl: 'http://localhost/post/test-post-1',
-      shareId: 'share-1'
-    })
+    // onShare callback should eventually be called (with delay)
+    await waitFor(() => {
+      expect(onShare).toHaveBeenCalledWith('url', {
+        shareUrl: 'http://localhost/post/test-post-1',
+        shareId: 'share-1'
+      })
+    }, { timeout: 200 })
   })
 
-  it('shows loading state during share operation', async () => {
-    const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-    
-    // Mock delayed clipboard operation
-    mockWriteText.mockImplementationOnce(() => 
-      new Promise(resolve => setTimeout(() => resolve(), 50))
-    )
-    
-    // Mock delayed API response
-    mockFetch.mockImplementationOnce(() => 
-      new Promise(resolve => 
-        setTimeout(() => resolve({
-          ok: true,
-          json: () => Promise.resolve({ id: 'share-1', share_url: 'https://example.com/post/test-post-1' })
-        } as Response), 100)
-      )
-    )
-
+  it('shows success state immediately after clipboard copy', async () => {
     render(
       <ShareModal
         isOpen={true}
         onClose={jest.fn()}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
       />
     )
 
     fireEvent.click(screen.getByText('Copy Link'))
 
-    // Should show loading state briefly
-    expect(screen.getByRole('button', { name: /copy link/i })).toHaveClass('opacity-50', 'cursor-not-allowed')
-    
-    // Wait for completion
+    // Should show success state immediately after clipboard operation
     await waitFor(() => {
       expect(screen.getByText('Link Copied!')).toBeInTheDocument()
     })
+    
+    // Button should be disabled during success state
+    expect(screen.getByRole('button', { name: /link copied/i })).toBeDisabled()
   })
 
-  it('handles API errors gracefully', async () => {
+  it('handles API errors gracefully without affecting clipboard UX', async () => {
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
     // Mock API error
@@ -262,24 +224,33 @@ describe('ShareModal', () => {
       json: () => Promise.resolve({ error: 'Rate limit exceeded' })
     } as Response)
 
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
+
     render(
       <ShareModal
         isOpen={true}
         onClose={jest.fn()}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
       />
     )
 
     fireEvent.click(screen.getByText('Copy Link'))
 
-    // Clipboard should still work even if API fails
-    await waitFor(() => {
-      expect(mockWriteText).toHaveBeenCalledWith('http://localhost/post/test-post-1')
-    })
+    // Clipboard should work immediately regardless of API status
+    expect(mockWriteText).toHaveBeenCalledWith('http://localhost/post/test-post-1')
 
+    // UI should show success immediately
     await waitFor(() => {
       expect(screen.getByText('Link Copied!')).toBeInTheDocument()
     })
+
+    // API error should be logged but not affect UX
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith('Share analytics failed:', expect.any(Error))
+    })
+
+    consoleSpy.mockRestore()
   })
 
   it('shows "Send as Message" as disabled with coming soon badge', () => {
@@ -288,11 +259,12 @@ describe('ShareModal', () => {
         isOpen={true}
         onClose={jest.fn()}
         post={mockPost}
+        position={{ x: 100, y: 100 }}
       />
     )
 
     const messageButton = screen.getByText('Send as Message').closest('button')
     expect(messageButton).toBeDisabled()
-    expect(screen.getByText('Coming Soon')).toBeInTheDocument()
+    expect(screen.getByText('Soon')).toBeInTheDocument()
   })
 })
