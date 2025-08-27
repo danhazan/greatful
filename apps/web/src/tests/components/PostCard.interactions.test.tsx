@@ -7,6 +7,11 @@ import {
   cleanupTestEnvironment,
   createTestPost
 } from '../utils/test-helpers'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { afterEach } from '@jest/globals'
+import { beforeEach } from '@jest/globals'
+import { describe } from '@jest/globals'
 
 // Mock the analytics service
 jest.mock('@/services/analytics', () => ({
