@@ -84,6 +84,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Establish error type hierarchies and validation schemas
   - Create shared types for database models and service layer
   - **Test Execution:** Run both frontend (`npm test`) and backend (`pytest`) test suites to ensure type changes don't break existing functionality
+  - **Refactor Standards Validation:** After fixing any failing tests, validate that all changed code follows refactor standards including consistent naming conventions, proper type annotations, clear separation of concerns, and adherence to established architectural patterns
   - _Requirements: Code organization and type safety_
 - [x] **3.5.2 Backend Service Layer Refactoring**
   - Standardize FastAPI error handling using shared types
@@ -91,13 +92,15 @@ The implementation maintains consistency with the reference implementation's pur
   - Implement consistent response formatting across all endpoints
   - Add request/response validation middleware
   - **Test Execution:** Run backend test suite (`pytest -v`) to verify all service layer changes work correctly and don't break existing API endpoints
+  - **Refactor Standards Validation:** After fixing any failing tests, validate that all changed code follows refactor standards including consistent naming conventions, proper type annotations, clear separation of concerns, and adherence to established architectural patterns
   - _Requirements: Backend code organization_
-- [ ] **3.5.3 API Contract Validation**
+- [x] **3.5.3 API Contract Validation**
   - Add runtime type checking on API boundaries
   - Implement request/response validation middleware
   - Create automated API contract testing
   - Add OpenAPI schema generation and validation
   - **Test Execution:** Run backend integration tests (`pytest tests/integration/`) to verify API contract validation works correctly, then run frontend API tests (`npm run test -- tests/api/`) to ensure frontend still communicates properly with backend
+  - **Refactor Standards Validation:** After fixing any failing tests, validate that all changed code follows refactor standards including consistent naming conventions, proper type annotations, clear separation of concerns, and adherence to established architectural patterns
   - _Requirements: Type safety and API reliability_
 - [ ] **3.5.4 Database Query Organization**
   - Standardize database query patterns across all models
@@ -105,6 +108,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Implement consistent error handling for DB operations
   - Add query performance monitoring and optimization
   - **Test Execution:** Run backend unit tests (`pytest tests/unit/`) and integration tests (`pytest tests/integration/`) to verify all database operations work correctly with new query patterns
+  - **Refactor Standards Validation:** After fixing any failing tests, validate that all changed code follows refactor standards including consistent naming conventions, proper type annotations, clear separation of concerns, and adherence to established architectural patterns
   - _Requirements: Database layer organization_
 - [ ] **3.5.5 Update Project Documentation**
   - Update docs/BACKEND_API_DOCUMENTATION.md with new shared types and API contracts
@@ -114,6 +118,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Update docs/USEFUL_COMMANDS.md with new development workflows
   - Create or update API documentation with OpenAPI schema references
   - **Test Execution:** No code changes, but verify documentation accuracy by running full test suite (`pytest` and `npm test`) to ensure all documented patterns work as described
+  - **Refactor Standards Validation:** After fixing any failing tests, validate that all changed code follows refactor standards including consistent naming conventions, proper type annotations, clear separation of concerns, and adherence to established architectural patterns
   - _Requirements: Documentation maintenance and developer onboarding_
 **Acceptance Criteria:** Backend code follows consistent patterns with shared types, API contracts are validated at runtime, database queries are standardized and performant, project documentation accurately reflects all architectural changes made during task 3.5, and the entire codebase maintains type safety across frontend/backend boundaries.
 

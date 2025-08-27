@@ -48,6 +48,9 @@ out/
 .DS_Store
 *.pem
 
+# Uploaded Files
+uploads/
+
 # Debug
 npm-debug.log*
 yarn-debug.log*
@@ -144,9 +147,6 @@ temp/
 
 # Redis dump
 dump.rdb
-
-# Reference folder (not to be committed)
-for_reference/
 
 # Alembic - keep structure but ignore auto-generated migrations
 alembic/versions/*.py

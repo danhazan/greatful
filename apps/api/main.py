@@ -15,6 +15,12 @@ from app.api.v1.likes import router as likes_router
 from app.api.v1.notifications import router as notifications_router
 from app.core.database import init_db
 from app.core.middleware import ErrorHandlingMiddleware, RequestValidationMiddleware
+from app.core.validation_middleware import (
+    APIContractValidationMiddleware, 
+    SchemaValidationMiddleware, 
+    TypeSafetyMiddleware
+)
+from app.core.openapi_validator import create_openapi_validator
 import logging
 
 # Configure logging
@@ -42,6 +48,7 @@ app = FastAPI(
 
 # Add middleware (order matters - first added is outermost)
 app.add_middleware(ErrorHandlingMiddleware)
+app.add_middleware(APIContractValidationMiddleware, enable_response_validation=False)  # Disable response validation for performance
 app.add_middleware(RequestValidationMiddleware)
 
 # Add CORS middleware
@@ -76,3 +83,20 @@ async def root():
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "grateful-api"}
+
+
+def custom_openapi():
+    """Generate custom OpenAPI schema with enhanced validation."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    # Create OpenAPI validator and generate enhanced schema
+    openapi_validator = create_openapi_validator(app)
+    enhanced_schema = openapi_validator.generate_enhanced_schema()
+    
+    app.openapi_schema = enhanced_schema
+    return app.openapi_schema
+
+
+# Override the default OpenAPI schema generation
+app.openapi = custom_openapi

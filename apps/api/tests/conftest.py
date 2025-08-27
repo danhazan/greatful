@@ -212,3 +212,43 @@ class TestDataFactory:
 def test_data_factory():
     """Provide test data factory."""
     return TestDataFactory
+
+
+# Additional fixtures for contract testing
+@pytest_asyncio.fixture
+async def http_client(setup_test_database):
+    """Create async HTTP client for contract testing."""
+    from httpx import AsyncClient
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        yield client
+
+
+@pytest_asyncio.fixture
+async def test_post_dict(http_client, auth_headers):
+    """Create a test post and return it as a dictionary."""
+    post_data = {
+        "content": "Test gratitude post for contract testing",
+        "post_type": "daily",
+        "title": "Test Post",
+        "is_public": True
+    }
+    
+    response = await http_client.post("/api/v1/posts/", json=post_data, headers=auth_headers)
+    assert response.status_code == 201
+    
+    data = response.json()
+    # The API returns the post data directly, not wrapped in a success/data structure
+    return data
+
+
+@pytest_asyncio.fixture
+async def fastapi_app():
+    """Provide FastAPI app instance for testing."""
+    return app
+
+
+@pytest.fixture
+def contract_validator():
+    """Provide contract validator instance for testing."""
+    from app.core.contract_validation import ContractValidator
+    return ContractValidator()
