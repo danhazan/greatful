@@ -325,7 +325,13 @@ export default function PostCard({
               </h3>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <Calendar className="h-4 w-4" />
-                <span>{formatDate(post.createdAt)}</span>
+                <a 
+                  href={`/post/${post.id}`}
+                  className="hover:text-purple-600 hover:underline transition-colors cursor-pointer"
+                  title="View post details"
+                >
+                  {formatDate(post.createdAt)}
+                </a>
                 {post.location && (
                   <>
                     <MapPin className="h-4 w-4" />
