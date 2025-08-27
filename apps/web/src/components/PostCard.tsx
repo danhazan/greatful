@@ -5,6 +5,7 @@ import { Heart, Share, Calendar, MapPin, Plus } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
+import ShareModal from "./ShareModal"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
@@ -51,6 +52,7 @@ export default function PostCard({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionViewer, setShowReactionViewer] = useState(false)
   const [showHeartsViewer, setShowHeartsViewer] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
   const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
@@ -462,11 +464,7 @@ export default function PostCard({
               {/* Share Button */}
               <button 
                 onClick={() => {
-                  // Track analytics event for share
-                  if (currentUserId) {
-                    analyticsService.trackShareEvent(post.id, currentUserId, 'url')
-                  }
-                  onShare?.(post.id)
+                  setShowShareModal(true)
                 }}
                 className={`flex items-center space-x-1.5 px-2 py-1 rounded-full text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 ${styling.textSize}`}
               >
@@ -503,6 +501,21 @@ export default function PostCard({
         postId={post.id}
         hearts={hearts}
         onUserClick={handleUserClick}
+      />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        post={post}
+        onShare={(method, data) => {
+          // Track analytics event for share
+          if (currentUserId) {
+            analyticsService.trackShareEvent(post.id, currentUserId, method)
+          }
+          // Call original onShare callback if provided
+          onShare?.(post.id)
+        }}
       />
     </>
   )

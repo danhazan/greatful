@@ -121,7 +121,7 @@ describe('PostCard Interactions', () => {
     })
   })
 
-  it('should track share event when share button is clicked', () => {
+  it('should open share modal when share button is clicked', () => {
     render(
       <PostCard
         post={mockPost}
@@ -137,8 +137,12 @@ describe('PostCard Interactions', () => {
     const shareButton = screen.getByRole('button', { name: /share/i })
     fireEvent.click(shareButton)
 
-    expect(analyticsService.trackShareEvent).toHaveBeenCalledWith('test-post-1', 'current-user', 'url')
-    expect(mockOnShare).toHaveBeenCalledWith('test-post-1')
+    // Should open the share modal
+    expect(screen.getByText('Share Post')).toBeInTheDocument()
+    expect(screen.getByText('Copy Link')).toBeInTheDocument()
+    
+    // Analytics event should not be tracked until actual sharing happens
+    expect(analyticsService.trackShareEvent).not.toHaveBeenCalled()
   })
 
   it('should open emoji picker when reaction button is clicked (no current reaction)', () => {
