@@ -652,11 +652,10 @@ async def share_post(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Share a post via URL or message with rate limiting (20 shares per hour).
+    Share a post via URL or message.
     
-    - **URL sharing**: Generates a shareable URL for the post
-    - **Message sharing**: Sends the post to specific users with optional message
-    - **Rate limiting**: Maximum 20 shares per hour per user
+    - **URL sharing**: Generates a shareable URL for the post (no rate limit)
+    - **Message sharing**: Sends the post to specific users with optional message (rate limited: 20 per hour)
     """
     try:
         share_service = ShareService(db)

@@ -88,16 +88,9 @@ class ShareService(BaseService):
             Dict: Share data with URL
             
         Raises:
-            BusinessLogicError: If rate limit exceeded
             NotFoundError: If user or post doesn't exist
         """
-        # Check rate limit
-        rate_limit_status = await self.check_rate_limit(user_id)
-        if rate_limit_status["is_exceeded"]:
-            raise BusinessLogicError(
-                f"Share rate limit exceeded. You can share {rate_limit_status['max_allowed']} posts per hour. "
-                f"Try again in {rate_limit_status['reset_time'].strftime('%H:%M')}."
-            )
+        # Note: URL sharing (copy link) is not rate limited - only message sharing is
         
         # Verify user and post exist
         user = await self.user_repo.get_by_id_or_404(user_id)

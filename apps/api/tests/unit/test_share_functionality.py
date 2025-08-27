@@ -360,7 +360,7 @@ class TestShareService:
         test_post: Post,
         monkeypatch
     ):
-        """Test rate limit enforcement."""
+        """Test rate limit enforcement for message sharing only."""
         # Mock rate limit check to return exceeded
         async def mock_check_rate_limit(user_id):
             return {
@@ -373,8 +373,18 @@ class TestShareService:
         
         monkeypatch.setattr(share_service, "check_rate_limit", mock_check_rate_limit)
         
+        # URL sharing should NOT be rate limited
+        result = await share_service.share_via_url(test_user.id, test_post.id)
+        assert result["share_method"] == "url"
+        
+        # Message sharing SHOULD be rate limited
         with pytest.raises(BusinessLogicError, match="Share rate limit exceeded"):
-            await share_service.share_via_url(test_user.id, test_post.id)
+            await share_service.share_via_message(
+                sender_id=test_user.id,
+                post_id=test_post.id,
+                recipient_ids=[test_user.id],
+                message="Test message"
+            )
 
     async def test_get_share_counts(
         self, 
