@@ -168,12 +168,14 @@ export default function ShareModal({
           setCopySuccess(true)
         })
         
-        // Reset success state after 2 seconds
+        // Reset success state and close modal after 1.5 seconds
         setTimeout(() => {
           flushSync(() => {
             setCopySuccess(false)
           })
-        }, 2000)
+          // Close the modal after showing success message
+          onClose()
+        }, 1500)
         
         // 3) Trigger analytics call after a delay to avoid any UI interference
         // Only track analytics if user is authenticated

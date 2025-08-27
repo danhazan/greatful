@@ -267,4 +267,29 @@ describe('ShareModal', () => {
     expect(messageButton).toBeDisabled()
     expect(screen.getByText('Soon')).toBeInTheDocument()
   })
+
+  it('closes modal automatically after copying link and showing success message', async () => {
+    const onClose = jest.fn()
+
+    render(
+      <ShareModal
+        isOpen={true}
+        onClose={onClose}
+        post={mockPost}
+        position={{ x: 100, y: 100 }}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Copy Link'))
+
+    // Should show success state immediately
+    await waitFor(() => {
+      expect(screen.getByText('Link Copied!')).toBeInTheDocument()
+    })
+
+    // Modal should close automatically after 1.5 seconds
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalledTimes(1)
+    }, { timeout: 2000 })
+  })
 })
