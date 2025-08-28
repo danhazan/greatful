@@ -185,12 +185,13 @@ class MentionService(BaseService):
         Returns:
             List[Dict]: List of user dictionaries for autocomplete
         """
-        if not query or len(query.strip()) < 1:
+        if not query:
             return []
         
         # Clean the query - remove @ if present
         clean_query = query.lstrip('@').strip()
         
+        # Validate minimum query length
         if len(clean_query) < 1:
             return []
         
