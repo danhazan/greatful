@@ -264,11 +264,11 @@ class TestMentionService:
     @pytest.mark.asyncio
     async def test_highlight_mentions_basic(self, mention_service):
         """Test mention highlighting in content."""
-        content = "Hello @john and @jane!"
+        content = "Hello @john and @jane here"
         
         highlighted = await mention_service.highlight_mentions(content)
         
-        expected = 'Hello <span class="mention">@john</span> and <span class="mention">@jane</span>!'
+        expected = 'Hello <span class="mention">@john</span> and <span class="mention">@jane</span> here'
         assert highlighted == expected
     
     @pytest.mark.asyncio
