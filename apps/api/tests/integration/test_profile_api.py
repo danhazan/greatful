@@ -304,3 +304,204 @@ class TestProfileDataIntegrity:
         if data["bio"]:
             assert isinstance(data["bio"], str)
         assert isinstance(data["created_at"], str)  # ISO format string
+
+
+class TestUserSearch:
+    """Test cases for POST /api/v1/users/search endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_search_users_success(self, client, test_user, auth_headers, db_session):
+        """Test successful user search."""
+        # Create additional users for search
+        from app.core.security import get_password_hash
+        users = []
+        for i in range(3):
+            user = User(
+                email=f"searchuser{i}@example.com",
+                username=f"searchuser{i}",
+                hashed_password=get_password_hash("testpassword"),
+                bio=f"Bio for search user {i}"
+            )
+            db_session.add(user)
+            users.append(user)
+        
+        await db_session.commit()
+        
+        search_data = {
+            "query": "search",
+            "limit": 10
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        response_data = response.json()
+        data = response_data["data"]
+        
+        # Should find the created users
+        assert len(data) >= 3
+        
+        # Check response structure
+        for user_result in data:
+            assert "id" in user_result
+            assert "username" in user_result
+            assert "profile_image_url" in user_result
+            assert "bio" in user_result
+            # Should not include email in search results
+            assert "email" not in user_result
+
+    @pytest.mark.asyncio
+    async def test_search_users_with_at_symbol(self, client, test_user, auth_headers, db_session):
+        """Test user search removes @ symbol from query."""
+        # Create a user to search for
+        from app.core.security import get_password_hash
+        user = User(
+            email="atsymboluser@example.com",
+            username="atsymboluser",
+            hashed_password=get_password_hash("testpassword")
+        )
+        db_session.add(user)
+        await db_session.commit()
+        
+        search_data = {
+            "query": "@atsymbol",
+            "limit": 10
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        response_data = response.json()
+        data = response_data["data"]
+        
+        # Should find the user despite @ symbol
+        usernames = [user["username"] for user in data]
+        assert "atsymboluser" in usernames
+
+    @pytest.mark.asyncio
+    async def test_search_users_excludes_current_user(self, client, test_user, auth_headers):
+        """Test that search excludes the current user from results."""
+        search_data = {
+            "query": test_user.username,
+            "limit": 10
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        response_data = response.json()
+        data = response_data["data"]
+        
+        # Current user should not be in results
+        user_ids = [user["id"] for user in data]
+        assert test_user.id not in user_ids
+
+    @pytest.mark.asyncio
+    async def test_search_users_empty_query(self, client, test_user, auth_headers):
+        """Test user search with empty query."""
+        search_data = {
+            "query": "",
+            "limit": 10
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        response_data = response.json()
+        data = response_data["data"]
+        
+        # Should return empty results for empty query
+        assert len(data) == 0
+
+    @pytest.mark.asyncio
+    async def test_search_users_limit_validation(self, client, test_user, auth_headers):
+        """Test that search respects limit parameter."""
+        search_data = {
+            "query": "test",
+            "limit": 2
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        response_data = response.json()
+        data = response_data["data"]
+        
+        # Should not exceed limit
+        assert len(data) <= 2
+
+    @pytest.mark.asyncio
+    async def test_search_users_limit_boundary(self, client, test_user, auth_headers):
+        """Test search with boundary limit values."""
+        # Test with limit too high (should be capped at 50)
+        search_data = {
+            "query": "test",
+            "limit": 100
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        # Should not fail even with high limit
+        
+        # Test with limit too low (should be set to 1)
+        search_data = {
+            "query": "test",
+            "limit": 0
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_search_users_unauthorized(self, client):
+        """Test user search without authentication."""
+        search_data = {
+            "query": "test",
+            "limit": 10
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data)
+        assert response.status_code == 403  # FastAPI returns 403 for missing auth
+
+    @pytest.mark.asyncio
+    async def test_search_users_invalid_token(self, client):
+        """Test user search with invalid token."""
+        headers = {"Authorization": "Bearer invalid_token"}
+        search_data = {
+            "query": "test",
+            "limit": 10
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=headers)
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_search_users_case_insensitive(self, client, test_user, auth_headers, db_session):
+        """Test that user search is case insensitive."""
+        # Create a user with mixed case username
+        from app.core.security import get_password_hash
+        user = User(
+            email="mixedcase@example.com",
+            username="MixedCaseUser",
+            hashed_password=get_password_hash("testpassword")
+        )
+        db_session.add(user)
+        await db_session.commit()
+        
+        # Search with lowercase
+        search_data = {
+            "query": "mixedcase",
+            "limit": 10
+        }
+        
+        response = client.post("/api/v1/users/search", json=search_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        response_data = response.json()
+        data = response_data["data"]
+        
+        # Should find the user despite case difference
+        usernames = [user["username"] for user in data]
+        assert "MixedCaseUser" in usernames

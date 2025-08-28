@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
 from app.services.user_service import UserService
+from app.services.mention_service import MentionService
 from app.core.responses import success_response
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,24 @@ class UserPostResponse(BaseModel):
     reactions_count: int = 0
     current_user_reaction: Optional[str] = None
     is_hearted: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserSearchRequest(BaseModel):
+    """User search request model."""
+    query: str
+    limit: Optional[int] = 10
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserSearchResult(BaseModel):
+    """User search result model."""
+    id: int
+    username: str
+    profile_image_url: Optional[str] = None
+    bio: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -148,6 +167,35 @@ async def get_user_posts(
         user_id=user_id,
         current_user_id=current_user_id,
         public_only=True  # Only show public posts for other users
+    )
+    
+    return success_response(result, getattr(request.state, 'request_id', None))
+
+
+@router.post("/search")
+async def search_users(
+    search_request: UserSearchRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Search users by username for mention autocomplete.
+    
+    - **query**: Search query (partial username)
+    - **limit**: Maximum number of results (1-50, default: 10)
+    
+    Returns list of users matching the search query.
+    Excludes the current user from results.
+    """
+    # Validate limit
+    limit = min(max(search_request.limit or 10, 1), 50)
+    
+    mention_service = MentionService(db)
+    result = await mention_service.search_users(
+        query=search_request.query,
+        limit=limit,
+        exclude_user_id=current_user_id
     )
     
     return success_response(result, getattr(request.state, 'request_id', None))
