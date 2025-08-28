@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals'
 import MentionAutocomplete from '@/components/MentionAutocomplete'
-import { UserInfo } from '@/../../shared/types/core'
+import { UserInfo } from '../../../../shared/types/core'
 
 // Mock fetch
 const mockFetch = jest.fn()

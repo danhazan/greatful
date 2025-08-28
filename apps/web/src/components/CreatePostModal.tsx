@@ -5,7 +5,7 @@ import { X, Camera, MapPin, Type, Image as ImageIcon, Zap } from "lucide-react"
 import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
 import MentionAutocomplete from "./MentionAutocomplete"
-import { UserInfo } from "@/../../shared/types/core"
+import { UserInfo } from "../../../shared/types/core"
 
 interface CreatePostModalProps {
   isOpen: boolean
@@ -311,12 +311,16 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       const mentionStart = cursorPosition - mentionMatch[0].length
       const query = mentionMatch[1] || '' // Ensure query is never undefined
       
-      // Simple position calculation for testing
+      // Calculate position below the textarea to avoid blocking content
       const rect = textareaRef.current?.getBoundingClientRect()
-      const x = rect ? rect.left + 16 : 16
-      const y = rect ? rect.top + 24 : 24
+      if (rect) {
+        // Position the autocomplete below the textarea
+        const x = rect.left + 16
+        const y = rect.bottom + 8 // 8px gap below textarea
+        
+        setMentionPosition({ x, y })
+      }
       
-      setMentionPosition({ x, y })
       setCurrentMentionStart(mentionStart)
       setMentionQuery(query)
       setShowMentionAutocomplete(true)
@@ -329,17 +333,26 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   // Function to protect completed mentions from partial editing
   const protectCompletedMentions = (oldContent: string, newContent: string, cursorPosition: number): string => {
+    // Only protect if content is getting shorter (deletion/backspace)
+    if (newContent.length >= oldContent.length) {
+      return newContent // Allow additions
+    }
+    
     // Extract all completed mentions from the old content
     const mentionRegex = /@([a-zA-Z0-9_\-\.\?\!\+]+)/g
     const oldMentions: Array<{match: string, start: number, end: number}> = []
     let match
     
     while ((match = mentionRegex.exec(oldContent)) !== null) {
-      oldMentions.push({
-        match: match[0],
-        start: match.index,
-        end: match.index + match[0].length
-      })
+      // Only consider mentions that are followed by a space or end of string (completed mentions)
+      const nextChar = oldContent[match.index + match[0].length]
+      if (!nextChar || nextChar === ' ' || nextChar === '\n' || nextChar === '\t') {
+        oldMentions.push({
+          match: match[0],
+          start: match.index,
+          end: match.index + match[0].length
+        })
+      }
     }
     
     // Check if any completed mention is being partially modified

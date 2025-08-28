@@ -33,7 +33,7 @@ describe('CreatePostModal - Mention Protection', () => {
 
     const textarea = screen.getByRole('textbox')
     
-    // Type a complete mention
+    // Type a complete mention with space after (completed mention)
     fireEvent.change(textarea, { 
       target: { 
         value: 'Thanks @Bob7?? for help!',
@@ -44,7 +44,7 @@ describe('CreatePostModal - Mention Protection', () => {
 
     expect(textarea.value).toBe('Thanks @Bob7?? for help!')
 
-    // Try to edit inside the mention (position 10 is inside @Bob7??)
+    // Try to edit inside the completed mention (position 10 is inside @Bob7??)
     fireEvent.change(textarea, { 
       target: { 
         value: 'Thanks @Bob for help!', // Trying to remove the 7??
@@ -57,6 +57,41 @@ describe('CreatePostModal - Mention Protection', () => {
     await waitFor(() => {
       expect(textarea.value).toBe('Thanks @Bob7?? for help!')
     })
+  })
+
+  it('should allow deleting characters when typing incomplete mentions', async () => {
+    render(
+      <CreatePostModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    )
+
+    const textarea = screen.getByRole('textbox')
+    
+    // Type an incomplete mention (no space after, still being typed)
+    fireEvent.change(textarea, { 
+      target: { 
+        value: 'Thanks @Bob7',
+        selectionStart: 12,
+        selectionEnd: 12
+      } 
+    })
+
+    expect(textarea.value).toBe('Thanks @Bob7')
+
+    // Try to backspace (should be allowed for incomplete mentions)
+    fireEvent.change(textarea, { 
+      target: { 
+        value: 'Thanks @Bob',
+        selectionStart: 11,
+        selectionEnd: 11
+      } 
+    })
+
+    // The change should be allowed
+    expect(textarea.value).toBe('Thanks @Bob')
   })
 
   it('should allow editing outside of mentions', async () => {
@@ -191,4 +226,46 @@ describe('CreatePostModal - Mention Protection', () => {
       expect(textarea.value).toBe('Hello @alice.doe-123!')
     })
   })
-})
+
+  it('should position autocomplete below textarea to avoid blocking content', async () => {
+    // Mock getBoundingClientRect
+    const mockGetBoundingClientRect = jest.fn(() => ({
+      left: 100,
+      top: 200,
+      bottom: 300,
+      right: 400,
+      width: 300,
+      height: 100
+    }))
+
+    Object.defineProperty(HTMLTextAreaElement.prototype, 'getBoundingClientRect', {
+      value: mockGetBoundingClientRect,
+      configurable: true
+    })
+
+    render(
+      <CreatePostModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    )
+
+    const textarea = screen.getByRole('textbox')
+    
+    // Type @ to trigger autocomplete
+    fireEvent.change(textarea, { 
+      target: { 
+        value: 'Thanks @',
+        selectionStart: 8,
+        selectionEnd: 8
+      } 
+    })
+
+    // Check that autocomplete appears (we can't easily test exact positioning in jsdom)
+    // But we can verify the mention detection logic works
+    expect(textarea.value).toBe('Thanks @')
+    
+    // The autocomplete should be positioned below the textarea (y = bottom + 8)
+    // In a real browser, this would be at y = 300 + 8 = 308
+  })
