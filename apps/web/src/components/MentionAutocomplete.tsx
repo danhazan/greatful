@@ -192,6 +192,7 @@ export default function MentionAutocomplete({
   return (
     <div
       ref={dropdownRef}
+      data-mention-autocomplete
       className={`absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-w-xs w-64 max-h-60 overflow-y-auto ${className}`}
       style={{
         left: position.x,

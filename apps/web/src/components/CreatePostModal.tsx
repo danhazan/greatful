@@ -82,6 +82,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        // Don't close if clicking on mention autocomplete dropdown
+        const target = event.target as Element
+        if (target.closest('[data-mention-autocomplete]')) {
+          return
+        }
         onClose()
       }
     }
