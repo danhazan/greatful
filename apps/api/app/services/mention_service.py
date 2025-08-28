@@ -30,7 +30,9 @@ class MentionService(BaseService):
         self.post_repo = PostRepository(db)
 
     # Regex pattern for extracting @username mentions
-    MENTION_PATTERN = re.compile(r'@([a-zA-Z0-9_]+)')
+    # Matches @username where username can contain letters, numbers, underscores, hyphens, dots, and common special chars
+    # Updated to match frontend pattern: supports dots, dashes, question marks, exclamation marks, plus signs
+    MENTION_PATTERN = re.compile(r'@([a-zA-Z0-9_\-\.\?\!\+]+)')
 
     @monitor_query("extract_mentions")
     async def extract_mentions(self, content: str) -> List[str]:

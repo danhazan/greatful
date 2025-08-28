@@ -98,6 +98,12 @@ async def get_notifications(
                     'username': notification.data['reactor_username'],
                     'profile_image_url': None
                 }
+            elif notification.data and 'author_username' in notification.data:
+                from_user = {
+                    'id': '0',  # We don't store user ID in notification data yet
+                    'username': notification.data['author_username'],
+                    'profile_image_url': None
+                }
             
             response_notifications.append(NotificationResponse(
                 id=notification.id,
@@ -253,6 +259,12 @@ async def get_batch_children(
                 from_user = {
                     'id': '0',  # We don't store user ID in notification data yet
                     'username': notification.data['reactor_username'],
+                    'profile_image_url': None
+                }
+            elif notification.data and 'author_username' in notification.data:
+                from_user = {
+                    'id': '0',  # We don't store user ID in notification data yet
+                    'username': notification.data['author_username'],
                     'profile_image_url': None
                 }
             

@@ -114,7 +114,7 @@ describe('mentionUtils', () => {
     })
 
     it('should split content with multiple mentions', () => {
-      const content = 'Hey @alice and @bob!'
+      const content = 'Hey @alice and @bob here'
       const parts = splitContentWithMentions(content)
       
       expect(parts).toHaveLength(5)
@@ -122,7 +122,7 @@ describe('mentionUtils', () => {
       expect(parts[1]).toEqual({ text: '@alice', isMention: true, username: 'alice' })
       expect(parts[2]).toEqual({ text: ' and ', isMention: false })
       expect(parts[3]).toEqual({ text: '@bob', isMention: true, username: 'bob' })
-      expect(parts[4]).toEqual({ text: '!', isMention: false })
+      expect(parts[4]).toEqual({ text: ' here', isMention: false })
     })
 
     it('should handle content starting with mention', () => {
@@ -172,10 +172,10 @@ describe('mentionUtils', () => {
 
     it('should reject invalid usernames', () => {
       expect(isValidUsername('')).toBe(false)
-      expect(isValidUsername('user-name')).toBe(false) // hyphens not allowed
-      expect(isValidUsername('user.name')).toBe(false) // dots not allowed
       expect(isValidUsername('user name')).toBe(false) // spaces not allowed
       expect(isValidUsername('user@name')).toBe(false) // @ not allowed
+      expect(isValidUsername('user#name')).toBe(false) // # not allowed
+      expect(isValidUsername('user$name')).toBe(false) // $ not allowed
     })
 
     it('should reject usernames that are too long', () => {
