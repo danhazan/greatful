@@ -12,7 +12,7 @@ import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
 import { isAuthenticated, canInteract, getAccessToken } from "@/utils/auth"
-import { getUniqueUsernames } from "@/utils/mentionUtils"
+import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
 
 interface Post {
   id: string
@@ -97,6 +97,14 @@ export default function PostCard({
         return
       }
 
+      // Filter out obviously invalid usernames to prevent unnecessary API calls
+      const validFormatUsernames = usernames.filter(isValidUsername)
+
+      if (validFormatUsernames.length === 0) {
+        setValidUsernames([])
+        return
+      }
+
       try {
         const token = getAccessToken()
         if (!token) {
@@ -107,7 +115,7 @@ export default function PostCard({
         const validUsernames: string[] = []
         
         // Check each username individually
-        for (const username of usernames) {
+        for (const username of validFormatUsernames) {
           try {
             const response = await fetch(`/api/users/username/${encodeURIComponent(username)}`, {
               headers: {

@@ -10,10 +10,10 @@ export interface MentionMatch {
 
 /**
  * Regular expression for matching @username mentions
- * Matches @username where username contains letters, numbers, underscores, and special characters
- * Updated pattern to match backend regex: supports dots, dashes, question marks, exclamation marks, plus signs
+ * Matches @username where username contains letters, numbers, underscores, dots, and dashes only
+ * Restricted to match realistic username patterns and avoid false positives
  */
-export const MENTION_REGEX = /@([a-zA-Z0-9_\-\.\?\!\+]+)/g
+export const MENTION_REGEX = /@([a-zA-Z0-9_\-\.]+)/g
 
 /**
  * Extract @username mentions from text content
@@ -116,9 +116,9 @@ export function splitContentWithMentions(content: string, validUsernames?: strin
 export function isValidUsername(username: string): boolean {
   if (!username) return false
   
-  // Username should be 1-50 characters, alphanumeric, underscores, and special characters
-  // Updated to match backend pattern: supports dots, dashes, question marks, exclamation marks, plus signs
-  const usernameRegex = /^[a-zA-Z0-9_\-\.\?\!\+]{1,50}$/
+  // Username should be 1-50 characters, alphanumeric, underscores, dots, and dashes only
+  // Restricted to match realistic username patterns and avoid false positives
+  const usernameRegex = /^[a-zA-Z0-9_\-\.]{1,50}$/
   return usernameRegex.test(username)
 }
 
