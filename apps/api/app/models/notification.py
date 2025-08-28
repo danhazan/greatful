@@ -141,3 +141,26 @@ class Notification(Base):
         )
         notification.batch_key = notification.generate_batch_key()
         return notification
+
+    @classmethod
+    def create_mention_notification(
+        cls,
+        user_id: int,
+        author_username: str,
+        post_id: str,
+        post_preview: str
+    ) -> "Notification":
+        """Create a notification for mention."""
+        notification = cls(
+            user_id=user_id,
+            type='mention',
+            title='You were mentioned',
+            message=f'{author_username} mentioned you in a post: {post_preview[:50]}...',
+            data={
+                'post_id': post_id,
+                'author_username': author_username,
+                'post_preview': post_preview
+            }
+        )
+        notification.batch_key = notification.generate_batch_key()
+        return notification

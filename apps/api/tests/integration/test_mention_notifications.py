@@ -378,3 +378,105 @@ class TestMentionNotifications:
         )
         notification_rows = notifications.fetchall()
         assert len(notification_rows) == 1
+
+    async def test_mention_notifications_accessible_via_api(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        auth_headers: dict
+    ):
+        """Test that mention notifications are accessible through the notifications API."""
+        # Create test users
+        user1 = User(
+            username="post_author",
+            email="author@example.com",
+            hashed_password="hashed_password"
+        )
+        user2 = User(
+            username="mentioned_friend",
+            email="friend@example.com",
+            hashed_password="hashed_password"
+        )
+        
+        db_session.add_all([user1, user2])
+        await db_session.commit()
+        await db_session.refresh(user1)
+        await db_session.refresh(user2)
+
+        # Create post with mention as user1
+        post_data = {
+            "content": "Grateful for @mentioned_friend's support today!",
+            "post_type": "daily",
+            "title": "Daily Gratitude"
+        }
+
+        from app.core.security import create_access_token
+        author_token = create_access_token(data={"sub": str(user1.id)})
+        author_headers = {"Authorization": f"Bearer {author_token}"}
+
+        response = await async_client.post("/api/v1/posts/", json=post_data, headers=author_headers)
+        assert response.status_code == 201
+        post_response = response.json()
+        post_id = post_response["id"]
+
+        # Check notifications for mentioned user (user2) via API
+        mentioned_token = create_access_token(data={"sub": str(user2.id)})
+        mentioned_headers = {"Authorization": f"Bearer {mentioned_token}"}
+
+        # Get notifications for mentioned user
+        notifications_response = await async_client.get(
+            "/api/v1/notifications", 
+            headers=mentioned_headers
+        )
+        assert notifications_response.status_code == 200
+        notifications_data = notifications_response.json()
+        
+        # Should have one mention notification
+        assert len(notifications_data) == 1
+        notification = notifications_data[0]
+        
+        # Verify notification details
+        assert notification["type"] == "mention"
+        assert notification["title"] == "You were mentioned"
+        assert "post_author mentioned you in a post" in notification["message"]
+        assert notification["data"]["post_id"] == post_id
+        assert notification["data"]["author_username"] == "post_author"
+        assert not notification["read"]
+
+        # Check notification summary
+        summary_response = await async_client.get(
+            "/api/v1/notifications/summary",
+            headers=mentioned_headers
+        )
+        assert summary_response.status_code == 200
+        summary_data = summary_response.json()
+        assert summary_data["unread_count"] == 1
+        assert summary_data["total_count"] == 1
+
+        # Mark notification as read
+        notification_id = notification["id"]
+        read_response = await async_client.post(
+            f"/api/v1/notifications/{notification_id}/read",
+            headers=mentioned_headers
+        )
+        assert read_response.status_code == 200
+
+        # Verify notification is now marked as read
+        notifications_response = await async_client.get(
+            "/api/v1/notifications", 
+            headers=mentioned_headers
+        )
+        assert notifications_response.status_code == 200
+        notifications_data = notifications_response.json()
+        assert len(notifications_data) == 1
+        assert notifications_data[0]["read"] == True
+
+        # Check updated summary
+        summary_response = await async_client.get(
+            "/api/v1/notifications/summary",
+            headers=mentioned_headers
+        )
+        assert summary_response.status_code == 200
+        summary_data = summary_response.json()
+        assert summary_data["unread_count"] == 0
+        assert summary_data["total_count"] == 1

@@ -403,30 +403,27 @@ class NotificationService(BaseService):
         Returns:
             Optional[Notification]: The created notification, or None if not created
         """
-        # Create notification service instance to check rate limit
-        notification_service = NotificationService(db)
-        
-        # Check rate limit for mention notifications
-        if not await notification_service._check_notification_rate_limit(
-            mentioned_user_id, 'mention'
-        ):
-            logger.info(
-                f"Mention notification blocked due to rate limit for user {mentioned_user_id}"
-            )
-            return None
-        
-        return await notification_service.create_notification(
+        # Create the notification object
+        notification = Notification.create_mention_notification(
             user_id=mentioned_user_id,
-            notification_type='mention',
-            title='You were mentioned',
-            message=f'{author_username} mentioned you in a post: {post_preview[:50]}...',
-            data={
-                'post_id': post_id,
-                'author_username': author_username,
-                'post_preview': post_preview
-            },
-            respect_rate_limit=False  # Already checked above
+            author_username=author_username,
+            post_id=post_id,
+            post_preview=post_preview
         )
+        
+        # Create notification repository and save
+        notification_repo = NotificationRepository(db)
+        created_notification = await notification_repo.create(
+            user_id=notification.user_id,
+            type=notification.type,
+            title=notification.title,
+            message=notification.message,
+            data=notification.data,
+            batch_key=notification.batch_key
+        )
+        
+        logger.info(f"Created mention notification for user {mentioned_user_id}")
+        return created_notification
 
     @staticmethod
     async def create_share_notification(
