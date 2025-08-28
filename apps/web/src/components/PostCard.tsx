@@ -6,6 +6,7 @@ import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
 import ShareModal from "./ShareModal"
+import MentionHighlighter from "./MentionHighlighter"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
@@ -348,7 +349,18 @@ export default function PostCard({
 
         {/* Post Content */}
         <div className={styling.content}>
-          <p className={`${styling.text} text-gray-900`}>{post.content}</p>
+          <p className={`${styling.text} text-gray-900`}>
+            <MentionHighlighter
+              content={post.content}
+              onMentionClick={(username) => {
+                // Navigate to user profile by username
+                // For now, we'll use the existing onUserClick handler
+                // In a real implementation, we'd need to resolve username to user ID
+                console.log(`Navigate to user profile: @${username}`)
+                // TODO: Implement username to user ID resolution
+              }}
+            />
+          </p>
           {post.imageUrl && (
             <img
               src={getImageUrl(post.imageUrl) || post.imageUrl}

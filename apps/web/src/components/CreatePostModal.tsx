@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from "react"
 import { X, Camera, MapPin, Type, Image as ImageIcon, Zap } from "lucide-react"
 import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
+import { extractMentions } from "@/utils/mentionUtils"
+import MentionAutocomplete from "./MentionAutocomplete"
+import { UserInfo } from "@/../../shared/types/core"
 
 interface CreatePostModalProps {
   isOpen: boolean
@@ -13,6 +16,7 @@ interface CreatePostModalProps {
     imageUrl?: string
     location?: string
     imageFile?: File
+    mentions?: string[]
   }) => void
 }
 
@@ -64,6 +68,12 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const modalRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Mention autocomplete state
+  const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false)
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 })
+  const [currentMentionStart, setCurrentMentionStart] = useState(-1)
+
   // Get current post type config
   const currentPostType = POST_TYPES.find(type => type.id === postData.postType)!
   const maxChars = currentPostType.maxChars
@@ -82,11 +92,20 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
   }, [isOpen, onClose])
 
-  // Handle escape key
+  // Handle escape key and mention autocomplete navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // If mention autocomplete is open, let it handle navigation keys
+      if (showMentionAutocomplete && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
+        return // Let MentionAutocomplete handle these
+      }
+      
       if (event.key === 'Escape') {
-        onClose()
+        if (showMentionAutocomplete) {
+          handleMentionClose()
+        } else {
+          onClose()
+        }
       }
     }
 
@@ -94,7 +113,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, showMentionAutocomplete])
 
   // Focus textarea when modal opens
   useEffect(() => {
@@ -151,12 +170,17 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     setIsSubmitting(true)
 
     try {
+      // Extract mentions from content
+      const mentions = extractMentions(postData.content.trim())
+      const mentionUsernames = mentions.map(m => m.username)
+
       await onSubmit({
         content: postData.content.trim(),
         postType: postData.postType,
         imageUrl: postData.imageUrl || undefined,
         location: postData.location || undefined,
-        imageFile: imageFile || undefined
+        imageFile: imageFile || undefined,
+        mentions: mentionUsernames.length > 0 ? mentionUsernames : undefined
       })
 
       // Clear form and draft on successful submission
@@ -253,6 +277,69 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     alert('Location picker coming soon!')
   }
 
+  // Handle mention detection and autocomplete
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value
+    const cursorPosition = e.target.selectionStart || 0
+    
+    setPostData({ ...postData, content: newContent })
+
+    // Check for @ mention at cursor position
+    const textBeforeCursor = newContent.slice(0, cursorPosition)
+    const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/)
+    
+    if (mentionMatch) {
+      const mentionStart = cursorPosition - mentionMatch[0].length
+      const query = mentionMatch[1] || '' // Ensure query is never undefined
+      
+      // Simple position calculation for testing
+      const rect = textareaRef.current?.getBoundingClientRect()
+      const x = rect ? rect.left + 16 : 16
+      const y = rect ? rect.top + 24 : 24
+      
+      setMentionPosition({ x, y })
+      setCurrentMentionStart(mentionStart)
+      setMentionQuery(query)
+      setShowMentionAutocomplete(true)
+    } else {
+      setShowMentionAutocomplete(false)
+      setMentionQuery('')
+      setCurrentMentionStart(-1)
+    }
+  }
+
+  const handleMentionSelect = (user: UserInfo) => {
+    if (currentMentionStart >= 0 && textareaRef.current) {
+      const textarea = textareaRef.current
+      const currentContent = postData.content
+      const cursorPosition = textarea.selectionStart
+      
+      // Replace the partial mention with the selected username
+      const beforeMention = currentContent.slice(0, currentMentionStart)
+      const afterCursor = currentContent.slice(cursorPosition)
+      const newContent = `${beforeMention}@${user.username} ${afterCursor}`
+      
+      setPostData({ ...postData, content: newContent })
+      
+      // Set cursor position after the inserted mention
+      const newCursorPosition = currentMentionStart + user.username.length + 2 // +2 for @ and space
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition)
+      }, 0)
+    }
+    
+    setShowMentionAutocomplete(false)
+    setMentionQuery('')
+    setCurrentMentionStart(-1)
+  }
+
+  const handleMentionClose = () => {
+    setShowMentionAutocomplete(false)
+    setMentionQuery('')
+    setCurrentMentionStart(-1)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -331,9 +418,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 <textarea
                   ref={textareaRef}
                   value={postData.content}
-                  onChange={(e) => setPostData({ ...postData, content: e.target.value })}
+                  onChange={handleContentChange}
                   className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                  placeholder={`Share what you're grateful for today...`}
+                  placeholder={`Share what you're grateful for today... (Use @username to mention someone)`}
                   maxLength={maxChars}
                 />
                 <div className="flex justify-between items-center mt-2">
@@ -433,6 +520,15 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             </div>
           </form>
         </div>
+
+        {/* Mention Autocomplete */}
+        <MentionAutocomplete
+          isOpen={showMentionAutocomplete}
+          searchQuery={mentionQuery}
+          onUserSelect={handleMentionSelect}
+          onClose={handleMentionClose}
+          position={mentionPosition}
+        />
       </div>
     </>
   )

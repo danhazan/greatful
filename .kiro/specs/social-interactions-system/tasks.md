@@ -137,9 +137,9 @@ The implementation maintains consistency with the reference implementation's pur
 **Module Reference:** Requirements 3 - Mention System with User Search
 - [x] Create Mention database model and MentionService for user search
 - [x] Implement POST /api/v1/users/search endpoint with autocomplete functionality
-- [ ] Build MentionAutocomplete component with debounced search (300ms)
-- [ ] Add @username detection and highlighting in post content
-- [ ] Integrate mention autocomplete into post creation modal
+- [x] Build MentionAutocomplete component with debounced search (300ms)
+- [x] Add @username detection and highlighting in post content
+- [x] Integrate mention autocomplete into post creation modal
 - [ ] Create mention notifications when users are mentioned in posts
 - [ ] Implement click-to-profile navigation for mentioned users
 - [ ] Write tests for mention extraction, search, and notification workflows
