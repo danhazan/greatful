@@ -48,7 +48,7 @@ export default function MentionAutocomplete({
       setLoading(true)
       
       try {
-        const token = localStorage.getItem('token')
+        const token = localStorage.getItem('access_token')
         if (!token) {
           console.error('No auth token found')
           setUsers([])

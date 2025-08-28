@@ -139,7 +139,7 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Implement POST /api/v1/users/search endpoint with autocomplete functionality
 - [x] Build MentionAutocomplete component with debounced search (300ms)
 - [x] Add @username detection and highlighting in post content
-- [x] Integrate mention autocomplete into post creation modal
+- [ ] Integrate mention autocomplete into post creation modal
 - [ ] Create mention notifications when users are mentioned in posts
 - [ ] Implement click-to-profile navigation for mentioned users
 - [ ] Write tests for mention extraction, search, and notification workflows
