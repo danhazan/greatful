@@ -34,7 +34,7 @@ export async function POST(
       return NextResponse.json(data, { status: response.status })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(data, { status: response.status })
   } catch (error) {
     console.error('Share API error:', error)
     return NextResponse.json(

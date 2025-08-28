@@ -207,7 +207,7 @@ class ShareService(BaseService):
             post_id=post_id,
             share_method=ShareMethod.message.value,
             recipient_user_ids=valid_recipients,  # Store directly as JSON array
-            message_content=message.strip() if message else None
+            message_content=message.strip() if message and message.strip() else None
         )
         
         # Create notifications for recipients
