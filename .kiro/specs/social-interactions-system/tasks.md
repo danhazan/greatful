@@ -139,8 +139,8 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Implement POST /api/v1/users/search endpoint with autocomplete functionality
 - [x] Build MentionAutocomplete component with debounced search (300ms)
 - [x] Add @username detection and highlighting in post content
-- [ ] Integrate mention autocomplete into post creation modal
-- [ ] Create mention notifications when users are mentioned in posts
+- [x] Integrate mention autocomplete into post creation modal
+- [x] Create mention notifications when users are mentioned in posts
 - [ ] Implement click-to-profile navigation for mentioned users
 - [ ] Write tests for mention extraction, search, and notification workflows
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify Mention model, MentionService, and user search API endpoints work correctly. Run frontend tests (`npm test`) to verify MentionAutocomplete component, @username detection, and post creation integration. Run integration tests to verify end-to-end mention workflow including notifications and navigation.

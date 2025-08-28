@@ -20,6 +20,7 @@ from app.core.security import decode_token
 from app.models.post import Post, PostType
 from app.models.user import User
 from app.services.share_service import ShareService
+from app.services.mention_service import MentionService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -229,6 +230,18 @@ async def create_post_json(
         await db.commit()
         await db.refresh(db_post)
         
+        # Process mentions in the post content
+        try:
+            mention_service = MentionService(db)
+            await mention_service.create_mentions(
+                post_id=db_post.id,
+                author_id=current_user_id,
+                content=post_data.content
+            )
+        except Exception as e:
+            logger.error(f"Error processing mentions for post {db_post.id}: {e}")
+            # Don't fail post creation if mention processing fails
+        
         # Format response
         return PostResponse(
             id=db_post.id,
@@ -330,6 +343,18 @@ async def create_post_with_file(
         db.add(db_post)
         await db.commit()
         await db.refresh(db_post)
+
+        # Process mentions in the post content
+        try:
+            mention_service = MentionService(db)
+            await mention_service.create_mentions(
+                post_id=db_post.id,
+                author_id=current_user_id,
+                content=post_data.content
+            )
+        except Exception as e:
+            logger.error(f"Error processing mentions for post {db_post.id}: {e}")
+            # Don't fail post creation if mention processing fails
 
         # Format response
         return PostResponse(

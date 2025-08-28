@@ -29,6 +29,7 @@ class NotificationService(BaseService):
         super().__init__(db)
         self.notification_repo = NotificationRepository(db)
         self.user_repo = UserRepository(db)
+        self.user_repo = UserRepository(db)
 
     @monitor_query("check_notification_rate_limit")
     async def _check_notification_rate_limit(
@@ -402,17 +403,19 @@ class NotificationService(BaseService):
         Returns:
             Optional[Notification]: The created notification, or None if not created
         """
+        # Create notification service instance to check rate limit
+        notification_service = NotificationService(db)
+        
         # Check rate limit for mention notifications
-        if not await NotificationService._check_notification_rate_limit(
-            db, mentioned_user_id, 'mention'
+        if not await notification_service._check_notification_rate_limit(
+            mentioned_user_id, 'mention'
         ):
             logger.info(
                 f"Mention notification blocked due to rate limit for user {mentioned_user_id}"
             )
             return None
         
-        return await NotificationService.create_notification(
-            db=db,
+        return await notification_service.create_notification(
             user_id=mentioned_user_id,
             notification_type='mention',
             title='You were mentioned',
