@@ -310,6 +310,68 @@ When users type `@username` to mention someone, the autocomplete dropdown appear
 
 **Implementation Complexity**: High - Requires complex cursor coordinate calculation, text measurement, and handling of line breaks/wrapping.
 
+### Username Standards Not Enforced
+**Issue**: Platform allows usernames with special characters but doesn't enforce consistent standards  
+**Status**: ⚠️ Active Issue  
+**Priority**: Low  
+**Impact**: Platform Consistency & Future Compatibility  
+**Discovered**: August 28, 2025  
+
+**Description**:
+The platform currently allows usernames to contain special characters like dots, dashes, question marks, exclamation marks, and plus signs. While this works functionally, it creates inconsistency and potential future compatibility issues with the mention system and other features.
+
+**Technical Details**:
+- Backend: No username validation constraints currently ✅ (works but not standardized)
+- Database: Username column accepts any string format ✅ (functional but not restricted)
+- Frontend: Mention system supports special characters via regex `[a-zA-Z0-9_\-\.\?\!\+]` ✅ (works but complex)
+- Issue: No platform-wide username standards enforced ❌
+
+**Current Behavior**:
+- Users can create usernames like `user.name`, `test-user`, `user+123`, `user!name`
+- Mention system recognizes and processes these usernames correctly
+- All functionality works but creates inconsistent user experience
+
+**Recommended Standards** (for future implementation):
+- Usernames should only contain letters (a-z, A-Z), numbers (0-9), and underscores (_)
+- This would align with most social platforms and simplify mention processing
+- Would require migration strategy for existing users with special characters
+
+**Impact**:
+- **Current**: No functional issues, all features work correctly
+- **Future**: May complicate feature development and user experience consistency
+- **Migration**: Would require careful handling of existing users with special character usernames
+
+**Examples of Current Valid Usernames**:
+- `Bob7??` (question marks)
+- `alice.doe-123` (dots and dashes)  
+- `user+name` (plus signs)
+- `test!user` (exclamation marks)
+- `simple_user` (underscores - would remain valid)
+
+**Reproduction Steps**:
+1. Create account with username containing special characters (e.g., `test.user`)
+2. Observe account creation succeeds
+3. Test mention functionality with `@test.user`
+4. Note that everything works but username format is inconsistent with typical standards
+
+**Root Cause**: 
+- No username validation was implemented during initial development
+- Focus was on functionality over standardization
+- Current regex pattern supports wide range of characters for flexibility
+
+**Workaround**: Current system works perfectly - this is a standardization/consistency issue, not a functional problem.
+
+**Priority**: Low - No functional impact, purely a platform consistency and future-proofing consideration.
+
+**Implementation Complexity**: Medium - Would require:
+- Backend validation updates
+- Database migration for existing users
+- Frontend mention system updates
+- Comprehensive testing
+- User communication about username changes
+
+**Planned Resolution**: Scheduled for Phase 2 (post-MVP) as "Username Validation Standards" feature.
+
 ---
 
 ## 📊 Test Status Summary

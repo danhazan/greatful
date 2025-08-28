@@ -63,7 +63,7 @@ export interface ContentPart {
   username?: string // Only present if isMention is true
 }
 
-export function splitContentWithMentions(content: string): ContentPart[] {
+export function splitContentWithMentions(content: string, validUsernames?: string[]): ContentPart[] {
   if (!content) return [{ text: content, isMention: false }]
   
   const mentions = extractMentions(content)
@@ -84,12 +84,14 @@ export function splitContentWithMentions(content: string): ContentPart[] {
       }
     }
     
-    // Add mention part
+    // Add mention part - only mark as mention if username is in validUsernames array
     const mentionText = content.slice(mention.startIndex, mention.endIndex)
+    const isValidMention = validUsernames ? validUsernames.includes(mention.username) : false
+    
     parts.push({
       text: mentionText,
-      isMention: true,
-      username: mention.username
+      isMention: isValidMention,
+      username: isValidMention ? mention.username : undefined
     })
     
     lastIndex = mention.endIndex

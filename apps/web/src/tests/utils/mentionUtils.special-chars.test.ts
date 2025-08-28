@@ -71,7 +71,7 @@ describe('MentionUtils - Special Characters Support', () => {
   describe('splitContentWithMentions', () => {
     it('should split content with special character usernames correctly', () => {
       const content = 'Thanks @Bob7?? for help!'
-      const parts = splitContentWithMentions(content)
+      const parts = splitContentWithMentions(content, ['Bob7??'])
       
       expect(parts).toHaveLength(3)
       expect(parts[0]).toEqual({ text: 'Thanks ', isMention: false })
@@ -85,7 +85,7 @@ describe('MentionUtils - Special Characters Support', () => {
 
     it('should handle multiple mentions with special characters', () => {
       const content = 'Hey @alice.doe-123 and @Bob7?? here'
-      const parts = splitContentWithMentions(content)
+      const parts = splitContentWithMentions(content, ['alice.doe-123', 'Bob7??'])
       
       expect(parts).toHaveLength(5)
       expect(parts[0]).toEqual({ text: 'Hey ', isMention: false })

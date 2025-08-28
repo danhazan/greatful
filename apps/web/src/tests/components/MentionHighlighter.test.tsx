@@ -23,7 +23,7 @@ describe('MentionHighlighter', () => {
 
   it('should highlight single mention', () => {
     render(
-      <MentionHighlighter content="Hello @john, how are you?" />
+      <MentionHighlighter content="Hello @john, how are you?" validUsernames={['john']} />
     )
     
     expect(screen.getByText((content, element) => {
@@ -40,7 +40,7 @@ describe('MentionHighlighter', () => {
 
   it('should highlight multiple mentions', () => {
     render(
-      <MentionHighlighter content="Hey @alice and @bob, check this out!" />
+      <MentionHighlighter content="Hey @alice and @bob, check this out!" validUsernames={['alice', 'bob']} />
     )
     
     expect(screen.getByText((content, element) => {
@@ -64,7 +64,7 @@ describe('MentionHighlighter', () => {
 
   it('should handle content starting with mention', () => {
     render(
-      <MentionHighlighter content="@john hello there" />
+      <MentionHighlighter content="@john hello there" validUsernames={['john']} />
     )
     
     expect(screen.getByText('@john')).toBeInTheDocument()
@@ -78,7 +78,7 @@ describe('MentionHighlighter', () => {
 
   it('should handle content ending with mention', () => {
     render(
-      <MentionHighlighter content="Hello @john" />
+      <MentionHighlighter content="Hello @john" validUsernames={['john']} />
     )
     
     expect(screen.getByText((content, element) => {
@@ -97,6 +97,7 @@ describe('MentionHighlighter', () => {
       <MentionHighlighter 
         content="Hello @john" 
         onMentionClick={mockOnMentionClick}
+        validUsernames={['john']}
       />
     )
     
@@ -113,6 +114,7 @@ describe('MentionHighlighter', () => {
       <MentionHighlighter 
         content="Hey @alice and @bob" 
         onMentionClick={mockOnMentionClick}
+        validUsernames={['alice', 'bob']}
       />
     )
     
@@ -137,6 +139,7 @@ describe('MentionHighlighter', () => {
         <MentionHighlighter 
           content="Hello @john" 
           onMentionClick={mockOnMentionClick}
+          validUsernames={['john']}
         />
       </div>
     )
@@ -162,7 +165,7 @@ describe('MentionHighlighter', () => {
 
   it('should handle usernames with numbers and underscores', () => {
     render(
-      <MentionHighlighter content="Hello @user_123 and @test456" />
+      <MentionHighlighter content="Hello @user_123 and @test456" validUsernames={['user_123', 'test456']} />
     )
     
     expect(screen.getByText('@user_123')).toBeInTheDocument()
@@ -189,7 +192,7 @@ describe('MentionHighlighter', () => {
 
   it('should have proper accessibility attributes', () => {
     render(
-      <MentionHighlighter content="Hello @john" />
+      <MentionHighlighter content="Hello @john" validUsernames={['john']} />
     )
     
     const mentionElement = screen.getByText('@john')
@@ -198,7 +201,7 @@ describe('MentionHighlighter', () => {
 
   it('should have hover styles', () => {
     render(
-      <MentionHighlighter content="Hello @john" />
+      <MentionHighlighter content="Hello @john" validUsernames={['john']} />
     )
     
     const mentionElement = screen.getByText('@john')
@@ -208,7 +211,7 @@ describe('MentionHighlighter', () => {
   it('should not call onMentionClick when not provided', () => {
     // This test ensures no errors occur when onMentionClick is not provided
     render(
-      <MentionHighlighter content="Hello @john" />
+      <MentionHighlighter content="Hello @john" validUsernames={['john']} />
     )
     
     const mentionElement = screen.getByText('@john')
@@ -217,5 +220,73 @@ describe('MentionHighlighter', () => {
     expect(() => {
       fireEvent.click(mentionElement)
     }).not.toThrow()
+  })
+
+  // New tests for validation behavior
+  it('should not highlight mentions when validUsernames is not provided', () => {
+    render(<MentionHighlighter content="Hello @john and @jane" />)
+    
+    const johnMention = screen.getByText('@john')
+    const janeMention = screen.getByText('@jane')
+    
+    expect(johnMention).not.toHaveClass('mention')
+    expect(johnMention).not.toHaveClass('text-purple-600')
+    expect(janeMention).not.toHaveClass('mention')
+    expect(janeMention).not.toHaveClass('text-purple-600')
+  })
+
+  it('should only highlight mentions that are in validUsernames', () => {
+    render(
+      <MentionHighlighter 
+        content="Hello @john and @jane" 
+        validUsernames={['john']} // Only john is valid
+      />
+    )
+    
+    const johnMention = screen.getByText('@john')
+    const janeMention = screen.getByText('@jane')
+    
+    expect(johnMention).toHaveClass('mention', 'text-purple-600')
+    expect(janeMention).not.toHaveClass('mention')
+    expect(janeMention).not.toHaveClass('text-purple-600')
+  })
+
+  it('should not highlight any mentions when validUsernames is empty', () => {
+    render(
+      <MentionHighlighter 
+        content="Hello @john and @jane" 
+        validUsernames={[]} // Empty array
+      />
+    )
+    
+    const johnMention = screen.getByText('@john')
+    const janeMention = screen.getByText('@jane')
+    
+    expect(johnMention).not.toHaveClass('mention')
+    expect(janeMention).not.toHaveClass('mention')
+  })
+
+  it('should not call onMentionClick for non-validated mentions', () => {
+    const mockOnMentionClick = jest.fn()
+    
+    render(
+      <MentionHighlighter 
+        content="Hello @john and @jane" 
+        validUsernames={['john']} // Only john is valid
+        onMentionClick={mockOnMentionClick}
+      />
+    )
+    
+    const johnMention = screen.getByText('@john')
+    const janeMention = screen.getByText('@jane')
+    
+    // Click on valid mention - should call handler
+    fireEvent.click(johnMention)
+    expect(mockOnMentionClick).toHaveBeenCalledWith('john')
+    
+    // Click on invalid mention - should not call handler
+    mockOnMentionClick.mockClear()
+    fireEvent.click(janeMention)
+    expect(mockOnMentionClick).not.toHaveBeenCalled()
   })
 })

@@ -7,6 +7,7 @@ interface MentionHighlighterProps {
   content: string
   className?: string
   onMentionClick?: (username: string) => void
+  validUsernames?: string[]
 }
 
 /**
@@ -16,13 +17,14 @@ interface MentionHighlighterProps {
 export default function MentionHighlighter({
   content,
   className = '',
-  onMentionClick
+  onMentionClick,
+  validUsernames
 }: MentionHighlighterProps) {
   if (!content) {
     return <span className={className}></span>
   }
 
-  const parts = splitContentWithMentions(content)
+  const parts = splitContentWithMentions(content, validUsernames)
 
   return (
     <span className={className}>

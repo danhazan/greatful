@@ -1,0 +1,156 @@
+import React from 'react'
+import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, jest, beforeEach } from '@jest/globals'
+import PostCard from '@/components/PostCard'
+
+// Mock the validateUsernames function
+jest.mock('@/utils/mentionUtils', () => ({
+  ...jest.requireActual('@/utils/mentionUtils'),
+}))
+
+// Mock auth utilities
+const mockIsAuthenticated = jest.fn(() => true)
+const mockCanInteract = jest.fn(() => true)
+const mockGetAccessToken = jest.fn(() => 'mock-token')
+
+jest.mock('@/utils/auth', () => ({
+  isAuthenticated: mockIsAuthenticated,
+  canInteract: mockCanInteract,
+  getAccessToken: mockGetAccessToken
+}))
+
+// Mock analytics service
+jest.mock('@/services/analytics', () => ({
+  default: {
+    trackViewEvent: jest.fn(),
+    trackHeartEvent: jest.fn(),
+    trackReactionEvent: jest.fn(),
+    trackShareEvent: jest.fn()
+  }
+}))
+
+// Mock image utils
+jest.mock('@/utils/imageUtils', () => ({
+  getImageUrl: (url: string) => url
+}))
+
+// Mock fetch for username validation
+global.fetch = jest.fn()
+
+// Mock localStorage
+const localStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+}
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock
+})
+
+describe('PostCard Mention Validation', () => {
+  const mockPost = {
+    id: '1',
+    content: '@Bob7 @juan',
+    author: {
+      id: '1',
+      name: 'Test User',
+      image: 'test-image.jpg'
+    },
+    createdAt: '2024-01-01T00:00:00Z',
+    postType: 'daily' as const,
+    heartsCount: 0,
+    isHearted: false,
+    reactionsCount: 0
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    
+    // Reset auth mocks to default values
+    mockIsAuthenticated.mockReturnValue(true)
+    mockGetAccessToken.mockReturnValue('mock-token')
+    
+    // Set up localStorage to return a token by default
+    localStorageMock.getItem.mockReturnValue('mock-token')
+  })
+
+  it('should only highlight usernames that exist in database', async () => {
+    // Mock fetch to return success for Bob7 but 404 for juan
+    ;(global.fetch as jest.MockedFunction<typeof fetch>).mockImplementation((url) => {
+      if (typeof url === 'string' && url.includes('/api/users/username/Bob7')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: { id: 1, username: 'Bob7' } })
+        } as Response)
+      }
+      if (typeof url === 'string' && url.includes('/api/users/username/juan')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404
+        } as Response)
+      }
+      return Promise.reject(new Error('Unexpected URL'))
+    })
+
+    render(
+      <PostCard 
+        post={mockPost} 
+        currentUserId="2"
+      />
+    )
+
+    // Wait for the validation to complete
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/users/username/Bob7'),
+        expect.any(Object)
+      )
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/users/username/juan'),
+        expect.any(Object)
+      )
+    }, { timeout: 3000 })
+
+    // Check that both mentions are rendered
+    expect(screen.getByText(/@Bob7/)).toBeInTheDocument()
+    expect(screen.getByText(/@juan/)).toBeInTheDocument()
+
+    // Wait a bit more for the validation to complete and re-render
+    await waitFor(() => {
+      // Bob7 should have mention styling (purple)
+      const bob7Element = screen.getByText('@Bob7')
+      expect(bob7Element).toHaveClass('mention', 'text-purple-600')
+      
+      // juan should NOT have mention styling
+      const juanElement = screen.getByText('@juan')
+      expect(juanElement).not.toHaveClass('mention')
+      expect(juanElement).not.toHaveClass('text-purple-600')
+    }, { timeout: 3000 })
+  })
+
+  it('should not highlight any usernames when user is not authenticated', async () => {
+    // Mock localStorage to return null (no token)
+    localStorageMock.getItem.mockReturnValue(null)
+
+    render(
+      <PostCard 
+        post={mockPost} 
+        // No currentUserId provided (unauthenticated)
+      />
+    )
+
+    // Wait a bit to ensure no validation is triggered
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // fetch should not be called for unauthenticated users
+    expect(global.fetch).not.toHaveBeenCalled()
+
+    // Both mentions should be rendered but without highlighting
+    const bob7Element = screen.getByText('@Bob7')
+    const juanElement = screen.getByText('@juan')
+    
+    expect(bob7Element).not.toHaveClass('mention')
+    expect(juanElement).not.toHaveClass('mention')
+  })
+})

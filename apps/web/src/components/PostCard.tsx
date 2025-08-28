@@ -12,6 +12,7 @@ import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
 import { isAuthenticated, canInteract, getAccessToken } from "@/utils/auth"
+import { getUniqueUsernames } from "@/utils/mentionUtils"
 
 interface Post {
   id: string
@@ -63,6 +64,7 @@ export default function PostCard({
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
   const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
   const [hasTrackedView, setHasTrackedView] = useState(false)
+  const [validUsernames, setValidUsernames] = useState<string[]>([])
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const shareButtonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
@@ -79,6 +81,63 @@ export default function PostCard({
       setHasTrackedView(true)
     }
   }, [post.id, hasTrackedView, currentUserId])
+
+  // Validate usernames in post content
+  useEffect(() => {
+    const validateMentions = async () => {
+
+      if (!post.content || !isAuthenticated() || !currentUserId) {
+        setValidUsernames([])
+        return
+      }
+
+      const usernames = getUniqueUsernames(post.content)
+      if (usernames.length === 0) {
+        setValidUsernames([])
+        return
+      }
+
+      try {
+        const token = getAccessToken()
+        if (!token) {
+          setValidUsernames([])
+          return
+        }
+
+        const validUsernames: string[] = []
+        
+        // Check each username individually
+        for (const username of usernames) {
+          try {
+            const response = await fetch(`/api/users/username/${encodeURIComponent(username)}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+            
+            if (response.ok) {
+              validUsernames.push(username)
+            }
+            // Silently ignore 404s - they're expected for non-existent users
+          } catch (error) {
+            // Network errors - continue to next username
+            continue
+          }
+        }
+        
+        setValidUsernames(validUsernames)
+      } catch (error) {
+        // Only log errors in development
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error validating usernames:', error)
+        }
+        setValidUsernames([])
+      }
+    }
+
+    validateMentions()
+  }, [post.content, currentUserId])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -390,6 +449,7 @@ export default function PostCard({
             <MentionHighlighter
               content={post.content}
               onMentionClick={handleMentionClick}
+              validUsernames={validUsernames}
             />
           </p>
           {post.imageUrl && (

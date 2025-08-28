@@ -103,9 +103,9 @@ describe('mentionUtils', () => {
   })
 
   describe('splitContentWithMentions', () => {
-    it('should split content with single mention', () => {
+    it('should split content with single mention when username is valid', () => {
       const content = 'Hello @john, how are you?'
-      const parts = splitContentWithMentions(content)
+      const parts = splitContentWithMentions(content, ['john'])
       
       expect(parts).toHaveLength(3)
       expect(parts[0]).toEqual({ text: 'Hello ', isMention: false })
@@ -113,9 +113,9 @@ describe('mentionUtils', () => {
       expect(parts[2]).toEqual({ text: ', how are you?', isMention: false })
     })
 
-    it('should split content with multiple mentions', () => {
+    it('should split content with multiple mentions when usernames are valid', () => {
       const content = 'Hey @alice and @bob here'
-      const parts = splitContentWithMentions(content)
+      const parts = splitContentWithMentions(content, ['alice', 'bob'])
       
       expect(parts).toHaveLength(5)
       expect(parts[0]).toEqual({ text: 'Hey ', isMention: false })
@@ -125,18 +125,18 @@ describe('mentionUtils', () => {
       expect(parts[4]).toEqual({ text: ' here', isMention: false })
     })
 
-    it('should handle content starting with mention', () => {
+    it('should handle content starting with mention when username is valid', () => {
       const content = '@john hello there'
-      const parts = splitContentWithMentions(content)
+      const parts = splitContentWithMentions(content, ['john'])
       
       expect(parts).toHaveLength(2)
       expect(parts[0]).toEqual({ text: '@john', isMention: true, username: 'john' })
       expect(parts[1]).toEqual({ text: ' hello there', isMention: false })
     })
 
-    it('should handle content ending with mention', () => {
+    it('should handle content ending with mention when username is valid', () => {
       const content = 'Hello @john'
-      const parts = splitContentWithMentions(content)
+      const parts = splitContentWithMentions(content, ['john'])
       
       expect(parts).toHaveLength(2)
       expect(parts[0]).toEqual({ text: 'Hello ', isMention: false })
@@ -151,14 +151,46 @@ describe('mentionUtils', () => {
       expect(parts[0]).toEqual({ text: 'No mentions here', isMention: false })
     })
 
-    it('should handle consecutive mentions', () => {
+    it('should handle consecutive mentions when usernames are valid', () => {
       const content = '@alice@bob hello'
-      const parts = splitContentWithMentions(content)
+      const parts = splitContentWithMentions(content, ['alice', 'bob'])
       
       expect(parts).toHaveLength(3)
       expect(parts[0]).toEqual({ text: '@alice', isMention: true, username: 'alice' })
       expect(parts[1]).toEqual({ text: '@bob', isMention: true, username: 'bob' })
       expect(parts[2]).toEqual({ text: ' hello', isMention: false })
+    })
+
+    it('should not highlight mentions when no validUsernames provided', () => {
+      const content = 'Hello @john, how are you?'
+      const parts = splitContentWithMentions(content)
+      
+      expect(parts).toHaveLength(3)
+      expect(parts[0]).toEqual({ text: 'Hello ', isMention: false })
+      expect(parts[1]).toEqual({ text: '@john', isMention: false, username: undefined })
+      expect(parts[2]).toEqual({ text: ', how are you?', isMention: false })
+    })
+
+    it('should not highlight mentions when username is not in validUsernames', () => {
+      const content = 'Hello @john and @jane'
+      const parts = splitContentWithMentions(content, ['john']) // Only john is valid
+      
+      expect(parts).toHaveLength(4)
+      expect(parts[0]).toEqual({ text: 'Hello ', isMention: false })
+      expect(parts[1]).toEqual({ text: '@john', isMention: true, username: 'john' })
+      expect(parts[2]).toEqual({ text: ' and ', isMention: false })
+      expect(parts[3]).toEqual({ text: '@jane', isMention: false, username: undefined })
+    })
+
+    it('should not highlight any mentions when validUsernames is empty', () => {
+      const content = 'Hello @john and @jane'
+      const parts = splitContentWithMentions(content, []) // Empty array
+      
+      expect(parts).toHaveLength(4)
+      expect(parts[0]).toEqual({ text: 'Hello ', isMention: false })
+      expect(parts[1]).toEqual({ text: '@john', isMention: false, username: undefined })
+      expect(parts[2]).toEqual({ text: ' and ', isMention: false })
+      expect(parts[3]).toEqual({ text: '@jane', isMention: false, username: undefined })
     })
   })
 
