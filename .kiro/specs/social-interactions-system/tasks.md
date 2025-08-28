@@ -130,12 +130,12 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Add clipboard integration with success feedback
 - [x] Implement authentication-based interaction controls (logged-in users can interact, logged-out users see counters only)
 - [x] Write tests for basic sharing workflows
-- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify Share model, ShareService, and API endpoints work correctly. Run frontend tests (`npm test`) to verify ShareModal component and clipboard functionality. Run integration tests to verify end-to-end sharing workflow.
+- [x] **Test Execution:** Run backend tests (`pytest -v`) to verify Share model, ShareService, and API endpoints work correctly. Run frontend tests (`npm test`) to verify ShareModal component and clipboard functionality. Run integration tests to verify end-to-end sharing workflow.
 **Acceptance Criteria:** Users can share posts via URL copy using a small popup box, shared links work properly with SEO and proper navbar, logged-in users can interact with shared posts while logged-out users only see counters, and author names/pictures are clickable to profiles.
 
 ### **TASK 5: Mention System with User Search** 
 **Module Reference:** Requirements 3 - Mention System with User Search
-- [ ] Create Mention database model and MentionService for user search
+- [-] Create Mention database model and MentionService for user search
 - [ ] Implement POST /api/v1/users/search endpoint with autocomplete functionality
 - [ ] Build MentionAutocomplete component with debounced search (300ms)
 - [ ] Add @username detection and highlighting in post content

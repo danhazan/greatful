@@ -9,5 +9,6 @@ from .like import Like
 from .emoji_reaction import EmojiReaction
 from .notification import Notification
 from .share import Share
+from .mention import Mention
 
-__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification", "Share"]
+__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification", "Share", "Mention"]
