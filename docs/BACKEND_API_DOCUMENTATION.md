@@ -105,6 +105,14 @@ shared/types/             # Shared type definitions (TypeScript/Python)
 - **Batch Operations**: Intelligent batching, mark all as read, notification statistics, and parent-child relationships
 - **API Integration**: Full REST API with pagination, filtering, and batch expansion functionality
 
+#### 8. **Mention System with User Search**
+- **@Username Detection**: Automatic detection and parsing of @username mentions in post content
+- **User Search API**: Debounced autocomplete search with username matching and profile data
+- **Batch Validation**: Efficient validation of multiple usernames to prevent highlighting non-existent users
+- **Mention Notifications**: Automatic notification creation when users are mentioned in posts
+- **Profile Navigation**: Click-to-navigate functionality from mentions to user profiles
+- **Security**: Proper authentication and rate limiting for search and validation endpoints
+
 ## 🔗 Shared Type System & API Contracts
 
 ### Type Safety Architecture
@@ -185,6 +193,9 @@ PUT    /api/v1/users/me/profile          # Update current user's profile
 GET    /api/v1/users/me/posts            # Get current user's posts with engagement data
 GET    /api/v1/users/{user_id}/profile   # Get another user's public profile
 GET    /api/v1/users/{user_id}/posts     # Get another user's public posts
+POST   /api/v1/users/search              # Search users by username (for mentions)
+POST   /api/v1/users/validate-batch      # Validate multiple usernames for mention highlighting
+GET    /api/v1/users/username/{username} # Get user profile by username
 ```
 
 ### Posts
@@ -214,6 +225,13 @@ POST   /api/v1/posts/{post_id}/reactions # Add emoji reaction to post
 DELETE /api/v1/posts/{post_id}/reactions # Remove user's reaction from post
 GET    /api/v1/posts/{post_id}/reactions # Get all reactions for post
 GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
+```
+
+### Mentions & User Search
+```
+POST   /api/v1/users/search              # Search users by username with autocomplete
+POST   /api/v1/users/validate-batch      # Validate multiple usernames for mention highlighting
+GET    /api/v1/users/username/{username} # Get user profile by username for mention navigation
 ```
 
 ## 🏛️ Service Layer & Repository Pattern
@@ -428,6 +446,100 @@ app/schemas/user.py        35      0   100%
 -------------------------------------------
 TOTAL                     650      0   100%
 ```
+
+## 🔍 Mention System API Details
+
+### User Search Endpoint
+```http
+POST /api/v1/users/search
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "query": "bob",
+  "limit": 10
+}
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "username": "bob7",
+      "profile_image_url": "https://example.com/avatar.jpg",
+      "bio": "Grateful for every day"
+    }
+  ],
+  "request_id": "req_123"
+}
+```
+
+### Batch Username Validation
+```http
+POST /api/v1/users/validate-batch
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "usernames": ["bob7", "alice", "nonexistent"]
+}
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "valid_usernames": ["bob7", "alice"],
+    "invalid_usernames": ["nonexistent"]
+  },
+  "request_id": "req_124"
+}
+```
+
+### Get User by Username
+```http
+GET /api/v1/users/username/bob7
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "id": 1,
+    "username": "bob7",
+    "bio": "Grateful for every day",
+    "profile_image_url": "https://example.com/avatar.jpg",
+    "created_at": "2025-01-01T00:00:00Z",
+    "posts_count": 42,
+    "followers_count": 15,
+    "following_count": 23
+  },
+  "request_id": "req_125"
+}
+```
+
+### Mention System Features
+
+#### Frontend Integration
+- **MentionHighlighter Component**: Renders @username mentions with proper highlighting
+- **MentionAutocomplete Component**: Provides real-time user search with debounced API calls
+- **Validation Integration**: Only highlights usernames that exist in the database
+- **Navigation Support**: Click-to-navigate from mentions to user profiles
+
+#### Backend Services
+- **UserService.search_users()**: Handles username search with filtering and pagination
+- **UserService.validate_usernames_batch()**: Efficiently validates multiple usernames
+- **UserService.get_user_by_username()**: Retrieves user profile by username
+- **MentionService**: Handles mention extraction and notification creation
+
+#### Security & Performance
+- **Authentication Required**: All mention endpoints require valid JWT tokens
+- **Rate Limiting**: Search requests limited to prevent abuse
+- **Efficient Queries**: Batch validation uses single database query
+- **Input Validation**: Username format validation and sanitization
 
 ## 🔧 Test Categories Explained
 

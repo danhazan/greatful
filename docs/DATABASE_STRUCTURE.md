@@ -131,6 +131,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 - `comment` - Someone commented on your post
 - `follow` - Someone started following you
 - `mention` - Someone mentioned you in a post/comment
+- `emoji_reaction` - Someone reacted to your post with an emoji
 
 **Priority Levels:**
 - `low` - Non-urgent notifications
@@ -190,6 +191,50 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 - Users cannot follow themselves
 - Post types must be valid enum values
 - Notification priorities must be valid enum values
+
+## Mention System Implementation
+
+### Design Approach
+
+The mention system is implemented **without a dedicated database table**, using a content-parsing approach that provides flexibility and simplicity:
+
+#### How Mentions Work
+1. **Content Parsing**: @username mentions are detected in post content using regex patterns
+2. **Real-time Validation**: Usernames are validated against the `users` table using batch queries
+3. **Notification Creation**: When posts are created, mentions are extracted and notifications are sent to mentioned users
+4. **Frontend Highlighting**: Only validated usernames (existing users) are highlighted in the UI
+
+#### Benefits of This Approach
+- **No Additional Tables**: Reduces database complexity and maintenance overhead
+- **Flexible Content**: Users can mention anyone without pre-existing relationships
+- **Performance**: Batch validation minimizes database queries
+- **Simplicity**: No complex join queries or relationship management needed
+
+#### Technical Implementation
+```python
+# Mention detection in post content
+mentions = extract_mentions(post.content)  # ["bob7", "alice", "john"]
+
+# Batch validation against users table
+valid_users = await user_service.validate_usernames_batch(mentions)
+# Returns: {"valid_usernames": ["bob7", "alice"], "invalid_usernames": ["john"]}
+
+# Notification creation for valid mentions
+for username in valid_users["valid_usernames"]:
+    user = await user_service.get_user_by_username(username)
+    await notification_service.create_mention_notification(user.id, post.id, author.id)
+```
+
+#### Database Queries Used
+- **User Search**: `SELECT * FROM users WHERE username ILIKE '%query%' LIMIT 10`
+- **Batch Validation**: `SELECT username FROM users WHERE username IN ('bob7', 'alice', 'john')`
+- **Profile Lookup**: `SELECT * FROM users WHERE username = 'bob7'`
+
+#### Performance Considerations
+- **Efficient Regex**: Optimized regex patterns for @username detection
+- **Batch Operations**: Single query to validate multiple usernames
+- **Caching**: Username validation results can be cached for performance
+- **Rate Limiting**: Search endpoints are rate-limited to prevent abuse
 
 ## Repository Pattern & Query Optimization
 

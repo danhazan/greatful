@@ -344,14 +344,16 @@ describe('API Contract Validation', () => {
 **Purpose**: Test individual functions, components, or API endpoints in isolation.
 
 **Backend Unit Tests**:
-- Test service layer business logic (AuthService, UserService, ReactionService)
+- Test service layer business logic (AuthService, UserService, ReactionService, NotificationService)
+- Test mention system functionality (username validation, batch operations, search)
 - Test database models and validation
 - Test custom exception handling
 - Test service layer validation and error handling
 - Mock external dependencies and database operations
 
 **Frontend Unit Tests**:
-- Test React components in isolation
+- Test React components in isolation (PostCard, EmojiPicker, MentionHighlighter, MentionAutocomplete)
+- Test mention system utilities (mention parsing, username validation, highlighting)
 - Test custom hooks
 - Test utility functions
 - Mock external dependencies
@@ -368,17 +370,19 @@ describe('API Contract Validation', () => {
 
 **Backend Integration Tests**:
 - Test complete API workflows with standardized responses
+- Test mention system API endpoints (user search, batch validation, profile lookup)
 - Test API contract validation and response structure
 - Test authentication flows with JWT middleware
 - Test service layer integration with database operations
-- Test notification system with batching behavior
+- Test notification system with batching behavior (including mention notifications)
 - Use test databases with proper cleanup
 
 **Frontend Integration Tests**:
 - Test page components
-- Test API route handlers
-- Test component interactions
-- Test form submissions
+- Test API route handlers (including mention validation endpoints)
+- Test component interactions (mention autocomplete, profile navigation)
+- Test form submissions (post creation with mentions)
+- Test mention system workflows (search, validation, highlighting, navigation)
 
 **Best Practices**:
 - Test complete workflows
@@ -395,9 +399,141 @@ describe('API Contract Validation', () => {
 **Test Scenarios**:
 - User registration and login
 - Post creation and interaction
-- Social features (likes, comments, follows)
+- Social features (likes, comments, follows, mentions)
 - Profile management
 - Search and discovery
+- Mention workflows (autocomplete, validation, navigation)
+
+## Mention System Testing
+
+### Backend Mention Tests
+
+**User Search API Tests** (`test_batch_username_validation.py`):
+```python
+async def test_validate_usernames_batch_success():
+    """Test successful batch username validation."""
+    # Test that existing usernames are returned as valid
+    # Test that non-existent usernames are returned as invalid
+    # Test empty input handling
+    # Test rate limiting and authentication
+
+async def test_user_search_autocomplete():
+    """Test user search with autocomplete functionality."""
+    # Test partial username matching
+    # Test case-insensitive search
+    # Test result limiting and pagination
+    # Test authentication requirements
+```
+
+**Repository Tests**:
+```python
+async def test_get_existing_usernames():
+    """Test efficient batch username validation query."""
+    # Test single database query for multiple usernames
+    # Test performance with large username lists
+    # Test handling of special characters in usernames
+```
+
+### Frontend Mention Tests
+
+**MentionHighlighter Component Tests** (`MentionHighlighter.test.tsx`):
+```typescript
+describe('MentionHighlighter', () => {
+  it('highlights valid usernames only', () => {
+    // Test that only usernames in validUsernames array are highlighted
+    // Test that invalid usernames are not highlighted
+    // Test mixed content with valid and invalid mentions
+  })
+
+  it('handles click navigation', () => {
+    // Test click handler is called with correct username
+    // Test event propagation is stopped
+    // Test navigation to user profiles
+  })
+})
+```
+
+**MentionAutocomplete Component Tests** (`MentionAutocomplete.test.tsx`):
+```typescript
+describe('MentionAutocomplete', () => {
+  it('performs debounced search', () => {
+    // Test 300ms debounce delay
+    // Test API calls are made with correct parameters
+    // Test loading states during search
+  })
+
+  it('displays search results correctly', () => {
+    // Test user list rendering
+    // Test profile image and bio display
+    // Test keyboard navigation
+  })
+})
+```
+
+**Mention Utils Tests** (`mentionUtils.test.ts`):
+```typescript
+describe('mentionUtils', () => {
+  it('extracts mentions correctly', () => {
+    // Test @username pattern matching
+    // Test special characters in usernames
+    // Test multiple mentions in content
+    // Test edge cases (start/end of content, punctuation)
+  })
+
+  it('validates username format', () => {
+    // Test valid username patterns
+    // Test invalid characters rejection
+    // Test length limits
+  })
+})
+```
+
+### Integration Tests
+
+**Mention Validation Integration** (`mention-validation-integration.test.tsx`):
+```typescript
+describe('Mention System Integration', () => {
+  it('validates mentions end-to-end', () => {
+    // Test PostCard component validates mentions
+    // Test API calls to batch validation endpoint
+    // Test highlighting updates based on validation results
+    // Test error handling for API failures
+  })
+
+  it('handles mention navigation', () => {
+    // Test click on mention navigates to profile
+    // Test API call to get user by username
+    // Test error handling for non-existent users
+  })
+})
+```
+
+### Test Coverage Requirements
+
+**Backend Coverage**:
+- ✅ UserService.validate_usernames_batch() - 100%
+- ✅ UserRepository.get_existing_usernames() - 100%
+- ✅ User search API endpoints - 100%
+- ✅ Batch validation API endpoints - 100%
+
+**Frontend Coverage**:
+- ✅ MentionHighlighter component - 100%
+- ✅ MentionAutocomplete component - 100%
+- ✅ mentionUtils functions - 100%
+- ✅ PostCard mention validation - 100%
+- ✅ API route handlers - 100%
+
+### Performance Testing
+
+**Backend Performance**:
+- Batch validation should handle 50+ usernames in single query
+- User search should respond within 200ms
+- Database queries should use proper indexes
+
+**Frontend Performance**:
+- Mention highlighting should not cause re-renders
+- Autocomplete debouncing should prevent excessive API calls
+- Search results should render smoothly
 
 **Best Practices**:
 - Test real user scenarios

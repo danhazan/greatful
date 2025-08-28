@@ -73,7 +73,7 @@ See each folder’s README (if present) for more details.
 
 - **Backend:** FastAPI (Python, SQLAlchemy, JWT) with Service Layer Architecture and Shared Types
   - Location: `apps/api`
-  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, ReactionService, NotificationService)
+  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, ReactionService, NotificationService, MentionService)
   - **Repository Pattern**: Standardized data access layer with query builders and performance monitoring
   - **Shared Type System**: Comprehensive type definitions shared between frontend and backend (`shared/types/`)
   - **API Contract Validation**: Runtime validation of requests/responses against shared type contracts
@@ -87,6 +87,82 @@ See each folder’s README (if present) for more details.
   - Proxies authentication and user-related requests to the backend
 - **Database:** PostgreSQL
   - Used by the backend for persistent storage with async SQLAlchemy
+
+---
+
+## Implemented Features
+
+### Social Interaction System
+
+The Grateful platform includes a comprehensive social interaction system with the following features:
+
+#### 🎭 Emoji Reaction System
+- **8 Positive Emojis**: Users can react with 😍, 🤗, 🙏, 💪, 🌟, 🔥, 🥰, 👏
+- **One Reaction Per User**: Users can change their reaction but only have one active reaction per post
+- **Real-time Updates**: Reaction counts update immediately with optimistic UI updates
+- **Reaction Viewer**: Modal showing all users and their reactions for each post
+
+#### 💜 Hearts/Likes System
+- **Heart Posts**: Users can heart/like posts with visual feedback
+- **Heart Counter**: Display of total hearts with click-to-view functionality
+- **Hearts Viewer**: Modal showing all users who hearted a specific post
+- **Optimistic Updates**: Immediate UI feedback with server synchronization
+
+#### 🔗 Share System
+- **URL Sharing**: Copy post links to clipboard with success feedback
+- **Share Modal**: Clean popup interface for sharing options
+- **Share Analytics**: Track sharing methods and engagement metrics
+- **Authentication Aware**: Logged-out users see share counters, logged-in users can interact
+
+#### 👥 Mention System
+- **@Username Detection**: Automatic parsing of @username mentions in post content
+- **Autocomplete Search**: Real-time user search with debounced API calls (300ms)
+- **Batch Validation**: Efficient validation of multiple usernames to highlight only existing users
+- **Mention Notifications**: Automatic notifications when users are mentioned in posts
+- **Profile Navigation**: Click mentions to navigate to user profiles
+- **Smart Highlighting**: Only validated usernames (existing users) get purple highlighting
+
+#### 🔔 Enhanced Notification System
+- **Multiple Types**: Emoji reactions, hearts, mentions, follows, shares
+- **Notification Batching**: Intelligent batching to prevent spam (e.g., "3 people reacted to your post")
+- **Rate Limiting**: Configurable limits per notification type (max 5/hour per type)
+- **Real-time Updates**: Polling-based updates every 30 seconds
+- **Batch Operations**: Mark individual or all notifications as read
+- **Unread Counter**: Shows count of unread parent notifications in navbar
+
+#### 👤 User Profile System
+- **Profile Management**: Edit username, bio, and profile image
+- **User Stats**: Display posts count, followers, following, join date
+- **Public Profiles**: View other users' profiles and posts
+- **Profile Navigation**: Click usernames/avatars throughout the app to view profiles
+
+#### 📱 Mobile-Optimized Design
+- **Responsive Components**: All modals and interactions work on mobile
+- **Touch-Friendly**: Optimized for touch interactions and gestures
+- **Purple Theme**: Consistent purple branding with purple heart emoji (💜)
+- **Visual Hierarchy**: Different post types (Daily 3x, Photo 2x, Spontaneous 1x sizing)
+
+### Technical Implementation
+
+#### Frontend Architecture
+- **Component-Based**: Reusable React components (PostCard, EmojiPicker, ReactionViewer, etc.)
+- **TypeScript**: Full type safety with shared type definitions
+- **Optimistic Updates**: Immediate UI feedback with server synchronization
+- **Error Handling**: Graceful error handling with user-friendly messages
+- **Performance**: Debounced searches, efficient re-renders, lazy loading
+
+#### Backend Architecture
+- **Service Layer**: Clean separation of business logic (UserService, ReactionService, NotificationService)
+- **Repository Pattern**: Standardized data access with query optimization
+- **API Contract Validation**: Runtime validation against shared type definitions
+- **Performance Monitoring**: Query performance tracking and optimization
+- **Rate Limiting**: Configurable rate limits for search and validation endpoints
+
+#### Database Design
+- **Efficient Schema**: Optimized for social interactions with proper indexing
+- **No Mention Table**: Content-parsing approach for mentions (no additional tables needed)
+- **Batch Operations**: Single queries for validating multiple usernames
+- **Relationship Optimization**: Efficient loading of user relationships and engagement data
 
 ---
 
