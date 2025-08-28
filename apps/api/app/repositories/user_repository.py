@@ -221,3 +221,22 @@ class UserRepository(BaseRepository):
             "reactions_received": int(row.reactions_received) if row.reactions_received else 0,
             "hearts_received": int(row.hearts_received) if row.hearts_received else 0
         }
+    
+    async def get_existing_usernames(self, usernames: List[str]) -> List[str]:
+        """
+        Get list of usernames that exist in the database.
+        
+        Args:
+            usernames: List of usernames to check
+            
+        Returns:
+            List[str]: List of usernames that exist in the database
+        """
+        if not usernames:
+            return []
+        
+        query = self.query().filter(User.username.in_(usernames)).build()
+        result = await self._execute_query(query, "get existing usernames")
+        users = result.scalars().all()
+        
+        return [user.username for user in users]

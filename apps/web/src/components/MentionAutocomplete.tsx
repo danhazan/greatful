@@ -1,7 +1,13 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { UserInfo } from '../../../shared/types/core'
+// UserInfo type defined locally
+interface UserInfo {
+  id: number
+  username: string
+  profile_image_url?: string
+  bio?: string
+}
 
 interface MentionAutocompleteProps {
   isOpen: boolean

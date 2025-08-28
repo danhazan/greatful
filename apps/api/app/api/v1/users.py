@@ -88,6 +88,21 @@ class UserSearchResult(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UsernameValidationRequest(BaseModel):
+    """Username validation request model."""
+    usernames: List[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UsernameValidationResponse(BaseModel):
+    """Username validation response model."""
+    valid_usernames: List[str]
+    invalid_usernames: List[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 
 
 
@@ -217,5 +232,39 @@ async def search_users(
         limit=limit,
         exclude_user_id=current_user_id
     )
+    
+    return success_response(result, getattr(request.state, 'request_id', None))
+
+
+@router.post("/validate-batch")
+async def validate_usernames_batch(
+    validation_request: UsernameValidationRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Validate multiple usernames in a single request.
+    
+    - **usernames**: List of usernames to validate (max 50)
+    
+    Returns which usernames are valid (exist in database) and which are invalid.
+    This prevents 404 errors when checking mention validity.
+    """
+    # Validate input
+    if not validation_request.usernames:
+        return success_response(
+            UsernameValidationResponse(valid_usernames=[], invalid_usernames=[]),
+            getattr(request.state, 'request_id', None)
+        )
+    
+    # Limit to 50 usernames to prevent abuse
+    usernames = validation_request.usernames[:50]
+    
+    # Remove duplicates while preserving order
+    unique_usernames = list(dict.fromkeys(usernames))
+    
+    user_service = UserService(db)
+    result = await user_service.validate_usernames_batch(unique_usernames)
     
     return success_response(result, getattr(request.state, 'request_id', None))

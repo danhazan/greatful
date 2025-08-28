@@ -11,7 +11,7 @@ import MentionHighlighter from "./MentionHighlighter"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
-import { isAuthenticated, canInteract, getAccessToken } from "@/utils/auth"
+import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
 
 interface Post {
@@ -112,29 +112,24 @@ export default function PostCard({
           return
         }
 
-        const validUsernames: string[] = []
+        // Use batch validation endpoint to avoid 404 errors
+        const response = await fetch('/api/users/validate-batch', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            usernames: validFormatUsernames
+          })
+        })
         
-        // Check each username individually
-        for (const username of validFormatUsernames) {
-          try {
-            const response = await fetch(`/api/users/username/${encodeURIComponent(username)}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            })
-            
-            if (response.ok) {
-              validUsernames.push(username)
-            }
-            // Silently ignore 404s - they're expected for non-existent users
-          } catch (error) {
-            // Network errors - continue to next username
-            continue
-          }
+        if (response.ok) {
+          const result = await response.json()
+          setValidUsernames(result.data.valid_usernames || [])
+        } else {
+          setValidUsernames([])
         }
-        
-        setValidUsernames(validUsernames)
       } catch (error) {
         // Only log errors in development
         if (process.env.NODE_ENV === 'development') {
@@ -694,7 +689,7 @@ export default function PostCard({
         onClose={() => setShowShareModal(false)}
         post={post}
         position={shareModalPosition}
-        onShare={(method, data) => {
+        onShare={(method) => {
           // Track analytics event for share
           if (currentUserId) {
             analyticsService.trackShareEvent(post.id, currentUserId, method)

@@ -185,3 +185,35 @@ class UserService(BaseService):
 
         logger.info(f"Retrieved {len(posts)} posts for user {user_id}")
         return posts
+
+    @monitor_query("validate_usernames_batch")
+    async def validate_usernames_batch(self, usernames: List[str]) -> Dict[str, List[str]]:
+        """
+        Validate multiple usernames in a single database query.
+        
+        Args:
+            usernames: List of usernames to validate
+            
+        Returns:
+            Dict with 'valid_usernames' and 'invalid_usernames' lists
+        """
+        if not usernames:
+            return {"valid_usernames": [], "invalid_usernames": []}
+        
+        # Get existing usernames from database
+        existing_usernames = await self.user_repo.get_existing_usernames(usernames)
+        
+        # Convert to sets for efficient lookup
+        existing_set = set(existing_usernames)
+        input_set = set(usernames)
+        
+        # Determine valid and invalid usernames
+        valid_usernames = [username for username in usernames if username in existing_set]
+        invalid_usernames = [username for username in usernames if username not in existing_set]
+        
+        logger.info(f"Validated {len(usernames)} usernames: {len(valid_usernames)} valid, {len(invalid_usernames)} invalid")
+        
+        return {
+            "valid_usernames": valid_usernames,
+            "invalid_usernames": invalid_usernames
+        }

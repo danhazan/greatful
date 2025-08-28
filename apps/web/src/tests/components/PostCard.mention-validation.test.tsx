@@ -76,21 +76,25 @@ describe('PostCard Mention Validation', () => {
   })
 
   it('should only highlight usernames that exist in database', async () => {
-    // Mock fetch to return success for Bob7 but 404 for juan
-    ;(global.fetch as jest.MockedFunction<typeof fetch>).mockImplementation((url) => {
-      if (typeof url === 'string' && url.includes('/api/users/username/Bob7')) {
+    // Mock batch validation endpoint
+    ;(global.fetch as jest.MockedFunction<typeof fetch>).mockImplementation((url, options) => {
+      if (typeof url === 'string' && url.includes('/api/users/validate-batch')) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ data: { id: 1, username: 'Bob7' } })
+          json: () => Promise.resolve({
+            data: {
+              valid_usernames: ['Bob7'], // Bob7 exists, juan doesn't
+              invalid_usernames: ['juan']
+            }
+          })
         } as Response)
       }
-      if (typeof url === 'string' && url.includes('/api/users/username/juan')) {
-        return Promise.resolve({
-          ok: false,
-          status: 404
-        } as Response)
-      }
-      return Promise.reject(new Error('Unexpected URL'))
+      
+      // Default mock for other requests
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({})
+      } as Response)
     })
 
     render(
@@ -100,15 +104,14 @@ describe('PostCard Mention Validation', () => {
       />
     )
 
-    // Wait for the validation to complete
+    // Wait for the batch validation to complete
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/users/username/Bob7'),
-        expect.any(Object)
-      )
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/users/username/juan'),
-        expect.any(Object)
+        '/api/users/validate-batch',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('Bob7')
+        })
       )
     }, { timeout: 3000 })
 

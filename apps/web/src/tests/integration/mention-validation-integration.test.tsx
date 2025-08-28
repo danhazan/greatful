@@ -66,22 +66,24 @@ describe('Mention Validation Integration Test', () => {
     localStorageMock.getItem.mockReturnValue('mock-token')
     
     // Mock fetch to simulate API responses
-    ;(global.fetch as jest.MockedFunction<typeof fetch>).mockImplementation((url) => {
-      if (typeof url === 'string') {
-        if (url.includes('/api/users/username/Bob7')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ data: { id: 1, username: 'Bob7' } })
-          } as Response)
-        }
-        if (url.includes('/api/users/username/juan') || url.includes('/api/users/username/nonexistent')) {
-          return Promise.resolve({
-            ok: false,
-            status: 404
-          } as Response)
-        }
+    ;(global.fetch as jest.MockedFunction<typeof fetch>).mockImplementation((url, options) => {
+      if (typeof url === 'string' && url.includes('/api/users/validate-batch')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            data: {
+              valid_usernames: ['Bob7'], // Only Bob7 exists
+              invalid_usernames: ['juan', 'nonexistent']
+            }
+          })
+        } as Response)
       }
-      return Promise.reject(new Error('Unexpected URL'))
+      
+      // Default mock for other requests
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({})
+      } as Response)
     })
   })
 
@@ -98,19 +100,14 @@ describe('Mention Validation Integration Test', () => {
     expect(screen.getByText('@juan')).toBeInTheDocument()
     expect(screen.getByText('@nonexistent')).toBeInTheDocument()
 
-    // Wait for the validation API calls to complete
+    // Wait for the batch validation API call to complete
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/users/username/Bob7'),
-        expect.any(Object)
-      )
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/users/username/juan'),
-        expect.any(Object)
-      )
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/users/username/nonexistent'),
-        expect.any(Object)
+        '/api/users/validate-batch',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('Bob7')
+        })
       )
     }, { timeout: 3000 })
 

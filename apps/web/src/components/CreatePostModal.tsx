@@ -5,7 +5,13 @@ import { X, Camera, MapPin, Type, Image as ImageIcon, Zap } from "lucide-react"
 import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
 import MentionAutocomplete from "./MentionAutocomplete"
-import { UserInfo } from "../../../shared/types/core"
+// UserInfo type defined locally
+interface UserInfo {
+  id: number
+  username: string
+  profile_image_url?: string
+  bio?: string
+}
 
 interface CreatePostModalProps {
   isOpen: boolean

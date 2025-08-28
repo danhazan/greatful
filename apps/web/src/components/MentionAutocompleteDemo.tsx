@@ -2,7 +2,13 @@
 
 import React, { useState, useRef } from 'react'
 import MentionAutocomplete from './MentionAutocomplete'
-import { UserInfo } from '../../../shared/types/core'
+// UserInfo type defined locally
+interface UserInfo {
+  id: number
+  username: string
+  profile_image_url?: string
+  bio?: string
+}
 
 export default function MentionAutocompleteDemo() {
   const [text, setText] = useState('')
