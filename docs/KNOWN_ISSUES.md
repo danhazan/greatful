@@ -10,6 +10,7 @@
 - **🔔 Batch Notification Missing First Item**: Batch notification list doesn't include the first notification
 - **😀 Emoji Display Inconsistency**: Emojis sometimes display differently in notifications
 - **🔄 Post UI Update Lag**: Posts don't update in UI when notification bell updates
+- **📍 Mention Autocomplete Positioning**: Autocomplete appears below textarea instead of under cursor
 
 ### ✅ Recently Resolved
 - **Heart Counter Real-time Updates**: ✅ COMPLETED - Real-time updates without page refresh
@@ -265,6 +266,49 @@ When a user receives a notification (bell icon updates with new count), the corr
 **Workaround**: Manual page refresh shows correct data; only real-time sync is affected.
 
 **Priority**: Medium - Affects real-time user experience and perceived responsiveness.
+
+### Mention Autocomplete Positioning
+**Issue**: Mention autocomplete appears below textarea instead of under the cursor where user is typing  
+**Status**: ⚠️ Active Issue  
+**Priority**: Low  
+**Impact**: User Experience Enhancement  
+**Discovered**: December 2024  
+
+**Description**:
+When users type `@username` to mention someone, the autocomplete dropdown appears at the bottom of the textarea instead of appearing right under the cursor position where the user is typing. While functional, this is not optimal UX as users expect the autocomplete to appear near their cursor.
+
+**Technical Details**:
+- Backend: User search and mention functionality works correctly ✅
+- Database: Mention data is stored and retrieved properly ✅
+- Frontend: Autocomplete appears but in wrong position ❌
+- Issue: Cursor positioning calculation implementation exists but positioning is suboptimal
+
+**Expected Behavior**:
+- Autocomplete should appear directly under the cursor position
+- Should follow cursor as user types in different parts of textarea
+- Should handle multiline text correctly
+
+**Current Behavior**:
+- Autocomplete appears at bottom of textarea
+- Position is consistent but not optimal
+- All mention functionality works correctly
+
+**Reproduction Steps**:
+1. Open CreatePostModal (click + button)
+2. Type some text and then `@` to trigger mention autocomplete
+3. Observe autocomplete appears at bottom of modal, not under cursor
+4. Note that functionality works - just positioning is suboptimal
+
+**Root Cause**: 
+- Implementation uses simple "below textarea" positioning
+- Cursor-based positioning would require complex coordinate calculation
+- Current implementation prioritizes functionality over optimal positioning
+
+**Workaround**: Current positioning is functional and doesn't block text - just not optimal UX.
+
+**Priority**: Low - Enhancement opportunity, not a blocking issue. Core mention functionality works perfectly.
+
+**Implementation Complexity**: High - Requires complex cursor coordinate calculation, text measurement, and handling of line breaks/wrapping.
 
 ---
 
