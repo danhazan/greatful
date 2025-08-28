@@ -266,6 +266,14 @@ git push origin main
 
 ## 🚨 Troubleshooting Commands
 
+### Kill All Development Servers
+
+This command is useful when you want to quickly stop all running development servers, including the FastAPI backend (`uvicorn`) and the Next.js frontend (`npm run dev`). The `|| true` part ensures that the command doesn't fail if one of the processes isn't running.
+
+```bash
+pkill -f "uvicorn\|npm.*dev" || true
+```
+
 ### Clear Caches
 ```bash
 # Clear Next.js cache
@@ -332,4 +340,4 @@ cd apps/api && source venv/bin/activate && pytest tests/contract/test_api_contra
 # Validate shared types are properly used
 cd apps/web && npm run type-check
 cd shared/types && npm run lint
-``` 
+```
