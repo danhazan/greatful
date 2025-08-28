@@ -22,7 +22,7 @@ describe('CreatePostModal - Mention Protection', () => {
     jest.clearAllMocks()
   })
 
-  it('should prevent partial editing of completed mentions', async () => {
+  it('should allow editing of mentions for better user experience', async () => {
     render(
       <CreatePostModal
         isOpen={true}
@@ -44,19 +44,17 @@ describe('CreatePostModal - Mention Protection', () => {
 
     expect(textarea.value).toBe('Thanks @Bob7?? for help!')
 
-    // Try to edit inside the completed mention (position 10 is inside @Bob7??)
+    // Try to edit inside the completed mention (should now be allowed)
     fireEvent.change(textarea, { 
       target: { 
-        value: 'Thanks @Bob for help!', // Trying to remove the 7??
+        value: 'Thanks @Bob for help!', // Removing the 7??
         selectionStart: 10,
         selectionEnd: 10
       } 
     })
 
-    // The change should be prevented, content should remain the same
-    await waitFor(() => {
-      expect(textarea.value).toBe('Thanks @Bob7?? for help!')
-    })
+    // The change should be allowed (no protection interfering)
+    expect(textarea.value).toBe('Thanks @Bob for help!')
   })
 
   it('should allow deleting characters when typing incomplete mentions', async () => {
@@ -90,7 +88,8 @@ describe('CreatePostModal - Mention Protection', () => {
       } 
     })
 
-    // The change should be allowed
+    // The change should be allowed (no protection interfering)
+    // Since we removed mention protection, all text editing should work normally
     expect(textarea.value).toBe('Thanks @Bob')
   })
 
@@ -212,19 +211,17 @@ describe('CreatePostModal - Mention Protection', () => {
 
     expect(textarea.value).toBe('Hello @alice.doe-123!')
 
-    // Try to partially edit the mention (should be prevented)
+    // Try to partially edit the mention (should now be allowed)
     fireEvent.change(textarea, { 
       target: { 
-        value: 'Hello @alice.doe!', // Trying to remove -123
+        value: 'Hello @alice.doe!', // Removing -123
         selectionStart: 16,
         selectionEnd: 16
       } 
     })
 
-    // The change should be prevented
-    await waitFor(() => {
-      expect(textarea.value).toBe('Hello @alice.doe-123!')
-    })
+    // The change should be allowed (no protection interfering)
+    expect(textarea.value).toBe('Hello @alice.doe!')
   })
 
   it('should position autocomplete below textarea to avoid blocking content', async () => {
@@ -268,4 +265,4 @@ describe('CreatePostModal - Mention Protection', () => {
     
     // The autocomplete should be positioned below the textarea (y = bottom + 8)
     // In a real browser, this would be at y = 300 + 8 = 308
-  })
+  })})

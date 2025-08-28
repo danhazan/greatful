@@ -287,20 +287,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     const newContent = e.target.value
     const cursorPosition = e.target.selectionStart || 0
     
-    // Prevent partial editing of completed mentions
-    const protectedContent = protectCompletedMentions(postData.content, newContent, cursorPosition)
-    if (protectedContent !== newContent) {
-      // If content was protected, update the textarea and return
-      setPostData({ ...postData, content: protectedContent })
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.value = protectedContent
-          textareaRef.current.setSelectionRange(cursorPosition, cursorPosition)
-        }
-      }, 0)
-      return
-    }
-    
+    // Allow all changes - mention protection removed for better UX
     setPostData({ ...postData, content: newContent })
 
     // Check for @ mention at cursor position
@@ -331,47 +318,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
   }
 
-  // Function to protect completed mentions from partial editing
-  const protectCompletedMentions = (oldContent: string, newContent: string, cursorPosition: number): string => {
-    // Only protect if content is getting shorter (deletion/backspace)
-    if (newContent.length >= oldContent.length) {
-      return newContent // Allow additions
-    }
-    
-    // Extract all completed mentions from the old content
-    const mentionRegex = /@([a-zA-Z0-9_\-\.\?\!\+]+)/g
-    const oldMentions: Array<{match: string, start: number, end: number}> = []
-    let match
-    
-    while ((match = mentionRegex.exec(oldContent)) !== null) {
-      // Only consider mentions that are followed by a space or end of string (completed mentions)
-      const nextChar = oldContent[match.index + match[0].length]
-      if (!nextChar || nextChar === ' ' || nextChar === '\n' || nextChar === '\t') {
-        oldMentions.push({
-          match: match[0],
-          start: match.index,
-          end: match.index + match[0].length
-        })
-      }
-    }
-    
-    // Check if any completed mention is being partially modified
-    for (const mention of oldMentions) {
-      // Check if the mention area has been modified
-      const oldMentionText = oldContent.slice(mention.start, mention.end)
-      const newMentionText = newContent.slice(mention.start, Math.min(mention.end, newContent.length))
-      
-      // If the mention is being partially edited (not completely deleted)
-      if (newMentionText !== oldMentionText && newMentionText.startsWith('@') && newMentionText.length > 1) {
-        // If cursor is inside the mention, prevent the edit
-        if (cursorPosition > mention.start && cursorPosition <= mention.end) {
-          return oldContent // Reject the change
-        }
-      }
-    }
-    
-    return newContent // Allow the change
-  }
+
 
   const handleMentionSelect = (user: UserInfo) => {
     if (currentMentionStart >= 0 && textareaRef.current) {
