@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Heart, Share, Calendar, MapPin, Plus } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
@@ -64,6 +65,7 @@ export default function PostCard({
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const shareButtonRef = useRef<HTMLButtonElement>(null)
+  const router = useRouter()
 
   // Check authentication status on mount and when currentUserId changes
   useEffect(() => {
@@ -255,6 +257,41 @@ export default function PostCard({
     }
   }
 
+  const handleMentionClick = async (username: string) => {
+    try {
+      // Get auth token
+      const token = getAccessToken()
+      if (!token) {
+        console.error('No auth token available for mention navigation')
+        return
+      }
+
+      // URL encode the username to handle special characters
+      const encodedUsername = encodeURIComponent(username)
+      
+      // Fetch user by username
+      const response = await fetch(`/api/users/username/${encodedUsername}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const userData = result.data
+        
+        // Navigate to user profile
+        router.push(`/profile/${userData.id}`)
+      } else {
+        console.error('Failed to fetch user by username:', response.status)
+        // Optionally show a toast notification that user was not found
+      }
+    } catch (error) {
+      console.error('Error navigating to user profile:', error)
+    }
+  }
+
   // Get styling based on post type
   const getPostStyling = () => {
     switch (post.postType) {
@@ -352,13 +389,7 @@ export default function PostCard({
           <p className={`${styling.text} text-gray-900`}>
             <MentionHighlighter
               content={post.content}
-              onMentionClick={(username) => {
-                // Navigate to user profile by username
-                // For now, we'll use the existing onUserClick handler
-                // In a real implementation, we'd need to resolve username to user ID
-                console.log(`Navigate to user profile: @${username}`)
-                // TODO: Implement username to user ID resolution
-              }}
+              onMentionClick={handleMentionClick}
             />
           </p>
           {post.imageUrl && (

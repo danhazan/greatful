@@ -142,8 +142,8 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Integrate mention autocomplete into post creation modal
 - [x] Create mention notifications when users are mentioned in posts
 - [x] **FIXED: Mention notification issues** - Resolved "Unknown user" display and special character highlighting
-- [x] **IMPLEMENTED: Mention protection** - Prevented partial editing of completed mentions during post creation
-- [ ] Implement click-to-profile navigation for mentioned users
+- [x] **UPDATED: Mention UX** - Removed mention protection for better UX; autocomplete positioning below textarea (cursor positioning is a known enhancement opportunity)
+- [x] Implement click-to-profile navigation for mentioned users
 - [x] Write tests for mention extraction, search, and notification workflows
 - [x] **Test Execution:** Run backend tests (`pytest -v`) to verify Mention model, MentionService, and user search API endpoints work correctly. Run frontend tests (`npm test`) to verify MentionAutocomplete component, @username detection, and post creation integration. Run integration tests to verify end-to-end mention workflow including notifications and navigation.
 **Acceptance Criteria:** Users can mention others with @username, see autocomplete suggestions, mentioned users receive notifications, and mentions are properly highlighted and clickable.

@@ -172,6 +172,26 @@ async def get_user_posts(
     return success_response(result, getattr(request.state, 'request_id', None))
 
 
+@router.get("/username/{username}")
+async def get_user_by_username(
+    username: str,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get user profile by username.
+    
+    - **username**: Username to look up
+    
+    Returns user profile data if found.
+    """
+    user_service = UserService(db)
+    result = await user_service.get_user_by_username(username)
+    
+    return success_response(result, getattr(request.state, 'request_id', None))
+
+
 @router.post("/search")
 async def search_users(
     search_request: UserSearchRequest,

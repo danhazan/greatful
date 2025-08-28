@@ -6,6 +6,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, jest } from '@jest/globals'
 import CreatePostModal from '@/components/CreatePostModal'
+import { beforeEach } from 'node:test'
 
 // Mock the MentionAutocomplete component
 jest.mock('@/components/MentionAutocomplete', () => {

@@ -70,6 +70,25 @@ class UserService(BaseService):
         profile.pop("email", None)
         return profile
 
+    async def get_user_by_username(self, username: str) -> Dict[str, any]:
+        """
+        Get public user profile by username.
+        
+        Args:
+            username: Username to look up
+            
+        Returns:
+            Dict containing public user profile data
+            
+        Raises:
+            NotFoundError: If user is not found
+        """
+        user = await self.user_repo.get_by_username(username)
+        if not user:
+            raise NotFoundError("User", username)
+        
+        return await self.get_public_user_profile(user.id)
+
     @monitor_query("update_user_profile")
     async def update_user_profile(
         self,
