@@ -14,7 +14,7 @@ from app.repositories.post_repository import PostRepository
 from app.models.mention import Mention
 from app.models.user import User
 from app.models.post import Post
-from app.services.notification_service import NotificationService
+from app.core.notification_factory import NotificationFactory
 import logging
 
 logger = logging.getLogger(__name__)
@@ -134,15 +134,16 @@ class MentionService(BaseService):
             mentioned_user_ids=mentioned_user_ids
         )
         
-        # Create notifications for mentioned users
+        # Create notifications for mentioned users using the factory
         author = await self.user_repo.get_by_id_or_404(author_id)
+        notification_factory = NotificationFactory(self.db)
         
         for user in valid_users:
             try:
-                await NotificationService.create_mention_notification(
-                    db=self.db,
+                await notification_factory.create_mention_notification(
                     mentioned_user_id=user.id,
                     author_username=author.username,
+                    author_id=author_id,
                     post_id=post_id,
                     post_preview=content[:100] + "..." if len(content) > 100 else content
                 )

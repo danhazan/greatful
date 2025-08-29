@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveNotificationUser } from '@/utils/notificationUserResolver'
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -42,11 +43,7 @@ export async function GET(
       type: child.type === 'emoji_reaction' ? 'reaction' : child.type,
       message: child.message,
       postId: child.post_id || child.data?.post_id || '',
-      fromUser: {
-        id: child.from_user?.id || child.data?.reactor_username || child.data?.sharer_username || child.data?.author_username || 'unknown',
-        name: child.from_user?.username || child.data?.reactor_username || child.data?.sharer_username || child.data?.author_username || 'Unknown User',
-        image: child.from_user?.profile_image_url || undefined
-      },
+      fromUser: resolveNotificationUser(child),
       createdAt: child.created_at ? (
         child.created_at.endsWith('Z') 
           ? child.created_at 

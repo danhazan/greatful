@@ -13,6 +13,7 @@ from app.models.like import Like
 from app.models.post import Post
 from app.models.user import User
 from app.core.security import decode_token
+from app.core.notification_factory import NotificationFactory
 import logging
 import uuid
 
@@ -100,6 +101,22 @@ async def add_heart(
         db.add(like)
         await db.commit()
         await db.refresh(like)
+        
+        # Create notification for post author (if not liking own post) using factory
+        post_result = await db.execute(select(Post).where(Post.id == post_id))
+        post = post_result.scalar_one_or_none()
+        if post and post.author_id != current_user_id:
+            try:
+                notification_factory = NotificationFactory(db)
+                await notification_factory.create_like_notification(
+                    post_author_id=post.author_id,
+                    liker_username=user.username,
+                    liker_id=current_user_id,
+                    post_id=post_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to create like notification: {e}")
+                # Don't fail the like if notification fails
         
         logger.info(f"User {current_user_id} hearted post {post_id}")
         

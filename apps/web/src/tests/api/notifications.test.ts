@@ -70,7 +70,7 @@ describe('/api/notifications', () => {
         message: 'reacted to your post',
         postId: 'post-1',
         fromUser: {
-          id: 2,
+          id: "2",
           name: 'john_doe',
           image: 'https://example.com/john.jpg'
         },

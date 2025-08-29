@@ -13,7 +13,7 @@ from app.repositories.post_repository import PostRepository
 from app.models.emoji_reaction import EmojiReaction
 from app.models.user import User
 from app.models.post import Post
-from app.services.notification_service import NotificationService
+from app.core.notification_factory import NotificationFactory
 import logging
 
 logger = logging.getLogger(__name__)
@@ -70,15 +70,16 @@ class ReactionService(BaseService):
             updated_reaction.user = user
             logger.info(f"Updated reaction for user {user_id} on post {post_id} to {emoji_code}")
             
-            # Create notification for updated reaction (only if it's a different emoji)
+            # Create notification for updated reaction (only if it's a different emoji) using factory
             if post.author_id != user_id:  # Don't notify if user reacts to their own post
                 try:
-                    notification = await NotificationService.create_emoji_reaction_notification(
-                        db=self.db,
+                    notification_factory = NotificationFactory(self.db)
+                    notification = await notification_factory.create_reaction_notification(
                         post_author_id=post.author_id,
                         reactor_username=user.username,
-                        emoji_code=emoji_code,
-                        post_id=post_id
+                        reactor_id=user_id,
+                        post_id=post_id,
+                        emoji_code=emoji_code
                     )
                 except Exception as e:
                     logger.error(f"Failed to create notification for reaction update: {e}")
@@ -108,15 +109,16 @@ class ReactionService(BaseService):
             reaction.user = user
             logger.info(f"Created new reaction for user {user_id} on post {post_id}: {emoji_code}")
             
-            # Create notification for new reaction
+            # Create notification for new reaction using factory
             if post.author_id != user_id:  # Don't notify if user reacts to their own post
                 try:
-                    notification = await NotificationService.create_emoji_reaction_notification(
-                        db=self.db,
+                    notification_factory = NotificationFactory(self.db)
+                    notification = await notification_factory.create_reaction_notification(
                         post_author_id=post.author_id,
                         reactor_username=user.username,
-                        emoji_code=emoji_code,
-                        post_id=post_id
+                        reactor_id=user_id,
+                        post_id=post_id,
+                        emoji_code=emoji_code
                     )
                 except Exception as e:
                     logger.error(f"Failed to create notification for new reaction: {e}")

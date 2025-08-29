@@ -13,7 +13,7 @@ from app.repositories.post_repository import PostRepository
 from app.models.share import Share, ShareMethod
 from app.models.user import User
 from app.models.post import Post
-from app.services.notification_service import NotificationService
+from app.core.notification_factory import NotificationFactory
 import logging
 import os
 
@@ -113,12 +113,12 @@ class ShareService(BaseService):
         # Generate share URL
         share_url = await self.generate_share_url(post_id)
         
-        # Create notification for post author (if not sharing own post)
+        # Create notification for post author (if not sharing own post) using factory
         if post.author_id != user_id:
             try:
-                await NotificationService.create_share_notification(
-                    db=self.db,
-                    post_author_id=post.author_id,
+                notification_factory = NotificationFactory(self.db)
+                await notification_factory.create_share_notification(
+                    recipient_id=post.author_id,
                     sharer_username=user.username,
                     post_id=post_id,
                     share_method="url"
@@ -207,16 +207,15 @@ class ShareService(BaseService):
             message_content=None  # No message content in simplified design
         )
         
-        # Create notifications for recipients
+        # Create notifications for recipients using factory
+        notification_factory = NotificationFactory(self.db)
         for recipient_id in valid_recipients:
             try:
-                await NotificationService.create_share_notification(
-                    db=self.db,
-                    post_author_id=recipient_id,  # Recipient gets the notification
+                await notification_factory.create_share_notification(
+                    recipient_id=recipient_id,  # Recipient gets the notification
                     sharer_username=sender.username,
                     post_id=post_id,
-                    share_method="message",
-                    message_content=None  # No message content in simplified design
+                    share_method="message"
                 )
             except Exception as e:
                 logger.error(f"Failed to create share notification for recipient {recipient_id}: {e}")

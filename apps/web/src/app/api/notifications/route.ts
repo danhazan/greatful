@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveNotificationUser } from '@/utils/notificationUserResolver'
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -42,11 +43,7 @@ export async function GET(request: NextRequest) {
       type: notification.type === 'emoji_reaction' ? 'reaction' : notification.type,
       message: notification.message,
       postId: notification.post_id || notification.data?.post_id || '',
-      fromUser: {
-        id: notification.from_user?.id || notification.data?.reactor_username || notification.data?.sharer_username || notification.data?.author_username || 'unknown',
-        name: notification.from_user?.username || notification.data?.reactor_username || notification.data?.sharer_username || notification.data?.author_username || 'Unknown User',
-        image: notification.from_user?.profile_image_url || undefined
-      },
+      fromUser: resolveNotificationUser(notification),
       createdAt: notification.created_at ? (
         notification.created_at.endsWith('Z') 
           ? notification.created_at 
