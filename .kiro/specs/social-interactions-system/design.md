@@ -105,7 +105,7 @@ interface ReactionViewerProps {
 
 #### 3. ShareModal Component
 
-**Purpose**: Multi-option sharing interface with URL copy and mention-based messaging
+**Purpose**: Multi-option sharing interface with URL copy and simple message sending
 
 **Props Interface**:
 ```typescript
@@ -123,9 +123,8 @@ interface ShareModalProps {
 
 **Features**:
 - Copy URL button with clipboard integration
-- User search with mention autocomplete
-- Message composition (200 char limit)
-- Recently messaged users quick-select
+- User search with mention autocomplete for message sending
+- Simple "Send" button (no message composition)
 - Multiple user selection (max 5)
 - Share analytics tracking
 
@@ -213,7 +212,7 @@ class ReactionService:
 ```python
 class ShareService:
     async def generate_share_url(self, post_id: str) -> str
-    async def share_via_message(self, sender_id: int, post_id: str, recipients: List[int], message: str) -> List[Share]
+    async def share_via_message(self, sender_id: int, post_id: str, recipients: List[int]) -> List[Share]
     async def track_share_analytics(self, user_id: int, post_id: str, method: str) -> None
     async def check_rate_limit(self, user_id: int) -> bool
 ```
@@ -222,7 +221,7 @@ class ShareService:
 - Generate SEO-friendly URLs
 - Respect privacy settings
 - Rate limiting (20 shares/hour)
-- Create notifications for recipients
+- Create simple notifications for recipients
 - Track share analytics
 
 #### 3. MentionService
@@ -261,6 +260,7 @@ class NotificationService:
 **Notification Types**:
 - `emoji_reaction`: "[User] reacted with [emoji] to your post"
 - `post_shared`: "[User] shared your post"
+- `post_sent`: "[User] sent you a post"
 - `mention`: "[User] mentioned you in a post"
 - `new_follower`: "[User] started following you"
 - `share_milestone`: "Your post was shared [X] times today"
@@ -341,7 +341,6 @@ CREATE TABLE shares (
     post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
     share_method VARCHAR(20) NOT NULL, -- 'url', 'message'
     recipient_user_ids INTEGER[], -- For message shares
-    message_content TEXT, -- Optional message with share
     created_at TIMESTAMP DEFAULT NOW()
 );
 

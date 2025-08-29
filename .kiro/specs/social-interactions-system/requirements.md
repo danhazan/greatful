@@ -61,19 +61,19 @@ The system builds upon the existing stable authentication, navbar, and basic pos
 
 ### Requirement 4: Share System with Mention Integration
 
-**User Story:** As an engaged community member, I want to send meaningful posts directly to specific users within the app, so I can start conversations and strengthen connections through shared gratitude.
+**User Story:** As an engaged community member, I want to send meaningful posts directly to specific users within the app, so I can share inspiring content quickly and simply.
 
 #### Acceptance Criteria
 
-1. WHEN a user clicks share on a post THEN the share modal SHALL include a "Send as Message" section
-2. WHEN a user selects "Send to user" THEN they SHALL see an input field with mention autocomplete (@username)
+1. WHEN a user clicks share on a post THEN the share modal SHALL include a "Send as Message" option (enabled)
+2. WHEN a user selects "Send as Message" THEN they SHALL see the mention autocomplete for user selection
 3. WHEN typing in the user search THEN the system SHALL show a dropdown with profile pictures and names
-4. WHEN a user is selected THEN they SHALL be able to compose a message (max 200 chars) with the shared post preview
-5. WHEN the message is sent THEN the recipient SHALL receive a notification: "[Username] shared a post with you: [Post preview]"
+4. WHEN users are selected THEN they SHALL be able to click "Send" to share the post directly (no message content)
+5. WHEN the post is sent THEN the recipient SHALL receive a notification: "[Username] sent you a post"
 6. WHEN sharing with multiple users THEN the system SHALL support up to 5 users per share
-7. WHEN the share modal opens THEN it SHALL show recently messaged users as quick-select options (last 5 interactions)
-8. WHEN a post is shared via message THEN it SHALL count toward the share analytics and rate limiting
-9. IF the recipient has blocked the sender THEN the share message SHALL not be delivered
+7. WHEN a post is shared via message THEN it SHALL count toward the share analytics and rate limiting
+8. IF the recipient has blocked the sender THEN the share message SHALL not be delivered
+9. WHEN the notification is clicked THEN the user SHALL be navigated to the shared post
 
 ### Requirement 5: Enhanced Notification System
 

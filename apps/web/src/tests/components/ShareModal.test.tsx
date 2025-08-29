@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ShareModal from '@/components/ShareModal'
+import { describe, it, expect, beforeEach } from '@jest/globals'
 
 // Mock clipboard API
 const mockWriteText = jest.fn(() => Promise.resolve())
@@ -253,7 +254,7 @@ describe('ShareModal', () => {
     consoleSpy.mockRestore()
   })
 
-  it('shows "Send as Message" as disabled with coming soon badge', () => {
+  it('shows "Send as Message" as enabled', () => {
     render(
       <ShareModal
         isOpen={true}
@@ -264,8 +265,8 @@ describe('ShareModal', () => {
     )
 
     const messageButton = screen.getByText('Send as Message').closest('button')
-    expect(messageButton).toBeDisabled()
-    expect(screen.getByText('Soon')).toBeInTheDocument()
+    expect(messageButton).not.toBeDisabled()
+    expect(screen.queryByText('Soon')).not.toBeInTheDocument()
   })
 
   it('closes modal automatically after copying link and showing success message', async () => {
@@ -291,5 +292,24 @@ describe('ShareModal', () => {
     await waitFor(() => {
       expect(onClose).toHaveBeenCalledTimes(1)
     }, { timeout: 2000 })
+  })
+
+  it('shows message sharing interface when "Send as Message" is clicked', () => {
+    render(
+      <ShareModal
+        isOpen={true}
+        onClose={jest.fn()}
+        post={mockPost}
+        position={{ x: 100, y: 100 }}
+      />
+    )
+
+    const messageButton = screen.getByText('Send as Message').closest('button')
+    fireEvent.click(messageButton!)
+
+    // Should show user search input
+    expect(screen.getByPlaceholderText('Search users to send to...')).toBeInTheDocument()
+    expect(screen.getByText('Back')).toBeInTheDocument()
+    expect(screen.getByText('Send (0)')).toBeInTheDocument()
   })
 })

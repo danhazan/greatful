@@ -173,7 +173,7 @@ class TestShareWorkflows:
         assert data["user_id"] == test_users['sharer'].id
         assert data["post_id"] == test_post.id
         assert data["recipient_count"] == 2
-        assert data["message_content"] == "You'll love this gratitude post!"
+        assert data["message_content"] is None  # Simplified design: no message content
         
         # 3. Verify share record in database
         from sqlalchemy.future import select
@@ -186,7 +186,7 @@ class TestShareWorkflows:
         assert share.post_id == test_post.id
         assert share.share_method == "message"
         assert share.recipient_count == 2
-        assert share.message_content == "You'll love this gratitude post!"
+        assert share.message_content is None  # Simplified design: no message content
         
         # Verify recipient IDs are stored correctly
         recipient_ids = share.recipient_ids_list
@@ -473,4 +473,4 @@ class TestShareWorkflows:
         # Verify message share has correct recipient data
         message_share = message_shares[0]
         assert message_share.recipient_count == 1
-        assert message_share.message_content == "Check this out!"
+        assert message_share.message_content is None  # Simplified design: no message content

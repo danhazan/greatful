@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react"
 import { flushSync } from "react-dom"
-import { X, Copy, Check, Link, MessageCircle } from "lucide-react"
+import { X, Copy, Check, Link, MessageCircle, Send } from "lucide-react"
+import MentionAutocomplete from "./MentionAutocomplete"
 
 interface Post {
   id: string
@@ -12,6 +13,13 @@ interface Post {
     name: string
     image?: string
   }
+}
+
+interface UserInfo {
+  id: number
+  username: string
+  profile_image_url?: string
+  bio?: string
 }
 
 interface ShareModalProps {
@@ -33,6 +41,14 @@ export default function ShareModal({
   const [copySuccess, setCopySuccess] = useState(false)
   const [shareUrl, setShareUrl] = useState<string>("")
   const [pendingShare, setPendingShare] = useState<{url: string, timestamp: number} | null>(null)
+  
+  // Message sharing state
+  const [showMessageShare, setShowMessageShare] = useState(false)
+  const [selectedUsers, setSelectedUsers] = useState<UserInfo[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showAutocomplete, setShowAutocomplete] = useState(false)
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
 
 
@@ -70,6 +86,11 @@ export default function ShareModal({
       setCopySuccess(false)
       setShareUrl("")
       setPendingShare(null)
+      setShowMessageShare(false)
+      setSelectedUsers([])
+      setSearchQuery("")
+      setShowAutocomplete(false)
+      setSendingMessage(false)
     }
   }, [isOpen])
 
@@ -202,6 +223,93 @@ export default function ShareModal({
     }
   }
 
+  // Handle message sharing
+  const handleSendAsMessage = () => {
+    setShowMessageShare(true)
+    setTimeout(() => {
+      searchInputRef.current?.focus()
+    }, 100)
+  }
+
+  const handleUserSelect = (user: UserInfo) => {
+    if (selectedUsers.length >= 5) {
+      return // Max 5 users
+    }
+    
+    if (!selectedUsers.find(u => u.id === user.id)) {
+      setSelectedUsers(prev => [...prev, user])
+    }
+    
+    setSearchQuery("")
+    setShowAutocomplete(false)
+    searchInputRef.current?.focus()
+  }
+
+  const handleRemoveUser = (userId: number) => {
+    setSelectedUsers(prev => prev.filter(u => u.id !== userId))
+  }
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchQuery(value)
+    setShowAutocomplete(value.length > 0)
+  }
+
+  const handleSendMessage = async () => {
+    if (selectedUsers.length === 0 || sendingMessage) return
+
+    setSendingMessage(true)
+    
+    try {
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        throw new Error("No authentication token found")
+      }
+
+      const response = await fetch(`/api/posts/${post.id}/share`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          share_method: 'message',
+          recipient_ids: selectedUsers.map(u => u.id)
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Share failed: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      // Call onShare callback
+      onShare?.('message', {
+        recipients: selectedUsers,
+        shareId: result?.id || null
+      })
+
+      // Show success state briefly, then close modal
+      setSendingMessage(false)
+      
+      // Reset to main share view to show success
+      setShowMessageShare(false)
+      setSelectedUsers([])
+      setSearchQuery("")
+      
+      // Close modal after a brief delay to show success
+      setTimeout(() => {
+        onClose()
+      }, 1000)
+      
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      // TODO: Show error toast
+      setSendingMessage(false)
+    }
+  }
+
   // Truncate content for preview
   const truncateContent = (content: string, maxLength: number = 100) => {
     if (content.length <= maxLength) return content
@@ -274,24 +382,101 @@ export default function ShareModal({
             </div>
           </button>
 
-          {/* Send as Message Option - Placeholder for future implementation */}
-          <div className="relative">
+          {/* Send as Message Option */}
+          {!showMessageShare ? (
             <button
-              disabled
-              className="w-full flex items-center space-x-3 p-3 rounded-lg border border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
+              onClick={handleSendAsMessage}
+              className="w-full flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-purple-200 hover:bg-purple-50 text-gray-700 transition-all duration-200"
             >
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                <MessageCircle className="h-4 w-4 text-gray-400" />
+              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="h-4 w-4 text-purple-600" />
               </div>
               <div className="text-left flex-1">
                 <p className="text-sm font-medium">Send as Message</p>
-                <p className="text-xs text-gray-400">Share with users</p>
+                <p className="text-xs text-gray-500">Share with users</p>
               </div>
             </button>
-            <div className="absolute top-1 right-1 bg-yellow-100 text-yellow-800 text-xs px-1.5 py-0.5 rounded-full">
-              Soon
+          ) : (
+            <div className="space-y-3">
+              {/* User Selection */}
+              <div className="relative">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  placeholder="Search users to send to..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                  onFocus={() => setShowAutocomplete(searchQuery.length > 0)}
+                />
+                
+                {/* Autocomplete */}
+                {showAutocomplete && (
+                  <MentionAutocomplete
+                    isOpen={showAutocomplete}
+                    searchQuery={searchQuery}
+                    onUserSelect={handleUserSelect}
+                    onClose={() => setShowAutocomplete(false)}
+                    position={{ x: 0, y: 40 }}
+                    className="w-full"
+                  />
+                )}
+              </div>
+
+              {/* Selected Users */}
+              {selectedUsers.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedUsers.map(user => (
+                    <div
+                      key={user.id}
+                      className="flex items-center space-x-2 bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs"
+                    >
+                      <span>@{user.username}</span>
+                      <button
+                        onClick={() => handleRemoveUser(user.id)}
+                        className="text-purple-600 hover:text-purple-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Send Button */}
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setShowMessageShare(false)}
+                  className="flex-1 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={selectedUsers.length === 0 || sendingMessage}
+                  className={`
+                    flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors
+                    ${selectedUsers.length > 0 && !sendingMessage
+                      ? 'bg-purple-600 text-white hover:bg-purple-700'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  {sendingMessage ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      <span>Send ({selectedUsers.length})</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}

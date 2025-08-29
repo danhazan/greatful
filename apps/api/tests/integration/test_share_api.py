@@ -118,7 +118,7 @@ class TestShareAPI:
         assert data["share_method"] == "message"
         assert data["share_url"] is None
         assert data["recipient_count"] == 1
-        assert data["message_content"] == "Check out this amazing post!"
+        assert data["message_content"] is None  # Simplified design: no message content
 
     async def test_share_post_invalid_method(
         self, 

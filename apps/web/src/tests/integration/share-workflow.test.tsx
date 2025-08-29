@@ -4,6 +4,7 @@
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ShareModal from '@/components/ShareModal'
+import { describe, it, expect, beforeEach } from '@jest/globals'
 
 // Mock clipboard API
 const mockWriteText = jest.fn(() => Promise.resolve())
@@ -413,7 +414,7 @@ describe('Share Workflow Integration Tests', () => {
   })
 
   describe('Message Share Placeholder Workflow', () => {
-    it('should show message share as disabled with coming soon badge', () => {
+    it('should show message share as enabled', () => {
       render(
         <ShareModal
           isOpen={true}
@@ -423,18 +424,17 @@ describe('Share Workflow Integration Tests', () => {
         />
       )
 
-      // Message share should be disabled
+      // Message share should be enabled
       const messageButton = screen.getByText('Send as Message').closest('button')
-      expect(messageButton).toBeDisabled()
-      expect(messageButton).toHaveClass('cursor-not-allowed')
+      expect(messageButton).not.toBeDisabled()
+      expect(messageButton).not.toHaveClass('cursor-not-allowed')
 
-      // Should show "Soon" badge
-      expect(screen.getByText('Soon')).toBeInTheDocument()
+      // Should not show "Soon" badge
+      expect(screen.queryByText('Soon')).not.toBeInTheDocument()
 
-      // Should not be clickable
+      // Should be clickable and show message interface
       fireEvent.click(messageButton!)
-      // No API calls should be made
-      expect(global.fetch).not.toHaveBeenCalled()
+      expect(screen.getByPlaceholderText('Search users to send to...')).toBeInTheDocument()
     })
   })
 

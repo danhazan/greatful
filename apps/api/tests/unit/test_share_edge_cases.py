@@ -409,8 +409,7 @@ class TestShareEdgeCases:
             message=long_message
         )
         
-        assert result["message_content"] == long_message
-        assert len(result["message_content"]) == 200
+        assert result["message_content"] is None  # Simplified design: no message content
 
     async def test_share_service_database_transaction_rollback(
         self, 

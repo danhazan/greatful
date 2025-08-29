@@ -37,8 +37,7 @@ class TestShareModel:
         share = Share(
             user_id=1,
             post_id="test-post-id",
-            share_method=ShareMethod.message.value,
-            message_content="Check out this amazing post!"
+            share_method=ShareMethod.message.value
         )
         
         # Set recipient IDs using the property
@@ -49,7 +48,7 @@ class TestShareModel:
         assert share.is_url_share is False
         assert share.recipient_count == 3
         assert share.recipient_ids_list == [2, 3, 4]
-        assert share.message_content == "Check out this amazing post!"
+        assert share.message_content is None  # Simplified design: no message content
 
     def test_share_method_validation(self):
         """Test share method validation."""
@@ -121,8 +120,7 @@ class TestShareRepository:
         share = await share_repo.create(
             user_id=test_user.id,
             post_id=test_post.id,
-            share_method="message",
-            message_content="Great post!"
+            share_method="message"
         )
         
         # Set recipient IDs using the property
@@ -131,7 +129,7 @@ class TestShareRepository:
         
         assert share.share_method == "message"
         assert share.recipient_ids_list == [2, 3]
-        assert share.message_content == "Great post!"
+        assert share.message_content is None  # Simplified design: no message content
         assert share.recipient_count == 2
 
     async def test_get_post_shares(
@@ -317,7 +315,7 @@ class TestShareService:
         assert result["post_id"] == test_post.id
         assert result["share_method"] == "message"
         assert result["recipient_count"] == 1
-        assert result["message_content"] == "Check this out!"
+        assert result["message_content"] is None  # Simplified design: no message content
 
     async def test_share_via_message_validation_errors(
         self, 
@@ -344,14 +342,7 @@ class TestShareService:
                 message="Test"
             )
         
-        # Message too long
-        with pytest.raises(ValidationException, match="Message cannot exceed 200 characters"):
-            await share_service.share_via_message(
-                sender_id=test_user.id,
-                post_id=test_post.id,
-                recipient_ids=[1],
-                message="x" * 201
-            )
+        # Note: Message length validation removed in simplified design
 
     async def test_rate_limit_enforcement(
         self, 

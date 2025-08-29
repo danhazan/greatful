@@ -320,8 +320,9 @@ class NotificationService(BaseService):
             return None
         
         # Check rate limit for like notifications
-        if not await NotificationService._check_notification_rate_limit(
-            db, post_author_id, 'like'
+        notification_service = NotificationService(db)
+        if not await notification_service._check_notification_rate_limit(
+            post_author_id, 'like'
         ):
             logger.info(
                 f"Like notification blocked due to rate limit for user {post_author_id}"
@@ -361,8 +362,9 @@ class NotificationService(BaseService):
             Optional[Notification]: The created notification, or None if not created
         """
         # Check rate limit for follow notifications
-        if not await NotificationService._check_notification_rate_limit(
-            db, followed_user_id, 'new_follower'
+        notification_service = NotificationService(db)
+        if not await notification_service._check_notification_rate_limit(
+            followed_user_id, 'new_follower'
         ):
             logger.info(
                 f"Follow notification blocked due to rate limit for user {followed_user_id}"
@@ -435,7 +437,7 @@ class NotificationService(BaseService):
         message_content: Optional[str] = None
     ) -> Optional[Notification]:
         """
-        Create a notification for post share with rate limiting.
+        Create a notification for post share.
         
         Args:
             db: Database session
@@ -454,30 +456,19 @@ class NotificationService(BaseService):
             if sharer and sharer.id == post_author_id:
                 return None
         
-        # Check rate limit for share notifications
-        if not await NotificationService._check_notification_rate_limit(
-            db, post_author_id, 'post_shared'
-        ):
-            logger.info(
-                f"Share notification blocked due to rate limit for user {post_author_id}"
-            )
-            return None
-        
         # Create different messages based on share method
         if share_method == "message":
-            title = "Post Shared With You"
-            if message_content:
-                message = f'{sharer_username} shared a post with you: "{message_content[:50]}{"..." if len(message_content) > 50 else ""}"'
-            else:
-                message = f'{sharer_username} shared a post with you'
+            title = "Post Sent"
+            message = f'{sharer_username} sent you a post'
         else:
             title = "Post Shared"
             message = f'{sharer_username} shared your post'
         
-        return await NotificationService.create_notification(
-            db=db,
+        # Create notification directly using repository (like reaction notifications)
+        notification_repo = NotificationRepository(db)
+        created_notification = await notification_repo.create(
             user_id=post_author_id,
-            notification_type='post_shared',
+            type='post_shared',
             title=title,
             message=message,
             data={
@@ -485,9 +476,11 @@ class NotificationService(BaseService):
                 'sharer_username': sharer_username,
                 'share_method': share_method,
                 'message_content': message_content
-            },
-            respect_rate_limit=False  # Already checked above
+            }
         )
+        
+        logger.info(f"Created share notification for user {post_author_id}")
+        return created_notification
 
     @staticmethod
     async def get_user_notifications(

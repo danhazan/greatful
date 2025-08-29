@@ -147,7 +147,7 @@ class ShareService(BaseService):
         sender_id: int, 
         post_id: str, 
         recipient_ids: List[int], 
-        message: str = ""
+        message: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Share a post via in-app message to specific users.
@@ -156,7 +156,7 @@ class ShareService(BaseService):
             sender_id: ID of the user sharing
             post_id: ID of the post being shared
             recipient_ids: List of user IDs to share with (max 5)
-            message: Optional message to include (max 200 chars)
+            message: Optional message (not used in simplified design)
             
         Returns:
             Dict: Share data with recipients
@@ -167,9 +167,6 @@ class ShareService(BaseService):
         """
         # Validate inputs
         _validate_share_payload("message", recipient_ids, message)
-        
-        if len(message or "") > 200:
-            raise ValidationException("Message cannot exceed 200 characters.")
         
         # Check rate limit
         rate_limit_status = await self.check_rate_limit(sender_id)
@@ -207,7 +204,7 @@ class ShareService(BaseService):
             post_id=post_id,
             share_method=ShareMethod.message.value,
             recipient_user_ids=valid_recipients,  # Store directly as JSON array
-            message_content=message.strip() if message and message.strip() else None
+            message_content=None  # No message content in simplified design
         )
         
         # Create notifications for recipients
@@ -219,7 +216,7 @@ class ShareService(BaseService):
                     sharer_username=sender.username,
                     post_id=post_id,
                     share_method="message",
-                    message_content=message
+                    message_content=None  # No message content in simplified design
                 )
             except Exception as e:
                 logger.error(f"Failed to create share notification for recipient {recipient_id}: {e}")
