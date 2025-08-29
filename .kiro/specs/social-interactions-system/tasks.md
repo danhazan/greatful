@@ -165,15 +165,15 @@ The implementation maintains consistency with the reference implementation's pur
 **Module Reference:** Requirements 6 - Follow System Integration
 - [x] Create Follow database model and FollowService with relationship management
 - [x] Implement POST/DELETE /api/v1/follows/{user_id} endpoints for follow/unfollow
-- [ ] Build FollowButton component with optimistic updates and loading states
-- [ ] Add follow/unfollow functionality to user profiles and post author sections
-- [ ] Create follow notifications and implement privacy controls
-- [ ] Display follower and following counts on user profiles
+- [x] Build FollowButton component with optimistic updates and loading states
+- [x] Add follow/unfollow functionality to user profiles and post author sections
+- [x] Create follow notifications for new followers
+- [x] Display follower and following counts on user profiles
 - [ ] Implement follow status checking and prevent self-following
-- [ ] Write tests for follow relationships, privacy controls, and UI interactions
-- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify Follow model, FollowService, and follow/unfollow API endpoints work correctly including privacy controls and self-follow prevention. Run frontend tests (`npm test`) to verify FollowButton component, optimistic updates, and UI interactions. Run integration tests to verify end-to-end follow workflow including notifications and follower count updates.
+- [ ] Write tests for follow relationships and UI interactions
+- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify Follow model, FollowService, and follow/unfollow API endpoints work correctly including self-follow prevention. Run frontend tests (`npm test`) to verify FollowButton component, optimistic updates, and UI interactions. Run integration tests to verify end-to-end follow workflow including notifications and follower count updates.
 - [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with follow system API endpoints, revise docs/ARCHITECTURE_AND_SETUP.md to reflect follow system integration, update docs/DATABASE_STRUCTURE.md with follow relationships schema, and add follow system workflows to docs/TEST_GUIDELINES.md
-**Acceptance Criteria:** Users can follow/unfollow others, see follower counts, receive follow notifications, privacy settings are properly enforced, and project documentation accurately reflects the follow system implementation.
+**Acceptance Criteria:** Users can follow/unfollow others, see follower counts, receive follow notifications, and project documentation accurately reflects the follow system implementation.
 
 ### **TASK 8: Enhanced Feed Algorithm with Social Signals** (Week 8)
 **Module Reference:** Requirements 7 - Content Hierarchy Algorithm Enhancement
@@ -204,9 +204,36 @@ The implementation maintains consistency with the reference implementation's pur
 **Acceptance Criteria:** All social interaction features work seamlessly on mobile devices, touch interactions are intuitive, accessibility is maintained, error handling provides clear user feedback, and project documentation accurately reflects mobile optimization implementation and testing procedures.
 
 ## Phase 2: Enhanced Social Features (Future)
+
+### **TASK 10: Privacy Controls System** (Post-MVP)
+**Module Reference:** Privacy & User Safety Features
+- [ ] **10.1 User Privacy Settings Page**
+  - Create Settings page with privacy controls section
+  - Implement profile privacy levels: Public/Friendly/Private
+  - Add default post privacy setting (inherits from profile)
+  - Create user blocking functionality for mentions/messages/following
+  - Add privacy settings API endpoints and database schema
+  - Write comprehensive tests for privacy settings functionality
+  - _Requirements: User profile privacy controls_
+- [ ] **10.2 Post-Level Privacy Controls**
+  - Add privacy selector to post creation modal (Public/Private)
+  - Implement per-post privacy overrides (public posts on private profiles, etc.)
+  - Create privacy migration tool when user changes profile privacy
+  - Add privacy enforcement in feed algorithm and post visibility
+  - Write tests for post privacy functionality and edge cases
+  - _Requirements: Granular post privacy controls_
+- [ ] **10.3 Privacy Enforcement Integration**
+  - Update feed algorithm to respect Friendly profile settings (no suggestions)
+  - Implement Private profile restrictions (only mutual follows see content)
+  - Add privacy checks to all social interactions (mentions, shares, follows)
+  - Create blocking enforcement across all user interactions
+  - Write comprehensive integration tests for privacy enforcement
+  - _Requirements: Privacy mechanism enforcement_
+**Acceptance Criteria:** Users can set profile and post privacy levels, block other users, and privacy is enforced across all social interactions while maintaining simple and intuitive controls.
+
+### **TASK 11: Advanced Social Features** (Post-MVP)
 - [ ] **Username Validation Standards:** Enforce letters, numbers, and underscores only for usernames across platform with migration for existing users
 - [ ] **Comment System:** Full commenting with threading (moved from MVP)
-- [ ] **Advanced Privacy Controls:** Granular privacy settings and blocking for shared content
 - [ ] **Share Analytics & Rate Limiting:** Comprehensive tracking, rate limiting (20/hour), and abuse prevention
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights

@@ -39,14 +39,14 @@ The design follows the established patterns from the reference implementation, m
 ├─────────────────────────────────────────────────────────────────┤
 │  Database Models:                                               │
 │  • EmojiReaction        • Share              • Mention         │
-│  • Notification         • Follow             • UserPreference  │
+│  • Notification         • Follow                               │
 └─────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                Database (PostgreSQL)                           │
 │  Tables: users, posts, emoji_reactions, shares, mentions,      │
-│          notifications, follows, user_preferences              │
+│          notifications, follows                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -219,7 +219,6 @@ class ShareService:
 
 **Business Logic**:
 - Generate SEO-friendly URLs
-- Respect privacy settings
 - Rate limiting (20 shares/hour)
 - Create simple notifications for recipients
 - Track share analytics
@@ -240,7 +239,6 @@ class MentionService:
 **Business Logic**:
 - Parse @username patterns from text
 - Validate mentioned users exist
-- Check privacy/blocking settings
 - Create mention notifications
 - Highlight mentions in UI
 
@@ -281,7 +279,6 @@ class FollowService:
 
 **Business Logic**:
 - Prevent self-following
-- Handle privacy settings
 - Create follow notifications
 - Update feed algorithm weights
 
@@ -384,7 +381,6 @@ CREATE TABLE follows (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     follower_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     followed_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    status VARCHAR(20) DEFAULT 'active', -- 'active', 'pending', 'blocked'
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(follower_id, followed_id),
     CHECK(follower_id != followed_id) -- Prevent self-following
@@ -399,12 +395,61 @@ CREATE INDEX idx_follows_followed_id ON follows(followed_id);
 ```sql
 CREATE TABLE user_preferences (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    allow_mentions BOOLEAN DEFAULT TRUE,
-    allow_sharing BOOLEAN DEFAULT TRUE,
-    privacy_level VARCHAR(20) DEFAULT 'public', -- 'public', 'followers', 'private'
     notification_settings JSONB DEFAULT '{}',
     updated_at TIMESTAMP DEFAULT NOW()
 );
+```
+
+## Post-MVP Privacy Extensions
+
+### Privacy-Enhanced Database Schema (Future)
+
+#### User Privacy Settings
+```sql
+-- Extend users table for privacy controls
+ALTER TABLE users ADD COLUMN profile_privacy VARCHAR(20) DEFAULT 'public';
+ALTER TABLE users ADD COLUMN default_post_privacy VARCHAR(20) DEFAULT 'public';
+
+-- User blocking system
+CREATE TABLE user_blocks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    blocker_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    blocked_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(blocker_id, blocked_id),
+    CHECK(blocker_id != blocked_id)
+);
+
+CREATE INDEX idx_user_blocks_blocker_id ON user_blocks(blocker_id);
+CREATE INDEX idx_user_blocks_blocked_id ON user_blocks(blocked_id);
+```
+
+#### Post Privacy Settings
+```sql
+-- Extend posts table for per-post privacy
+ALTER TABLE posts ADD COLUMN privacy_level VARCHAR(20) DEFAULT 'public';
+```
+
+### Privacy-Enhanced Services (Future)
+
+#### PrivacyService
+```python
+class PrivacyService:
+    async def can_see_post(self, viewer_id: int, post: Post) -> bool
+    async def can_interact_with_user(self, actor_id: int, target_id: int) -> bool
+    async def is_blocked(self, user1_id: int, user2_id: int) -> bool
+    async def get_mutual_followers(self, user_id: int) -> List[int]
+    async def migrate_user_posts(self, user_id: int, target_privacy: str) -> int
+```
+
+#### Enhanced Feed Algorithm with Privacy
+```python
+async def get_personalized_feed_with_privacy(self, user_id: int) -> List[Post]:
+    """Enhanced feed that respects privacy settings and blocking."""
+    # Filter based on profile privacy (Public/Friendly/Private)
+    # Exclude blocked users' content
+    # Apply post-level privacy checks
+    # Respect mutual follower requirements for private content
 ```
 
 ## Error Handling
@@ -413,15 +458,13 @@ CREATE TABLE user_preferences (
 
 1. **Network Errors**: Show toast notifications with retry options
 2. **Rate Limiting**: Display friendly messages about usage limits
-3. **Permission Errors**: Clear messaging about privacy settings
-4. **Validation Errors**: Inline form validation with helpful hints
+3. **Validation Errors**: Inline form validation with helpful hints
 
 ### Backend Error Handling
 
 1. **Rate Limiting**: HTTP 429 with retry-after headers
-2. **Permission Denied**: HTTP 403 with clear error messages
-3. **Not Found**: HTTP 404 for invalid post/user IDs
-4. **Validation Errors**: HTTP 422 with detailed field errors
+2. **Not Found**: HTTP 404 for invalid post/user IDs
+3. **Validation Errors**: HTTP 422 with detailed field errors
 
 ### Error Response Format
 
@@ -510,12 +553,10 @@ async def get_post_reactions(post_id: str) -> List[EmojiReaction]:
 3. **Message Content**: XSS prevention in share messages
 4. **Rate Limiting**: Prevent spam and abuse
 
-### Privacy Controls
+### Access Controls
 
-1. **Mention Permissions**: Users can disable mentions
-2. **Share Permissions**: Users can disable sharing of their posts
-3. **Follow Privacy**: Private accounts require approval
-4. **Blocking System**: Blocked users cannot interact
+1. **Rate Limiting**: Prevent spam and abuse through usage limits
+2. **Authentication**: Ensure only authenticated users can perform actions
 
 ### Data Protection
 
@@ -548,3 +589,14 @@ async def get_post_reactions(post_id: str) -> List[EmojiReaction]:
 4. **Business Metrics**: Measure impact on user retention and growth
 
 This design provides a comprehensive foundation for implementing the social interactions system while maintaining consistency with the existing Grateful platform architecture and design patterns.
+
+## Privacy Controls (Post-MVP)
+
+The system is designed to support privacy controls as a future enhancement without requiring major architectural changes. The privacy system will include:
+
+- **Profile Privacy Levels**: Public (discoverable), Friendly (visible but not suggested), Private (mutual followers only)
+- **Post Privacy Controls**: Per-post privacy settings that can override profile defaults
+- **User Blocking**: Comprehensive blocking system preventing all interactions
+- **Privacy Migration**: Tools to help users migrate existing content when changing privacy settings
+
+See `docs/PRIVACY_CONTROLS_DESIGN.md` for detailed privacy system architecture and implementation guidelines.

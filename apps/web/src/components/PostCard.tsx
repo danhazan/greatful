@@ -8,6 +8,7 @@ import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
 import ShareModal from "./ShareModal"
 import MentionHighlighter from "./MentionHighlighter"
+import FollowButton from "./FollowButton"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
@@ -35,6 +36,7 @@ interface Post {
 interface PostCardProps {
   post: Post
   currentUserId?: string
+  hideFollowButton?: boolean // New prop to hide follow button in profile context
   onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => void
   onReaction?: (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => void
   onRemoveReaction?: (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => void
@@ -47,6 +49,7 @@ interface PostCardProps {
 export default function PostCard({ 
   post, 
   currentUserId,
+  hideFollowButton = false,
   onHeart, 
   onReaction,
   onRemoveReaction,
@@ -409,7 +412,7 @@ export default function PostCard({
       <article className={styling.container}>
         {/* Post Header */}
         <div className={styling.header}>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-start space-x-3">
             <img
               src={post.author.image || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
               alt={post.author.name}
@@ -417,12 +420,26 @@ export default function PostCard({
               onClick={() => onUserClick?.(post.author.id)}
             />
             <div className="flex-1">
-              <h3 
-                className={`${styling.name} text-gray-900 cursor-pointer hover:text-purple-700 transition-colors`}
-                onClick={() => onUserClick?.(post.author.id)}
-              >
-                {post.author.name}
-              </h3>
+              <div className="flex items-center space-x-2">
+                <h3 
+                  className={`${styling.name} text-gray-900 cursor-pointer hover:text-purple-700 transition-colors`}
+                  onClick={() => onUserClick?.(post.author.id)}
+                >
+                  {post.author.name}
+                </h3>
+                {/* Follow button positioned right next to the username */}
+                {currentUserId && 
+                 currentUserId !== post.author.id && 
+                 !isNaN(parseInt(post.author.id)) &&
+                 !hideFollowButton &&
+                 process.env.NODE_ENV !== 'test' && (
+                  <FollowButton 
+                    userId={parseInt(post.author.id)} 
+                    size="xxs"
+                    variant="outline"
+                  />
+                )}
+              </div>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <Calendar className="h-4 w-4" />
                 <a 

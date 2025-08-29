@@ -376,8 +376,7 @@ class NotificationService(BaseService):
             )
             return None
         
-        return await NotificationService.create_notification(
-            db=db,
+        return await notification_service.create_notification(
             user_id=followed_user_id,
             notification_type='new_follower',
             title='New Follower',

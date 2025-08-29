@@ -447,7 +447,7 @@ export default function FeedPage() {
               <PostCard
                 key={post.id}
                 post={post}
-                currentUserId={user?.id}
+                currentUserId={user?.id?.toString()}
                 onHeart={handleHeart}
                 onReaction={handleReaction}
                 onRemoveReaction={handleRemoveReaction}

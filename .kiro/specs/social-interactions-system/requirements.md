@@ -37,11 +37,8 @@ The system builds upon the existing stable authentication, navbar, and basic pos
 6. WHEN a logged-in user visits a shared post page THEN they SHALL be able to interact with it (reactions/hearts)
 7. WHEN a logged-out user visits a shared post page THEN they SHALL only see the counters but cannot interact
 8. WHEN a user clicks on the post author's name or profile picture THEN they SHALL be navigated to the author's profile page
-9. WHEN a private post is shared THEN the URL SHALL require authentication to view
-10. WHEN a follower-only post is shared THEN the system SHALL respect existing privacy settings
-11. WHEN a user's post is shared THEN they SHALL receive a notification about the share
-12. WHEN the system tracks shares THEN it SHALL implement rate limiting of 20 shares per hour per user
-13. IF a user has disabled sharing on their posts THEN the share button SHALL not appear on their posts
+9. WHEN a user's post is shared THEN they SHALL receive a notification about the share
+10. WHEN the system tracks shares THEN it SHALL implement rate limiting of 20 shares per hour per user
 
 ### Requirement 3: Mention System with User Search
 
@@ -56,8 +53,7 @@ The system builds upon the existing stable authentication, navbar, and basic pos
 5. WHEN a user is mentioned THEN the notification SHALL include the post preview and mention context
 6. WHEN a user clicks on a mention THEN they SHALL be navigated to the mentioned user's profile
 7. WHEN mentions are displayed THEN they SHALL be visually highlighted with purple styling consistent with the app theme
-8. WHEN a user has privacy settings enabled THEN they SHALL be able to control who can mention them
-9. IF a mentioned user has blocked the author THEN the mention SHALL not create a notification
+8. WHEN mentions are processed THEN all valid mentions SHALL create notifications for mentioned users
 
 ### Requirement 4: Share System with Mention Integration
 
@@ -72,8 +68,7 @@ The system builds upon the existing stable authentication, navbar, and basic pos
 5. WHEN the post is sent THEN the recipient SHALL receive a notification: "[Username] sent you a post"
 6. WHEN sharing with multiple users THEN the system SHALL support up to 5 users per share
 7. WHEN a post is shared via message THEN it SHALL count toward the share analytics and rate limiting
-8. IF the recipient has blocked the sender THEN the share message SHALL not be delivered
-9. WHEN the notification is clicked THEN the user SHALL be navigated to the shared post
+8. WHEN the notification is clicked THEN the user SHALL be navigated to the shared post
 
 ### Requirement 5: Enhanced Notification System
 
@@ -118,10 +113,9 @@ The system builds upon the existing stable authentication, navbar, and basic pos
 3. WHEN a user unfollows someone THEN the system SHALL remove the relationship and update the button to "Follow"
 4. WHEN a user follows someone THEN the followed user SHALL receive a notification: "[Username] started following you"
 5. WHEN a user views their feed THEN posts from followed users SHALL be prioritized higher in the algorithm
-6. WHEN a user has privacy settings THEN they SHALL be able to set their account to private (manual approval required)
-7. WHEN a private user receives a follow request THEN they SHALL get a notification to approve or deny
-8. WHEN viewing a user's profile THEN the system SHALL show follower and following counts
-9. IF a user blocks another user THEN all follow relationships SHALL be removed and prevented
+6. WHEN viewing a user's profile THEN the system SHALL show follower and following counts
+7. WHEN a user attempts to follow themselves THEN the system SHALL prevent self-following
+8. WHEN follow relationships are created THEN they SHALL be immediately active without requiring approval
 
 ### Requirement 7: Content Hierarchy Algorithm Enhancement
 
@@ -187,6 +181,36 @@ The system builds upon the existing stable authentication, navbar, and basic pos
 4. **Notification Engagement**: 70% of notifications are clicked within 24 hours
 5. **Content Quality**: Average post score increases by 40% with new algorithm
 6. **User Retention**: 15% improvement in 7-day retention due to enhanced social features
+
+## Post-MVP Privacy Controls (Future Enhancement)
+
+### Requirement 8: User Privacy Settings
+
+**User Story:** As a user, I want to control who can see my profile and posts, so I can share gratitude in a way that feels comfortable and safe for me.
+
+#### Acceptance Criteria
+
+1. WHEN a user accesses Settings THEN they SHALL see privacy controls for profile and posts
+2. WHEN a user sets profile privacy to Public THEN their posts appear in feeds and anyone can follow
+3. WHEN a user sets profile privacy to Friendly THEN their posts are visible but don't appear in suggestions
+4. WHEN a user sets profile privacy to Private THEN only mutual followers can see their posts
+5. WHEN a user changes profile privacy THEN they SHALL be offered to migrate all existing posts
+6. WHEN a user creates a post THEN they SHALL be able to set it as Public or Private
+7. WHEN a post is Private THEN only mutual followers can see it regardless of profile privacy
+8. WHEN a Public post is on a Private profile THEN it still only shows to mutual followers
+
+### Requirement 9: User Blocking System
+
+**User Story:** As a user, I want to block other users who make me uncomfortable, so I can maintain a positive experience on the platform.
+
+#### Acceptance Criteria
+
+1. WHEN a user blocks another user THEN all interactions between them SHALL be prevented
+2. WHEN a user is blocked THEN they cannot see the blocker's posts or profile
+3. WHEN a user is blocked THEN they cannot mention, share, or follow the blocker
+4. WHEN users block each other THEN existing follows SHALL be automatically removed
+5. WHEN a blocked user tries to interact THEN they SHALL receive generic "not found" responses
+6. WHEN a user views Settings THEN they SHALL see a list of blocked users with unblock options
 
 ## Dependencies
 

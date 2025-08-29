@@ -3,7 +3,7 @@ Unit tests for follow functionality.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.follow_service import FollowService
 from app.repositories.follow_repository import FollowRepository
@@ -79,12 +79,14 @@ class TestFollowService:
             created_at=datetime.now(timezone.utc)
         )
 
-    async def test_follow_user_success(self, follow_service, mock_follow_repo, mock_user_repo, sample_user1, sample_user2, sample_follow):
+    @patch('app.services.notification_service.NotificationService.create_follow_notification')
+    async def test_follow_user_success(self, mock_create_notification, follow_service, mock_follow_repo, mock_user_repo, sample_user1, sample_user2, sample_follow):
         """Test successful user follow."""
         # Arrange
         mock_user_repo.get_by_id_or_404.side_effect = [sample_user1, sample_user2]
         mock_follow_repo.get_follow_relationship.return_value = None
         mock_follow_repo.create.return_value = sample_follow
+        mock_create_notification.return_value = None  # Mock notification creation
 
         # Act
         result = await follow_service.follow_user(sample_user1.id, sample_user2.id)
@@ -98,6 +100,14 @@ class TestFollowService:
         
         mock_user_repo.get_by_id_or_404.assert_any_call(sample_user1.id)
         mock_user_repo.get_by_id_or_404.assert_any_call(sample_user2.id)
+        
+        # Verify notification was created
+        mock_create_notification.assert_called_once_with(
+            db=follow_service.db,
+            followed_user_id=sample_user2.id,
+            follower_username=sample_user1.username,
+            follower_id=sample_user1.id
+        )
         mock_follow_repo.get_follow_relationship.assert_called_once_with(sample_user1.id, sample_user2.id)
         mock_follow_repo.create.assert_called_once_with(
             follower_id=sample_user1.id,

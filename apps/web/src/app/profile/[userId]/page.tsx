@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import { Calendar } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import Navbar from "@/components/Navbar"
+import FollowButton from "@/components/FollowButton"
 
 interface UserProfile {
   id: number
@@ -310,6 +311,26 @@ export default function UserProfilePage() {
                   </div>
                 </div>
 
+                {/* Follow Button - only show when viewing someone else's profile */}
+                {currentUser && currentUser.id !== profile.id && (
+                  <div className="mb-4">
+                    <FollowButton 
+                      userId={profile.id} 
+                      size="md"
+                      variant="primary"
+                      onFollowChange={(isFollowing) => {
+                        // Update follower count optimistically
+                        setProfile(prev => prev ? {
+                          ...prev,
+                          followersCount: isFollowing 
+                            ? (prev.followersCount || 0) + 1 
+                            : Math.max((prev.followersCount || 1) - 1, 0)
+                        } : null)
+                      }}
+                    />
+                  </div>
+                )}
+
                 {/* Stats */}
                 <div className="flex items-center justify-center md:justify-start space-x-8">
                   <div className="text-center">
@@ -353,7 +374,8 @@ export default function UserProfilePage() {
                   <PostCard
                     key={post.id}
                     post={post}
-                    currentUserId={currentUser?.id}
+                    currentUserId={currentUser?.id?.toString()}
+                    hideFollowButton={true}
                     onHeart={handleHeart}
                     onReaction={handleReaction}
                     onRemoveReaction={handleRemoveReaction}

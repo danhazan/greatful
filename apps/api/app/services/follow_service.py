@@ -84,7 +84,14 @@ class FollowService(BaseService):
         
         logger.info(f"User {follower_id} started following user {followed_id}")
         
-        # TODO: Create notification for followed user
+        # Create notification for followed user
+        from app.services.notification_service import NotificationService
+        await NotificationService.create_follow_notification(
+            db=self.db,
+            followed_user_id=followed_id,
+            follower_username=follower.username,
+            follower_id=follower_id
+        )
         
         return {
             "id": follow.id,

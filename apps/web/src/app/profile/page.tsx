@@ -401,6 +401,7 @@ export default function ProfilePage() {
                   key={post.id}
                   post={post}
                   currentUserId={currentUser?.id}
+                  hideFollowButton={true}
                   onHeart={handleHeart}
                   onReaction={handleReaction}
                   onRemoveReaction={handleRemoveReaction}

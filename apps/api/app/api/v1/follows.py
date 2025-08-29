@@ -58,47 +58,47 @@ async def follow_user(
         
     except ValidationException as e:
         logger.warning(
-            f"Follow validation failed: {e.message}",
+            f"Follow validation failed: {e.detail}",
             extra={
                 "follower_id": current_user_id,
                 "followed_id": user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=422, detail=e.message)
+        raise HTTPException(status_code=422, detail=e.detail)
         
     except ConflictError as e:
         logger.warning(
-            f"Follow conflict: {e.message}",
+            f"Follow conflict: {e.detail}",
             extra={
                 "follower_id": current_user_id,
                 "followed_id": user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=409, detail=e.message)
+        raise HTTPException(status_code=409, detail=e.detail)
         
     except NotFoundError as e:
         logger.warning(
-            f"User not found for follow: {e.message}",
+            f"User not found for follow: {e.detail}",
             extra={
                 "follower_id": current_user_id,
                 "followed_id": user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=404, detail=e.message)
+        raise HTTPException(status_code=404, detail=e.detail)
         
     except PermissionDeniedError as e:
         logger.warning(
-            f"Follow permission denied: {e.message}",
+            f"Follow permission denied: {e.detail}",
             extra={
                 "follower_id": current_user_id,
                 "followed_id": user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=403, detail=e.message)
+        raise HTTPException(status_code=403, detail=e.detail)
         
     except Exception as e:
         logger.error(
@@ -152,14 +152,14 @@ async def unfollow_user(
         
     except NotFoundError as e:
         logger.warning(
-            f"Follow relationship not found for unfollow: {e.message}",
+            f"Follow relationship not found for unfollow: {e.detail}",
             extra={
                 "follower_id": current_user_id,
                 "followed_id": user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=404, detail=e.message)
+        raise HTTPException(status_code=404, detail=e.detail)
         
     except Exception as e:
         logger.error(
@@ -251,13 +251,13 @@ async def get_user_followers(
         
     except NotFoundError as e:
         logger.warning(
-            f"User not found for followers: {e.message}",
+            f"User not found for followers: {e.detail}",
             extra={
                 "user_id": user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=404, detail=e.message)
+        raise HTTPException(status_code=404, detail=e.detail)
         
     except Exception as e:
         logger.error(
@@ -307,13 +307,13 @@ async def get_user_following(
         
     except NotFoundError as e:
         logger.warning(
-            f"User not found for following: {e.message}",
+            f"User not found for following: {e.detail}",
             extra={
                 "user_id": user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=404, detail=e.message)
+        raise HTTPException(status_code=404, detail=e.detail)
         
     except Exception as e:
         logger.error(
@@ -354,13 +354,13 @@ async def get_user_follow_stats(
         
     except NotFoundError as e:
         logger.warning(
-            f"User not found for follow stats: {e.message}",
+            f"User not found for follow stats: {e.detail}",
             extra={
                 "user_id": user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=404, detail=e.message)
+        raise HTTPException(status_code=404, detail=e.detail)
         
     except Exception as e:
         logger.error(
@@ -404,13 +404,13 @@ async def get_follow_suggestions(
         
     except NotFoundError as e:
         logger.warning(
-            f"User not found for follow suggestions: {e.message}",
+            f"User not found for follow suggestions: {e.detail}",
             extra={
                 "user_id": current_user_id,
                 "error": str(e)
             }
         )
-        raise HTTPException(status_code=404, detail=e.message)
+        raise HTTPException(status_code=404, detail=e.detail)
         
     except Exception as e:
         logger.error(

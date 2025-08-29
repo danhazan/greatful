@@ -315,11 +315,6 @@ class NotificationRepository(BaseRepository):
         one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
         one_hour_ago = one_hour_ago.replace(tzinfo=None)
         
-        count = await self.count({
-            "user_id": user_id,
-            "type": notification_type
-        })
-        
         # For rate limiting, we need to check within the last hour
         # This is a simplified check - in production you'd want more sophisticated rate limiting
         builder = self.query().filter(

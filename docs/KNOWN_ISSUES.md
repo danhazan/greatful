@@ -11,6 +11,8 @@
 - **😀 Emoji Display Inconsistency**: Emojis sometimes display differently in notifications
 - **🔄 Post UI Update Lag**: Posts don't update in UI when notification bell updates
 - **📍 Mention Autocomplete Positioning**: Autocomplete appears below textarea instead of under cursor
+- **🔁 Follow Notification Duplication**: Multiple follow notifications sent when unfollow/follow on same day
+- **🎯 Reaction Notification Duplication**: Changing emoji reactions creates duplicate notifications instead of updating
 
 ### ✅ Recently Resolved
 - **Heart Counter Real-time Updates**: ✅ COMPLETED - Real-time updates without page refresh
@@ -309,6 +311,90 @@ When users type `@username` to mention someone, the autocomplete dropdown appear
 **Priority**: Low - Enhancement opportunity, not a blocking issue. Core mention functionality works perfectly.
 
 **Implementation Complexity**: High - Requires complex cursor coordinate calculation, text measurement, and handling of line breaks/wrapping.
+
+### Follow Notification Duplication
+**Issue**: Follow notifications can be sent multiple times if someone unfollows and then follows again on the same day  
+**Status**: ⚠️ Active Issue  
+**Priority**: Medium  
+**Impact**: User Experience & Notification Spam  
+**Discovered**: August 28, 2025  
+
+**Description**:
+When a user unfollows someone and then follows them again on the same day, a new follow notification is created and sent to the followed user. This can lead to notification spam and confusion, as users may receive multiple "X started following you" notifications from the same person within a short time period.
+
+**Technical Details**:
+- Backend: Follow notifications are created without checking for existing notifications from the same day ❌
+- Database: Multiple follow notifications from same user can exist for same day ❌
+- Frontend: Users see duplicate follow notifications ❌
+- Issue: No deduplication logic for follow notifications within same day
+
+**Expected Behavior**:
+- Each follow notification should be checked against existing notifications from that day
+- If a follow notification from the same user already exists for the current day, the new one should be discarded
+- Users should only receive one follow notification per user per day, regardless of unfollow/follow cycles
+
+**Reproduction Steps**:
+1. User A follows User B (notification sent)
+2. User A unfollows User B
+3. User A follows User B again on the same day
+4. Observe that User B receives a second follow notification from User A
+
+**Root Cause**: 
+- No deduplication logic in `NotificationService.create_follow_notification()`
+- Follow notifications are created without checking for existing notifications from same follower on same day
+- Current implementation only checks rate limits, not duplicates
+
+**Workaround**: Users can manually dismiss duplicate notifications, but this creates poor user experience.
+
+**Priority**: Medium - Affects user experience and can lead to notification spam.
+
+**Implementation Requirements**:
+- Add daily deduplication check in follow notification creation
+- Query existing notifications by follower_id and creation date
+- Skip notification creation if duplicate exists within same day
+
+### Reaction Notification Duplication
+**Issue**: Reaction notifications create duplicates instead of updating existing notifications when users change their emoji reaction  
+**Status**: ⚠️ Active Issue  
+**Priority**: Medium  
+**Impact**: User Experience & Notification Clutter  
+**Discovered**: August 28, 2025  
+
+**Description**:
+When a user changes their emoji reaction on a post (e.g., changes from 😍 to 😂), a new notification is created instead of updating the existing reaction notification. This leads to multiple notifications from the same user for the same post, cluttering the notification feed.
+
+**Technical Details**:
+- Backend: New reaction notifications are created without checking for existing reactions from same user ❌
+- Database: Multiple reaction notifications from same user to same post can exist ❌
+- Frontend: Users see multiple reaction notifications from same person for same post ❌
+- Issue: No deduplication/update logic for reaction notifications
+
+**Expected Behavior**:
+- When a user changes their reaction, the existing notification should be updated with the new emoji
+- Only one reaction notification per user per post should exist
+- The notification should show the most recent emoji reaction
+- Notification timestamp should be updated to reflect the change
+
+**Reproduction Steps**:
+1. User A reacts with 😍 to User B's post (notification sent)
+2. User A changes reaction to 😂 on the same post
+3. Observe that User B receives a second notification instead of an updated one
+4. User B's notification feed shows two separate notifications from User A for the same post
+
+**Root Cause**: 
+- No deduplication logic in `NotificationService.create_emoji_reaction_notification()`
+- Reaction notifications are created without checking for existing notifications from same user to same post
+- Current batching logic groups different users' reactions but doesn't handle same user's reaction changes
+
+**Workaround**: Users can manually dismiss old reaction notifications, but this creates notification clutter.
+
+**Priority**: Medium - Affects user experience and creates confusing notification behavior.
+
+**Implementation Requirements**:
+- Add reaction deduplication check in emoji reaction notification creation
+- Query existing notifications by reactor username and post_id
+- Update existing notification with new emoji instead of creating new one
+- Update notification timestamp and mark as unread when emoji changes
 
 ### Username Standards Not Enforced
 **Issue**: Platform allows usernames with special characters but doesn't enforce consistent standards  
@@ -708,5 +794,5 @@ export async function GET(request: NextRequest, params: any) {
 
 ---
 
-*Last Updated: August 27, 2025*  
-*Next Review: When notification batching and real-time sync issues are resolved* 
+*Last Updated: August 28, 2025*  
+*Next Review: When notification deduplication and batching issues are resolved* 
