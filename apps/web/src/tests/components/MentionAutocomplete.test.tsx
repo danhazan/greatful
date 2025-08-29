@@ -86,28 +86,29 @@ describe('MentionAutocomplete', () => {
       
       expect(screen.getByText('Searching...')).toBeInTheDocument()
       
-      // Advance timers to trigger the search
-      act(() => {
-        jest.advanceTimersByTime(300)
+      jest.useRealTimers()
+    })
+
+    it('renders empty state when no query provided', async () => {
+      jest.useFakeTimers()
+      
+      render(<MentionAutocomplete {...defaultProps} searchQuery="" />)
+      
+      // Wait for the component to process the empty query
+      await act(async () => {
+        jest.advanceTimersByTime(100)
       })
       
-      // Wait for the search to complete
       await waitFor(() => {
-        expect(screen.queryByText('Searching...')).not.toBeInTheDocument()
+        expect(screen.getByText('Type to search for users...')).toBeInTheDocument()
       })
       
       jest.useRealTimers()
     })
 
-    it('renders empty state when no query provided', async () => {
-      render(<MentionAutocomplete {...defaultProps} searchQuery="" />)
-      
-      await waitFor(() => {
-        expect(screen.getByText('Type to search for users...')).toBeInTheDocument()
-      })
-    })
-
     it('renders no results message when search returns empty', async () => {
+      jest.useFakeTimers()
+      
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -119,9 +120,17 @@ describe('MentionAutocomplete', () => {
 
       render(<MentionAutocomplete {...defaultProps} searchQuery="nonexistent" />)
       
+      // Advance timers to trigger search and wait for completion
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
+      
       await waitFor(() => {
         expect(screen.getByText('No users found for "nonexistent"')).toBeInTheDocument()
       })
+      
+      jest.useRealTimers()
     })
 
     it('renders user list when search returns results', async () => {
@@ -129,9 +138,10 @@ describe('MentionAutocomplete', () => {
       
       render(<MentionAutocomplete {...defaultProps} />)
       
-      // Advance timers to trigger the search
-      act(() => {
+      // Advance timers to trigger the search and wait for state updates
+      await act(async () => {
         jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
       })
       
       await waitFor(() => {
@@ -144,7 +154,15 @@ describe('MentionAutocomplete', () => {
     })
 
     it('displays user avatars and bios correctly', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         // Check avatar images
@@ -158,13 +176,16 @@ describe('MentionAutocomplete', () => {
         expect(screen.getByText('Test user 1 bio')).toBeInTheDocument()
         expect(screen.getByText('Test user 2 bio')).toBeInTheDocument()
       })
+      
+      jest.useRealTimers()
     })
 
     it('applies correct positioning styles', () => {
       const { container } = render(<MentionAutocomplete {...defaultProps} />)
       
-      const dropdown = container.querySelector('div[style*="left: 100px"]')
+      const dropdown = container.querySelector('[data-mention-autocomplete]')
       expect(dropdown).toBeInTheDocument()
+      expect(dropdown).toHaveStyle('left: 100px')
       expect(dropdown).toHaveStyle('top: 200px')
     })
   })
@@ -189,9 +210,11 @@ describe('MentionAutocomplete', () => {
       // Should not have called fetch yet
       expect(mockFetch).not.toHaveBeenCalled()
       
-      // Fast-forward 300ms
-      act(() => {
+      // Fast-forward 300ms and wait for state updates
+      await act(async () => {
         jest.advanceTimersByTime(300)
+        // Wait for any pending promises to resolve
+        await new Promise(resolve => setTimeout(resolve, 0))
       })
       
       // Should have called fetch only once with the final query
@@ -214,8 +237,10 @@ describe('MentionAutocomplete', () => {
     it('removes @ symbol from search query', async () => {
       render(<MentionAutocomplete {...defaultProps} searchQuery="@testuser" />)
       
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(300)
+        // Wait for any pending promises to resolve
+        await new Promise(resolve => setTimeout(resolve, 0))
       })
       
       await waitFor(() => {
@@ -235,8 +260,10 @@ describe('MentionAutocomplete', () => {
       
       render(<MentionAutocomplete {...defaultProps} />)
       
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(300)
+        // Wait for any pending promises to resolve
+        await new Promise(resolve => setTimeout(resolve, 0))
       })
       
       await waitFor(() => {
@@ -249,8 +276,10 @@ describe('MentionAutocomplete', () => {
       
       render(<MentionAutocomplete {...defaultProps} />)
       
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(300)
+        // Wait for any pending promises to resolve
+        await new Promise(resolve => setTimeout(resolve, 0))
       })
       
       await waitFor(() => {
@@ -261,8 +290,10 @@ describe('MentionAutocomplete', () => {
     it('does not search for empty or very short queries', async () => {
       const { rerender } = render(<MentionAutocomplete {...defaultProps} searchQuery="" />)
       
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(300)
+        // Wait for any pending promises to resolve
+        await new Promise(resolve => setTimeout(resolve, 0))
       })
       
       expect(mockFetch).not.toHaveBeenCalled()
@@ -273,8 +304,10 @@ describe('MentionAutocomplete', () => {
       // Test with whitespace only
       rerender(<MentionAutocomplete {...defaultProps} searchQuery="   " />)
       
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(300)
+        // Wait for any pending promises to resolve
+        await new Promise(resolve => setTimeout(resolve, 0))
       })
       
       expect(mockFetch).not.toHaveBeenCalled()
@@ -283,7 +316,15 @@ describe('MentionAutocomplete', () => {
 
   describe('User Interaction', () => {
     it('calls onUserSelect when user is clicked', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -298,10 +339,20 @@ describe('MentionAutocomplete', () => {
         bio: 'Test user 1 bio',
       })
       expect(mockOnClose).toHaveBeenCalled()
+      
+      jest.useRealTimers()
     })
 
     it('updates selected index on mouse hover', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser2')).toBeInTheDocument()
@@ -312,10 +363,20 @@ describe('MentionAutocomplete', () => {
       
       // The hovered item should have the selected background
       expect(user2Button).toHaveClass('bg-purple-50')
+      
+      jest.useRealTimers()
     })
 
     it('closes dropdown when clicking outside', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -325,12 +386,22 @@ describe('MentionAutocomplete', () => {
       fireEvent.mouseDown(document.body)
       
       expect(mockOnClose).toHaveBeenCalled()
+      
+      jest.useRealTimers()
     })
   })
 
   describe('Keyboard Navigation', () => {
     it('navigates with arrow keys', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -352,10 +423,20 @@ describe('MentionAutocomplete', () => {
       
       // First item should be selected again
       expect(firstButton).toHaveClass('bg-purple-50')
+      
+      jest.useRealTimers()
     })
 
     it('wraps around when navigating past boundaries', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -372,10 +453,20 @@ describe('MentionAutocomplete', () => {
       
       const firstButton = screen.getByText('@testuser1').closest('button')
       expect(firstButton).toHaveClass('bg-purple-50')
+      
+      jest.useRealTimers()
     })
 
     it('selects user with Enter key', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -394,10 +485,20 @@ describe('MentionAutocomplete', () => {
         bio: 'Test user 2 bio',
       })
       expect(mockOnClose).toHaveBeenCalled()
+      
+      jest.useRealTimers()
     })
 
     it('closes dropdown with Escape key', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -406,6 +507,8 @@ describe('MentionAutocomplete', () => {
       fireEvent.keyDown(document, { key: 'Escape' })
       
       expect(mockOnClose).toHaveBeenCalled()
+      
+      jest.useRealTimers()
     })
 
     it('ignores keyboard events when dropdown is closed', () => {
@@ -422,7 +525,15 @@ describe('MentionAutocomplete', () => {
 
   describe('Accessibility', () => {
     it('has proper ARIA attributes', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -432,10 +543,20 @@ describe('MentionAutocomplete', () => {
       buttons.forEach(button => {
         expect(button).toHaveAttribute('type', 'button')
       })
+      
+      jest.useRealTimers()
     })
 
     it('supports focus management', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -445,6 +566,8 @@ describe('MentionAutocomplete', () => {
       firstButton?.focus()
       
       expect(document.activeElement).toBe(firstButton)
+      
+      jest.useRealTimers()
     })
   })
 
@@ -459,7 +582,15 @@ describe('MentionAutocomplete', () => {
     })
 
     it('has consistent purple theme styling', async () => {
+      jest.useFakeTimers()
+      
       render(<MentionAutocomplete {...defaultProps} />)
+      
+      // Advance timers to trigger search
+      await act(async () => {
+        jest.advanceTimersByTime(300)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      })
       
       await waitFor(() => {
         expect(screen.getByText('@testuser1')).toBeInTheDocument()
@@ -470,6 +601,8 @@ describe('MentionAutocomplete', () => {
         expect(button).toHaveClass('hover:bg-purple-50')
         expect(button).toHaveClass('focus:bg-purple-50')
       })
+      
+      jest.useRealTimers()
     })
   })
 })

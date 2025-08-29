@@ -138,11 +138,17 @@ class NotificationFactory:
         emoji_code: str
     ) -> Optional[Any]:
         """Create a reaction notification."""
+        # Import here to avoid circular imports
+        from app.models.emoji_reaction import EmojiReaction
+        
+        # Get the actual emoji display
+        emoji_display = EmojiReaction.VALID_EMOJIS.get(emoji_code, emoji_code)
+        
         return await self.create_notification(
             user_id=post_author_id,
             notification_type='emoji_reaction',
             title='New Reaction',
-            message=f'{reactor_username} reacted to your post with {emoji_code}',
+            message=f'{reactor_username} reacted to your post with {emoji_display}',
             data={
                 'post_id': post_id,
                 'reactor_username': reactor_username,

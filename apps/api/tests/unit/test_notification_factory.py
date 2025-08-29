@@ -217,7 +217,7 @@ class TestNotificationFactory:
             reactor_username="reactor_user",
             reactor_id=456,
             post_id="post-123",
-            emoji_code="heart"
+            emoji_code="clap"  # Use a valid emoji code
         )
 
         # Assert
@@ -226,9 +226,10 @@ class TestNotificationFactory:
         assert call_args[1]["user_id"] == 123
         assert call_args[1]["type"] == "emoji_reaction"
         assert call_args[1]["title"] == "New Reaction"
-        assert "reactor_user reacted to your post with heart" in call_args[1]["message"]
+        # Should use actual emoji (👏) instead of code (clap)
+        assert "reactor_user reacted to your post with 👏" in call_args[1]["message"]
         assert call_args[1]["data"]["reactor_username"] == "reactor_user"
-        assert call_args[1]["data"]["emoji_code"] == "heart"
+        assert call_args[1]["data"]["emoji_code"] == "clap"
 
     @pytest.mark.asyncio
     async def test_create_like_notification(self, notification_factory, mock_notification_repo):
