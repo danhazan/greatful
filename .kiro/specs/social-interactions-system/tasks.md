@@ -183,7 +183,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Add content type bonuses: Photo posts (+2.5), Daily gratitude posts (+3.0)
   - Add relationship multiplier: Posts from followed users (+2.0)
   - Write unit tests in `apps/api/tests/unit/test_algorithm_service.py`
-- [ ] **8.2 Update Feed Endpoint with Algorithm**
+- [x] **8.2 Update Feed Endpoint with Algorithm**
   - Modify `GET /api/v1/posts/feed` in `apps/api/app/api/v1/posts.py` to use AlgorithmService
   - Implement 80/20 split: 80% algorithm-scored posts, 20% recent posts
   - Add query parameters for algorithm tuning (optional: `algorithm=true/false`)

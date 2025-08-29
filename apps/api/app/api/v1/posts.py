@@ -21,6 +21,7 @@ from app.models.post import Post, PostType
 from app.models.user import User
 from app.services.share_service import ShareService
 from app.services.mention_service import MentionService
+from app.services.algorithm_service import AlgorithmService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -392,10 +393,17 @@ async def get_feed(
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
     limit: int = 20,
-    offset: int = 0
+    offset: int = 0,
+    algorithm: bool = True
 ):
-    """Get user's personalized feed with accurate engagement counts from database."""
+    """
+    Get user's personalized feed with algorithm-based ranking.
+    
+    - **algorithm=true** (default): Uses 80/20 split between algorithm-scored and recent posts
+    - **algorithm=false**: Returns posts in chronological order (backward compatibility)
+    """
     try:
+        from app.services.algorithm_service import AlgorithmService
         from sqlalchemy import text
         from app.models.emoji_reaction import EmojiReaction
         
@@ -407,114 +415,187 @@ async def get_feed(
             has_likes_table = False
             logger.warning("Likes table not found, hearts count will be 0")
 
-        # Build query with engagement counts using efficient LEFT JOINs
-        if has_likes_table:
-            # Query with both likes (hearts) and emoji reactions
-            query = text("""
-                SELECT p.id,
-                       p.author_id,
-                       p.title,
-                       p.content,
-                       p.post_type,
-                       p.image_url,
-                       p.is_public,
-                       p.created_at,
-                       p.updated_at,
-                       u.id as author_id,
-                       u.username as author_username,
-                       u.email as author_email,
-                       COALESCE(hearts.hearts_count, 0) as hearts_count,
-                       COALESCE(reactions.reactions_count, 0) as reactions_count,
-                       user_reactions.emoji_code as current_user_reaction,
-                       CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
-                FROM posts p
-                LEFT JOIN users u ON u.id = p.author_id
-                LEFT JOIN (
-                    SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
-                    FROM likes
-                    GROUP BY post_id
-                ) hearts ON hearts.post_id = p.id
-                LEFT JOIN (
-                    SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
-                    FROM emoji_reactions
-                    GROUP BY post_id
-                ) reactions ON reactions.post_id = p.id
-                LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                    AND user_reactions.user_id = :current_user_id
-                LEFT JOIN likes user_hearts ON user_hearts.post_id = p.id 
-                    AND user_hearts.user_id = :current_user_id
-                WHERE p.is_public = true
-                ORDER BY p.created_at DESC
-                LIMIT :limit OFFSET :offset
-            """)
-        else:
-            # Query with only emoji reactions (no likes table yet)
-            query = text("""
-                SELECT p.id,
-                       p.author_id,
-                       p.title,
-                       p.content,
-                       p.post_type,
-                       p.image_url,
-                       p.is_public,
-                       p.created_at,
-                       p.updated_at,
-                       u.id as author_id,
-                       u.username as author_username,
-                       u.email as author_email,
-                       0 as hearts_count,
-                       COALESCE(reactions.reactions_count, 0) as reactions_count,
-                       user_reactions.emoji_code as current_user_reaction,
-                       false as is_hearted
-                FROM posts p
-                LEFT JOIN users u ON u.id = p.author_id
-                LEFT JOIN (
-                    SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
-                    FROM emoji_reactions
-                    GROUP BY post_id
-                ) reactions ON reactions.post_id = p.id
-                LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                    AND user_reactions.user_id = :current_user_id
-                WHERE p.is_public = true
-                ORDER BY p.created_at DESC
-                LIMIT :limit OFFSET :offset
-            """)
-
-        result = await db.execute(query, {
-            "current_user_id": current_user_id,
-            "limit": limit,
-            "offset": offset
-        })
+        # Use AlgorithmService for personalized feed
+        if algorithm:
+            algorithm_service = AlgorithmService(db)
+            posts_data, total_count = await algorithm_service.get_personalized_feed(
+                user_id=current_user_id,
+                limit=limit,
+                offset=offset,
+                algorithm_enabled=True
+            )
+            
+            # Get current user's reactions and hearts for each post
+            posts_with_user_data = []
+            for post_data in posts_data:
+                # Get current user's reaction
+                current_user_reaction = None
+                is_hearted = False
+                
+                if has_likes_table:
+                    # Check for user's heart
+                    heart_query = text("""
+                        SELECT 1 FROM likes 
+                        WHERE post_id = :post_id AND user_id = :user_id
+                    """)
+                    heart_result = await db.execute(heart_query, {
+                        "post_id": post_data['id'],
+                        "user_id": current_user_id
+                    })
+                    is_hearted = heart_result.fetchone() is not None
+                
+                # Check for user's emoji reaction
+                reaction_query = text("""
+                    SELECT emoji_code FROM emoji_reactions 
+                    WHERE post_id = :post_id AND user_id = :user_id
+                """)
+                reaction_result = await db.execute(reaction_query, {
+                    "post_id": post_data['id'],
+                    "user_id": current_user_id
+                })
+                reaction_row = reaction_result.fetchone()
+                if reaction_row:
+                    current_user_reaction = reaction_row.emoji_code
+                
+                posts_with_user_data.append(PostResponse(
+                    id=post_data['id'],
+                    author_id=post_data['author_id'],
+                    title=post_data['title'],
+                    content=post_data['content'],
+                    post_type=post_data['post_type'],
+                    image_url=post_data['image_url'],
+                    location=post_data.get('location'),
+                    is_public=post_data['is_public'],
+                    created_at=post_data['created_at'],
+                    updated_at=post_data['updated_at'],
+                    author=post_data['author'] or {
+                        "id": post_data['author_id'],
+                        "username": "Unknown",
+                        "name": "Unknown"
+                    },
+                    hearts_count=post_data['hearts_count'],
+                    reactions_count=post_data['reactions_count'],
+                    current_user_reaction=current_user_reaction,
+                    is_hearted=is_hearted
+                ))
+            
+            logger.info(f"Retrieved {len(posts_with_user_data)} algorithm-ranked posts for user {current_user_id}")
+            return posts_with_user_data
         
-        rows = result.fetchall()
+        # Fallback to original chronological feed (backward compatibility)
+        else:
+            # Build query with engagement counts using efficient LEFT JOINs
+            if has_likes_table:
+                # Query with both likes (hearts) and emoji reactions
+                query = text("""
+                    SELECT p.id,
+                           p.author_id,
+                           p.title,
+                           p.content,
+                           p.post_type,
+                           p.image_url,
+                           p.location,
+                           p.is_public,
+                           p.created_at,
+                           p.updated_at,
+                           u.id as author_id,
+                           u.username as author_username,
+                           u.email as author_email,
+                           COALESCE(hearts.hearts_count, 0) as hearts_count,
+                           COALESCE(reactions.reactions_count, 0) as reactions_count,
+                           user_reactions.emoji_code as current_user_reaction,
+                           CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
+                    FROM posts p
+                    LEFT JOIN users u ON u.id = p.author_id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
+                        FROM likes
+                        GROUP BY post_id
+                    ) hearts ON hearts.post_id = p.id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
+                        FROM emoji_reactions
+                        GROUP BY post_id
+                    ) reactions ON reactions.post_id = p.id
+                    LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
+                        AND user_reactions.user_id = :current_user_id
+                    LEFT JOIN likes user_hearts ON user_hearts.post_id = p.id 
+                        AND user_hearts.user_id = :current_user_id
+                    WHERE p.is_public = true
+                    ORDER BY p.created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """)
+            else:
+                # Query with only emoji reactions (no likes table yet)
+                query = text("""
+                    SELECT p.id,
+                           p.author_id,
+                           p.title,
+                           p.content,
+                           p.post_type,
+                           p.image_url,
+                           p.location,
+                           p.is_public,
+                           p.created_at,
+                           p.updated_at,
+                           u.id as author_id,
+                           u.username as author_username,
+                           u.email as author_email,
+                           0 as hearts_count,
+                           COALESCE(reactions.reactions_count, 0) as reactions_count,
+                           user_reactions.emoji_code as current_user_reaction,
+                           false as is_hearted
+                    FROM posts p
+                    LEFT JOIN users u ON u.id = p.author_id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
+                        FROM emoji_reactions
+                        GROUP BY post_id
+                    ) reactions ON reactions.post_id = p.id
+                    LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
+                        AND user_reactions.user_id = :current_user_id
+                    WHERE p.is_public = true
+                    ORDER BY p.created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """)
 
-        posts_with_counts = []
-        for row in rows:
-            posts_with_counts.append(PostResponse(
-                id=row.id,
-                author_id=row.author_id,
-                title=row.title,
-                content=row.content,
-                post_type=row.post_type,
-                image_url=row.image_url,
-                is_public=row.is_public,
-                created_at=row.created_at.isoformat(),
-                updated_at=row.updated_at.isoformat() if row.updated_at else None,
-                author={
-                    "id": row.author_id,
-                    "username": row.author_username,
-                    "name": row.author_username  # Use username as display name for now
-                },
-                hearts_count=int(row.hearts_count) if row.hearts_count else 0,
-                reactions_count=int(row.reactions_count) if row.reactions_count else 0,
-                current_user_reaction=row.current_user_reaction
-            ))
+            result = await db.execute(query, {
+                "current_user_id": current_user_id,
+                "limit": limit,
+                "offset": offset
+            })
+            
+            rows = result.fetchall()
 
-        logger.info(f"Retrieved {len(posts_with_counts)} posts with engagement counts - Hearts: {sum(p.hearts_count for p in posts_with_counts)}, Reactions: {sum(p.reactions_count for p in posts_with_counts)}")
-        return posts_with_counts
+            posts_with_counts = []
+            for row in rows:
+                posts_with_counts.append(PostResponse(
+                    id=row.id,
+                    author_id=row.author_id,
+                    title=row.title,
+                    content=row.content,
+                    post_type=row.post_type,
+                    image_url=row.image_url,
+                    location=getattr(row, 'location', None),
+                    is_public=row.is_public,
+                    created_at=row.created_at.isoformat() if hasattr(row.created_at, 'isoformat') else str(row.created_at),
+                    updated_at=row.updated_at.isoformat() if row.updated_at and hasattr(row.updated_at, 'isoformat') else str(row.updated_at) if row.updated_at else None,
+                    author={
+                        "id": row.author_id,
+                        "username": row.author_username,
+                        "name": row.author_username  # Use username as display name for now
+                    },
+                    hearts_count=int(row.hearts_count) if row.hearts_count else 0,
+                    reactions_count=int(row.reactions_count) if row.reactions_count else 0,
+                    current_user_reaction=row.current_user_reaction,
+                    is_hearted=bool(getattr(row, 'is_hearted', False))
+                ))
+
+            logger.info(f"Retrieved {len(posts_with_counts)} chronological posts - Hearts: {sum(p.hearts_count for p in posts_with_counts)}, Reactions: {sum(p.reactions_count for p in posts_with_counts)}")
+            return posts_with_counts
 
     except Exception as e:
-        logger.error(f"Error getting feed with engagement counts: {e}")
+        logger.error(f"Error getting feed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get feed"
