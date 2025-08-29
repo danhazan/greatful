@@ -514,13 +514,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
             {/* Footer */}
             <div className="p-6 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center min-w-0">
-                  <span className="text-xs text-gray-500">
-                    Draft saved automatically
-                  </span>
-                </div>
-                <div className="flex space-x-3 flex-shrink-0">
+              <div className="flex flex-col space-y-3">
+                <div className="flex justify-end space-x-3">
                   <button
                     type="button"
                     onClick={onClose}
@@ -535,6 +530,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   >
                     {isSubmitting ? 'Sharing...' : 'Share Gratitude'}
                   </button>
+                </div>
+                <div className="text-center">
+                  <span className="text-xs text-gray-500">
+                    Draft saved automatically
+                  </span>
                 </div>
               </div>
             </div>

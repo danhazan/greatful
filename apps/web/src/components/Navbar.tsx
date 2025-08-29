@@ -59,7 +59,7 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
           
           <div className="flex items-center space-x-1 sm:space-x-4 min-w-0">
             {user && (
-              <span className="hidden sm:block text-sm text-gray-600 truncate max-w-[100px] md:max-w-[120px]">
+              <span className="text-xs sm:text-sm text-gray-600 truncate max-w-[80px] sm:max-w-[100px] md:max-w-[120px]">
                 Welcome, {user.name}!
               </span>
             )}
