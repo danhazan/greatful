@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
       message: notification.message,
       postId: notification.post_id || notification.data?.post_id || '',
       fromUser: {
-        id: notification.from_user?.id || notification.data?.reactor_username || 'unknown',
-        name: notification.from_user?.username || notification.data?.reactor_username || 'Unknown User',
+        id: notification.from_user?.id || notification.data?.reactor_username || notification.data?.sharer_username || notification.data?.author_username || 'unknown',
+        name: notification.from_user?.username || notification.data?.reactor_username || notification.data?.sharer_username || notification.data?.author_username || 'Unknown User',
         image: notification.from_user?.profile_image_url || undefined
       },
       createdAt: notification.created_at ? (

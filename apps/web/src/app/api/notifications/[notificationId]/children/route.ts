@@ -43,8 +43,8 @@ export async function GET(
       message: child.message,
       postId: child.post_id || child.data?.post_id || '',
       fromUser: {
-        id: child.from_user?.id || child.data?.reactor_username || 'unknown',
-        name: child.from_user?.username || child.data?.reactor_username || 'Unknown User',
+        id: child.from_user?.id || child.data?.reactor_username || child.data?.sharer_username || child.data?.author_username || 'unknown',
+        name: child.from_user?.username || child.data?.reactor_username || child.data?.sharer_username || child.data?.author_username || 'Unknown User',
         image: child.from_user?.profile_image_url || undefined
       },
       createdAt: child.created_at ? (
