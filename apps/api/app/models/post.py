@@ -27,6 +27,11 @@ class Post(Base):
     is_public = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Engagement count columns for performance optimization
+    hearts_count = Column(Integer, nullable=False, server_default="0")
+    reactions_count = Column(Integer, nullable=False, server_default="0")
+    shares_count = Column(Integer, nullable=False, server_default="0")
 
     def __repr__(self):
         return f"<Post(id={self.id}, author_id={self.author_id}, type={self.post_type})>" 

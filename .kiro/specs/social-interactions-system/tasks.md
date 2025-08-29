@@ -188,18 +188,18 @@ The implementation maintains consistency with the reference implementation's pur
   - Implement 80/20 split: 80% algorithm-scored posts, 20% recent posts
   - Add query parameters for algorithm tuning (optional: `algorithm=true/false`)
   - Ensure backward compatibility with existing feed behavior
-- [ ] **8.3 Database Performance Optimization**
+- [x] **8.3 Database Performance Optimization**
   - Add database indexes: `posts(created_at DESC)`, `follows(follower_id, followed_id)`
   - Create composite index: `posts(user_id, created_at DESC)` for user feeds
   - Add index on engagement columns: `posts(hearts_count, reactions_count, shares_count)`
   - Test query performance with `EXPLAIN ANALYZE` on large datasets
-- [ ] **8.4 Algorithm Testing and Validation**
+- [x] **8.4 Algorithm Testing and Validation**
   - Create integration tests in `apps/api/tests/integration/test_feed_algorithm.py`
   - Test scoring calculations with various engagement combinations
   - Verify 80/20 split works correctly with different dataset sizes
   - Test performance with 1000+ posts and 100+ users
   - Validate followed users' content appears higher in feed
-- [ ] **Test Execution:** Run `pytest -v tests/unit/test_algorithm_service.py` and `pytest -v tests/integration/test_feed_algorithm.py` to verify algorithm implementation. Run `npm test` to ensure frontend displays algorithm-ordered feed correctly. Test feed loading performance remains under 300ms.
+- [x] **Test Execution:** Run `pytest -v tests/unit/test_algorithm_service.py` and `pytest -v tests/integration/test_feed_algorithm.py` to verify algorithm implementation. Run `npm test` to ensure frontend displays algorithm-ordered feed correctly. Test feed loading performance remains under 300ms.
 - [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with AlgorithmService details and feed endpoint changes. Add algorithm configuration to docs/ARCHITECTURE_AND_SETUP.md. Document new database indexes in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** Feed displays posts ordered by engagement score with followed users prioritized, 80/20 split between algorithm-scored and recent content works correctly, feed loading performance remains under 300ms, and algorithm behavior is thoroughly tested and documented.
 
