@@ -1,5 +1,10 @@
 """
 NotificationService for handling notification business logic using repository pattern.
+
+IMPORTANT: For new notification creation, use NotificationFactory instead of the static methods in this class.
+The static methods (create_like_notification, create_follow_notification, etc.) are deprecated.
+
+Use: from app.core.notification_factory import NotificationFactory
 """
 
 import datetime

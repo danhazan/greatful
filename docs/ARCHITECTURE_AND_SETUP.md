@@ -74,6 +74,7 @@ See each folder’s README (if present) for more details.
 - **Backend:** FastAPI (Python, SQLAlchemy, JWT) with Service Layer Architecture and Shared Types
   - Location: `apps/api`
   - **Service Layer**: Business logic separated into service classes (AuthService, UserService, ReactionService, NotificationService, MentionService)
+  - **NotificationFactory**: Unified notification creation system (`app/core/notification_factory.py`) - eliminates common notification issues
   - **Repository Pattern**: Standardized data access layer with query builders and performance monitoring
   - **Shared Type System**: Comprehensive type definitions shared between frontend and backend (`shared/types/`)
   - **API Contract Validation**: Runtime validation of requests/responses against shared type contracts
@@ -153,6 +154,7 @@ The Grateful platform includes a comprehensive social interaction system with th
 
 #### Backend Architecture
 - **Service Layer**: Clean separation of business logic (UserService, ReactionService, NotificationService)
+- **NotificationFactory**: Centralized notification creation with built-in error handling and consistency
 - **Repository Pattern**: Standardized data access with query optimization
 - **API Contract Validation**: Runtime validation against shared type definitions
 - **Performance Monitoring**: Query performance tracking and optimization

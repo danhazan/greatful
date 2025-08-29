@@ -1006,3 +1006,189 @@ async def test_error_response_format(async_client):
 ---
 
 *Last updated: [Current Date]* 
+##
+ Notification Factory Testing (Refactored System)
+
+### ✅ New Testing Approach (December 2024)
+
+The notification system has been refactored with a unified `NotificationFactory` that eliminates common issues. All new notification testing should follow these patterns:
+
+### Backend NotificationFactory Tests
+
+**Factory Unit Tests** (`test_notification_factory.py`):
+```python
+from app.core.notification_factory import NotificationFactory
+
+async def test_create_notification_success():
+    """Test successful notification creation with factory."""
+    factory = NotificationFactory(mock_db)
+    
+    result = await factory.create_notification(
+        user_id=123,
+        notification_type="test_type",
+        title="Test Title",
+        message="Test message",
+        data={"test": "data"}
+    )
+    
+    assert result is not None
+    mock_notification_repo.create.assert_called_once()
+
+async def test_prevent_self_notification():
+    """Test that self-notifications are prevented."""
+    factory = NotificationFactory(mock_db)
+    
+    result = await factory.create_notification(
+        user_id=123,
+        notification_type="test_type",
+        title="Test Title", 
+        message="Test message",
+        data={"test": "data"},
+        prevent_self_notification=True,
+        self_user_id=123  # Same as user_id
+    )
+    
+    assert result is None  # Should be prevented
+    mock_notification_repo.create.assert_not_called()
+
+async def test_notification_type_methods():
+    """Test all notification type convenience methods."""
+    factory = NotificationFactory(mock_db)
+    
+    # Test each notification type
+    await factory.create_share_notification(...)
+    await factory.create_mention_notification(...)
+    await factory.create_reaction_notification(...)
+    await factory.create_like_notification(...)
+    await factory.create_follow_notification(...)
+```
+
+### Frontend NotificationUserResolver Tests
+
+**Resolver Unit Tests** (`notificationUserResolver.test.ts`):
+```typescript
+import { 
+  extractNotificationUsername,
+  resolveNotificationUser,
+  validateNotificationUserData 
+} from '@/utils/notificationUserResolver'
+
+describe('NotificationUserResolver', () => {
+  it('should prioritize from_user.username when available', () => {
+    const notification = {
+      from_user: { username: 'real_user' },
+      data: { reactor_username: 'legacy_user' }
+    }
+    
+    expect(extractNotificationUsername(notification)).toBe('real_user')
+  })
+
+  it('should handle all notification types automatically', () => {
+    // Test reactor_username (reactions)
+    // Test sharer_username (shares)  
+    // Test author_username (mentions)
+    // Test liker_username (likes)
+    // Test follower_username (follows)
+    // Test custom fields ending with 'username'
+  })
+
+  it('should validate notification data', () => {
+    const validation = validateNotificationUserData(notification)
+    expect(validation.isValid).toBe(true)
+    expect(validation.detectedUsername).toBe('expected_user')
+  })
+})
+```
+
+### Integration Testing Patterns
+
+**Service Integration Tests**:
+```python
+async def test_service_uses_factory():
+    """Test that services use NotificationFactory correctly."""
+    # Test MentionService creates mention notifications
+    # Test ShareService creates share notifications  
+    # Test ReactionService creates reaction notifications
+    # Test LikesAPI creates like notifications
+    
+    # Verify notifications are created with correct data structure
+    # Verify usernames are stored in standardized fields
+    # Verify no "Unknown User" issues occur
+```
+
+**API Route Tests**:
+```typescript
+describe('Notification API Routes', () => {
+  it('should resolve usernames from any notification type', async () => {
+    // Mock notifications with different username fields
+    // Test that all are resolved correctly by NotificationUserResolver
+    // Verify no "Unknown User" appears in responses
+  })
+})
+```
+
+### Testing New Notification Types
+
+When adding a new notification type, follow this testing checklist:
+
+#### Backend Tests ✅
+```python
+async def test_new_notification_type():
+    """Test new notification type creation."""
+    factory = NotificationFactory(db)
+    
+    # Test successful creation
+    notification = await factory.create_your_notification(
+        recipient_id=user_id,
+        sender_username=sender.username,
+        # ... other params
+    )
+    
+    assert notification is not None
+    assert notification.type == "your_notification_type"
+    assert notification.data["sender_username"] == sender.username
+    
+    # Test self-notification prevention (if applicable)
+    self_notification = await factory.create_your_notification(
+        recipient_id=user_id,
+        sender_username=sender.username,
+        sender_id=user_id  # Same user
+    )
+    assert self_notification is None
+```
+
+#### Frontend Tests ✅
+```typescript
+describe('New Notification Type', () => {
+  it('should extract username from new notification type', () => {
+    const notification = {
+      from_user: null,
+      data: { your_username_field: 'test_user' }
+    }
+    
+    const username = extractNotificationUsername(notification)
+    expect(username).toBe('test_user')
+    expect(username).not.toBe('Unknown User')
+  })
+})
+```
+
+### Legacy Testing (For Reference)
+
+The old notification testing patterns are deprecated but kept for reference:
+
+- ❌ Don't use `NotificationService.create_*` static methods
+- ❌ Don't manually update notification route handlers
+- ❌ Don't create custom username extraction logic
+
+### Benefits of New Testing Approach
+
+1. **Consistent Patterns**: All notification types follow the same testing structure
+2. **Automatic Coverage**: Frontend resolver automatically handles new notification types
+3. **Reduced Maintenance**: No need to update route handlers for new types
+4. **Better Reliability**: Factory pattern prevents common notification creation issues
+5. **Comprehensive Validation**: Built-in validation utilities for debugging
+
+---
+
+*For complete examples, see the test files in `apps/api/tests/unit/test_notification_factory.py` and `apps/web/src/tests/utils/notificationUserResolver.test.ts`*

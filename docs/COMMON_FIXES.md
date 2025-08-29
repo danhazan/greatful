@@ -1,8 +1,52 @@
-# Popular Fixes for Common Issues
+# Common Fixes for Development Issues
 
 This document contains solutions to recurring issues that happen during development, especially when implementing new notification types or social features.
 
-## 🔔 Notification System Issues
+## 🎉 NOTIFICATION SYSTEM REFACTORED (December 2024)
+
+**IMPORTANT**: The notification issues documented below have been **PERMANENTLY SOLVED** through a comprehensive refactoring.
+
+### ✅ What Was Fixed
+- **Issue 1: Notifications Not Arriving** → Solved with `NotificationFactory`
+- **Issue 2: "Unknown User" Display** → Solved with `NotificationUserResolver`
+
+### 🚀 New Implementation (Use This!)
+```python
+# ✅ NEW WAY - Use NotificationFactory
+from app.core.notification_factory import NotificationFactory
+
+notification_factory = NotificationFactory(db)
+await notification_factory.create_your_notification(
+    recipient_id=user_id,
+    sender_username=sender.username,
+    # ... other params
+)
+# Automatically handles all error cases and logging
+```
+
+```typescript
+// ✅ NEW WAY - Use NotificationUserResolver
+import { resolveNotificationUser } from '@/utils/notificationUserResolver'
+
+const transformedNotifications = notifications.map(notification => ({
+  ...notification,
+  fromUser: resolveNotificationUser(notification)
+}))
+// Automatically extracts usernames from any notification type
+```
+
+### 📚 Documentation
+- See `docs/NOTIFICATION_REFACTORING_COMPLETE.md` for full details
+- All services have been updated to use the new patterns
+- Frontend routes automatically handle all notification types
+
+**These issues should NOT occur again with the new architecture!**
+
+---
+
+## 🔔 Legacy Notification System Issues (SOLVED - For Reference Only)
+
+*The following issues have been permanently resolved but are kept for historical reference.*
 
 ### Issue 1: Notifications Not Arriving
 

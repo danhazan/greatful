@@ -27,6 +27,8 @@ apps/api/
 │   │   ├── user_service.py      # User profile management
 │   │   ├── reaction_service.py  # Emoji reactions business logic
 │   │   └── notification_service.py # Notification system with batching
+│   ├── core/             # Core infrastructure layer
+│   │   ├── notification_factory.py # Unified notification creation factory
 │   ├── repositories/     # Data access layer with standardized patterns
 │   │   ├── user_repository.py   # User data access operations
 │   │   ├── post_repository.py   # Post data access operations
@@ -99,8 +101,42 @@ shared/types/             # Shared type definitions (TypeScript/Python)
 - **Test Categories**: Users, posts, follows, interactions, notifications, reactions, batching
 
 #### 7. **Enhanced Notification System**
+
+**🎯 REFACTORED ARCHITECTURE (December 2024)**
+
+The notification system has been completely refactored to eliminate common issues and provide a unified, reliable approach:
+
+**NotificationFactory** (`app/core/notification_factory.py`):
+- **Unified Creation**: Single source of truth for all notification types
+- **Built-in Error Handling**: Automatic logging and graceful failure handling
+- **Self-Notification Prevention**: Automatic prevention of users notifying themselves
+- **Consistent API**: Standardized parameters and return values across all notification types
+
+**Supported Notification Types**:
+```python
+# Usage Examples
+from app.core.notification_factory import NotificationFactory
+
+factory = NotificationFactory(db)
+
+# Share notifications
+await factory.create_share_notification(recipient_id, sharer_username, post_id, "message")
+
+# Mention notifications  
+await factory.create_mention_notification(mentioned_user_id, author_username, author_id, post_id, preview)
+
+# Reaction notifications
+await factory.create_reaction_notification(post_author_id, reactor_username, reactor_id, post_id, emoji_code)
+
+# Like notifications
+await factory.create_like_notification(post_author_id, liker_username, liker_id, post_id)
+
+# Follow notifications
+await factory.create_follow_notification(followed_user_id, follower_username, follower_id)
+```
+
+**Legacy Features**:
 - **Real-time Notifications**: Automatic notification creation from user actions with batching logic
-- **Multiple Types**: Emoji reactions, likes, comments, follows, mentions, shares with type-safe handling
 - **Rate Limiting**: Configurable rate limiting per notification type to prevent spam
 - **Batch Operations**: Intelligent batching, mark all as read, notification statistics, and parent-child relationships
 - **API Integration**: Full REST API with pagination, filtering, and batch expansion functionality
