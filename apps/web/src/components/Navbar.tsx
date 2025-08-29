@@ -59,7 +59,7 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
           
           <div className="flex items-center space-x-1 sm:space-x-4 min-w-0">
             {user && (
-              <span className="hidden lg:block text-sm text-gray-600 truncate max-w-[120px]">
+              <span className="hidden sm:block text-sm text-gray-600 truncate max-w-[100px] md:max-w-[120px]">
                 Welcome, {user.name}!
               </span>
             )}
@@ -108,11 +108,6 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
           />
           <div className="fixed top-[73px] right-0 left-0 bg-white border-b border-gray-200 shadow-lg z-50 sm:hidden">
             <div className="px-4 py-2 space-y-1">
-              {user && (
-                <div className="px-3 py-2 text-sm text-gray-600 border-b border-gray-100">
-                  Welcome, {user.name}!
-                </div>
-              )}
               <button
                 onClick={() => handleNavigation("/feed")}
                 className="w-full text-left px-3 py-3 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors min-h-[44px] touch-manipulation"

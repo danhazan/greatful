@@ -513,16 +513,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             )}
 
             {/* Footer */}
-            <div className="p-6">
+            <div className="p-6 border-t border-gray-200">
               <div className="flex justify-between items-center">
-                <div className="text-xs text-gray-500">
-                  Draft saved automatically
+                <div className="flex items-center min-w-0">
+                  <span className="text-xs text-gray-500">
+                    Draft saved automatically
+                  </span>
                 </div>
-                <div className="flex space-x-3">
+                <div className="flex space-x-3 flex-shrink-0">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors min-h-[44px] touch-manipulation"
                   >
                     Cancel
                   </button>
