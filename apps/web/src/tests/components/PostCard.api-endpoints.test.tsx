@@ -87,7 +87,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
         })
       })
 
-      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(fetch).toHaveBeenCalledTimes(3) // Heart action + Heart info + Follow status
     })
 
     it('should handle heart action API errors gracefully', async () => {
@@ -107,7 +107,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
       fireEvent.click(heartButton)
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('Failed to update heart status')
+        expect(consoleSpy).toHaveBeenCalledWith('Error updating heart:', expect.any(Error))
       })
 
       // Should not call onHeart callback on error

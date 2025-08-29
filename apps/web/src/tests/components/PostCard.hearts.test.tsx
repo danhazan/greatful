@@ -48,6 +48,12 @@ describe('PostCard Hearts Counter', () => {
   })
 
   it('should open hearts viewer when hearts counter is clicked', async () => {
+    // Mock follow status fetch (called by FollowButton)
+    ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true, data: { is_following: false } })
+    })
+    
     // Mock successful hearts fetch
     ;(fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,

@@ -154,7 +154,7 @@ describe('PostCard Authentication Controls', () => {
       // Heart should be filled for authenticated users who hearted the post
       const heartButtons = screen.getAllByRole('button')
       const heartButton = heartButtons.find(button => 
-        button.querySelector('svg') && !button.textContent?.includes('Share')
+        button.querySelector('svg.lucide-heart')
       )
       const heartIcon = heartButton?.querySelector('svg')
       expect(heartIcon).toHaveClass('fill-current')
