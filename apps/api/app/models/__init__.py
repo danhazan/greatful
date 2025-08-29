@@ -10,5 +10,6 @@ from .emoji_reaction import EmojiReaction
 from .notification import Notification
 from .share import Share
 from .mention import Mention
+from .follow import Follow
 
-__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification", "Share", "Mention"]
+__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification", "Share", "Mention", "Follow"]

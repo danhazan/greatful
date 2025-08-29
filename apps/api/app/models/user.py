@@ -41,3 +41,21 @@ class User(Base):
     # Relationships
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    
+    # Follow relationships - users this user is following
+    following = relationship(
+        "Follow",
+        foreign_keys="Follow.follower_id",
+        back_populates="follower",
+        cascade="all, delete-orphan",
+        overlaps="following_relationships"
+    )
+    
+    # Follow relationships - users following this user
+    followers = relationship(
+        "Follow", 
+        foreign_keys="Follow.followed_id",
+        back_populates="followed",
+        cascade="all, delete-orphan",
+        overlaps="follower_relationships"
+    )

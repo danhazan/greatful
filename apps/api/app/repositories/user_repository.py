@@ -76,13 +76,28 @@ class UserRepository(BaseRepository):
         public_result = await self._execute_query(public_posts_query, "get user public posts count")
         public_posts_count = public_result.scalar() or 0
         
-        # TODO: Add followers/following counts when follow system is implemented
+        # Get followers count
+        from app.models.follow import Follow
+        followers_count_query = select(func.count(Follow.id)).where(
+            Follow.followed_id == user_id,
+            Follow.status == "active"
+        )
+        followers_result = await self._execute_query(followers_count_query, "get user followers count")
+        followers_count = followers_result.scalar() or 0
+        
+        # Get following count
+        following_count_query = select(func.count(Follow.id)).where(
+            Follow.follower_id == user_id,
+            Follow.status == "active"
+        )
+        following_result = await self._execute_query(following_count_query, "get user following count")
+        following_count = following_result.scalar() or 0
         
         return {
             "posts_count": posts_count,
             "public_posts_count": public_posts_count,
-            "followers_count": 0,  # Placeholder
-            "following_count": 0   # Placeholder
+            "followers_count": followers_count,
+            "following_count": following_count
         }
     
     async def check_username_availability(
