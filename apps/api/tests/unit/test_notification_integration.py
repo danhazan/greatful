@@ -170,15 +170,14 @@ class TestNotificationIntegration:
             user_id=author.id
         )
 
-        # Should have 1 batch notification (first notification converted to batch)
-        assert len(notifications) == 1
+        # Should have 2 individual notifications (one for each reaction)
+        assert len(notifications) == 2
         
-        # Check the batch notification
-        batch_notification = notifications[0]
-        assert batch_notification.type == "emoji_reaction"
-        assert batch_notification.is_batch == True
-        assert batch_notification.batch_count == 2
-        assert "2 people reacted" in batch_notification.message
+        # Check both notifications are for emoji reactions
+        for notification in notifications:
+            assert notification.type == "emoji_reaction"
+            assert notification.is_batch == False
+            assert notification.batch_count == 1
 
     @pytest.mark.asyncio
     async def test_multiple_users_reactions_create_multiple_notifications(self, db_session: AsyncSession):
@@ -236,14 +235,13 @@ class TestNotificationIntegration:
             user_id=author.id
         )
 
-        # Should have 1 batch notification (first notification converted to batch)
-        assert len(notifications) == 1
+        # Should have 2 individual notifications (one for each user's reaction)
+        assert len(notifications) == 2
         
-        # Check the batch notification
-        batch_notification = notifications[0]
-        assert batch_notification.type == "emoji_reaction"
-        assert batch_notification.user_id == author.id
-        assert not batch_notification.read
-        assert batch_notification.is_batch == True
-        assert batch_notification.batch_count == 2
-        assert "2 people reacted" in batch_notification.message
+        # Check both notifications
+        for notification in notifications:
+            assert notification.type == "emoji_reaction"
+            assert notification.user_id == author.id
+            assert not notification.read
+            assert notification.is_batch == False
+            assert notification.batch_count == 1
