@@ -175,80 +175,121 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with follow system API endpoints, revise docs/ARCHITECTURE_AND_SETUP.md to reflect follow system integration, update docs/DATABASE_STRUCTURE.md with follow relationships schema, and add follow system workflows to docs/TEST_GUIDELINES.md
 **Acceptance Criteria:** Users can follow/unfollow others, see follower counts, receive follow notifications, and project documentation accurately reflects the follow system implementation.
 
-### **TASK 8: Enhanced Feed Algorithm with Social Signals** (Week 8)
+### **TASK 8: Enhanced Feed Algorithm with Social Signals**
 **Module Reference:** Requirements 7 - Content Hierarchy Algorithm Enhancement
-- [ ] Create AlgorithmService with enhanced scoring formula
-- [ ] Implement scoring: (Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0) + bonuses
-- [ ] Add photo bonus (2.5), daily gratitude multiplier (3.0), relationship multiplier (2.0)
-- [ ] Update GET /api/v1/posts/feed endpoint to use algorithm-based ordering
-- [ ] Implement 80/20 split between high-scoring and recent posts
-- [ ] Add relationship weighting for followed users' content prioritization
-- [ ] Create efficient database queries with proper indexing for performance
-- [ ] Write tests for scoring calculations, feed generation, and performance
-- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify AlgorithmService scoring calculations, feed endpoint algorithm implementation, and database query performance. Run frontend tests (`npm test`) to verify feed displays correctly with new algorithm. Run performance tests to ensure feed loading times remain optimal with enhanced algorithm. Run integration tests to verify end-to-end feed personalization workflow.
-- [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with algorithm service details, revise docs/ARCHITECTURE_AND_SETUP.md to reflect feed algorithm enhancements, update docs/DATABASE_STRUCTURE.md with algorithm-related indexes and performance optimizations, and add algorithm testing guidelines to docs/TEST_GUIDELINES.md
-**Acceptance Criteria:** Feed shows personalized content based on engagement and relationships, followed users' content is prioritized, algorithm promotes quality content, performance remains optimal, and project documentation accurately reflects the enhanced feed algorithm implementation.
+- [x] **8.1 Create AlgorithmService Class**
+  - Create `apps/api/app/services/algorithm_service.py` with BaseService inheritance
+  - Implement engagement scoring method: `(Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0)`
+  - Add content type bonuses: Photo posts (+2.5), Daily gratitude posts (+3.0)
+  - Add relationship multiplier: Posts from followed users (+2.0)
+  - Write unit tests in `apps/api/tests/unit/test_algorithm_service.py`
+- [ ] **8.2 Update Feed Endpoint with Algorithm**
+  - Modify `GET /api/v1/posts/feed` in `apps/api/app/api/v1/posts.py` to use AlgorithmService
+  - Implement 80/20 split: 80% algorithm-scored posts, 20% recent posts
+  - Add query parameters for algorithm tuning (optional: `algorithm=true/false`)
+  - Ensure backward compatibility with existing feed behavior
+- [ ] **8.3 Database Performance Optimization**
+  - Add database indexes: `posts(created_at DESC)`, `follows(follower_id, followed_id)`
+  - Create composite index: `posts(user_id, created_at DESC)` for user feeds
+  - Add index on engagement columns: `posts(hearts_count, reactions_count, shares_count)`
+  - Test query performance with `EXPLAIN ANALYZE` on large datasets
+- [ ] **8.4 Algorithm Testing and Validation**
+  - Create integration tests in `apps/api/tests/integration/test_feed_algorithm.py`
+  - Test scoring calculations with various engagement combinations
+  - Verify 80/20 split works correctly with different dataset sizes
+  - Test performance with 1000+ posts and 100+ users
+  - Validate followed users' content appears higher in feed
+- [ ] **Test Execution:** Run `pytest -v tests/unit/test_algorithm_service.py` and `pytest -v tests/integration/test_feed_algorithm.py` to verify algorithm implementation. Run `npm test` to ensure frontend displays algorithm-ordered feed correctly. Test feed loading performance remains under 300ms.
+- [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with AlgorithmService details and feed endpoint changes. Add algorithm configuration to docs/ARCHITECTURE_AND_SETUP.md. Document new database indexes in docs/DATABASE_STRUCTURE.md.
+**Acceptance Criteria:** Feed displays posts ordered by engagement score with followed users prioritized, 80/20 split between algorithm-scored and recent content works correctly, feed loading performance remains under 300ms, and algorithm behavior is thoroughly tested and documented.
 
-### **TASK 9: Mobile Optimization and Polish** (Week 8)
+### **TASK 9: Mobile Optimization and Polish**
 **Module Reference:** All requirements - Mobile responsiveness and user experience
-- [ ] Optimize all new components for mobile touch interactions
-- [ ] Implement responsive design for modals (EmojiPicker, ShareModal, ReactionViewer)
-- [ ] Add touch-friendly gesture support for emoji selection and sharing
-- [ ] Optimize notification dropdown for mobile viewport
-- [ ] Implement proper keyboard navigation for accessibility
-- [ ] Add loading states and optimistic updates throughout new features
-- [ ] Create comprehensive error handling with user-friendly messages
-- [ ] Write mobile-specific tests and cross-browser compatibility tests
-- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify all mobile optimizations work correctly. Run mobile-specific tests and cross-browser compatibility tests to ensure touch interactions, responsive design, and accessibility features work across different devices and browsers. Run full test suite (`npm test` and `pytest`) to ensure mobile optimizations don't break existing functionality.
-- [ ] **Update Project Documentation:** Update docs/ARCHITECTURE_AND_SETUP.md with mobile optimization guidelines, revise docs/TEST_GUIDELINES.md to include mobile testing procedures, update docs/KNOWN_ISSUES.md with any mobile-specific considerations, and add mobile development best practices to relevant documentation
-**Acceptance Criteria:** All social interaction features work seamlessly on mobile devices, touch interactions are intuitive, accessibility is maintained, error handling provides clear user feedback, and project documentation accurately reflects mobile optimization implementation and testing procedures.
+- [ ] **9.1 Modal Mobile Optimization**
+  - Update `EmojiPicker` component with touch-friendly sizing (minimum 44px touch targets)
+  - Optimize `ShareModal` component for mobile viewport with responsive layout
+  - Update `ReactionViewer` modal with mobile-friendly scrolling and positioning
+  - Optimize `NotificationDropdown` for mobile with proper viewport handling
+  - Test modal interactions on iOS Safari and Android Chrome
+- [ ] **9.2 Touch Interaction Enhancement**
+  - Add touch feedback states to `FollowButton` component (active/pressed visual states)
+  - Optimize emoji selection in `EmojiPicker` to prevent double-tap zoom issues
+  - Add haptic feedback simulation for touch interactions where appropriate
+  - Implement touch-friendly mention autocomplete dropdown with proper sizing
+  - Test all touch interactions on actual mobile devices
+- [ ] **9.3 Loading States and User Feedback**
+  - Add loading spinners to all async operations (follow, share, reactions, mentions)
+  - Implement optimistic updates for follow/unfollow actions with rollback on failure
+  - Create toast notification system for successful actions ("Post shared!", "User followed!")
+  - Add user-friendly error messages for network failures and API errors
+  - Implement retry mechanisms for failed operations
+- [ ] **9.4 Accessibility and Keyboard Navigation**
+  - Add proper ARIA labels to all interactive elements and modals
+  - Implement keyboard navigation for modals (Tab, Escape, Enter key support)
+  - Add screen reader support for dynamic content updates (reactions, notifications)
+  - Ensure color contrast meets WCAG 2.1 AA standards across all components
+  - Test with screen reader software (VoiceOver, NVDA)
+- [ ] **Test Execution:** Run `npm test` to verify all mobile optimizations work correctly. Test components on actual mobile devices (iOS Safari, Android Chrome) to verify touch interactions and responsive design. Run accessibility tests with screen reader to verify ARIA implementation and keyboard navigation.
+- [ ] **Update Project Documentation:** Add mobile optimization guidelines to docs/ARCHITECTURE_AND_SETUP.md. Update docs/TEST_GUIDELINES.md with mobile testing procedures and device testing requirements.
+**Acceptance Criteria:** All social features work smoothly on mobile devices with proper touch targets (44px minimum), loading states provide clear user feedback, error handling is user-friendly with retry options, accessibility standards are met for screen readers and keyboard navigation, and all interactions are tested on actual mobile devices.
 
-## Phase 2: Enhanced Social Features (Future)
+### **TASK 10: MVP Production Readiness**
+**Module Reference:** Final MVP polish and production deployment preparation
+- [ ] **10.1 Performance Optimization and Monitoring**
+  - Add database connection pooling configuration for production workloads
+  - Implement query result caching for frequently accessed data (user profiles, follower counts)
+  - Add database query performance monitoring and slow query logging
+  - Optimize image loading with lazy loading and proper image sizing/compression
+  - Add performance metrics collection for feed loading and API response times
+- [ ] **10.2 Security Hardening**
+  - Implement rate limiting on all API endpoints (100 requests/minute per user)
+  - Add CSRF protection for all state-changing operations (POST, PUT, DELETE)
+  - Implement input sanitization for all user-generated content (posts, bios, usernames)
+  - Configure secure headers for production (CORS, CSP, HSTS, X-Frame-Options)
+  - Add API key validation and request signing for sensitive operations
+- [ ] **10.3 Error Monitoring and Logging**
+  - Add structured logging for all API endpoints with request IDs and user context
+  - Implement frontend error tracking for JavaScript errors and API failures
+  - Create health check endpoints for monitoring (`/api/health`, `/api/ready`, `/api/metrics`)
+  - Add error alerting system for critical failures (database connection, API errors)
+  - Implement log aggregation and monitoring dashboard setup
+- [ ] **10.4 Final Testing and Quality Assurance**
+  - Run complete end-to-end test suite covering all user workflows
+  - Perform load testing on feed algorithm with 1000+ posts and 100+ concurrent users
+  - Validate all social interactions work correctly under concurrent usage scenarios
+  - Test image upload and storage under various file sizes, formats, and edge cases
+  - Conduct security testing for common vulnerabilities (SQL injection, XSS, CSRF)
+- [ ] **Test Execution:** Run full test suite (`pytest -v` and `npm test`) to ensure all optimizations work correctly. Run load tests using tools like `ab` or `wrk` to verify performance under stress. Test all features in production-like environment with realistic data volumes.
+- [ ] **Update Project Documentation:** Update docs/ARCHITECTURE_AND_SETUP.md with production configuration guidelines. Add monitoring, deployment, and maintenance procedures to docs/USEFUL_COMMANDS.md. Create production deployment checklist.
+**Acceptance Criteria:** System performs well under production load (>100 concurrent users), comprehensive security measures are implemented and tested, monitoring and alerting systems are configured, all MVP features work reliably with realistic data volumes, and production deployment documentation is complete.
 
-### **TASK 10: Privacy Controls System** (Post-MVP)
+## Phase 2: Enhanced Social Features (Post-MVP)
+
+### **TASK 11: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
-- [ ] **10.1 User Privacy Settings Page**
-  - Create Settings page with privacy controls section
-  - Implement profile privacy levels: Public/Friendly/Private
-  - Add default post privacy setting (inherits from profile)
-  - Create user blocking functionality for mentions/messages/following
-  - Add privacy settings API endpoints and database schema
-  - Write comprehensive tests for privacy settings functionality
-  - _Requirements: User profile privacy controls_
-- [ ] **10.2 Post-Level Privacy Controls**
-  - Add privacy selector to post creation modal (Public/Private)
-  - Implement per-post privacy overrides (public posts on private profiles, etc.)
-  - Create privacy migration tool when user changes profile privacy
-  - Add privacy enforcement in feed algorithm and post visibility
-  - Write tests for post privacy functionality and edge cases
-  - _Requirements: Granular post privacy controls_
-- [ ] **10.3 Privacy Enforcement Integration**
-  - Update feed algorithm to respect Friendly profile settings (no suggestions)
-  - Implement Private profile restrictions (only mutual follows see content)
-  - Add privacy checks to all social interactions (mentions, shares, follows)
-  - Create blocking enforcement across all user interactions
-  - Write comprehensive integration tests for privacy enforcement
-  - _Requirements: Privacy mechanism enforcement_
-**Acceptance Criteria:** Users can set profile and post privacy levels, block other users, and privacy is enforced across all social interactions while maintaining simple and intuitive controls.
+- [ ] User privacy settings with profile levels (Public/Friendly/Private)
+- [ ] Post-level privacy controls with granular permissions
+- [ ] User blocking functionality across all social interactions
+- [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 11: Advanced Social Features** (Post-MVP)
-- [ ] **Username Validation Standards:** Enforce letters, numbers, and underscores only for usernames across platform with migration for existing users
-- [ ] **Comment System:** Full commenting with threading (moved from MVP)
-- [ ] **Share Analytics & Rate Limiting:** Comprehensive tracking, rate limiting (20/hour), and abuse prevention
+### **TASK 12: Advanced Social Features** (Post-MVP)
+- [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
-- [ ] **Advanced Analytics:** Personal dashboard with engagement insights
+- [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
+- [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
 ## Success Criteria for MVP
 
 **🎯 MVP Success Criteria:**
-- Users can react to posts with 8 positive emojis and see who reacted
-- Users can share posts via URL copy and direct messaging with mentions
-- Users can mention others with @username autocomplete and receive notifications
-- Users can follow others and see prioritized content in their feed
-- Enhanced feed algorithm promotes engaging content based on social signals
-- All features work seamlessly on mobile with proper error handling
-- Comprehensive test coverage (95% backend, 90% frontend) achieved
+- ✅ Users can react to posts with 8 positive emojis and see who reacted
+- ✅ Users can share posts via URL copy and direct messaging with mentions
+- ✅ Users can mention others with @username autocomplete and receive notifications
+- ✅ Users can follow others and receive follow notifications
+- [ ] Enhanced feed algorithm promotes engaging content based on social signals
+- [ ] All features work seamlessly on mobile with proper touch interactions and accessibility
+- [ ] System is production-ready with security hardening, monitoring, and performance optimization
+- ✅ Comprehensive test coverage achieved (302+ backend tests, 485+ frontend tests passing)
 
 ## General Guidelines
 
