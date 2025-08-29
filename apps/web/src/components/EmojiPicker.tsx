@@ -75,7 +75,7 @@ export default function EmojiPicker({
       {/* Modal */}
       <div 
         ref={modalRef}
-        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px]"
+        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px]"
         style={{
           left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 296)),
           top: Math.max(16, position.y - 160),
@@ -95,22 +95,24 @@ export default function EmojiPicker({
         </div>
 
         {/* Emoji Grid */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
           {EMOJI_OPTIONS.map((option, index) => (
             <button
               key={option.code}
               onClick={() => onEmojiSelect(option.code)}
               className={`
-                relative p-3 rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
+                relative p-3 sm:p-4 rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
+                min-h-[44px] min-w-[44px] flex items-center justify-center
+                touch-manipulation select-none
                 ${currentReaction === option.code 
                   ? 'bg-purple-100 ring-2 ring-purple-500 ring-offset-1' 
-                  : 'hover:bg-gray-50'
+                  : 'hover:bg-gray-50 active:bg-purple-50'
                 }
               `}
               title={`${option.label} (${index + 1})`}
               aria-label={`React with ${option.label}`}
             >
-              <span className="text-2xl block">{option.emoji}</span>
+              <span className="text-2xl sm:text-3xl block pointer-events-none">{option.emoji}</span>
               {currentReaction === option.code && (
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
               )}

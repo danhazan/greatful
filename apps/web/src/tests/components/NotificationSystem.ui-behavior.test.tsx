@@ -243,7 +243,7 @@ describe('NotificationSystem UI Behavior', () => {
     // The batch children container CSS classes are defined in the component
     // and will be applied when batches are expanded. We can verify the component
     // has the correct structure for scrollbars by checking the main container.
-    const notificationsList = document.querySelector('.max-h-80.overflow-y-auto')
+    const notificationsList = document.querySelector('.max-h-\\[50vh\\].sm\\:max-h-80.overflow-y-auto.custom-scrollbar')
     expect(notificationsList).toBeInTheDocument()
   })
 })

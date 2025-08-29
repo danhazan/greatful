@@ -262,22 +262,22 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
         {/* Notifications Dropdown */}
         {showNotifications && (
-          <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden">
+          <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden">
             {/* Header */}
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="p-4 sm:p-5 border-b border-gray-200 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">Notifications</h3>
               <div className="flex items-center space-x-2">
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-xs text-purple-600 hover:text-purple-700"
+                    className="text-xs text-purple-600 hover:text-purple-700 px-2 py-1 min-h-[32px] touch-manipulation active:text-purple-800"
                   >
                     Mark all read
                   </button>
                 )}
                 <button
                   onClick={() => setShowNotifications(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:bg-gray-100 rounded-lg"
                   aria-label="Close notifications"
                 >
                   <X className="h-4 w-4" />
@@ -286,9 +286,9 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
             </div>
 
             {/* Notifications List */}
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-[50vh] sm:max-h-80 overflow-y-auto custom-scrollbar">
               {notifications.length === 0 ? (
-                <div className="p-8 text-center">
+                <div className="p-6 sm:p-8 text-center">
                   <div className="text-gray-400 text-4xl mb-2">🔔</div>
                   <p className="text-gray-500">No notifications yet</p>
                   <p className="text-sm text-gray-400 mt-1">You'll see reactions and comments here</p>
@@ -299,7 +299,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                     <div key={notification.id}>
                       {/* Main notification */}
                       <div
-                        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                        className={`p-4 sm:p-5 hover:bg-gray-50 cursor-pointer transition-colors min-h-[60px] touch-manipulation active:bg-gray-100 ${
                           !notification.read ? 'bg-purple-50' : ''
                         }`}
                         onClick={() => {
@@ -396,11 +396,11 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
                       {/* Batch children */}
                       {notification.isBatch && expandedBatches.has(notification.id) && batchChildren[notification.id] && Array.isArray(batchChildren[notification.id]) && (
-                        <div className="bg-gray-50 max-h-60 overflow-y-auto border-l-4 border-purple-200 ml-4" style={{ direction: 'rtl' }}>
+                        <div className="bg-gray-50 max-h-60 overflow-y-auto border-l-4 border-purple-200 ml-4 custom-scrollbar" style={{ direction: 'rtl' }}>
                           {batchChildren[notification.id].map((child) => (
                             <div
                               key={child.id}
-                              className="pl-4 pr-4 py-3 hover:bg-gray-100 cursor-pointer transition-colors"
+                              className="pl-4 pr-4 py-3 sm:py-4 hover:bg-gray-100 cursor-pointer transition-colors min-h-[56px] touch-manipulation active:bg-gray-200"
                               style={{ direction: 'ltr' }}
                               onClick={() => {
                                 if (!child.read) {

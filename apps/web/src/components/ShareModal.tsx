@@ -326,9 +326,9 @@ export default function ShareModal({
       {/* Small Popup Modal */}
       <div 
         ref={modalRef}
-        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[240px]"
+        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[calc(100vw-32px)]"
         style={{
-          left: Math.max(16, Math.min(position.x - 120, window.innerWidth - 256)),
+          left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 296)),
           top: Math.max(16, position.y - 120),
         }}
         tabIndex={-1}
@@ -352,10 +352,11 @@ export default function ShareModal({
             onClick={handleCopyLink}
             disabled={copySuccess}
             className={`
-              w-full flex items-center space-x-3 p-3 rounded-lg transition-all duration-200
+              w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg transition-all duration-200
+              min-h-[44px] touch-manipulation select-none
               ${copySuccess 
                 ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'hover:bg-purple-50 text-gray-700 border border-gray-200 hover:border-purple-200'
+                : 'hover:bg-purple-50 text-gray-700 border border-gray-200 hover:border-purple-200 active:bg-purple-100'
               }
               ${copySuccess ? 'cursor-default' : 'cursor-pointer'}
             `}
@@ -386,7 +387,7 @@ export default function ShareModal({
           {!showMessageShare ? (
             <button
               onClick={handleSendAsMessage}
-              className="w-full flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-purple-200 hover:bg-purple-50 text-gray-700 transition-all duration-200"
+              className="w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-purple-200 hover:bg-purple-50 text-gray-700 transition-all duration-200 min-h-[44px] touch-manipulation select-none active:bg-purple-100"
             >
               <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                 <MessageCircle className="h-4 w-4 text-purple-600" />
@@ -406,7 +407,7 @@ export default function ShareModal({
                   value={searchQuery}
                   onChange={handleSearchChange}
                   placeholder="Search users to send to..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-3 sm:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] touch-manipulation"
                   onFocus={() => setShowAutocomplete(searchQuery.length > 0)}
                 />
                 
@@ -447,7 +448,7 @@ export default function ShareModal({
               <div className="flex space-x-2">
                 <button
                   onClick={() => setShowMessageShare(false)}
-                  className="flex-1 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-3 py-3 sm:py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-h-[44px] touch-manipulation active:bg-gray-100"
                 >
                   Back
                 </button>
@@ -455,9 +456,9 @@ export default function ShareModal({
                   onClick={handleSendMessage}
                   disabled={selectedUsers.length === 0 || sendingMessage}
                   className={`
-                    flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors
+                    flex-1 flex items-center justify-center space-x-2 px-3 py-3 sm:py-2 text-sm rounded-lg transition-colors min-h-[44px] touch-manipulation
                     ${selectedUsers.length > 0 && !sendingMessage
-                      ? 'bg-purple-600 text-white hover:bg-purple-700'
+                      ? 'bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }
                   `}

@@ -76,19 +76,19 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50" />
       
       {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 sm:p-6">
         <div 
           ref={modalRef}
-          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[80vh] flex flex-col"
+          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[85vh] sm:max-h-[80vh] flex flex-col touch-manipulation"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
               Reactions ({totalCount})
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              className="text-gray-400 hover:text-gray-600 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:bg-gray-100 rounded-lg"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />
@@ -96,15 +96,15 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
             {totalCount === 0 ? (
-              <div className="p-8 text-center">
+              <div className="p-6 sm:p-8 text-center">
                 <div className="text-gray-400 text-4xl mb-4">😊</div>
                 <p className="text-gray-500">No reactions yet</p>
                 <p className="text-sm text-gray-400 mt-1">Be the first to react!</p>
               </div>
             ) : (
-              <div className="p-4 space-y-4">
+              <div className="p-3 sm:p-4 space-y-4">
                 {Object.entries(groupedReactions).map(([emoji, emojiReactions]) => (
                   <div key={emoji} className="space-y-2">
                     {/* Emoji Header */}
@@ -120,7 +120,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                       {emojiReactions.map((reaction) => (
                         <div 
                           key={reaction.id}
-                          className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                          className="flex items-center space-x-3 p-3 sm:p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer min-h-[44px] touch-manipulation active:bg-gray-100"
                           onClick={() => onUserClick?.(parseInt(reaction.userId))}
                         >
                           {/* User Avatar */}
@@ -167,7 +167,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
           <div className="p-4 border-t border-gray-200">
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              className="w-full px-4 py-3 sm:py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors min-h-[44px] touch-manipulation active:bg-gray-300"
             >
               Close
             </button>
