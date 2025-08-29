@@ -258,27 +258,27 @@ export default function ProfilePage() {
       <Navbar user={currentUser} onLogout={handleLogout} />
 
       {/* Profile Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <div className="max-w-4xl mx-auto">
           {/* Profile Header */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-8 mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row items-start justify-between space-y-4 sm:space-y-0">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 w-full sm:w-auto">
                 {/* Profile Image */}
-                <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
                   {user.profileImage ? (
                     <img 
                       src={user.profileImage} 
                       alt={user.username}
-                      className="w-24 h-24 rounded-full object-cover"
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover"
                     />
                   ) : (
-                    <User className="h-12 w-12 text-purple-600" />
+                    <User className="h-10 w-10 sm:h-12 sm:w-12 text-purple-600" />
                   )}
                 </div>
 
                 {/* Profile Info */}
-                <div className="flex-1">
+                <div className="flex-1 text-center sm:text-left min-w-0">
                   {isEditing ? (
                     <div className="space-y-4">
                       <div>
@@ -312,17 +312,17 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <>
-                      <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 truncate">
                         {user.username}
                       </h1>
                       {user.bio && (
-                        <p className="text-gray-600 mb-4 text-lg">
+                        <p className="text-gray-600 mb-4 text-sm sm:text-lg break-words">
                           {user.bio}
                         </p>
                       )}
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <div className="flex items-center justify-center sm:justify-start space-x-4 text-xs sm:text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                           <span>Joined {formatDate(user.joinDate)}</span>
                         </div>
                       </div>
@@ -332,18 +332,18 @@ export default function ProfilePage() {
               </div>
 
               {/* Edit Button */}
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 w-full sm:w-auto justify-center sm:justify-end">
                 {isEditing ? (
                   <>
                     <button
                       onClick={handleCancelEdit}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm min-h-[44px] touch-manipulation"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveProfile}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      className="px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm min-h-[44px] touch-manipulation"
                     >
                       Save
                     </button>
@@ -351,9 +351,9 @@ export default function ProfilePage() {
                 ) : (
                   <button
                     onClick={handleEditProfile}
-                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex items-center space-x-2 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm min-h-[44px] touch-manipulation"
                   >
-                    <Edit3 className="h-4 w-4" />
+                    <Edit3 className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span>Edit Profile</span>
                   </button>
                 )}
@@ -361,18 +361,18 @@ export default function ProfilePage() {
             </div>
 
             {/* Stats */}
-            <div className="flex items-center space-x-8 mt-6 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-center sm:justify-start space-x-6 sm:space-x-8 mt-6 pt-6 border-t border-gray-200">
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.postsCount}</div>
-                <div className="text-sm text-gray-500">Posts</div>
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{user.postsCount}</div>
+                <div className="text-xs sm:text-sm text-gray-500">Posts</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.followersCount}</div>
-                <div className="text-sm text-gray-500">Followers</div>
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{user.followersCount}</div>
+                <div className="text-xs sm:text-sm text-gray-500">Followers</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.followingCount}</div>
-                <div className="text-sm text-gray-500">Following</div>
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{user.followingCount}</div>
+                <div className="text-xs sm:text-sm text-gray-500">Following</div>
               </div>
             </div>
           </div>

@@ -152,6 +152,6 @@ describe('Navbar Component', () => {
     expect(nav).toHaveClass('bg-white', 'border-b', 'border-gray-200')
     
     const logoButton = screen.getByRole('button', { name: /grateful/i })
-    expect(logoButton).toHaveClass('flex', 'items-center', 'space-x-2')
+    expect(logoButton).toHaveClass('flex', 'items-center', 'space-x-1', 'sm:space-x-2')
   })
 })

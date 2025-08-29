@@ -428,14 +428,14 @@ export default function FeedPage() {
       <Navbar user={user} onLogout={handleLogout} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-20">
         <div className="max-w-4xl mx-auto">
           {/* Welcome Message */}
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 mb-8">
-            <h2 className="text-lg font-semibold text-purple-900 mb-2">
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+            <h2 className="text-base sm:text-lg font-semibold text-purple-900 mb-2">
               🎉 Welcome to your Gratitude Feed!
             </h2>
-            <p className="text-purple-800">
+            <p className="text-sm sm:text-base text-purple-800">
               You can now interact with posts using emoji reactions! Click the 😊+ button to react with positive emotions. 
               The counts show the total reactions from all users (server data), while your personal reactions are saved privately and highlighted.
             </p>
@@ -458,13 +458,13 @@ export default function FeedPage() {
           </div>
 
           {/* Floating Create Post Button */}
-          <div className="fixed bottom-6 right-6">
+          <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 transition-all duration-200 hover:scale-110"
+              className="bg-purple-600 text-white p-3 sm:p-4 rounded-full shadow-lg hover:bg-purple-700 transition-all duration-200 hover:scale-110 min-h-[56px] min-w-[56px] flex items-center justify-center touch-manipulation"
               title="Create New Post"
             >
-              <Plus className="h-6 w-6" />
+              <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           </div>
 

@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Menu, X } from "lucide-react"
 import NotificationSystem from "./NotificationSystem"
 
 interface NavbarProps {
@@ -16,6 +17,7 @@ interface NavbarProps {
 
 export default function Navbar({ user, showBackButton = false, onLogout }: NavbarProps) {
   const router = useRouter()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const handleLogout = () => {
     if (onLogout) {
@@ -24,55 +26,115 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
       localStorage.removeItem("access_token")
       router.push("/")
     }
+    setIsMobileMenuOpen(false)
+  }
+
+  const handleNavigation = (path: string) => {
+    router.push(path)
+    setIsMobileMenuOpen(false)
   }
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-4 py-4">
-      <div className="max-w-4xl mx-auto flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          {showBackButton && (
-            <button
-              onClick={() => router.back()}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-              aria-label="Go back"
+    <>
+      <nav className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
+            {showBackButton && (
+              <button
+                onClick={() => router.back()}
+                className="text-gray-600 hover:text-gray-900 transition-colors p-1 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                aria-label="Go back"
+              >
+                <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+            )}
+            <button 
+              onClick={() => handleNavigation("/feed")}
+              className="flex items-center space-x-1 sm:space-x-2 hover:opacity-80 transition-opacity min-h-[44px] touch-manipulation"
             >
-              <ArrowLeft className="h-6 w-6" />
+              <span className="text-xl sm:text-2xl">💜</span>
+              <h1 className="text-lg sm:text-xl font-bold text-purple-700 truncate">Grateful</h1>
             </button>
-          )}
-          <button 
-            onClick={() => router.push("/feed")}
-            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
-          >
-            <span className="text-2xl">💜</span>
-            <h1 className="text-xl font-bold text-purple-700">Grateful</h1>
-          </button>
+          </div>
+          
+          <div className="flex items-center space-x-1 sm:space-x-4 min-w-0">
+            {user && (
+              <span className="hidden lg:block text-sm text-gray-600 truncate max-w-[120px]">
+                Welcome, {user.name}!
+              </span>
+            )}
+            {user && <NotificationSystem userId={user.id} />}
+            
+            {/* Desktop Navigation */}
+            <div className="hidden sm:flex items-center space-x-4">
+              <button
+                onClick={() => handleNavigation("/feed")}
+                className="text-purple-600 hover:text-purple-700 text-sm font-medium px-2 py-2 min-h-[44px] touch-manipulation"
+              >
+                Feed
+              </button>
+              <button
+                onClick={() => handleNavigation("/profile")}
+                className="text-purple-600 hover:text-purple-700 text-sm font-medium px-2 py-2 min-h-[44px] touch-manipulation"
+              >
+                Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className="text-purple-600 hover:text-purple-700 text-sm font-medium px-2 py-2 min-h-[44px] touch-manipulation"
+              >
+                Logout
+              </button>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="sm:hidden text-gray-600 hover:text-gray-900 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
-        
-        <div className="flex items-center space-x-4">
-          {user && (
-            <span className="text-sm text-gray-600">Welcome, {user.name}!</span>
-          )}
-          {user && <NotificationSystem userId={user.id} />}
-          <button
-            onClick={() => router.push("/feed")}
-            className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-          >
-            Feed
-          </button>
-          <button
-            onClick={() => router.push("/profile")}
-            className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-          >
-            Profile
-          </button>
-          <button
-            onClick={handleLogout}
-            className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-    </nav>
+      </nav>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-25 z-40 sm:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="fixed top-[73px] right-0 left-0 bg-white border-b border-gray-200 shadow-lg z-50 sm:hidden">
+            <div className="px-4 py-2 space-y-1">
+              {user && (
+                <div className="px-3 py-2 text-sm text-gray-600 border-b border-gray-100">
+                  Welcome, {user.name}!
+                </div>
+              )}
+              <button
+                onClick={() => handleNavigation("/feed")}
+                className="w-full text-left px-3 py-3 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors min-h-[44px] touch-manipulation"
+              >
+                Feed
+              </button>
+              <button
+                onClick={() => handleNavigation("/profile")}
+                className="w-full text-left px-3 py-3 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors min-h-[44px] touch-manipulation"
+              >
+                Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full text-left px-3 py-3 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors min-h-[44px] touch-manipulation"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   )
 }
