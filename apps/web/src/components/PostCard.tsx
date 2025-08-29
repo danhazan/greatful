@@ -431,8 +431,7 @@ export default function PostCard({
                 {currentUserId && 
                  currentUserId !== post.author.id && 
                  !isNaN(parseInt(post.author.id)) &&
-                 !hideFollowButton &&
-                 process.env.NODE_ENV !== 'test' && (
+                 !hideFollowButton && (
                   <FollowButton 
                     userId={parseInt(post.author.id)} 
                     size="xxs"

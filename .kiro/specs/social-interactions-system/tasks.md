@@ -169,8 +169,8 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] Add follow/unfollow functionality to user profiles and post author sections
 - [x] Create follow notifications for new followers
 - [x] Display follower and following counts on user profiles
-- [ ] Implement follow status checking and prevent self-following
-- [ ] Write tests for follow relationships and UI interactions
+- [x] Implement follow status checking and prevent self-following
+- [x] Write tests for follow relationships and UI interactions
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify Follow model, FollowService, and follow/unfollow API endpoints work correctly including self-follow prevention. Run frontend tests (`npm test`) to verify FollowButton component, optimistic updates, and UI interactions. Run integration tests to verify end-to-end follow workflow including notifications and follower count updates.
 - [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with follow system API endpoints, revise docs/ARCHITECTURE_AND_SETUP.md to reflect follow system integration, update docs/DATABASE_STRUCTURE.md with follow relationships schema, and add follow system workflows to docs/TEST_GUIDELINES.md
 **Acceptance Criteria:** Users can follow/unfollow others, see follower counts, receive follow notifications, and project documentation accurately reflects the follow system implementation.
