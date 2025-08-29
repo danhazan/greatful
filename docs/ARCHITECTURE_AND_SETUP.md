@@ -73,7 +73,8 @@ See each folder’s README (if present) for more details.
 
 - **Backend:** FastAPI (Python, SQLAlchemy, JWT) with Service Layer Architecture and Shared Types
   - Location: `apps/api`
-  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, ReactionService, NotificationService, MentionService)
+  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, ReactionService, NotificationService, MentionService, AlgorithmService)
+  - **AlgorithmService**: Advanced feed ranking with engagement scoring and social signals (`app/services/algorithm_service.py`)
   - **NotificationFactory**: Unified notification creation system (`app/core/notification_factory.py`) - eliminates common notification issues
   - **Repository Pattern**: Standardized data access layer with query builders and performance monitoring
   - **Shared Type System**: Comprehensive type definitions shared between frontend and backend (`shared/types/`)
@@ -130,6 +131,14 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **Real-time Updates**: Polling-based updates every 30 seconds
 - **Batch Operations**: Mark individual or all notifications as read
 - **Unread Counter**: Shows count of unread parent notifications in navbar
+
+#### 🧠 Enhanced Feed Algorithm
+- **Engagement Scoring**: Weighted scoring system (Hearts×1.0, Reactions×1.5, Shares×4.0)
+- **Content Type Bonuses**: Photo posts (+2.5), Daily gratitude posts (+3.0)
+- **Relationship Multipliers**: Posts from followed users get 2.0x boost
+- **80/20 Feed Split**: 80% algorithm-scored posts, 20% recent posts for discovery
+- **Trending Algorithm**: Time-window based trending with recency bonuses
+- **Performance Optimized**: Cached engagement counts and efficient queries
 
 #### 👥 Follow System
 - **Follow/Unfollow**: Users can follow and unfollow other users with optimistic UI updates
@@ -365,6 +374,41 @@ npm run dev
   cd infrastructure
   docker-compose up -d
   docker-compose down
+  ```
+
+### Algorithm Configuration & Testing
+
+- **Test feed algorithm:**
+  ```sh
+  cd apps/api
+  source venv/bin/activate
+  pytest tests/unit/test_algorithm_service.py -v
+  pytest tests/integration/test_feed_algorithm.py -v
+  ```
+
+- **Test algorithm with different parameters:**
+  ```sh
+  # Test chronological feed (algorithm disabled)
+  curl "http://localhost:8000/api/v1/posts/feed?algorithm=false" \
+    -H "Authorization: Bearer YOUR_TOKEN"
+  
+  # Test algorithm-ranked feed (default)
+  curl "http://localhost:8000/api/v1/posts/feed?algorithm=true&limit=10" \
+    -H "Authorization: Bearer YOUR_TOKEN"
+  
+  # Test trending posts
+  curl "http://localhost:8000/api/v1/posts/trending?time_window_hours=24&limit=5" \
+    -H "Authorization: Bearer YOUR_TOKEN"
+  ```
+
+- **Monitor algorithm performance:**
+  ```sh
+  # Check query performance logs
+  tail -f apps/api/logs/performance.log | grep "algorithm"
+  
+  # Run performance tests
+  cd apps/api
+  pytest tests/integration/test_feed_algorithm.py::test_feed_performance -v
   ```
 
 ### Other Useful Tasks

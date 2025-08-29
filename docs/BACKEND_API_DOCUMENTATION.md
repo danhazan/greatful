@@ -27,7 +27,8 @@ apps/api/
 │   │   ├── user_service.py      # User profile management
 │   │   ├── reaction_service.py  # Emoji reactions business logic
 │   │   ├── notification_service.py # Notification system with batching
-│   │   └── follow_service.py      # Follow relationships and suggestions
+│   │   ├── follow_service.py      # Follow relationships and suggestions
+│   │   └── algorithm_service.py   # Feed algorithm and engagement scoring
 │   ├── core/             # Core infrastructure layer
 │   │   ├── notification_factory.py # Unified notification creation factory
 │   ├── repositories/     # Data access layer with standardized patterns
@@ -103,7 +104,35 @@ shared/types/             # Shared type definitions (TypeScript/Python)
 - **Test Coverage**: 95%+ code coverage across service layer, repositories, and API endpoints
 - **Test Categories**: Users, posts, follows, interactions, notifications, reactions, batching
 
-#### 7. **Enhanced Notification System**
+#### 7. **Enhanced Feed Algorithm with Social Signals**
+
+**🎯 ALGORITHM SERVICE IMPLEMENTATION (August 2025)**
+
+The feed system now includes a sophisticated algorithm service that provides personalized content ranking based on engagement metrics and social relationships:
+
+**AlgorithmService** (`app/services/algorithm_service.py`):
+- **Engagement Scoring**: Calculates post scores using weighted engagement metrics
+- **Content Type Bonuses**: Photo posts (+2.5), Daily gratitude posts (+3.0)
+- **Relationship Multipliers**: Posts from followed users get 2.0x multiplier
+- **80/20 Feed Split**: 80% algorithm-scored posts, 20% recent posts for discovery
+- **Performance Optimized**: Efficient queries with cached engagement counts
+
+**Scoring Formula**:
+```
+Base Score = (Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0)
+Content Bonus = Photo posts (+2.5) OR Daily gratitude posts (+3.0)
+Relationship Multiplier = Posts from followed users (×2.0)
+Final Score = (Base Score + Content Bonus) × Relationship Multiplier
+```
+
+**Feed Algorithm Features**:
+- **Personalized Ranking**: Content ranked by engagement score with relationship weighting
+- **Discovery Balance**: 80% algorithm-scored content, 20% recent posts for content discovery
+- **Performance Monitoring**: Query performance tracking and optimization
+- **Fallback Support**: Graceful fallback to chronological feed when algorithm is disabled
+- **Trending Posts**: Specialized trending algorithm for recent high-engagement content
+
+#### 8. **Enhanced Notification System**
 
 **🎯 REFACTORED ARCHITECTURE (December 2024)**
 
@@ -241,7 +270,7 @@ GET    /api/v1/users/username/{username} # Get user profile by username
 ```
 POST   /api/v1/posts/                    # Create post
 GET    /api/v1/posts/                    # Get posts (with filters)
-GET    /api/v1/posts/feed                # Get user feed
+GET    /api/v1/posts/feed                # Get personalized feed with algorithm ranking
 GET    /api/v1/posts/{post_id}           # Get specific post
 PUT    /api/v1/posts/{post_id}           # Update post
 DELETE /api/v1/posts/{post_id}           # Delete post
@@ -700,6 +729,98 @@ Authorization: Bearer <token>
 - **Pagination**: All list endpoints support limit/offset pagination
 - **Query Optimization**: Specialized queries for followers, following, and suggestions
 - **Database Indexes**: Proper indexing on follower_id, followed_id, and status fields
+
+## 🧠 Algorithm Service & Feed API Details
+
+### Enhanced Feed Endpoint
+```http
+GET /api/v1/posts/feed?limit=20&offset=0&algorithm=true
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `limit` (optional): Number of posts to return (default: 20, max: 100)
+- `offset` (optional): Number of posts to skip for pagination (default: 0)
+- `algorithm` (optional): Enable algorithm ranking (default: true)
+  - `true`: Uses 80/20 split between algorithm-scored and recent posts
+  - `false`: Returns chronological feed (backward compatibility)
+
+**Response:**
+```json
+[
+  {
+    "id": "post-uuid",
+    "author_id": 1,
+    "title": "Morning Gratitude",
+    "content": "Grateful for this beautiful sunrise...",
+    "post_type": "daily",
+    "image_url": "https://example.com/image.jpg",
+    "location": "San Francisco, CA",
+    "is_public": true,
+    "created_at": "2025-08-29T08:00:00Z",
+    "updated_at": "2025-08-29T08:00:00Z",
+    "author": {
+      "id": 1,
+      "username": "alice",
+      "name": "alice",
+      "profile_image_url": "https://example.com/avatar.jpg"
+    },
+    "hearts_count": 15,
+    "reactions_count": 8,
+    "current_user_reaction": "heart_eyes",
+    "is_hearted": true
+  }
+]
+```
+
+### Algorithm Service Features
+
+#### Engagement Scoring
+The AlgorithmService calculates post scores using a weighted formula that considers:
+
+**Base Engagement Metrics:**
+- Hearts/Likes: 1.0x weight
+- Emoji Reactions: 1.5x weight  
+- Shares: 4.0x weight (highest impact)
+
+**Content Type Bonuses:**
+- Photo posts: +2.5 bonus points
+- Daily gratitude posts: +3.0 bonus points
+- Spontaneous posts: No bonus
+
+**Relationship Multipliers:**
+- Posts from followed users: 2.0x multiplier
+- Posts from non-followed users: 1.0x multiplier
+
+#### Feed Composition
+The personalized feed uses an 80/20 split strategy:
+- **80% Algorithm-Scored**: Posts ranked by engagement score with relationship weighting
+- **20% Recent Posts**: Chronologically recent posts for content discovery
+
+#### Trending Posts Algorithm
+```http
+GET /api/v1/posts/trending?limit=10&time_window_hours=24
+Authorization: Bearer <token>
+```
+
+**Features:**
+- Time-window based trending (default: 24 hours)
+- Emphasizes recent engagement over total engagement
+- Recency bonus for newer posts within the time window
+- Minimum engagement threshold to qualify as trending
+
+**Trending Score Formula:**
+```
+Base Engagement = (Hearts × 2.0) + (Reactions × 3.0) + (Shares × 8.0)
+Recency Bonus = max(0, (time_window - hours_old) / time_window × 5.0)
+Trending Score = Base Engagement + Recency Bonus
+```
+
+#### Performance Optimizations
+- **Cached Engagement Counts**: Posts table includes denormalized counts for fast queries
+- **Efficient Scoring**: Batch calculation of scores to minimize database queries
+- **Query Monitoring**: Performance tracking for algorithm queries
+- **Index Usage**: Strategic indexes on engagement columns for fast sorting
 
 ## 🔍 Mention System API Details
 
