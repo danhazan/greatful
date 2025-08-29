@@ -131,6 +131,16 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **Batch Operations**: Mark individual or all notifications as read
 - **Unread Counter**: Shows count of unread parent notifications in navbar
 
+#### 👥 Follow System
+- **Follow/Unfollow**: Users can follow and unfollow other users with optimistic UI updates
+- **Follow Status**: Real-time follow status checking with mutual follow detection
+- **Followers/Following Lists**: Paginated lists of followers and following with follow status
+- **Follow Statistics**: Comprehensive stats including followers, following, and pending counts
+- **Follow Suggestions**: Intelligent suggestions based on mutual connections
+- **Follow Notifications**: Automatic notifications when users gain new followers
+- **Self-Follow Prevention**: Database constraints and validation prevent self-following
+- **Bulk Operations**: Efficient bulk checking of follow status for multiple users
+
 #### 👤 User Profile System
 - **Profile Management**: Edit username, bio, and profile image
 - **User Stats**: Display posts count, followers, following, join date
@@ -153,18 +163,21 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **Performance**: Debounced searches, efficient re-renders, lazy loading
 
 #### Backend Architecture
-- **Service Layer**: Clean separation of business logic (UserService, ReactionService, NotificationService)
+- **Service Layer**: Clean separation of business logic (UserService, ReactionService, NotificationService, FollowService)
 - **NotificationFactory**: Centralized notification creation with built-in error handling and consistency
 - **Repository Pattern**: Standardized data access with query optimization
 - **API Contract Validation**: Runtime validation against shared type definitions
 - **Performance Monitoring**: Query performance tracking and optimization
 - **Rate Limiting**: Configurable rate limits for search and validation endpoints
+- **Follow System**: Comprehensive follow relationship management with mutual follow detection
 
 #### Database Design
 - **Efficient Schema**: Optimized for social interactions with proper indexing
 - **No Mention Table**: Content-parsing approach for mentions (no additional tables needed)
-- **Batch Operations**: Single queries for validating multiple usernames
+- **Follow Relationships**: Dedicated follows table with unique constraints and self-follow prevention
+- **Batch Operations**: Single queries for validating multiple usernames and checking follow status
 - **Relationship Optimization**: Efficient loading of user relationships and engagement data
+- **Performance Indexes**: Strategic indexes on follow relationships for fast queries
 
 ---
 

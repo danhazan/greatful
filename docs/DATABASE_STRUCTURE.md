@@ -92,14 +92,20 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 
 ### Follows Table (`follows`)
 
-**Tracks user follow relationships.**
+**Tracks user follow relationships with status support.**
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | String (UUID) | Primary Key | Unique follow identifier |
 | `follower_id` | Integer | Foreign Key (users.id), Not Null | User doing the following |
 | `followed_id` | Integer | Foreign Key (users.id), Not Null | User being followed |
+| `status` | String | Not Null, Default: 'active' | Follow status: 'active', 'pending', 'blocked' |
 | `created_at` | DateTime | Default: now() | Follow timestamp |
+
+**Follow Status Values:**
+- `active` - Follow relationship is active and confirmed
+- `pending` - Follow request is pending approval (for private accounts)
+- `blocked` - Follow relationship is blocked
 
 **Constraints:**
 - Unique constraint on (follower_id, followed_id) - prevents duplicate follows
@@ -171,6 +177,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 - `comments.post_id` - For post comments queries
 - `follows.follower_id` - For user's following list
 - `follows.followed_id` - For user's followers list
+- `follows.status` - For filtering active/pending follows
 - `notifications.user_id` - For user's notifications
 
 ## Data Integrity
@@ -255,6 +262,7 @@ The application uses a standardized repository pattern for data access:
 - **EmojiReactionRepository**: Reaction data access with aggregation and validation
 - **LikeRepository**: Like/heart data access with user relationship tracking
 - **NotificationRepository**: Notification data access with batching and filtering
+- **FollowRepository**: Follow relationship data access with specialized queries and bulk operations
 
 ### Query Patterns
 
@@ -290,6 +298,65 @@ posts = await post_repo.query()\
 - **Index Usage**: Strategic indexes on foreign keys, timestamps, and filter columns
 - **Bulk Operations**: Efficient bulk create/update operations for large datasets
 
+### Follow System Query Patterns
+
+#### Specialized Follow Queries
+```python
+# Get followers with user details and pagination
+followers, total = await follow_repo.get_followers(
+    user_id=user_id,
+    status="active",
+    limit=50,
+    offset=0
+)
+
+# Get following list with user details
+following, total = await follow_repo.get_following(
+    user_id=user_id,
+    status="active", 
+    limit=50,
+    offset=0
+)
+
+# Check follow status between two users
+is_following = await follow_repo.is_following(
+    follower_id=current_user_id,
+    followed_id=target_user_id
+)
+
+# Get comprehensive follow statistics
+stats = await follow_repo.get_follow_stats(user_id)
+# Returns: {followers_count, following_count, pending_requests, pending_sent}
+
+# Bulk check follow status for multiple users
+status_map = await follow_repo.bulk_check_following_status(
+    follower_id=current_user_id,
+    user_ids=[1, 2, 3, 4, 5]
+)
+```
+
+#### Follow Suggestions Algorithm
+```python
+# Get follow suggestions based on mutual connections
+suggestions = await follow_repo.get_follow_suggestions(
+    user_id=current_user_id,
+    limit=10
+)
+```
+
+The follow suggestions use a complex SQL query that finds:
+1. Users followed by people the current user follows
+2. Excludes users already followed by the current user
+3. Excludes the current user themselves
+4. Orders by username for consistent results
+
+#### Performance Considerations
+- **Efficient Joins**: Follow queries use proper JOIN operations to minimize database round trips
+- **Index Usage**: All follow queries utilize indexes on `follower_id`, `followed_id`, and `status`
+- **Pagination**: Large follow lists are paginated to prevent memory issues
+- **Bulk Operations**: Multiple follow status checks are batched into single queries
+- **Query Monitoring**: All follow operations are monitored for performance optimization
+
 ## Migration History
 
 The database uses Alembic for migrations with proper versioning:
@@ -306,6 +373,7 @@ The database uses Alembic for migrations with proper versioning:
 - `1acf9fb80bfb_add_location_field_to_posts.py` - Location support for posts
 - `d0081466f2ad_add_location_field_to_posts_table.py` - Location field migration
 - `ecb4d319f326_add_notifications_table.py` - Enhanced notifications system
+- `008_create_follows_table.py` - Follow system implementation with status support
 
 ## Development Notes
 

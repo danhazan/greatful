@@ -541,6 +541,249 @@ describe('Mention System Integration', () => {
 - Test responsive design
 - Test cross-browser compatibility
 
+## Follow System Testing
+
+### Backend Follow Tests
+
+**Follow Service Tests** (`test_follow_functionality.py`):
+```python
+async def test_follow_user_success():
+    """Test successful user follow operation."""
+    # Test that follow relationship is created
+    # Test that follow notification is sent
+    # Test that follow status is updated
+    # Test proper response format
+
+async def test_unfollow_user_success():
+    """Test successful user unfollow operation."""
+    # Test that follow relationship is removed
+    # Test proper response format
+    # Test that user can follow again after unfollowing
+
+async def test_prevent_self_follow():
+    """Test that users cannot follow themselves."""
+    # Test ValidationException is raised
+    # Test proper error message and status code
+
+async def test_prevent_duplicate_follow():
+    """Test that duplicate follows are prevented."""
+    # Test ConflictError is raised for existing active follow
+    # Test proper error handling for different follow statuses
+
+async def test_follow_nonexistent_user():
+    """Test following a user that doesn't exist."""
+    # Test NotFoundError is raised
+    # Test proper error message
+```
+
+**Follow Repository Tests** (`test_follow_repository.py`):
+```python
+async def test_get_followers_with_pagination():
+    """Test getting followers with pagination."""
+    # Test correct followers are returned
+    # Test pagination parameters work correctly
+    # Test total count is accurate
+    # Test ordering by created_at desc
+
+async def test_get_following_with_pagination():
+    """Test getting following list with pagination."""
+    # Test correct following users are returned
+    # Test pagination and total count
+    # Test follow status relative to current user
+
+async def test_follow_statistics():
+    """Test comprehensive follow statistics."""
+    # Test followers_count accuracy
+    # Test following_count accuracy
+    # Test pending_requests and pending_sent counts
+
+async def test_follow_suggestions():
+    """Test follow suggestions algorithm."""
+    # Test suggestions based on mutual connections
+    # Test exclusion of already followed users
+    # Test exclusion of self
+    # Test limit parameter
+
+async def test_bulk_follow_status_check():
+    """Test bulk checking of follow status."""
+    # Test efficient single query for multiple users
+    # Test correct status mapping
+    # Test performance with large user lists
+```
+
+### Frontend Follow Tests
+
+**FollowButton Component Tests** (`FollowButton.test.tsx`):
+```typescript
+describe('FollowButton', () => {
+  it('displays correct initial state', () => {
+    // Test initial follow state display
+    // Test button text and icon
+    // Test loading state handling
+  })
+
+  it('handles follow action correctly', () => {
+    // Test API call is made with correct parameters
+    // Test optimistic UI update
+    // Test success state handling
+    // Test onFollowChange callback
+  })
+
+  it('handles unfollow action correctly', () => {
+    // Test unfollow API call
+    // Test UI state changes
+    // Test confirmation if needed
+  })
+
+  it('handles authentication errors', () => {
+    // Test behavior when user is not authenticated
+    // Test error message display
+    // Test redirect to login if needed
+  })
+
+  it('handles API errors gracefully', () => {
+    // Test network error handling
+    // Test server error responses
+    // Test error message display
+    // Test retry functionality
+  })
+})
+```
+
+**Follow API Route Tests** (`follow-api.test.ts`):
+```typescript
+describe('Follow API Routes', () => {
+  it('POST /api/follows/[userId] works correctly', () => {
+    // Test successful follow request
+    // Test authentication requirement
+    // Test error handling
+    // Test response format
+  })
+
+  it('DELETE /api/follows/[userId] works correctly', () => {
+    // Test successful unfollow request
+    // Test authentication requirement
+    // Test error handling for non-existent follow
+  })
+
+  it('GET /api/follows/[userId]/status works correctly', () => {
+    // Test follow status retrieval
+    // Test mutual follow detection
+    // Test response format
+  })
+})
+```
+
+### Integration Tests
+
+**Follow System Integration** (`follow-interactions.test.tsx`):
+```typescript
+describe('Follow System Integration', () => {
+  it('complete follow workflow works end-to-end', () => {
+    // Test user can follow another user
+    // Test follow button updates correctly
+    // Test follower count updates
+    // Test follow notification is created
+    // Test user appears in followers list
+  })
+
+  it('follow status is consistent across components', () => {
+    // Test FollowButton shows correct status
+    // Test profile page shows correct follow state
+    // Test followers/following lists are accurate
+  })
+
+  it('handles follow suggestions correctly', () => {
+    // Test suggestions API integration
+    // Test suggestion display in UI
+    // Test follow action from suggestions
+  })
+})
+```
+
+### Test Coverage Requirements
+
+**Backend Coverage**:
+- ✅ FollowService.follow_user() - 100%
+- ✅ FollowService.unfollow_user() - 100%
+- ✅ FollowService.get_follow_status() - 100%
+- ✅ FollowService.get_followers() - 100%
+- ✅ FollowService.get_following() - 100%
+- ✅ FollowService.get_follow_stats() - 100%
+- ✅ FollowService.get_follow_suggestions() - 100%
+- ✅ FollowRepository specialized queries - 100%
+- ✅ Follow API endpoints - 100%
+
+**Frontend Coverage**:
+- ✅ FollowButton component - 100%
+- ✅ Follow API route handlers - 100%
+- ✅ Follow status integration - 100%
+- ✅ Follow workflow end-to-end - 100%
+
+### Performance Testing
+
+**Backend Performance**:
+- Follow/unfollow operations should complete within 200ms
+- Followers/following lists should load within 300ms for 50 users
+- Follow suggestions should generate within 500ms
+- Bulk follow status checks should handle 100+ users efficiently
+
+**Frontend Performance**:
+- FollowButton should respond to clicks within 100ms
+- Optimistic updates should be immediate
+- Follow status should load without blocking UI
+- Large follower lists should render smoothly with pagination
+
+### Security Testing
+
+**Authentication & Authorization**:
+- All follow endpoints require valid JWT tokens
+- Users cannot follow themselves (validated on both frontend and backend)
+- Follow operations are properly authorized
+- Rate limiting prevents follow spam
+
+**Data Validation**:
+- User IDs are validated before follow operations
+- Follow status values are validated against allowed enum
+- Pagination parameters are validated and sanitized
+- Bulk operations have reasonable limits
+
+### Error Handling Testing
+
+**Backend Error Scenarios**:
+- Invalid user IDs (404 Not Found)
+- Self-follow attempts (422 Validation Error)
+- Duplicate follow attempts (409 Conflict)
+- Database connection errors (500 Internal Server Error)
+- Authentication failures (401 Unauthorized)
+
+**Frontend Error Scenarios**:
+- Network connectivity issues
+- API server downtime
+- Invalid authentication tokens
+- Rate limiting responses
+- Malformed API responses
+
+### Best Practices for Follow System Testing
+
+**Test Organization**:
+- Separate unit tests for service layer business logic
+- Integration tests for complete follow workflows
+- API contract tests for endpoint validation
+- Performance tests for scalability validation
+
+**Test Data Management**:
+- Use test fixtures for consistent user relationships
+- Clean up follow relationships after each test
+- Use realistic test data for performance testing
+- Mock external dependencies appropriately
+
+**Async Testing**:
+- Proper async/await patterns in all tests
+- Database transaction management for test isolation
+- Concurrent operation testing for race conditions
+- Timeout handling for long-running operations
+
 ## Writing Tests
 
 ### Test Consistency and Style Guidelines

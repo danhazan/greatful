@@ -26,7 +26,8 @@ apps/api/
 │   │   ├── auth_service.py      # Authentication operations
 │   │   ├── user_service.py      # User profile management
 │   │   ├── reaction_service.py  # Emoji reactions business logic
-│   │   └── notification_service.py # Notification system with batching
+│   │   ├── notification_service.py # Notification system with batching
+│   │   └── follow_service.py      # Follow relationships and suggestions
 │   ├── core/             # Core infrastructure layer
 │   │   ├── notification_factory.py # Unified notification creation factory
 │   ├── repositories/     # Data access layer with standardized patterns
@@ -34,7 +35,8 @@ apps/api/
 │   │   ├── post_repository.py   # Post data access operations
 │   │   ├── emoji_reaction_repository.py # Reaction data access
 │   │   ├── like_repository.py   # Like/heart data access
-│   │   └── notification_repository.py # Notification data access
+│   │   ├── notification_repository.py # Notification data access
+│   │   └── follow_repository.py   # Follow relationship data access
 │   ├── models/           # SQLAlchemy database models
 │   └── schemas/          # Pydantic request/response schemas (deprecated in favor of shared types)
 ├── tests/
@@ -70,6 +72,7 @@ shared/types/             # Shared type definitions (TypeScript/Python)
 - **UserService**: Profile management, user posts, public profiles with relationship handling
 - **ReactionService**: Emoji reactions with notification integration and validation
 - **NotificationService**: Real-time notifications with batching logic and rate limiting
+- **FollowService**: User follow relationships with mutual follow detection and suggestions
 
 #### 3. **Shared Type System**
 - **TypeScript Contracts**: Comprehensive API contracts defined in `shared/types/`
@@ -268,6 +271,17 @@ GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
 POST   /api/v1/users/search              # Search users by username with autocomplete
 POST   /api/v1/users/validate-batch      # Validate multiple usernames for mention highlighting
 GET    /api/v1/users/username/{username} # Get user profile by username for mention navigation
+```
+
+### Follow System
+```
+POST   /api/v1/follows/{user_id}         # Follow a user
+DELETE /api/v1/follows/{user_id}         # Unfollow a user
+GET    /api/v1/follows/{user_id}/status  # Get follow status between users
+GET    /api/v1/users/{user_id}/followers # Get user's followers (paginated)
+GET    /api/v1/users/{user_id}/following # Get users that user is following (paginated)
+GET    /api/v1/users/{user_id}/follow-stats # Get follow statistics for user
+GET    /api/v1/follows/suggestions       # Get follow suggestions for current user
 ```
 
 ## 🏛️ Service Layer & Repository Pattern
@@ -482,6 +496,210 @@ app/schemas/user.py        35      0   100%
 -------------------------------------------
 TOTAL                     650      0   100%
 ```
+
+## 🔗 Follow System API Details
+
+### Follow User Endpoint
+```http
+POST /api/v1/follows/{user_id}
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "follow-uuid",
+    "follower_id": 1,
+    "followed_id": 2,
+    "status": "active",
+    "created_at": "2025-01-01T00:00:00Z",
+    "follower": {
+      "id": 1,
+      "username": "alice",
+      "profile_image_url": "https://example.com/avatar.jpg"
+    },
+    "followed": {
+      "id": 2,
+      "username": "bob7",
+      "profile_image_url": "https://example.com/avatar2.jpg"
+    }
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_123"
+}
+```
+
+### Unfollow User Endpoint
+```http
+DELETE /api/v1/follows/{user_id}
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "message": "Successfully unfollowed user"
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_124"
+}
+```
+
+### Get Follow Status Endpoint
+```http
+GET /api/v1/follows/{user_id}/status
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "is_following": true,
+    "follow_status": "active",
+    "is_followed_by": false,
+    "reverse_status": null,
+    "is_mutual": false
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_125"
+}
+```
+
+### Get User Followers Endpoint
+```http
+GET /api/v1/users/{user_id}/followers?limit=20&offset=0
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "followers": [
+      {
+        "id": 3,
+        "username": "charlie",
+        "bio": "Grateful for every moment",
+        "profile_image_url": "https://example.com/avatar3.jpg",
+        "created_at": "2025-01-01T00:00:00Z",
+        "is_following": false
+      }
+    ],
+    "total_count": 15,
+    "limit": 20,
+    "offset": 0,
+    "has_more": false
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_126"
+}
+```
+
+### Get User Following Endpoint
+```http
+GET /api/v1/users/{user_id}/following?limit=20&offset=0
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "following": [
+      {
+        "id": 4,
+        "username": "diana",
+        "bio": "Spreading positivity",
+        "profile_image_url": "https://example.com/avatar4.jpg",
+        "created_at": "2025-01-01T00:00:00Z",
+        "is_following": true
+      }
+    ],
+    "total_count": 23,
+    "limit": 20,
+    "offset": 0,
+    "has_more": true
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_127"
+}
+```
+
+### Get Follow Statistics Endpoint
+```http
+GET /api/v1/users/{user_id}/follow-stats
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "followers_count": 15,
+    "following_count": 23,
+    "pending_requests": 0,
+    "pending_sent": 0
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_128"
+}
+```
+
+### Get Follow Suggestions Endpoint
+```http
+GET /api/v1/follows/suggestions?limit=10
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "suggestions": [
+      {
+        "id": 5,
+        "username": "eve",
+        "bio": "Living gratefully",
+        "profile_image_url": "https://example.com/avatar5.jpg",
+        "created_at": "2025-01-01T00:00:00Z"
+      }
+    ]
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_129"
+}
+```
+
+### Follow System Features
+
+#### Backend Services
+- **FollowService**: Handles follow/unfollow operations with business logic validation
+- **FollowRepository**: Specialized queries for follow relationships and statistics
+- **Notification Integration**: Automatic follow notifications using NotificationFactory
+- **Performance Monitoring**: Query performance tracking for follow operations
+
+#### Security & Validation
+- **Self-Follow Prevention**: Users cannot follow themselves (database constraint + validation)
+- **Duplicate Prevention**: Unique constraints prevent duplicate follow relationships
+- **Authentication Required**: All follow endpoints require valid JWT tokens
+- **Permission Checks**: Proper authorization for follow operations
+
+#### Performance Features
+- **Bulk Operations**: Efficient bulk checking of follow status for multiple users
+- **Pagination**: All list endpoints support limit/offset pagination
+- **Query Optimization**: Specialized queries for followers, following, and suggestions
+- **Database Indexes**: Proper indexing on follower_id, followed_id, and status fields
 
 ## 🔍 Mention System API Details
 
