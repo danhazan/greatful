@@ -3,7 +3,7 @@ Tests for Share model and ShareService functionality.
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.share import Share, ShareMethod
@@ -359,7 +359,7 @@ class TestShareService:
                 "max_allowed": 20,
                 "remaining": 0,
                 "is_exceeded": True,
-                "reset_time": datetime.utcnow() + timedelta(hours=1)
+                "reset_time": datetime.now(UTC) + timedelta(hours=1)
             }
         
         monkeypatch.setattr(share_service, "check_rate_limit", mock_check_rate_limit)

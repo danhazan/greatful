@@ -3,7 +3,7 @@ Share repository with specialized query methods.
 """
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, desc, text, and_
@@ -121,7 +121,7 @@ class ShareRepository(BaseRepository):
         Returns:
             Dict: Rate limit status with current count and remaining
         """
-        since_time = datetime.utcnow() - timedelta(hours=hours)
+        since_time = datetime.now(UTC) - timedelta(hours=hours)
         
         query = select(func.count(Share.id)).where(
             and_(
@@ -138,7 +138,7 @@ class ShareRepository(BaseRepository):
             "max_allowed": max_shares,
             "remaining": max(0, max_shares - current_count),
             "is_exceeded": current_count >= max_shares,
-            "reset_time": datetime.utcnow() + timedelta(hours=hours)
+            "reset_time": datetime.now(UTC) + timedelta(hours=hours)
         }
     
     async def get_recent_message_recipients(
@@ -256,7 +256,7 @@ class ShareRepository(BaseRepository):
             pass
         
         # Get shares within the time window
-        since_time = datetime.utcnow() - timedelta(days=days)
+        since_time = datetime.now(UTC) - timedelta(days=days)
         shares = await self.find_all(
             filters=filters,
             order_by=desc(Share.created_at)

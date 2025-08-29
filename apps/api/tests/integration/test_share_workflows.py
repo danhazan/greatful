@@ -225,14 +225,14 @@ class TestShareWorkflows:
         """Test rate limiting workflow for message shares."""
         
         # Mock rate limit to be exceeded
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, UTC
         with patch('app.services.share_service.ShareService.check_rate_limit') as mock_rate_limit:
             mock_rate_limit.return_value = {
                 "current_count": 20,
                 "max_allowed": 20,
                 "remaining": 0,
                 "is_exceeded": True,
-                "reset_time": datetime.utcnow() + timedelta(hours=1)
+                "reset_time": datetime.now(UTC) + timedelta(hours=1)
             }
             
             share_data = {
