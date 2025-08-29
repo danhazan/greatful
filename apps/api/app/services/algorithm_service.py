@@ -158,7 +158,7 @@ class AlgorithmService(BaseService):
         )
         total_count = total_count_result.scalar() or 0
 
-        logger.info(
+        logger.debug(
             f"Generated personalized feed for user {user_id}: "
             f"{len(algorithm_posts)} algorithm posts, {len(recent_posts)} recent posts, "
             f"total available: {total_count}"
@@ -173,38 +173,34 @@ class AlgorithmService(BaseService):
         offset: int
     ) -> List[Dict[str, Any]]:
         """Get posts ranked by algorithm score."""
-        # Query posts with engagement counts
-        from sqlalchemy.orm import outerjoin
-        
-        query = select(
-            Post,
-            func.count(Like.id).label('hearts_count'),
-            func.count(EmojiReaction.id).label('reactions_count'),
-            func.count(Share.id).label('shares_count')
-        ).select_from(
-            outerjoin(
-                outerjoin(
-                    outerjoin(Post, Like, Post.id == Like.post_id),
-                    EmojiReaction, Post.id == EmojiReaction.post_id
-                ),
-                Share, Post.id == Share.post_id
-            )
-        ).where(
+        # Get all public posts first
+        query = select(Post).where(
             Post.is_public == True
-        ).group_by(Post.id).options(
+        ).options(
             selectinload(Post.author)
         )
 
         result = await self.db.execute(query)
-        posts_data = result.all()
+        posts = result.scalars().all()
 
         # Calculate scores for each post
         scored_posts = []
-        for row in posts_data:
-            post = row.Post
-            hearts_count = row.hearts_count or 0
-            reactions_count = row.reactions_count or 0
-            shares_count = row.shares_count or 0
+        for post in posts:
+            # Get engagement counts separately to avoid JOIN multiplication issues
+            hearts_result = await self.db.execute(
+                select(func.count(Like.id)).where(Like.post_id == post.id)
+            )
+            hearts_count = hearts_result.scalar() or 0
+
+            reactions_result = await self.db.execute(
+                select(func.count(EmojiReaction.id)).where(EmojiReaction.post_id == post.id)
+            )
+            reactions_count = reactions_result.scalar() or 0
+
+            shares_result = await self.db.execute(
+                select(func.count(Share.id)).where(Share.post_id == post.id)
+            )
+            shares_count = shares_result.scalar() or 0
 
             score = await self.calculate_post_score(
                 post, user_id, hearts_count, reactions_count, shares_count

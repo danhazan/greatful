@@ -479,7 +479,7 @@ async def get_feed(
                     is_hearted=is_hearted
                 ))
             
-            logger.info(f"Retrieved {len(posts_with_user_data)} algorithm-ranked posts for user {current_user_id}")
+            logger.debug(f"Retrieved {len(posts_with_user_data)} algorithm-ranked posts for user {current_user_id}")
             return posts_with_user_data
         
         # Fallback to original chronological feed (backward compatibility)
@@ -591,7 +591,7 @@ async def get_feed(
                     is_hearted=bool(getattr(row, 'is_hearted', False))
                 ))
 
-            logger.info(f"Retrieved {len(posts_with_counts)} chronological posts - Hearts: {sum(p.hearts_count for p in posts_with_counts)}, Reactions: {sum(p.reactions_count for p in posts_with_counts)}")
+            logger.debug(f"Retrieved {len(posts_with_counts)} chronological posts")
             return posts_with_counts
 
     except Exception as e:
