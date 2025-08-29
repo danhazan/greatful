@@ -262,7 +262,11 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
         {/* Notifications Dropdown */}
         {showNotifications && (
-          <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-16px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden" style={{ right: 'max(-8px, calc(100vw - 320px - 16px))' }}>
+          <div className="fixed mt-2 w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden" style={{
+            top: '73px',
+            right: '16px',
+            left: 'auto'
+          }}>
             {/* Header */}
             <div className="p-4 sm:p-5 border-b border-gray-200 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">Notifications</h3>
