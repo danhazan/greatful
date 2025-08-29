@@ -22,6 +22,7 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 
 ### 📋 Project Management
 - **[Known Issues](KNOWN_ISSUES.md)** - Troubleshooting guide and common solutions
+- **[Popular Fixes](POPULAR_FIXES.md)** - Solutions to recurring development issues (notifications, etc.)
 
 ## 🚀 Quick Start
 
@@ -31,6 +32,7 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 3. Check **[Authentication Flow](AUTHENTICATION_FLOW.md)** for auth implementation
 4. Follow **[Test Guidelines](TEST_GUIDELINES.md)** for testing practices
 5. Use **[Useful Commands](USEFUL_COMMANDS.md)** for development workflow
+6. Check **[Popular Fixes](POPULAR_FIXES.md)** when encountering common issues
 
 ### For Testers
 1. Follow **[Test Guidelines](TEST_GUIDELINES.md)** for writing tests

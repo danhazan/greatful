@@ -1,0 +1,262 @@
+# Popular Fixes for Common Issues
+
+This document contains solutions to recurring issues that happen during development, especially when implementing new notification types or social features.
+
+## 🔔 Notification System Issues
+
+### Issue 1: Notifications Not Arriving
+
+**Symptoms:**
+- API calls succeed (200/201 status)
+- Backend tests pass
+- Frontend shows success states
+- But notifications don't appear in the notification dropdown
+
+**Root Cause:**
+The notification creation method is trying to use instance methods from within static methods, causing silent failures.
+
+**Common Culprit:**
+```python
+# ❌ WRONG - This will fail silently
+@staticmethod
+async def create_some_notification(...):
+    # Trying to call instance method from static method
+    notification_service = NotificationService(db)
+    if not await notification_service._check_notification_rate_limit(...):
+        return None
+```
+
+**Solution:**
+Follow the pattern used by working notifications (like `create_emoji_reaction_notification`):
+
+```python
+# ✅ CORRECT - Use NotificationRepository directly
+@staticmethod
+async def create_some_notification(
+    db: AsyncSession,
+    user_id: int,
+    sender_username: str,
+    # ... other params
+) -> Optional[Notification]:
+    """Create notification for some action."""
+    
+    # Don't create notification if user is acting on their own content (when applicable)
+    if sender_id == user_id:  # Only for self-action prevention
+        return None
+    
+    # Create notification directly using repository (like reaction notifications)
+    notification_repo = NotificationRepository(db)
+    created_notification = await notification_repo.create(
+        user_id=user_id,
+        type='your_notification_type',
+        title='Your Title',
+        message=f'{sender_username} did something',
+        data={
+            'sender_username': sender_username,
+            'relevant_id': some_id,
+            # ... other data
+        }
+    )
+    
+    logger.info(f"Created notification for user {user_id}")
+    return created_notification
+```
+
+**Key Points:**
+- Use `NotificationRepository(db)` directly, not `NotificationService` instance methods
+- Don't use rate limiting unless you implement the method properly
+- Follow the exact pattern from `create_emoji_reaction_notification`
+- Always log successful creation for debugging
+
+### Issue 2: "Unknown User" in Notifications
+
+**Symptoms:**
+- Notifications arrive successfully
+- But show "Unknown User [username]" instead of just "[username]"
+- Happens with new notification types
+
+**Root Cause:**
+The frontend notification route handlers only check for `reactor_username` but new notification types store usernames in different fields.
+
+**Common Pattern:**
+```typescript
+// ❌ WRONG - Only checks reactor_username
+fromUser: {
+  name: notification.from_user?.username || notification.data?.reactor_username || 'Unknown User'
+}
+```
+
+**Solution:**
+Update both notification route handlers to check ALL possible username fields:
+
+**File 1: `apps/web/src/app/api/notifications/route.ts`**
+```typescript
+// ✅ CORRECT - Check all username fields
+fromUser: {
+  id: notification.from_user?.id || 
+      notification.data?.reactor_username || 
+      notification.data?.sharer_username || 
+      notification.data?.author_username || 
+      notification.data?.sender_username ||  // Add your new field here
+      'unknown',
+  name: notification.from_user?.username || 
+        notification.data?.reactor_username || 
+        notification.data?.sharer_username || 
+        notification.data?.author_username || 
+        notification.data?.sender_username ||  // Add your new field here
+        'Unknown User',
+  image: notification.from_user?.profile_image_url || undefined
+}
+```
+
+**File 2: `apps/web/src/app/api/notifications/[notificationId]/children/route.ts`**
+```typescript
+// ✅ CORRECT - Same pattern for batch notifications
+fromUser: {
+  id: child.from_user?.id || 
+      child.data?.reactor_username || 
+      child.data?.sharer_username || 
+      child.data?.author_username || 
+      child.data?.sender_username ||  // Add your new field here
+      'unknown',
+  name: child.from_user?.username || 
+       child.data?.reactor_username || 
+       child.data?.sharer_username || 
+       child.data?.author_username || 
+       child.data?.sender_username ||  // Add your new field here
+       'Unknown User',
+  image: child.from_user?.profile_image_url || undefined
+}
+```
+
+**Username Field Patterns by Notification Type:**
+- **Reactions**: `reactor_username`
+- **Mentions**: `author_username` 
+- **Shares**: `sharer_username`
+- **Follows**: `follower_username`
+- **Likes**: `liker_username`
+- **Comments**: `commenter_username`
+
+**Testing the Fix:**
+Create a test to verify username extraction:
+```typescript
+// Test file: src/tests/api/notifications-username-fix.test.ts
+const extractUsername = (notification: any) => {
+  return notification.from_user?.username || 
+         notification.data?.reactor_username || 
+         notification.data?.sharer_username || 
+         notification.data?.author_username || 
+         notification.data?.your_new_field ||  // Add your field
+         'Unknown User'
+}
+
+it('should extract your_field from your notifications', () => {
+  const notification = {
+    data: { your_new_field: 'testuser' },
+    from_user: null
+  }
+  expect(extractUsername(notification)).toBe('testuser')
+})
+```
+
+## 🧪 Testing Patterns
+
+### Backend Notification Tests
+
+Always create a test to verify notification creation:
+
+```python
+# File: tests/integration/test_your_notification_fixes.py
+@pytest.mark.asyncio
+async def test_your_notification_shows_correct_username(db_session: AsyncSession):
+    """Test that your notifications show correct username, not 'Unknown User'."""
+    
+    # Create test users
+    sender = User(username="sender_user", email="sender@example.com", hashed_password="hash")
+    recipient = User(username="recipient_user", email="recipient@example.com", hashed_password="hash")
+    
+    db_session.add_all([sender, recipient])
+    await db_session.commit()
+    await db_session.refresh(sender)
+    await db_session.refresh(recipient)
+    
+    # Trigger your action that creates notification
+    your_service = YourService(db_session)
+    await your_service.your_action(sender.id, recipient.id, ...)
+    
+    # Verify notification was created correctly
+    from app.repositories.notification_repository import NotificationRepository
+    notification_repo = NotificationRepository(db_session)
+    notifications = await notification_repo.get_user_notifications(recipient.id, limit=10)
+    
+    assert len(notifications) == 1
+    notification = notifications[0]
+    
+    # Verify notification shows correct username
+    assert notification.type == "your_notification_type"
+    assert "sender_user" in notification.message
+    assert "Unknown User" not in notification.message
+    
+    # Verify data field contains username
+    assert notification.data.get("sender_username") == "sender_user"
+```
+
+### Frontend Username Tests
+
+```typescript
+// Test username extraction logic
+describe('Your Notification Username Extraction', () => {
+  it('should extract sender_username from your notifications', () => {
+    const notification = {
+      data: { sender_username: 'testuser' },
+      from_user: null
+    }
+    const username = extractUsername(notification)
+    expect(username).toBe('testuser')
+    expect(username).not.toBe('Unknown User')
+  })
+})
+```
+
+## 🔄 Quick Checklist for New Notifications
+
+When implementing a new notification type, follow this checklist:
+
+### Backend ✅
+- [ ] Create notification method following `create_emoji_reaction_notification` pattern
+- [ ] Use `NotificationRepository(db)` directly, not `NotificationService` instance methods
+- [ ] Store username in `data` field with descriptive name (e.g., `sender_username`)
+- [ ] Add logging for successful creation
+- [ ] Create backend test verifying notification creation and username storage
+
+### Frontend ✅
+- [ ] Add your username field to both notification route handlers:
+  - `apps/web/src/app/api/notifications/route.ts`
+  - `apps/web/src/app/api/notifications/[notificationId]/children/route.ts`
+- [ ] Add your field to the fallback chain in both `id` and `name` properties
+- [ ] Create frontend test for username extraction logic
+
+### Testing ✅
+- [ ] Backend test: Verify notification creation and data storage
+- [ ] Frontend test: Verify username extraction from your field
+- [ ] Integration test: End-to-end notification flow
+- [ ] Manual test: Check notification appears with correct username in UI
+
+## 🚨 Common Pitfalls
+
+1. **Don't use rate limiting** unless you properly implement the instance method
+2. **Always update BOTH notification route files** - main route and children route
+3. **Use descriptive field names** - `sender_username` not just `username`
+4. **Test the complete flow** - backend creation AND frontend display
+5. **Follow existing patterns** - don't reinvent notification creation logic
+
+## 📚 Reference Examples
+
+- **Working notification**: `create_emoji_reaction_notification` in `notification_service.py`
+- **Username extraction**: `apps/web/src/app/api/notifications/route.ts`
+- **Backend test**: `tests/integration/test_mention_fixes.py`
+- **Frontend test**: `src/tests/api/notifications-username-fix.test.ts`
+
+---
+
+*This document should be updated whenever new notification patterns are discovered or when these issues are encountered again.*

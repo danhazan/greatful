@@ -2,6 +2,38 @@
  * Tests for notification username extraction logic
  */
 
+import { expect } from "@jest/globals"
+
+import { it } from "@jest/globals"
+
+import { expect } from "@jest/globals"
+
+import { it } from "@jest/globals"
+
+import { expect } from "@jest/globals"
+
+import { it } from "@jest/globals"
+
+import { expect } from "@jest/globals"
+
+import { expect } from "@jest/globals"
+
+import { it } from "@jest/globals"
+
+import { expect } from "@jest/globals"
+
+import { expect } from "@jest/globals"
+
+import { it } from "@jest/globals"
+
+import { expect } from "@jest/globals"
+
+import { expect } from "@jest/globals"
+
+import { it } from "@jest/globals"
+
+import { describe } from "@jest/globals"
+
 describe('Notification Username Extraction', () => {
   // Test the username extraction logic used in the notification route
   const extractUsername = (notification: any) => {
