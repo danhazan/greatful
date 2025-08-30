@@ -235,6 +235,20 @@ The implementation maintains consistency with the reference implementation's pur
 
 ### **TASK 10: Enhanced Profile Editing System**
 **Module Reference:** Requirements 8 - User Profiles & Networking (Enhanced)
+- [ ] **10.0 Profile System Refactoring and Planning**
+  - Document current profile system architecture in docs/PROFILE_SYSTEM_REFACTOR.md
+  - Analyze existing User model, profile components, and API endpoints for enhancement opportunities
+  - Plan refactoring of profile-related components (ProfilePage, ProfileEditForm, UserCard) for extensibility
+  - Design database schema changes for new profile fields (display_name, city, institutions, websites, profile_photo_url)
+  - Plan image upload and storage architecture with file management and optimization strategies
+  - Refactor existing profile API endpoints to support new fields and maintain backward compatibility
+  - Update shared types in shared/types/ to include new profile field interfaces
+  - Implement profile service layer refactoring to handle complex profile operations
+  - Create migration strategy for existing users to new profile schema
+  - Document profile photo storage, validation, and security considerations
+  - **Test Execution:** Run backend tests (`pytest -v`) and frontend tests (`npm test`) to ensure refactoring doesn't break existing profile functionality
+  - **Refactor Standards Validation:** Validate that all profile-related code follows established patterns, proper type annotations, and architectural consistency
+  - _Requirements: Profile system architecture preparation_
 - [ ] **10.1 Profile Photo Upload System**
   - Implement profile photo upload functionality with image validation and compression
   - Add profile photo display in user profiles, navbar, and post cards
@@ -259,6 +273,21 @@ The implementation maintains consistency with the reference implementation's pur
 
 ### **TASK 11: Enhanced Notification System**
 **Module Reference:** Requirements 5 - Enhanced Notification System (Advanced)
+- [ ] **11.0 Notification System Refactoring and Planning**
+  - Document current notification system architecture in docs/NOTIFICATION_SYSTEM_REFACTOR.md
+  - Analyze existing NotificationService, NotificationSystem component, and notification database schema
+  - Plan refactoring of notification components for enhanced batching, linking, and styling capabilities
+  - Design advanced notification batching schema with parent-child relationships for multiple notification types per post
+  - Plan notification link generation system for posts, users, and other content types
+  - Refactor notification rendering components to support clickable usernames and content links
+  - Update notification API endpoints to support enhanced batching and link metadata
+  - Design purple heart styling system integration with existing notification display
+  - Plan like notification integration with existing notification batching system
+  - Document notification performance optimization strategies for large-scale batching
+  - Update shared types for enhanced notification interfaces and batching relationships
+  - **Test Execution:** Run backend tests (`pytest -v`) and frontend tests (`npm test`) to ensure notification refactoring doesn't break existing functionality
+  - **Refactor Standards Validation:** Validate that all notification-related code follows established patterns, proper type annotations, and architectural consistency
+  - _Requirements: Notification system architecture preparation_
 - [ ] **11.1 Purple Heart Styling for Likes**
   - Update heart/like notifications to display purple heart emoji (💜) matching logo
   - Modify notification display components to use purple heart for like notifications
@@ -293,6 +322,23 @@ The implementation maintains consistency with the reference implementation's pur
 
 ### **TASK 12: Enhanced Post System**
 **Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Enhanced)
+- [ ] **12.0 Post System Refactoring and Planning**
+  - Document current post system architecture in docs/POST_SYSTEM_REFACTOR.md
+  - Analyze existing Post model, PostCard component, CreatePostModal, and post-related API endpoints
+  - Plan refactoring of post creation and display components for automatic type detection and enhanced features
+  - Design post content analysis system for automatic type assignment (text length, image presence detection)
+  - Plan navbar refactoring to replace welcome message with profile picture integration
+  - Design location support system with optional location data and validation
+  - Plan image optimization and resizing architecture for post images
+  - Design rich text editor integration with emoji support, backgrounds, and styling options
+  - Plan post management system (edit/delete) with proper permission controls and UI integration
+  - Refactor post API endpoints to support location data, enhanced content, and management operations
+  - Update Post model schema for location field and enhanced content metadata
+  - Document post image storage, optimization, and lazy loading strategies
+  - Update shared types for enhanced post interfaces and content analysis
+  - **Test Execution:** Run backend tests (`pytest -v`) and frontend tests (`npm test`) to ensure post system refactoring doesn't break existing functionality
+  - **Refactor Standards Validation:** Validate that all post-related code follows established patterns, proper type annotations, and architectural consistency
+  - _Requirements: Post system architecture preparation_
 - [ ] **12.1 Automatic Post Type Assignment**
   - Remove post type selection from post creation modal
   - Implement automatic type detection: text <20 words = spontaneous, photo only = photo gratitude, all others = daily gratitude
