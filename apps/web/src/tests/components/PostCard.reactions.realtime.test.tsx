@@ -111,8 +111,7 @@ describe('PostCard Reactions Real-time Updates', () => {
     expect(mockLocalStorage.getItem).toHaveBeenCalledWith('access_token')
   })
 
-  // Complex real-time testing - see docs/TESTS_STATUS.md for details
-  it.skip('should handle reaction removal and update count in real-time', async () => {
+  it('should handle reaction removal and update count in real-time', async () => {
     const mockOnRemoveReaction = jest.fn()
     const postWithReaction = { 
       ...mockPost, 
@@ -143,14 +142,17 @@ describe('PostCard Reactions Real-time Updates', () => {
       />
     )
 
-    // Click reaction button to remove reaction
-    const reactionButton = screen.getByRole('button', { name: '3' })
-    fireEvent.click(reactionButton)
+    // Click reaction button to remove reaction (look for button with reaction emoji)
+    const reactionButton = screen.getByText('😂') // Joy emoji from currentUserReaction
+    
+    await act(async () => {
+      fireEvent.click(reactionButton)
+    })
 
     // Wait for API calls to complete
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(2)
-    })
+    }, { timeout: 3000 })
 
     // Verify API calls
     expect(fetch).toHaveBeenNthCalledWith(1, '/api/posts/test-post-1/reactions', {
@@ -168,8 +170,7 @@ describe('PostCard Reactions Real-time Updates', () => {
     })
   })
 
-  // Complex async testing - see docs/TESTS_STATUS.md for details
-  it.skip('should fallback to optimistic update if reaction summary fetch fails', async () => {
+  it('should fallback to optimistic update if reaction summary fetch fails', async () => {
     const mockOnReaction = jest.fn()
     
     // Mock successful reaction API call but failed summary fetch
@@ -191,20 +192,34 @@ describe('PostCard Reactions Real-time Updates', () => {
       />
     )
 
-    // Simulate emoji selection (simplified)
-    const reactionButton = screen.getByRole('button', { name: '2' })
-    fireEvent.click(reactionButton)
+    // Click reaction button to open emoji picker
+    const reactionButton = screen.getByTitle('React with emoji')
+    
+    await act(async () => {
+      fireEvent.click(reactionButton)
+    })
+
+    // Wait for emoji picker to appear and click an emoji
+    await waitFor(() => {
+      expect(screen.getByText('🤔')).toBeInTheDocument()
+    })
+
+    const thinkingEmoji = screen.getByText('🤔')
+    
+    await act(async () => {
+      fireEvent.click(thinkingEmoji)
+    })
 
     // Wait for API calls to complete
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(2)
-    })
+    }, { timeout: 3000 })
 
     // Verify onReaction was called without server data (fallback)
     expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'thinking')
   })
 
-  it.skip('should handle API errors gracefully', async () => {
+  it('should handle API errors gracefully', async () => {
     const mockOnReaction = jest.fn()
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
     
@@ -219,14 +234,28 @@ describe('PostCard Reactions Real-time Updates', () => {
       />
     )
 
-    // Simulate emoji selection (simplified)
-    const reactionButton = screen.getByRole('button', { name: '2' })
-    fireEvent.click(reactionButton)
+    // Click reaction button to open emoji picker
+    const reactionButton = screen.getByTitle('React with emoji')
+    
+    await act(async () => {
+      fireEvent.click(reactionButton)
+    })
+
+    // Wait for emoji picker and click an emoji
+    await waitFor(() => {
+      expect(screen.getByText('🔥')).toBeInTheDocument()
+    })
+
+    const fireEmoji = screen.getByText('🔥')
+    
+    await act(async () => {
+      fireEvent.click(fireEmoji)
+    })
 
     // Wait for error handling
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Error updating reaction:', expect.any(Error))
-    })
+    }, { timeout: 3000 })
 
     // Verify onReaction was not called due to error
     expect(mockOnReaction).not.toHaveBeenCalled()

@@ -233,27 +233,127 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] **Update Project Documentation:** Add mobile optimization guidelines to docs/ARCHITECTURE_AND_SETUP.md. Update docs/TEST_GUIDELINES.md with mobile testing procedures and device testing requirements.
 **Acceptance Criteria:** All social features work smoothly on mobile devices with proper touch targets (44px minimum), loading states provide clear user feedback, error handling is user-friendly with retry options, accessibility standards are met for screen readers and keyboard navigation, and all interactions are tested on actual mobile devices.
 
-### **TASK 10: MVP Production Readiness**
+### **TASK 10: Enhanced Profile Editing System**
+**Module Reference:** Requirements 8 - User Profiles & Networking (Enhanced)
+- [ ] **10.1 Profile Photo Upload System**
+  - Implement profile photo upload functionality with image validation and compression
+  - Add profile photo display in user profiles, navbar, and post cards
+  - Create image storage system with proper file naming and cleanup
+  - Add default avatar generation for users without profile photos
+  - Implement image resizing and optimization for different display contexts
+- [ ] **10.2 Extended Profile Information**
+  - Add City field to user profiles with location validation
+  - Add Institutions field (school, company, foundation) with multiple entries support
+  - Add Websites field with URL validation and safe link handling
+  - Update profile editing form with new fields and proper validation
+  - Create database migration for new profile fields
+- [ ] **10.3 Display Name vs Username System**
+  - Add display_name field to User model (separate from username)
+  - Update profile editing to allow setting display name for presentation
+  - Modify PostCard component to show display name (bold) next to profile pic
+  - Add username with @ prefix to the right of display name in posts
+  - Update all user references to use display name where appropriate
+- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify profile model changes and API endpoints. Run frontend tests (`npm test`) to verify profile editing components and display name rendering. Test image upload functionality with various file types and sizes.
+- [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with new profile endpoints. Add profile photo storage configuration to docs/ARCHITECTURE_AND_SETUP.md. Document new profile fields in docs/DATABASE_STRUCTURE.md.
+**Acceptance Criteria:** Users can upload profile photos, add city/institutions/websites to profiles, set display names separate from usernames, and posts show display name (bold) with @username to the right, all with proper validation and testing.
+
+### **TASK 11: Enhanced Notification System**
+**Module Reference:** Requirements 5 - Enhanced Notification System (Advanced)
+- [ ] **11.1 Purple Heart Styling for Likes**
+  - Update heart/like notifications to display purple heart emoji (💜) matching logo
+  - Modify notification display components to use purple heart for like notifications
+  - Update notification creation to use consistent purple heart styling
+  - Ensure purple heart appears in notification text and icons consistently
+- [ ] **11.2 Pressable Notification Links**
+  - Add click handlers to notifications that link to relevant content
+  - Implement post-related notification links (reactions, mentions, messages) to post pages
+  - Implement user-related notification links (follows) to user profile pages
+  - Add proper navigation handling and URL generation for notification targets
+  - Test notification link functionality across all notification types
+- [ ] **11.3 Username Links in Notifications**
+  - Make usernames in notification text clickable links to user profiles
+  - Update notification rendering to detect and linkify usernames
+  - Add proper styling for username links within notification text
+  - Ensure username links work consistently across all notification types
+- [ ] **11.4 Like/Heart Notifications**
+  - Add notification creation for post likes/hearts (currently missing)
+  - Implement like notification batching similar to reaction notifications
+  - Update NotificationService to handle like events properly
+  - Add like notifications to existing notification batching system
+- [ ] **11.5 Advanced Notification Batching**
+  - Design comprehensive batching logic for multiple notification types per post
+  - Implement batching for likes, reactions, mentions, and shares per specific post
+  - Create batch notification display showing "X people liked your post" format
+  - Add expand/collapse functionality for batch notifications to show individual users
+  - Update notification database schema to support advanced batching relationships
+  - Document batching logic and implementation patterns thoroughly
+- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
+- [ ] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
+**Acceptance Criteria:** Like notifications show purple hearts, all notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
+
+### **TASK 12: Enhanced Post System**
+**Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Enhanced)
+- [ ] **12.1 Automatic Post Type Assignment**
+  - Remove post type selection from post creation modal
+  - Implement automatic type detection: text <20 words = spontaneous, photo only = photo gratitude, all others = daily gratitude
+  - Update post creation logic to assign types based on content analysis
+  - Modify PostCard display to reflect automatic type assignment
+  - Update character limits to apply automatically based on detected type
+- [ ] **12.2 Profile Picture in Navbar**
+  - Replace "welcome, <username>" message with profile picture in navbar
+  - Position profile picture to the left of notification bell
+  - Add click handler to profile picture for navigation to profile page
+  - Add hover tooltip showing username on profile picture
+  - Remove separate "profile" link from navbar (replaced by profile picture click)
+- [ ] **12.3 Location Support for Posts**
+  - Add location field to Post model with optional location data
+  - Implement location input in post creation modal (optional field)
+  - Add location display in PostCard component when location is present
+  - Create location validation and formatting for consistent display
+  - Add database migration for post location field
+- [ ] **12.4 Post Image Optimization**
+  - Implement automatic image resizing to fit post container dimensions
+  - Add image compression and optimization for faster loading
+  - Create responsive image display that adapts to post size
+  - Implement lazy loading for post images in feed
+  - Add image error handling and fallback display
+- [ ] **12.5 Advanced Post Creation Design**
+  - Add comprehensive emoji support throughout post creation and display
+  - Implement background color/template options for posts
+  - Add colored and styled text formatting options
+  - Create rich text editor with formatting controls
+  - Add additional styling options (fonts, text effects, borders)
+- [ ] **12.6 Post Management (Edit/Delete)**
+  - Add edit and delete functionality for user's own posts
+  - Implement post editing modal with content preservation
+  - Add delete confirmation dialog with proper warnings
+  - Ensure edit/delete options appear in feed page, profile page, and post share page
+  - Add proper permission checks to prevent editing others' posts
+- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify automatic post type detection, location handling, and edit/delete functionality. Run frontend tests (`npm test`) to verify navbar changes, post creation enhancements, and post management features. Test image optimization and rich text editing functionality.
+- [ ] **Update Project Documentation:** Document automatic post type logic in docs/BACKEND_API_DOCUMENTATION.md. Add post enhancement features to docs/ARCHITECTURE_AND_SETUP.md. Update post schema with location field in docs/DATABASE_STRUCTURE.md.
+**Acceptance Criteria:** Post types are assigned automatically based on content, navbar shows profile picture instead of welcome message, posts support optional location data, images are properly sized and optimized, advanced styling options are available in post creation, and users can edit/delete their own posts from all relevant pages.
+
+### **TASK 13: MVP Production Readiness**
 **Module Reference:** Final MVP polish and production deployment preparation
-- [ ] **10.1 Performance Optimization and Monitoring**
+- [ ] **13.1 Performance Optimization and Monitoring**
   - Add database connection pooling configuration for production workloads
   - Implement query result caching for frequently accessed data (user profiles, follower counts)
   - Add database query performance monitoring and slow query logging
   - Optimize image loading with lazy loading and proper image sizing/compression
   - Add performance metrics collection for feed loading and API response times
-- [ ] **10.2 Security Hardening**
+- [ ] **13.2 Security Hardening**
   - Implement rate limiting on all API endpoints (100 requests/minute per user)
   - Add CSRF protection for all state-changing operations (POST, PUT, DELETE)
   - Implement input sanitization for all user-generated content (posts, bios, usernames)
   - Configure secure headers for production (CORS, CSP, HSTS, X-Frame-Options)
   - Add API key validation and request signing for sensitive operations
-- [ ] **10.3 Error Monitoring and Logging**
+- [ ] **13.3 Error Monitoring and Logging**
   - Add structured logging for all API endpoints with request IDs and user context
   - Implement frontend error tracking for JavaScript errors and API failures
   - Create health check endpoints for monitoring (`/api/health`, `/api/ready`, `/api/metrics`)
   - Add error alerting system for critical failures (database connection, API errors)
   - Implement log aggregation and monitoring dashboard setup
-- [ ] **10.4 Final Testing and Quality Assurance**
+- [ ] **13.4 Final Testing and Quality Assurance**
   - Run complete end-to-end test suite covering all user workflows
   - Perform load testing on feed algorithm with 1000+ posts and 100+ concurrent users
   - Validate all social interactions work correctly under concurrent usage scenarios
@@ -265,14 +365,14 @@ The implementation maintains consistency with the reference implementation's pur
 
 ## Phase 2: Enhanced Social Features (Post-MVP)
 
-### **TASK 11: Privacy Controls System** (Post-MVP)
+### **TASK 14: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 12: Advanced Social Features** (Post-MVP)
+### **TASK 15: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
@@ -286,8 +386,11 @@ The implementation maintains consistency with the reference implementation's pur
 - ✅ Users can share posts via URL copy and direct messaging with mentions
 - ✅ Users can mention others with @username autocomplete and receive notifications
 - ✅ Users can follow others and receive follow notifications
-- [ ] Enhanced feed algorithm promotes engaging content based on social signals
-- [ ] All features work seamlessly on mobile with proper touch interactions and accessibility
+- ✅ Enhanced feed algorithm promotes engaging content based on social signals
+- ✅ All features work seamlessly on mobile with proper touch interactions and accessibility
+- [ ] Enhanced profile editing with photo upload, city/institutions/websites, and display name system
+- [ ] Advanced notification system with purple hearts, clickable links, and comprehensive batching
+- [ ] Enhanced post system with automatic type detection, location support, advanced styling, and edit/delete functionality
 - [ ] System is production-ready with security hardening, monitoring, and performance optimization
 - ✅ Comprehensive test coverage achieved (302+ backend tests, 485+ frontend tests passing)
 

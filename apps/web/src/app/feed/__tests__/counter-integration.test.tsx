@@ -39,23 +39,62 @@ describe('Counter Integration Test', () => {
     })
     
     // Mock successful API responses
-    ;(global.fetch as jest.Mock).mockImplementation((url) => {
+    ;(global.fetch as jest.Mock).mockImplementation((url, options) => {
       if (url.includes('/api/users/me/profile')) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
+          json: async () => ({
             id: 'current-user',
             username: 'Test User',
             email: 'test@example.com'
           })
         })
       }
-      if (url.includes('/api/posts')) {
+      if (url.includes('/api/posts') && !url.includes('/hearts')) {
         return Promise.resolve({
           ok: false, // Force fallback to mock data
         })
       }
-      return Promise.resolve({ ok: false })
+      if (url.includes('/heart') && options?.method === 'POST') {
+        // Mock heart API response
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              hearts_count: 13, // Incremented from 12
+              is_hearted: true
+            }
+          })
+        })
+      }
+      if (url.includes('/heart') && options?.method === 'DELETE') {
+        // Mock unheart API response
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              hearts_count: 11, // Decremented from 12
+              is_hearted: false
+            }
+          })
+        })
+      }
+      if (url.includes('/hearts') && options?.method === 'GET') {
+        // Mock heart info API response
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            hearts_count: 13,
+            is_hearted: true
+          })
+        })
+      }
+      return Promise.resolve({ 
+        ok: false,
+        json: async () => ({ error: 'Not found' })
+      })
     })
   })
 
