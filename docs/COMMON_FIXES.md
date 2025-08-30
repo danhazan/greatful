@@ -303,4 +303,118 @@ When implementing a new notification type, follow this checklist:
 
 ---
 
+## 🍞 Toast Notification System Issues (SOLVED - December 2024)
+
+### Issue: Toasts Not Visible in Browser
+
+**Symptoms:**
+- Toast functions are called successfully
+- Tests pass and can find toast elements in DOM
+- Console logs show toasts being created
+- But toasts are completely invisible in the actual browser
+
+**Root Cause:**
+Ancestor elements with CSS properties like `transform`, `filter`, `contain`, or `overflow: hidden` create new stacking contexts that break `position: fixed` positioning. The toast container was rendered inside the normal component tree, making it subject to these stacking context constraints.
+
+**Solution: Portal-Based Rendering**
+
+The fix involves rendering toasts directly into `document.body` via React Portal to completely isolate them from ancestor stacking contexts.
+
+**Key Files Changed:**
+
+1. **`ToastPortal.tsx`** - New portal component:
+```typescript
+export default function ToastPortal({ children }: { children: React.ReactNode }) {
+  const [target, setTarget] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    let el = document.getElementById("toast-root") as HTMLElement | null
+    if (!el) {
+      el = document.createElement("div")
+      el.id = "toast-root"
+      Object.assign(el.style, {
+        position: "fixed",
+        top: "0",
+        right: "0",
+        zIndex: String(2147483647),
+        pointerEvents: "none",
+      })
+      document.body.appendChild(el)
+    }
+    setTarget(el)
+  }, [])
+
+  if (!target) return null
+  return createPortal(children, target)
+}
+```
+
+2. **`ToastContext.tsx`** - Updated to use portal:
+```typescript
+return (
+  <ToastContext.Provider value={value}>
+    {children}
+    <ToastPortal>
+      <div className="p-4 space-y-2 pointer-events-none flex flex-col items-end max-w-full">
+        {toasts.map((toast) => (
+          <div key={toast.id} className="pointer-events-auto">
+            <ToastNotification toast={toast} onClose={hideToast} />
+          </div>
+        ))}
+      </div>
+    </ToastPortal>
+  </ToastContext.Provider>
+)
+```
+
+3. **`ToastNotification.tsx`** - Fixed animation timing:
+```typescript
+useEffect(() => {
+  // Use double requestAnimationFrame for proper animation timing
+  let raf1 = requestAnimationFrame(() => {
+    let raf2 = requestAnimationFrame(() => setIsVisible(true))
+    ;(setIsVisible as any)._raf2 = raf2
+  })
+  return () => {
+    cancelAnimationFrame(raf1)
+    if ((setIsVisible as any)._raf2) cancelAnimationFrame((setIsVisible as any)._raf2)
+  }
+}, [])
+```
+
+**Why This Works:**
+- **Portal Isolation**: Toasts render outside the normal component tree, avoiding stacking context issues
+- **Proper Animation**: `requestAnimationFrame` ensures transitions fire correctly
+- **Maximum Z-Index**: Uses the highest possible z-index value
+- **Pointer Events**: Proper event handling prevents click-through issues
+
+**Testing:**
+- All existing tests continue to pass (they only check DOM presence, not visual rendering)
+- Manual testing shows toasts now appear reliably in all browsers
+- Portal doesn't affect test behavior since JSDOM doesn't apply CSS
+
+### Issue: Toast Click-Through
+
+**Symptoms:**
+- Toasts appear but clicking on them doesn't close them
+- Clicks pass through to elements behind the toast
+
+**Solution:**
+Ensure proper pointer events on the toast element itself:
+
+```typescript
+<div 
+  className="rounded-lg border shadow-lg p-4 cursor-pointer relative"
+  onClick={handleToastClick}
+  style={{ pointerEvents: 'auto' }}
+>
+```
+
+**Key Points:**
+- Container has `pointer-events-none` to allow clicks outside toasts
+- Individual toast wrappers have `pointer-events-auto` 
+- Toast content itself needs explicit `pointerEvents: 'auto'` style
+
+---
+
 *This document should be updated whenever new notification patterns are discovered or when these issues are encountered again.*

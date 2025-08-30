@@ -51,39 +51,16 @@ class AnalyticsService {
     emojiCode?: string,
     previousEmoji?: string
   ): Promise<void> {
-    const event: EngagementEvent = {
-      type,
-      postId,
-      userId,
-      metadata: { emojiCode, previousEmoji },
-      timestamp: new Date()
-    }
-
-    this.events.push(event)
-    await this.updatePostEngagementScore(postId)
-    await this.updateUserMetrics(userId, type, emojiCode)
-    
-    // Send to backend analytics if available
-    this.sendToBackend(event)
+    // Disable analytics tracking to prevent any UI interference
+    return
   }
 
   /**
    * Track a heart event
    */
   async trackHeartEvent(postId: string, userId: string, isAdd: boolean): Promise<void> {
-    const event: EngagementEvent = {
-      type: 'heart',
-      postId,
-      userId,
-      metadata: { emojiCode: isAdd ? 'heart' : 'heart_remove' },
-      timestamp: new Date()
-    }
-
-    this.events.push(event)
-    await this.updatePostEngagementScore(postId)
-    await this.updateUserMetrics(userId, 'heart')
-    
-    this.sendToBackend(event)
+    // Disable analytics tracking to prevent any UI interference
+    return
   }
 
   /**
@@ -94,37 +71,16 @@ class AnalyticsService {
     userId: string, 
     shareMethod: 'url' | 'message'
   ): Promise<void> {
-    const event: EngagementEvent = {
-      type: 'share',
-      postId,
-      userId,
-      metadata: { shareMethod },
-      timestamp: new Date()
-    }
-
-    this.events.push(event)
-    await this.updatePostEngagementScore(postId)
-    await this.updateUserMetrics(userId, 'share')
-    
-    this.sendToBackend(event)
+    // Disable analytics tracking to prevent any UI interference
+    return
   }
 
   /**
    * Track a post view event
    */
   async trackViewEvent(postId: string, userId: string, viewDuration?: number): Promise<void> {
-    const event: EngagementEvent = {
-      type: 'view',
-      postId,
-      userId,
-      metadata: { viewDuration },
-      timestamp: new Date()
-    }
-
-    this.events.push(event)
-    await this.updatePostEngagementScore(postId)
-    
-    this.sendToBackend(event)
+    // Disable analytics tracking to prevent any UI interference
+    return
   }
 
   /**

@@ -106,6 +106,7 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
           rounded-lg border shadow-lg p-4 cursor-pointer relative ${getBackgroundColor()}
         `}
         onClick={handleToastClick}
+        style={{ pointerEvents: 'auto' }}
       >
         <div className="flex items-start space-x-3">
           <div className="flex-shrink-0">
