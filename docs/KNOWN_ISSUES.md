@@ -3,6 +3,7 @@
 ## 📋 Executive Summary
 
 ### ⚠️ Active Issues
+- **📊 Engagement Summary Auto-Popup**: Metrics popup automatically appears when posts reach 6+ total reactions
 - **🎭 Emoji Reactions 6 & 7**: Click handlers not working for emojis 6 (😂) and 7 (🤔)
 - **🧪 Backend Test Isolation**: Profile API tests fail when run with all tests together
 - **🎨 CreatePostModal Footer**: Alignment issues in modal footer
@@ -70,6 +71,65 @@
 ---
 
 ## ⚠️ Active Issues
+
+### Engagement Summary Auto-Popup
+**Issue**: Metrics popup automatically appears when posts reach 6+ total reactions (hearts + emoji reactions)  
+**Status**: ⚠️ Active Issue  
+**Priority**: Medium  
+**Impact**: User Experience & UI Clutter  
+**Discovered**: August 30, 2025  
+
+**Description**:
+An "Engagement Summary" popup automatically appears on posts when the total engagement count (hearts + emoji reactions) exceeds 5. This creates visual clutter and may be unexpected behavior for users, as the popup appears without user interaction.
+
+**Technical Details**:
+- Backend: Engagement counts are calculated correctly ✅
+- Database: Heart and reaction counts are accurate ✅
+- Frontend: Auto-popup triggers at threshold > 5 total interactions ❌
+- Issue: No user control over when engagement summary appears
+
+**Current Behavior**:
+- Popup shows: "❤️ 3 • 😊 3 • 6 total reactions"
+- Appears automatically when (heartsCount + reactionsCount) > 5
+- Takes up additional space in post layout
+- No way for users to dismiss or control this popup
+
+**Expected Behavior Options**:
+1. **Remove auto-popup**: Only show engagement summary on user request
+2. **Higher threshold**: Increase threshold to 10+ or 20+ interactions
+3. **User preference**: Allow users to enable/disable engagement summaries
+4. **Compact display**: Show more subtle engagement indicators
+
+**Reproduction Steps**:
+1. Navigate to a post with multiple reactions
+2. Add hearts and emoji reactions until total > 5
+3. Observe that engagement summary popup appears automatically
+4. Note that popup cannot be dismissed and takes up visual space
+
+**Root Cause**: 
+- Hardcoded threshold of 5 total interactions in PostCard component
+- No user preference or dismissal mechanism
+- Designed as automatic feature without user control
+
+**Code Location**: 
+```typescript
+// apps/web/src/components/PostCard.tsx line ~570
+{((post.heartsCount || 0) + (post.reactionsCount || 0)) > 5 && (
+  <div className="mb-2 px-2 py-1 bg-gradient-to-r from-purple-50 to-red-50 rounded-full">
+    {/* Engagement summary content */}
+  </div>
+)}
+```
+
+**Workaround**: Currently no workaround available - popup appears automatically.
+
+**Priority**: Medium - Affects user experience but doesn't break functionality.
+
+**Potential Solutions**:
+1. **Quick Fix**: Increase threshold to 10+ interactions
+2. **Better UX**: Add dismiss button or make it toggleable
+3. **User Control**: Add user preference setting
+4. **Redesign**: Make engagement summary more subtle/integrated
 
 ### Emoji Reactions 6 & 7 Click Handlers Not Working
 **Issue**: Emojis 6 (laughing 😂) and 7 (thinking 🤔) don't respond when clicked in emoji picker  

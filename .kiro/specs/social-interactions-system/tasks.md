@@ -233,6 +233,28 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] **Update Project Documentation:** Add mobile optimization guidelines to docs/ARCHITECTURE_AND_SETUP.md. Update docs/TEST_GUIDELINES.md with mobile testing procedures and device testing requirements.
 **Acceptance Criteria:** All social features work smoothly on mobile devices with proper touch targets (44px minimum), loading states provide clear user feedback, error handling is user-friendly with retry options, accessibility standards are met for screen readers and keyboard navigation, and all interactions are tested on actual mobile devices.
 
+### **TASK 9.5: Simple Admin Page with User Switching**
+**Module Reference:** Development Tools - Admin Interface for Testing
+- [ ] **9.5.1 Create Admin Page Route**
+  - Create `/admin` page route in `apps/web/src/app/admin/page.tsx`
+  - Add admin page navigation link in navbar (only visible in development mode)
+  - Implement basic admin page layout with purple theme consistency
+  - Add authentication check to ensure only logged-in users can access admin page
+- [ ] **9.5.2 User Switching Interface**
+  - Create user selection dropdown showing all existing users in the system
+  - Implement user switching functionality that changes current user context in navbar
+  - Add "Switch User" button that updates localStorage with selected user's access token
+  - Display current user information clearly in admin interface
+  - Add user search/filter functionality for large user lists
+- [ ] **9.5.3 Admin Page Styling and UX**
+  - Style admin page with consistent purple theme and professional layout
+  - Add clear section headers and organized interface elements
+  - Implement responsive design for admin page on mobile devices
+  - Add confirmation dialogs for user switching actions
+  - Include breadcrumb navigation and clear "Back to App" functionality
+- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify admin page routing and user switching functionality. Test admin page accessibility and responsive design. Verify user switching updates navbar and maintains proper authentication state.
+**Acceptance Criteria:** Admin page is accessible at `/admin` route, displays all users in a searchable dropdown, allows switching between users with proper authentication token updates, maintains consistent purple theme styling, and works responsively on mobile devices.
+
 ### **TASK 10: Enhanced Profile Editing System**
 **Module Reference:** Requirements 8 - User Profiles & Networking (Enhanced)
 - [ ] **10.0 Profile System Refactoring and Planning**
@@ -271,6 +293,22 @@ The implementation maintains consistency with the reference implementation's pur
 - [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with new profile endpoints. Add profile photo storage configuration to docs/ARCHITECTURE_AND_SETUP.md. Document new profile fields in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** Users can upload profile photos, add city/institutions/websites to profiles, set display names separate from usernames, and posts show display name (bold) with @username to the right, all with proper validation and testing.
 
+### **TASK 10.5: Purple Heart Styling for Like System**
+**Module Reference:** UI/UX Consistency - Heart/Like Button Styling
+- [ ] **10.5.1 Update Heart/Like Button Styling**
+  - Change heart/like button icon from red to purple (💜) to match logo branding
+  - Update PostCard component heart button styling to use purple color (#8B5CF6 or similar)
+  - Ensure purple heart styling is consistent across all post displays (feed, profile, shared posts)
+  - Update heart button hover and active states to use purple color variations
+  - Maintain accessibility contrast requirements with purple heart styling
+- [ ] **10.5.2 Heart Icon Consistency**
+  - Verify purple heart emoji (💜) is used consistently in heart counts and displays
+  - Update any remaining red heart instances to purple throughout the application
+  - Ensure heart button animation and feedback states use purple theming
+  - Test heart button styling across different browsers and devices
+- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify heart button styling changes don't break existing functionality. Test heart button interactions and visual consistency across all post display contexts.
+**Acceptance Criteria:** Heart/like buttons display in purple color matching the logo branding, all heart-related UI elements use consistent purple theming, and styling changes maintain accessibility and functionality standards.
+
 ### **TASK 11: Enhanced Notification System**
 **Module Reference:** Requirements 5 - Enhanced Notification System (Advanced)
 - [ ] **11.0 Notification System Refactoring and Planning**
@@ -288,28 +326,23 @@ The implementation maintains consistency with the reference implementation's pur
   - **Test Execution:** Run backend tests (`pytest -v`) and frontend tests (`npm test`) to ensure notification refactoring doesn't break existing functionality
   - **Refactor Standards Validation:** Validate that all notification-related code follows established patterns, proper type annotations, and architectural consistency
   - _Requirements: Notification system architecture preparation_
-- [ ] **11.1 Purple Heart Styling for Likes**
-  - Update heart/like notifications to display purple heart emoji (💜) matching logo
-  - Modify notification display components to use purple heart for like notifications
-  - Update notification creation to use consistent purple heart styling
-  - Ensure purple heart appears in notification text and icons consistently
-- [ ] **11.2 Pressable Notification Links**
+- [ ] **11.1 Pressable Notification Links**
   - Add click handlers to notifications that link to relevant content
   - Implement post-related notification links (reactions, mentions, messages) to post pages
   - Implement user-related notification links (follows) to user profile pages
   - Add proper navigation handling and URL generation for notification targets
   - Test notification link functionality across all notification types
-- [ ] **11.3 Username Links in Notifications**
+- [ ] **11.2 Username Links in Notifications**
   - Make usernames in notification text clickable links to user profiles
   - Update notification rendering to detect and linkify usernames
   - Add proper styling for username links within notification text
   - Ensure username links work consistently across all notification types
-- [ ] **11.4 Like/Heart Notifications**
+- [ ] **11.3 Like/Heart Notifications**
   - Add notification creation for post likes/hearts (currently missing)
   - Implement like notification batching similar to reaction notifications
   - Update NotificationService to handle like events properly
   - Add like notifications to existing notification batching system
-- [ ] **11.5 Advanced Notification Batching**
+- [ ] **11.4 Advanced Notification Batching**
   - Design comprehensive batching logic for multiple notification types per post
   - Implement batching for likes, reactions, mentions, and shares per specific post
   - Create batch notification display showing "X people liked your post" format
@@ -317,8 +350,41 @@ The implementation maintains consistency with the reference implementation's pur
   - Update notification database schema to support advanced batching relationships
   - Document batching logic and implementation patterns thoroughly
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
+
+### **TASK 11.5: Admin User Management System**
+**Module Reference:** Development Tools - Admin Interface for User Management
+- [ ] **11.5.1 Backend User Management API**
+  - Create admin-specific API endpoints in `apps/api/app/api/v1/admin.py`
+  - Implement `POST /api/v1/admin/users` endpoint for creating new users
+  - Implement `DELETE /api/v1/admin/users/{user_id}` endpoint for deleting users
+  - Add `GET /api/v1/admin/users` endpoint for listing all users with pagination
+  - Add proper validation and error handling for admin user operations
+  - Implement cascade deletion logic for user-related data (posts, reactions, follows, etc.)
+- [ ] **11.5.2 Admin User Creation Interface**
+  - Add "Create New User" section to admin page with form fields
+  - Implement user creation form with username, email, password, and optional profile fields
+  - Add form validation matching signup requirements (password length, email format, username uniqueness)
+  - Display success/error messages for user creation operations
+  - Add created user to the user switching dropdown automatically
+- [ ] **11.5.3 Admin User Deletion Interface**
+  - Add "Delete User" functionality to admin page with user selection
+  - Implement confirmation dialog with user details before deletion
+  - Add cascade deletion warning showing related data that will be removed
+  - Display success/error messages for user deletion operations
+  - Update user switching dropdown to remove deleted users
+  - Add safety measures to prevent deletion of currently logged-in user
+- [ ] **11.5.4 Admin Security and Permissions**
+  - Add admin-only middleware to protect admin API endpoints
+  - Implement proper authentication checks for admin operations
+  - Add rate limiting to admin endpoints to prevent abuse
+  - Log all admin operations for audit trail
+  - Add development-only access controls (admin features only available in dev mode)
+- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify admin API endpoints, user creation/deletion logic, and cascade operations. Run frontend tests (`npm test`) to verify admin interface functionality, form validation, and user management workflows. Test admin security measures and access controls.
+- [ ] **Update Project Documentation:** Document admin API endpoints in docs/BACKEND_API_DOCUMENTATION.md. Add admin interface usage guide to docs/ARCHITECTURE_AND_SETUP.md. Document admin security considerations and development-only access in docs/TEST_GUIDELINES.md.
+**Acceptance Criteria:** Admin page includes user creation form with proper validation, user deletion functionality with cascade warnings and confirmations, all admin operations are properly secured and logged, admin features are only available in development mode, and user management integrates seamlessly with existing user switching functionality.
+
 - [ ] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
-**Acceptance Criteria:** Like notifications show purple hearts, all notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
+**Acceptance Criteria:** All notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
 
 ### **TASK 12: Enhanced Post System**
 **Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Enhanced)

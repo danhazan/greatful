@@ -62,7 +62,27 @@ export default function SignupPage() {
         // Redirect to feed or login
         router.push(accessToken ? "/feed" : "/auth/login")
       } else {
-        setError(data.detail || "Signup failed. Please try again.")
+        // Handle structured error responses from backend
+        let errorMessage = "Signup failed. Please try again."
+        
+        if (data.detail) {
+          if (Array.isArray(data.detail)) {
+            // Handle validation errors (array of error objects)
+            errorMessage = data.detail.map((err: any) => err.msg || err.message || String(err)).join(', ')
+          } else if (typeof data.detail === 'string') {
+            // Handle simple string errors
+            errorMessage = data.detail
+          } else if (typeof data.detail === 'object' && data.detail.message) {
+            // Handle error objects with message property
+            errorMessage = data.detail.message
+          }
+        } else if (data.message) {
+          errorMessage = data.message
+        } else if (data.error) {
+          errorMessage = data.error
+        }
+        
+        setError(errorMessage)
       }
     } catch (error) {
       setError("Network error. Please check your connection.")
