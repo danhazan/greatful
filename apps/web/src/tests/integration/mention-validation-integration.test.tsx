@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@/tests/utils/testUtils'
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import PostCard from '@/components/PostCard'
 

@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen } from '@/tests/utils/testUtils'
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import PostCard from '@/components/PostCard'
 import { afterEach } from 'node:test'

@@ -45,6 +45,38 @@ body {
   background: #a8a8a8;
 }
 
+/* Touch interaction enhancements */
+.touch-manipulation {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  /* Prevent zoom on double tap */
+  -ms-touch-action: manipulation;
+}
+
+/* Prevent double-tap zoom on buttons and interactive elements */
+button,
+[role="button"],
+.emoji-button,
+.mention-item {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Enhanced touch feedback */
+.touch-feedback {
+  transition: transform 0.1s ease-out, background-color 0.1s ease-out;
+}
+
+.touch-feedback:active {
+  transform: scale(0.95);
+}
+
 /* Mobile-specific optimizations */
 @media (max-width: 640px) {
   /* Prevent zoom on input focus on iOS */
@@ -79,5 +111,17 @@ body {
   /* Smooth scrolling for mobile */
   .custom-scrollbar {
     -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Enhanced touch targets for mobile */
+  .mention-item {
+    min-height: 48px;
+  }
+  
+  /* Prevent zoom on emoji picker */
+  .emoji-button {
+    font-size: 24px;
+    min-height: 48px;
+    min-width: 48px;
   }
 }

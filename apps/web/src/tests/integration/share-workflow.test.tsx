@@ -2,7 +2,7 @@
  * Integration tests for complete sharing workflows in the frontend
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import ShareModal from '@/components/ShareModal'
 import { describe, it, expect, beforeEach } from '@jest/globals'
 
@@ -99,7 +99,7 @@ describe('Share Workflow Integration Tests', () => {
 
       // Step 3: Verify UI updates immediately to success state
       await waitFor(() => {
-        expect(screen.getByText('Link Copied!')).toBeInTheDocument()
+        expect(screen.getByText('Link Copied!')).toBeInTheDocument() // Only in modal, no toast
         expect(screen.getByText('Ready to share')).toBeInTheDocument()
       })
 
@@ -161,7 +161,7 @@ describe('Share Workflow Integration Tests', () => {
 
       // UI should still show success
       await waitFor(() => {
-        expect(screen.getByText('Link Copied!')).toBeInTheDocument()
+        expect(screen.getByText('Link Copied!')).toBeInTheDocument() // Only in modal, no toast
       })
 
       // API error should be logged but not affect UX
@@ -206,7 +206,7 @@ describe('Share Workflow Integration Tests', () => {
 
       // UI should still show success
       await waitFor(() => {
-        expect(screen.getByText('Link Copied!')).toBeInTheDocument()
+        expect(screen.getByText('Link Copied!')).toBeInTheDocument() // Only in modal, no toast
       })
 
       // Network error should be logged
@@ -249,7 +249,7 @@ describe('Share Workflow Integration Tests', () => {
 
       // UI should show success
       await waitFor(() => {
-        expect(screen.getByText('Link Copied!')).toBeInTheDocument()
+        expect(screen.getByText('Link Copied!')).toBeInTheDocument() // Only in modal, no toast
       })
 
       // No API call should be made
@@ -333,7 +333,7 @@ describe('Share Workflow Integration Tests', () => {
 
       // Should show success
       await waitFor(() => {
-        expect(screen.getByText('Link Copied!')).toBeInTheDocument()
+        expect(screen.getByText('Link Copied!')).toBeInTheDocument() // Only in modal, no toast
       })
 
       // Restore original values
@@ -439,7 +439,7 @@ describe('Share Workflow Integration Tests', () => {
   })
 
   describe('URL Generation Workflow', () => {
-    it('should generate correct share URLs for different environments', () => {
+    it('should generate correct share URLs for different environments', async () => {
       const testCases = [
         {
           origin: 'http://localhost:3000',
@@ -458,7 +458,7 @@ describe('Share Workflow Integration Tests', () => {
         }
       ]
 
-      testCases.forEach(({ origin, postId, expected }, index) => {
+      for (const { origin, postId, expected } of testCases) {
         // Mock window.location.origin
         Object.defineProperty(window, 'location', {
           value: { origin },
@@ -480,12 +480,15 @@ describe('Share Workflow Integration Tests', () => {
         const copyButtons = screen.getAllByText('Copy Link')
         fireEvent.click(copyButtons[0])
 
-        expect(mockWriteText).toHaveBeenCalledWith(expected)
+        // Wait for the clipboard operation to complete
+        await waitFor(() => {
+          expect(mockWriteText).toHaveBeenCalledWith(expected)
+        })
 
         // Clean up for next iteration
         mockWriteText.mockClear()
         unmount()
-      })
+      }
     })
   })
 })

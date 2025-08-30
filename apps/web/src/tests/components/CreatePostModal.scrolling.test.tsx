@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen } from '@/tests/utils/testUtils'
 import '@testing-library/jest-dom'
 import CreatePostModal from '../../components/CreatePostModal'
 import { describe, it, beforeEach } from '@jest/globals'

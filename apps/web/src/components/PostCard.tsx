@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Heart, Share, Calendar, MapPin, Plus } from "lucide-react"
+import { Heart, Share, Calendar, MapPin, Plus, Loader2 } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
@@ -14,6 +14,7 @@ import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
+import { useToast } from "@/contexts/ToastContext"
 
 interface Post {
   id: string
@@ -68,9 +69,17 @@ export default function PostCard({
   const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const [validUsernames, setValidUsernames] = useState<string[]>([])
+  
+  // Loading states
+  const [isHeartLoading, setIsHeartLoading] = useState(false)
+  const [isReactionLoading, setIsReactionLoading] = useState(false)
+  const [isReactionsViewerLoading, setIsReactionsViewerLoading] = useState(false)
+  const [isHeartsViewerLoading, setIsHeartsViewerLoading] = useState(false)
+  
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const shareButtonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
+  const { showSuccess, showError, showLoading, hideToast } = useToast()
 
   // Check authentication status on mount and when currentUserId changes
   useEffect(() => {
@@ -225,6 +234,8 @@ export default function PostCard({
   }
 
   const handleEmojiSelect = async (emojiCode: string) => {
+    setIsReactionLoading(true)
+    
     // Track analytics event
     if (currentUserId) {
       const eventType = post.currentUserReaction ? 'reaction_change' : 'reaction_add'
@@ -236,6 +247,9 @@ export default function PostCard({
         post.currentUserReaction
       )
     }
+    
+    // Show loading toast
+    const loadingToastId = showLoading('Adding reaction...', 'Please wait')
     
     try {
       const token = localStorage.getItem("access_token")
@@ -262,21 +276,51 @@ export default function PostCard({
           const reactionSummary = await summaryResponse.json()
           // Call handler with updated server data
           onReaction?.(post.id, emojiCode, reactionSummary)
+          
+          // Show success toast
+          hideToast(loadingToastId)
+          showSuccess('Reaction Added!', 'Your reaction has been added to the post')
         } else {
           // Fallback to original handler if summary fetch fails
           onReaction?.(post.id, emojiCode)
+          hideToast(loadingToastId)
+          showSuccess('Reaction Added!', 'Your reaction has been added to the post')
         }
       } else {
-        console.error('Failed to update reaction')
+        const errorData = await response.json().catch(() => ({}))
+        hideToast(loadingToastId)
+        showError(
+          'Reaction Failed',
+          errorData.message || 'Unable to add reaction. Please try again.',
+          {
+            label: 'Retry',
+            onClick: () => handleEmojiSelect(emojiCode)
+          }
+        )
       }
     } catch (error) {
       console.error('Error updating reaction:', error)
+      hideToast(loadingToastId)
+      showError(
+        'Network Error',
+        'Please check your connection and try again.',
+        {
+          label: 'Retry',
+          onClick: () => handleEmojiSelect(emojiCode)
+        }
+      )
+    } finally {
+      setIsReactionLoading(false)
     }
     
     setShowEmojiPicker(false)
   }
 
   const handleReactionCountClick = async () => {
+    if (isReactionsViewerLoading) return
+    
+    setIsReactionsViewerLoading(true)
+    
     // Fetch reactions from API
     try {
       const token = localStorage.getItem("access_token")
@@ -290,13 +334,22 @@ export default function PostCard({
         const reactionsData = await response.json()
         setReactions(reactionsData)
         setShowReactionViewer(true)
+      } else {
+        showError('Failed to Load', 'Unable to load reactions. Please try again.')
       }
     } catch (error) {
       console.error('Failed to fetch reactions:', error)
+      showError('Network Error', 'Please check your connection and try again.')
+    } finally {
+      setIsReactionsViewerLoading(false)
     }
   }
 
   const handleHeartsCountClick = async () => {
+    if (isHeartsViewerLoading) return
+    
+    setIsHeartsViewerLoading(true)
+    
     // Fetch hearts from API
     try {
       const token = localStorage.getItem("access_token")
@@ -310,9 +363,14 @@ export default function PostCard({
         const heartsData = await response.json()
         setHearts(heartsData)
         setShowHeartsViewer(true)
+      } else {
+        showError('Failed to Load', 'Unable to load hearts. Please try again.')
       }
     } catch (error) {
       console.error('Failed to fetch hearts:', error)
+      showError('Network Error', 'Please check your connection and try again.')
+    } finally {
+      setIsHeartsViewerLoading(false)
     }
   }
 
@@ -409,7 +467,7 @@ export default function PostCard({
 
   return (
     <>
-      <article className={styling.container}>
+      <article className={styling.container} data-post-id={post.id}>
         {/* Post Header */}
         <div className={styling.header}>
           <div className="flex items-start space-x-3">
@@ -546,12 +604,21 @@ export default function PostCard({
                     return
                   }
 
+                  if (isHeartLoading) return
+
                   const isCurrentlyHearted = post.isHearted || false
+                  setIsHeartLoading(true)
                   
                   // Track analytics event
                   if (currentUserId) {
                     analyticsService.trackHeartEvent(post.id, currentUserId, !isCurrentlyHearted)
                   }
+                  
+                  // Show loading toast
+                  const loadingToastId = showLoading(
+                    isCurrentlyHearted ? 'Removing heart...' : 'Adding heart...',
+                    'Please wait'
+                  )
                   
                   try {
                     const token = getAccessToken()
@@ -577,18 +644,62 @@ export default function PostCard({
                         const heartInfo = await heartInfoResponse.json()
                         // Call handler with updated server data
                         onHeart?.(post.id, isCurrentlyHearted, heartInfo)
+                        
+                        // Show success toast only for adding hearts, not removing
+                        hideToast(loadingToastId)
+                        if (!isCurrentlyHearted) {
+                          showSuccess('Post Hearted!', 'Added to your hearts')
+                        }
                       } else {
                         // Fallback to original handler if heart info fetch fails
                         onHeart?.(post.id, isCurrentlyHearted)
+                        hideToast(loadingToastId)
+                        // Show success toast only for adding hearts, not removing
+                        if (!isCurrentlyHearted) {
+                          showSuccess('Post Hearted!', 'Added to your hearts')
+                        }
                       }
                     } else {
-                      console.error('Failed to update heart status')
+                      const errorData = await response.json().catch(() => ({}))
+                      hideToast(loadingToastId)
+                      showError(
+                        'Heart Failed',
+                        errorData.message || 'Unable to update heart. Please try again.',
+                        {
+                          label: 'Retry',
+                          onClick: () => {
+                            // Retry the heart action
+                            setTimeout(() => {
+                              const button = document.querySelector(`[data-post-id="${post.id}"] .heart-button`) as HTMLButtonElement
+                              button?.click()
+                            }, 100)
+                          }
+                        }
+                      )
                     }
                   } catch (error) {
                     console.error('Error updating heart:', error)
+                    hideToast(loadingToastId)
+                    showError(
+                      'Network Error',
+                      'Please check your connection and try again.',
+                      {
+                        label: 'Retry',
+                        onClick: () => {
+                          // Retry the heart action
+                          setTimeout(() => {
+                            const button = document.querySelector(`[data-post-id="${post.id}"] .heart-button`) as HTMLButtonElement
+                            button?.click()
+                          }, 100)
+                        }
+                      }
+                    )
+                  } finally {
+                    setIsHeartLoading(false)
                   }
                 }}
-                className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 ${
+                disabled={isHeartLoading}
+                className={`heart-button flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                   !isUserAuthenticated
                     ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
                     : post.isHearted 
@@ -597,17 +708,25 @@ export default function PostCard({
                 }`}
                 title={!isUserAuthenticated ? 'Login to like posts' : undefined}
               >
-                <Heart className={`${styling.iconSize} ${post.isHearted && isUserAuthenticated ? 'fill-current' : ''}`} />
+                {isHeartLoading ? (
+                  <Loader2 className={`${styling.iconSize} animate-spin`} />
+                ) : (
+                  <Heart className={`${styling.iconSize} ${post.isHearted && isUserAuthenticated ? 'fill-current' : ''}`} />
+                )}
                 <span 
-                  className={`${styling.textSize} font-medium ${isUserAuthenticated ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+                  className={`${styling.textSize} font-medium ${isUserAuthenticated && !isHeartsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
                   onClick={(e) => {
                     e.stopPropagation()
-                    if (isUserAuthenticated) {
+                    if (isUserAuthenticated && !isHeartsViewerLoading) {
                       handleHeartsCountClick()
                     }
                   }}
                 >
-                  {post.heartsCount || 0}
+                  {isHeartsViewerLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin inline" />
+                  ) : (
+                    post.heartsCount || 0
+                  )}
                 </span>
               </button>
 
@@ -615,7 +734,8 @@ export default function PostCard({
               <button
                 ref={reactionButtonRef}
                 onClick={handleReactionButtonClick}
-                className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 ${
+                disabled={isReactionLoading}
+                className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                   !isUserAuthenticated
                     ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
                     : post.currentUserReaction
@@ -624,7 +744,9 @@ export default function PostCard({
                 } ${(post.reactionsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
                 title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
               >
-                {post.currentUserReaction ? (
+                {isReactionLoading ? (
+                  <Loader2 className={`${styling.iconSize} animate-spin`} />
+                ) : post.currentUserReaction ? (
                   <span className={styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}>
                     {getEmojiFromCode(post.currentUserReaction)}
                   </span>
@@ -634,13 +756,19 @@ export default function PostCard({
                   </div>
                 )}
                 <span 
-                  className={`${styling.textSize} font-medium cursor-pointer hover:underline`}
+                  className={`${styling.textSize} font-medium ${!isReactionsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleReactionCountClick()
+                    if (!isReactionsViewerLoading) {
+                      handleReactionCountClick()
+                    }
                   }}
                 >
-                  {post.reactionsCount || 0}
+                  {isReactionsViewerLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin inline" />
+                  ) : (
+                    post.reactionsCount || 0
+                  )}
                 </span>
               </button>
 
@@ -679,6 +807,7 @@ export default function PostCard({
         onEmojiSelect={handleEmojiSelect}
         currentReaction={post.currentUserReaction}
         position={emojiPickerPosition}
+        isLoading={isReactionLoading}
       />
 
       {/* Reaction Viewer Modal */}

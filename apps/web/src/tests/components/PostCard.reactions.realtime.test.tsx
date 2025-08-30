@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@/tests/utils/testUtils'
 import '@testing-library/jest-dom'
 import PostCard from '../../components/PostCard'
 import { expect, it, beforeEach, describe } from '@jest/globals'

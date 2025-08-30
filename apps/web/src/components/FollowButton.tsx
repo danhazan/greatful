@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { UserPlus, UserMinus, Loader2 } from 'lucide-react'
 import { isAuthenticated, getAccessToken } from '@/utils/auth'
+import { createTouchHandlers } from '@/utils/hapticFeedback'
+import { useToast } from '@/contexts/ToastContext'
 
 interface FollowButtonProps {
   userId: number
@@ -31,14 +33,15 @@ export default function FollowButton({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
+  const { showSuccess, showError, showLoading, hideToast, updateToast } = useToast()
 
-  // Size classes
+  // Size classes with minimum touch targets
   const sizeClasses = {
-    xxs: 'px-1 py-0.5 text-xs',
-    xs: 'px-2 py-1 text-xs',
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base'
+    xxs: 'px-1 py-0.5 text-xs min-h-[44px]',
+    xs: 'px-2 py-1 text-xs min-h-[44px]',
+    sm: 'px-3 py-1.5 text-sm min-h-[44px]',
+    md: 'px-4 py-2 text-sm min-h-[44px]',
+    lg: 'px-6 py-3 text-base min-h-[48px]'
   }
 
   // Variant classes
@@ -105,15 +108,28 @@ export default function FollowButton({
   const handleFollowToggle = async () => {
     const token = getAccessToken()
     if (!token) {
-      setError('Please log in to follow users')
+      showError('Authentication Required', 'Please log in to follow users')
       return
     }
 
+    const originalFollowState = isFollowing
+    const newFollowState = !isFollowing
+    const action = newFollowState ? 'follow' : 'unfollow'
+
+    // Optimistic update
+    setIsFollowing(newFollowState)
+    onFollowChange?.(newFollowState)
     setIsLoading(true)
     setError(null)
 
+    // Show loading toast
+    const loadingToastId = showLoading(
+      `${action === 'follow' ? 'Following' : 'Unfollowing'} user...`,
+      'Please wait'
+    )
+
     try {
-      const method = isFollowing ? 'DELETE' : 'POST'
+      const method = originalFollowState ? 'DELETE' : 'POST'
       const response = await fetch(`/api/follows/${userId}`, {
         method,
         headers: {
@@ -125,27 +141,53 @@ export default function FollowButton({
       const result = await response.json()
 
       if (response && response.ok && result.success) {
-        // Optimistic update
-        const newFollowState = !isFollowing
-        setIsFollowing(newFollowState)
-        onFollowChange?.(newFollowState)
+        // Success - update toast
+        hideToast(loadingToastId)
+        showSuccess(
+          `User ${action === 'follow' ? 'followed' : 'unfollowed'}!`,
+          `You ${action === 'follow' ? 'are now following' : 'unfollowed'} this user`
+        )
       } else {
+        // Rollback optimistic update
+        setIsFollowing(originalFollowState)
+        onFollowChange?.(originalFollowState)
+
         // Handle specific error cases
+        hideToast(loadingToastId)
+        
+        let errorMessage = 'Failed to update follow status'
         if (response && response.status === 401) {
-          setError('Please log in to follow users')
+          errorMessage = 'Please log in to follow users'
         } else if (response && response.status === 404) {
-          setError('User not found')
+          errorMessage = 'User not found'
         } else if (response && response.status === 409) {
-          setError('Follow relationship already exists')
+          errorMessage = 'Follow relationship already exists'
         } else if (response && response.status === 422) {
-          setError('Cannot follow yourself')
-        } else {
-          setError(result?.error?.message || 'Failed to update follow status')
+          errorMessage = 'Cannot follow yourself'
+        } else if (result?.error?.message) {
+          errorMessage = result.error.message
         }
+
+        showError('Follow Failed', errorMessage, {
+          label: 'Retry',
+          onClick: () => handleFollowToggle()
+        })
       }
     } catch (error) {
+      // Rollback optimistic update
+      setIsFollowing(originalFollowState)
+      onFollowChange?.(originalFollowState)
+      
       console.error('Follow toggle error:', error)
-      setError('Network error. Please try again.')
+      hideToast(loadingToastId)
+      showError(
+        'Network Error', 
+        'Please check your connection and try again',
+        {
+          label: 'Retry',
+          onClick: () => handleFollowToggle()
+        }
+      )
     } finally {
       setIsLoading(false)
     }
@@ -165,11 +207,14 @@ export default function FollowButton({
           font-medium rounded-lg transition-all duration-200
           disabled:opacity-50 disabled:cursor-not-allowed
           focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+          touch-manipulation select-none
+          active:scale-95 active:shadow-inner
           ${sizeClasses[size]}
           ${variantClasses}
           ${className}
         `}
         aria-label={isFollowing ? `Unfollow user ${userId}` : `Follow user ${userId}`}
+        {...createTouchHandlers(undefined, 'light')}
       >
         {isLoading ? (
           <Loader2 className="w-4 h-4 animate-spin" />

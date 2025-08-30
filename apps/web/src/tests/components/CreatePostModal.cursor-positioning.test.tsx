@@ -3,7 +3,7 @@
  */
 
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import { describe, it, expect, jest } from '@jest/globals'
 import CreatePostModal from '@/components/CreatePostModal'
 

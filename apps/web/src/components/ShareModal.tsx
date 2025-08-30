@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from "react"
 import { flushSync } from "react-dom"
-import { X, Copy, Check, Link, MessageCircle, Send } from "lucide-react"
+import { X, Copy, Check, Link, MessageCircle, Send, Loader2 } from "lucide-react"
 import MentionAutocomplete from "./MentionAutocomplete"
+import { useToast } from "@/contexts/ToastContext"
 
 interface Post {
   id: string
@@ -49,6 +50,7 @@ export default function ShareModal({
   const [showAutocomplete, setShowAutocomplete] = useState(false)
   const [sendingMessage, setSendingMessage] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const { showSuccess, showError, showLoading, hideToast } = useToast()
 
 
 
@@ -189,6 +191,8 @@ export default function ShareModal({
           setCopySuccess(true)
         })
         
+        // Success - no toast needed
+        
         // Reset success state and close modal after 1.5 seconds
         setTimeout(() => {
           flushSync(() => {
@@ -212,14 +216,13 @@ export default function ShareModal({
           }, 50)
         }
       } else {
-        // Only show error if clipboard actually failed
-        console.warn('Failed to copy link to clipboard')
-        // TODO: Show error toast for clipboard failure
+        // Clipboard failed - no toast needed, just log
+        console.warn('Clipboard copy failed')
       }
       
     } catch (error) {
       console.warn('Failed to copy link:', error)
-      // TODO: Show error toast for clipboard failure
+      // No toast needed for copy failures
     }
   }
 
@@ -260,6 +263,12 @@ export default function ShareModal({
 
     setSendingMessage(true)
     
+    // Show loading toast
+    const loadingToastId = showLoading(
+      'Sending post...',
+      `Sharing with ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`
+    )
+    
     try {
       const token = localStorage.getItem("access_token")
       if (!token) {
@@ -279,7 +288,8 @@ export default function ShareModal({
       })
 
       if (!response.ok) {
-        throw new Error(`Share failed: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `Share failed: ${response.status}`)
       }
 
       const result = await response.json()
@@ -290,22 +300,35 @@ export default function ShareModal({
         shareId: result?.id || null
       })
 
-      // Show success state briefly, then close modal
-      setSendingMessage(false)
+      // Hide loading toast and show success
+      hideToast(loadingToastId)
+      showSuccess(
+        'Post Shared!',
+        `Successfully sent to ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`
+      )
       
-      // Reset to main share view to show success
+      // Reset to main share view
       setShowMessageShare(false)
       setSelectedUsers([])
       setSearchQuery("")
       
-      // Close modal after a brief delay to show success
+      // Close modal after a brief delay
       setTimeout(() => {
         onClose()
       }, 1000)
       
     } catch (error) {
       console.error('Failed to send message:', error)
-      // TODO: Show error toast
+      hideToast(loadingToastId)
+      showError(
+        'Share Failed',
+        error instanceof Error ? error.message : 'Unable to share post. Please try again.',
+        {
+          label: 'Retry',
+          onClick: () => handleSendMessage()
+        }
+      )
+    } finally {
       setSendingMessage(false)
     }
   }
@@ -328,8 +351,8 @@ export default function ShareModal({
         ref={modalRef}
         className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[calc(100vw-32px)]"
         style={{
-          left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 296)),
-          top: Math.max(16, position.y - 120),
+          left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 320 - 16)),
+          top: Math.max(16, Math.min(position.y - 120, window.innerHeight - 400 - 16)),
         }}
         tabIndex={-1}
       >

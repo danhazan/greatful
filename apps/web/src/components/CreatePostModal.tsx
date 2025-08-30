@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { X, Camera, MapPin, Type, Image as ImageIcon, Zap } from "lucide-react"
 import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
+import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
 // UserInfo type defined locally
 interface UserInfo {
@@ -57,6 +58,7 @@ const POST_TYPES = [
 ]
 
 export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
+  const { showSuccess, showError, showLoading, hideToast } = useToast()
   const [postData, setPostData] = useState<{
     content: string
     postType: 'daily' | 'photo' | 'spontaneous'
@@ -180,6 +182,12 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
     setIsSubmitting(true)
 
+    // Show loading toast
+    const loadingToastId = showLoading(
+      'Creating post...',
+      'Sharing your gratitude'
+    )
+
     try {
       // Extract mentions from content
       const mentions = extractMentions(postData.content.trim())
@@ -193,6 +201,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         imageFile: imageFile || undefined,
         mentions: mentionUsernames.length > 0 ? mentionUsernames : undefined
       })
+
+      // Hide loading toast and show success
+      hideToast(loadingToastId)
+      showSuccess(
+        'Post Created!',
+        'Your gratitude has been shared successfully'
+      )
 
       // Clear form and draft on successful submission
       if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
@@ -208,7 +223,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       localStorage.removeItem('grateful_post_draft')
       onClose()
     } catch (error: any) {
-      setError(error.message || 'Failed to create post. Please try again.')
+      // Hide loading toast and show error
+      hideToast(loadingToastId)
+      const errorMessage = error.message || 'Failed to create post. Please try again.'
+      setError(errorMessage)
+      showError(
+        'Post Failed',
+        errorMessage,
+        {
+          label: 'Retry',
+          onClick: () => handleSubmit(e)
+        }
+      )
     } finally {
       setIsSubmitting(false)
     }

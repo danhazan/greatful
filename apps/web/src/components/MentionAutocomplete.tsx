@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { createTouchHandlers } from '@/utils/hapticFeedback'
 // UserInfo type defined locally
 interface UserInfo {
   id: number
@@ -199,10 +200,12 @@ export default function MentionAutocomplete({
     <div
       ref={dropdownRef}
       data-mention-autocomplete
-      className={`absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-w-xs w-64 sm:w-72 max-h-60 sm:max-h-64 overflow-y-auto custom-scrollbar touch-manipulation ${className}`}
+      className={`absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-w-xs w-64 sm:w-80 max-h-60 sm:max-h-72 overflow-y-auto custom-scrollbar touch-manipulation ${className}`}
       style={{
         left: position.x,
         top: position.y,
+        // Prevent zoom on iOS Safari
+        touchAction: 'manipulation',
       }}
     >
       {loading && (
@@ -224,11 +227,15 @@ export default function MentionAutocomplete({
             <button
               key={user.id}
               type="button"
-              className={`w-full px-3 py-3 sm:py-2 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[44px] touch-manipulation active:bg-purple-100 ${
+              className={`w-full px-3 py-3 sm:py-2 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[48px] touch-manipulation active:bg-purple-100 select-none ${
                 index === selectedIndex ? 'bg-purple-50' : ''
               }`}
-              onClick={() => handleUserSelect(user)}
+              onClick={(e) => {
+                e.preventDefault()
+                handleUserSelect(user)
+              }}
               onMouseEnter={() => setSelectedIndex(index)}
+              {...createTouchHandlers(undefined, 'light')}
             >
               <div className="flex items-center space-x-3">
                 <div className="flex-shrink-0">

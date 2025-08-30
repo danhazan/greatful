@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import ShareModal from '@/components/ShareModal'
 import { describe, it, expect, beforeEach } from '@jest/globals'
 

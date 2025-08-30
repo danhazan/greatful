@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import { jest } from '@jest/globals'
 import EmojiPicker from '@/components/EmojiPicker'
 

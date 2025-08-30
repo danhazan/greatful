@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import '@testing-library/jest-dom'
 import PostCard from '../../components/PostCard'
 

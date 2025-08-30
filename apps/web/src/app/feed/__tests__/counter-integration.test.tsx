@@ -3,7 +3,7 @@
  * with proper separation between global counts and individual user state
  */
 
-import { render, screen, act, waitFor } from '@testing-library/react'
+import { render, screen, act, waitFor } from '@/tests/utils/testUtils'
 import userEvent from '@testing-library/user-event'
 import FeedPage from '../page'
 import { describe, it, beforeEach } from '@jest/globals'
