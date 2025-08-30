@@ -1435,3 +1435,459 @@ The old notification testing patterns are deprecated but kept for reference:
 ---
 
 *For complete examples, see the test files in `apps/api/tests/unit/test_notification_factory.py` and `apps/web/src/tests/utils/notificationUserResolver.test.ts`*
+## Mob
+ile Testing Guidelines
+
+### Mobile Testing Strategy
+
+Mobile testing is critical for the Grateful platform as the majority of users access social features through mobile devices. All social interaction components must be thoroughly tested on actual mobile devices and responsive breakpoints.
+
+#### Mobile Testing Categories
+
+**1. Responsive Design Testing**
+- Test all breakpoints: 320px, 375px, 414px, 768px, 1024px, 1280px
+- Verify component layout adaptation across screen sizes
+- Test orientation changes (portrait/landscape)
+- Validate touch target sizes (minimum 44px × 44px)
+
+**2. Touch Interaction Testing**
+- Test all interactive elements with touch gestures
+- Verify touch feedback and visual states
+- Test gesture recognition (tap, long press, swipe)
+- Validate scroll behavior and momentum scrolling
+
+**3. Performance Testing on Mobile**
+- Test loading times on 3G/4G networks
+- Verify smooth animations and transitions (60fps)
+- Test memory usage and battery impact
+- Validate image loading and optimization
+
+**4. Cross-Browser Mobile Testing**
+- iOS Safari (latest 2 versions)
+- Android Chrome (latest 2 versions)
+- Mobile Firefox (latest version)
+- Samsung Internet (latest version)
+
+### Device Testing Matrix
+
+#### Required Test Devices
+
+**iOS Devices**:
+- iPhone SE (small screen testing)
+- iPhone 12/13/14 (standard screen testing)
+- iPhone 12/13/14 Plus (large screen testing)
+- iPad (tablet testing)
+
+**Android Devices**:
+- Samsung Galaxy S21/S22 (standard Android)
+- Google Pixel 6/7 (pure Android)
+- OnePlus or similar (alternative Android)
+- Android tablet (tablet testing)
+
+#### Browser Testing Requirements
+
+**iOS Safari Testing**:
+```bash
+# Enable Safari Web Inspector for iOS device testing
+# Connect device via USB and enable Web Inspector in Safari settings
+# Access via Safari > Develop > [Device Name] > [Page]
+```
+
+**Android Chrome Testing**:
+```bash
+# Enable USB debugging and Chrome remote debugging
+# Access via chrome://inspect/#devices in desktop Chrome
+# Select device and inspect target page
+```
+
+### Mobile Testing Procedures
+
+#### 1. Component-Level Mobile Testing
+
+**Touch Target Validation**:
+```typescript
+// Example mobile component test
+describe('Mobile EmojiPicker', () => {
+  it('has proper touch targets on mobile', () => {
+    render(<EmojiPicker isOpen={true} />)
+    
+    const emojiButtons = screen.getAllByRole('button')
+    emojiButtons.forEach(button => {
+      const styles = window.getComputedStyle(button)
+      const width = parseInt(styles.width)
+      const height = parseInt(styles.height)
+      
+      expect(width).toBeGreaterThanOrEqual(44)
+      expect(height).toBeGreaterThanOrEqual(44)
+    })
+  })
+
+  it('handles touch events correctly', async () => {
+    const onEmojiSelect = jest.fn()
+    render(<EmojiPicker isOpen={true} onEmojiSelect={onEmojiSelect} />)
+    
+    const emojiButton = screen.getByRole('button', { name: /heart eyes/i })
+    
+    // Simulate touch events
+    fireEvent.touchStart(emojiButton)
+    fireEvent.touchEnd(emojiButton)
+    
+    expect(onEmojiSelect).toHaveBeenCalledWith('heart_eyes')
+  })
+})
+```
+
+**Responsive Layout Testing**:
+```typescript
+describe('Mobile PostCard', () => {
+  it('adapts layout for mobile screens', () => {
+    // Mock mobile viewport
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 375,
+    })
+    
+    render(<PostCard post={mockPost} />)
+    
+    const postCard = screen.getByTestId('post-card')
+    expect(postCard).toHaveClass('mobile-layout')
+  })
+
+  it('handles long content on mobile', () => {
+    const longPost = {
+      ...mockPost,
+      content: 'Very long content that should wrap properly on mobile devices without causing horizontal scrolling issues'
+    }
+    
+    render(<PostCard post={longPost} />)
+    
+    const content = screen.getByText(longPost.content)
+    const styles = window.getComputedStyle(content)
+    expect(styles.wordWrap).toBe('break-word')
+  })
+})
+```
+
+#### 2. Modal and Overlay Testing
+
+**Mobile Modal Behavior**:
+```typescript
+describe('Mobile ShareModal', () => {
+  it('adapts to mobile viewport', () => {
+    // Mock mobile viewport
+    global.innerWidth = 375
+    global.innerHeight = 667
+    
+    render(<ShareModal isOpen={true} post={mockPost} />)
+    
+    const modal = screen.getByRole('dialog')
+    const styles = window.getComputedStyle(modal)
+    
+    // Should be full-screen on mobile
+    expect(styles.width).toBe('100vw')
+    expect(styles.height).toBe('100vh')
+  })
+
+  it('prevents body scroll when open', () => {
+    render(<ShareModal isOpen={true} post={mockPost} />)
+    
+    expect(document.body.style.overflow).toBe('hidden')
+  })
+
+  it('handles touch-to-close', () => {
+    const onClose = jest.fn()
+    render(<ShareModal isOpen={true} onClose={onClose} post={mockPost} />)
+    
+    const backdrop = screen.getByTestId('modal-backdrop')
+    fireEvent.touchStart(backdrop)
+    fireEvent.touchEnd(backdrop)
+    
+    expect(onClose).toHaveBeenCalled()
+  })
+})
+```
+
+#### 3. Performance Testing on Mobile
+
+**Loading Performance Tests**:
+```typescript
+describe('Mobile Performance', () => {
+  it('loads feed quickly on mobile', async () => {
+    const startTime = performance.now()
+    
+    render(<FeedPage />)
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('feed-container')).toBeInTheDocument()
+    })
+    
+    const loadTime = performance.now() - startTime
+    expect(loadTime).toBeLessThan(2000) // 2 second max load time
+  })
+
+  it('handles large lists efficiently', () => {
+    const largeFeed = Array.from({ length: 100 }, (_, i) => ({
+      id: `post-${i}`,
+      content: `Post content ${i}`,
+      author: { name: `User ${i}` }
+    }))
+    
+    const { container } = render(<Feed posts={largeFeed} />)
+    
+    // Should use virtual scrolling for large lists
+    const visiblePosts = container.querySelectorAll('[data-testid="post-card"]')
+    expect(visiblePosts.length).toBeLessThan(20) // Only render visible items
+  })
+})
+```
+
+#### 4. Touch Gesture Testing
+
+**Swipe and Gesture Recognition**:
+```typescript
+describe('Mobile Gestures', () => {
+  it('handles swipe gestures on notifications', () => {
+    const onDismiss = jest.fn()
+    render(<NotificationItem notification={mockNotification} onDismiss={onDismiss} />)
+    
+    const notification = screen.getByTestId('notification-item')
+    
+    // Simulate swipe left gesture
+    fireEvent.touchStart(notification, {
+      touches: [{ clientX: 100, clientY: 50 }]
+    })
+    fireEvent.touchMove(notification, {
+      touches: [{ clientX: 50, clientY: 50 }]
+    })
+    fireEvent.touchEnd(notification, {
+      changedTouches: [{ clientX: 20, clientY: 50 }]
+    })
+    
+    expect(onDismiss).toHaveBeenCalled()
+  })
+
+  it('handles long press for context menu', async () => {
+    const onContextMenu = jest.fn()
+    render(<PostCard post={mockPost} onContextMenu={onContextMenu} />)
+    
+    const postCard = screen.getByTestId('post-card')
+    
+    // Simulate long press (touch and hold)
+    fireEvent.touchStart(postCard)
+    
+    await new Promise(resolve => setTimeout(resolve, 500)) // 500ms hold
+    
+    fireEvent.touchEnd(postCard)
+    
+    expect(onContextMenu).toHaveBeenCalled()
+  })
+})
+```
+
+### Mobile Testing Commands
+
+#### Local Mobile Testing Setup
+
+**Start Development Server for Mobile Testing**:
+```bash
+# Backend - accessible on local network
+cd apps/api
+source venv/bin/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Frontend - accessible on local network
+cd apps/web
+npm run dev -- --host 0.0.0.0 --port 3000
+
+# Find your local IP address
+ip addr show | grep "inet " | grep -v 127.0.0.1
+# or on macOS: ifconfig | grep "inet " | grep -v 127.0.0.1
+
+# Access from mobile device: http://[your-local-ip]:3000
+```
+
+#### Mobile Testing with Browser DevTools
+
+**Chrome DevTools Mobile Simulation**:
+```bash
+# Open Chrome DevTools
+# Press F12 or Ctrl+Shift+I (Cmd+Opt+I on Mac)
+# Click device toolbar icon or press Ctrl+Shift+M (Cmd+Shift+M on Mac)
+# Select device presets or set custom dimensions
+
+# Test common mobile breakpoints:
+# iPhone SE: 375x667
+# iPhone 12: 390x844
+# iPhone 12 Pro Max: 428x926
+# Samsung Galaxy S20: 360x800
+# iPad: 768x1024
+```
+
+**Firefox Responsive Design Mode**:
+```bash
+# Open Firefox Developer Tools
+# Press F12 or Ctrl+Shift+I (Cmd+Opt+I on Mac)
+# Click responsive design mode icon or press Ctrl+Shift+M (Cmd+Opt+M on Mac)
+# Test various device presets and orientations
+```
+
+#### Automated Mobile Testing
+
+**Playwright Mobile Testing**:
+```typescript
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  projects: [
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 12'] },
+    },
+  ],
+})
+
+// mobile.spec.ts
+test('mobile navigation works correctly', async ({ page }) => {
+  await page.goto('/')
+  
+  // Test mobile menu
+  await page.click('[data-testid="mobile-menu-button"]')
+  await expect(page.locator('[data-testid="mobile-menu"]')).toBeVisible()
+  
+  // Test touch interactions
+  await page.tap('[data-testid="post-like-button"]')
+  await expect(page.locator('[data-testid="like-count"]')).toContainText('1')
+})
+```
+
+#### Performance Testing on Mobile
+
+**Lighthouse Mobile Testing**:
+```bash
+# Install Lighthouse CLI
+npm install -g lighthouse
+
+# Run mobile performance audit
+lighthouse http://localhost:3000 \
+  --emulated-form-factor=mobile \
+  --throttling-method=simulate \
+  --output=html \
+  --output-path=./mobile-audit.html
+
+# Run specific mobile metrics
+lighthouse http://localhost:3000 \
+  --only-categories=performance \
+  --emulated-form-factor=mobile \
+  --preset=perf
+```
+
+**WebPageTest Mobile Testing**:
+```bash
+# Use WebPageTest API for mobile testing
+curl -X POST "https://www.webpagetest.org/runtest.php" \
+  -d "url=http://your-app.com" \
+  -d "location=Dulles_MotoG4:Moto G4 - Chrome" \
+  -d "runs=3" \
+  -d "fvonly=1"
+```
+
+### Mobile Testing Checklist
+
+#### Pre-Testing Setup
+- [ ] Development server accessible on local network (`--host 0.0.0.0`)
+- [ ] Mobile devices connected to same WiFi network
+- [ ] Browser developer tools configured for mobile simulation
+- [ ] Test data prepared for various screen sizes
+
+#### Component Testing
+- [ ] All interactive elements have minimum 44px touch targets
+- [ ] Touch feedback is immediate and visible
+- [ ] Modals adapt properly to mobile viewports
+- [ ] Text is readable without zooming (minimum 16px font size)
+- [ ] Images scale properly and don't cause horizontal scrolling
+
+#### Interaction Testing
+- [ ] Tap interactions work correctly (no double-tap zoom issues)
+- [ ] Swipe gestures function as expected
+- [ ] Long press actions are responsive
+- [ ] Keyboard appearance doesn't break layout
+- [ ] Form inputs are accessible and properly sized
+
+#### Performance Testing
+- [ ] Page load time under 3 seconds on 3G
+- [ ] Smooth scrolling performance (60fps)
+- [ ] No memory leaks during extended usage
+- [ ] Battery usage is reasonable
+- [ ] Images load progressively with proper placeholders
+
+#### Cross-Browser Testing
+- [ ] iOS Safari (latest 2 versions)
+- [ ] Android Chrome (latest 2 versions)
+- [ ] Mobile Firefox (latest version)
+- [ ] Samsung Internet (if targeting Samsung devices)
+
+#### Accessibility Testing
+- [ ] Screen reader compatibility (VoiceOver, TalkBack)
+- [ ] Keyboard navigation works with external keyboards
+- [ ] Color contrast meets WCAG 2.1 AA standards
+- [ ] Focus indicators are visible and properly managed
+
+### Mobile Testing Best Practices
+
+#### Test Early and Often
+- Include mobile testing in every development cycle
+- Test on actual devices, not just simulators
+- Use a variety of device sizes and capabilities
+- Test both portrait and landscape orientations
+
+#### Performance Considerations
+- Test on slower devices and networks
+- Monitor memory usage during testing
+- Validate image optimization and lazy loading
+- Test offline functionality where applicable
+
+#### User Experience Focus
+- Test with real user scenarios and content
+- Validate touch interactions feel natural
+- Ensure error states are mobile-friendly
+- Test with various content lengths and edge cases
+
+#### Documentation and Reporting
+- Document device-specific issues and workarounds
+- Maintain a mobile testing matrix with results
+- Report performance metrics for each tested device
+- Keep screenshots of mobile layouts for regression testing
+
+### Mobile Testing Tools and Resources
+
+#### Browser-Based Testing
+- Chrome DevTools Device Mode
+- Firefox Responsive Design Mode
+- Safari Web Inspector (for iOS testing)
+- Edge DevTools Device Emulation
+
+#### Physical Device Testing
+- BrowserStack (cloud device testing)
+- Sauce Labs (automated mobile testing)
+- AWS Device Farm (real device testing)
+- Local device lab setup
+
+#### Performance Testing
+- Lighthouse (mobile performance audits)
+- WebPageTest (real-world mobile testing)
+- GTmetrix (mobile performance analysis)
+- Chrome DevTools Performance tab
+
+#### Accessibility Testing
+- axe DevTools (accessibility testing)
+- WAVE (web accessibility evaluation)
+- Color Contrast Analyzers
+- Screen reader testing tools
+
+This comprehensive mobile testing approach ensures that all social interaction features work seamlessly across mobile devices, providing users with an optimal experience regardless of their device or browser choice.

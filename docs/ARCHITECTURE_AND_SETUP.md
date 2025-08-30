@@ -467,6 +467,166 @@ npm run dev
 
 ---
 
+## Mobile Optimization Guidelines
+
+### Mobile-First Development Approach
+
+The Grateful platform is designed with mobile-first principles to ensure optimal user experience across all devices. All social interaction features are optimized for touch interfaces and mobile viewports.
+
+#### Touch Interface Standards
+
+**Minimum Touch Target Sizes**:
+- All interactive elements must be at least 44px × 44px (iOS standard)
+- Buttons and clickable areas should have adequate spacing (minimum 8px between targets)
+- Touch targets should be visually distinct with proper contrast ratios
+
+**Touch-Friendly Components**:
+- **EmojiPicker**: Optimized emoji buttons with 48px touch targets
+- **ShareModal**: Large, easy-to-tap sharing options with clear visual feedback
+- **FollowButton**: Properly sized with loading states and haptic feedback simulation
+- **NotificationDropdown**: Touch-optimized scrolling and tap interactions
+- **MentionAutocomplete**: Touch-friendly dropdown with proper positioning
+
+#### Responsive Design Patterns
+
+**Viewport Handling**:
+```css
+/* Mobile-first breakpoints */
+@media (min-width: 640px) { /* sm */ }
+@media (min-width: 768px) { /* md */ }
+@media (min-width: 1024px) { /* lg */ }
+@media (min-width: 1280px) { /* xl */ }
+```
+
+**Modal Optimization**:
+- Modals should adapt to mobile viewports (full-screen on small devices)
+- Proper z-index management for mobile browsers
+- Touch-friendly close buttons and swipe gestures
+- Prevent body scrolling when modals are open
+
+**Component Responsiveness**:
+- **PostCard**: Responsive layout with proper image scaling
+- **Navbar**: Collapsible navigation for mobile screens
+- **Feed**: Optimized scrolling performance with virtual scrolling for large lists
+- **Profile Pages**: Responsive grid layouts for posts and user information
+
+#### Performance Optimization for Mobile
+
+**Loading States and Feedback**:
+- All async operations must show loading indicators
+- Optimistic updates for immediate user feedback (follow/unfollow, reactions)
+- Skeleton screens for content loading
+- Progressive image loading with proper placeholders
+
+**Network Optimization**:
+- Debounced search queries (300ms for mention autocomplete)
+- Efficient API calls with proper caching strategies
+- Image optimization with responsive sizes and formats
+- Lazy loading for non-critical content
+
+**Touch Interaction Enhancements**:
+- Haptic feedback simulation for supported devices
+- Visual feedback for all touch interactions (active states)
+- Prevent double-tap zoom issues on interactive elements
+- Smooth animations and transitions (60fps target)
+
+#### Mobile Testing Requirements
+
+**Device Testing Matrix**:
+- **iOS**: Safari on iPhone (latest 2 versions)
+- **Android**: Chrome on Android (latest 2 versions)
+- **Responsive Testing**: Chrome DevTools device simulation
+- **Touch Testing**: Actual device testing for critical user flows
+
+**Performance Benchmarks**:
+- First Contentful Paint (FCP): < 1.5s on 3G
+- Largest Contentful Paint (LCP): < 2.5s on 3G
+- Cumulative Layout Shift (CLS): < 0.1
+- First Input Delay (FID): < 100ms
+
+#### Accessibility on Mobile
+
+**Screen Reader Support**:
+- Proper ARIA labels for all interactive elements
+- Semantic HTML structure for navigation
+- Focus management for modal interactions
+- Voice-over friendly content descriptions
+
+**Keyboard Navigation**:
+- Tab order optimization for mobile keyboards
+- Proper focus indicators for external keyboard users
+- Escape key handling for modal dismissal
+- Enter/Space key support for custom interactive elements
+
+#### Mobile-Specific Features
+
+**Progressive Web App (PWA) Considerations**:
+- Proper viewport meta tags for mobile browsers
+- Touch icon and splash screen configuration
+- Offline-first approach for critical functionality
+- App-like navigation patterns
+
+**Mobile Browser Compatibility**:
+- iOS Safari viewport handling and safe areas
+- Android Chrome address bar behavior
+- Cross-browser touch event handling
+- Mobile-specific CSS properties and vendor prefixes
+
+#### Development Workflow for Mobile
+
+**Local Mobile Testing**:
+```bash
+# Start development server accessible on local network
+cd apps/web
+npm run dev -- --host 0.0.0.0
+
+# Test on mobile devices using local IP
+# Access via http://[your-local-ip]:3000
+```
+
+**Mobile Debugging**:
+- Chrome DevTools remote debugging for Android
+- Safari Web Inspector for iOS devices
+- Console logging for touch event debugging
+- Performance profiling on actual devices
+
+**Mobile-First CSS Development**:
+```css
+/* Start with mobile styles */
+.component {
+  /* Mobile-first base styles */
+}
+
+/* Add desktop enhancements */
+@media (min-width: 768px) {
+  .component {
+    /* Desktop-specific styles */
+  }
+}
+```
+
+#### Common Mobile Issues and Solutions
+
+**Touch Event Handling**:
+- Use `touchstart` events for immediate feedback
+- Prevent default behavior for custom touch interactions
+- Handle both touch and mouse events for hybrid devices
+- Implement proper touch gesture recognition
+
+**Viewport and Scrolling**:
+- Prevent horizontal scrolling with proper overflow handling
+- Use `touch-action` CSS property for scroll optimization
+- Implement momentum scrolling for iOS: `-webkit-overflow-scrolling: touch`
+- Handle keyboard appearance on iOS (viewport changes)
+
+**Performance Optimization**:
+- Use `will-change` CSS property sparingly for animations
+- Implement efficient list virtualization for large datasets
+- Optimize image loading with proper sizing and formats
+- Use CSS transforms for smooth animations (GPU acceleration)
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -484,9 +644,16 @@ npm run dev
    - Backend: Ensure virtual environment is activated
    - Frontend: Run `npm install` to install dependencies
 
+4. **Mobile Testing Issues:**
+   - Ensure development server is accessible on local network (`--host 0.0.0.0`)
+   - Check firewall settings for local network access
+   - Use actual devices for touch interaction testing
+   - Verify responsive breakpoints in browser DevTools
+
 ### Getting Help
 
 - Check [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) for common problems
 - Review [USEFUL_COMMANDS.md](./USEFUL_COMMANDS.md) for command reference
 - See [DATABASE_STRUCTURE.md](./DATABASE_STRUCTURE.md) for database schema
-- See [GRATEFUL_PRD.md](./GRATEFUL_PRD.md) for project requirements 
+- See [GRATEFUL_PRD.md](./GRATEFUL_PRD.md) for project requirements
+- See [TEST_GUIDELINES.md](./TEST_GUIDELINES.md) for mobile testing procedures 
