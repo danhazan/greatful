@@ -64,7 +64,7 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
       case 'warning':
         return <AlertTriangle className="h-5 w-5 text-yellow-500" />
       case 'loading':
-        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+        return <Loader2 className="h-5 w-5 text-gray-500 animate-spin" />
       default:
         return <Info className="h-5 w-5 text-blue-500" />
     }
@@ -79,7 +79,7 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
       case 'warning':
         return 'bg-yellow-50 border-yellow-200'
       case 'loading':
-        return 'bg-blue-50 border-blue-200'
+        return 'bg-gray-50 border-gray-200'
       default:
         return 'bg-blue-50 border-blue-200'
     }

@@ -440,6 +440,52 @@ hideToast(loadingToastId)
 - Maintain error toasts for failed actions
 - Visual feedback from UI state changes (heart count, reaction display) is sufficient
 
+### Issue: Loading Toast "Metrics Bar" Appearance (December 2024)
+
+**Symptoms:**
+- Blue horizontal bar-like elements appear at top-right when liking/reacting
+- Users perceive loading toasts as unwanted "metrics bars"
+- Visual clutter during common user interactions
+- Loading toasts appear more prominent after ToastPortal implementation
+
+**Root Cause:**
+Loading toasts for reactions and hearts create unnecessary visual noise since:
+1. These actions are typically fast (< 1 second)
+2. The UI provides immediate visual feedback (heart count changes, reaction animations)
+3. The blue `bg-blue-50 border-blue-200` styling creates a bar-like appearance
+4. ToastPortal positioning makes toasts more visible at top-right
+
+**Solution:**
+Remove loading toasts for reactions and hearts entirely:
+
+```typescript
+// ❌ WRONG - Shows loading toast for fast actions
+const loadingToastId = showLoading('Adding reaction...', 'Please wait')
+// ... API call ...
+hideToast(loadingToastId)
+
+// ✅ CORRECT - No loading toast for reactions/hearts
+const loadingToastId = '' // Placeholder for error handling
+// ... API call ...
+// Note: No loading toast to hide
+```
+
+**Implementation:**
+1. **Remove loading toast creation** for reactions and hearts
+2. **Keep error toasts** for failed actions (network errors, etc.)
+3. **Maintain visual feedback** through UI state changes
+4. **Use placeholder loadingToastId** for error handling compatibility
+
+**Files Changed:**
+- `apps/web/src/components/PostCard.tsx` - Removed loading toasts for reactions and hearts
+- `apps/web/src/components/ToastNotification.tsx` - Changed loading toast colors to gray (less prominent)
+
+**Key Points:**
+- Fast actions (< 1 second) don't need loading toasts
+- UI state changes provide sufficient feedback
+- Error toasts remain for actual failures
+- Reduces visual noise and improves user experience
+
 ---
 
 *This document should be updated whenever new notification patterns are discovered or when these issues are encountered again.*

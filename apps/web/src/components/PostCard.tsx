@@ -248,8 +248,9 @@ export default function PostCard({
       )
     }
     
-    // Show loading toast
-    const loadingToastId = showLoading('Adding reaction...', 'Please wait')
+    // Note: Removed loading toast for reactions to reduce visual noise
+    // The reaction UI provides sufficient visual feedback
+    const loadingToastId = '' // Placeholder for error handling
     
     try {
       const token = localStorage.getItem("access_token")
@@ -277,16 +278,15 @@ export default function PostCard({
           // Call handler with updated server data
           onReaction?.(post.id, emojiCode, reactionSummary)
           
-          // Hide loading toast
-          hideToast(loadingToastId)
+          // Note: No loading toast to hide for reactions
         } else {
           // Fallback to original handler if summary fetch fails
           onReaction?.(post.id, emojiCode)
-          hideToast(loadingToastId)
+          // Note: No loading toast to hide for reactions
         }
       } else {
         const errorData = await response.json().catch(() => ({}))
-        hideToast(loadingToastId)
+        // Note: No loading toast to hide for reactions
         showError(
           'Reaction Failed',
           errorData.message || 'Unable to add reaction. Please try again.',
@@ -298,7 +298,7 @@ export default function PostCard({
       }
     } catch (error) {
       console.error('Error updating reaction:', error)
-      hideToast(loadingToastId)
+      // Note: No loading toast to hide for reactions
       showError(
         'Network Error',
         'Please check your connection and try again.',
@@ -612,11 +612,9 @@ export default function PostCard({
                     analyticsService.trackHeartEvent(post.id, currentUserId, !isCurrentlyHearted)
                   }
                   
-                  // Show loading toast
-                  const loadingToastId = showLoading(
-                    isCurrentlyHearted ? 'Removing heart...' : 'Adding heart...',
-                    'Please wait'
-                  )
+                  // Note: Removed loading toast for hearts to reduce visual noise
+                  // The heart UI provides sufficient visual feedback
+                  const loadingToastId = '' // Placeholder for error handling
                   
                   try {
                     const token = getAccessToken()
@@ -643,17 +641,16 @@ export default function PostCard({
                         // Call handler with updated server data
                         onHeart?.(post.id, isCurrentlyHearted, heartInfo)
                         
-                        // Show success toast only for adding hearts, not removing
-                        hideToast(loadingToastId)
+                        // Note: No loading toast to hide for hearts
                       } else {
                         // Fallback to original handler if heart info fetch fails
                         onHeart?.(post.id, isCurrentlyHearted)
-                        hideToast(loadingToastId)
+                        // Note: No loading toast to hide for hearts
                         // Heart action completed successfully
                       }
                     } else {
                       const errorData = await response.json().catch(() => ({}))
-                      hideToast(loadingToastId)
+                      // Note: No loading toast to hide for hearts
                       showError(
                         'Heart Failed',
                         errorData.message || 'Unable to update heart. Please try again.',
@@ -671,7 +668,7 @@ export default function PostCard({
                     }
                   } catch (error) {
                     console.error('Error updating heart:', error)
-                    hideToast(loadingToastId)
+                    // Note: No loading toast to hide for hearts
                     showError(
                       'Network Error',
                       'Please check your connection and try again.',
