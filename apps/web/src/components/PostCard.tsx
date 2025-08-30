@@ -9,6 +9,7 @@ import HeartsViewer from "./HeartsViewer"
 import ShareModal from "./ShareModal"
 import MentionHighlighter from "./MentionHighlighter"
 import FollowButton from "./FollowButton"
+import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
@@ -469,10 +470,11 @@ export default function PostCard({
         {/* Post Header */}
         <div className={styling.header}>
           <div className="flex items-start space-x-3">
-            <img
-              src={post.author.image || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
-              alt={post.author.name}
-              className={`${styling.avatar} rounded-full cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all`}
+            <ProfilePhotoDisplay
+              photoUrl={post.author.image}
+              username={post.author.name}
+              size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
+              className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all"
               onClick={() => onUserClick?.(post.author.id)}
             />
             <div className="flex-1">

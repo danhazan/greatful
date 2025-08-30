@@ -557,4 +557,183 @@ These invalid usernames were then validated against the API, causing 404 errors.
 
 ---
 
+## 📤 File Upload FormData Issues (SOLVED - August 2025)
+
+### Issue: 422 Unprocessable Entity on File Uploads
+
+**Symptoms:**
+- File upload endpoints return 422 "Unprocessable Entity" errors
+- Frontend FormData creation appears correct
+- Backend logs show requests reaching the endpoint
+- FastAPI validation fails with "field required" errors
+- File uploads work with direct curl but fail through Next.js API routes
+
+**Root Cause:**
+The `createAuthHeaders()` function in `apps/web/src/lib/api-utils.ts` was **always** setting `Content-Type: application/json`, which overrode the multipart boundary that fetch automatically sets for FormData.
+
+**Evidence of the Problem:**
+```typescript
+// ❌ PROBLEMATIC - Always sets Content-Type
+export function createAuthHeaders(request: NextRequest): Record<string, string> {
+  const token = getAuthToken(request)
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',  // ← THIS BREAKS FORMDATA!
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  
+  return headers
+}
+```
+
+**Debug Evidence:**
+- ✅ Next.js FormData creation was perfect
+- ✅ Raw request body contained proper multipart data with boundaries
+- ❌ Content-Type header was `application/json` instead of `multipart/form-data; boundary=...`
+- ❌ FastAPI couldn't parse the file because of wrong Content-Type
+
+**Solution:**
+
+**File: `apps/web/src/app/api/users/me/profile/photo/route.ts`**
+
+```typescript
+// ❌ WRONG - Uses createAuthHeaders which sets Content-Type
+const authHeaders = createAuthHeaders(request)
+const response = await fetch(url, {
+  headers: authHeaders, // ← Overrides FormData Content-Type
+  body: backendFormData
+})
+
+// ✅ CORRECT - Create headers WITHOUT Content-Type for FormData
+const token = getAuthToken(request)
+const headers: Record<string, string> = {}
+if (token) {
+  headers['Authorization'] = `Bearer ${token}`
+}
+
+// ✅ Let fetch set Content-Type automatically for FormData
+const response = await fetch(url, {
+  headers, // ← Only Authorization, no Content-Type
+  body: backendFormData
+})
+```
+
+**Key Technical Points:**
+
+1. **Never set Content-Type manually with FormData**: Let fetch handle it automatically
+2. **FormData requires proper multipart boundaries**: Manual Content-Type breaks this
+3. **Authentication headers can be set separately**: Only Authorization is needed
+4. **Debug raw request bodies**: Essential for diagnosing multipart issues
+
+**Verification Results:**
+
+**Before Fix:**
+```
+🔍 Content-Type: application/json
+🔍 Parsed file: None
+🔍 File received: false
+```
+
+**After Fix:**
+```
+🔍 Content-Type: multipart/form-data; boundary=----formdata-undici-027685962229
+🔍 Parsed file: test.png
+🔍 File content type: application/octet-stream
+🔍 File size: 15
+🔍 File received: true
+```
+
+**Testing the Fix:**
+
+Create a test to verify FormData forwarding:
+
+```javascript
+// Test file: test_formdata_fix.js
+async function testFormDataFix() {
+  const formData = new FormData();
+  formData.append('file', new Blob(['test data'], { type: 'image/png' }), 'test.png');
+  
+  const response = await fetch('http://localhost:3000/api/users/me/profile/photo', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer fake-token' },
+    body: formData
+  });
+  
+  // Should get 401 (auth error) not 422 (validation error)
+  expect(response.status).toBe(401); // Not 422!
+}
+```
+
+**Files Modified:**
+- `apps/web/src/app/api/users/me/profile/photo/route.ts` - Fixed FormData forwarding
+- `apps/web/src/lib/api-utils.ts` - Documented the Content-Type issue
+
+**Common Patterns for File Upload Routes:**
+
+```typescript
+// ✅ CORRECT Pattern for any file upload API route
+export async function POST(request: NextRequest) {
+  // Get file from FormData
+  const formData = await request.formData()
+  const file = formData.get('file') as File
+  
+  // Create FormData for backend
+  const backendFormData = new FormData()
+  backendFormData.append('file', file, file.name)
+  
+  // ✅ CRITICAL: Create headers WITHOUT Content-Type
+  const token = getAuthToken(request)
+  const headers: Record<string, string> = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  // DO NOT SET Content-Type!
+  
+  // ✅ Let fetch handle Content-Type automatically
+  const response = await fetch(backendUrl, {
+    method: 'POST',
+    headers, // Only auth headers
+    body: backendFormData
+  })
+}
+```
+
+**Key Debugging Commands:**
+
+```bash
+# Test FastAPI endpoint directly (should work)
+curl -X POST "http://localhost:8000/api/v1/users/me/profile/photo" \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@test.png"
+
+# Test Next.js proxy (should also work after fix)
+curl -X POST "http://localhost:3000/api/users/me/profile/photo" \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@test.png"
+```
+
+**Error Status Code Guide:**
+- **422 Unprocessable Entity**: FormData/validation issue (the bug we fixed)
+- **401 Unauthorized**: Authentication issue (expected with fake tokens)
+- **400 Bad Request**: Missing file or other client error
+- **500 Internal Server Error**: Backend processing error
+
+**Prevention Checklist:**
+- [ ] Never use `createAuthHeaders()` for file upload routes
+- [ ] Never manually set `Content-Type` when sending FormData
+- [ ] Always let fetch set Content-Type automatically for multipart data
+- [ ] Test with both valid and invalid auth tokens
+- [ ] Verify 401 (not 422) errors with invalid auth
+- [ ] Check backend logs for proper multipart parsing
+
+**Key Points:**
+- This bug affects ALL file upload endpoints using Next.js API routes
+- The fix is simple but critical: don't set Content-Type manually
+- Always test the complete flow: frontend → Next.js → FastAPI
+- 422 errors indicate FormData serialization issues, not business logic errors
+
+---
+
 *This document should be updated whenever new notification patterns are discovered or when these issues are encountered again.*

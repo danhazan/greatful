@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
+import { getImageUrl } from '@/utils/imageUtils'
 // UserInfo type defined locally
 interface UserInfo {
   id: number
@@ -247,7 +248,7 @@ export default function MentionAutocomplete({
                 <div className="flex-shrink-0">
                   {user.profile_image_url ? (
                     <img
-                      src={user.profile_image_url}
+                      src={getImageUrl(user.profile_image_url) || user.profile_image_url}
                       alt={user.username}
                       className="w-8 h-8 rounded-full object-cover"
                     />

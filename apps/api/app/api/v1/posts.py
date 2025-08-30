@@ -172,25 +172,14 @@ async def get_optional_user_id(request: Request) -> Optional[int]:
 # Removed old create_post function - replaced with create_post_with_file below
 
 
-def _save_uploaded_file(file: UploadFile) -> str:
+async def _save_uploaded_file(file: UploadFile, db: AsyncSession) -> str:
     """Save uploaded file and return the URL path."""
+    from app.services.file_upload_service import FileUploadService
+    
     try:
-        # Create uploads directory if it doesn't exist
-        upload_dir = Path("uploads/posts")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Generate unique filename
-        file_extension = Path(file.filename).suffix if file.filename else '.jpg'
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
-        file_path = upload_dir / unique_filename
-        
-        # Save the file
-        with open(file_path, "wb") as buffer:
-            content = file.file.read()
-            buffer.write(content)
-        
-        # Return the URL path (relative to the server)
-        return f"/uploads/posts/{unique_filename}"
+        file_service = FileUploadService(db)
+        file_service.validate_image_file(file, max_size_mb=5)
+        return await file_service.save_simple_file(file, "posts")
     except Exception as e:
         logger.error(f"Error saving uploaded file: {e}")
         raise HTTPException(
@@ -327,7 +316,7 @@ async def create_post_with_file(
                     detail="File too large. Maximum size is 5MB"
                 )
             
-            image_url = _save_uploaded_file(image)
+            image_url = await _save_uploaded_file(image, db)
 
         # Create post
         db_post = Post(

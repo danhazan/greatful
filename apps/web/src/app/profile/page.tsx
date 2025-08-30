@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { User, Edit3, Calendar, Heart } from "lucide-react"
+import { User, Edit3, Calendar, Heart, X } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import Navbar from "@/components/Navbar"
+import ProfilePhotoUpload from "@/components/ProfilePhotoUpload"
+import ProfilePhotoDisplay from "@/components/ProfilePhotoDisplay"
 
 interface UserProfile {
   id: number
@@ -46,6 +48,7 @@ export default function ProfilePage() {
     username: "",
     bio: ""
   })
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
 
   // Load user profile data
@@ -71,6 +74,7 @@ export default function ProfilePage() {
             username: profileData.username || 'Unknown User',
             email: profileData.email,
             bio: profileData.bio || "No bio yet - add one by editing your profile!",
+            profileImage: profileData.profile_image_url,
             joinDate: profileData.created_at || new Date().toISOString(),
             postsCount: profileData.posts_count || 0,
             followersCount: profileData.followers_count || 0,
@@ -253,6 +257,16 @@ export default function ProfilePage() {
     router.push("/")
   }
 
+  const handlePhotoUpdate = (photoUrl: string | null) => {
+    if (user) {
+      setUser({
+        ...user,
+        profileImage: photoUrl || undefined
+      })
+    }
+    setShowPhotoUpload(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
@@ -266,16 +280,20 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row items-start justify-between space-y-4 sm:space-y-0">
               <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 w-full sm:w-auto">
                 {/* Profile Image */}
-                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  {user.profileImage ? (
-                    <img 
-                      src={user.profileImage} 
-                      alt={user.username}
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover"
-                    />
-                  ) : (
-                    <User className="h-10 w-10 sm:h-12 sm:w-12 text-purple-600" />
-                  )}
+                <div className="relative">
+                  <ProfilePhotoDisplay
+                    photoUrl={user.profileImage}
+                    username={user.username}
+                    size="xl"
+                    onClick={() => setShowPhotoUpload(true)}
+                  />
+                  <button
+                    onClick={() => setShowPhotoUpload(true)}
+                    className="absolute -bottom-1 -right-1 bg-purple-600 text-white p-2 rounded-full shadow-lg hover:bg-purple-700 transition-colors"
+                    title="Change profile photo"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                  </button>
                 </div>
 
                 {/* Profile Info */}
@@ -414,6 +432,28 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
+
+      {/* Profile Photo Upload Modal */}
+      {showPhotoUpload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Update Profile Photo</h3>
+              <button
+                onClick={() => setShowPhotoUpload(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <ProfilePhotoUpload
+              currentPhotoUrl={user.profileImage}
+              onPhotoUpdate={handlePhotoUpdate}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

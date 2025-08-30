@@ -25,3 +25,8 @@ Grateful is a modern social gratitude platform designed to foster positivity, mi
 - Ages 25-45, health-conscious individuals interested in mindfulness and wellness
 - People seeking positive social media alternatives
 - Mental health advocates and practitioners
+
+## Documentation
+- **Project Documentation**: Comprehensive documentation is available in the `docs/` folder under the project root
+- **Implementation Guidance**: Always consult the relevant documentation before implementing new features or making changes
+- **Architecture Reference**: Review architecture and setup guides to understand system design and patterns

@@ -4,13 +4,14 @@ User profile endpoints.
 
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, UploadFile, File, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
 from app.services.user_service import UserService
 from app.services.mention_service import MentionService
+from app.services.profile_photo_service import ProfilePhotoService
 from app.core.responses import success_response
 
 logger = logging.getLogger(__name__)
@@ -99,6 +100,16 @@ class UsernameValidationResponse(BaseModel):
     """Username validation response model."""
     valid_usernames: List[str]
     invalid_usernames: List[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProfilePhotoResponse(BaseModel):
+    """Profile photo response model."""
+    filename: str
+    profile_image_url: str
+    urls: dict
+    success: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -268,3 +279,73 @@ async def validate_usernames_batch(
     result = await user_service.validate_usernames_batch(unique_usernames)
     
     return success_response(result, getattr(request.state, 'request_id', None))
+
+@router.post("/me/profile/photo")
+async def upload_profile_photo(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Upload profile photo.
+    
+    - **file**: Image file (JPEG, PNG, WebP, max 5MB)
+    
+    Returns profile photo data with URLs for different sizes.
+    Automatically creates thumbnail, small, medium, and large variants.
+    """
+    try:
+        photo_service = ProfilePhotoService(db)
+        result = await photo_service.upload_profile_photo(current_user_id, file)
+        
+        return success_response(result, getattr(request.state, 'request_id', None))
+        
+    except Exception as e:
+        logger.error(f"Error uploading profile photo: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.delete("/me/profile/photo")
+async def delete_profile_photo(
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete current profile photo.
+    
+    Removes profile photo and all variants from storage.
+    """
+    try:
+        photo_service = ProfilePhotoService(db)
+        result = await photo_service.delete_profile_photo(current_user_id)
+        
+        return success_response({"deleted": result}, getattr(request.state, 'request_id', None))
+        
+    except Exception as e:
+        logger.error(f"Error deleting profile photo for user {current_user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@router.get("/me/profile/photo/default")
+async def get_default_avatar(
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get default avatar URL for current user.
+    
+    Returns a generated avatar URL based on user ID.
+    """
+    photo_service = ProfilePhotoService(db)
+    avatar_url = await photo_service.get_default_avatar_url(current_user_id)
+    
+    return success_response({"avatar_url": avatar_url}, getattr(request.state, 'request_id', None))
