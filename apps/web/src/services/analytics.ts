@@ -51,16 +51,40 @@ class AnalyticsService {
     emojiCode?: string,
     previousEmoji?: string
   ): Promise<void> {
-    // Disable analytics tracking to prevent any UI interference
-    return
+    const event: EngagementEvent = {
+      type,
+      postId,
+      userId,
+      metadata: { emojiCode, previousEmoji },
+      timestamp: new Date()
+    }
+
+    this.events.push(event)
+    await this.updatePostEngagementScore(postId)
+    await this.updateUserMetrics(userId, type, emojiCode)
+    
+    // Backend API calls are disabled to prevent UI interference
+    // this.sendToBackend(event) - commented out
   }
 
   /**
    * Track a heart event
    */
   async trackHeartEvent(postId: string, userId: string, isAdd: boolean): Promise<void> {
-    // Disable analytics tracking to prevent any UI interference
-    return
+    const event: EngagementEvent = {
+      type: 'heart',
+      postId,
+      userId,
+      metadata: { emojiCode: isAdd ? 'heart' : 'heart_remove' },
+      timestamp: new Date()
+    }
+
+    this.events.push(event)
+    await this.updatePostEngagementScore(postId)
+    await this.updateUserMetrics(userId, 'heart')
+    
+    // Backend API calls are disabled to prevent UI interference
+    // this.sendToBackend(event) - commented out
   }
 
   /**
@@ -71,16 +95,39 @@ class AnalyticsService {
     userId: string, 
     shareMethod: 'url' | 'message'
   ): Promise<void> {
-    // Disable analytics tracking to prevent any UI interference
-    return
+    const event: EngagementEvent = {
+      type: 'share',
+      postId,
+      userId,
+      metadata: { shareMethod },
+      timestamp: new Date()
+    }
+
+    this.events.push(event)
+    await this.updatePostEngagementScore(postId)
+    await this.updateUserMetrics(userId, 'share')
+    
+    // Backend API calls are disabled to prevent UI interference
+    // this.sendToBackend(event) - commented out
   }
 
   /**
    * Track a post view event
    */
   async trackViewEvent(postId: string, userId: string, viewDuration?: number): Promise<void> {
-    // Disable analytics tracking to prevent any UI interference
-    return
+    const event: EngagementEvent = {
+      type: 'view',
+      postId,
+      userId,
+      metadata: { viewDuration },
+      timestamp: new Date()
+    }
+
+    this.events.push(event)
+    await this.updatePostEngagementScore(postId)
+    
+    // Backend API calls are disabled to prevent UI interference
+    // this.sendToBackend(event) - commented out
   }
 
   /**
