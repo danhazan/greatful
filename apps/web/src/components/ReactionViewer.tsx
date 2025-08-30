@@ -41,15 +41,36 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
     }
   }, [isOpen, onClose])
 
-  // Handle escape key
+  // Handle escape key and keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose()
+      } else if (event.key === 'Tab') {
+        // Allow tab navigation within modal
+        const focusableElements = modalRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusableElements && focusableElements.length > 0) {
+          const firstElement = focusableElements[0] as HTMLElement
+          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+          
+          if (event.shiftKey && document.activeElement === firstElement) {
+            event.preventDefault()
+            lastElement.focus()
+          } else if (!event.shiftKey && document.activeElement === lastElement) {
+            event.preventDefault()
+            firstElement.focus()
+          }
+        }
       }
     }
 
     if (isOpen) {
+      // Focus the modal when it opens
+      if (modalRef.current) {
+        modalRef.current.focus()
+      }
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
@@ -79,49 +100,66 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4 sm:p-6">
         <div 
           ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reaction-viewer-title"
+          aria-describedby="reaction-viewer-description"
           className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[85vh] sm:max-h-[80vh] flex flex-col touch-manipulation"
+          tabIndex={-1}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 id="reaction-viewer-title" className="text-lg font-semibold text-gray-900">
               Reactions ({totalCount})
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:bg-gray-100 rounded-lg"
-              aria-label="Close modal"
+              className="text-gray-400 hover:text-gray-600 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              aria-label="Close reactions modal"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="flex-1 overflow-y-auto custom-scrollbar" role="main">
             {totalCount === 0 ? (
-              <div className="p-6 sm:p-8 text-center">
-                <div className="text-gray-400 text-4xl mb-4">😊</div>
+              <div className="p-6 sm:p-8 text-center" role="status" aria-label="No reactions yet">
+                <div className="text-gray-400 text-4xl mb-4" aria-hidden="true">😊</div>
                 <p className="text-gray-500">No reactions yet</p>
-                <p className="text-sm text-gray-400 mt-1">Be the first to react!</p>
+                <p id="reaction-viewer-description" className="text-sm text-gray-400 mt-1">Be the first to react!</p>
               </div>
             ) : (
-              <div className="p-3 sm:p-4 space-y-4">
+              <div className="p-3 sm:p-4 space-y-4" role="list" aria-label="Reactions by emoji type">
+                <div className="sr-only" id="reaction-viewer-description">
+                  List of users who reacted to this post, grouped by emoji type. Use tab to navigate through reactions.
+                </div>
                 {Object.entries(groupedReactions).map(([emoji, emojiReactions]) => (
-                  <div key={emoji} className="space-y-2">
+                  <div key={emoji} className="space-y-2" role="group" aria-labelledby={`emoji-${emoji}-header`}>
                     {/* Emoji Header */}
                     <div className="flex items-center space-x-2 px-2">
-                      <span className="text-xl">{emoji}</span>
-                      <span className="text-sm text-gray-500 font-medium">
-                        {emojiReactions.length}
+                      <span className="text-xl" aria-hidden="true">{emoji}</span>
+                      <span id={`emoji-${emoji}-header`} className="text-sm text-gray-500 font-medium">
+                        {emojiReactions.length} {emojiReactions.length === 1 ? 'reaction' : 'reactions'}
                       </span>
                     </div>
                     
                     {/* Users who reacted with this emoji */}
-                    <div className="space-y-2">
+                    <div className="space-y-2" role="list" aria-label={`Users who reacted with ${emoji}`}>
                       {emojiReactions.map((reaction) => (
                         <div 
                           key={reaction.id}
-                          className="flex items-center space-x-3 p-3 sm:p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer min-h-[44px] touch-manipulation active:bg-gray-100"
+                          className="flex items-center space-x-3 p-3 sm:p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer min-h-[44px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset"
                           onClick={() => onUserClick?.(parseInt(reaction.userId))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              onUserClick?.(parseInt(reaction.userId))
+                            }
+                          }}
+                          role="listitem"
+                          tabIndex={0}
+                          aria-label={`${reaction.userName} reacted with ${emoji} ${formatTimeAgo(reaction.createdAt)}. Press to view profile.`}
                         >
                           {/* User Avatar */}
                           <div className="flex-shrink-0">
@@ -167,7 +205,8 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
           <div className="p-4 border-t border-gray-200">
             <button
               onClick={onClose}
-              className="w-full px-4 py-3 sm:py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors min-h-[44px] touch-manipulation active:bg-gray-300"
+              className="w-full px-4 py-3 sm:py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors min-h-[44px] touch-manipulation active:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              aria-label="Close reactions modal"
             >
               Close
             </button>

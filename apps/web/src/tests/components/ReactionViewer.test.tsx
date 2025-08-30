@@ -74,7 +74,7 @@ describe('ReactionViewer', () => {
 
     expect(screen.getByText('Reactions (4)')).toBeInTheDocument()
     // Check that the modal content is displayed
-    expect(screen.getByLabelText('Close modal')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Close reactions modal')).toHaveLength(2) // Header X button and footer Close button
   })
 
   it('should display reactions grouped by emoji', () => {
@@ -169,8 +169,8 @@ describe('ReactionViewer', () => {
       />
     )
 
-    const closeButton = screen.getByLabelText('Close modal')
-    fireEvent.click(closeButton)
+    const closeButtons = screen.getAllByLabelText('Close reactions modal')
+    fireEvent.click(closeButtons[0]) // Click the first close button (X in header)
 
     expect(mockOnClose).toHaveBeenCalled()
   })
@@ -271,15 +271,17 @@ describe('ReactionViewer', () => {
     )
 
     // Should show count for heart_eyes (2 users) - look for the count specifically
-    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getByText('2 reactions')).toBeInTheDocument()
 
     // Should show count for fire (1 user)
     const fireEmojis = screen.getAllByText('🔥')
     expect(fireEmojis).toHaveLength(2) // One in header, one in individual reaction
-    expect(screen.getAllByText('1')).toHaveLength(2) // Two counts of "1" for fire and pray
 
     // Should show count for pray (1 user)
     const prayEmojis = screen.getAllByText('🙏')
     expect(prayEmojis).toHaveLength(2) // One in header, one in individual reaction
+    
+    // Should have two instances of "1 reaction" for fire and pray
+    expect(screen.getAllByText('1 reaction')).toHaveLength(2)
   })
 })

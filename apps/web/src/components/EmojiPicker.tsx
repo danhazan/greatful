@@ -65,6 +65,23 @@ export default function EmojiPicker({
         if (EMOJI_OPTIONS[index]) {
           onEmojiSelect(EMOJI_OPTIONS[index].code)
         }
+      } else if (event.key === 'Tab') {
+        // Allow tab navigation within modal
+        const focusableElements = modalRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusableElements && focusableElements.length > 0) {
+          const firstElement = focusableElements[0] as HTMLElement
+          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+          
+          if (event.shiftKey && document.activeElement === firstElement) {
+            event.preventDefault()
+            lastElement.focus()
+          } else if (!event.shiftKey && document.activeElement === lastElement) {
+            event.preventDefault()
+            firstElement.focus()
+          }
+        }
       }
     }
 
@@ -88,6 +105,10 @@ export default function EmojiPicker({
       {/* Modal */}
       <div 
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="emoji-picker-title"
+        aria-describedby="emoji-picker-description"
         className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px]"
         style={{
           left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 296)),
@@ -97,10 +118,10 @@ export default function EmojiPicker({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">React with</h3>
+          <h3 id="emoji-picker-title" className="text-sm font-semibold text-gray-900">React with</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1"
             aria-label="Close emoji picker"
           >
             <X className="h-4 w-4" />
@@ -108,7 +129,11 @@ export default function EmojiPicker({
         </div>
 
         {/* Emoji Grid */}
-        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+        <div 
+          className="grid grid-cols-4 gap-2 sm:gap-3"
+          role="grid"
+          aria-label="Emoji reactions"
+        >
           {EMOJI_OPTIONS.map((option, index) => (
             <button
               key={option.code}
@@ -127,6 +152,7 @@ export default function EmojiPicker({
                 touch-manipulation select-none
                 active:scale-95 active:bg-purple-100
                 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+                focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
                 ${currentReaction === option.code 
                   ? 'bg-purple-100 ring-2 ring-purple-500 ring-offset-1' 
                   : 'hover:bg-gray-50 active:bg-purple-50'
@@ -134,7 +160,9 @@ export default function EmojiPicker({
                 ${selectedEmoji === option.code ? 'bg-purple-200' : ''}
               `}
               title={`${option.label} (${index + 1})`}
-              aria-label={`React with ${option.label}`}
+              aria-label={`React with ${option.label}. Press ${index + 1} key as shortcut.${currentReaction === option.code ? ' Currently selected.' : ''}`}
+              aria-pressed={currentReaction === option.code}
+              role="gridcell"
               {...createTouchHandlers(undefined, 'medium')}
             >
               {selectedEmoji === option.code ? (
@@ -153,8 +181,8 @@ export default function EmojiPicker({
 
         {/* Footer */}
         <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500 text-center">
-            Use number keys 1-8 or click to react
+          <p id="emoji-picker-description" className="text-xs text-gray-500 text-center">
+            Use number keys 1-8 or click to react. Press Escape to close.
           </p>
         </div>
       </div>

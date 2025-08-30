@@ -74,9 +74,7 @@ describe('Touch Interactions', () => {
         />
       )
 
-      const emojiButtons = screen.getAllByRole('button').filter(btn => 
-        btn.getAttribute('aria-label')?.includes('React with')
-      )
+      const emojiButtons = screen.getAllByRole('gridcell')
       
       expect(emojiButtons.length).toBeGreaterThan(0)
       
@@ -96,9 +94,7 @@ describe('Touch Interactions', () => {
         />
       )
 
-      const emojiButtons = screen.getAllByRole('button').filter(btn => 
-        btn.getAttribute('aria-label')?.includes('React with')
-      )
+      const emojiButtons = screen.getAllByRole('gridcell')
       
       emojiButtons.forEach(button => {
         expect(button).toHaveClass('min-h-[44px]')
@@ -116,9 +112,8 @@ describe('Touch Interactions', () => {
         />
       )
 
-      const emojiButton = screen.getAllByRole('button').find(btn => 
-        btn.getAttribute('aria-label')?.includes('React with')
-      )
+      const emojiButtons = screen.getAllByRole('gridcell')
+      const emojiButton = emojiButtons[0]
       
       if (emojiButton) {
         const clickEvent = new MouseEvent('click', { bubbles: true })

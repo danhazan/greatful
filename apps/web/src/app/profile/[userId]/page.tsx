@@ -221,7 +221,8 @@ export default function UserProfilePage() {
   }
 
   const handleShare = (postId: string) => {
-    alert(`Share functionality for post ${postId} - Coming soon!`)
+    // Share functionality is handled by the PostCard component's ShareModal
+    // No additional action needed here
   }
 
   const handleUserClick = (clickedUserId: string) => {

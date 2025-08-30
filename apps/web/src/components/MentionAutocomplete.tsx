@@ -200,6 +200,9 @@ export default function MentionAutocomplete({
     <div
       ref={dropdownRef}
       data-mention-autocomplete
+      role="listbox"
+      aria-label="User search results"
+      aria-live="polite"
       className={`absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-w-xs w-64 sm:w-80 max-h-60 sm:max-h-72 overflow-y-auto custom-scrollbar touch-manipulation ${className}`}
       style={{
         left: position.x,
@@ -209,25 +212,27 @@ export default function MentionAutocomplete({
       }}
     >
       {loading && (
-        <div className="p-3 text-center text-gray-500 text-sm">
-          <div className="animate-spin inline-block w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full mr-2"></div>
+        <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
+          <div className="animate-spin inline-block w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full mr-2" aria-hidden="true"></div>
           Searching...
         </div>
       )}
 
       {!loading && hasSearched && users.length === 0 && searchQuery && (
-        <div className="p-3 text-center text-gray-500 text-sm">
+        <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
           No users found for "{searchQuery}"
         </div>
       )}
 
       {!loading && users.length > 0 && (
-        <div className="py-1">
+        <div className="py-1" role="group" aria-label="Search results">
           {users.map((user, index) => (
             <button
               key={user.id}
               type="button"
-              className={`w-full px-3 py-3 sm:py-2 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[48px] touch-manipulation active:bg-purple-100 select-none ${
+              role="option"
+              aria-selected={index === selectedIndex}
+              className={`w-full px-3 py-3 sm:py-2 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
                 index === selectedIndex ? 'bg-purple-50' : ''
               }`}
               onClick={(e) => {
@@ -235,6 +240,7 @@ export default function MentionAutocomplete({
                 handleUserSelect(user)
               }}
               onMouseEnter={() => setSelectedIndex(index)}
+              aria-label={`Select user ${user.username}${user.bio ? `. ${user.bio}` : ''}`}
               {...createTouchHandlers(undefined, 'light')}
             >
               <div className="flex items-center space-x-3">
@@ -270,7 +276,7 @@ export default function MentionAutocomplete({
       )}
 
       {!loading && hasSearched && !searchQuery && (
-        <div className="p-3 text-center text-gray-500 text-sm">
+        <div className="p-3 text-center text-gray-500 text-sm" role="status">
           Type to search for users...
         </div>
       )}

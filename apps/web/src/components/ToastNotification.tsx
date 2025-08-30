@@ -102,6 +102,9 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
       style={{ transformOrigin: "right center" }}
     >
       <div 
+        role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
+        aria-live={toast.type === 'error' || toast.type === 'warning' ? 'assertive' : 'polite'}
+        aria-atomic="true"
         className={`
           rounded-lg border shadow-lg p-4 cursor-pointer relative ${getBackgroundColor()}
         `}
@@ -143,7 +146,8 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
                 e.stopPropagation()
                 handleClose()
               }}
-              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors absolute top-2 right-2"
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors absolute top-2 right-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
+              aria-label={`Close ${toast.type} notification`}
             >
               <X className="h-4 w-4" />
             </button>

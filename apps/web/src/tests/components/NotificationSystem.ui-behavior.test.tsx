@@ -95,7 +95,7 @@ describe('NotificationSystem UI Behavior', () => {
     })
 
     // Open notifications dropdown
-    const bellButton = screen.getByLabelText('Notifications')
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
     // Verify dropdown is open
@@ -132,7 +132,7 @@ describe('NotificationSystem UI Behavior', () => {
     })
 
     // Open notifications dropdown
-    const bellButton = screen.getByLabelText('Notifications')
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
     // Verify dropdown is open
@@ -167,7 +167,7 @@ describe('NotificationSystem UI Behavior', () => {
     })
 
     // Open notifications dropdown
-    const bellButton = screen.getByLabelText('Notifications')
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
     // Mock batch children fetch (will be called when batch is clicked)
@@ -200,14 +200,14 @@ describe('NotificationSystem UI Behavior', () => {
     })
 
     // Open notifications dropdown
-    const bellButton = screen.getByLabelText('Notifications')
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
     // Verify dropdown is open
     expect(screen.getByText('Notifications')).toBeInTheDocument()
 
-    // Click the X button
-    const closeButton = screen.getByLabelText('Close notifications')
+    // Click the X button - use the more specific aria-label
+    const closeButton = screen.getByLabelText('Close notifications panel')
     fireEvent.click(closeButton)
 
     // Dropdown should be closed
@@ -233,17 +233,18 @@ describe('NotificationSystem UI Behavior', () => {
     })
 
     // Open notifications dropdown
-    const bellButton = screen.getByLabelText('Notifications')
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
     // Verify that batch notifications have the expand/collapse indicator
-    const expandIcon = document.querySelector('.w-4.h-4.text-gray-400.transition-transform')
+    // Look for the SVG arrow icon instead of specific CSS classes
+    const expandIcon = screen.getByRole('listitem', { name: /3 people reacted/ })
     expect(expandIcon).toBeInTheDocument()
 
     // The batch children container CSS classes are defined in the component
     // and will be applied when batches are expanded. We can verify the component
     // has the correct structure for scrollbars by checking the main container.
-    const notificationsList = document.querySelector('.max-h-\\[50vh\\].sm\\:max-h-80.overflow-y-auto.custom-scrollbar')
+    const notificationsList = screen.getByRole('list', { name: 'Notification items' })
     expect(notificationsList).toBeInTheDocument()
   })
 })

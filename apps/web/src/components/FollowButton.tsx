@@ -214,6 +214,8 @@ export default function FollowButton({
           ${className}
         `}
         aria-label={isFollowing ? `Unfollow user ${userId}` : `Follow user ${userId}`}
+        aria-pressed={isFollowing}
+        aria-describedby={error ? `follow-error-${userId}` : undefined}
         {...createTouchHandlers(undefined, 'light')}
       >
         {isLoading ? (
@@ -227,6 +229,9 @@ export default function FollowButton({
       {error && (
         <div 
           ref={errorRef}
+          id={`follow-error-${userId}`}
+          role="alert"
+          aria-live="polite"
           className="absolute top-full left-0 mt-1 p-2 bg-red-100 border border-red-300 rounded-md shadow-sm z-10 min-w-max"
         >
           <p className="text-sm text-red-700">{error}</p>

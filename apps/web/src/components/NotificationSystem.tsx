@@ -235,8 +235,10 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
       <div className="relative">
         <button
           onClick={() => setShowNotifications(!showNotifications)}
-          className="relative p-2 text-purple-600 hover:text-purple-700 transition-colors"
-          aria-label="Notifications"
+          className="relative p-2 text-purple-600 hover:text-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+          aria-expanded={showNotifications}
+          aria-haspopup="true"
         >
           <svg
             className="h-6 w-6"
@@ -254,7 +256,10 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
           
           {/* Unread Badge */}
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            <span 
+              className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+              aria-label={`${unreadCount} unread notifications`}
+            >
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -262,11 +267,17 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
         {/* Notifications Dropdown */}
         {showNotifications && (
-          <div className="fixed mt-2 w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden" style={{
-            top: '73px',
-            right: '16px',
-            left: 'auto'
-          }}>
+          <div 
+            className="fixed mt-2 w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden" 
+            style={{
+              top: '73px',
+              right: '16px',
+              left: 'auto'
+            }}
+            role="region"
+            aria-label="Notifications panel"
+            aria-live="polite"
+          >
             {/* Header */}
             <div className="p-4 sm:p-5 border-b border-gray-200 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">Notifications</h3>
@@ -274,15 +285,16 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-xs text-purple-600 hover:text-purple-700 px-2 py-1 min-h-[32px] touch-manipulation active:text-purple-800"
+                    className="text-xs text-purple-600 hover:text-purple-700 px-2 py-1 min-h-[32px] touch-manipulation active:text-purple-800 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
+                    aria-label={`Mark all ${unreadCount} notifications as read`}
                   >
                     Mark all read
                   </button>
                 )}
                 <button
                   onClick={() => setShowNotifications(false)}
-                  className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:bg-gray-100 rounded-lg"
-                  aria-label="Close notifications"
+                  className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                  aria-label="Close notifications panel"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -290,10 +302,14 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
             </div>
 
             {/* Notifications List */}
-            <div className="max-h-[50vh] sm:max-h-80 overflow-y-auto custom-scrollbar">
+            <div 
+              className="max-h-[50vh] sm:max-h-80 overflow-y-auto custom-scrollbar"
+              role="list"
+              aria-label="Notification items"
+            >
               {notifications.length === 0 ? (
-                <div className="p-6 sm:p-8 text-center">
-                  <div className="text-gray-400 text-4xl mb-2">🔔</div>
+                <div className="p-6 sm:p-8 text-center" role="status" aria-label="No notifications">
+                  <div className="text-gray-400 text-4xl mb-2" aria-hidden="true">🔔</div>
                   <p className="text-gray-500">No notifications yet</p>
                   <p className="text-sm text-gray-400 mt-1">You'll see reactions and comments here</p>
                 </div>
@@ -303,7 +319,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                     <div key={notification.id}>
                       {/* Main notification */}
                       <div
-                        className={`p-4 sm:p-5 hover:bg-gray-50 cursor-pointer transition-colors min-h-[60px] touch-manipulation active:bg-gray-100 ${
+                        className={`p-4 sm:p-5 hover:bg-gray-50 cursor-pointer transition-colors min-h-[60px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
                           !notification.read ? 'bg-purple-50' : ''
                         }`}
                         onClick={() => {
@@ -323,6 +339,15 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                             // Don't close notifications dropdown for individual notification clicks
                           }
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            e.currentTarget.click()
+                          }
+                        }}
+                        role="listitem"
+                        tabIndex={0}
+                        aria-label={`${notification.isBatch ? 'Batch notification' : 'Notification'}: ${notification.message}. ${!notification.read ? 'Unread.' : 'Read.'} ${notification.isBatch ? 'Press to expand or collapse.' : 'Press to view post.'}`}
                       >
                         <div className="flex items-start space-x-3">
                           {/* User Avatar or Batch Icon */}

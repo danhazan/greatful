@@ -68,15 +68,36 @@ export default function ShareModal({
     }
   }, [isOpen, onClose])
 
-  // Handle escape key
+  // Handle escape key and keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose()
+      } else if (event.key === 'Tab') {
+        // Allow tab navigation within modal
+        const focusableElements = modalRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusableElements && focusableElements.length > 0) {
+          const firstElement = focusableElements[0] as HTMLElement
+          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+          
+          if (event.shiftKey && document.activeElement === firstElement) {
+            event.preventDefault()
+            lastElement.focus()
+          } else if (!event.shiftKey && document.activeElement === lastElement) {
+            event.preventDefault()
+            firstElement.focus()
+          }
+        }
       }
     }
 
     if (isOpen) {
+      // Focus the modal when it opens
+      if (modalRef.current) {
+        modalRef.current.focus()
+      }
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
@@ -349,6 +370,10 @@ export default function ShareModal({
       {/* Small Popup Modal */}
       <div 
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-modal-title"
+        aria-describedby="share-modal-description"
         className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[calc(100vw-32px)]"
         style={{
           left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 320 - 16)),
@@ -358,10 +383,10 @@ export default function ShareModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Share Post</h3>
+          <h3 id="share-modal-title" className="text-sm font-semibold text-gray-900">Share Post</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1"
             aria-label="Close share modal"
           >
             <X className="h-4 w-4" />
@@ -377,12 +402,14 @@ export default function ShareModal({
             className={`
               w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg transition-all duration-200
               min-h-[44px] touch-manipulation select-none
+              focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
               ${copySuccess 
                 ? 'bg-green-50 text-green-700 border border-green-200' 
                 : 'hover:bg-purple-50 text-gray-700 border border-gray-200 hover:border-purple-200 active:bg-purple-100'
               }
               ${copySuccess ? 'cursor-default' : 'cursor-pointer'}
             `}
+            aria-describedby={copySuccess ? "copy-success" : "copy-description"}
           >
             {copySuccess ? (
               <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -410,7 +437,8 @@ export default function ShareModal({
           {!showMessageShare ? (
             <button
               onClick={handleSendAsMessage}
-              className="w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-purple-200 hover:bg-purple-50 text-gray-700 transition-all duration-200 min-h-[44px] touch-manipulation select-none active:bg-purple-100"
+              className="w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-purple-200 hover:bg-purple-50 text-gray-700 transition-all duration-200 min-h-[44px] touch-manipulation select-none active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              aria-describedby="message-description"
             >
               <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                 <MessageCircle className="h-4 w-4 text-purple-600" />
@@ -432,6 +460,11 @@ export default function ShareModal({
                   placeholder="Search users to send to..."
                   className="w-full px-3 py-3 sm:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] touch-manipulation"
                   onFocus={() => setShowAutocomplete(searchQuery.length > 0)}
+                  aria-label="Search users to send post to"
+                  aria-describedby="user-search-help"
+                  role="combobox"
+                  aria-expanded={showAutocomplete}
+                  aria-autocomplete="list"
                 />
                 
                 {/* Autocomplete */}
@@ -471,7 +504,8 @@ export default function ShareModal({
               <div className="flex space-x-2">
                 <button
                   onClick={() => setShowMessageShare(false)}
-                  className="flex-1 px-3 py-3 sm:py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-h-[44px] touch-manipulation active:bg-gray-100"
+                  className="flex-1 px-3 py-3 sm:py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-h-[44px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                  aria-label="Go back to share options"
                 >
                   Back
                 </button>
@@ -480,11 +514,14 @@ export default function ShareModal({
                   disabled={selectedUsers.length === 0 || sendingMessage}
                   className={`
                     flex-1 flex items-center justify-center space-x-2 px-3 py-3 sm:py-2 text-sm rounded-lg transition-colors min-h-[44px] touch-manipulation
+                    focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
                     ${selectedUsers.length > 0 && !sendingMessage
                       ? 'bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }
                   `}
+                  aria-label={`Send post to ${selectedUsers.length} selected user${selectedUsers.length !== 1 ? 's' : ''}`}
+                  aria-describedby="send-button-help"
                 >
                   {sendingMessage ? (
                     <>
@@ -505,9 +542,16 @@ export default function ShareModal({
 
         {/* Footer */}
         <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500 text-center">
+          <p id="share-modal-description" className="text-xs text-gray-500 text-center">
             Spread positivity ✨
           </p>
+          <div className="sr-only">
+            <p id="copy-description">Copy link to share this post on other platforms</p>
+            <p id="copy-success">Link copied to clipboard successfully</p>
+            <p id="message-description">Send this post directly to other users</p>
+            <p id="user-search-help">Type to search for users. Use arrow keys to navigate results.</p>
+            <p id="send-button-help">Send the post to all selected users</p>
+          </div>
         </div>
       </div>
     </>

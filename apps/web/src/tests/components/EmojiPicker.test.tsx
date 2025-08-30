@@ -33,7 +33,7 @@ describe('EmojiPicker', () => {
     )
 
     expect(screen.getByText('React with')).toBeInTheDocument()
-    expect(screen.getByText('Use number keys 1-8 or click to react')).toBeInTheDocument()
+    expect(screen.getByText(/Use number keys 1-8 or click to react/)).toBeInTheDocument()
   })
 
   it('does not render when closed', () => {
@@ -57,7 +57,7 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const emojiButtons = screen.getAllByRole('button', { name: /React with/ })
+    const emojiButtons = screen.getAllByRole('gridcell')
     expect(emojiButtons).toHaveLength(8)
 
     // Check for specific emojis based on current implementation
@@ -80,7 +80,7 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const loveItButton = screen.getByLabelText('React with Love it')
+    const loveItButton = screen.getByLabelText(/React with Love it/)
     fireEvent.click(loveItButton)
 
     expect(mockOnEmojiSelect).toHaveBeenCalledWith('heart_face')
@@ -96,7 +96,7 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const prayButton = screen.getByLabelText('React with Grateful')
+    const prayButton = screen.getByLabelText(/React with Grateful/)
     expect(prayButton).toHaveClass('bg-purple-100', 'ring-2', 'ring-purple-500')
   })
 
@@ -192,7 +192,7 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const loveItButton = screen.getByLabelText('React with Love it')
+    const loveItButton = screen.getByLabelText(/React with Love it/)
     expect(loveItButton).toHaveAttribute('title', 'Love it (1)')
   })
 })

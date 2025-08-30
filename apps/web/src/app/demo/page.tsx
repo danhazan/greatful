@@ -100,7 +100,8 @@ export default function DemoPage() {
   }
 
   const handleShare = (postId: string) => {
-    alert(`Share functionality for post ${postId} - This will open the share modal in the full app!`)
+    // Share functionality is handled by the PostCard component's ShareModal
+    // No additional action needed here
   }
 
   const handleUserClick = (userId: string) => {

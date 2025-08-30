@@ -2,10 +2,6 @@
  * Tests for NotificationSystem time display functionality
  */
 
-/**
- * Tests for NotificationSystem time display functionality
- */
-
 import React from 'react'
 import { render, screen, act } from '@testing-library/react'
 import '@testing-library/jest-dom'
@@ -86,7 +82,7 @@ describe('NotificationSystem Time Display', () => {
     })
 
     // Open notifications
-    const bellButton = screen.getByLabelText('Notifications')
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
     act(() => {
       bellButton.click()
     })
@@ -122,7 +118,7 @@ describe('NotificationSystem Time Display', () => {
     render(<NotificationSystem userId={1} />)
 
     // Open notifications
-    const bellButton = screen.getByLabelText('Notifications')
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
     act(() => {
       bellButton.click()
     })
@@ -170,7 +166,7 @@ describe('NotificationSystem Time Display', () => {
     render(<NotificationSystem userId={1} />)
 
     // Open notifications
-    const bellButton = screen.getByLabelText('Notifications')
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
     act(() => {
       bellButton.click()
     })
