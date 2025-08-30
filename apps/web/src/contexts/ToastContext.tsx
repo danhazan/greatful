@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import ToastNotification, { Toast } from '@/components/ToastNotification'
+import ToastPortal from '@/contexts/ToastPortal'
 
 interface ToastContextType {
   showToast: (toast: Omit<Toast, 'id'>) => string
@@ -31,7 +32,7 @@ interface ToastProviderProps {
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  const generateId = () => Math.random().toString(36).substr(2, 9)
+  const generateId = () => Math.random().toString(36).substring(2, 11)
 
   const showToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = generateId()
@@ -86,17 +87,30 @@ export function ToastProvider({ children }: ToastProviderProps) {
     <ToastContext.Provider value={value}>
       {children}
       
-      {/* Toast Container */}
-      <div className="fixed top-0 right-0 z-50 p-4 space-y-2 pointer-events-none">
-        {toasts.map(toast => (
-          <div key={toast.id} className="pointer-events-auto">
-            <ToastNotification
-              toast={toast}
-              onClose={hideToast}
-            />
-          </div>
-        ))}
-      </div>
+      {/* Toast Container (now portaled to <body>) */}
+      <ToastPortal>
+        <div
+          className="
+            p-4 space-y-2
+            pointer-events-none
+            flex flex-col items-end
+            max-w-full
+          "
+          // inline safety in case Tailwind/global CSS conflicts
+          style={{
+            maxWidth: "100vw",
+            boxSizing: "border-box",
+          }}
+          aria-live="polite"
+          aria-atomic="false"
+        >
+          {toasts.map((toast) => (
+            <div key={toast.id} className="pointer-events-auto">
+              <ToastNotification toast={toast} onClose={hideToast} />
+            </div>
+          ))}
+        </div>
+      </ToastPortal>
     </ToastContext.Provider>
   )
 }

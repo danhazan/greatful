@@ -25,9 +25,16 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
   const [isExiting, setIsExiting] = useState(false)
 
   useEffect(() => {
-    // Animate in
-    const timer = setTimeout(() => setIsVisible(true), 10)
-    return () => clearTimeout(timer)
+    // Ensure transition starts AFTER initial render commit
+    let raf1 = requestAnimationFrame(() => {
+      let raf2 = requestAnimationFrame(() => setIsVisible(true))
+      // store nested id in closure to cancel properly
+      ;(setIsVisible as any)._raf2 = raf2
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      if ((setIsVisible as any)._raf2) cancelAnimationFrame((setIsVisible as any)._raf2)
+    }
   }, [])
 
   useEffect(() => {
@@ -87,13 +94,12 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
   return (
     <div
       className={`
-        max-w-sm w-full
-        transform transition-all duration-300 ease-in-out
-        ${isVisible && !isExiting 
-          ? 'translate-x-0 opacity-100' 
-          : 'translate-x-full opacity-0'
-        }
+        max-w-sm w-[min(100vw-1rem,24rem)]
+        transition-all duration-300 ease-in-out will-change-transform
+        ${isVisible && !isExiting ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0"}
       `}
+      // Inline safety guards for rogue CSS
+      style={{ transformOrigin: "right center" }}
     >
       <div 
         className={`
