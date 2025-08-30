@@ -277,14 +277,12 @@ export default function PostCard({
           // Call handler with updated server data
           onReaction?.(post.id, emojiCode, reactionSummary)
           
-          // Show success toast
+          // Hide loading toast
           hideToast(loadingToastId)
-          showSuccess('Reaction Added!', 'Your reaction has been added to the post')
         } else {
           // Fallback to original handler if summary fetch fails
           onReaction?.(post.id, emojiCode)
           hideToast(loadingToastId)
-          showSuccess('Reaction Added!', 'Your reaction has been added to the post')
         }
       } else {
         const errorData = await response.json().catch(() => ({}))
@@ -647,17 +645,11 @@ export default function PostCard({
                         
                         // Show success toast only for adding hearts, not removing
                         hideToast(loadingToastId)
-                        if (!isCurrentlyHearted) {
-                          showSuccess('Post Hearted!', 'Added to your hearts')
-                        }
                       } else {
                         // Fallback to original handler if heart info fetch fails
                         onHeart?.(post.id, isCurrentlyHearted)
                         hideToast(loadingToastId)
-                        // Show success toast only for adding hearts, not removing
-                        if (!isCurrentlyHearted) {
-                          showSuccess('Post Hearted!', 'Added to your hearts')
-                        }
+                        // Heart action completed successfully
                       }
                     } else {
                       const errorData = await response.json().catch(() => ({}))

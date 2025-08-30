@@ -415,6 +415,31 @@ Ensure proper pointer events on the toast element itself:
 - Individual toast wrappers have `pointer-events-auto` 
 - Toast content itself needs explicit `pointerEvents: 'auto'` style
 
+### Issue: Unwanted Reaction/Heart Toasts
+
+**Symptoms:**
+- Success toasts appear when users react to posts or heart them
+- Creates visual clutter and interrupts user flow
+- "Reaction Added!" and "Post Hearted!" messages show unnecessarily
+
+**Solution:**
+Remove success toast notifications for reactions and hearts while keeping error toasts:
+
+```typescript
+// ❌ WRONG - Shows success toast for every reaction
+hideToast(loadingToastId)
+showSuccess('Reaction Added!', 'Your reaction has been added to the post')
+
+// ✅ CORRECT - Only hide loading toast, no success message
+hideToast(loadingToastId)
+```
+
+**Key Points:**
+- Keep loading toasts during the action for user feedback
+- Remove success toasts to reduce visual noise
+- Maintain error toasts for failed actions
+- Visual feedback from UI state changes (heart count, reaction display) is sufficient
+
 ---
 
 *This document should be updated whenever new notification patterns are discovered or when these issues are encountered again.*
