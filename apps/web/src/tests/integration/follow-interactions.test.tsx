@@ -525,7 +525,7 @@ describe('Follow Interactions Integration', () => {
       expect(followButton).toBeInTheDocument()
       
       // Check that it has the correct size (xxs for PostCard)
-      expect(followButton).toHaveClass('px-1', 'py-0.5', 'text-xs')
+      expect(followButton).toHaveClass('px-0.5', 'py-0.25', 'text-xs')
     })
 
     it('maintains consistent styling with post card theme', () => {

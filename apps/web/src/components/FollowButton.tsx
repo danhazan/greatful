@@ -35,13 +35,13 @@ export default function FollowButton({
   const errorRef = useRef<HTMLDivElement>(null)
   const { showSuccess, showError, showLoading, hideToast, updateToast } = useToast()
 
-  // Size classes with minimum touch targets
+  // Size classes with minimum touch targets - reduced by 50%
   const sizeClasses = {
-    xxs: 'px-1 py-0.5 text-xs min-h-[44px]',
-    xs: 'px-2 py-1 text-xs min-h-[44px]',
-    sm: 'px-3 py-1.5 text-sm min-h-[44px]',
-    md: 'px-4 py-2 text-sm min-h-[44px]',
-    lg: 'px-6 py-3 text-base min-h-[48px]'
+    xxs: 'px-0.5 py-0.25 text-xs min-w-[22px] min-h-[22px]',
+    xs: 'px-1 py-0.5 text-xs min-w-[22px] min-h-[22px]',
+    sm: 'px-1.5 py-1 text-xs min-w-[22px] min-h-[22px]',
+    md: 'px-2 py-1 text-xs min-w-[22px] min-h-[22px]',
+    lg: 'px-3 py-1.5 text-sm min-w-[22px] min-h-[22px]'
   }
 
   // Variant classes
@@ -217,11 +217,11 @@ export default function FollowButton({
         {...createTouchHandlers(undefined, 'light')}
       >
         {isLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 className="w-3 h-3 animate-spin" />
         ) : (
-          <Icon className="w-4 h-4" />
+          <Icon className="w-3 h-3" />
         )}
-        <span>{isLoading ? 'Loading...' : buttonText}</span>
+        <span className="whitespace-nowrap">{isLoading ? 'Loading...' : buttonText}</span>
       </button>
 
       {error && (

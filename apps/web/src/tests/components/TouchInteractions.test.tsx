@@ -50,9 +50,9 @@ describe('Touch Interactions', () => {
     it('should have proper minimum touch target size', () => {
       render(<FollowButton userId={1} size="xs" />)
       const button = screen.getByRole('button')
-      // Check that even small buttons have adequate touch targets
+      // Check that even small buttons have adequate touch targets (reduced by 50%)
       const styles = window.getComputedStyle(button)
-      expect(button).toHaveClass('min-h-[44px]')
+      expect(button).toHaveClass('min-h-[22px]')
     })
   })
 

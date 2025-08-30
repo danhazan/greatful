@@ -53,19 +53,19 @@ describe('FollowButton', () => {
 
     it('renders different sizes correctly', () => {
       const { rerender } = render(<FollowButton userId={123} size="xxs" />)
-      expect(screen.getByRole('button')).toHaveClass('px-1', 'py-0.5', 'text-xs')
+      expect(screen.getByRole('button')).toHaveClass('px-0.5', 'py-0.25', 'text-xs')
 
       rerender(<FollowButton userId={123} size="xs" />)
-      expect(screen.getByRole('button')).toHaveClass('px-2', 'py-1', 'text-xs')
+      expect(screen.getByRole('button')).toHaveClass('px-1', 'py-0.5', 'text-xs')
 
       rerender(<FollowButton userId={123} size="sm" />)
-      expect(screen.getByRole('button')).toHaveClass('px-3', 'py-1.5', 'text-sm')
+      expect(screen.getByRole('button')).toHaveClass('px-1.5', 'py-1', 'text-xs')
 
       rerender(<FollowButton userId={123} size="md" />)
-      expect(screen.getByRole('button')).toHaveClass('px-4', 'py-2', 'text-sm')
+      expect(screen.getByRole('button')).toHaveClass('px-2', 'py-1', 'text-xs')
 
       rerender(<FollowButton userId={123} size="lg" />)
-      expect(screen.getByRole('button')).toHaveClass('px-6', 'py-3', 'text-base')
+      expect(screen.getByRole('button')).toHaveClass('px-3', 'py-1.5', 'text-sm')
     })
 
     it('renders different variants correctly', () => {
