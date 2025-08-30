@@ -5,6 +5,11 @@
 import { 
   BaseEntity, 
   UserInfo, 
+  ExtendedUserInfo,
+  Institution,
+  Website,
+  UserPreferences,
+  NotificationSettings,
   PostType, 
   EmojiCode, 
   NotificationType, 
@@ -23,6 +28,28 @@ export interface User {
   hashed_password: string
   bio?: string
   profile_image_url?: string
+}
+
+// Enhanced user model with new profile fields
+export interface ExtendedUser extends User {
+  display_name?: string
+  city?: string
+  institutions?: Institution[]
+  websites?: Website[]
+  profile_photo_filename?: string
+  profile_preferences?: UserPreferences
+}
+
+// Profile photo model
+export interface ProfilePhoto extends BaseEntity {
+  user_id: number
+  filename: string
+  original_filename: string
+  file_size: number
+  content_type: string
+  width?: number
+  height?: number
+  user?: UserInfo
 }
 
 // Post model

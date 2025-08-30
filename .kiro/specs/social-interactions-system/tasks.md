@@ -233,31 +233,10 @@ The implementation maintains consistency with the reference implementation's pur
 - [x] **Update Project Documentation:** Add mobile optimization guidelines to docs/ARCHITECTURE_AND_SETUP.md. Update docs/TEST_GUIDELINES.md with mobile testing procedures and device testing requirements.
 **Acceptance Criteria:** All social features work smoothly on mobile devices with proper touch targets (44px minimum), loading states provide clear user feedback, error handling is user-friendly with retry options, accessibility standards are met for screen readers and keyboard navigation, and all interactions are tested on actual mobile devices.
 
-### **TASK 9.5: Simple Admin Page with User Switching**
-**Module Reference:** Development Tools - Admin Interface for Testing
-- [ ] **9.5.1 Create Admin Page Route**
-  - Create `/admin` page route in `apps/web/src/app/admin/page.tsx`
-  - Add admin page navigation link in navbar (only visible in development mode)
-  - Implement basic admin page layout with purple theme consistency
-  - Add authentication check to ensure only logged-in users can access admin page
-- [ ] **9.5.2 User Switching Interface**
-  - Create user selection dropdown showing all existing users in the system
-  - Implement user switching functionality that changes current user context in navbar
-  - Add "Switch User" button that updates localStorage with selected user's access token
-  - Display current user information clearly in admin interface
-  - Add user search/filter functionality for large user lists
-- [ ] **9.5.3 Admin Page Styling and UX**
-  - Style admin page with consistent purple theme and professional layout
-  - Add clear section headers and organized interface elements
-  - Implement responsive design for admin page on mobile devices
-  - Add confirmation dialogs for user switching actions
-  - Include breadcrumb navigation and clear "Back to App" functionality
-- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify admin page routing and user switching functionality. Test admin page accessibility and responsive design. Verify user switching updates navbar and maintains proper authentication state.
-**Acceptance Criteria:** Admin page is accessible at `/admin` route, displays all users in a searchable dropdown, allows switching between users with proper authentication token updates, maintains consistent purple theme styling, and works responsively on mobile devices.
 
 ### **TASK 10: Enhanced Profile Editing System**
 **Module Reference:** Requirements 8 - User Profiles & Networking (Enhanced)
-- [ ] **10.0 Profile System Refactoring and Planning**
+- [x] **10.0 Profile System Refactoring and Planning**
   - Document current profile system architecture in docs/PROFILE_SYSTEM_REFACTOR.md
   - Analyze existing User model, profile components, and API endpoints for enhancement opportunities
   - Plan refactoring of profile-related components (ProfilePage, ProfileEditForm, UserCard) for extensibility
@@ -351,37 +330,34 @@ The implementation maintains consistency with the reference implementation's pur
   - Document batching logic and implementation patterns thoroughly
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
 
-### **TASK 11.5: Admin User Management System**
-**Module Reference:** Development Tools - Admin Interface for User Management
-- [ ] **11.5.1 Backend User Management API**
-  - Create admin-specific API endpoints in `apps/api/app/api/v1/admin.py`
-  - Implement `POST /api/v1/admin/users` endpoint for creating new users
-  - Implement `DELETE /api/v1/admin/users/{user_id}` endpoint for deleting users
-  - Add `GET /api/v1/admin/users` endpoint for listing all users with pagination
-  - Add proper validation and error handling for admin user operations
-  - Implement cascade deletion logic for user-related data (posts, reactions, follows, etc.)
-- [ ] **11.5.2 Admin User Creation Interface**
-  - Add "Create New User" section to admin page with form fields
-  - Implement user creation form with username, email, password, and optional profile fields
-  - Add form validation matching signup requirements (password length, email format, username uniqueness)
-  - Display success/error messages for user creation operations
-  - Add created user to the user switching dropdown automatically
-- [ ] **11.5.3 Admin User Deletion Interface**
-  - Add "Delete User" functionality to admin page with user selection
-  - Implement confirmation dialog with user details before deletion
-  - Add cascade deletion warning showing related data that will be removed
-  - Display success/error messages for user deletion operations
-  - Update user switching dropdown to remove deleted users
-  - Add safety measures to prevent deletion of currently logged-in user
-- [ ] **11.5.4 Admin Security and Permissions**
-  - Add admin-only middleware to protect admin API endpoints
-  - Implement proper authentication checks for admin operations
-  - Add rate limiting to admin endpoints to prevent abuse
-  - Log all admin operations for audit trail
-  - Add development-only access controls (admin features only available in dev mode)
-- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify admin API endpoints, user creation/deletion logic, and cascade operations. Run frontend tests (`npm test`) to verify admin interface functionality, form validation, and user management workflows. Test admin security measures and access controls.
-- [ ] **Update Project Documentation:** Document admin API endpoints in docs/BACKEND_API_DOCUMENTATION.md. Add admin interface usage guide to docs/ARCHITECTURE_AND_SETUP.md. Document admin security considerations and development-only access in docs/TEST_GUIDELINES.md.
-**Acceptance Criteria:** Admin page includes user creation form with proper validation, user deletion functionality with cascade warnings and confirmations, all admin operations are properly secured and logged, admin features are only available in development mode, and user management integrates seamlessly with existing user switching functionality.
+### **TASK 11.5: Fast Login Page for Development**
+**Module Reference:** Development Tools - Fast Login Interface for Testing
+- [ ] **11.5.1 Create Fast Login Page Route**
+  - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
+  - Copy existing login page layout and styling from `/auth/login/page.tsx`
+  - Replace email/password form with user selection dropdown
+  - Add development environment detection to prevent production access
+  - Implement purple theme consistency matching regular login page
+- [ ] **11.5.2 User Selection Interface**
+  - Create dropdown showing all existing users (username, email, profile picture)
+  - Implement one-click login functionality that generates development token
+  - Add user search/filter functionality for large user lists
+  - Display user information clearly (username, email, join date)
+  - Add "Login as [Username]" button for each user selection
+- [ ] **11.5.3 Development Environment Protection**
+  - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
+  - Implement build-time exclusion using Next.js conditional compilation
+  - Add clear development warning banner on fast login page
+  - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
+  - Add rate limiting and IP restrictions for development endpoints
+- [ ] **11.5.4 Fast Login UX and Navigation**
+  - Style page identical to regular login with "Fast Login (Dev Mode)" title
+  - Add "Back to Regular Login" link for normal authentication flow
+  - Implement responsive design matching existing login page
+  - Add success feedback and automatic redirect to feed after login
+  - Include clear indication this is a development-only feature
+- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
+**Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
 - [ ] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** All notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.

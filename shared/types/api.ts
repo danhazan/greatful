@@ -17,6 +17,11 @@ import {
 } from './models'
 import { 
   UserInfo, 
+  ExtendedUserInfo,
+  Institution,
+  Website,
+  UserPreferences,
+  NotificationSettings,
   PostType, 
   EmojiCode, 
   ShareMethod, 
@@ -296,6 +301,13 @@ export interface UpdateProfileRequest {
   profile_image_url?: string
 }
 
+export interface ExtendedProfileUpdateRequest {
+  display_name?: string
+  city?: string
+  institutions?: Institution[]
+  websites?: Website[]
+}
+
 export interface ProfileResponse {
   id: number
   username: string
@@ -314,6 +326,19 @@ export interface ProfileResponse {
   is_followed_by?: boolean
 }
 
+export interface ExtendedProfileResponse extends ProfileResponse {
+  display_name?: string
+  city?: string
+  institutions?: Institution[]
+  websites?: Website[]
+  profile_photo_filename?: string
+  profile_preferences?: UserPreferences
+  
+  // Analytics (only for own profile)
+  profile_views?: number
+  profile_views_this_month?: number
+}
+
 export interface GetUserPostsRequest extends PaginationParams {
   user_id: number
   post_type?: PostType
@@ -326,6 +351,38 @@ export interface GetUserPostsResponse {
 }
 
 // ============================================================================
+// Profile Photo API
+// ============================================================================
+
+export interface ProfilePhotoUploadRequest {
+  file: File | Blob
+}
+
+export interface ProfilePhotoResponse {
+  id: string
+  user_id: number
+  filename: string
+  original_filename: string
+  file_size: number
+  content_type: string
+  width?: number
+  height?: number
+  created_at: string
+  urls: {
+    thumbnail: string
+    small: string
+    medium: string
+    large: string
+    original: string
+  }
+}
+
+export interface ProfilePhotoDeleteResponse {
+  deleted: boolean
+  message: string
+}
+
+// ============================================================================
 // User Preferences API
 // ============================================================================
 
@@ -333,7 +390,11 @@ export interface UpdatePreferencesRequest {
   allow_mentions?: boolean
   allow_sharing?: boolean
   privacy_level?: PrivacyLevel
-  notification_settings?: Record<string, any>
+  profile_visibility?: PrivacyLevel
+  show_email?: boolean
+  show_join_date?: boolean
+  show_stats?: boolean
+  notification_settings?: NotificationSettings
 }
 
 export interface PreferencesResponse {
@@ -341,8 +402,37 @@ export interface PreferencesResponse {
   allow_mentions: boolean
   allow_sharing: boolean
   privacy_level: PrivacyLevel
-  notification_settings: Record<string, any>
+  profile_visibility: PrivacyLevel
+  show_email: boolean
+  show_join_date: boolean
+  show_stats: boolean
+  notification_settings: NotificationSettings
   updated_at: string
+}
+
+// ============================================================================
+// Profile Analytics API
+// ============================================================================
+
+export interface ProfileAnalyticsResponse {
+  user_id: number
+  profile_views: number
+  profile_views_this_week: number
+  profile_views_this_month: number
+  profile_completion_percentage: number
+  engagement_stats: {
+    posts_count: number
+    total_hearts: number
+    total_reactions: number
+    total_shares: number
+    avg_engagement_per_post: number
+  }
+  follower_growth: {
+    current_followers: number
+    followers_this_week: number
+    followers_this_month: number
+    growth_rate: number
+  }
 }
 
 // ============================================================================

@@ -23,6 +23,55 @@ export interface UserInfo extends UserIdentity {
   created_at: string
 }
 
+// Enhanced user profile with new fields
+export interface ExtendedUserInfo extends UserInfo {
+  display_name?: string
+  city?: string
+  institutions?: Institution[]
+  websites?: Website[]
+  profile_photo_filename?: string
+  profile_preferences?: UserPreferences
+}
+
+// Institution information
+export interface Institution {
+  name: string
+  type: 'school' | 'company' | 'foundation' | 'organization'
+  role?: string
+  start_date?: string
+  end_date?: string
+  current?: boolean
+}
+
+// Website information
+export interface Website {
+  url: string
+  title?: string
+  type?: 'personal' | 'portfolio' | 'social' | 'professional' | 'other'
+}
+
+// User preferences
+export interface UserPreferences {
+  allow_mentions?: boolean
+  allow_sharing?: boolean
+  profile_visibility?: PrivacyLevel
+  show_email?: boolean
+  show_join_date?: boolean
+  show_stats?: boolean
+  notification_settings?: NotificationSettings
+}
+
+// Notification settings
+export interface NotificationSettings {
+  email_notifications?: boolean
+  push_notifications?: boolean
+  reaction_notifications?: boolean
+  mention_notifications?: boolean
+  follow_notifications?: boolean
+  share_notifications?: boolean
+  batch_notifications?: boolean
+}
+
 // Post types enum
 export enum PostType {
   DAILY = 'daily',
