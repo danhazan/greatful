@@ -31,7 +31,15 @@ export default function FeedPage() {
       })
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error')
+        let errorText = 'Unknown error'
+        try {
+          if (response.text && typeof response.text === 'function') {
+            errorText = await response.text()
+          }
+        } catch (e) {
+          // Fallback to generic error if text() fails
+          errorText = 'Unknown error'
+        }
         throw new Error(`Failed to load posts: ${response.status} - ${errorText}`)
       }
 

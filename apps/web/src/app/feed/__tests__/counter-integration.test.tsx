@@ -53,6 +53,8 @@ describe('Counter Integration Test', () => {
       if (url.includes('/api/posts') && !url.includes('/hearts')) {
         return Promise.resolve({
           ok: false, // Force fallback to mock data
+          text: () => Promise.resolve('Posts not found'),
+          json: () => Promise.resolve({ error: 'Posts not found' })
         })
       }
       if (url.includes('/heart') && options?.method === 'POST') {
@@ -87,6 +89,7 @@ describe('Counter Integration Test', () => {
       }
       return Promise.resolve({ 
         ok: false,
+        text: () => Promise.resolve('Not found'),
         json: () => Promise.resolve({ error: 'Not found' })
       })
     })
