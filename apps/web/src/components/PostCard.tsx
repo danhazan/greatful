@@ -482,16 +482,16 @@ export default function PostCard({
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <div 
-                  className="cursor-pointer hover:text-purple-700 transition-colors flex items-center space-x-1"
+                  className="cursor-pointer hover:text-purple-700 transition-colors"
                   onClick={() => onUserClick?.(post.author.id)}
                 >
                   <h3 className={`${styling.name} text-gray-900 font-bold`}>
                     {post.author.display_name || post.author.name}
                   </h3>
-                  {post.author.display_name && post.author.username && (
-                    <span className={`${styling.name.replace('font-bold', 'font-normal')} text-gray-500`}>
+                  {post.author.username && (
+                    <p className={`${styling.name.replace('font-bold', 'font-normal')} text-gray-500 text-sm`}>
                       @{post.author.username}
-                    </span>
+                    </p>
                   )}
                 </div>
                 {/* Follow button positioned right next to the username */}
