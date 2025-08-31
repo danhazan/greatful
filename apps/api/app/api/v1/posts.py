@@ -247,6 +247,8 @@ async def create_post_json(
             author={
                 "id": user.id,
                 "username": user.username,
+                "display_name": user.display_name,
+                "name": user.display_name or user.username,
                 "email": user.email
             },
             hearts_count=0,
@@ -361,6 +363,8 @@ async def create_post_with_file(
             author={
                 "id": user.id,
                 "username": user.username,
+                "display_name": user.display_name,
+                "name": user.display_name or user.username,
                 "email": user.email
             },
             hearts_count=0,
@@ -489,6 +493,7 @@ async def get_feed(
                            p.updated_at,
                            u.id as author_id,
                            u.username as author_username,
+                           u.display_name as author_display_name,
                            u.email as author_email,
                            COALESCE(hearts.hearts_count, 0) as hearts_count,
                            COALESCE(reactions.reactions_count, 0) as reactions_count,
@@ -529,6 +534,7 @@ async def get_feed(
                            p.updated_at,
                            u.id as author_id,
                            u.username as author_username,
+                           u.display_name as author_display_name,
                            u.email as author_email,
                            0 as hearts_count,
                            COALESCE(reactions.reactions_count, 0) as reactions_count,
@@ -572,7 +578,8 @@ async def get_feed(
                     author={
                         "id": row.author_id,
                         "username": row.author_username,
-                        "name": row.author_username  # Use username as display name for now
+                        "display_name": row.author_display_name,
+                        "name": row.author_display_name or row.author_username
                     },
                     hearts_count=int(row.hearts_count) if row.hearts_count else 0,
                     reactions_count=int(row.reactions_count) if row.reactions_count else 0,
@@ -629,6 +636,7 @@ async def get_post_by_id(
                        p.updated_at,
                        u.id as author_id,
                        u.username as author_username,
+                       u.display_name as author_display_name,
                        u.email as author_email,
                        u.profile_image_url as author_profile_image,
                        COALESCE(hearts.hearts_count, 0) as hearts_count,
@@ -668,6 +676,7 @@ async def get_post_by_id(
                        p.updated_at,
                        u.id as author_id,
                        u.username as author_username,
+                       u.display_name as author_display_name,
                        u.email as author_email,
                        u.profile_image_url as author_profile_image,
                        0 as hearts_count,
@@ -720,8 +729,9 @@ async def get_post_by_id(
             author={
                 "id": row.author_id,
                 "username": row.author_username,
-                "name": row.author_username,
-                "profile_image_url": row.author_profile_image
+                "display_name": row.author_display_name,
+                "name": row.author_display_name or row.author_username,
+                "image": row.author_profile_image
             },
             hearts_count=int(row.hearts_count) if row.hearts_count else 0,
             reactions_count=int(row.reactions_count) if row.reactions_count else 0,

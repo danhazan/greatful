@@ -715,7 +715,7 @@ export default function ProfilePage() {
                       <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 truncate">
                         {user.displayName || user.username}
                       </h1>
-                      {user.displayName && user.displayName !== user.username && (
+                      {user.username && (
                         <p className="text-gray-500 text-sm mb-2">@{user.username}</p>
                       )}
                       {user.bio && (

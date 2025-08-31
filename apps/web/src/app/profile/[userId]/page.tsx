@@ -13,6 +13,7 @@ interface UserProfile {
   email: string
   bio?: string
   profileImageUrl?: string
+  displayName?: string
   createdAt: string
   postsCount: number
   followersCount?: number
@@ -296,8 +297,11 @@ export default function UserProfilePage() {
               {/* Profile Info */}
               <div className="flex-1 text-center md:text-left">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {profile?.username || 'Unknown User'}
+                  {profile?.displayName || profile?.username || 'Unknown User'}
                 </h1>
+                {profile?.username && (
+                  <p className="text-gray-500 text-sm mb-2">@{profile.username}</p>
+                )}
                 
                 {profile.bio && (
                   <p className="text-gray-600 mb-4 max-w-md">

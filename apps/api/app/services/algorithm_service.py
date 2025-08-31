@@ -220,6 +220,8 @@ class AlgorithmService(BaseService):
                 'author': {
                     'id': post.author.id,
                     'username': post.author.username,
+                    'display_name': post.author.display_name,
+                    'name': post.author.display_name or post.author.username,
                     'email': post.author.email,
                     'profile_image_url': post.author.profile_image_url
                 } if post.author else None,
@@ -286,6 +288,8 @@ class AlgorithmService(BaseService):
                 'author': {
                     'id': post.author.id,
                     'username': post.author.username,
+                    'display_name': post.author.display_name,
+                    'name': post.author.display_name or post.author.username,
                     'email': post.author.email,
                     'profile_image_url': post.author.profile_image_url
                 } if post.author else None,
@@ -415,6 +419,8 @@ class AlgorithmService(BaseService):
                     'author': {
                         'id': post.author.id,
                         'username': post.author.username,
+                        'display_name': post.author.display_name,
+                        'name': post.author.display_name or post.author.username,
                         'email': post.author.email,
                         'profile_image_url': post.author.profile_image_url
                     } if post.author else None,

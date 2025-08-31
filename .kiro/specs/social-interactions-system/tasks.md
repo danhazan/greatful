@@ -262,7 +262,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Add Websites field with URL validation and safe link handling
   - Update profile editing form with new fields and proper validation
   - Create database migration for new profile fields
-- [ ] **10.3 Display Name vs Username System**
+- [x] **10.3 Display Name vs Username System**
   - Add display_name field to User model (separate from username)
   - Update profile editing to allow setting display name for presentation
   - Modify PostCard component to show display name (bold) next to profile pic

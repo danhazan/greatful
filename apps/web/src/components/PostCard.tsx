@@ -23,6 +23,8 @@ interface Post {
   author: {
     id: string
     name: string
+    username: string
+    display_name?: string
     image?: string
   }
   createdAt: string
@@ -472,19 +474,26 @@ export default function PostCard({
           <div className="flex items-start space-x-3">
             <ProfilePhotoDisplay
               photoUrl={post.author.image}
-              username={post.author.name}
+              username={post.author.username || post.author.name}
               size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
               className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all"
               onClick={() => onUserClick?.(post.author.id)}
             />
             <div className="flex-1">
               <div className="flex items-center space-x-2">
-                <h3 
-                  className={`${styling.name} text-gray-900 cursor-pointer hover:text-purple-700 transition-colors`}
+                <div 
+                  className="cursor-pointer hover:text-purple-700 transition-colors flex items-center space-x-1"
                   onClick={() => onUserClick?.(post.author.id)}
                 >
-                  {post.author.name}
-                </h3>
+                  <h3 className={`${styling.name} text-gray-900 font-bold`}>
+                    {post.author.display_name || post.author.name}
+                  </h3>
+                  {post.author.display_name && post.author.username && (
+                    <span className={`${styling.name.replace('font-bold', 'font-normal')} text-gray-500`}>
+                      @{post.author.username}
+                    </span>
+                  )}
+                </div>
                 {/* Follow button positioned right next to the username */}
                 {currentUserId && 
                  currentUserId !== post.author.id && 
