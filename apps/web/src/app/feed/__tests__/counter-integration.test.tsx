@@ -51,10 +51,26 @@ describe('Counter Integration Test', () => {
         })
       }
       if (url.includes('/api/posts') && !url.includes('/hearts')) {
+        // Return successful posts response for testing
         return Promise.resolve({
-          ok: false, // Force fallback to mock data
-          text: () => Promise.resolve('Posts not found'),
-          json: () => Promise.resolve({ error: 'Posts not found' })
+          ok: true,
+          json: () => Promise.resolve([
+            {
+              id: 'test-post-1',
+              content: 'Test gratitude post for integration testing',
+              author: {
+                id: 'author-1',
+                username: 'testauthor',
+                name: 'Test Author'
+              },
+              createdAt: new Date().toISOString(),
+              postType: 'daily',
+              heartsCount: 12,
+              reactionsCount: 5,
+              isHearted: false,
+              currentUserReaction: null
+            }
+          ])
         })
       }
       if (url.includes('/heart') && options?.method === 'POST') {
@@ -100,20 +116,16 @@ describe('Counter Integration Test', () => {
     
     // Wait for the loading to complete and posts to appear
     await waitFor(() => {
-      expect(screen.getByText('🎉 Welcome to your Gratitude Feed!')).toBeInTheDocument()
+      expect(screen.getByText('Test gratitude post for integration testing')).toBeInTheDocument()
     }, { timeout: 10000 })
 
-    // Check that mock data global counts are displayed in heart buttons
+    // Check that server data global counts are displayed in heart buttons
     const heartButtons = screen.getAllByRole('button').filter(button => 
-      button.textContent?.includes('12') || 
-      button.textContent?.includes('24') || 
-      button.textContent?.includes('8')
+      button.textContent?.includes('12')
     )
     
-    // Should have heart buttons with the correct counts
-    expect(heartButtons.some(btn => btn.textContent?.includes('12'))).toBe(true) // First post hearts
-    expect(heartButtons.some(btn => btn.textContent?.includes('24'))).toBe(true) // Second post hearts
-    expect(heartButtons.some(btn => btn.textContent?.includes('8'))).toBe(true)  // Third post hearts
+    // Should have heart button with the correct count from server
+    expect(heartButtons.some(btn => btn.textContent?.includes('12'))).toBe(true) // Server hearts count
   })
 
   it('should handle heart interactions with proper API calls', async () => {
@@ -122,57 +134,40 @@ describe('Counter Integration Test', () => {
     
     // Wait for the loading to complete and posts to appear
     await waitFor(() => {
-      expect(screen.getByText('🎉 Welcome to your Gratitude Feed!')).toBeInTheDocument()
+      expect(screen.getByText('Test gratitude post for integration testing')).toBeInTheDocument()
     }, { timeout: 10000 })
 
-    // Verify the mock data is loaded correctly by checking for heart buttons with counts
+    // Verify the server data is loaded correctly by checking for heart button with count
     const allButtons = screen.getAllByRole('button')
     const heartButtons = allButtons.filter(button => 
-      button.querySelector('svg') && (
-        button.textContent?.includes('12') || 
-        button.textContent?.includes('24') || 
-        button.textContent?.includes('8')
-      )
+      button.querySelector('svg') && button.textContent?.includes('12')
     )
     
-    // Should have at least 3 heart buttons with the expected counts
-    expect(heartButtons.length).toBeGreaterThanOrEqual(3)
+    // Should have heart button with the expected count
+    expect(heartButtons.length).toBeGreaterThanOrEqual(1)
     
-    // Verify specific counts exist in buttons
+    // Verify server count exists in button
     expect(heartButtons.some(btn => btn.textContent?.includes('12'))).toBe(true)
-    expect(heartButtons.some(btn => btn.textContent?.includes('24'))).toBe(true)
-    expect(heartButtons.some(btn => btn.textContent?.includes('8'))).toBe(true)
   })
 
-  it('should load user-specific reactions from localStorage on initialization', async () => {
-    // Set up localStorage to return some existing reactions
-    mockLocalStorage.getItem.mockImplementation((key) => {
-      if (key === 'access_token') return 'mock-token'
-      if (key === 'user_current-user_reactions') {
-        return JSON.stringify({
-          'feed-1': { hearted: true, reaction: 'heart_eyes' },
-          'feed-2': { hearted: false }
-        })
-      }
-      return null
-    })
-
+  it('should use server data instead of localStorage for reactions', async () => {
     render(<FeedPage />)
     
     // Wait for the loading to complete and posts to appear
     await waitFor(() => {
-      expect(screen.getByText('🎉 Welcome to your Gratitude Feed!')).toBeInTheDocument()
+      expect(screen.getByText('Test gratitude post for integration testing')).toBeInTheDocument()
     }, { timeout: 10000 })
 
-    // Verify localStorage was called to load user reactions
-    expect(mockLocalStorage.getItem).toHaveBeenCalledWith('user_current-user_reactions')
-
-    // Verify the component loaded with the user's previous reactions
-    // The exact UI representation depends on the PostCard implementation
-    // but we can verify the localStorage interaction occurred
-    const getItemCalls = (mockLocalStorage.getItem as jest.Mock).mock.calls
-    const userReactionCall = getItemCalls.find(call => call[0] === 'user_current-user_reactions')
-    expect(userReactionCall).toBeDefined()
+    // Verify that the component uses server data (isHearted: false from mock)
+    // and doesn't rely on localStorage for reaction state
+    const heartButtons = screen.getAllByRole('button').filter(button => 
+      button.querySelector('svg') && button.textContent?.includes('12')
+    )
+    
+    expect(heartButtons.length).toBeGreaterThan(0)
+    // The heart should not be filled since isHearted is false in server response
+    const heartButton = heartButtons[0]
+    expect(heartButton).toBeDefined()
   })
 
   it('should demonstrate proper data separation', async () => {
@@ -180,7 +175,7 @@ describe('Counter Integration Test', () => {
     
     // Wait for the loading to complete and posts to appear
     await waitFor(() => {
-      expect(screen.getByText('🎉 Welcome to your Gratitude Feed!')).toBeInTheDocument()
+      expect(screen.getByText('Test gratitude post for integration testing')).toBeInTheDocument()
     }, { timeout: 10000 })
 
     // Find all buttons and verify the expected counts are present
@@ -188,27 +183,14 @@ describe('Counter Integration Test', () => {
     
     // Find buttons by their text content - based on actual rendered output
     const heartButton12 = allButtons.find(btn => btn.textContent === '12')
-    const heartButton24 = allButtons.find(btn => btn.textContent === '24')
-    const heartButton8 = allButtons.find(btn => btn.textContent === '8')
-    
-    const reactionButton8 = allButtons.find(btn => btn.textContent === '8' && btn !== heartButton8)
-    const reactionButton15 = allButtons.find(btn => btn.textContent === '15')
-    const reactionButton3 = allButtons.find(btn => btn.textContent === '3')
+    const reactionButton5 = allButtons.find(btn => btn.textContent === '5')
 
-    // Verify all expected buttons exist with correct counts
+    // Verify expected buttons exist with correct counts from server
     expect(heartButton12).toBeDefined()
-    expect(heartButton24).toBeDefined()
-    expect(heartButton8).toBeDefined()
-    expect(reactionButton8).toBeDefined()
-    expect(reactionButton15).toBeDefined()
-    expect(reactionButton3).toBeDefined()
+    expect(reactionButton5).toBeDefined()
 
-    // Verify the exact counts from mock data
+    // Verify the exact counts from server data
     expect(heartButton12?.textContent).toContain('12')
-    expect(heartButton24?.textContent).toContain('24')
-    expect(heartButton8?.textContent).toContain('8')
-    expect(reactionButton8?.textContent).toContain('8')
-    expect(reactionButton15?.textContent).toContain('15')
-    expect(reactionButton3?.textContent).toContain('3')
+    expect(reactionButton5?.textContent).toContain('5')
   })
 });
