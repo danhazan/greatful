@@ -46,6 +46,11 @@ class UserService(BaseService):
             "email": user.email,
             "bio": user.bio,
             "profile_image_url": user.profile_image_url,
+            "display_name": user.display_name,
+            "city": user.city,
+            "location": user.location,
+            "institutions": user.institutions or [],
+            "websites": user.websites or [],
             "created_at": user.created_at.isoformat(),
             "posts_count": stats["posts_count"],
             "followers_count": stats["followers_count"],
@@ -95,7 +100,12 @@ class UserService(BaseService):
         user_id: int,
         username: Optional[str] = None,
         bio: Optional[str] = None,
-        profile_image_url: Optional[str] = None
+        profile_image_url: Optional[str] = None,
+        city: Optional[str] = None,
+        location_data: Optional[Dict] = None,
+        institutions: Optional[List[str]] = None,
+        websites: Optional[List[str]] = None,
+        display_name: Optional[str] = None
     ) -> Dict[str, any]:
         """
         Update user profile.
@@ -105,6 +115,11 @@ class UserService(BaseService):
             username: New username (optional)
             bio: New bio (optional)
             profile_image_url: New profile image URL (optional)
+            city: City name (optional)
+            location_data: Structured location data from Nominatim (optional)
+            institutions: List of institutions (optional)
+            websites: List of website URLs (optional)
+            display_name: Display name (optional)
             
         Returns:
             Dict containing updated user profile data
@@ -137,6 +152,85 @@ class UserService(BaseService):
         # Update profile image URL if provided
         if profile_image_url is not None:
             update_data["profile_image_url"] = profile_image_url
+
+        # Validate and update display name if provided
+        if display_name is not None:
+            self.validate_field_length(display_name, "display_name", 100, 1)
+            update_data["display_name"] = display_name
+
+        # Validate and update city if provided
+        if city is not None:
+            self.validate_field_length(city, "city", 100, 0)
+            update_data["city"] = city
+
+        # Validate and update location data if provided
+        if location_data is not None:
+            if location_data:  # If not empty dict
+                from app.services.location_service import LocationService
+                location_service = LocationService(self.db)
+                if not location_service.validate_location_data(location_data):
+                    raise ValidationException(
+                        "Invalid location data format",
+                        {"location_data": "Must contain valid display_name, lat, and lon"}
+                    )
+            update_data["location"] = location_data
+
+        # Validate and update institutions if provided
+        if institutions is not None:
+            if len(institutions) > 10:
+                raise ValidationException(
+                    "Too many institutions",
+                    {"institutions": "Maximum 10 institutions allowed"}
+                )
+            
+            # Validate each institution
+            for i, institution in enumerate(institutions):
+                if not isinstance(institution, str):
+                    raise ValidationException(
+                        "Invalid institution format",
+                        {"institutions": f"Institution {i+1} must be a string"}
+                    )
+                if len(institution.strip()) > 100:
+                    raise ValidationException(
+                        "Institution name too long",
+                        {"institutions": f"Institution {i+1} must be 100 characters or less"}
+                    )
+            
+            update_data["institutions"] = [inst.strip() for inst in institutions if inst.strip()]
+
+        # Validate and update websites if provided
+        if websites is not None:
+            if len(websites) > 5:
+                raise ValidationException(
+                    "Too many websites",
+                    {"websites": "Maximum 5 websites allowed"}
+                )
+            
+            # Validate each website URL
+            import re
+            url_pattern = re.compile(
+                r'^https?://'  # http:// or https://
+                r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+                r'localhost|'  # localhost...
+                r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+                r'(?::\d+)?'  # optional port
+                r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+            
+            for i, website in enumerate(websites):
+                if not isinstance(website, str):
+                    raise ValidationException(
+                        "Invalid website format",
+                        {"websites": f"Website {i+1} must be a string"}
+                    )
+                
+                website = website.strip()
+                if website and not url_pattern.match(website):
+                    raise ValidationException(
+                        "Invalid website URL",
+                        {"websites": f"Website {i+1} must be a valid HTTP/HTTPS URL"}
+                    )
+            
+            update_data["websites"] = [url.strip() for url in websites if url.strip()]
 
         # Only update if there are changes
         if update_data:

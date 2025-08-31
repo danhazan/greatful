@@ -170,7 +170,8 @@ class TestFormDataUploadFix:
         
         # Verify it's an auth error, not validation error
         data = response.json()
-        assert "detail" in data
+        assert "error" in data
+        assert data["error"]["code"] == "authentication_error"
 
     @pytest.mark.asyncio
     async def test_multipart_boundary_preservation(

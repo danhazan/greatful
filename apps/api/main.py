@@ -22,6 +22,9 @@ from app.core.validation_middleware import (
     TypeSafetyMiddleware
 )
 from app.core.openapi_validator import create_openapi_validator
+from app.core.exceptions import BaseAPIException
+from app.core.responses import error_response
+from fastapi.responses import JSONResponse
 import logging
 
 # Configure logging
@@ -46,6 +49,25 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Add exception handlers
+@app.exception_handler(BaseAPIException)
+async def base_api_exception_handler(request, exc: BaseAPIException):
+    """Handle custom API exceptions."""
+    request_id = getattr(request.state, 'request_id', None)
+    logger.warning(
+        f"API Exception: {exc.error_code} - {exc.detail}",
+        extra={"request_id": request_id, "details": exc.details}
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(
+            error_code=exc.error_code,
+            message=exc.detail,
+            details=exc.details,
+            request_id=request_id
+        )
+    )
 
 # Add middleware (order matters - first added is outermost)
 app.add_middleware(ErrorHandlingMiddleware)

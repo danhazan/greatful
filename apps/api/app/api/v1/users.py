@@ -3,7 +3,7 @@ User profile endpoints.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, Request, UploadFile, File, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ConfigDict
@@ -23,6 +23,11 @@ class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
     bio: Optional[str] = None
     profile_image_url: Optional[str] = None
+    display_name: Optional[str] = None
+    city: Optional[str] = None
+    location_data: Optional[Dict] = None
+    institutions: Optional[List[str]] = None
+    websites: Optional[List[str]] = None
 
 
 class UserProfileResponse(BaseModel):
@@ -32,6 +37,11 @@ class UserProfileResponse(BaseModel):
     email: str
     bio: Optional[str] = None
     profile_image_url: Optional[str] = None
+    display_name: Optional[str] = None
+    city: Optional[str] = None
+    location: Optional[Dict] = None
+    institutions: Optional[List[str]] = None
+    websites: Optional[List[str]] = None
     created_at: str
     posts_count: int
     followers_count: int = 0  # Will be implemented with follow system
@@ -46,6 +56,11 @@ class PublicUserProfileResponse(BaseModel):
     username: str
     bio: Optional[str] = None
     profile_image_url: Optional[str] = None
+    display_name: Optional[str] = None
+    city: Optional[str] = None
+    location: Optional[Dict] = None
+    institutions: Optional[List[str]] = None
+    websites: Optional[List[str]] = None
     created_at: str
     posts_count: int
     followers_count: int = 0  # Will be implemented with follow system
@@ -143,7 +158,12 @@ async def update_my_profile(
         user_id=current_user_id,
         username=profile_update.username,
         bio=profile_update.bio,
-        profile_image_url=profile_update.profile_image_url
+        profile_image_url=profile_update.profile_image_url,
+        display_name=profile_update.display_name,
+        city=profile_update.city,
+        location_data=profile_update.location_data,
+        institutions=profile_update.institutions,
+        websites=profile_update.websites
     )
     
     return success_response(result, getattr(request.state, 'request_id', None))
@@ -349,3 +369,59 @@ async def get_default_avatar(
     avatar_url = await photo_service.get_default_avatar_url(current_user_id)
     
     return success_response({"avatar_url": avatar_url}, getattr(request.state, 'request_id', None))
+
+
+class LocationSearchRequest(BaseModel):
+    """Location search request model."""
+    query: str
+    limit: Optional[int] = 10
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LocationResult(BaseModel):
+    """Location search result model."""
+    display_name: str
+    lat: float
+    lon: float
+    place_id: Optional[str] = None
+    address: dict
+    importance: Optional[float] = None
+    type: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+@router.post("/location/search")
+async def search_locations(
+    search_request: LocationSearchRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Search for locations using OpenStreetMap Nominatim API.
+    
+    - **query**: Search query (city, neighborhood, place name, minimum 2 characters)
+    - **limit**: Maximum number of results (1-10, default: 10)
+    
+    Returns list of location suggestions with display names, coordinates, and address data.
+    Used for location autocomplete in profile editing.
+    """
+    from app.services.location_service import LocationService
+    
+    # Validate limit
+    limit = min(max(search_request.limit or 10, 1), 10)
+    
+    location_service = LocationService(db)
+    try:
+        results = await location_service.search_locations(
+            query=search_request.query,
+            limit=limit
+        )
+        
+        return success_response(results, getattr(request.state, 'request_id', None))
+        
+    finally:
+        # Clean up HTTP client
+        await location_service.cleanup()

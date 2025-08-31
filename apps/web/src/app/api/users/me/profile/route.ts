@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     const profileResponse = await response.json()
-    const profileData = profileResponse.data || profileResponse
-    return NextResponse.json(profileData)
+    return NextResponse.json(profileResponse)
   } catch (error) {
     return handleApiError(error, 'getting profile')
   }
@@ -63,8 +62,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const profileResponse = await response.json()
-    const profileData = profileResponse.data || profileResponse
-    return NextResponse.json(profileData)
+    return NextResponse.json(profileResponse)
   } catch (error) {
     return handleApiError(error, 'updating profile')
   }

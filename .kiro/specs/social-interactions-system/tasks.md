@@ -256,7 +256,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Create image storage system with proper file naming and cleanup
   - Add default avatar generation for users without profile photos
   - Implement image resizing and optimization for different display contexts
-- [ ] **10.2 Extended Profile Information**
+- [x] **10.2 Extended Profile Information**
   - Add City field to user profiles with location validation
   - Add Institutions field (school, company, foundation) with multiple entries support
   - Add Websites field with URL validation and safe link handling

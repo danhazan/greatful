@@ -31,13 +31,19 @@ export default function FeedPage() {
       })
 
       if (!response.ok) {
+        // Check if it's an auth error
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem("access_token")
+          router.push("/auth/login")
+          return
+        }
+        
         let errorText = 'Unknown error'
         try {
-          if (response.text && typeof response.text === 'function') {
-            errorText = await response.text()
-          }
+          const errorData = await response.json()
+          errorText = errorData.error || errorData.detail || 'Unknown error'
         } catch (e) {
-          // Fallback to generic error if text() fails
+          // Fallback to generic error if json() fails
           errorText = 'Unknown error'
         }
         throw new Error(`Failed to load posts: ${response.status} - ${errorText}`)
@@ -45,12 +51,14 @@ export default function FeedPage() {
 
       const postsData = await response.json()
 
-      if (!Array.isArray(postsData)) {
+      // Handle both wrapped and unwrapped responses
+      const posts = postsData.data || postsData
+      if (!Array.isArray(posts)) {
         throw new Error('Invalid posts data format')
       }
 
       // The API already returns the correct format, just use it directly
-      setPosts(postsData)
+      setPosts(posts)
     } catch (error) {
       console.error('Error loading posts:', error)
       setError(error instanceof Error ? error.message : 'Failed to load posts')
@@ -77,19 +85,28 @@ export default function FeedPage() {
 
         if (response.ok) {
           const userData = await response.json()
+          // Handle both wrapped and unwrapped responses
+          const profileData = userData.data || userData
           const currentUser = {
-            id: userData.id,
-            name: userData.username,
-            email: userData.email
+            id: profileData.id,
+            name: profileData.display_name || profileData.username,
+            email: profileData.email
           }
           setUser(currentUser)
         } else {
+          // Check if it's an auth error
+          if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem("access_token")
+            router.push("/auth/login")
+            return
+          }
           throw new Error('Failed to fetch user info')
         }
       } catch (error) {
         console.error('Error fetching user info:', error)
         setError('Failed to load user information')
         // Redirect to login on auth failure
+        localStorage.removeItem("access_token")
         router.push("/auth/login")
         return
       }

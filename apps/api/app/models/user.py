@@ -2,7 +2,7 @@
 User model.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, func, Text
+from sqlalchemy import Column, Integer, String, DateTime, func, Text, JSON
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.core.database import Base
@@ -19,6 +19,15 @@ class User(Base):
     bio = Column(Text, nullable=True)
     profile_image_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Enhanced profile fields
+    display_name = Column(String(100), nullable=True, index=True)
+    city = Column(String(100), nullable=True, index=True)
+    institutions = Column(JSON, nullable=True)
+    websites = Column(JSON, nullable=True)
+    location = Column(JSON, nullable=True)  # For structured location data from Nominatim
+    profile_photo_filename = Column(String(255), nullable=True, index=True)
+    profile_preferences = Column(JSON, nullable=True)
 
     @classmethod
     async def get_by_email(cls, db: AsyncSession, email: str):
