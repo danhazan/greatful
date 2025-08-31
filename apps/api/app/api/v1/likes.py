@@ -290,7 +290,7 @@ async def get_post_hearts_users(
                 "id": heart.id,
                 "userId": str(heart.user_id),
                 "userName": heart.user.username,
-                "userImage": None,  # Add profile image URL when available
+                "userImage": heart.user.profile_image_url,
                 "createdAt": heart.created_at.isoformat()
             }
             for heart in hearts

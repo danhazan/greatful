@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
 import { getImageUrl } from '@/utils/imageUtils'
+import ProfilePhotoDisplay from './ProfilePhotoDisplay'
 // UserInfo type defined locally
 interface UserInfo {
   id: number
@@ -246,19 +247,12 @@ export default function MentionAutocomplete({
             >
               <div className="flex items-center space-x-3">
                 <div className="flex-shrink-0">
-                  {user.profile_image_url ? (
-                    <img
-                      src={getImageUrl(user.profile_image_url) || user.profile_image_url}
-                      alt={user.username}
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                      <span className="text-purple-600 font-medium text-sm">
-                        {user.username.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
+                  <ProfilePhotoDisplay
+                    photoUrl={user.profile_image_url}
+                    username={user.username}
+                    size="sm"
+                    className="border-0 shadow-none"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-900 truncate">
