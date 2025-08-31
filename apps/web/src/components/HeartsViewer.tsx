@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { X, Heart } from "lucide-react"
 import { formatTimeAgo } from "@/utils/timeAgo"
+import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 
 interface HeartUser {
   id: string
@@ -100,19 +101,12 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
                   >
                     {/* User Avatar */}
                     <div className="flex-shrink-0">
-                      {heart.userImage ? (
-                        <img
-                          src={heart.userImage}
-                          alt={heart.userName}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                          <span className="text-red-600 text-sm font-medium">
-                            {heart.userName?.charAt(0)?.toUpperCase() || '?'}
-                          </span>
-                        </div>
-                      )}
+                      <ProfilePhotoDisplay
+                        photoUrl={heart.userImage}
+                        username={heart.userName}
+                        size="sm"
+                        className="border-0 shadow-none"
+                      />
                     </div>
                     
                     {/* User Info */}

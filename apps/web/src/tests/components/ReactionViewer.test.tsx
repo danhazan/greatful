@@ -136,9 +136,10 @@ describe('ReactionViewer', () => {
     const bobElement = screen.getByText('bob_wilson').closest('div')
     expect(bobElement).toBeInTheDocument()
     
-    // Should have a div with the first letter of username as fallback
-    const avatarFallback = screen.getByText('B')
-    expect(avatarFallback).toBeInTheDocument()
+    // Should have a User icon as fallback (ProfilePhotoDisplay component)
+    const userIcon = screen.getByRole('listitem', { name: /bob_wilson reacted with/ }).querySelector('svg')
+    expect(userIcon).toBeInTheDocument()
+    expect(userIcon).toHaveClass('lucide-user')
   })
 
   it('should call onUserClick when user is clicked', () => {

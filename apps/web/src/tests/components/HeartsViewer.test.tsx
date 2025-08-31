@@ -112,12 +112,15 @@ describe('HeartsViewer', () => {
     )
 
     // Bob Wilson doesn't have a profile image, should show default avatar
-    const bobElement = screen.getByText('bob_wilson').closest('div')
+    const bobElement = screen.getByText('bob_wilson')
     expect(bobElement).toBeInTheDocument()
     
-    // Should have a div with the first letter of username as fallback
-    const avatarFallback = screen.getByText('B')
-    expect(avatarFallback).toBeInTheDocument()
+    // Should have a User icon as fallback (ProfilePhotoDisplay component)
+    // Look for the svg element with lucide-user class
+    const container = screen.getByText('bob_wilson').closest('[class*="flex items-center"]')
+    const userIcon = container?.querySelector('svg')
+    expect(userIcon).toBeInTheDocument()
+    expect(userIcon).toHaveClass('lucide-user')
   })
 
   it('should display time ago format for each heart', () => {

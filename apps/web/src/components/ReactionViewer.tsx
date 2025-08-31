@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { X } from "lucide-react"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { formatTimeAgo } from "@/utils/timeAgo"
+import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 
 interface Reaction {
   id: string
@@ -163,19 +164,12 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                         >
                           {/* User Avatar */}
                           <div className="flex-shrink-0">
-                            {reaction.userImage ? (
-                              <img
-                                src={reaction.userImage}
-                                alt={reaction.userName}
-                                className="w-8 h-8 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                                <span className="text-purple-600 text-sm font-medium">
-                                  {reaction.userName?.charAt(0)?.toUpperCase() || '?'}
-                                </span>
-                              </div>
-                            )}
+                            <ProfilePhotoDisplay
+                              photoUrl={reaction.userImage}
+                              username={reaction.userName}
+                              size="sm"
+                              className="border-0 shadow-none"
+                            />
                           </div>
                           
                           {/* User Info */}
