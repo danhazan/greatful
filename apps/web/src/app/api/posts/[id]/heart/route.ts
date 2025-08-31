@@ -72,7 +72,8 @@ export async function DELETE(
       )
     }
 
-    return NextResponse.json({ success: true })
+    const data = await response.json()
+    return NextResponse.json(data)
   } catch (error) {
     console.error('Error removing heart:', error)
     return NextResponse.json(

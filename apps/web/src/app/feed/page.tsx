@@ -7,136 +7,46 @@ import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 
 import Navbar from "@/components/Navbar"
-import { loadUserReactions, saveUserReactions, clearGenericReactionData } from "@/utils/localStorage"
 
-// Mock data for now - will be replaced with real API calls
-// Global counts represent reactions from ALL users, individual state comes from localStorage
-const mockPosts = [
-  {
-    id: "feed-1",
-    content: "I'm grateful for this beautiful morning and the opportunity to connect with amazing people through this platform! 🌅",
-    author: {
-      id: "user-1",
-      name: "Sarah Johnson",
-      image: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face"
-    },
-    createdAt: new Date().toISOString(),
-    postType: "daily" as const,
-    heartsCount: 12, // Global count from all users
-    reactionsCount: 8, // Global count from all users
-    // Individual user state will be loaded from localStorage
-  },
-  {
-    id: "feed-2", 
-    content: "Grateful for my morning coffee ritual and the quiet moments before the day begins ☕",
-    author: {
-      id: "user-2",
-      name: "Mike Chen",
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
-    },
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), // 3 hours ago
-    postType: "photo" as const,
-    imageUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&h=400&fit=crop",
-    heartsCount: 24, // Global count from all users
-    reactionsCount: 15, // Global count from all users
-    // Individual user state will be loaded from localStorage
-  },
-  {
-    id: "feed-3",
-    content: "Quick gratitude for my team's support during today's presentation! 🙏",
-    author: {
-      id: "user-3", 
-      name: "Emma Wilson",
-      image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face"
-    },
-    createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
-    postType: "spontaneous" as const,
-    heartsCount: 8, // Global count from all users
-    reactionsCount: 3, // Global count from all users
-    // Individual user state will be loaded from localStorage
-  }
-]
+// No mock data - use real API data exclusively
 
 export default function FeedPage() {
   const router = useRouter()
-  const [posts, setPosts] = useState(mockPosts)
+  const [posts, setPosts] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)
   const [selectedPost, setSelectedPost] = useState<any>(null)
-  const [localReactions, setLocalReactions] = useState<{[postId: string]: {reaction?: string, hearted?: boolean}}>({})
+  const [error, setError] = useState<string | null>(null)
 
-  // Clear any old generic reaction data that might cause cross-user sharing
-  useEffect(() => {
-    clearGenericReactionData()
-  }, [])
-
-  // Save user-specific reactions to localStorage
-  const saveLocalReactions = (reactions: {[postId: string]: {reaction?: string, hearted?: boolean}}) => {
-    setLocalReactions(reactions)
-    if (user?.id) {
-      saveUserReactions(user.id.toString(), reactions)
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('Saved user-specific reactions for user', user.id, ':', reactions)
-      }
-    }
-  }
-
-  // Load posts from API and merge with user-specific reaction data
-  const loadPostsWithReactions = async (token: string, reactions: {[postId: string]: {reaction?: string, hearted?: boolean}}) => {
+  // Load posts from API - server is authoritative for all data
+  const loadPosts = async (token: string) => {
     try {
+      setError(null)
       const response = await fetch('/api/posts', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
 
-      let postsData = mockPosts
-      if (response.ok) {
-        postsData = await response.json()
-      } else if (process.env.NODE_ENV === 'development') {
-        console.debug('Failed to load posts from API, using mock data')
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error')
+        throw new Error(`Failed to load posts: ${response.status} - ${errorText}`)
       }
 
-      // For each post, merge with user-specific reaction data
-      // Global counts show totals from all users, individual state shows current user's reactions
-      const postsWithUserReactions = postsData.map((post: any) => {
-        // Check user-specific local storage for this user's reaction data
-        const localData = reactions[post.id]
-        
-        return {
-          ...post,
-          // Keep global counts from server (these represent all users' reactions)
-          heartsCount: post.heartsCount || 0,
-          reactionsCount: post.reactionsCount || 0,
-          
-          // User-specific state from local storage (what THIS user has done)
-          currentUserReaction: localData?.reaction || undefined,
-          isHearted: localData?.hearted ?? false,
-        }
-      })
+      const postsData = await response.json()
 
-      setPosts(postsWithUserReactions)
+      if (!Array.isArray(postsData)) {
+        throw new Error('Invalid posts data format')
+      }
+
+      // The API already returns the correct format, just use it directly
+      setPosts(postsData)
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('Error loading posts:', error)
-      }
-      // Fallback to mock data with user-specific reactions
-      const mergedPosts = mockPosts.map((post: any) => {
-        const localData = reactions[post.id]
-        return {
-          ...post,
-          // Keep global counts from mock data (representing all users)
-          heartsCount: post.heartsCount || 0,
-          reactionsCount: post.reactionsCount || 0,
-          
-          // User-specific state from local storage
-          currentUserReaction: localData?.reaction || undefined,
-          isHearted: localData?.hearted ?? false,
-        }
-      })
-      setPosts(mergedPosts)
+      console.error('Error loading posts:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load posts')
+      setPosts([]) // Set empty array on error
     }
   }
 
@@ -147,9 +57,6 @@ export default function FeedPage() {
       router.push("/auth/login")
       return
     }
-
-    // Load user-specific reactions first (will be empty until user is loaded)
-    let loadedReactions = {}
 
     // Get user info from API
     const fetchUserInfo = async () => {
@@ -163,54 +70,26 @@ export default function FeedPage() {
         if (response.ok) {
           const userData = await response.json()
           const currentUser = {
-            id: userData.id, // Keep as integer, don't convert to string
+            id: userData.id,
             name: userData.username,
             email: userData.email
           }
           setUser(currentUser)
-          
-          // Load user-specific reactions after user is set
-          const userReactions = loadUserReactions(currentUser.id.toString())
-          setLocalReactions(userReactions)
-          loadedReactions = userReactions
-          
-          if (process.env.NODE_ENV === 'development') {
-            console.debug('Loaded user-specific reactions for user', currentUser.id, ':', userReactions)
-          }
         } else {
-          // Fallback to mock user if API fails
-          const mockUser = {
-            id: "current-user",
-            name: "You",
-            email: "user@example.com"
-          }
-          setUser(mockUser)
-          
-          // Load user-specific reactions for mock user
-          const userReactions = loadUserReactions(mockUser.id)
-          setLocalReactions(userReactions)
-          loadedReactions = userReactions
+          throw new Error('Failed to fetch user info')
         }
       } catch (error) {
         console.error('Error fetching user info:', error)
-        // Fallback to mock user
-        const mockUser = {
-          id: "current-user",
-          name: "You",
-          email: "user@example.com"
-        }
-        setUser(mockUser)
-        
-        // Load user-specific reactions for mock user
-        const userReactions = loadUserReactions(mockUser.id)
-        setLocalReactions(userReactions)
-        loadedReactions = userReactions
+        setError('Failed to load user information')
+        // Redirect to login on auth failure
+        router.push("/auth/login")
+        return
       }
     }
 
     const initializePage = async () => {
       await fetchUserInfo()
-      await loadPostsWithReactions(token, loadedReactions)
+      await loadPosts(token)
       setIsLoading(false)
     }
 
@@ -218,109 +97,52 @@ export default function FeedPage() {
   }, [router])
 
   const handleLogout = () => {
-    // Clear user-specific data when logging out
-    if (user?.id) {
-      // Note: We don't clear user reactions on logout to preserve them for next login
-      // Only clear session-specific data
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('Logging out user:', user.id)
-      }
-    }
-    
     localStorage.removeItem("access_token")
-    setLocalReactions({}) // Clear in-memory reactions
-    setUser(null) // Clear user state
+    setUser(null)
+    setPosts([])
     router.push("/")
   }
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {
-    // If we have server data, use it; otherwise fallback to optimistic update
-    const newHearted = heartInfo ? heartInfo.is_hearted : !isCurrentlyHearted
-    const newCount = heartInfo ? heartInfo.hearts_count : (isCurrentlyHearted ? (posts.find(p => p.id === postId)?.heartsCount || 1) - 1 : (posts.find(p => p.id === postId)?.heartsCount || 0) + 1)
-    
-    // Update both the user's individual heart state AND the global count from server
+    // Update post state with server response data
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          // Update global count with server data (server-authoritative)
-          heartsCount: newCount,
-          // Update user's individual heart state
-          isHearted: newHearted
+          heartsCount: heartInfo ? heartInfo.hearts_count : (isCurrentlyHearted ? post.heartsCount - 1 : post.heartsCount + 1),
+          isHearted: heartInfo ? heartInfo.is_hearted : !isCurrentlyHearted
         }
       }
       return post
     }))
-
-    // Save user's individual reaction state to local storage
-    const newLocalReactions = {
-      ...localReactions,
-      [postId]: {
-        ...localReactions[postId],
-        hearted: newHearted
-      }
-    }
-    saveLocalReactions(newLocalReactions)
   }
 
   const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
-    // If we have server data, use it; otherwise fallback to optimistic update
-    const newReaction = reactionSummary ? reactionSummary.user_reaction : emojiCode
-    const newCount = reactionSummary ? reactionSummary.total_count : (posts.find(p => p.id === postId)?.reactionsCount || 0) + 1
-    
-    // Update both the user's individual reaction state AND the global count from server
+    // Update post state with server response data
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          // Update global count with server data (server-authoritative)
-          reactionsCount: newCount,
-          // Update user's individual reaction state
-          currentUserReaction: newReaction as string | undefined
+          reactionsCount: reactionSummary ? reactionSummary.total_count : post.reactionsCount + 1,
+          currentUserReaction: reactionSummary ? reactionSummary.user_reaction : emojiCode
         }
       }
       return post
     }) as typeof posts)
-
-    // Save user's individual reaction state to local storage
-    const newLocalReactions = {
-      ...localReactions,
-      [postId]: {
-        ...localReactions[postId],
-        reaction: newReaction || undefined
-      }
-    }
-    saveLocalReactions(newLocalReactions)
   }
 
   const handleRemoveReaction = async (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
-    // If we have server data, use it; otherwise fallback to optimistic update
-    const newReaction = reactionSummary ? reactionSummary.user_reaction : undefined
-    const newCount = reactionSummary ? reactionSummary.total_count : Math.max((posts.find(p => p.id === postId)?.reactionsCount || 1) - 1, 0)
-    
-    // Update both the user's individual reaction state AND the global count from server
+    // Update post state with server response data
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          // Update global count with server data (server-authoritative)
-          reactionsCount: newCount,
-          // Clear user's individual reaction state
-          currentUserReaction: newReaction as string | undefined
+          reactionsCount: reactionSummary ? reactionSummary.total_count : Math.max(post.reactionsCount - 1, 0),
+          currentUserReaction: reactionSummary ? reactionSummary.user_reaction : undefined
         }
       }
       return post
     }) as typeof posts)
-
-    // Save user's individual reaction state to local storage
-    const newLocalReactions = {
-      ...localReactions,
-      [postId]: {
-        ...localReactions[postId],
-        reaction: newReaction || undefined
-      }
-    }
-    saveLocalReactions(newLocalReactions)
   }
 
   const handleShare = (postId: string) => {
@@ -335,6 +157,13 @@ export default function FeedPage() {
     } else {
       // Navigate to specific user's profile
       router.push(`/profile/${userId}`)
+    }
+  }
+
+  const refreshPosts = async () => {
+    const token = localStorage.getItem("access_token")
+    if (token) {
+      await loadPosts(token)
     }
   }
 
@@ -394,10 +223,8 @@ export default function FeedPage() {
         throw new Error(errorData.error || 'Failed to create post')
       }
 
-      const newPost = await response.json()
-      
-      // Add the new post to the beginning of the posts array
-      setPosts(prevPosts => [newPost, ...prevPosts])
+      // Refresh the entire feed to get the latest data
+      await refreshPosts()
       
       // Close the modal
       setIsCreateModalOpen(false)
@@ -422,6 +249,24 @@ export default function FeedPage() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Feed</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
@@ -436,25 +281,39 @@ export default function FeedPage() {
               🎉 Welcome to your Gratitude Feed!
             </h2>
             <p className="text-sm sm:text-base text-purple-800">
-              You can now interact with posts using emoji reactions! Click the 😊+ button to react with positive emotions. 
-              The counts show the total reactions from all users (server data), while your personal reactions are saved privately and highlighted.
+              Share your gratitude and connect with others! Heart posts you love and react with positive emotions. 
+              All your interactions are synced across devices.
             </p>
           </div>
 
           {/* Posts */}
           <div className="space-y-6">
-            {posts.map((post) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                currentUserId={user?.id?.toString()}
-                onHeart={handleHeart}
-                onReaction={handleReaction}
-                onRemoveReaction={handleRemoveReaction}
-                onShare={handleShare}
-                onUserClick={handleUserClick}
-              />
-            ))}
+            {posts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 text-6xl mb-4">📝</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No posts yet</h3>
+                <p className="text-gray-600 mb-4">Be the first to share your gratitude!</p>
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
+                >
+                  Create Your First Post
+                </button>
+              </div>
+            ) : (
+              posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  currentUserId={user?.id?.toString()}
+                  onHeart={handleHeart}
+                  onReaction={handleReaction}
+                  onRemoveReaction={handleRemoveReaction}
+                  onShare={handleShare}
+                  onUserClick={handleUserClick}
+                />
+              ))
+            )}
           </div>
 
           {/* Floating Create Post Button */}

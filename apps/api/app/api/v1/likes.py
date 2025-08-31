@@ -47,7 +47,7 @@ async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(secur
         )
 
 
-@router.post("/posts/{post_id}/heart", response_model=LikeResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/posts/{post_id}/heart", status_code=status.HTTP_201_CREATED)
 async def add_heart(
     post_id: str,
     current_user_id: int = Depends(get_current_user_id),
@@ -120,17 +120,26 @@ async def add_heart(
         
         logger.info(f"User {current_user_id} hearted post {post_id}")
         
-        return LikeResponse(
-            id=like.id,
-            user_id=like.user_id,
-            post_id=like.post_id,
-            created_at=like.created_at.isoformat(),
-            user={
-                "id": user.id,
-                "username": user.username,
-                "email": user.email
-            }
+        # Get updated heart count and status
+        from sqlalchemy import func
+        
+        # Count total hearts for this post
+        hearts_count_result = await db.execute(
+            select(func.count(Like.id)).where(Like.post_id == post_id)
         )
+        hearts_count = hearts_count_result.scalar() or 0
+        
+        # Check if current user has hearted this post
+        user_heart_result = await db.execute(
+            select(Like).where(Like.user_id == current_user_id, Like.post_id == post_id)
+        )
+        is_hearted = user_heart_result.scalar_one_or_none() is not None
+        
+        return {
+            "hearts_count": hearts_count,
+            "is_hearted": is_hearted,
+            "post_id": post_id
+        }
         
     except HTTPException:
         raise
@@ -149,7 +158,7 @@ async def add_heart(
         )
 
 
-@router.delete("/posts/{post_id}/heart", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/posts/{post_id}/heart", status_code=status.HTTP_200_OK)
 async def remove_heart(
     post_id: str,
     current_user_id: int = Depends(get_current_user_id),
@@ -160,7 +169,7 @@ async def remove_heart(
     
     - **post_id**: ID of the post to unheart
     
-    Returns 204 No Content on success, 404 if no heart exists.
+    Returns updated post heart data.
     """
     try:
         # Find existing like
@@ -179,6 +188,27 @@ async def remove_heart(
         await db.commit()
         
         logger.info(f"User {current_user_id} removed heart from post {post_id}")
+        
+        # Get updated heart count and status
+        from sqlalchemy import func
+        
+        # Count total hearts for this post
+        hearts_count_result = await db.execute(
+            select(func.count(Like.id)).where(Like.post_id == post_id)
+        )
+        hearts_count = hearts_count_result.scalar() or 0
+        
+        # Check if current user has hearted this post (should be False after deletion)
+        user_heart_result = await db.execute(
+            select(Like).where(Like.user_id == current_user_id, Like.post_id == post_id)
+        )
+        is_hearted = user_heart_result.scalar_one_or_none() is not None
+        
+        return {
+            "hearts_count": hearts_count,
+            "is_hearted": is_hearted,
+            "post_id": post_id
+        }
         
     except HTTPException:
         raise

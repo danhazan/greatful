@@ -69,11 +69,13 @@ export async function DELETE(request: NextRequest) {
       return createErrorResponse('Authorization header required', 401)
     }
     
-    const authHeaders = createAuthHeaders(request)
+    const token = getAuthToken(request)
 
     const response = await fetch(`${API_BASE_URL}/api/v1/users/me/profile/photo`, {
       method: 'DELETE',
-      headers: authHeaders
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
     })
 
     const result = await response.json()
