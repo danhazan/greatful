@@ -48,7 +48,9 @@ export async function GET(
       content: post.content,
       author: {
         id: post.author?.id?.toString() || userId,
-        name: post.author?.username || 'Unknown User',
+        name: post.author?.display_name || post.author?.username || 'Unknown User',
+        username: post.author?.username || 'unknown',
+        display_name: post.author?.display_name,
         image: post.author?.profile_image_url
       },
       createdAt: post.created_at,

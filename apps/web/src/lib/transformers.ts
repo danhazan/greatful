@@ -254,6 +254,8 @@ export interface FrontendUserPost {
   author: {
     id: string
     name: string
+    username: string
+    display_name?: string
     image?: string
   }
   createdAt: string
@@ -274,7 +276,9 @@ export function transformUserPost(post: BackendUserPost, userProfile?: any): Fro
     content: post.content,
     author: {
       id: userProfile?.id?.toString() || '1',
-      name: userProfile?.username || 'Unknown User',
+      name: userProfile?.display_name || userProfile?.username || 'Unknown User',
+      username: userProfile?.username || 'unknown',
+      display_name: userProfile?.display_name,
       image: userProfile?.profile_image_url
     },
     createdAt: ensureTimezoneIndicator(post.created_at),

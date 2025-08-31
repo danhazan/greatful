@@ -45,7 +45,9 @@ export async function GET(
       title: post.title,
       author: {
         id: post.author.id.toString(),
-        name: post.author.name || post.author.username,
+        name: post.author.display_name || post.author.name || post.author.username,
+        username: post.author.username,
+        display_name: post.author.display_name,
         image: post.author.profile_image_url
       },
       createdAt: post.created_at,
