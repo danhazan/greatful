@@ -7,6 +7,59 @@ import PostCard from "@/components/PostCard"
 import Navbar from "@/components/Navbar"
 import FollowButton from "@/components/FollowButton"
 
+// Profile Image Component
+function ProfileImage({ profileImageUrl, username, displayName }: { 
+  profileImageUrl?: string, 
+  username?: string, 
+  displayName?: string 
+}) {
+  const [imageError, setImageError] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
+
+  const handleImageError = () => {
+    setImageError(true)
+    setImageLoaded(false)
+  }
+
+  const handleImageLoad = () => {
+    setImageLoaded(true)
+    setImageError(false)
+  }
+
+  // Reset states when profileImageUrl changes
+  useEffect(() => {
+    setImageError(false)
+    setImageLoaded(false)
+  }, [profileImageUrl])
+
+  const showFallback = !profileImageUrl || imageError || !imageLoaded
+  const displayText = displayName || username || 'User'
+  const fallbackLetter = displayText.charAt(0).toUpperCase()
+
+  return (
+    <div className="relative w-32 h-32">
+      {profileImageUrl && !imageError && (
+        <img
+          src={profileImageUrl.startsWith('http') ? profileImageUrl : `http://localhost:8000${profileImageUrl}`}
+          alt={displayText}
+          className="w-32 h-32 rounded-full object-cover border-4 border-purple-100"
+          onError={handleImageError}
+          onLoad={handleImageLoad}
+          style={{ display: imageLoaded ? 'block' : 'none' }}
+        />
+      )}
+      
+      {showFallback && (
+        <div className="w-32 h-32 rounded-full bg-purple-100 flex items-center justify-center border-4 border-purple-200">
+          <span className="text-4xl font-bold text-purple-600">
+            {fallbackLetter}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface UserProfile {
   id: number
   username: string
@@ -99,6 +152,8 @@ export default function UserProfilePage() {
         const profileApiResponse = await profileResponse.json()
         const profileData = profileApiResponse.data || profileApiResponse  // Handle both wrapped and direct responses
         
+        console.log('Profile data received:', profileData)
+        
         setProfile({
           id: profileData.id,
           username: profileData.username,
@@ -110,6 +165,12 @@ export default function UserProfilePage() {
           postsCount: profileData.posts_count || 0,
           followersCount: profileData.followers_count || 0,
           followingCount: profileData.following_count || 0
+        })
+        
+        console.log('Profile state set:', {
+          username: profileData.username,
+          displayName: profileData.display_name,
+          profileImageUrl: profileData.profile_image_url
         })
 
         // Fetch user posts
@@ -289,20 +350,12 @@ export default function UserProfilePage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
             <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
               {/* Profile Image */}
-              <div className="flex-shrink-0">
-                {profile.profileImageUrl ? (
-                  <img
-                    src={profile?.profileImageUrl}
-                    alt={profile?.username || 'User'}
-                    className="w-32 h-32 rounded-full object-cover border-4 border-purple-100"
-                  />
-                ) : (
-                  <div className="w-32 h-32 rounded-full bg-purple-100 flex items-center justify-center border-4 border-purple-200">
-                    <span className="text-4xl font-bold text-purple-600">
-                      {profile?.username?.charAt(0)?.toUpperCase() || '?'}
-                    </span>
-                  </div>
-                )}
+              <div className="flex-shrink-0 relative">
+                <ProfileImage 
+                  profileImageUrl={profile.profileImageUrl}
+                  username={profile.username}
+                  displayName={profile.displayName}
+                />
               </div>
 
               {/* Profile Info */}
