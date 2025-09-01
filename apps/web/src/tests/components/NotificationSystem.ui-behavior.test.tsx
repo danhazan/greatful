@@ -6,6 +6,14 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import NotificationSystem from '@/components/NotificationSystem'
 
+// Mock next/navigation
+const mockPush = jest.fn()
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush
+  })
+}))
+
 // Mock fetch globally
 const mockFetch = jest.fn()
 global.fetch = mockFetch
@@ -24,6 +32,7 @@ describe('NotificationSystem UI Behavior', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockLocalStorage.getItem.mockReturnValue('mock-token')
+    mockPush.mockClear()
   })
 
   const mockNotifications = [
@@ -80,12 +89,14 @@ describe('NotificationSystem UI Behavior', () => {
     }
   ]
 
-  it('should not close dropdown when clicking on individual notifications', async () => {
+  it('should close dropdown when clicking on individual notifications (navigation)', async () => {
     // Mock initial notifications fetch
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => mockNotifications
     })
+
+
 
     render(<NotificationSystem userId={1} />)
 
@@ -106,9 +117,10 @@ describe('NotificationSystem UI Behavior', () => {
     const individualNotification = screen.getByText('User One')
     fireEvent.click(individualNotification)
 
-    // Dropdown should still be open
-    expect(screen.getByText('Notifications')).toBeInTheDocument()
-    expect(screen.getByText('User One')).toBeInTheDocument()
+    // Dropdown should close after navigation
+    await waitFor(() => {
+      expect(screen.queryByText('Notifications')).not.toBeInTheDocument()
+    })
   })
 
   it('should not close dropdown when clicking on batch notifications', async () => {

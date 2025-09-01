@@ -51,9 +51,22 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   </UserProvider>
 )
 
+// Mock localStorage
+const mockLocalStorage = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+}
+Object.defineProperty(window, 'localStorage', {
+  value: mockLocalStorage,
+})
+
 describe('Post Page Profile Image', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    
+    // Mock localStorage to provide access token
+    mockLocalStorage.getItem.mockReturnValue('mock-access-token')
     
     // Mock successful API response
     ;(global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({
@@ -76,12 +89,12 @@ describe('Post Page Profile Image', () => {
       expect(screen.getByText('Test post content')).toBeInTheDocument()
     })
 
-    // Verify that the API was called
+    // Verify that the API was called (Next.js API route, not FastAPI directly)
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/posts/test-post-id'),
+      expect.stringContaining('/api/posts/test-post-id'),
       expect.objectContaining({
-        method: 'GET',
         headers: expect.objectContaining({
+          'Authorization': 'Bearer mock-access-token',
           'Content-Type': 'application/json',
         }),
       })

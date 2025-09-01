@@ -38,6 +38,18 @@ export async function GET(
 
     const post = await response.json()
 
+    // Helper function to transform profile image URL
+    const transformProfileImageUrl = (url: string | null): string | undefined => {
+      if (!url) return undefined
+      if (url.startsWith('http')) return url // Already a full URL
+      return `${API_BASE_URL}${url}` // Convert relative URL to full URL
+    }
+
+    // Helper function to get profile image URL from author object (handles both field names)
+    const getAuthorImageUrl = (author: any): string | null => {
+      return author.image || author.profile_image_url || null
+    }
+
     // Transform the post to match the frontend format
     const transformedPost = {
       id: post.id,
@@ -48,7 +60,7 @@ export async function GET(
         name: post.author.display_name || post.author.name || post.author.username,
         username: post.author.username,
         display_name: post.author.display_name,
-        image: post.author.profile_image_url
+        image: transformProfileImageUrl(getAuthorImageUrl(post.author))
       },
       createdAt: post.created_at,
       postType: post.post_type,

@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
+import { handleNotificationClick } from "@/utils/notificationLinks"
 
 interface Notification {
   id: string
@@ -27,6 +29,7 @@ interface NotificationSystemProps {
 }
 
 export default function NotificationSystem({ userId }: NotificationSystemProps) {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -323,21 +326,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                           !notification.read ? 'bg-purple-50' : ''
                         }`}
                         onClick={() => {
-                          if (notification.isBatch) {
-                            // Mark batch as read when clicked
-                            if (!notification.read) {
-                              markAsRead(notification.id)
-                            }
-                            // Toggle batch expansion
-                            toggleBatchExpansion(notification.id)
-                            // Don't close notifications dropdown for batch clicks
-                          } else {
-                            if (!notification.read) {
-                              markAsRead(notification.id)
-                            }
-                            // Navigate to post (you can implement this)
-                            // Don't close notifications dropdown for individual notification clicks
-                          }
+                          handleNotificationClick(notification, {
+                            markAsRead,
+                            toggleBatchExpansion,
+                            navigate: (url: string) => router.push(url),
+                            closeDropdown: () => setShowNotifications(false)
+                          })
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -432,11 +426,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                               className="pl-4 pr-4 py-3 sm:py-4 hover:bg-gray-100 cursor-pointer transition-colors min-h-[56px] touch-manipulation active:bg-gray-200"
                               style={{ direction: 'ltr' }}
                               onClick={() => {
-                                if (!child.read) {
-                                  markAsRead(child.id)
-                                }
-                                // Navigate to post (you can implement this)
-                                // Don't close notifications dropdown for child notification clicks
+                                handleNotificationClick(child, {
+                                  markAsRead,
+                                  toggleBatchExpansion,
+                                  navigate: (url: string) => router.push(url),
+                                  closeDropdown: () => setShowNotifications(false)
+                                })
                               }}
                             >
                               <div className="flex items-start space-x-3">

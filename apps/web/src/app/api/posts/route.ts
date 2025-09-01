@@ -117,6 +117,18 @@ export async function POST(request: NextRequest) {
 
     const createdPost = await response.json()
 
+    // Helper function to get profile image URL from author object (handles both field names)
+    const getAuthorImageUrl = (author: any): string | null => {
+      return author.image || author.profile_image_url || null
+    }
+
+    // Helper function to transform profile image URL
+    const transformProfileImageUrl = (url: string | null): string | undefined => {
+      if (!url) return undefined
+      if (url.startsWith('http')) return url // Already a full URL
+      return `${API_BASE_URL}${url}` // Convert relative URL to full URL
+    }
+
     // Transform the response to match the frontend format
     const transformedPost = {
       id: createdPost.id,
@@ -124,7 +136,7 @@ export async function POST(request: NextRequest) {
       author: {
         id: createdPost.author.id.toString(),
         name: createdPost.author.username,
-        image: createdPost.author.profile_image_url
+        image: transformProfileImageUrl(getAuthorImageUrl(createdPost.author))
       },
       createdAt: createdPost.created_at,
       postType: createdPost.post_type,
@@ -180,6 +192,18 @@ export async function GET(request: NextRequest) {
 
     const posts = await response.json()
 
+    // Helper function to transform profile image URL
+    const transformProfileImageUrl = (url: string | null): string | undefined => {
+      if (!url) return undefined
+      if (url.startsWith('http')) return url // Already a full URL
+      return `${API_BASE_URL}${url}` // Convert relative URL to full URL
+    }
+
+    // Helper function to get profile image URL from author object (handles both field names)
+    const getAuthorImageUrl = (author: any): string | null => {
+      return author.image || author.profile_image_url || null
+    }
+
     // Transform the posts to match the frontend format
     const transformedPosts = posts.map((post: any) => ({
       id: post.id,
@@ -189,7 +213,7 @@ export async function GET(request: NextRequest) {
         name: post.author.name || post.author.username,
         username: post.author.username,
         display_name: post.author.display_name,
-        image: post.author.profile_image_url
+        image: transformProfileImageUrl(getAuthorImageUrl(post.author))
       },
       createdAt: post.created_at,
       postType: post.post_type,

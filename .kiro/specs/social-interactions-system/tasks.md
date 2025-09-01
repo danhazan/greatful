@@ -305,35 +305,45 @@ The implementation maintains consistency with the reference implementation's pur
   - **Test Execution:** Run backend tests (`pytest -v`) and frontend tests (`npm test`) to ensure notification refactoring doesn't break existing functionality
   - **Refactor Standards Validation:** Validate that all notification-related code follows established patterns, proper type annotations, and architectural consistency
   - _Requirements: Notification system architecture preparation_
-- [ ] **11.1 Pressable Notification Links**
+- [x] **11.1 Pressable Notification Links**
+  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 1: Link Generation and Navigation System
   - Add click handlers to notifications that link to relevant content
   - Implement post-related notification links (like, reactions, mentions, messages) to post pages
   - Implement user-related notification links (follows) to user profile pages
   - Add proper navigation handling and URL generation for notification targets
   - Test notification link functionality across all notification types
 - [ ] **11.2 Username Links in Notifications**
+  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 1: Link Generation and Navigation System
   - Make usernames in notification text clickable links to user profiles
   - Update notification rendering to detect and linkify usernames
   - Add proper styling for username links within notification text
   - Ensure username links work consistently across all notification types
 - [ ] **11.2.1 Profile Pictures in Notification Cards**
+  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 2: Profile Picture Integration
   - Replace circular letter avatars with actual profile pictures in notification cards
   - Make profile pictures clickable to navigate to user profile (same as username click in 11.2)
   - Add fallback to letter avatar when user has no profile picture
   - Ensure profile picture sizing is consistent with notification card design
   - Test profile picture loading and error handling in notification display
-- [ ] **11.3 Like/Heart Notifications**
-  - Add notification creation for post likes/hearts (currently missing)
-  - Implement like notification batching similar to reaction notifications
-  - Update NotificationService to handle like events properly
-  - Add like notifications to existing notification batching system
-- [ ] **11.4 Advanced Notification Batching**
-  - Design comprehensive batching logic for multiple notification types per post
-  - Implement batching for likes, reactions, mentions, and shares per specific post
-  - Create batch notification display showing "X people liked your post" format
-  - Add expand/collapse functionality for batch notifications to show individual users
-  - Update notification database schema to support advanced batching relationships
-  - Document batching logic and implementation patterns thoroughly
+
+- [ ] **11.3 Like/Heart Notifications with Existing Batching Integration**
+  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 3: Purple Heart Styling and Like Notifications
+  - **Note:** The system already has comprehensive notification batching implemented. This task focuses on integrating like notifications into the existing batching system.
+  - Add like notification creation to existing NotificationService and NotificationFactory
+  - Integrate like notifications with existing batching logic (similar to emoji reactions)
+  - Update existing batch summary generation to include like notifications
+  - Implement purple heart styling (💜) for like notifications to match app branding
+  - Test like notification batching with existing notification system
+  - Ensure like notifications follow existing rate limiting and batching patterns
+- [ ] **11.4 Advanced Multi-Type Notification Batching**
+  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 4: Advanced Batching System
+  - **Note:** This enhances the existing batching system to support multiple notification types per post in a single batch
+  - Design multi-type batching schema to group likes, reactions, mentions, and shares per post
+  - Implement advanced batch summary generation: "X people engaged with your post" for mixed types
+  - Update database schema to support batch_types array and enhanced batch_metadata
+  - Create advanced batching logic that can combine different notification types intelligently
+  - Update notification display to show enhanced batch summaries with proper expand/collapse
+  - Test advanced batching scenarios with multiple notification types per post
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
 
 
