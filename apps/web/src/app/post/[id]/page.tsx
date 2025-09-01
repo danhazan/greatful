@@ -106,7 +106,7 @@ export default function PostPage({ params }: PageProps) {
           id: postData.author.id.toString(),
           name: postData.author.name || postData.author.username,
           username: postData.author.username,
-          image: postData.author.profile_image_url
+          image: postData.author.image
         },
         createdAt: postData.created_at,
         postType: postData.post_type,
