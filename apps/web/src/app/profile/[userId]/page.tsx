@@ -15,37 +15,70 @@ function ProfileImage({ profileImageUrl, username, displayName }: {
 }) {
   const [imageError, setImageError] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleImageError = () => {
+    console.log('Image failed to load:', profileImageUrl)
     setImageError(true)
     setImageLoaded(false)
+    setIsLoading(false)
   }
 
   const handleImageLoad = () => {
+    console.log('Image loaded successfully:', profileImageUrl)
     setImageLoaded(true)
     setImageError(false)
+    setIsLoading(false)
+  }
+
+  const handleImageStart = () => {
+    console.log('Image loading started:', profileImageUrl)
+    setIsLoading(true)
+    setImageError(false)
+    setImageLoaded(false)
   }
 
   // Reset states when profileImageUrl changes
   useEffect(() => {
-    setImageError(false)
-    setImageLoaded(false)
+    if (profileImageUrl) {
+      console.log('ProfileImage: URL changed to:', profileImageUrl)
+      handleImageStart()
+    } else {
+      console.log('ProfileImage: No URL provided')
+      setImageError(false)
+      setImageLoaded(false)
+      setIsLoading(false)
+    }
   }, [profileImageUrl])
 
-  const showFallback = !profileImageUrl || imageError || !imageLoaded
   const displayText = displayName || username || 'User'
   const fallbackLetter = displayText.charAt(0).toUpperCase()
+  
+  // Show fallback if no URL, error occurred, or still loading
+  const showFallback = !profileImageUrl || imageError || (isLoading && !imageLoaded)
+  const showImage = profileImageUrl && imageLoaded && !imageError
+
+  console.log('ProfileImage render state:', {
+    profileImageUrl: !!profileImageUrl,
+    imageError,
+    imageLoaded,
+    isLoading,
+    showFallback,
+    showImage,
+    displayText,
+    fallbackLetter
+  })
 
   return (
     <div className="relative w-32 h-32">
-      {profileImageUrl && !imageError && (
+      {profileImageUrl && (
         <img
           src={profileImageUrl.startsWith('http') ? profileImageUrl : `http://localhost:8000${profileImageUrl}`}
           alt={displayText}
-          className="w-32 h-32 rounded-full object-cover border-4 border-purple-100"
+          className={`w-32 h-32 rounded-full object-cover border-4 border-purple-100 ${showImage ? 'block' : 'hidden'}`}
           onError={handleImageError}
           onLoad={handleImageLoad}
-          style={{ display: imageLoaded ? 'block' : 'none' }}
+          onLoadStart={handleImageStart}
         />
       )}
       
@@ -54,6 +87,12 @@ function ProfileImage({ profileImageUrl, username, displayName }: {
           <span className="text-4xl font-bold text-purple-600">
             {fallbackLetter}
           </span>
+        </div>
+      )}
+      
+      {isLoading && !imageLoaded && !imageError && (
+        <div className="absolute inset-0 w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-300">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
         </div>
       )}
     </div>
@@ -352,6 +391,7 @@ export default function UserProfilePage() {
               {/* Profile Image */}
               <div className="flex-shrink-0 relative">
                 <ProfileImage 
+                  key={`profile-image-${profile.id}-${profile.profileImageUrl}`}
                   profileImageUrl={profile.profileImageUrl}
                   username={profile.username}
                   displayName={profile.displayName}
