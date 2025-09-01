@@ -26,6 +26,7 @@ interface Post {
   author: {
     id: string
     name: string
+    username?: string
     image?: string
   }
   createdAt: string
@@ -67,12 +68,16 @@ export default function UserProfilePage() {
         })
 
         if (currentUserResponse.ok) {
-          currentUserData = await currentUserResponse.json()
-          setCurrentUser({
-            id: currentUserData.id,
-            name: currentUserData.username,
-            email: currentUserData.email
-          })
+          const apiResponse = await currentUserResponse.json()
+          currentUserData = apiResponse.data  // Extract data from wrapped response
+          
+          if (currentUserData && currentUserData.id) {
+            setCurrentUser({
+              id: currentUserData.id,
+              name: currentUserData.display_name || currentUserData.name || currentUserData.username,
+              email: currentUserData.email
+            })
+          }
         }
 
         // Fetch user profile
@@ -91,13 +96,16 @@ export default function UserProfilePage() {
           return
         }
 
-        const profileData = await profileResponse.json()
+        const profileApiResponse = await profileResponse.json()
+        const profileData = profileApiResponse.data || profileApiResponse  // Handle both wrapped and direct responses
+        
         setProfile({
           id: profileData.id,
           username: profileData.username,
           email: profileData.email,
           bio: profileData.bio,
           profileImageUrl: profileData.profile_image_url,
+          displayName: profileData.display_name,
           createdAt: profileData.created_at,
           postsCount: profileData.posts_count || 0,
           followersCount: profileData.followers_count || 0,
@@ -114,8 +122,9 @@ export default function UserProfilePage() {
               }
             })
             if (postsResponse.ok) {
-              const postsData = await postsResponse.json()
-              setPosts(postsData)
+              const postsApiResponse = await postsResponse.json()
+              const postsData = postsApiResponse.data || postsApiResponse  // Handle both wrapped and direct responses
+              setPosts(Array.isArray(postsData) ? postsData : [])
             }
           } else {
             // For other users, try the dedicated endpoint first
@@ -126,8 +135,9 @@ export default function UserProfilePage() {
             })
             
             if (userPostsResponse.ok) {
-              const userPostsData = await userPostsResponse.json()
-              setPosts(userPostsData)
+              const userPostsApiResponse = await userPostsResponse.json()
+              const userPostsData = userPostsApiResponse.data || userPostsApiResponse  // Handle both wrapped and direct responses
+              setPosts(Array.isArray(userPostsData) ? userPostsData : [])
             } else {
               // Fallback: get all posts from feed and filter by author
               const feedResponse = await fetch('/api/posts', {
@@ -136,8 +146,9 @@ export default function UserProfilePage() {
                 }
               })
               if (feedResponse.ok) {
-                const allPosts = await feedResponse.json()
-                const userPosts = allPosts.filter((post: any) => post.author.id === userId)
+                const feedApiResponse = await feedResponse.json()
+                const allPosts = feedApiResponse.data || feedApiResponse  // Handle both wrapped and direct responses
+                const userPosts = Array.isArray(allPosts) ? allPosts.filter((post: any) => post.author.id === userId) : []
                 console.log('Filtered user posts:', userPosts)
                 setPosts(userPosts)
               }
