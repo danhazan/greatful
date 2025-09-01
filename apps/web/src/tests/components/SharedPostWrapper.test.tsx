@@ -190,11 +190,10 @@ describe('SharedPostWrapper', () => {
         expect(screen.queryByText('Join to interact with this post')).not.toBeInTheDocument()
       })
       
-      // Find heart button by looking for buttons that contain heart icon
+      // Find heart button by looking for buttons that contain heart class
       const buttons = screen.getAllByRole('button')
       const heartButton = buttons.find(button => {
-        const svg = button.querySelector('svg')
-        return svg && svg.classList.contains('lucide-heart')
+        return button.classList.contains('heart-button')
       })
       
       expect(heartButton).toBeInTheDocument()

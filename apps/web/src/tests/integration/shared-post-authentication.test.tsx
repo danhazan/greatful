@@ -113,8 +113,7 @@ describe('Shared Post Authentication Integration', () => {
       // Find and click heart button
       const buttons = screen.getAllByRole('button')
       const heartButton = buttons.find(button => {
-        const svg = button.querySelector('svg')
-        return svg && svg.classList.contains('lucide-heart')
+        return button.classList.contains('heart-button')
       })
       
       expect(heartButton).toBeInTheDocument()
@@ -285,8 +284,8 @@ describe('Shared Post Authentication Integration', () => {
         
         // Heart should not be filled for unauthenticated users
         const heartButton = screen.getByTitle('Login to like posts')
-        const heartIcon = heartButton.querySelector('svg')
-        expect(heartIcon).not.toHaveClass('fill-current')
+        // For emoji hearts, we check the button styling instead of SVG fill
+        expect(heartButton).toHaveClass('text-gray-400')
       })
     })
 

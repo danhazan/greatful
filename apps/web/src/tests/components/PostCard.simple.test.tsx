@@ -85,7 +85,7 @@ describe('PostCard Simple Tests', () => {
     )
 
     // Check heart count
-    expect(screen.getByRole('button', { name: '5' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '💜 5' })).toBeInTheDocument()
     
     // Check reaction count
     expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument()
@@ -124,8 +124,8 @@ describe('PostCard Simple Tests', () => {
       />
     )
 
-    const heartButton = screen.getByRole('button', { name: '6' })
-    expect(heartButton).toHaveClass('text-red-500')
+    const heartButton = screen.getByRole('button', { name: '💜 6' })
+    expect(heartButton).toHaveClass('text-purple-500')
   })
 
   it('should show heart button as unfilled when user has not hearted', () => {
@@ -136,7 +136,7 @@ describe('PostCard Simple Tests', () => {
       />
     )
 
-    const heartButton = screen.getByRole('button', { name: '5' })
+    const heartButton = screen.getByRole('button', { name: '💜 5' })
     expect(heartButton).toHaveClass('text-gray-500')
   })
 

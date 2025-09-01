@@ -79,7 +79,7 @@ describe('PostCard Real-time Updates', () => {
     )
 
     // Initial state - check heart count in button
-    const heartButton = screen.getByRole('button', { name: '5' })
+    const heartButton = screen.getByRole('button', { name: '💜 5' })
     expect(heartButton).toBeInTheDocument()
     
     // Click heart button
@@ -140,7 +140,7 @@ describe('PostCard Real-time Updates', () => {
     )
 
     // Initial state - check heart count in button
-    const heartButton = screen.getByRole('button', { name: '6' })
+    const heartButton = screen.getByRole('button', { name: '💜 6' })
     expect(heartButton).toBeInTheDocument()
     
     // Click heart button to remove heart
@@ -190,7 +190,7 @@ describe('PostCard Real-time Updates', () => {
     )
 
     // Click heart button
-    const heartButton = screen.getByRole('button', { name: '5' })
+    const heartButton = screen.getByRole('button', { name: '💜 5' })
     fireEvent.click(heartButton)
 
     // Wait for API calls to complete
@@ -218,7 +218,7 @@ describe('PostCard Real-time Updates', () => {
     )
 
     // Click heart button
-    const heartButton = screen.getByRole('button', { name: '5' })
+    const heartButton = screen.getByRole('button', { name: '💜 5' })
     fireEvent.click(heartButton)
 
     // Wait for error handling
@@ -241,7 +241,7 @@ describe('PostCard Real-time Updates', () => {
     )
 
     // Initially not hearted
-    let heartButton = screen.getByRole('button', { name: '5' })
+    let heartButton = screen.getByRole('button', { name: '💜 5' })
     expect(heartButton).toHaveClass('text-gray-500')
 
     // Rerender with hearted state
@@ -254,8 +254,8 @@ describe('PostCard Real-time Updates', () => {
     )
 
     // Get the button again after rerender
-    heartButton = screen.getByRole('button', { name: '5' })
-    expect(heartButton).toHaveClass('text-red-500')
+    heartButton = screen.getByRole('button', { name: '💜 5' })
+    expect(heartButton).toHaveClass('text-purple-500')
   })
 
   it('should display correct heart count from props', () => {
@@ -267,7 +267,7 @@ describe('PostCard Real-time Updates', () => {
     )
 
     // Check heart count in button
-    expect(screen.getByRole('button', { name: '5' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '💜 5' })).toBeInTheDocument()
 
     // Test with different count
     rerender(
@@ -277,6 +277,6 @@ describe('PostCard Real-time Updates', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: '42' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '💜 42' })).toBeInTheDocument()
   })
 })

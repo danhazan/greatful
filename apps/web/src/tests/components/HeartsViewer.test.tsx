@@ -236,8 +236,8 @@ describe('HeartsViewer', () => {
       />
     )
 
-    // Should have heart icons (one in header, one for each user)
-    const heartIcons = document.querySelectorAll('.lucide-heart')
-    expect(heartIcons.length).toBeGreaterThan(0)
+    // Should have heart emojis (one in header, one for each user)
+    const heartEmojis = screen.getAllByText('💜')
+    expect(heartEmojis.length).toBeGreaterThan(0)
   })
 })

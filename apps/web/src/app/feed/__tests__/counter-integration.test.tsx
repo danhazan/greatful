@@ -140,7 +140,7 @@ describe('Counter Integration Test', () => {
     // Verify the server data is loaded correctly by checking for heart button with count
     const allButtons = screen.getAllByRole('button')
     const heartButtons = allButtons.filter(button => 
-      button.querySelector('svg') && button.textContent?.includes('12')
+      button.classList.contains('heart-button') && button.textContent?.includes('12')
     )
     
     // Should have heart button with the expected count
@@ -161,7 +161,7 @@ describe('Counter Integration Test', () => {
     // Verify that the component uses server data (isHearted: false from mock)
     // and doesn't rely on localStorage for reaction state
     const heartButtons = screen.getAllByRole('button').filter(button => 
-      button.querySelector('svg') && button.textContent?.includes('12')
+      button.classList.contains('heart-button') && button.textContent?.includes('12')
     )
     
     expect(heartButtons.length).toBeGreaterThan(0)
@@ -182,8 +182,8 @@ describe('Counter Integration Test', () => {
     const allButtons = screen.getAllByRole('button')
     
     // Find buttons by their text content - based on actual rendered output
-    const heartButton12 = allButtons.find(btn => btn.textContent === '12')
-    const reactionButton5 = allButtons.find(btn => btn.textContent === '5')
+    const heartButton12 = allButtons.find(btn => btn.textContent?.includes('12') && btn.classList.contains('heart-button'))
+    const reactionButton5 = allButtons.find(btn => btn.textContent?.includes('5') && !btn.classList.contains('heart-button'))
 
     // Verify expected buttons exist with correct counts from server
     expect(heartButton12).toBeDefined()

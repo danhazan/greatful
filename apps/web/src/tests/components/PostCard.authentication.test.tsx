@@ -107,8 +107,8 @@ describe('PostCard Authentication Controls', () => {
       
       // Heart should not be filled for unauthenticated users
       const heartButton = screen.getByTitle('Login to like posts')
-      const heartIcon = heartButton.querySelector('svg')
-      expect(heartIcon).not.toHaveClass('fill-current')
+      // Since we're using emoji now, just check that the button exists and has the right styling
+      expect(heartButton).toHaveClass('text-gray-400')
     })
 
     it('should allow sharing (sharing is public)', () => {
@@ -153,12 +153,8 @@ describe('PostCard Authentication Controls', () => {
       render(<PostCard post={heartedPost} currentUserId="current-user-123" {...mockHandlers} />)
       
       // Heart should be filled for authenticated users who hearted the post
-      const heartButtons = screen.getAllByRole('button')
-      const heartButton = heartButtons.find(button => 
-        button.querySelector('svg.lucide-heart')
-      )
-      const heartIcon = heartButton?.querySelector('svg')
-      expect(heartIcon).toHaveClass('fill-current')
+      const heartButton = screen.getByRole('button', { name: /💜 \d+/ })
+      expect(heartButton).toHaveClass('text-purple-500')
     })
 
     it('should make API calls when interacting', async () => {
@@ -171,10 +167,7 @@ describe('PostCard Authentication Controls', () => {
       
       // Find heart button by looking for buttons that contain heart icon
       const buttons = screen.getAllByRole('button')
-      const heartButton = buttons.find(button => {
-        const svg = button.querySelector('svg')
-        return svg && svg.classList.contains('lucide-heart')
-      })
+      const heartButton = screen.getByRole('button', { name: /💜 \d+/ })
       
       expect(heartButton).toBeInTheDocument()
       

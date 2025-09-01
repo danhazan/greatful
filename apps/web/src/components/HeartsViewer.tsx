@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Heart } from "lucide-react"
+import { X } from "lucide-react"
 import { formatTimeAgo } from "@/utils/timeAgo"
 import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 
@@ -71,7 +71,7 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-              <Heart className="h-5 w-5 text-red-500 fill-current" />
+              <span className="text-lg">💜</span>
               <span>Hearts ({totalCount})</span>
             </h2>
             <button
@@ -121,7 +121,7 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
                     
                     {/* Heart Icon */}
                     <div className="flex-shrink-0">
-                      <Heart className="h-4 w-4 text-red-500 fill-current" />
+                      <span className="text-sm">💜</span>
                     </div>
                   </div>
                 ))}

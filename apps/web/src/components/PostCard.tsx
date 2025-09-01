@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Heart, Share, Calendar, MapPin, Plus, Loader2 } from "lucide-react"
+import { Share, Calendar, MapPin, Plus, Loader2 } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
@@ -577,7 +577,7 @@ export default function PostCard({
             <div className="mb-2 px-2 py-1 bg-gradient-to-r from-purple-50 to-red-50 rounded-full">
               <div className="flex items-center space-x-2 text-xs text-gray-600">
                 <span className="flex items-center space-x-1">
-                  <Heart className="h-3 w-3 text-red-400 fill-current" />
+                  <span className="text-xs">💜</span>
                   <span>{post.heartsCount || 0}</span>
                 </span>
                 {(post.reactionsCount || 0) > 0 && (
@@ -698,15 +698,17 @@ export default function PostCard({
                   !isUserAuthenticated
                     ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
                     : post.isHearted 
-                      ? 'text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100' 
-                      : 'text-gray-500 hover:text-red-500 hover:bg-red-50'
+                      ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100' 
+                      : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
                 }`}
                 title={!isUserAuthenticated ? 'Login to like posts' : undefined}
               >
                 {isHeartLoading ? (
                   <Loader2 className={`${styling.iconSize} animate-spin`} />
                 ) : (
-                  <Heart className={`${styling.iconSize} ${post.isHearted && isUserAuthenticated ? 'fill-current' : ''}`} />
+                  <span className={`${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
+                    💜
+                  </span>
                 )}
                 <span 
                   className={`${styling.textSize} font-medium ${isUserAuthenticated && !isHeartsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
