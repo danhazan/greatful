@@ -264,6 +264,10 @@ GET    /api/v1/users/{user_id}/posts     # Get another user's public posts
 POST   /api/v1/users/search              # Search users by username (for mentions)
 POST   /api/v1/users/validate-batch      # Validate multiple usernames for mention highlighting
 GET    /api/v1/users/username/{username} # Get user profile by username
+POST   /api/v1/users/me/profile/photo    # Upload profile photo with image processing
+DELETE /api/v1/users/me/profile/photo    # Delete current profile photo
+GET    /api/v1/users/me/profile/photo/default # Get default avatar URL
+POST   /api/v1/users/location/search     # Search locations for profile city field
 ```
 
 ### Posts
@@ -525,6 +529,211 @@ app/schemas/user.py        35      0   100%
 -------------------------------------------
 TOTAL                     650      0   100%
 ```
+
+## 👤 Enhanced Profile System API Details
+
+### Profile Photo Upload Endpoint
+```http
+POST /api/v1/users/me/profile/photo
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**Request Body:**
+- `file`: Image file (JPEG, PNG, WebP, max 5MB)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "filename": "profile_abc123def456.jpg",
+    "profile_image_url": "/uploads/profile_photos/profile_abc123def456_medium.jpg",
+    "urls": {
+      "thumbnail": "/uploads/profile_photos/profile_abc123def456_thumbnail.jpg",
+      "small": "/uploads/profile_photos/profile_abc123def456_small.jpg",
+      "medium": "/uploads/profile_photos/profile_abc123def456_medium.jpg",
+      "large": "/uploads/profile_photos/profile_abc123def456_large.jpg"
+    },
+    "success": true
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_123"
+}
+```
+
+### Profile Photo Delete Endpoint
+```http
+DELETE /api/v1/users/me/profile/photo
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "deleted": true
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_124"
+}
+```
+
+### Default Avatar Endpoint
+```http
+GET /api/v1/users/me/profile/photo/default
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "avatar_url": "/api/avatar/123?color=7C3AED"
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_125"
+}
+```
+
+### Location Search Endpoint
+```http
+POST /api/v1/users/location/search
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "query": "New York",
+  "limit": 10
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "display_name": "New York, NY, USA",
+      "lat": 40.7128,
+      "lon": -74.0060,
+      "place_id": "123456",
+      "address": {
+        "city": "New York",
+        "state": "NY",
+        "country": "USA"
+      },
+      "importance": 0.9,
+      "type": "city"
+    }
+  ],
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_126"
+}
+```
+
+### Enhanced Profile Update Endpoint
+```http
+PUT /api/v1/users/me/profile
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body (Enhanced Fields):**
+```json
+{
+  "username": "updated_user",
+  "bio": "Updated bio with new information",
+  "display_name": "Updated Display Name",
+  "city": "New York",
+  "location_data": {
+    "display_name": "New York, NY, USA",
+    "lat": 40.7128,
+    "lon": -74.0060,
+    "address": {
+      "city": "New York",
+      "state": "NY",
+      "country": "USA"
+    }
+  },
+  "institutions": ["Harvard University", "Google Inc."],
+  "websites": ["https://example.com", "https://github.com/user"]
+}
+```
+
+**Response (Enhanced Profile Data):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "username": "updated_user",
+    "email": "user@example.com",
+    "bio": "Updated bio with new information",
+    "profile_image_url": "/uploads/profile_photos/profile_abc123def456_medium.jpg",
+    "display_name": "Updated Display Name",
+    "city": "New York",
+    "location": {
+      "display_name": "New York, NY, USA",
+      "lat": 40.7128,
+      "lon": -74.0060,
+      "address": {
+        "city": "New York",
+        "state": "NY",
+        "country": "USA"
+      }
+    },
+    "institutions": ["Harvard University", "Google Inc."],
+    "websites": ["https://example.com", "https://github.com/user"],
+    "created_at": "2025-01-01T00:00:00Z",
+    "posts_count": 15,
+    "followers_count": 23,
+    "following_count": 18
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "req_127"
+}
+```
+
+### Profile System Features
+
+#### Profile Photo Management
+- **Multi-Size Processing**: Automatically generates 4 size variants (thumbnail: 64x64, small: 128x128, medium: 256x256, large: 512x512)
+- **Image Optimization**: JPEG compression with 85% quality and optimization enabled
+- **File Validation**: Supports JPEG, PNG, WebP formats with 5MB maximum file size
+- **Automatic Cleanup**: Old profile photos are automatically deleted when new ones are uploaded
+- **Default Avatars**: Color-based default avatars for users without profile photos
+
+#### Enhanced Profile Fields
+- **Display Name**: Separate from username, used for presentation in posts and UI
+- **City Field**: Location field with autocomplete search integration
+- **Institutions**: Array of up to 10 institutions (schools, companies, foundations)
+- **Websites**: Array of up to 5 validated URLs with protocol checking
+- **Location Data**: Structured location data from OpenStreetMap Nominatim API
+
+#### Location Integration
+- **OpenStreetMap Integration**: Uses Nominatim API for location search and validation
+- **Structured Data**: Returns coordinates, address components, and place importance
+- **Search Optimization**: Debounced search with minimum 2 character queries
+- **Rate Limiting**: Location search endpoints are rate-limited to prevent API abuse
+
+#### Security & Validation
+- **File Type Validation**: Strict image file type checking with magic number validation
+- **Size Limits**: 5MB maximum file size for profile photos
+- **URL Validation**: Website URLs validated for proper format and allowed protocols
+- **Input Sanitization**: All text fields properly sanitized and length-limited
+- **Authentication Required**: All profile endpoints require valid JWT tokens
+
+#### Performance Features
+- **Efficient Storage**: Profile photos stored in organized directory structure
+- **Image Processing**: PIL-based image processing with memory optimization
+- **Batch Operations**: Location search supports batch queries for efficiency
+- **Caching Ready**: Profile data structure optimized for caching strategies
 
 ## 🔗 Follow System API Details
 

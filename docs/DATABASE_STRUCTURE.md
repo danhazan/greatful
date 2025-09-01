@@ -8,7 +8,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 
 ### Users Table (`users`)
 
-**Primary table for user accounts and profiles.**
+**Primary table for user accounts and profiles with enhanced profile fields.**
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -16,7 +16,53 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `email` | String | Unique, Index, Not Null | User's email address |
 | `username` | String | Unique, Index, Not Null | Unique username |
 | `hashed_password` | String | Not Null | Encrypted password |
+| `bio` | Text | Nullable | User biography/description |
+| `profile_image_url` | String | Nullable | URL to user's profile image |
 | `created_at` | DateTime | Not Null, Default: now() | Account creation timestamp |
+| `display_name` | String(100) | Nullable, Index | Display name (separate from username) |
+| `city` | String(100) | Nullable, Index | User's city location |
+| `institutions` | JSON | Nullable | Array of institutions (schools, companies) |
+| `websites` | JSON | Nullable | Array of user's websites/social links |
+| `location` | JSON | Nullable | Structured location data from Nominatim |
+| `profile_photo_filename` | String(255) | Nullable, Index | Filename for profile photo variants |
+| `profile_preferences` | JSON | Nullable | User preferences and settings |
+
+**Enhanced Profile Fields Details:**
+
+**Display Name vs Username:**
+- `username`: Unique identifier for @mentions and URLs (e.g., "alice_smith")
+- `display_name`: Presentation name shown in UI (e.g., "Alice Smith")
+- Posts show display name (bold) with @username to the right
+
+**Location Fields:**
+- `city`: Simple text field for city name (e.g., "New York")
+- `location`: Structured JSON with coordinates and address data from OpenStreetMap
+
+**Institution and Website Arrays:**
+- `institutions`: JSON array, max 10 entries (e.g., ["Harvard University", "Google Inc."])
+- `websites`: JSON array, max 5 entries with URL validation (e.g., ["https://example.com"])
+
+**Profile Photo System:**
+- `profile_image_url`: Points to medium-sized variant for general use
+- `profile_photo_filename`: Base filename for generating all size variants
+- Multiple size variants generated automatically (thumbnail, small, medium, large)
+
+**Location JSON Structure:**
+```json
+{
+  "display_name": "New York, NY, USA",
+  "lat": 40.7128,
+  "lon": -74.0060,
+  "place_id": "123456",
+  "address": {
+    "city": "New York",
+    "state": "NY",
+    "country": "USA"
+  },
+  "importance": 0.9,
+  "type": "city"
+}
+```
 
 **Relationships:**
 - `posts` - One-to-Many with Posts (user's posts)
@@ -371,6 +417,129 @@ The follow suggestions use a complex SQL query that finds:
 - **Pagination**: Large follow lists are paginated to prevent memory issues
 - **Bulk Operations**: Multiple follow status checks are batched into single queries
 - **Query Monitoring**: All follow operations are monitored for performance optimization
+
+## Profile Photo Storage System
+
+### Storage Architecture
+
+The profile photo system uses a file-based storage approach with database references, optimized for performance and scalability.
+
+#### File Storage Structure
+```
+uploads/
+└── profile_photos/
+    ├── profile_abc123def456_thumbnail.jpg  # 64x64 pixels
+    ├── profile_abc123def456_small.jpg      # 128x128 pixels  
+    ├── profile_abc123def456_medium.jpg     # 256x256 pixels
+    └── profile_abc123def456_large.jpg      # 512x512 pixels
+```
+
+#### Database Integration
+
+**Profile Photo Fields in Users Table:**
+- `profile_image_url`: Direct URL to medium-sized variant (primary display)
+- `profile_photo_filename`: Base filename for generating variant URLs
+
+**Filename Generation:**
+```python
+# Format: profile_{uuid}_{size}.jpg
+base_filename = "profile_abc123def456"
+variants = {
+    "thumbnail": f"{base_filename}_thumbnail.jpg",
+    "small": f"{base_filename}_small.jpg", 
+    "medium": f"{base_filename}_medium.jpg",
+    "large": f"{base_filename}_large.jpg"
+}
+```
+
+#### Image Processing Pipeline
+
+**Upload Process:**
+1. **Validation**: File type, size, and format validation
+2. **Processing**: PIL/Pillow-based image processing with optimization
+3. **Variant Generation**: Automatic creation of 4 size variants
+4. **Database Update**: Update user record with new URLs
+5. **Cleanup**: Remove old profile photo variants
+
+**Size Variants:**
+- **Thumbnail (64x64)**: User avatars in lists and small displays
+- **Small (128x128)**: Compact profile displays and mentions
+- **Medium (256x256)**: Default profile image size (stored in `profile_image_url`)
+- **Large (512x512)**: High-resolution displays and profile pages
+
+#### Performance Optimizations
+
+**Image Processing:**
+- JPEG compression with 85% quality and optimization
+- Square aspect ratio with smart cropping
+- Progressive JPEG encoding for faster loading
+- Memory-efficient processing with automatic cleanup
+
+**Storage Efficiency:**
+- Organized directory structure for efficient file system operations
+- Automatic cleanup of old variants when new photos are uploaded
+- Unique filename generation prevents conflicts
+- File validation prevents storage of invalid images
+
+#### Default Avatar System
+
+**Fallback Strategy:**
+When users don't have profile photos, the system generates default avatar URLs:
+
+```python
+# Color-based avatar generation
+colors = ["#7C3AED", "#A855F7", "#C084FC", "#DDD6FE", "#8B5CF6", "#9333EA", "#A21CAF", "#BE185D"]
+color = colors[user_id % len(colors)]
+avatar_url = f"/api/avatar/{user_id}?color={color.replace('#', '')}"
+```
+
+**Default Avatar Features:**
+- Deterministic color assignment based on user ID
+- Consistent purple theme matching app branding
+- No database storage required (generated on-demand)
+- Fallback for missing or deleted profile photos
+
+#### Security and Validation
+
+**File Validation:**
+- Magic number validation for actual file type verification
+- File size limits (5MB maximum)
+- Supported formats: JPEG, PNG, WebP
+- Filename sanitization to prevent directory traversal
+
+**Access Control:**
+- Profile photos are publicly accessible (no authentication for viewing)
+- Upload/delete operations require user authentication
+- Users can only modify their own profile photos
+- Automatic cleanup prevents unauthorized file access
+
+#### Migration Considerations
+
+**Profile Photo Migration:**
+The profile photo system was added in migration `002_add_user_profile_fields.py`:
+
+```sql
+-- Add profile photo fields to users table
+ALTER TABLE users ADD COLUMN profile_image_url VARCHAR(255);
+ALTER TABLE users ADD COLUMN profile_photo_filename VARCHAR(255);
+ALTER TABLE users ADD COLUMN display_name VARCHAR(100);
+ALTER TABLE users ADD COLUMN city VARCHAR(100);
+ALTER TABLE users ADD COLUMN institutions JSON;
+ALTER TABLE users ADD COLUMN websites JSON;
+ALTER TABLE users ADD COLUMN location JSON;
+ALTER TABLE users ADD COLUMN profile_preferences JSON;
+
+-- Add indexes for performance
+CREATE INDEX idx_users_display_name ON users(display_name);
+CREATE INDEX idx_users_city ON users(city);
+CREATE INDEX idx_users_profile_photo_filename ON users(profile_photo_filename);
+```
+
+**Backward Compatibility:**
+- All new profile fields are nullable for existing users
+- Default avatar system provides fallback for users without photos
+- Existing profile functionality remains unchanged
+- Migration is non-destructive and reversible
 
 ## Migration History
 

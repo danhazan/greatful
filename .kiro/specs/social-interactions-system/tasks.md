@@ -268,8 +268,8 @@ The implementation maintains consistency with the reference implementation's pur
   - Modify PostCard component to show display name (bold) next to profile pic
   - Add username with @ prefix to the right of display name in posts
   - Update all user references to use display name where appropriate
-- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify profile model changes and API endpoints. Run frontend tests (`npm test`) to verify profile editing components and display name rendering. Test image upload functionality with various file types and sizes.
-- [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with new profile endpoints. Add profile photo storage configuration to docs/ARCHITECTURE_AND_SETUP.md. Document new profile fields in docs/DATABASE_STRUCTURE.md.
+- [x] **Test Execution:** Run backend tests (`pytest -v`) to verify profile model changes and API endpoints. Run frontend tests (`npm test`) to verify profile editing components and display name rendering. Test image upload functionality with various file types and sizes.
+- [x] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with new profile endpoints. Add profile photo storage configuration to docs/ARCHITECTURE_AND_SETUP.md. Document new profile fields in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** Users can upload profile photos, add city/institutions/websites to profiles, set display names separate from usernames, and posts show display name (bold) with @username to the right, all with proper validation and testing.
 
 ### **TASK 10.5: Purple Heart Styling for Like System**

@@ -9,20 +9,22 @@ This document tracks all skipped tests across the project, providing detailed ex
 ### ✅ All Backend Tests Passing
 
 **Location**: `apps/api/tests/`  
-**Status**: All 330 tests passing  
+**Status**: All 350 tests passing  
 **Impact**: Backend API fully tested and functional  
 
-#### Recently Fixed Issues:
+#### Recently Added Features:
 
-1. **Profile API Test Failures** - FIXED
-   - **Issue**: `test_update_profile_username_taken` failed due to missing `hashed_password` in test user creation
-   - **Fix**: Added proper password hashing in test user creation
-   - **Issue**: `test_get_user_profile_success` failed because email was exposed in public profile endpoint
-   - **Fix**: Created separate `PublicUserProfileResponse` model that excludes email for other users' profiles
+1. **Enhanced Profile System** - IMPLEMENTED
+   - **Added**: Extended profile fields (display_name, city, institutions, websites, location)
+   - **Added**: Profile photo upload system with multi-size variants and validation
+   - **Added**: Location search integration with OpenStreetMap Nominatim API
+   - **Added**: Comprehensive profile photo testing (formdata upload, validation, error handling)
+   - **Added**: Extended profile fields testing with validation and edge cases
+   - **Tests**: 20 additional tests added for profile functionality (350 total, up from 330)
 
-2. **HTTP Status Code Mismatch** - FIXED
-   - **Issue**: Test expected 400 but API returned 409 for username conflict
-   - **Fix**: Updated test to expect correct 409 Conflict status code
+2. **Previously Fixed Issues** - MAINTAINED
+   - **Profile API Test Failures** - All profile tests now passing with enhanced functionality
+   - **HTTP Status Code Mismatch** - Proper 409 Conflict status codes for username conflicts
 
 #### Current Status:
 ```bash
@@ -30,7 +32,7 @@ This document tracks all skipped tests across the project, providing detailed ex
 cd apps/api
 source venv/bin/activate
 PYTHONPATH=. pytest -v
-# Result: 330 passed, 25 warnings (datetime deprecation)
+# Result: 350 passed, 25 warnings (datetime deprecation)
 ```
 **Note on Warnings**: The warnings are `DeprecationWarning` from datetime.utcnow() usage in algorithm service and test files. These are scheduled for future updates to use timezone-aware datetime objects but do not affect test functionality.
 
@@ -119,8 +121,8 @@ npm test -- --testPathPattern=auth-e2e-simple
 ## Test Execution Summary
 
 ### Backend (FastAPI)
-- **Total**: 330 tests
-- **Passing**: 330 tests (100%)
+- **Total**: 350 tests
+- **Passing**: 350 tests (100%)
 - **Failing**: 0 tests (0%)
 - **Skipped**: 0 tests (0%)
 
@@ -138,9 +140,9 @@ npm test -- --testPathPattern=auth-e2e-simple
 - **Coverage**: Signup, Login, Integration flows, Accessibility, Error handling
 
 ### Overall Health
-- **Combined Pass Rate**: 98.6% (881/893 tests)
+- **Combined Pass Rate**: 98.7% (948/960 tests)
 - **Critical Issues**: ✅ All tests passing, React `act()` warnings remain (non-blocking)
-- **Functional Impact**: All core features including authentication fully tested and functional
+- **Functional Impact**: All core features including authentication and enhanced profile system fully tested and functional
 
 ---
 

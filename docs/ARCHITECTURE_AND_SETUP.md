@@ -467,6 +467,178 @@ npm run dev
 
 ---
 
+## Profile Photo Storage Configuration
+
+### Storage Architecture
+
+The Grateful platform includes a comprehensive profile photo management system with automatic image processing and multi-size variant generation.
+
+#### Storage Directory Structure
+```
+apps/api/uploads/
+├── profile_photos/           # Profile photo storage
+│   ├── profile_abc123_thumbnail.jpg    # 64x64 pixels
+│   ├── profile_abc123_small.jpg        # 128x128 pixels
+│   ├── profile_abc123_medium.jpg       # 256x256 pixels
+│   └── profile_abc123_large.jpg        # 512x512 pixels
+└── posts/                    # Post image storage
+    └── [post images...]
+```
+
+#### Image Processing Configuration
+
+**Supported Formats:**
+- JPEG (recommended for photos)
+- PNG (supports transparency)
+- WebP (modern format with better compression)
+
+**Size Variants:**
+```python
+# Profile photo size configuration
+PROFILE_PHOTO_SIZES = {
+    "thumbnail": (64, 64),    # User avatars in lists
+    "small": (128, 128),      # Small profile displays
+    "medium": (256, 256),     # Default profile image
+    "large": (512, 512)       # High-resolution display
+}
+```
+
+**Image Processing Settings:**
+- **Maximum File Size**: 5MB per upload
+- **JPEG Quality**: 85% with optimization enabled
+- **Aspect Ratio**: Square (1:1) with smart cropping
+- **Color Profile**: sRGB color space
+- **Compression**: Automatic optimization for web delivery
+
+#### File Management
+
+**Automatic Cleanup:**
+- Old profile photos are automatically deleted when new ones are uploaded
+- All size variants are cleaned up together to prevent orphaned files
+- Failed uploads are automatically cleaned up to prevent storage bloat
+
+**Unique Filename Generation:**
+```python
+# Filename format: profile_{uuid}_{size}.jpg
+# Example: profile_abc123def456_medium.jpg
+```
+
+**Storage Path Configuration:**
+```python
+# Base upload directory (configurable)
+BASE_UPLOAD_DIR = "uploads"
+
+# Profile photos subdirectory
+PROFILE_PHOTOS_DIR = "profile_photos"
+
+# Full path example
+FULL_PATH = "uploads/profile_photos/profile_abc123def456_medium.jpg"
+```
+
+#### Security Considerations
+
+**File Validation:**
+- Magic number validation to verify actual file type
+- Filename sanitization to prevent directory traversal
+- File size limits to prevent storage abuse
+- Image format validation using PIL/Pillow
+
+**Access Control:**
+- Profile photos are publicly accessible (no authentication required for viewing)
+- Upload and delete operations require authentication
+- User can only modify their own profile photos
+
+#### Performance Optimization
+
+**Image Processing:**
+- PIL/Pillow-based processing with memory optimization
+- Batch processing for multiple size variants
+- Efficient file I/O with proper error handling
+- Automatic cleanup of temporary files
+
+**Storage Efficiency:**
+- JPEG compression with optimal quality settings
+- Progressive JPEG encoding for faster loading
+- Organized directory structure for efficient file system operations
+- Automatic cleanup prevents storage bloat
+
+#### Development Configuration
+
+**Local Development Setup:**
+```bash
+# Ensure upload directory exists
+mkdir -p apps/api/uploads/profile_photos
+
+# Set proper permissions (Linux/macOS)
+chmod 755 apps/api/uploads
+chmod 755 apps/api/uploads/profile_photos
+```
+
+**Environment Variables:**
+```bash
+# Optional: Custom upload directory
+UPLOAD_BASE_DIR=uploads
+
+# Optional: Maximum file size (in MB)
+MAX_PROFILE_PHOTO_SIZE_MB=5
+```
+
+**Testing Configuration:**
+```python
+# Test environment uses temporary directories
+# Automatic cleanup after tests complete
+# Mock image processing for faster test execution
+```
+
+#### Production Deployment
+
+**Storage Recommendations:**
+- Use dedicated storage service (AWS S3, Google Cloud Storage) for production
+- Implement CDN for faster image delivery
+- Set up automated backups for uploaded images
+- Monitor storage usage and implement cleanup policies
+
+**Scaling Considerations:**
+- Image processing can be moved to background tasks for better performance
+- Consider image optimization services for better compression
+- Implement caching strategies for frequently accessed images
+- Use load balancing for upload endpoints
+
+#### Error Handling
+
+**Upload Failures:**
+- Automatic cleanup of partially uploaded files
+- Detailed error messages for validation failures
+- Graceful fallback to default avatars
+- Retry mechanisms for transient failures
+
+**Storage Issues:**
+- Disk space monitoring and alerts
+- Automatic cleanup of old temporary files
+- Error logging for storage operations
+- Fallback to default avatars when images are missing
+
+#### API Integration
+
+**Profile Photo Endpoints:**
+- `POST /api/v1/users/me/profile/photo` - Upload new profile photo
+- `DELETE /api/v1/users/me/profile/photo` - Delete current profile photo
+- `GET /api/v1/users/me/profile/photo/default` - Get default avatar URL
+
+**Response Format:**
+```json
+{
+  "filename": "profile_abc123def456.jpg",
+  "profile_image_url": "/uploads/profile_photos/profile_abc123def456_medium.jpg",
+  "urls": {
+    "thumbnail": "/uploads/profile_photos/profile_abc123def456_thumbnail.jpg",
+    "small": "/uploads/profile_photos/profile_abc123def456_small.jpg",
+    "medium": "/uploads/profile_photos/profile_abc123def456_medium.jpg",
+    "large": "/uploads/profile_photos/profile_abc123def456_large.jpg"
+  }
+}
+```
+
 ## Mobile Optimization Guidelines
 
 ### Mobile-First Development Approach
