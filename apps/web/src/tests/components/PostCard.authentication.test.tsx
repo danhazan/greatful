@@ -27,6 +27,7 @@ const mockPost = {
   author: {
     id: '1',
     name: 'Test User',
+    username: 'testuser',
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: '2025-01-08T10:00:00Z',

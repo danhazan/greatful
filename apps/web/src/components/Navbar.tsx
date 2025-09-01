@@ -7,7 +7,7 @@ import NotificationSystem from "./NotificationSystem"
 
 interface NavbarProps {
   user?: {
-    id: number
+    id: string | number
     name: string
     email: string
   }

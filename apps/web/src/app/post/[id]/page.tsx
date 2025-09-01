@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import PostCard from '@/components/PostCard'
 import Navbar from '@/components/Navbar'
 import { loadUserReactions, saveUserReactions } from '@/utils/localStorage'
+import { useUser } from '@/contexts/UserContext'
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -16,6 +17,7 @@ interface Post {
   author: {
     id: string
     name: string
+    username?: string
     image?: string
   }
   createdAt: string
@@ -65,9 +67,8 @@ function LandingNavbar() {
 
 export default function PostPage({ params }: PageProps) {
   const router = useRouter()
+  const { currentUser, isLoading: userLoading } = useUser()
   const [post, setPost] = useState<Post | null>(null)
-  const [user, setUser] = useState<any>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [localReactions, setLocalReactions] = useState<{[postId: string]: {reaction?: string, hearted?: boolean}}>({})
 
@@ -90,7 +91,6 @@ export default function PostPage({ params }: PageProps) {
       if (!response.ok) {
         if (response.status === 404) {
           notFound()
-          return null
         }
         throw new Error('Failed to fetch post')
       }
@@ -105,6 +105,7 @@ export default function PostPage({ params }: PageProps) {
         author: {
           id: postData.author.id.toString(),
           name: postData.author.name || postData.author.username,
+          username: postData.author.username,
           image: postData.author.profile_image_url
         },
         createdAt: postData.created_at,
@@ -124,60 +125,31 @@ export default function PostPage({ params }: PageProps) {
     }
   }
 
-  // Check authentication and load data
+  // Load post data when user context is ready
   useEffect(() => {
-    const initializePage = async () => {
+    const loadPost = async () => {
+      if (userLoading) return // Wait for user context to load
+
       const token = localStorage.getItem("access_token")
       
-      if (token) {
-        // User is authenticated - load user data and post with user-specific data
-        try {
-          const userResponse = await fetch('/api/users/me/profile', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
+      if (currentUser && token) {
+        // User is authenticated - load user-specific reactions and post data
+        const userReactions = loadUserReactions(currentUser.id.toString())
+        setLocalReactions(userReactions)
+
+        // Fetch post with authentication
+        const postData = await fetchPost(token)
+        if (postData) {
+          // Merge with local reactions
+          const localData = userReactions[postData.id]
+          setPost({
+            ...postData,
+            isHearted: localData?.hearted ?? postData.isHearted,
+            currentUserReaction: localData?.reaction ?? postData.currentUserReaction
           })
-
-          if (userResponse.ok) {
-            const userData = await userResponse.json()
-            const currentUser = {
-              id: userData.id,
-              name: userData.username,
-              email: userData.email
-            }
-            setUser(currentUser)
-            setIsAuthenticated(true)
-
-            // Load user-specific reactions
-            const userReactions = loadUserReactions(currentUser.id.toString())
-            setLocalReactions(userReactions)
-
-            // Fetch post with authentication
-            const postData = await fetchPost(token)
-            if (postData) {
-              // Merge with local reactions
-              const localData = userReactions[postData.id]
-              setPost({
-                ...postData,
-                isHearted: localData?.hearted ?? postData.isHearted,
-                currentUserReaction: localData?.reaction ?? postData.currentUserReaction
-              })
-            }
-          } else {
-            // Token invalid, treat as unauthenticated
-            setIsAuthenticated(false)
-            const postData = await fetchPost()
-            setPost(postData)
-          }
-        } catch (error) {
-          console.error('Error loading user data:', error)
-          setIsAuthenticated(false)
-          const postData = await fetchPost()
-          setPost(postData)
         }
       } else {
         // User is not authenticated - load post without user-specific data
-        setIsAuthenticated(false)
         const postData = await fetchPost()
         setPost(postData)
       }
@@ -185,27 +157,25 @@ export default function PostPage({ params }: PageProps) {
       setIsLoading(false)
     }
 
-    initializePage()
-  }, [params.id])
+    loadPost()
+  }, [params.id, currentUser, userLoading])
 
   // Save user-specific reactions to localStorage
   const saveLocalReactions = (reactions: {[postId: string]: {reaction?: string, hearted?: boolean}}) => {
     setLocalReactions(reactions)
-    if (user?.id) {
-      saveUserReactions(user.id.toString(), reactions)
+    if (currentUser?.id) {
+      saveUserReactions(currentUser.id.toString(), reactions)
     }
   }
 
   const handleLogout = () => {
     localStorage.removeItem("access_token")
     setLocalReactions({})
-    setUser(null)
-    setIsAuthenticated(false)
     router.push("/")
   }
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {
-    if (!isAuthenticated) {
+    if (!currentUser) {
       router.push('/auth/login')
       return
     }
@@ -232,7 +202,7 @@ export default function PostPage({ params }: PageProps) {
   }
 
   const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
-    if (!isAuthenticated) {
+    if (!currentUser) {
       router.push('/auth/login')
       return
     }
@@ -259,7 +229,7 @@ export default function PostPage({ params }: PageProps) {
   }
 
   const handleRemoveReaction = async (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
-    if (!isAuthenticated) {
+    if (!currentUser) {
       router.push('/auth/login')
       return
     }
@@ -290,8 +260,8 @@ export default function PostPage({ params }: PageProps) {
   }
 
   const handleUserClick = (userId: string) => {
-    if (isAuthenticated) {
-      if (userId === user?.id?.toString()) {
+    if (currentUser) {
+      if (userId === currentUser.id?.toString()) {
         router.push("/profile")
       } else {
         router.push(`/profile/${userId}`)
@@ -302,7 +272,7 @@ export default function PostPage({ params }: PageProps) {
     }
   }
 
-  if (isLoading) {
+  if (userLoading || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -320,8 +290,8 @@ export default function PostPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar - different based on authentication */}
-      {isAuthenticated ? (
-        <Navbar user={user} onLogout={handleLogout} />
+      {currentUser ? (
+        <Navbar user={currentUser} onLogout={handleLogout} />
       ) : (
         <LandingNavbar />
       )}
@@ -330,11 +300,11 @@ export default function PostPage({ params }: PageProps) {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* For authenticated users, show post like in feed */}
-          {isAuthenticated ? (
+          {currentUser ? (
             <div className="space-y-6">
               <PostCard
                 post={post}
-                currentUserId={user?.id}
+                currentUserId={currentUser?.id}
                 onHeart={handleHeart}
                 onReaction={handleReaction}
                 onRemoveReaction={handleRemoveReaction}
@@ -388,7 +358,7 @@ export default function PostPage({ params }: PageProps) {
       </main>
 
       {/* Footer for unauthenticated users */}
-      {!isAuthenticated && (
+      {!currentUser && (
         <footer className="bg-white border-t border-gray-200 mt-12">
           <div className="max-w-4xl mx-auto px-4 py-6">
             <div className="text-center text-sm text-gray-600">

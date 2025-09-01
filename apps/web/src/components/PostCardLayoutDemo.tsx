@@ -10,6 +10,7 @@ export default function PostCardLayoutDemo() {
     author: {
       id: '123',
       name: 'Demo User',
+      username: 'demouser',
       image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
     },
     createdAt: new Date().toISOString(),

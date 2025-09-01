@@ -23,7 +23,7 @@ interface Notification {
 }
 
 interface NotificationSystemProps {
-  userId: number
+  userId: string | number
 }
 
 export default function NotificationSystem({ userId }: NotificationSystemProps) {

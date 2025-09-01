@@ -736,4 +736,189 @@ curl -X POST "http://localhost:3000/api/users/me/profile/photo" \
 
 ---
 
+## 🔐 User Authentication Context Issues (SOLVED - January 2025)
+
+### Issue: Users Logged Out When Visiting Post Pages
+
+**Symptoms:**
+- User is logged in and can access feed, profile pages normally
+- When visiting a shared post link (e.g., `/post/a2378e28-1d32-4eb3-82eb-145d6109d53c`), user appears logged out
+- Navbar shows "Log In / Sign Up" buttons instead of authenticated user info
+- Console error: `TypeError: Cannot read properties of undefined (reading 'toString')`
+- User gets logged out and has to log in again
+
+**Root Cause:**
+The UserContext was trying to access user data directly from the API response, but the backend wraps responses in a standardized format. The frontend was accessing `userData.id` when it should have been accessing `userData.data.id`.
+
+**Backend API Response Format:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "username": "user",
+    "email": "user@example.com",
+    "display_name": "User Name",
+    // ... other user fields
+  },
+  "timestamp": "2025-01-01T00:00:00Z",
+  "request_id": "uuid"
+}
+```
+
+**Problem Code:**
+```typescript
+// ❌ WRONG - Accessing wrapped response directly
+if (response.ok) {
+  const userData = await response.json()
+  if (userData && userData.id) {  // ← userData.id is undefined!
+    setCurrentUser({
+      id: userData.id.toString(),  // ← Causes toString() error
+      name: userData.name || userData.username,
+      // ...
+    })
+  }
+}
+```
+
+**Solution:**
+
+**File: `apps/web/src/contexts/UserContext.tsx`**
+
+```typescript
+// ✅ CORRECT - Extract data from wrapped response
+if (response.ok) {
+  const apiResponse = await response.json()
+  const userData = apiResponse.data  // ← Extract data from wrapper
+  
+  // Safely handle user data and ensure id exists before converting
+  if (userData && userData.id) {
+    setCurrentUser({
+      id: userData.id.toString(),
+      name: userData.display_name || userData.name || userData.username,
+      username: userData.username,
+      email: userData.email,
+      image: userData.profile_image_url
+    })
+  } else {
+    // Invalid user data, remove token
+    localStorage.removeItem('access_token')
+    setCurrentUser(null)
+  }
+}
+```
+
+**Key Changes:**
+1. **Extract data from wrapper**: `const userData = apiResponse.data`
+2. **Better name handling**: Use `display_name` as primary, fallback to `name` or `username`
+3. **Robust error handling**: Remove invalid tokens and handle malformed responses
+4. **Safe property access**: Check `userData` exists before accessing properties
+
+**API Response Patterns:**
+- **User Profile API** (`/api/v1/users/me/profile`): Returns wrapped response with `success_response()`
+- **Posts API** (`/api/v1/posts/{id}`): Returns direct `PostResponse` (not wrapped)
+- **Notifications API** (`/api/v1/notifications`): Returns direct array (not wrapped)
+
+**Testing the Fix:**
+
+Create comprehensive tests to verify the fix:
+
+```typescript
+// Test file: src/tests/integration/user-context-authentication.test.tsx
+describe('UserContext Authentication Fix', () => {
+  it('should correctly parse wrapped API response from backend', async () => {
+    const mockApiResponse = {
+      success: true,
+      data: {
+        id: 123,
+        username: 'testuser',
+        display_name: 'Test User',
+        email: 'test@example.com',
+        profile_image_url: 'https://example.com/avatar.jpg'
+      },
+      timestamp: '2023-01-01T00:00:00Z',
+      request_id: 'test-request-id'
+    }
+    
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockApiResponse,
+    })
+
+    // Test that user data is correctly extracted and parsed
+    // ... test implementation
+  })
+
+  it('should handle malformed API response correctly', async () => {
+    const malformedResponse = {
+      success: true,
+      // Missing 'data' field
+      timestamp: '2023-01-01T00:00:00Z'
+    }
+    
+    // Should handle gracefully and remove invalid token
+    // ... test implementation
+  })
+})
+```
+
+**Verification Results:**
+
+**Before Fix:**
+- ❌ Console error: `Cannot read properties of undefined (reading 'toString')`
+- ❌ User appears logged out on post pages
+- ❌ Shows "Log In / Sign Up" buttons for authenticated users
+- ❌ User gets logged out and loses session
+
+**After Fix:**
+- ✅ No console errors
+- ✅ User stays logged in on all pages
+- ✅ Shows authenticated navbar with user info
+- ✅ User can interact with posts (heart, react, etc.)
+- ✅ Authentication state maintained across navigation
+
+**Files Modified:**
+- `apps/web/src/contexts/UserContext.tsx` - Fixed API response parsing
+- `apps/web/src/tests/integration/user-context-authentication.test.tsx` - Added comprehensive tests
+
+**Prevention Checklist:**
+- [ ] Always check backend API response format before parsing
+- [ ] Test authentication flow on all pages, not just main app pages
+- [ ] Verify shared/public links work for both authenticated and unauthenticated users
+- [ ] Add error handling for malformed API responses
+- [ ] Test with both valid and invalid tokens
+- [ ] Check console for JavaScript errors during authentication
+
+**Key Points:**
+- Different backend endpoints may use different response formats (wrapped vs direct)
+- Always extract data from the correct level of the response object
+- Shared post links are a common place where authentication issues surface
+- UserContext errors can cause users to be unexpectedly logged out
+- Proper error handling prevents authentication state corruption
+
+**Debugging Commands:**
+
+```bash
+# Test backend API directly
+curl -H "Authorization: Bearer <token>" http://localhost:8000/api/v1/users/me/profile
+
+# Check response format
+{
+  "success": true,
+  "data": { ... },  # ← Data is nested here
+  "timestamp": "...",
+  "request_id": "..."
+}
+
+# Test frontend API proxy
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/users/me/profile
+```
+
+**Related Issues:**
+- This pattern may affect other API calls that expect wrapped responses
+- Always verify response format when integrating new backend endpoints
+- Consider creating a utility function for parsing wrapped API responses
+
+---
+
 *This document should be updated whenever new notification patterns are discovered or when these issues are encountered again.*

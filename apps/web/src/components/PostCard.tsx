@@ -23,7 +23,7 @@ interface Post {
   author: {
     id: string
     name: string
-    username: string
+    username?: string
     display_name?: string
     image?: string
   }
@@ -478,14 +478,12 @@ export default function PostCard({
               size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
               className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all"
               onClick={() => onUserClick?.(post.author.id)}
-              title={post.author.username ? `@${post.author.username}` : undefined}
             />
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <div 
                   className="cursor-pointer hover:text-purple-700 transition-colors"
                   onClick={() => onUserClick?.(post.author.id)}
-                  title={post.author.username ? `@${post.author.username}` : undefined}
                 >
                   <h3 className={`${styling.name} text-gray-900 font-bold`}>
                     {post.author.display_name || post.author.name}

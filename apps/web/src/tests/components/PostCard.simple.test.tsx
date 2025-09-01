@@ -52,6 +52,7 @@ const mockPost = {
   author: {
     id: 'author-1',
     name: 'Test Author',
+    username: 'testauthor',
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: new Date().toISOString(),

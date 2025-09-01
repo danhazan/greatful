@@ -13,6 +13,7 @@ const mockPosts = [
     author: {
       id: "user-1",
       name: "Demo User",
+      username: "demouser",
       image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"
     },
     createdAt: new Date().toISOString(),
@@ -28,6 +29,7 @@ const mockPosts = [
     author: {
       id: "user-2",
       name: "Coffee Lover",
+      username: "coffeelover",
       image: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face"
     },
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
@@ -44,6 +46,7 @@ const mockPosts = [
     author: {
       id: "user-3", 
       name: "Team Player",
+      username: "teamplayer",
       image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
     },
     createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
