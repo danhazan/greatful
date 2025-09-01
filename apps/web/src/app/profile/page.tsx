@@ -6,7 +6,7 @@ import { User, Edit3, Calendar, Heart, X, Plus, Trash2, MapPin, Building, Globe 
 import PostCard from "@/components/PostCard"
 import Navbar from "@/components/Navbar"
 import ProfilePhotoUpload from "@/components/ProfilePhotoUpload"
-import ProfilePhotoDisplay from "@/components/ProfilePhotoDisplay"
+import ProfileImageSection from "@/components/ProfileImageSection"
 import LocationAutocomplete from "@/components/LocationAutocomplete"
 
 interface UserProfile {
@@ -496,21 +496,14 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0">
               <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 w-full">
                 {/* Profile Image */}
-                <div className="relative">
-                  <ProfilePhotoDisplay
-                    photoUrl={user.profileImage}
-                    username={user.username}
-                    size="xl"
-                    onClick={() => setShowPhotoUpload(true)}
-                  />
-                  <button
-                    onClick={() => setShowPhotoUpload(true)}
-                    className="absolute -bottom-1 -right-1 bg-purple-600 text-white p-2 rounded-full shadow-lg hover:bg-purple-700 transition-colors"
-                    title="Change profile photo"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                  </button>
-                </div>
+                <ProfileImageSection
+                  photoUrl={user.profileImage}
+                  username={user.username}
+                  displayName={user.displayName}
+                  isOwnProfile={true}
+                  onPhotoClick={() => setShowPhotoUpload(true)}
+                  size="xl"
+                />
 
                 {/* Profile Info */}
                 <div className="flex-1 text-center sm:text-left min-w-0">

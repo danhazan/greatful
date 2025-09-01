@@ -7,7 +7,7 @@ import { getImageUrl } from '@/utils/imageUtils'
 interface ProfilePhotoDisplayProps {
   photoUrl?: string | null
   username?: string
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   className?: string
   onClick?: () => void
 }
@@ -17,7 +17,8 @@ const sizeClasses = {
   sm: 'w-8 h-8', 
   md: 'w-12 h-12',
   lg: 'w-16 h-16',
-  xl: 'w-24 h-24'
+  xl: 'w-24 h-24',
+  '2xl': 'w-32 h-32'
 }
 
 const iconSizes = {
@@ -25,7 +26,8 @@ const iconSizes = {
   sm: 'w-4 h-4',
   md: 'w-6 h-6', 
   lg: 'w-8 h-8',
-  xl: 'w-12 h-12'
+  xl: 'w-12 h-12',
+  '2xl': 'w-16 h-16'
 }
 
 export default function ProfilePhotoDisplay({ 
@@ -35,6 +37,9 @@ export default function ProfilePhotoDisplay({
   className = '',
   onClick 
 }: ProfilePhotoDisplayProps) {
+  const [imageError, setImageError] = React.useState(false)
+  const [imageLoaded, setImageLoaded] = React.useState(false)
+  
   const sizeClass = sizeClasses[size]
   const iconSize = iconSizes[size]
   
@@ -51,18 +56,38 @@ export default function ProfilePhotoDisplay({
 
   const imageUrl = getImageUrl(photoUrl)
   
-  if (imageUrl) {
+  // Reset error state when photoUrl changes
+  React.useEffect(() => {
+    if (imageUrl) {
+      setImageError(false)
+      setImageLoaded(false)
+    }
+  }, [imageUrl])
+
+  const handleImageError = () => {
+    setImageError(true)
+    setImageLoaded(false)
+  }
+
+  const handleImageLoad = () => {
+    setImageLoaded(true)
+    setImageError(false)
+  }
+  
+  if (imageUrl && !imageError) {
     return (
       <img
         src={imageUrl}
         alt={username ? `${username}'s profile` : 'Profile photo'}
         className={baseClasses}
         onClick={onClick}
+        onError={handleImageError}
+        onLoad={handleImageLoad}
       />
     )
   }
 
-  // Default avatar with gradient background
+  // Default avatar with gradient background (shown when no image or error)
   return (
     <div
       className={`
