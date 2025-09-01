@@ -574,7 +574,7 @@ export default function PostCard({
 
           {/* Engagement Summary for highly engaged posts */}
           {((post.heartsCount || 0) + (post.reactionsCount || 0)) > 5 && (
-            <div className="mb-2 px-2 py-1 bg-gradient-to-r from-purple-50 to-red-50 rounded-full">
+            <div className="mb-2 px-2 py-1 bg-gradient-to-r from-purple-50 to-purple-100 rounded-full">
               <div className="flex items-center space-x-2 text-xs text-gray-600">
                 <span className="flex items-center space-x-1">
                   <span className="text-xs">💜</span>

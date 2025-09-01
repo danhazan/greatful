@@ -411,7 +411,7 @@ describe('NotificationSystem Batching', () => {
     const singleNotification = {
       id: 'single-456',
       type: 'reaction',
-      message: 'reacted with ❤️ to your post',
+      message: 'reacted with 💜 to your post',
       postId: 'post-456',
       fromUser: {
         id: 'user3',
