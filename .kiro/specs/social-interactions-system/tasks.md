@@ -285,12 +285,12 @@ The implementation maintains consistency with the reference implementation's pur
   - Update any remaining red heart instances to purple throughout the application
   - Ensure heart button animation and feedback states use purple theming
   - Test heart button styling across different browsers and devices
-- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify heart button styling changes don't break existing functionality. Test heart button interactions and visual consistency across all post display contexts.
+- [x] **Test Execution:** Run frontend tests (`npm test`) to verify heart button styling changes don't break existing functionality. Test heart button interactions and visual consistency across all post display contexts.
 **Acceptance Criteria:** Heart/like buttons display in purple color matching the logo branding, all heart-related UI elements use consistent purple theming, and styling changes maintain accessibility and functionality standards.
 
 ### **TASK 11: Enhanced Notification System**
 **Module Reference:** Requirements 5 - Enhanced Notification System (Advanced)
-- [ ] **11.0 Notification System Refactoring and Planning**
+- [x] **11.0 Notification System Refactoring and Planning**
   - Document current notification system architecture in docs/NOTIFICATION_SYSTEM_REFACTOR.md
   - Analyze existing NotificationService, NotificationSystem component, and notification database schema
   - Plan refactoring of notification components for enhanced batching, linking, and styling capabilities
@@ -307,7 +307,7 @@ The implementation maintains consistency with the reference implementation's pur
   - _Requirements: Notification system architecture preparation_
 - [ ] **11.1 Pressable Notification Links**
   - Add click handlers to notifications that link to relevant content
-  - Implement post-related notification links (reactions, mentions, messages) to post pages
+  - Implement post-related notification links (like, reactions, mentions, messages) to post pages
   - Implement user-related notification links (follows) to user profile pages
   - Add proper navigation handling and URL generation for notification targets
   - Test notification link functionality across all notification types
@@ -316,6 +316,12 @@ The implementation maintains consistency with the reference implementation's pur
   - Update notification rendering to detect and linkify usernames
   - Add proper styling for username links within notification text
   - Ensure username links work consistently across all notification types
+- [ ] **11.2.1 Profile Pictures in Notification Cards**
+  - Replace circular letter avatars with actual profile pictures in notification cards
+  - Make profile pictures clickable to navigate to user profile (same as username click in 11.2)
+  - Add fallback to letter avatar when user has no profile picture
+  - Ensure profile picture sizing is consistent with notification card design
+  - Test profile picture loading and error handling in notification display
 - [ ] **11.3 Like/Heart Notifications**
   - Add notification creation for post likes/hearts (currently missing)
   - Implement like notification batching similar to reaction notifications
@@ -330,34 +336,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Document batching logic and implementation patterns thoroughly
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
 
-### **TASK 11.5: Fast Login Page for Development**
-**Module Reference:** Development Tools - Fast Login Interface for Testing
-- [ ] **11.5.1 Create Fast Login Page Route**
-  - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
-  - Copy existing login page layout and styling from `/auth/login/page.tsx`
-  - Replace email/password form with user selection dropdown
-  - Add development environment detection to prevent production access
-  - Implement purple theme consistency matching regular login page
-- [ ] **11.5.2 User Selection Interface**
-  - Create dropdown showing all existing users (username, email, profile picture)
-  - Implement one-click login functionality that generates development token
-  - Add user search/filter functionality for large user lists
-  - Display user information clearly (username, email, join date)
-  - Add "Login as [Username]" button for each user selection
-- [ ] **11.5.3 Development Environment Protection**
-  - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
-  - Implement build-time exclusion using Next.js conditional compilation
-  - Add clear development warning banner on fast login page
-  - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
-  - Add rate limiting and IP restrictions for development endpoints
-- [ ] **11.5.4 Fast Login UX and Navigation**
-  - Style page identical to regular login with "Fast Login (Dev Mode)" title
-  - Add "Back to Regular Login" link for normal authentication flow
-  - Implement responsive design matching existing login page
-  - Add success feedback and automatic redirect to feed after login
-  - Include clear indication this is a development-only feature
-- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
-**Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
+
 
 - [ ] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** All notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
@@ -466,6 +445,35 @@ The implementation maintains consistency with the reference implementation's pur
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
+
+### **TASK 16: Fast Login Page for Development** (Post-MVP)
+**Module Reference:** Development Tools - Fast Login Interface for Testing
+- [ ] **16.1 Create Fast Login Page Route**
+  - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
+  - Copy existing login page layout and styling from `/auth/login/page.tsx`
+  - Replace email/password form with user selection dropdown
+  - Add development environment detection to prevent production access
+  - Implement purple theme consistency matching regular login page
+- [ ] **16.2 User Selection Interface**
+  - Create dropdown showing all existing users (username, email, profile picture)
+  - Implement one-click login functionality that generates development token
+  - Add user search/filter functionality for large user lists
+  - Display user information clearly (username, email, join date)
+  - Add "Login as [Username]" button for each user selection
+- [ ] **16.3 Development Environment Protection**
+  - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
+  - Implement build-time exclusion using Next.js conditional compilation
+  - Add clear development warning banner on fast login page
+  - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
+  - Add rate limiting and IP restrictions for development endpoints
+- [ ] **16.4 Fast Login UX and Navigation**
+  - Style page identical to regular login with "Fast Login (Dev Mode)" title
+  - Add "Back to Regular Login" link for normal authentication flow
+  - Implement responsive design matching existing login page
+  - Add success feedback and automatic redirect to feed after login
+  - Include clear indication this is a development-only feature
+- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
+**Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
 ## Success Criteria for MVP
 

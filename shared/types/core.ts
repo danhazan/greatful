@@ -93,7 +93,8 @@ export enum NotificationType {
   MENTION = 'mention',
   NEW_FOLLOWER = 'new_follower',
   SHARE_MILESTONE = 'share_milestone',
-  HEART = 'heart'
+  LIKE = 'like',  // Added like notifications
+  FOLLOW = 'follow'  // Standardized follow notification type
 }
 
 // Valid emoji codes for reactions

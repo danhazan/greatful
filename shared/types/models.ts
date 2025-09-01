@@ -84,23 +84,109 @@ export interface Like extends BaseEntity {
 export interface Notification extends BaseEntity {
   user_id: number
   type: NotificationType
+  title: string
   message: string
   read: boolean
+  read_at?: string
   post_id?: string
   related_user_id?: number
   emoji_code?: EmojiCode
-  data?: Record<string, any>
+  data?: NotificationData
   
   // Batching fields
   is_batch: boolean
   batch_count: number
+  batch_types?: NotificationType[]  // Multiple types in batch (future enhancement)
   parent_id?: string
+  batch_key?: string
   last_updated_at?: string
+  
+  // Enhanced features (planned)
+  links?: NotificationLink[]
+  clickable_elements?: ClickableElements
+  from_users?: NotificationUser[]  // Multiple users for batches
+  primary_user?: NotificationUser  // Primary user for display
+  theme_data?: NotificationThemeData
   
   // Relations
   user?: UserInfo
   related_user?: UserInfo
   post?: Post
+}
+
+// Enhanced notification data structure
+export interface NotificationData {
+  post_id?: string
+  user_id?: number
+  username?: string
+  display_name?: string
+  emoji_code?: EmojiCode
+  share_method?: ShareMethod
+  reactor_username?: string
+  author_username?: string
+  liker_username?: string
+  follower_username?: string
+  sharer_username?: string
+  post_preview?: string
+  message_content?: string
+  
+  // Enhanced data (planned)
+  links?: NotificationLink[]
+  user_data?: NotificationUser
+  batch_metadata?: BatchMetadata
+  performance_data?: PerformanceData
+}
+
+// Notification link interface (planned enhancement)
+export interface NotificationLink {
+  type: 'post' | 'user' | 'external'
+  url: string
+  text: string
+  metadata?: Record<string, any>
+}
+
+// Clickable elements interface (planned enhancement)
+export interface ClickableElements {
+  usernames: string[]
+  post_content: boolean
+  custom_links?: NotificationLink[]
+}
+
+// Enhanced notification user interface (planned enhancement)
+export interface NotificationUser {
+  id: number
+  username: string
+  display_name?: string
+  profile_image_url?: string
+  profile_photo_filename?: string
+}
+
+// Notification theme data interface (planned enhancement)
+export interface NotificationThemeData {
+  primary_color?: string
+  accent_color?: string
+  icon_type?: 'heart' | 'reaction' | 'share' | 'mention' | 'follow'
+  custom_styling?: Record<string, any>
+}
+
+// Batch metadata interface (planned enhancement)
+export interface BatchMetadata {
+  types: NotificationType[]
+  post_ids: string[]
+  user_ids: number[]
+  time_range: {
+    start: string
+    end: string
+  }
+  summary_data: Record<string, any>
+}
+
+// Performance data interface (planned enhancement)
+export interface PerformanceData {
+  creation_time?: number
+  processing_time?: number
+  delivery_time?: number
+  cache_hit?: boolean
 }
 
 // Share model
