@@ -82,6 +82,7 @@ class NotificationFactory:
         self,
         recipient_id: int,
         sharer_username: str,
+        sharer_id: int,
         post_id: str,
         share_method: str = "message"
     ) -> Optional[Any]:
@@ -101,7 +102,9 @@ class NotificationFactory:
             data={
                 'post_id': post_id,
                 'sharer_username': sharer_username,
-                'share_method': share_method
+                'share_method': share_method,
+                'actor_user_id': str(sharer_id),
+                'actor_username': sharer_username
             },
             prevent_self_notification=False  # Share notifications don't need self-prevention
         )
@@ -123,7 +126,9 @@ class NotificationFactory:
             data={
                 'post_id': post_id,
                 'author_username': author_username,
-                'post_preview': post_preview
+                'post_preview': post_preview,
+                'actor_user_id': str(author_id),
+                'actor_username': author_username
             },
             prevent_self_notification=True,
             self_user_id=author_id
@@ -152,7 +157,9 @@ class NotificationFactory:
             data={
                 'post_id': post_id,
                 'reactor_username': reactor_username,
-                'emoji_code': emoji_code
+                'emoji_code': emoji_code,
+                'actor_user_id': str(reactor_id),
+                'actor_username': reactor_username
             },
             prevent_self_notification=True,
             self_user_id=reactor_id
@@ -173,7 +180,9 @@ class NotificationFactory:
             message=f'{liker_username} liked your post',
             data={
                 'post_id': post_id,
-                'liker_username': liker_username
+                'liker_username': liker_username,
+                'actor_user_id': str(liker_id),
+                'actor_username': liker_username
             },
             prevent_self_notification=True,
             self_user_id=liker_id
@@ -193,7 +202,9 @@ class NotificationFactory:
             message=f'{follower_username} started following you',
             data={
                 'follower_username': follower_username,
-                'follower_id': follower_id
+                'follower_id': follower_id,
+                'actor_user_id': str(follower_id),
+                'actor_username': follower_username
             },
             prevent_self_notification=True,
             self_user_id=follower_id

@@ -36,19 +36,12 @@ export function generateNotificationLink(notification: {
 
   // For user-related notifications (follows), link to user profile
   if (['new_follower', 'follow'].includes(notification.type)) {
-    // Try to use follower_id first, fallback to fromUser.id, then fromUser.name
+    // Try to use follower_id first, fallback to fromUser.id
     const userId = notification.data?.follower_id || notification.fromUser?.id
     if (userId) {
       return {
         type: 'user',
         url: `/profile/${userId}`,
-        shouldCloseDropdown: true
-      }
-    } else if (notification.fromUser?.name) {
-      // Fallback to username-based URL (though this might not work with current routing)
-      return {
-        type: 'user',
-        url: `/profile/${notification.fromUser.name}`,
         shouldCloseDropdown: true
       }
     }
@@ -102,10 +95,10 @@ export function handleNotificationClick(
 }
 
 /**
- * Get user profile link from username
+ * Get user profile link from user ID (preferred) or username
  */
-export function getUserProfileLink(username: string): string {
-  return `/profile/${username}`
+export function getUserProfileLink(userIdOrUsername: string | number): string {
+  return `/profile/${userIdOrUsername}`
 }
 
 /**
@@ -113,4 +106,53 @@ export function getUserProfileLink(username: string): string {
  */
 export function getPostLink(postId: string): string {
   return `/post/${postId}`
+}
+
+/**
+ * Navigate to user profile - shared function for consistent behavior
+ */
+export async function navigateToUserProfile(
+  userInfo: { id?: string | number; username?: string },
+  navigate: (url: string) => void,
+  options: { resolveUsername?: boolean } = { resolveUsername: true }
+) {
+  const { validProfileId } = await import('./idGuards')
+  
+  // Try to use ID directly if it's valid
+  if (userInfo.id && validProfileId(userInfo.id)) {
+    const profileUrl = getUserProfileLink(userInfo.id)
+    navigate(profileUrl)
+    return
+  }
+
+  // If we have a username and resolution is enabled, try to resolve it
+  if (userInfo.username && options.resolveUsername) {
+    try {
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        console.warn('No access token available for username resolution')
+        return
+      }
+
+      const response = await fetch(`/api/users/by-username/${encodeURIComponent(userInfo.username)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        if (userData.data && userData.data.id) {
+          const profileUrl = getUserProfileLink(userData.data.id)
+          navigate(profileUrl)
+          return
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to resolve username to ID:', error)
+    }
+  }
+
+  // If all else fails, log a warning and do nothing
+  console.warn('Unable to navigate to user profile:', userInfo)
 }

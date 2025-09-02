@@ -238,6 +238,26 @@ async def get_user_by_username(
     return success_response(result, getattr(request.state, 'request_id', None))
 
 
+@router.get("/by-username/{username}")
+async def resolve_username_to_id(
+    username: str,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Resolve username to user ID for navigation purposes.
+    
+    - **username**: Username to resolve
+    
+    Returns minimal user data with ID and username for profile navigation.
+    """
+    user_service = UserService(db)
+    result = await user_service.resolve_username_to_id(username)
+    
+    return success_response(result, getattr(request.state, 'request_id', None))
+
+
 @router.post("/search")
 async def search_users(
     search_request: UserSearchRequest,

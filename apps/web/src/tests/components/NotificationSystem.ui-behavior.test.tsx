@@ -113,8 +113,8 @@ describe('NotificationSystem UI Behavior', () => {
     expect(screen.getByText('Notifications')).toBeInTheDocument()
     expect(screen.getByText('User One')).toBeInTheDocument()
 
-    // Click on individual notification
-    const individualNotification = screen.getByText('User One')
+    // Click on individual notification (click on message area, not username)
+    const individualNotification = screen.getByText('reacted to your post')
     fireEvent.click(individualNotification)
 
     // Dropdown should close after navigation

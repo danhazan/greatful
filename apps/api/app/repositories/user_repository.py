@@ -255,3 +255,22 @@ class UserRepository(BaseRepository):
         users = result.scalars().all()
         
         return [user.username for user in users]
+    
+    async def get_by_username_or_404(self, username: str) -> User:
+        """
+        Get user by username or raise NotFoundError.
+        
+        Args:
+            username: Username to find
+            
+        Returns:
+            User: The user object
+            
+        Raises:
+            NotFoundError: If user is not found
+        """
+        user = await self.get_by_username(username)
+        if not user:
+            from app.core.exceptions import NotFoundError
+            raise NotFoundError("User", username)
+        return user

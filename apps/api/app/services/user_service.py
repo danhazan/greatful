@@ -311,3 +311,26 @@ class UserService(BaseService):
             "valid_usernames": valid_usernames,
             "invalid_usernames": invalid_usernames
         }
+
+    @monitor_query("resolve_username_to_id")
+    async def resolve_username_to_id(self, username: str) -> Dict[str, any]:
+        """
+        Resolve username to user ID for navigation purposes.
+        
+        Args:
+            username: Username to resolve
+            
+        Returns:
+            Dict containing user ID and username
+            
+        Raises:
+            NotFoundError: If username is not found
+        """
+        user = await self.user_repo.get_by_username_or_404(username)
+        
+        logger.info(f"Resolved username '{username}' to user ID {user.id}")
+        
+        return {
+            "id": user.id,
+            "username": user.username
+        }

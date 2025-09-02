@@ -92,17 +92,25 @@ async def get_notifications(
             post_id = notification.data.get('post_id') if notification.data else None
             from_user = None
             
-            if notification.data and 'reactor_username' in notification.data:
+            if notification.data and 'actor_username' in notification.data:
                 from_user = {
-                    'id': '0',  # We don't store user ID in notification data yet
-                    'username': notification.data['reactor_username'],
-                    'profile_image_url': None
+                    'id': notification.data.get('actor_user_id', '0'),
+                    'name': notification.data['actor_username'],
+                    'image': None
+                }
+            elif notification.data and 'reactor_username' in notification.data:
+                # Fallback for old notifications
+                from_user = {
+                    'id': '0',
+                    'name': notification.data['reactor_username'],
+                    'image': None
                 }
             elif notification.data and 'author_username' in notification.data:
+                # Fallback for old notifications
                 from_user = {
-                    'id': '0',  # We don't store user ID in notification data yet
-                    'username': notification.data['author_username'],
-                    'profile_image_url': None
+                    'id': '0',
+                    'name': notification.data['author_username'],
+                    'image': None
                 }
             
             response_notifications.append(NotificationResponse(
@@ -255,17 +263,25 @@ async def get_batch_children(
             post_id = notification.data.get('post_id') if notification.data else None
             from_user = None
             
-            if notification.data and 'reactor_username' in notification.data:
+            if notification.data and 'actor_username' in notification.data:
                 from_user = {
-                    'id': '0',  # We don't store user ID in notification data yet
-                    'username': notification.data['reactor_username'],
-                    'profile_image_url': None
+                    'id': notification.data.get('actor_user_id', '0'),
+                    'name': notification.data['actor_username'],
+                    'image': None
+                }
+            elif notification.data and 'reactor_username' in notification.data:
+                # Fallback for old notifications
+                from_user = {
+                    'id': '0',
+                    'name': notification.data['reactor_username'],
+                    'image': None
                 }
             elif notification.data and 'author_username' in notification.data:
+                # Fallback for old notifications
                 from_user = {
-                    'id': '0',  # We don't store user ID in notification data yet
-                    'username': notification.data['author_username'],
-                    'profile_image_url': None
+                    'id': '0',
+                    'name': notification.data['author_username'],
+                    'image': None
                 }
             
             response_notifications.append(NotificationResponse(

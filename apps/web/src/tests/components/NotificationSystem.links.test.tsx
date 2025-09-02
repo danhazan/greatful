@@ -72,8 +72,8 @@ describe('NotificationSystem Links', () => {
     const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
-    // Click on reaction notification
-    const notification = screen.getByText('User One')
+    // Click on reaction notification (click on message area, not username)
+    const notification = screen.getByText('reacted to your post')
     fireEvent.click(notification)
 
     // Should navigate to post page
@@ -118,12 +118,58 @@ describe('NotificationSystem Links', () => {
     const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
-    // Click on follow notification
-    const notification = screen.getByText('follower_user')
-    fireEvent.click(notification)
+    // Click on follow notification (clicking on the notification area, not the username)
+    const notificationArea = screen.getByText('started following you')
+    fireEvent.click(notificationArea)
 
-    // Should navigate to user profile using follower_id
+    // Should navigate to user profile using follower_id from notification data
     expect(mockPush).toHaveBeenCalledWith('/profile/123')
+  })
+
+  it('should navigate to user profile when clicking username in follow notification', async () => {
+    const mockNotifications = [
+      {
+        id: '1',
+        type: 'new_follower',
+        message: 'started following you',
+        postId: null,
+        data: { follower_id: 123 },
+        fromUser: {
+          id: '2',
+          name: 'follower_user',
+          image: null
+        },
+        createdAt: '2024-01-01T12:00:00Z',
+        read: false,
+        isBatch: false,
+        batchCount: 1,
+        parentId: null
+      }
+    ]
+
+    // Mock initial notifications fetch
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockNotifications
+    })
+
+    render(<NotificationSystem userId={1} />)
+
+    // Wait for notifications to load
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/notifications', expect.any(Object))
+    })
+
+    // Open notifications dropdown
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
+    fireEvent.click(bellButton)
+
+    // Click on the clickable username
+    const usernameElement = screen.getByText('follower_user')
+    fireEvent.click(usernameElement)
+
+    // Should navigate to user profile using fromUser.id (clickable username behavior)
+    expect(mockPush).toHaveBeenCalledWith('/profile/2')
   })
 
   it('should navigate to post page when clicking mention notification', async () => {
@@ -163,8 +209,8 @@ describe('NotificationSystem Links', () => {
     const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
-    // Click on mention notification
-    const notification = screen.getByText('mentioner_user')
+    // Click on mention notification (click on message area, not username)
+    const notification = screen.getByText('mentioned you in a post')
     fireEvent.click(notification)
 
     // Should navigate to post page
@@ -208,8 +254,8 @@ describe('NotificationSystem Links', () => {
     const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
-    // Click on share notification
-    const notification = screen.getByText('sharer_user')
+    // Click on share notification (click on message area, not username)
+    const notification = screen.getByText('shared your post')
     fireEvent.click(notification)
 
     // Should navigate to post page
@@ -300,11 +346,56 @@ describe('NotificationSystem Links', () => {
     const bellButton = screen.getByRole('button', { name: /Notifications/ })
     fireEvent.click(bellButton)
 
-    // Click on unknown notification type
-    const notification = screen.getByText('Unknown User')
-    fireEvent.click(notification)
+    // Click on unknown notification type (clicking on message area, not username)
+    const messageArea = screen.getByText('some unknown notification')
+    fireEvent.click(messageArea)
 
-    // Should not navigate for unknown types
+    // Should not navigate for unknown types when clicking message area
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('should navigate to user profile when clicking username in any notification type', async () => {
+    const mockNotifications = [
+      {
+        id: '1',
+        type: 'reaction',
+        message: 'reacted to your post',
+        postId: 'post-123',
+        fromUser: {
+          id: '2',
+          name: 'Reactor User',
+          image: null
+        },
+        createdAt: '2024-01-01T12:00:00Z',
+        read: false,
+        isBatch: false,
+        batchCount: 1,
+        parentId: null
+      }
+    ]
+
+    // Mock initial notifications fetch
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockNotifications
+    })
+
+    render(<NotificationSystem userId={1} />)
+
+    // Wait for notifications to load
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/notifications', expect.any(Object))
+    })
+
+    // Open notifications dropdown
+    const bellButton = screen.getByRole('button', { name: /Notifications/ })
+    fireEvent.click(bellButton)
+
+    // Click on the clickable username (should navigate to user profile)
+    const usernameElement = screen.getByText('Reactor User')
+    fireEvent.click(usernameElement)
+
+    // Should navigate to user profile using shared navigation logic
+    expect(mockPush).toHaveBeenCalledWith('/profile/2')
   })
 })

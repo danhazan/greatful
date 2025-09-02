@@ -4,16 +4,22 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { handleNotificationClick } from "@/utils/notificationLinks"
+import { parseNotificationMessage, formatNotificationWithClickableUser, formatNotificationWithEnhancedData } from "@/utils/notificationMessageParser"
 
 interface Notification {
   id: string
-  type: 'reaction' | 'comment' | 'share'
+  type: 'reaction' | 'comment' | 'share' | 'new_follower' | 'follow' | 'mention' | 'like'
   message: string
   postId: string
   fromUser: {
     id: string
     name: string
     image?: string
+  }
+  data?: {
+    actor_user_id?: string
+    actor_username?: string
+    [key: string]: any
   }
   createdAt?: string
   lastUpdatedAt?: string
@@ -372,15 +378,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                           {/* Notification Content */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-900">
-                              {notification.isBatch ? (
-                                notification.message
-                              ) : (
-                                <>
-                                  <span className="font-medium">{notification.fromUser?.name}</span>
-                                  {' '}
-                                  {notification.message}
-                                </>
-                              )}
+                              {formatNotificationWithEnhancedData(notification)}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
                               {formatTime(notification.lastUpdatedAt || notification.createdAt)}
@@ -457,9 +455,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                 {/* Child Content */}
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm text-gray-700">
-                                    <span className="font-medium">{child.fromUser?.name}</span>
-                                    {' '}
-                                    {child.message}
+                                    {formatNotificationWithEnhancedData(child)}
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
                                     {formatTime(child.lastUpdatedAt || child.createdAt)}

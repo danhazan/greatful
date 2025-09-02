@@ -130,6 +130,10 @@ export interface NotificationData {
   post_preview?: string
   message_content?: string
   
+  // New actor fields for proper user profile navigation
+  actor_user_id?: string  // Canonical user ID for navigation
+  actor_username?: string // Username for display
+  
   // Enhanced data (planned)
   links?: NotificationLink[]
   user_data?: NotificationUser
