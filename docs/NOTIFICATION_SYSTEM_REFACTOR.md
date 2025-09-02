@@ -90,26 +90,42 @@ The current notification system is a comprehensive implementation with batching 
 
 ### Current Strengths
 
-1. **Comprehensive batching system**: Prevents notification spam
-2. **Rate limiting**: Protects against abuse
-3. **Proper separation of concerns**: Service/repository pattern
-4. **Type safety**: Shared TypeScript interfaces
+1. **Comprehensive batching system**: Prevents notification spam with parent-child relationships
+2. **Rate limiting**: Protects against abuse (20 notifications/hour per type)
+3. **Proper separation of concerns**: Service/repository pattern with NotificationFactory
+4. **Type safety**: Shared TypeScript interfaces and runtime validation
 5. **Graceful degradation**: Works offline with optimistic updates
 6. **Performance optimized**: Proper database indexing and query optimization
 7. **Extensible architecture**: Easy to add new notification types
+8. **Generic navigation system**: Reusable `ClickableUsername` component and navigation utilities
+9. **Consistent user experience**: Standardized link generation and ID validation
+10. **Accessibility compliant**: Proper ARIA labels, keyboard navigation, and screen reader support
 
 ### Current Limitations and Enhancement Opportunities
 
-#### 1. Link Generation and Navigation
-**Current State**: Limited linking capabilities
-- Notifications contain `post_id` in data but no direct navigation
-- No clickable usernames in notification text
-- No deep linking to specific posts or profiles
+#### 1. Link Generation and Navigation ✅ IMPLEMENTED
+**Current State**: Comprehensive link generation and navigation system
+- **Notification Links**: Full implementation in `apps/web/src/utils/notificationLinks.ts`
+  - `generateNotificationLink()`: Generates appropriate links based on notification type
+  - `handleNotificationClick()`: Handles navigation with proper read state management
+  - Post-related notifications (reactions, mentions, shares, likes) link to `/post/{postId}`
+  - User-related notifications (follows) link to `/profile/{userId}`
+  - Batch notifications expand/collapse without navigation
+- **Clickable Usernames**: Implemented via `ClickableUsername` component
+  - Generic component in `apps/web/src/components/ClickableUsername.tsx`
+  - Supports both user ID and username-based navigation
+  - Automatic username-to-ID resolution via `/api/users/by-username/{username}`
+  - Consistent styling and accessibility features
+- **Message Parsing**: Enhanced notification message rendering
+  - `formatNotificationWithEnhancedData()`: Makes usernames clickable in notification text
+  - `parseNotificationMessage()`: Handles username detection and linkification
+  - Consistent behavior across all notification types
 
-**Enhancement Needed**:
-- Generate proper URLs for posts, users, and other content
-- Make usernames clickable within notification messages
-- Support deep linking from notifications to relevant content
+**Recent Enhancements**:
+- Shared navigation utilities for consistent user profile linking
+- ID validation with `validProfileId()` function in `apps/web/src/utils/idGuards.ts`
+- Fallback mechanisms for username resolution when direct ID navigation fails
+- Proper error handling and accessibility support
 
 #### 2. Profile Pictures in Notifications
 **Current State**: Uses letter avatars or basic user info
@@ -162,61 +178,71 @@ The current notification system is a comprehensive implementation with batching 
 
 ### Phase 1: Link Generation and Navigation System
 
-#### 1.1 URL Generation Service
-```python
-class NotificationLinkService:
-    """Service for generating notification links and metadata."""
-    
-    @staticmethod
-    def generate_post_link(post_id: str) -> str:
-        """Generate link to specific post."""
-        return f"/post/{post_id}"
-    
-    @staticmethod
-    def generate_user_profile_link(username: str) -> str:
-        """Generate link to user profile."""
-        return f"/profile/{username}"
-    
-    @staticmethod
-    def generate_notification_metadata(notification: Notification) -> dict:
-        """Generate link metadata for notification."""
-        # Implementation details
-```
-
-#### 1.2 Enhanced Notification Data Structure
-```python
-# Enhanced notification data with link metadata
-notification_data = {
-    'post_id': post_id,
-    'reactor_username': username,
-    'emoji_code': emoji_code,
-    # New link metadata
-    'links': {
-        'post': f"/post/{post_id}",
-        'user_profile': f"/profile/{username}"
-    },
-    'clickable_elements': {
-        'usernames': [username],
-        'post_content': True
-    }
-}
-```
-
-#### 1.3 Frontend Link Rendering
+#### 1.1 URL Generation Service ✅ IMPLEMENTED
 ```typescript
-interface NotificationLink {
-  type: 'post' | 'user' | 'external'
-  url: string
-  text: string
+// Implemented in apps/web/src/utils/notificationLinks.ts
+export function generateNotificationLink(notification: {
+  type: string
+  postId?: string
+  fromUser?: { id: string; name: string }
+  isBatch?: boolean
+  data?: any
+}): NotificationLinkData | null
+
+export function getUserProfileLink(userIdOrUsername: string | number): string
+export function getPostLink(postId: string): string
+
+// Generic navigation function for consistent user profile linking
+export async function navigateToUserProfile(
+  userInfo: { id?: string | number; username?: string },
+  navigate: (url: string) => void,
+  options: { resolveUsername?: boolean } = { resolveUsername: true }
+)
+```
+
+#### 1.2 Enhanced Notification Data Structure ✅ IMPLEMENTED
+```typescript
+// Current notification data structure with actor fields
+interface NotificationData {
+  post_id?: string
+  actor_user_id?: string    // Standardized user ID field
+  actor_username?: string   // Standardized username field
+  emoji_code?: string
+  share_method?: string
+  // ... other notification-specific fields
 }
 
-interface EnhancedNotification extends Notification {
-  links?: NotificationLink[]
-  clickableElements?: {
-    usernames: string[]
-    postContent: boolean
-  }
+// ID validation utilities
+export function validProfileId(id: string | number | undefined | null): boolean
+export function looksLikeUsername(value: string | number | undefined | null): boolean
+export function normalizeProfileId(id: string | number | undefined | null): string | null
+```
+
+#### 1.3 Frontend Link Rendering ✅ IMPLEMENTED
+```typescript
+// Implemented in apps/web/src/components/ClickableUsername.tsx
+interface ClickableUsernameProps {
+  userId?: string | number
+  username?: string
+  className?: string
+  onClick?: (e: React.MouseEvent) => void
 }
+
+// Notification message parsing with clickable usernames
+export function formatNotificationWithEnhancedData(
+  notification: {
+    message: string
+    fromUser?: NotificationUser
+    data?: NotificationData
+    isBatch?: boolean
+  }
+): React.ReactNode
+
+// Navigation handling
+export function handleNotificationClick(
+  notification: NotificationWithNavigation,
+  callbacks: NavigationCallbacks
+)
 ```
 
 ### Phase 2: Profile Picture Integration
@@ -382,23 +408,28 @@ FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
 
 ## Implementation Plan
 
-### Task 11.1: Pressable Notification Links
-- Add click handlers to notifications for navigation
-- Implement post and user profile link generation
-- Update notification data structure with link metadata
-- Test navigation functionality across all notification types
+### Task 11.1: Pressable Notification Links ✅ COMPLETED
+- ✅ Add click handlers to notifications for navigation
+- ✅ Implement post and user profile link generation via `notificationLinks.ts`
+- ✅ Update notification data structure with link metadata
+- ✅ Test navigation functionality across all notification types
+- **Implementation**: Complete notification navigation system with `handleNotificationClick()` and `generateNotificationLink()`
 
-### Task 11.2: Username Links in Notifications
-- Make usernames clickable within notification text
-- Add proper styling for username links
-- Ensure consistent behavior across all notification types
-- Implement username detection and linkification
+### Task 11.2: Username Links in Notifications ✅ COMPLETED
+- ✅ Make usernames clickable within notification text via `ClickableUsername` component
+- ✅ Add proper styling for username links with purple theme consistency
+- ✅ Ensure consistent behavior across all notification types
+- ✅ Implement username detection and linkification in `notificationMessageParser.tsx`
+- **Implementation**: Generic `ClickableUsername` component with ID validation and username resolution
 
-### Task 11.2.1: Profile Pictures in Notification Cards
-- Replace letter avatars with actual profile pictures
-- Make profile pictures clickable for navigation
-- Add fallback handling for missing profile pictures
-- Ensure consistent sizing and styling
+### Task 11.2.1: Profile Pictures in Notification Cards ✅ COMPLETED
+- ✅ Replace letter avatars with actual profile pictures in notification cards
+- ✅ Make profile pictures clickable for navigation using `ClickableProfilePicture` component
+- ✅ Add fallback handling for missing profile pictures with graceful error handling
+- ✅ Ensure consistent sizing and styling (medium: 10x10, small: 8x8 for batch children)
+- **Implementation**: Created `ClickableProfilePicture` component that reuses the generic navigation system from Tasks 11.1 and 11.2
+- **Backend Enhancement**: Enhanced notification API to resolve actual profile pictures via `resolve_user_profile_data()` function
+- **Testing**: Comprehensive test coverage for both component behavior and API integration
 
 ### Task 11.3: Like/Heart Notifications with Existing Batching Integration
 - Add like notification creation to existing NotificationService and NotificationFactory
@@ -616,5 +647,98 @@ describe('Enhanced NotificationSystem', () => {
 - **Engagement growth**: Increase in user interactions
 - **Feature adoption**: Usage of new notification features
 - **Support tickets**: Reduction in notification-related issues
+
+## Recent Enhancements and Improvements
+
+Based on the recent implementation work (Tasks 11.1 and 11.2), here are the key improvements made to the notification system:
+
+### 1. Generic User Profile Link System ✅ IMPLEMENTED
+
+**Components Created:**
+- **`ClickableUsername` Component** (`apps/web/src/components/ClickableUsername.tsx`):
+  - Reusable component for consistent user profile navigation
+  - Supports both user ID and username-based navigation
+  - Automatic username-to-ID resolution via API
+  - Accessibility features (ARIA labels, keyboard navigation)
+  - Consistent purple theme styling
+
+- **Navigation Utilities** (`apps/web/src/utils/notificationLinks.ts`):
+  - `generateNotificationLink()`: Smart link generation based on notification type
+  - `handleNotificationClick()`: Centralized click handling with read state management
+  - `navigateToUserProfile()`: Generic user profile navigation with fallback mechanisms
+  - `getUserProfileLink()` and `getPostLink()`: URL generation utilities
+
+- **ID Validation System** (`apps/web/src/utils/idGuards.ts`):
+  - `validProfileId()`: Validates numeric IDs and UUIDs for profile navigation
+  - `looksLikeUsername()`: Identifies username-like strings
+  - `normalizeProfileId()`: Consistent ID formatting for URLs
+  - Type guards for runtime validation
+
+### 2. Enhanced Notification Message Parsing ✅ IMPLEMENTED
+
+**Message Parser** (`apps/web/src/utils/notificationMessageParser.tsx`):
+- `formatNotificationWithEnhancedData()`: Makes usernames clickable in notification text
+- `parseNotificationMessage()`: Handles username detection and linkification
+- Consistent behavior across all notification types (reactions, mentions, shares, follows)
+- React component integration for interactive elements
+
+### 3. Standardized Notification Data Structure ✅ IMPLEMENTED
+
+**Backend Improvements** (`apps/api/app/core/notification_factory.py`):
+- Consistent `actor_user_id` and `actor_username` fields across all notification types
+- NotificationFactory with convenience methods for each notification type
+- Centralized notification creation to prevent common issues
+- Proper error handling and logging
+
+**API Response Format** (`apps/api/app/api/v1/notifications.py`):
+- Standardized `from_user` object with `id`, `name`, and `username` fields
+- Backward compatibility with existing notification data
+- Enhanced batch notification support
+
+### 4. Opportunities for Further Enhancement
+
+While the generic user profile link system is now comprehensive, there are still opportunities for improvement:
+
+#### A. Profile Picture Integration (Task 11.2.1) ✅ COMPLETED
+**Implementation Summary**:
+- **`ClickableProfilePicture` Component**: New reusable component for profile pictures with navigation
+  - Supports multiple sizes (small: 8x8, medium: 10x10, large: 12x12)
+  - Automatic fallback to letter avatars when images fail to load
+  - Reuses existing navigation logic from `ClickableUsername` for consistency
+  - Full accessibility support (ARIA labels, keyboard navigation)
+- **Backend Enhancement**: Enhanced notification API with `resolve_user_profile_data()` function
+  - Fetches actual profile pictures from user profiles
+  - Graceful fallback when users don't exist or have no profile pictures
+  - Maintains backward compatibility with existing notification data
+- **Integration**: Updated `NotificationSystem` component to use profile pictures
+  - Main notifications use medium size (10x10)
+  - Batch children use small size (8x8)
+  - Consistent clickable behavior across all notification contexts
+
+#### B. Enhanced User Data Resolution
+**Current State**: Basic user data in `from_user` object
+**Enhancement Opportunity**:
+- Fetch complete user profile data including profile pictures
+- Cache user data to reduce API calls
+- Support for display names vs usernames
+- Enhanced user presence indicators
+
+#### C. Advanced Link Metadata
+**Current State**: Basic post and user links
+**Enhancement Opportunity**:
+- Rich link previews for shared content
+- Deep linking to specific sections (e.g., comments, reactions)
+- External link handling and validation
+- Link analytics and tracking
+
+#### D. Performance Optimizations
+**Current State**: Real-time username resolution via API
+**Enhancement Opportunity**:
+- Client-side caching of username-to-ID mappings
+- Batch user data resolution
+- Optimistic navigation with background validation
+- Service worker integration for offline support
+
+---
 
 This comprehensive refactoring plan provides a roadmap for enhancing the notification system while maintaining its current strengths and addressing identified limitations. The phased approach ensures manageable implementation while delivering incremental value to users.

@@ -36,6 +36,7 @@ async def authenticated_client(async_client, auth_headers):
     yield async_client
 
 
+
 @pytest_asyncio.fixture
 async def test_user_and_post(setup_test_database):
     """Create test user and post for reactions testing."""

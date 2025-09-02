@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { handleNotificationClick } from "@/utils/notificationLinks"
 import { parseNotificationMessage, formatNotificationWithClickableUser, formatNotificationWithEnhancedData } from "@/utils/notificationMessageParser"
+import ClickableProfilePicture from "@/components/ClickableProfilePicture"
 
 interface Notification {
   id: string
@@ -358,20 +359,14 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                   {notification.batchCount}
                                 </span>
                               </div>
-                            ) : notification.fromUser?.image ? (
-                              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100">
-                                <img
-                                  src={notification.fromUser?.image}
-                                  alt={notification.fromUser?.name}
-                                  className="w-full h-full object-cover object-center"
-                                />
-                              </div>
                             ) : (
-                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                                <span className="text-purple-600 text-sm font-medium">
-                                  {notification.fromUser?.name?.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
+                              <ClickableProfilePicture
+                                userId={notification.fromUser?.id}
+                                username={notification.fromUser?.username || notification.fromUser?.name}
+                                imageUrl={notification.fromUser?.image}
+                                displayName={notification.fromUser?.name}
+                                size="medium"
+                              />
                             )}
                           </div>
 
@@ -435,21 +430,13 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                               <div className="flex items-start space-x-3">
                                 {/* Child User Avatar */}
                                 <div className="flex-shrink-0">
-                                  {child.fromUser?.image ? (
-                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100">
-                                      <img
-                                        src={child.fromUser?.image}
-                                        alt={child.fromUser?.name}
-                                        className="w-full h-full object-cover object-center"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                                      <span className="text-purple-600 text-xs font-medium">
-                                        {child.fromUser?.name?.charAt(0).toUpperCase()}
-                                      </span>
-                                    </div>
-                                  )}
+                                  <ClickableProfilePicture
+                                    userId={child.fromUser?.id}
+                                    username={child.fromUser?.username || child.fromUser?.name}
+                                    imageUrl={child.fromUser?.image}
+                                    displayName={child.fromUser?.name}
+                                    size="small"
+                                  />
                                 </div>
 
                                 {/* Child Content */}

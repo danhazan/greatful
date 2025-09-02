@@ -137,6 +137,23 @@ async def test_user_3(db_session):
 
 
 @pytest_asyncio.fixture
+async def test_user_with_profile(db_session):
+    """Create a test user with profile picture."""
+    user = User(
+        email="profileuser@example.com",
+        username="profileuser",
+        hashed_password=get_password_hash("testpassword"),
+        bio="User with profile picture",
+        display_name="Profile User",
+        profile_image_url="https://example.com/profile-pic.jpg"
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
 async def auth_headers(test_user):
     """Create authentication headers for test user."""
     token = create_access_token({"sub": str(test_user.id)})

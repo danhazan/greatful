@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.notification import Notification
 from app.services.notification_service import NotificationService
+from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -60,6 +61,61 @@ async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(secur
         )
 
 
+async def resolve_user_profile_data(
+    db: AsyncSession, 
+    user_id: str = None, 
+    username: str = None
+) -> dict | None:
+    """
+    Resolve user profile data including profile picture.
+    
+    Args:
+        db: Database session
+        user_id: User ID (preferred)
+        username: Username (fallback)
+        
+    Returns:
+        Dict with user profile data or None if not found
+    """
+    try:
+        user_service = UserService(db)
+        
+        # Try to get user by ID first (more efficient)
+        if user_id and user_id != '0':
+            try:
+                user_id_int = int(user_id)
+                profile = await user_service.get_public_user_profile(user_id_int)
+                return {
+                    'id': str(profile['id']),
+                    'name': profile.get('display_name') or profile['username'],
+                    'username': profile['username'],
+                    'image': profile.get('profile_image_url')
+                }
+            except (ValueError, Exception):
+                # If user_id is not a valid integer or user not found, try username
+                pass
+        
+        # Fallback to username lookup
+        if username:
+            try:
+                profile = await user_service.get_user_by_username(username)
+                return {
+                    'id': str(profile['id']),
+                    'name': profile.get('display_name') or profile['username'],
+                    'username': profile['username'],
+                    'image': profile.get('profile_image_url')
+                }
+            except Exception:
+                # User not found by username
+                pass
+        
+        return None
+        
+    except Exception as e:
+        logger.debug(f"Failed to resolve user profile data: {e}")
+        return None
+
+
 @router.get("/notifications", response_model=List[NotificationResponse])
 async def get_notifications(
     current_user_id: int = Depends(get_current_user_id),
@@ -92,29 +148,57 @@ async def get_notifications(
             post_id = notification.data.get('post_id') if notification.data else None
             from_user = None
             
+            # Resolve user profile data with actual profile pictures
             if notification.data and 'actor_username' in notification.data:
-                from_user = {
-                    'id': notification.data.get('actor_user_id', '0'),
-                    'name': notification.data['actor_username'],
-                    'username': notification.data['actor_username'],  # Add username field for compatibility
-                    'image': None
-                }
+                # Try to resolve full profile data
+                resolved_user = await resolve_user_profile_data(
+                    db=db,
+                    user_id=notification.data.get('actor_user_id'),
+                    username=notification.data['actor_username']
+                )
+                
+                if resolved_user:
+                    from_user = resolved_user
+                else:
+                    # Fallback to basic data
+                    from_user = {
+                        'id': notification.data.get('actor_user_id', '0'),
+                        'name': notification.data['actor_username'],
+                        'username': notification.data['actor_username'],
+                        'image': None
+                    }
             elif notification.data and 'reactor_username' in notification.data:
                 # Fallback for old notifications
-                from_user = {
-                    'id': '0',
-                    'name': notification.data['reactor_username'],
-                    'username': notification.data['reactor_username'],  # Add username field for compatibility
-                    'image': None
-                }
+                resolved_user = await resolve_user_profile_data(
+                    db=db,
+                    username=notification.data['reactor_username']
+                )
+                
+                if resolved_user:
+                    from_user = resolved_user
+                else:
+                    from_user = {
+                        'id': '0',
+                        'name': notification.data['reactor_username'],
+                        'username': notification.data['reactor_username'],
+                        'image': None
+                    }
             elif notification.data and 'author_username' in notification.data:
                 # Fallback for old notifications
-                from_user = {
-                    'id': '0',
-                    'name': notification.data['author_username'],
-                    'username': notification.data['author_username'],  # Add username field for compatibility
-                    'image': None
-                }
+                resolved_user = await resolve_user_profile_data(
+                    db=db,
+                    username=notification.data['author_username']
+                )
+                
+                if resolved_user:
+                    from_user = resolved_user
+                else:
+                    from_user = {
+                        'id': '0',
+                        'name': notification.data['author_username'],
+                        'username': notification.data['author_username'],
+                        'image': None
+                    }
             
             response_notifications.append(NotificationResponse(
                 id=notification.id,
@@ -266,29 +350,57 @@ async def get_batch_children(
             post_id = notification.data.get('post_id') if notification.data else None
             from_user = None
             
+            # Resolve user profile data with actual profile pictures
             if notification.data and 'actor_username' in notification.data:
-                from_user = {
-                    'id': notification.data.get('actor_user_id', '0'),
-                    'name': notification.data['actor_username'],
-                    'username': notification.data['actor_username'],  # Add username field for compatibility
-                    'image': None
-                }
+                # Try to resolve full profile data
+                resolved_user = await resolve_user_profile_data(
+                    db=db,
+                    user_id=notification.data.get('actor_user_id'),
+                    username=notification.data['actor_username']
+                )
+                
+                if resolved_user:
+                    from_user = resolved_user
+                else:
+                    # Fallback to basic data
+                    from_user = {
+                        'id': notification.data.get('actor_user_id', '0'),
+                        'name': notification.data['actor_username'],
+                        'username': notification.data['actor_username'],
+                        'image': None
+                    }
             elif notification.data and 'reactor_username' in notification.data:
                 # Fallback for old notifications
-                from_user = {
-                    'id': '0',
-                    'name': notification.data['reactor_username'],
-                    'username': notification.data['reactor_username'],  # Add username field for compatibility
-                    'image': None
-                }
+                resolved_user = await resolve_user_profile_data(
+                    db=db,
+                    username=notification.data['reactor_username']
+                )
+                
+                if resolved_user:
+                    from_user = resolved_user
+                else:
+                    from_user = {
+                        'id': '0',
+                        'name': notification.data['reactor_username'],
+                        'username': notification.data['reactor_username'],
+                        'image': None
+                    }
             elif notification.data and 'author_username' in notification.data:
                 # Fallback for old notifications
-                from_user = {
-                    'id': '0',
-                    'name': notification.data['author_username'],
-                    'username': notification.data['author_username'],  # Add username field for compatibility
-                    'image': None
-                }
+                resolved_user = await resolve_user_profile_data(
+                    db=db,
+                    username=notification.data['author_username']
+                )
+                
+                if resolved_user:
+                    from_user = resolved_user
+                else:
+                    from_user = {
+                        'id': '0',
+                        'name': notification.data['author_username'],
+                        'username': notification.data['author_username'],
+                        'image': None
+                    }
             
             response_notifications.append(NotificationResponse(
                 id=notification.id,

@@ -318,13 +318,22 @@ The implementation maintains consistency with the reference implementation's pur
   - Update notification rendering to detect and linkify usernames
   - Add proper styling for username links within notification text
   - Ensure username links work consistently across all notification types
-- [ ] **11.2.1 Profile Pictures in Notification Cards**
+- [x] **11.2.1 Profile Pictures in Notification Cards**
   - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 2: Profile Picture Integration
+  - **Context:** Tasks 11.1 and 11.2 have implemented a comprehensive generic user profile link system with `ClickableUsername` component and navigation utilities in `notificationLinks.ts`. This task builds on that foundation.
   - Replace circular letter avatars with actual profile pictures in notification cards
-  - Make profile pictures clickable to navigate to user profile (same as username click in 11.2. and follow notifications in task 11.1 - please share the code)
+  - Make profile pictures clickable to navigate to user profile using the existing generic navigation system:
+    - Reuse `ClickableUsername` component's navigation logic (see `apps/web/src/components/ClickableUsername.tsx`)
+    - Use `navigateToUserProfile()` function from `apps/web/src/utils/notificationLinks.ts`
+    - Leverage existing ID validation with `validProfileId()` from `apps/web/src/utils/idGuards.ts`
   - Add fallback to letter avatar when user has no profile picture
-  - Ensure profile picture sizing is consistent with notification card design
+  - Ensure profile picture sizing is consistent with notification card design (10x10 for main notifications, 8x8 for batch children)
   - Test profile picture loading and error handling in notification display
+  - **Implementation Notes:**
+    - Profile picture URLs should come from `notification.fromUser.image` or resolved user data
+    - Click handler should use the same pattern as username clicks for consistency
+    - Maintain existing accessibility features (aria-labels, keyboard navigation)
+    - Ensure profile picture component is reusable across notification contexts
 
 - [ ] **11.3 Like/Heart Notifications with Existing Batching Integration**
   - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 3: Purple Heart Styling and Like Notifications
