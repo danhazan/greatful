@@ -138,6 +138,9 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
     <PostCard 
       post={post}
       currentUserId={currentUser?.id}
+      onUserClick={(userId) => {
+        router.push(`/profile/${userId}`)
+      }}
       onHeart={(postId, isCurrentlyHearted, heartInfo) => {
         if (heartInfo) {
           setPost(prev => prev ? {
