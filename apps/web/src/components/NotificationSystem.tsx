@@ -15,6 +15,7 @@ interface Notification {
   fromUser: {
     id: string
     name: string
+    username?: string
     image?: string
   }
   data?: {
@@ -362,7 +363,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                             ) : (
                               <ClickableProfilePicture
                                 userId={notification.fromUser?.id}
-                                username={notification.fromUser?.username || notification.fromUser?.name}
+                                username={notification.fromUser?.username || notification.data?.actor_username || notification.fromUser?.name}
                                 imageUrl={notification.fromUser?.image}
                                 displayName={notification.fromUser?.name}
                                 size="medium"

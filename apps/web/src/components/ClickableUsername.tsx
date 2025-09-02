@@ -6,6 +6,7 @@ import { validProfileId } from "@/utils/idGuards"
 interface ClickableUsernameProps {
   userId?: string | number
   username?: string
+  displayName?: string
   className?: string
   onClick?: (e: React.MouseEvent) => void
 }
@@ -17,6 +18,7 @@ interface ClickableUsernameProps {
 export default function ClickableUsername({ 
   userId, 
   username, 
+  displayName,
   className = "font-medium text-purple-600 hover:text-purple-700 cursor-pointer transition-colors",
   onClick 
 }: ClickableUsernameProps) {
@@ -79,7 +81,7 @@ export default function ClickableUsername({
     return <span className={className}>Unknown User</span>
   }
 
-  const displayName = username || `User ${userId}`
+  const nameToDisplay = displayName || username || `User ${userId}`
 
   return (
     <span 
@@ -93,9 +95,9 @@ export default function ClickableUsername({
           handleClick(e as any)
         }
       }}
-      aria-label={`View ${displayName}'s profile`}
+      aria-label={`View ${nameToDisplay}'s profile`}
     >
-      {displayName}
+      {nameToDisplay}
     </span>
   )
 }

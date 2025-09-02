@@ -54,6 +54,10 @@ class TestNotificationProfilePictures:
         assert len(notifications) == 1
         notification = notifications[0]
         
+        # Debug: Print the actual notification data
+        print(f"DEBUG: Notification data: {notification}")
+        print(f"DEBUG: from_user data: {notification.get('from_user')}")
+        
         # Verify the notification has profile picture data
         assert notification["from_user"] is not None
         assert notification["from_user"]["id"] == str(test_user_with_profile.id)

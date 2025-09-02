@@ -63,22 +63,25 @@ export function parseNotificationMessage(
 
 /**
  * Format notification message with clickable username at the beginning
- * Used for standard notification format: "[Username] [action]"
+ * Used for standard notification format: "[DisplayName] [action]"
  */
 export function formatNotificationWithClickableUser(
   action: string,
   fromUser: NotificationUser,
   notificationData?: NotificationData
 ): React.ReactNode {
-  // Prefer the new actor fields from notification data
+  // Get the user ID and username for navigation
   const actorId = notificationData?.actor_user_id ?? fromUser?.id
-  const actorUsername = notificationData?.actor_username ?? fromUser?.name
+  const username = notificationData?.actor_username
+  // Use display name for showing, but username for navigation
+  const displayName = fromUser?.name
 
   return (
     <>
       <ClickableUsername
         userId={actorId}
-        username={actorUsername}
+        username={username}
+        displayName={displayName}
         className="font-medium text-purple-600 hover:text-purple-700 cursor-pointer transition-colors"
       />
       {' '}
