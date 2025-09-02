@@ -105,7 +105,7 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">{error}</h3>
         <p className="text-gray-500 mb-4">
-          {error === 'Post not found' 
+          {error === 'Post not found'
             ? 'This post may have been deleted or you may not have permission to view it.'
             : 'Please try again or check your internet connection.'
           }
@@ -135,7 +135,7 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
   }
 
   return (
-    <PostCard 
+    <PostCard
       post={post}
       currentUserId={currentUser?.id}
       onUserClick={(userId) => {

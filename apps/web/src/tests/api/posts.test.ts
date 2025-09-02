@@ -278,13 +278,18 @@ describe('/api/posts', () => {
         author: {
           id: '1',
           name: 'User One',
-          username: 'user1'
+          username: 'user1',
+          display_name: undefined,
+          image: null
         },
         createdAt: '2025-01-08T12:00:00Z',
         postType: 'daily',
+        imageUrl: undefined,
+        location: undefined,
         heartsCount: 5,
         isHearted: false,
-        reactionsCount: 3
+        reactionsCount: 3,
+        currentUserReaction: undefined
       })
 
       expect(fetch).toHaveBeenCalledWith(

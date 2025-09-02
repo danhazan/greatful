@@ -39,8 +39,8 @@ export async function GET(
     const post = await response.json()
 
     // Helper function to transform profile image URL
-    const transformProfileImageUrl = (url: string | null): string | undefined => {
-      if (!url) return undefined
+    const transformProfileImageUrl = (url: string | null): string | null => {
+      if (!url) return null
       if (url.startsWith('http')) return url // Already a full URL
       return `${API_BASE_URL}${url}` // Convert relative URL to full URL
     }
