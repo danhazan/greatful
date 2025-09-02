@@ -19,6 +19,7 @@ export function generateNotificationLink(notification: {
     name: string
   }
   isBatch?: boolean
+  data?: any
 }): NotificationLinkData | null {
   // For batch notifications, don't navigate - just expand/collapse
   if (notification.isBatch) {
@@ -65,6 +66,7 @@ export function handleNotificationClick(
     }
     isBatch?: boolean
     read: boolean
+    data?: any
   },
   callbacks: {
     markAsRead: (id: string) => void
@@ -116,6 +118,7 @@ export async function navigateToUserProfile(
   navigate: (url: string) => void,
   options: { resolveUsername?: boolean } = { resolveUsername: true }
 ) {
+  // Import the validation function
   const { validProfileId } = await import('./idGuards')
   
   // Try to use ID directly if it's valid

@@ -102,8 +102,17 @@ export function formatNotificationWithEnhancedData(
     return notification.message
   }
 
+  // Extract the action part from the message by removing the username at the beginning
+  const actorUsername = notification.data?.actor_username ?? notification.fromUser?.name
+  let actionPart = notification.message
+  
+  if (actorUsername && notification.message.startsWith(actorUsername)) {
+    // Remove the username from the beginning and trim any leading space
+    actionPart = notification.message.substring(actorUsername.length).replace(/^\s+/, '')
+  }
+
   return formatNotificationWithClickableUser(
-    notification.message,
+    actionPart,
     notification.fromUser,
     notification.data
   )

@@ -96,6 +96,7 @@ async def get_notifications(
                 from_user = {
                     'id': notification.data.get('actor_user_id', '0'),
                     'name': notification.data['actor_username'],
+                    'username': notification.data['actor_username'],  # Add username field for compatibility
                     'image': None
                 }
             elif notification.data and 'reactor_username' in notification.data:
@@ -103,6 +104,7 @@ async def get_notifications(
                 from_user = {
                     'id': '0',
                     'name': notification.data['reactor_username'],
+                    'username': notification.data['reactor_username'],  # Add username field for compatibility
                     'image': None
                 }
             elif notification.data and 'author_username' in notification.data:
@@ -110,6 +112,7 @@ async def get_notifications(
                 from_user = {
                     'id': '0',
                     'name': notification.data['author_username'],
+                    'username': notification.data['author_username'],  # Add username field for compatibility
                     'image': None
                 }
             
@@ -267,6 +270,7 @@ async def get_batch_children(
                 from_user = {
                     'id': notification.data.get('actor_user_id', '0'),
                     'name': notification.data['actor_username'],
+                    'username': notification.data['actor_username'],  # Add username field for compatibility
                     'image': None
                 }
             elif notification.data and 'reactor_username' in notification.data:
@@ -274,6 +278,7 @@ async def get_batch_children(
                 from_user = {
                     'id': '0',
                     'name': notification.data['reactor_username'],
+                    'username': notification.data['reactor_username'],  # Add username field for compatibility
                     'image': None
                 }
             elif notification.data and 'author_username' in notification.data:
@@ -281,6 +286,7 @@ async def get_batch_children(
                 from_user = {
                     'id': '0',
                     'name': notification.data['author_username'],
+                    'username': notification.data['author_username'],  # Add username field for compatibility
                     'image': None
                 }
             

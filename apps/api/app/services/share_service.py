@@ -120,6 +120,7 @@ class ShareService(BaseService):
                 await notification_factory.create_share_notification(
                     recipient_id=post.author_id,
                     sharer_username=user.username,
+                    sharer_id=user_id,
                     post_id=post_id,
                     share_method="url"
                 )
@@ -214,6 +215,7 @@ class ShareService(BaseService):
                 await notification_factory.create_share_notification(
                     recipient_id=recipient_id,  # Recipient gets the notification
                     sharer_username=sender.username,
+                    sharer_id=sender_id,
                     post_id=post_id,
                     share_method="message"
                 )

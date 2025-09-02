@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { navigateToUserProfile } from "@/utils/notificationLinks"
+import { validProfileId } from "@/utils/idGuards"
 
 interface ClickableUsernameProps {
   userId?: string | number
@@ -13,7 +13,6 @@ interface ClickableUsernameProps {
 /**
  * Clickable username component that navigates to user profile
  * Used in notifications and other places where usernames should be clickable
- * Shares the same navigation logic as follow notifications
  */
 export default function ClickableUsername({ 
   userId, 
@@ -37,12 +36,42 @@ export default function ClickableUsername({
       return
     }
     
-    // Use shared navigation function for consistency with follow notifications
-    await navigateToUserProfile(
-      { id: userId, username }, 
-      (url: string) => router.push(url),
-      { resolveUsername: true }
-    )
+    // If we have a valid userId, navigate directly
+    if (userId && validProfileId(userId)) {
+      router.push(`/profile/${userId}`)
+      return
+    }
+    
+    // If userId is provided but not valid (might be a username), try to resolve it
+    const usernameToResolve = username || (userId && !validProfileId(userId) ? String(userId) : null)
+    
+    if (usernameToResolve) {
+      try {
+        const token = localStorage.getItem("access_token")
+        if (!token) {
+          console.warn('No access token available for username resolution')
+          return
+        }
+
+        const response = await fetch(`/api/users/by-username/${encodeURIComponent(usernameToResolve)}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (response.ok) {
+          const userData = await response.json()
+          if (userData.data && userData.data.id) {
+            router.push(`/profile/${userData.data.id}`)
+            return
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to resolve username to ID:', error)
+      }
+    }
+    
+    console.warn('Unable to navigate to user profile:', { userId, username })
   }
 
   // Don't render if we have neither userId nor username

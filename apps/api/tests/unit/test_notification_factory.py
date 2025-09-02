@@ -125,6 +125,7 @@ class TestNotificationFactory:
         result = await notification_factory.create_share_notification(
             recipient_id=123,
             sharer_username="test_user",
+            sharer_id=456,
             post_id="post-123",
             share_method="message"
         )
@@ -151,6 +152,7 @@ class TestNotificationFactory:
         result = await notification_factory.create_share_notification(
             recipient_id=123,
             sharer_username="test_user",
+            sharer_id=456,
             post_id="post-123",
             share_method="url"
         )

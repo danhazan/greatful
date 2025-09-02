@@ -312,7 +312,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Implement user-related notification links (follows) to user profile pages
   - Add proper navigation handling and URL generation for notification targets
   - Test notification link functionality across all notification types
-- [ ] **11.2 Username Links in Notifications**
+- [x] **11.2 Username Links in Notifications**
   - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 1: Link Generation and Navigation System
   - Make usernames in notification text clickable links to user profiles
   - Update notification rendering to detect and linkify usernames
@@ -321,7 +321,7 @@ The implementation maintains consistency with the reference implementation's pur
 - [ ] **11.2.1 Profile Pictures in Notification Cards**
   - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 2: Profile Picture Integration
   - Replace circular letter avatars with actual profile pictures in notification cards
-  - Make profile pictures clickable to navigate to user profile (same as username click in 11.2)
+  - Make profile pictures clickable to navigate to user profile (same as username click in 11.2. and follow notifications in task 11.1 - please share the code)
   - Add fallback to letter avatar when user has no profile picture
   - Ensure profile picture sizing is consistent with notification card design
   - Test profile picture loading and error handling in notification display
