@@ -335,24 +335,33 @@ The implementation maintains consistency with the reference implementation's pur
     - Maintain existing accessibility features (aria-labels, keyboard navigation)
     - Ensure profile picture component is reusable across notification contexts
 
-- [ ] **11.3 Like/Heart Notifications with Existing Batching Integration**
-  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 3: Purple Heart Styling and Like Notifications
-  - **Note:** The system already has comprehensive notification batching implemented. This task focuses on integrating like notifications into the existing batching system.
-  - Add like notification creation to existing NotificationService and NotificationFactory
-  - Integrate like notifications with existing batching logic (similar to emoji reactions)
-  - Update existing batch summary generation to include like notifications
+- [ ] **11.3 Notification Batching System Refactoring**
+  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md - Generic Batching Design
+  - **Problem:** Current batching system for emoji reactions is broken and needs refactoring with a generic design
+  - **Solution:** Implement a generic notification batching system that can support various notification types
+  - Refactor existing NotificationService batching logic to use generic batching patterns
+  - Design generic batch key generation that works for any notification type and post combination
+  - Implement generic batch summary generation that can handle different notification types
+  - Fix existing emoji reaction batching issues with proper parent-child relationships
+  - Create reusable batching utilities that can be extended for new notification types
+  - Update database queries to properly handle batch creation, updates, and retrieval
+  - Implement proper batch read state management (reading parent marks all children as read)
+  - Test generic batching system with emoji reactions to ensure it works correctly
+  - Document generic batching patterns for future notification type implementations
+  - **Test Execution:** Run backend tests (`pytest -v`) to verify batching logic works correctly. Test emoji reaction batching scenarios with multiple users and reactions.
+- [ ] **11.4 Like and Reaction Notification Batching Implementation**
+  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md - Post Interaction Notifications
+  - **Context:** This task implements batching for like and reaction notifications, which are both "post interaction" types
+  - **Note:** Both like and reaction notifications are about interactions with the user's own posts and should be batched together
+  - Add like notification creation to NotificationFactory with proper data structure
+  - Integrate like notifications into the refactored generic batching system from Task 11.3
+  - Implement combined batching for likes and reactions on the same post (same batch type: "post_interaction")
+  - Create intelligent batch summaries: "X people reacted to your post" (reactions only), "X people liked your post" (likes only), "X people engaged with your post" (mixed likes and reactions)
   - Implement purple heart styling (💜) for like notifications to match app branding
-  - Test like notification batching with existing notification system
-  - Ensure like notifications follow existing rate limiting and batching patterns
-- [ ] **11.4 Advanced Multi-Type Notification Batching**
-  - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md Phase 4: Advanced Batching System
-  - **Note:** This enhances the existing batching system to support multiple notification types per post in a single batch
-  - Design multi-type batching schema to group likes, reactions, mentions, and shares per post
-  - Implement advanced batch summary generation: "X people engaged with your post" for mixed types
-  - Update database schema to support batch_types array and enhanced batch_metadata
-  - Create advanced batching logic that can combine different notification types intelligently
-  - Update notification display to show enhanced batch summaries with proper expand/collapse
-  - Test advanced batching scenarios with multiple notification types per post
+  - Update batch expansion to show individual like and reaction notifications with proper icons
+  - Test like and reaction batching scenarios with mixed notification types on same post
+  - Ensure proper rate limiting and spam prevention for like notifications
+  - **Test Execution:** Run backend tests (`pytest -v`) to verify like notification creation and batching. Test mixed like/reaction batching scenarios. Run frontend tests (`npm test`) to verify batch display and expansion.
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
 
 

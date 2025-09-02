@@ -5,6 +5,34 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { parseNotificationMessage, formatNotificationWithClickableUser } from '@/utils/notificationMessageParser'
+import { expect } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { describe } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { expect } from '@jest/globals'
+import { it } from '@jest/globals'
+import { describe } from '@jest/globals'
+import { beforeEach } from '@jest/globals'
+import { describe } from '@jest/globals'
 
 // Mock next/navigation
 const mockPush = jest.fn()
@@ -36,7 +64,7 @@ describe('notificationMessageParser', () => {
 
     it('should return message as-is when username not found in message', () => {
       const message = 'reacted to your post'
-      const fromUser = { id: '123', name: 'John' }
+      const fromUser = { id: '123', name: 'John', username: 'john_doe' }
       const result = parseNotificationMessage(message, fromUser)
       
       expect(result).toBe(message)
@@ -44,7 +72,7 @@ describe('notificationMessageParser', () => {
 
     it('should make username clickable when found in message', () => {
       const message = 'John reacted to your post'
-      const fromUser = { id: '123', name: 'John' }
+      const fromUser = { id: '123', name: 'John', username: 'john_doe' }
       
       const TestComponent = () => (
         <div>{parseNotificationMessage(message, fromUser)}</div>
@@ -63,7 +91,7 @@ describe('notificationMessageParser', () => {
 
     it('should handle multiple occurrences of username in message', () => {
       const message = 'John mentioned John in a post'
-      const fromUser = { id: '123', name: 'John' }
+      const fromUser = { id: '123', name: 'John', username: 'john_doe' }
       
       const TestComponent = () => (
         <div>{parseNotificationMessage(message, fromUser)}</div>
@@ -84,7 +112,7 @@ describe('notificationMessageParser', () => {
   describe('formatNotificationWithClickableUser', () => {
     it('should format notification with clickable username at the beginning', () => {
       const action = 'started following you'
-      const fromUser = { id: '456', name: 'Alice' }
+      const fromUser = { id: '456', name: 'Alice', username: 'alice_smith' }
       
       const TestComponent = () => (
         <div>{formatNotificationWithClickableUser(action, fromUser)}</div>
@@ -103,7 +131,7 @@ describe('notificationMessageParser', () => {
 
     it('should navigate to user profile when username is clicked', () => {
       const action = 'reacted to your post'
-      const fromUser = { id: '789', name: 'Bob' }
+      const fromUser = { id: '789', name: 'Bob', username: 'bob_wilson' }
       
       const TestComponent = () => (
         <div>{formatNotificationWithClickableUser(action, fromUser)}</div>
@@ -119,7 +147,7 @@ describe('notificationMessageParser', () => {
 
     it('should apply proper styling to clickable username', () => {
       const action = 'shared your post'
-      const fromUser = { id: '101', name: 'Charlie' }
+      const fromUser = { id: '101', name: 'Charlie', username: 'charlie_davis' }
       
       const TestComponent = () => (
         <div>{formatNotificationWithClickableUser(action, fromUser)}</div>
@@ -133,7 +161,7 @@ describe('notificationMessageParser', () => {
 
     it('should have proper accessibility attributes', () => {
       const action = 'mentioned you'
-      const fromUser = { id: '202', name: 'Diana' }
+      const fromUser = { id: '202', name: 'Diana', username: 'diana_prince' }
       
       const TestComponent = () => (
         <div>{formatNotificationWithClickableUser(action, fromUser)}</div>

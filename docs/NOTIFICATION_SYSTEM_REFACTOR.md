@@ -101,6 +101,27 @@ The current notification system is a comprehensive implementation with batching 
 9. **Consistent user experience**: Standardized link generation and ID validation
 10. **Accessibility compliant**: Proper ARIA labels, keyboard navigation, and screen reader support
 
+### Current Issues with Batching System
+
+#### Batching System Problems
+**Current State**: The notification batching system has implementation issues that need refactoring
+- **Broken Batching Logic**: Current emoji reaction batching is not working correctly
+- **Non-Generic Design**: Batching logic is tightly coupled to specific notification types
+- **Inconsistent Batch Keys**: Batch key generation is not standardized across notification types
+- **Complex Static Methods**: Current implementation uses confusing static/instance method patterns
+
+**Root Cause Analysis**:
+1. **Tight Coupling**: Batching logic is embedded in NotificationService static methods rather than using a generic approach
+2. **Inconsistent Patterns**: Different notification types use different batching strategies
+3. **Complex Dependencies**: Static methods create dependency issues and make testing difficult
+4. **Limited Extensibility**: Adding new notification types requires duplicating batching logic
+
+**Proposed Generic Design**:
+1. **Generic Batch Manager**: Create a reusable batching system that works for any notification type
+2. **Standardized Batch Keys**: Use consistent batch key patterns: `{notification_type}:{post_id}` or `{notification_type}:{user_id}`
+3. **Configurable Batching Rules**: Define batching behavior through configuration rather than hardcoded logic
+4. **Unified Batch Summaries**: Generic summary generation that can handle any notification type combination
+
 ### Current Limitations and Enhancement Opportunities
 
 #### 1. Link Generation and Navigation ✅ IMPLEMENTED
@@ -173,6 +194,110 @@ The current notification system is a comprehensive implementation with batching 
 - Advanced caching strategies (Redis integration)
 - Database query optimization for large datasets
 - Notification archival and cleanup strategies
+
+## Generic Batching System Design
+
+### Batching Architecture Principles
+
+#### 1. Generic Batch Manager
+```python
+class NotificationBatcher:
+    """Generic notification batching system."""
+    
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.notification_repo = NotificationRepository(db)
+    
+    async def create_or_update_batch(
+        self,
+        notification: Notification,
+        batch_config: BatchConfig
+    ) -> Notification:
+        """Create new notification or add to existing batch."""
+        
+    def generate_batch_key(
+        self,
+        notification_type: str,
+        target_id: str,  # post_id or user_id
+        batch_scope: str = "post"  # "post" or "user"
+    ) -> str:
+        """Generate standardized batch key."""
+        return f"{notification_type}:{batch_scope}:{target_id}"
+```
+
+#### 2. Batch Configuration System
+```python
+@dataclass
+class BatchConfig:
+    """Configuration for notification batching behavior."""
+    notification_type: str
+    batch_scope: str  # "post" or "user"
+    max_age_hours: int = 24
+    batch_window_minutes: int = 60
+    summary_template: str
+    icon_type: str
+    
+# Predefined batch configurations
+BATCH_CONFIGS = {
+    "emoji_reaction": BatchConfig(
+        notification_type="emoji_reaction",
+        batch_scope="post",
+        summary_template="{count} people reacted to your post",
+        icon_type="reaction"
+    ),
+    "like": BatchConfig(
+        notification_type="like", 
+        batch_scope="post",
+        summary_template="{count} people liked your post",
+        icon_type="heart"
+    ),
+    "post_interaction": BatchConfig(  # Combined likes + reactions
+        notification_type="post_interaction",
+        batch_scope="post", 
+        summary_template="{count} people engaged with your post",
+        icon_type="engagement"
+    )
+}
+```
+
+#### 3. Post Interaction Batching Strategy
+For Task 11.4, likes and reactions will be batched together as "post interactions":
+
+```python
+class PostInteractionBatcher(NotificationBatcher):
+    """Specialized batcher for post interactions (likes + reactions)."""
+    
+    async def create_interaction_notification(
+        self,
+        notification_type: str,  # "like" or "emoji_reaction"
+        post_id: str,
+        user_id: int,
+        actor_data: dict
+    ) -> Optional[Notification]:
+        """Create like or reaction notification with unified batching."""
+        
+        # Use unified batch key for both likes and reactions
+        batch_key = self.generate_batch_key("post_interaction", post_id, "post")
+        
+        # Find existing batch for any post interaction
+        existing_batch = await self._find_existing_batch(user_id, batch_key)
+        
+        if existing_batch:
+            return await self._add_to_interaction_batch(existing_batch, notification)
+        else:
+            return await self._create_new_interaction_batch(notification, batch_key)
+    
+    def _generate_interaction_summary(self, batch_count: int, types: List[str]) -> tuple[str, str]:
+        """Generate summary for mixed interaction types."""
+        if "like" in types and "emoji_reaction" in types:
+            return "New Engagement", f"{batch_count} people engaged with your post"
+        elif "like" in types:
+            return "New Likes", f"{batch_count} people liked your post" 
+        elif "emoji_reaction" in types:
+            return "New Reactions", f"{batch_count} people reacted to your post"
+        else:
+            return "New Interactions", f"{batch_count} interactions on your post"
+```
 
 ## Planned Enhancements
 
@@ -431,19 +556,24 @@ FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
 - **Backend Enhancement**: Enhanced notification API to resolve actual profile pictures via `resolve_user_profile_data()` function
 - **Testing**: Comprehensive test coverage for both component behavior and API integration
 
-### Task 11.3: Like/Heart Notifications with Existing Batching Integration
-- Add like notification creation to existing NotificationService and NotificationFactory
-- Integrate like notifications with existing comprehensive batching system
-- Update existing batch summary generation to include like notifications
-- Implement purple heart styling (💜) for like notifications
-- Test integration with existing batching, rate limiting, and UI components
+### Task 11.3: Notification Batching System Refactoring
+- **Problem:** Current batching system for emoji reactions is broken and needs refactoring
+- **Solution:** Implement a generic notification batching system that can support various notification types
+- Refactor existing NotificationService batching logic to use generic batching patterns
+- Design generic batch key generation that works for any notification type and post combination
+- Fix existing emoji reaction batching issues with proper parent-child relationships
+- Create reusable batching utilities that can be extended for new notification types
+- Test generic batching system with emoji reactions to ensure it works correctly
 
-### Task 11.4: Advanced Multi-Type Notification Batching
-- Enhance existing batching system to support multiple notification types per post
-- Design multi-type batching schema (batch_types array, enhanced batch_metadata)
-- Implement advanced batch summary generation for mixed notification types
-- Create intelligent batching logic that combines likes, reactions, mentions, and shares
-- Update notification display components to handle enhanced batch summaries
+### Task 11.4: Like and Reaction Notification Batching Implementation
+- **Context:** Both like and reaction notifications are about interactions with the user's own posts
+- **Note:** These should be batched together as "post interaction" notifications
+- Add like notification creation to NotificationFactory with proper data structure
+- Integrate like notifications into the refactored generic batching system from Task 11.3
+- Implement combined batching for likes and reactions on the same post
+- Create intelligent batch summaries for mixed likes and reactions
+- Implement purple heart styling (💜) for like notifications
+- Test like and reaction batching scenarios with mixed notification types
 
 ## Shared Types Updates
 

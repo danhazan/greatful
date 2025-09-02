@@ -3,7 +3,8 @@ import ClickableUsername from '@/components/ClickableUsername'
 
 interface NotificationUser {
   id: string | number
-  name: string
+  name: string        // This is the display name from backend
+  username?: string   // This is the actual username for navigation
   image?: string
 }
 
@@ -51,7 +52,8 @@ export function parseNotificationMessage(
         <ClickableUsername
           key={`username-${i}`}
           userId={fromUser.id}
-          username={username}
+          username={fromUser.username}
+          displayName={fromUser.name}
           className="font-medium text-purple-600 hover:text-purple-700 cursor-pointer transition-colors"
         />
       )
@@ -72,7 +74,7 @@ export function formatNotificationWithClickableUser(
 ): React.ReactNode {
   // Get the user ID and username for navigation
   const actorId = notificationData?.actor_user_id ?? fromUser?.id
-  const username = notificationData?.actor_username
+  const username = notificationData?.actor_username ?? fromUser?.username
   // Use display name for showing, but username for navigation
   const displayName = fromUser?.name
 
@@ -105,13 +107,14 @@ export function formatNotificationWithEnhancedData(
     return notification.message
   }
 
-  // Extract the action part from the message by removing the username at the beginning
-  const actorUsername = notification.data?.actor_username ?? notification.fromUser?.name
+  // Extract the action part from the message by removing the display name at the beginning
+  // The message contains the display name (fromUser.name), not the username
+  const displayNameInMessage = notification.fromUser?.name
   let actionPart = notification.message
   
-  if (actorUsername && notification.message.startsWith(actorUsername)) {
-    // Remove the username from the beginning and trim any leading space
-    actionPart = notification.message.substring(actorUsername.length).replace(/^\s+/, '')
+  if (displayNameInMessage && notification.message.startsWith(displayNameInMessage)) {
+    // Remove the display name from the beginning and trim any leading space
+    actionPart = notification.message.substring(displayNameInMessage.length).replace(/^\s+/, '')
   }
 
   return formatNotificationWithClickableUser(
