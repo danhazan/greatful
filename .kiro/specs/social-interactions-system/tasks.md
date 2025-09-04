@@ -366,7 +366,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Ensure proper rate limiting and spam prevention for like notifications
   - Validate that the generic batching system can handle both post-based (likes/reactions) and future user-based (follows) batching patterns
   - **Test Execution:** Run backend tests (`pytest -v`) to verify like notification creation and batching. Test mixed like/reaction batching scenarios. Run frontend tests (`npm test`) to verify batch display and expansion.
-- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
+- [x] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
 - [ ] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** All notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
 

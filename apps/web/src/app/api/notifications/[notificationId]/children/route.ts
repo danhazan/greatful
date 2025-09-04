@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveNotificationUser } from '@/utils/notificationUserResolver'
+import { mapBackendNotificationToFrontend } from '@/utils/notificationMapping'
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -37,29 +37,8 @@ export async function GET(
 
     const children = await response.json()
 
-    // Transform the children to match the frontend format (camelCase)
-    const transformedChildren = children.map((child: any) => ({
-      id: child.id,
-      type: child.type === 'emoji_reaction' ? 'reaction' : child.type,
-      message: child.message,
-      postId: child.post_id || child.data?.post_id || '',
-      fromUser: resolveNotificationUser(child),
-      createdAt: child.created_at ? (
-        child.created_at.endsWith('Z') 
-          ? child.created_at 
-          : child.created_at.replace(' ', 'T') + 'Z'
-      ) : child.created_at,
-      lastUpdatedAt: child.last_updated_at ? (
-        child.last_updated_at.endsWith('Z') 
-          ? child.last_updated_at 
-          : child.last_updated_at.replace(' ', 'T') + 'Z'
-      ) : child.last_updated_at,
-      read: child.read,
-      // Batching fields
-      isBatch: child.is_batch || false,
-      batchCount: child.batch_count || 1,
-      parentId: child.parent_id || null
-    }))
+    // Transform the children using the same unified mapper as regular notifications
+    const transformedChildren = children.map(mapBackendNotificationToFrontend)
 
     return NextResponse.json(transformedChildren)
 

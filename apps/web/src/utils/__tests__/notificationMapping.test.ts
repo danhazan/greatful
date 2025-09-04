@@ -205,5 +205,98 @@ describe('notificationMapping', () => {
 
       expect(result.postId).toBe('post-from-data')
     })
+
+    it('should handle batch children with nested from_user in data', () => {
+      // Simulate batch child notification structure
+      const batchChildNotification = {
+        id: 'child-123',
+        type: 'emoji_reaction',
+        message: 'User reacted to your post',
+        post_id: 'post-456',
+        data: {
+          post_id: 'post-456',
+          actor_username: 'jane_doe',
+          actor_user_id: '789',
+          from_user: {
+            id: '789',
+            name: 'Jane Doe',
+            username: 'jane_doe',
+            image: 'https://example.com/jane.jpg'
+          }
+        },
+        created_at: '2023-01-01T12:00:00Z'
+      }
+
+      const result = mapBackendNotificationToFrontend(batchChildNotification)
+
+      expect(result.fromUser).toEqual({
+        id: '789',
+        name: 'Jane Doe',
+        username: 'jane_doe',
+        image: 'https://example.com/jane.jpg'
+      })
+      expect(result.type).toBe('reaction')
+      expect(result.postId).toBe('post-456')
+    })
+
+    it('should handle regular notifications with top-level from_user', () => {
+      // Simulate regular notification structure
+      const regularNotification = {
+        id: 'regular-123',
+        type: 'like',
+        message: 'User liked your post',
+        post_id: 'post-789',
+        from_user: {
+          id: '456',
+          name: 'Bob Smith',
+          username: 'bob_smith',
+          profile_image_url: '/images/bob.png'
+        },
+        created_at: '2023-01-01T12:00:00Z'
+      }
+
+      const result = mapBackendNotificationToFrontend(regularNotification)
+
+      expect(result.fromUser).toEqual({
+        id: '456',
+        name: 'Bob Smith',
+        username: 'bob_smith',
+        image: expect.stringContaining('/images/bob.png') // Should be converted to absolute URL
+      })
+      expect(result.type).toBe('like')
+      expect(result.postId).toBe('post-789')
+    })
+
+    it('should prefer top-level from_user over nested data.from_user', () => {
+      // Test priority: top-level from_user should win
+      const notificationWithBoth = {
+        id: 'both-123',
+        type: 'reaction',
+        message: 'User reacted',
+        from_user: {
+          id: '111',
+          name: 'Top Level User',
+          username: 'toplevel',
+          image: 'https://example.com/top.jpg'
+        },
+        data: {
+          from_user: {
+            id: '222',
+            name: 'Nested User',
+            username: 'nested',
+            image: 'https://example.com/nested.jpg'
+          }
+        }
+      }
+
+      const result = mapBackendNotificationToFrontend(notificationWithBoth)
+
+      expect(result.fromUser).toEqual({
+        id: '111',
+        name: 'Top Level User',
+        username: 'toplevel',
+        image: 'https://example.com/top.jpg'
+      })
+    })
   })
 })

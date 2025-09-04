@@ -39,6 +39,13 @@ createdb -U postgres grateful
 psql -U postgres -c "DROP DATABASE IF EXISTS grateful; CREATE DATABASE grateful;"
 ```
 
+### Database Queries
+
+#### Get all users
+```bash
+PGPASSWORD=iamgreatful psql -U grateful -h localhost -d grateful -c "SELECT id, username, email FROM users;" | cat
+```
+
 ## 🚀 Development Commands
 
 ### Backend (FastAPI)
