@@ -50,7 +50,7 @@ class TestFollowNotifications:
         
         assert len(notifications) == 1
         notification = notifications[0]
-        assert notification.type == "new_follower"
+        assert notification.type == "follow"
         assert notification.title == "New Follower"
         assert notification.message == f"{follower.username} started following you"
         assert notification.data["follower_id"] == follower.id
@@ -116,22 +116,17 @@ class TestFollowNotifications:
         await follow_service.follow_user(follower1.id, followed.id)
         await follow_service.follow_user(follower2.id, followed.id)
         
-        # Verify two notifications were created
+        # Verify notifications were created and batched
         notifications = await NotificationService.get_user_notifications(
             db_session, followed.id, limit=10
         )
         
-        assert len(notifications) == 2
-        
-        # Check first notification
-        notification1 = notifications[0]  # Most recent first
-        assert notification1.type == "new_follower"
-        assert notification1.data["follower_username"] == follower2.username
-        
-        # Check second notification
-        notification2 = notifications[1]
-        assert notification2.type == "new_follower"
-        assert notification2.data["follower_username"] == follower1.username
+        # Should have 1 batch notification due to batching
+        assert len(notifications) == 1
+        batch_notification = notifications[0]
+        assert batch_notification.is_batch == True
+        assert batch_notification.batch_count == 2
+        assert batch_notification.type == "follow"
 
     @pytest.mark.asyncio
     async def test_follow_notification_rate_limiting(self, db_session: AsyncSession):
@@ -177,5 +172,5 @@ class TestFollowNotifications:
         
         # All notifications should be follow notifications
         for notification in notifications:
-            assert notification.type == "new_follower"
+            assert notification.type == "follow"
             assert not notification.read

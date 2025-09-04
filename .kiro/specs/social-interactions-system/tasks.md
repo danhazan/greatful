@@ -370,39 +370,6 @@ The implementation maintains consistency with the reference implementation's pur
 - [ ] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** All notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
 
-## Post-MVP Enhancement Tasks
-
-### **TASK 13: Follow Notification Batching System** (Post-MVP)
-**Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **13.1 Follow Notification Batching Analysis and Design**
-  - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
-  - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
-  - Analyze current follow notification patterns and volume for batching opportunities
-  - Design user-based batching strategy: batch multiple followers for the same user
-  - Define batch key pattern for follow notifications: `follow:user:{user_id}`
-  - Design batch summaries: "X people started following you" with expandable individual notifications
-  - Plan time-based batching windows (e.g., batch follows within 1-hour windows)
-  - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
-  - Design batch metadata to track follower information and timestamps
-  - Plan integration with existing generic batching system from Task 11.3
-- [ ] **13.2 Follow Notification Batching Implementation**
-  - Extend generic batching system to support user-based batching (not just post-based)
-  - Implement follow notification batching using the generic NotificationBatcher
-  - Create batch configuration for follow notifications with user-based scope
-  - Update follow notification creation to use batching logic
-  - Implement proper batch summary generation for follow notifications
-  - Add batch expansion to show individual follower notifications with profile pictures
-  - Test follow notification batching with multiple followers and time windows
-- [ ] **13.3 Cross-Notification Type Batching Strategy (Future)**
-  - **Advanced Feature:** Consider batching different notification types for the same user
-  - Research feasibility of "activity digest" notifications combining multiple types
-  - Design user preference system for notification batching granularity
-  - Plan implementation of smart batching based on user activity patterns
-  - Document advanced batching strategies for future implementation
-- [ ] **Test Execution:** Run backend tests to verify follow notification batching logic. Test scenarios with multiple followers in different time windows. Verify batch expansion and individual notification display.
-- [ ] **Update Project Documentation:** Document follow notification batching patterns in docs/NOTIFICATION_SYSTEM_REFACTOR.md. Add user-based batching examples to generic batching documentation.
-**Acceptance Criteria:** Follow notifications are properly batched when multiple users follow the same person, batch summaries show appropriate counts and can be expanded to show individual followers, and the system integrates seamlessly with the generic batching framework.
-
 ### **TASK 12: Enhanced Post System**
 **Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Enhanced)
 - [ ] **12.0 Post System Refactoring and Planning**
@@ -536,6 +503,39 @@ The implementation maintains consistency with the reference implementation's pur
   - Include clear indication this is a development-only feature
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
 **Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
+
+### **TASK 17: Follow Notification Batching System** (Post-MVP)
+**Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
+- [ ] **13.1 Follow Notification Batching Analysis and Design**
+  - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
+  - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
+  - Analyze current follow notification patterns and volume for batching opportunities
+  - Design user-based batching strategy: batch multiple followers for the same user
+  - Define batch key pattern for follow notifications: `follow:user:{user_id}`
+  - Design batch summaries: "X people started following you" with expandable individual notifications
+  - Plan time-based batching windows (e.g., batch follows within 1-hour windows)
+  - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
+  - Design batch metadata to track follower information and timestamps
+  - Plan integration with existing generic batching system from Task 11.3
+- [ ] **13.2 Follow Notification Batching Implementation**
+  - Extend generic batching system to support user-based batching (not just post-based)
+  - Implement follow notification batching using the generic NotificationBatcher
+  - Create batch configuration for follow notifications with user-based scope
+  - Update follow notification creation to use batching logic
+  - Implement proper batch summary generation for follow notifications
+  - Add batch expansion to show individual follower notifications with profile pictures
+  - Test follow notification batching with multiple followers and time windows
+- [ ] **13.3 Cross-Notification Type Batching Strategy (Future)**
+  - **Advanced Feature:** Consider batching different notification types for the same user
+  - Research feasibility of "activity digest" notifications combining multiple types
+  - Design user preference system for notification batching granularity
+  - Plan implementation of smart batching based on user activity patterns
+  - Document advanced batching strategies for future implementation
+- [ ] **Test Execution:** Run backend tests to verify follow notification batching logic. Test scenarios with multiple followers in different time windows. Verify batch expansion and individual notification display.
+- [ ] **Update Project Documentation:** Document follow notification batching patterns in docs/NOTIFICATION_SYSTEM_REFACTOR.md. Add user-based batching examples to generic batching documentation.
+**Acceptance Criteria:** Follow notifications are properly batched when multiple users follow the same person, batch summaries show appropriate counts and can be expanded to show individual followers, and the system integrates seamlessly with the generic batching framework.
+
+
 
 ## Success Criteria for MVP
 

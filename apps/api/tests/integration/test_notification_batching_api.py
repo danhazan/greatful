@@ -81,8 +81,8 @@ async def test_notification_batching_flow(
     assert notification2.id != notification1.id  # Different IDs - batch vs child
     assert notification2.is_batch == True
     assert notification2.batch_count == 2
-    assert notification2.title == "New Reactions"
-    assert notification2.message == "2 people reacted to your post"
+    assert notification2.title == "New Engagement 💜"
+    assert notification2.message == "2 people engaged with your post"
     
     # Test API: Get notifications (should only return parent)
     response = await async_client.get("/api/v1/notifications", headers=auth_headers)
@@ -144,16 +144,16 @@ async def test_add_to_existing_batch(
 ):
     """Test adding notification to existing batch."""
     
-    # Create a batch notification manually with new batch key format
+    # Create a batch notification manually with unified batch key format
     batch = Notification(
         user_id=test_user.id,
-        type='emoji_reaction',
-        title='New Reactions',
-        message='2 people reacted to your post',
+        type='post_interaction',
+        title='New Engagement 💜',
+        message='2 people engaged with your post',
         data={'post_id': test_post.id},
         is_batch=True,
         batch_count=2,
-        batch_key=f"emoji_reaction:post:{test_post.id}"
+        batch_key=f"post_interaction:post:{test_post.id}"
     )
     db_session.add(batch)
     await db_session.commit()
@@ -173,7 +173,7 @@ async def test_add_to_existing_batch(
     
     # Batch should be updated
     assert batch.batch_count == 3
-    assert batch.message == "3 people reacted to your post"
+    assert batch.message == "3 people engaged with your post"
     
     # New notification should be a child
     assert new_notification.parent_id == batch.id
@@ -388,3 +388,87 @@ async def test_notification_batching_time_window(
     # Should have 2 separate notifications
     notifications = await NotificationService.get_user_notifications(db_session, test_user.id)
     assert len(notifications) == 2
+
+@pytest.mark.asyncio
+async def test_batch_children_profile_photos(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_user_2: User,
+    test_user_3: User,
+    test_post: Post,
+    auth_headers: dict
+):
+    """Test that batch children have proper profile photos resolved."""
+    
+    # Create first reaction to establish batch
+    reaction1 = EmojiReaction(
+        user_id=test_user_2.id,
+        post_id=test_post.id,
+        emoji_code='heart_eyes'
+    )
+    db_session.add(reaction1)
+    await db_session.commit()
+    
+    # Create notification for first reaction
+    factory = NotificationFactory(db_session)
+    notification1 = await factory.create_reaction_notification(
+        post_author_id=test_user.id,
+        reactor_username=test_user_2.username,
+        reactor_id=test_user_2.id,
+        post_id=test_post.id,
+        emoji_code='heart_eyes'
+    )
+    
+    # Create second reaction to trigger batching
+    reaction2 = EmojiReaction(
+        user_id=test_user_3.id,
+        post_id=test_post.id,
+        emoji_code='pray'
+    )
+    db_session.add(reaction2)
+    await db_session.commit()
+    
+    # Create notification for second reaction (should batch with first)
+    notification2 = await factory.create_reaction_notification(
+        post_author_id=test_user.id,
+        reactor_username=test_user_3.username,
+        reactor_id=test_user_3.id,
+        post_id=test_post.id,
+        emoji_code='pray'
+    )
+    
+    # Get notifications to find the batch
+    notifications = await NotificationService.get_user_notifications(db_session, test_user.id)
+    batch_notification = next((n for n in notifications if n.is_batch), None)
+    assert batch_notification is not None
+    
+    # Get batch children via API
+    response = await async_client.get(
+        f"/api/v1/notifications/{batch_notification.id}/children",
+        headers=auth_headers
+    )
+    
+    assert response.status_code == 200
+    children = response.json()
+    
+    # Should have 2 children
+    assert len(children) == 2
+    
+    # Each child should have proper from_user with profile data
+    for child in children:
+        assert "from_user" in child
+        assert child["from_user"] is not None
+        assert "id" in child["from_user"]
+        assert "username" in child["from_user"]
+        assert "name" in child["from_user"]
+        # Image can be None but should be present in the structure
+        assert "image" in child["from_user"]
+        
+        # Username should match one of our test users
+        username = child["from_user"]["username"]
+        assert username in [test_user_2.username, test_user_3.username]
+        
+        # Name should be properly resolved (not just "Unknown User")
+        assert child["from_user"]["name"] != "Unknown User"
+        assert child["from_user"]["username"] != "unknown"

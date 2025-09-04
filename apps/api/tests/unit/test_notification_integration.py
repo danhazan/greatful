@@ -170,13 +170,15 @@ class TestNotificationIntegration:
             user_id=author.id
         )
 
-        # With new batching system, reaction updates create separate notifications
-        # This is expected behavior as each reaction change is a distinct event
-        assert len(notifications) == 2
+        # With new batching system, reaction updates create a single batch notification
+        # Both reactions are batched together as post interactions
+        assert len(notifications) == 1
         
-        # Check both notifications are for emoji reactions
-        for notification in notifications:
-            assert notification.type == "emoji_reaction"
+        # Check the batch notification
+        batch_notification = notifications[0]
+        assert batch_notification.type == "post_interaction"
+        assert batch_notification.is_batch == True
+        assert batch_notification.batch_count == 2
 
     @pytest.mark.asyncio
     async def test_multiple_users_reactions_create_multiple_notifications(self, db_session: AsyncSession):
@@ -239,7 +241,7 @@ class TestNotificationIntegration:
         
         # Check the batch notification
         batch_notification = notifications[0]
-        assert batch_notification.type == "emoji_reaction"
+        assert batch_notification.type == "post_interaction"
         assert batch_notification.user_id == author.id
         assert not batch_notification.read
         assert batch_notification.is_batch == True

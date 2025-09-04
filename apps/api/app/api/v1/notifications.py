@@ -116,6 +116,62 @@ async def resolve_user_profile_data(
         return None
 
 
+async def resolve_notification_user(db: AsyncSession, notification_data: dict) -> dict | None:
+    """
+    Resolve user data from notification data with fallbacks for different notification types.
+    
+    Args:
+        db: Database session
+        notification_data: Notification data dict
+        
+    Returns:
+        Dict with user profile data or None if not found
+    """
+    if not notification_data:
+        return None
+    
+    # Try actor_username first (preferred for new notifications)
+    if 'actor_username' in notification_data:
+        resolved_user = await resolve_user_profile_data(
+            db=db,
+            user_id=notification_data.get('actor_user_id'),
+            username=notification_data['actor_username']
+        )
+        
+        if resolved_user:
+            return resolved_user
+        else:
+            # Fallback to basic data
+            return {
+                'id': notification_data.get('actor_user_id', '0'),
+                'name': notification_data['actor_username'],
+                'username': notification_data['actor_username'],
+                'image': None
+            }
+    
+    # Try specific notification type usernames
+    username_fields = ['reactor_username', 'liker_username', 'author_username', 'follower_username']
+    
+    for field in username_fields:
+        if field in notification_data:
+            resolved_user = await resolve_user_profile_data(
+                db=db,
+                username=notification_data[field]
+            )
+            
+            if resolved_user:
+                return resolved_user
+            else:
+                return {
+                    'id': '0',
+                    'name': notification_data[field],
+                    'username': notification_data[field],
+                    'image': None
+                }
+    
+    return None
+
+
 @router.get("/notifications", response_model=List[NotificationResponse])
 async def get_notifications(
     current_user_id: int = Depends(get_current_user_id),
@@ -146,59 +202,21 @@ async def get_notifications(
         for notification in notifications:
             # Extract post_id and from_user from data if available
             post_id = notification.data.get('post_id') if notification.data else None
-            from_user = None
             
-            # Resolve user profile data with actual profile pictures
-            if notification.data and 'actor_username' in notification.data:
-                # Try to resolve full profile data
-                resolved_user = await resolve_user_profile_data(
-                    db=db,
-                    user_id=notification.data.get('actor_user_id'),
-                    username=notification.data['actor_username']
-                )
-                
-                if resolved_user:
-                    from_user = resolved_user
-                else:
-                    # Fallback to basic data
-                    from_user = {
-                        'id': notification.data.get('actor_user_id', '0'),
-                        'name': notification.data['actor_username'],
-                        'username': notification.data['actor_username'],
-                        'image': None
-                    }
-            elif notification.data and 'reactor_username' in notification.data:
-                # Fallback for old notifications
-                resolved_user = await resolve_user_profile_data(
-                    db=db,
-                    username=notification.data['reactor_username']
-                )
-                
-                if resolved_user:
-                    from_user = resolved_user
-                else:
-                    from_user = {
-                        'id': '0',
-                        'name': notification.data['reactor_username'],
-                        'username': notification.data['reactor_username'],
-                        'image': None
-                    }
-            elif notification.data and 'author_username' in notification.data:
-                # Fallback for old notifications
-                resolved_user = await resolve_user_profile_data(
-                    db=db,
-                    username=notification.data['author_username']
-                )
-                
-                if resolved_user:
-                    from_user = resolved_user
-                else:
-                    from_user = {
-                        'id': '0',
-                        'name': notification.data['author_username'],
-                        'username': notification.data['author_username'],
-                        'image': None
-                    }
+            # Use shared function to resolve user profile data
+            from_user = await resolve_notification_user(
+                db=db,
+                notification_data=notification.data or {}
+            )
+            
+            # Default fallback if no user found
+            if not from_user:
+                from_user = {
+                    'id': '0',
+                    'name': 'Unknown User',
+                    'username': 'unknown',
+                    'image': None
+                }
             
             response_notifications.append(NotificationResponse(
                 id=notification.id,
@@ -348,59 +366,21 @@ async def get_batch_children(
         for notification in children:
             # Extract post_id and from_user from data if available
             post_id = notification.data.get('post_id') if notification.data else None
-            from_user = None
             
-            # Resolve user profile data with actual profile pictures
-            if notification.data and 'actor_username' in notification.data:
-                # Try to resolve full profile data
-                resolved_user = await resolve_user_profile_data(
-                    db=db,
-                    user_id=notification.data.get('actor_user_id'),
-                    username=notification.data['actor_username']
-                )
-                
-                if resolved_user:
-                    from_user = resolved_user
-                else:
-                    # Fallback to basic data
-                    from_user = {
-                        'id': notification.data.get('actor_user_id', '0'),
-                        'name': notification.data['actor_username'],
-                        'username': notification.data['actor_username'],
-                        'image': None
-                    }
-            elif notification.data and 'reactor_username' in notification.data:
-                # Fallback for old notifications
-                resolved_user = await resolve_user_profile_data(
-                    db=db,
-                    username=notification.data['reactor_username']
-                )
-                
-                if resolved_user:
-                    from_user = resolved_user
-                else:
-                    from_user = {
-                        'id': '0',
-                        'name': notification.data['reactor_username'],
-                        'username': notification.data['reactor_username'],
-                        'image': None
-                    }
-            elif notification.data and 'author_username' in notification.data:
-                # Fallback for old notifications
-                resolved_user = await resolve_user_profile_data(
-                    db=db,
-                    username=notification.data['author_username']
-                )
-                
-                if resolved_user:
-                    from_user = resolved_user
-                else:
-                    from_user = {
-                        'id': '0',
-                        'name': notification.data['author_username'],
-                        'username': notification.data['author_username'],
-                        'image': None
-                    }
+            # Use shared function to resolve user profile data
+            from_user = await resolve_notification_user(
+                db=db,
+                notification_data=notification.data or {}
+            )
+            
+            # Default fallback if no user found
+            if not from_user:
+                from_user = {
+                    'id': '0',
+                    'name': 'Unknown User',
+                    'username': 'unknown',
+                    'image': None
+                }
             
             response_notifications.append(NotificationResponse(
                 id=notification.id,
