@@ -335,7 +335,7 @@ The implementation maintains consistency with the reference implementation's pur
     - Maintain existing accessibility features (aria-labels, keyboard navigation)
     - Ensure profile picture component is reusable across notification contexts
 
-- [ ] **11.3 Notification Batching System Refactoring**
+- [x] **11.3 Notification Batching System Refactoring**
   - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md - Generic Batching Design
   - **Problem:** Current batching system for emoji reactions is broken and needs refactoring with a generic design
   - **Solution:** Implement a generic notification batching system that can support various notification types and batching scopes
@@ -352,7 +352,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Test generic batching system with emoji reactions to ensure it works correctly
   - Document generic batching patterns for future notification type implementations (post-MVP follow batching)
   - **Test Execution:** Run backend tests (`pytest -v`) to verify batching logic works correctly. Test emoji reaction batching scenarios with multiple users and reactions.
-- [ ] **11.4 Like and Reaction Notification Batching Implementation**
+- [x] **11.4 Like and Reaction Notification Batching Implementation**
   - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md - Post Interaction Notifications
   - **Context:** This task implements batching for like and reaction notifications, which are both "post interaction" types
   - **Note:** Both like and reaction notifications are about interactions with the user's own posts and should be batched together

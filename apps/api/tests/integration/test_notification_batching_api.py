@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.post import Post
 from app.models.emoji_reaction import EmojiReaction
 from app.services.notification_service import NotificationService
+from app.core.notification_factory import NotificationFactory
 import datetime
 
 
@@ -71,15 +72,17 @@ async def test_notification_batching_flow(
     # Refresh the first notification to see changes
     await db_session.refresh(notification1)
     
-    # First notification should now be a batch
-    assert notification1.is_batch == True
-    assert notification1.batch_count == 2
-    assert notification1.title == "New Reactions"
-    assert notification1.message == "2 people reacted to your post"
+    # First notification should now be a child of the batch
+    assert notification1.is_batch == False  # Still not a batch itself
+    assert notification1.parent_id is not None  # Now has a parent (the batch)
     
-    # Second call returns the batch notification (same as first)
-    assert notification2.id == notification1.id
+    # Second call returns the batch notification (different from first)
+    assert notification2 is not None
+    assert notification2.id != notification1.id  # Different IDs - batch vs child
     assert notification2.is_batch == True
+    assert notification2.batch_count == 2
+    assert notification2.title == "New Reactions"
+    assert notification2.message == "2 people reacted to your post"
     
     # Test API: Get notifications (should only return parent)
     response = await async_client.get("/api/v1/notifications", headers=auth_headers)
@@ -93,17 +96,17 @@ async def test_notification_batching_flow(
     assert batch_notification['batch_count'] == 2
     assert batch_notification['parent_id'] is None
     
-    # Test API: Get batch children
+    # Test API: Get batch children (use the batch notification, not the first child)
     response = await async_client.get(
-        f"/api/v1/notifications/{notification1.id}/children",
+        f"/api/v1/notifications/{notification2.id}/children",
         headers=auth_headers
     )
     assert response.status_code == 200
     
     children = response.json()
-    assert len(children) == 1  # One child notification
-    assert children[0]['parent_id'] == notification1.id
-    assert children[0]['is_batch'] == False
+    assert len(children) == 2  # Two child notifications (both original notifications)
+    assert all(child['parent_id'] == notification2.id for child in children)
+    assert all(child['is_batch'] == False for child in children)
     
     # Test unread count (should only count parent)
     unread_count = await NotificationService.get_unread_count(db_session, test_user.id)
@@ -111,7 +114,7 @@ async def test_notification_batching_flow(
     
     # Test marking batch as read (should mark children too)
     response = await async_client.post(
-        f"/api/v1/notifications/{notification1.id}/read",
+        f"/api/v1/notifications/{notification2.id}/read",
         headers=auth_headers
     )
     assert response.status_code == 200
@@ -141,7 +144,7 @@ async def test_add_to_existing_batch(
 ):
     """Test adding notification to existing batch."""
     
-    # Create a batch notification manually
+    # Create a batch notification manually with new batch key format
     batch = Notification(
         user_id=test_user.id,
         type='emoji_reaction',
@@ -150,7 +153,7 @@ async def test_add_to_existing_batch(
         data={'post_id': test_post.id},
         is_batch=True,
         batch_count=2,
-        batch_key=f"emoji_reaction_{test_user.id}_{test_post.id}"
+        batch_key=f"emoji_reaction:post:{test_post.id}"
     )
     db_session.add(batch)
     await db_session.commit()

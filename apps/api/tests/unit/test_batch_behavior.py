@@ -132,9 +132,9 @@ class TestBatchBehavior:
         notification.data = {'liker_username': 'user1'}
         
         title, message = notification.create_batch_summary(1)
-        assert title == "New Like"
+        assert title == "New Like 💜"  # Updated to include purple heart
         assert "user1 liked your post" in message
         
         title, message = notification.create_batch_summary(5)
-        assert title == "New Likes"
+        assert title == "New Likes 💜"  # Updated to include purple heart
         assert message == "5 people liked your post"

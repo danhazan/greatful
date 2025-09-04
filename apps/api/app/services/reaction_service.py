@@ -70,50 +70,17 @@ class ReactionService(BaseService):
             updated_reaction.user = user
             logger.info(f"Updated reaction for user {user_id} on post {post_id} to {emoji_code}")
             
-            # Create notification for updated reaction (only if it's a different emoji) using batching
+            # Create notification for updated reaction using NotificationFactory
             if post.author_id != user_id:  # Don't notify if user reacts to their own post
                 try:
-                    # Use the old batching logic from NotificationService
-                    from app.services.notification_service import NotificationService
-                    from app.models.notification import Notification
-                    
-                    # Create the new notification object (not saved yet)
-                    notification = Notification.create_emoji_reaction_notification(
-                        user_id=post.author_id,
+                    notification_factory = NotificationFactory(self.db)
+                    await notification_factory.create_reaction_notification(
+                        post_author_id=post.author_id,
                         reactor_username=user.username,
-                        emoji_code=emoji_code,
-                        post_id=post_id
+                        reactor_id=user_id,
+                        post_id=post_id,
+                        emoji_code=emoji_code
                     )
-                    
-                    # Check for existing batch
-                    existing_batch = await NotificationService._find_existing_batch(
-                        self.db, post.author_id, notification.batch_key
-                    )
-                    
-                    if existing_batch:
-                        # Add to existing batch
-                        await NotificationService._add_to_batch(self.db, existing_batch, notification)
-                    else:
-                        # Check for existing single notification to convert to batch
-                        from app.repositories.notification_repository import NotificationRepository
-                        notification_repo = NotificationRepository(self.db)
-                        existing_single = await notification_repo.find_existing_single_notification(
-                            post.author_id, notification.batch_key, 1
-                        )
-                        
-                        if existing_single:
-                            # Convert to batch
-                            await NotificationService._convert_to_batch(self.db, existing_single, notification)
-                        else:
-                            # Create as single notification
-                            await notification_repo.create(
-                                user_id=notification.user_id,
-                                type=notification.type,
-                                title=notification.title,
-                                message=notification.message,
-                                data=notification.data,
-                                batch_key=notification.batch_key
-                            )
                 except Exception as e:
                     logger.error(f"Failed to create notification for reaction update: {e}")
                     # Don't fail the reaction if notification fails
@@ -142,50 +109,17 @@ class ReactionService(BaseService):
             reaction.user = user
             logger.info(f"Created new reaction for user {user_id} on post {post_id}: {emoji_code}")
             
-            # Create notification for new reaction using batching
+            # Create notification for new reaction using NotificationFactory
             if post.author_id != user_id:  # Don't notify if user reacts to their own post
                 try:
-                    # Use the old batching logic from NotificationService
-                    from app.services.notification_service import NotificationService
-                    from app.models.notification import Notification
-                    
-                    # Create the new notification object (not saved yet)
-                    notification = Notification.create_emoji_reaction_notification(
-                        user_id=post.author_id,
+                    notification_factory = NotificationFactory(self.db)
+                    await notification_factory.create_reaction_notification(
+                        post_author_id=post.author_id,
                         reactor_username=user.username,
-                        emoji_code=emoji_code,
-                        post_id=post_id
+                        reactor_id=user_id,
+                        post_id=post_id,
+                        emoji_code=emoji_code
                     )
-                    
-                    # Check for existing batch
-                    existing_batch = await NotificationService._find_existing_batch(
-                        self.db, post.author_id, notification.batch_key
-                    )
-                    
-                    if existing_batch:
-                        # Add to existing batch
-                        await NotificationService._add_to_batch(self.db, existing_batch, notification)
-                    else:
-                        # Check for existing single notification to convert to batch
-                        from app.repositories.notification_repository import NotificationRepository
-                        notification_repo = NotificationRepository(self.db)
-                        existing_single = await notification_repo.find_existing_single_notification(
-                            post.author_id, notification.batch_key, 1
-                        )
-                        
-                        if existing_single:
-                            # Convert to batch
-                            await NotificationService._convert_to_batch(self.db, existing_single, notification)
-                        else:
-                            # Create as single notification
-                            await notification_repo.create(
-                                user_id=notification.user_id,
-                                type=notification.type,
-                                title=notification.title,
-                                message=notification.message,
-                                data=notification.data,
-                                batch_key=notification.batch_key
-                            )
                 except Exception as e:
                     logger.error(f"Failed to create notification for new reaction: {e}")
                     # Don't fail the reaction if notification fails

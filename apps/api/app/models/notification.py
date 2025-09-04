@@ -47,18 +47,23 @@ class Notification(Base):
         self.read_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
     def generate_batch_key(self) -> str:
-        """Generate a key for grouping similar notifications."""
+        """Generate a key for grouping similar notifications using new generic format."""
         data = self.data or {}
-        if self.type == 'emoji_reaction':
-            return f"emoji_reaction_{self.user_id}_{data.get('post_id')}"
-        elif self.type == 'like':
-            return f"like_{self.user_id}_{data.get('post_id')}"
-        elif self.type == 'new_follower':
-            return f"new_follower_{self.user_id}"
-        elif self.type == 'post_shared':
-            return f"post_shared_{self.user_id}_{data.get('post_id')}"
-        elif self.type == 'mention':
-            return f"mention_{self.user_id}_{data.get('post_id')}"
+        
+        # Post-based notifications
+        if self.type in ['emoji_reaction', 'like', 'post_shared', 'mention', 'post_interaction']:
+            post_id = data.get('post_id')
+            if post_id:
+                return f"{self.type}:post:{post_id}"
+            else:
+                # Fallback to old format if no post_id
+                return f"{self.type}_{self.user_id}"
+        
+        # User-based notifications  
+        elif self.type in ['new_follower', 'follow']:
+            return f"{self.type}:user:{self.user_id}"
+        
+        # Default format for unknown types
         else:
             return f"{self.type}_{self.user_id}"
 
@@ -84,9 +89,15 @@ class Notification(Base):
         elif self.type == 'like':
             data = self.data or {}
             if count == 1:
-                return "New Like", f"{data.get('liker_username')} liked your post"
+                return "New Like 💜", f"{data.get('liker_username')} liked your post"
             else:
-                return "New Likes", f"{count} people liked your post"
+                return "New Likes 💜", f"{count} people liked your post"
+        elif self.type == 'post_interaction':
+            # Combined likes and reactions
+            if count == 1:
+                return "New Engagement 💜", "Someone engaged with your post"
+            else:
+                return "New Engagement 💜", f"{count} people engaged with your post"
         elif self.type == 'new_follower':
             data = self.data or {}
             if count == 1:

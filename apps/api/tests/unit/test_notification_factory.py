@@ -116,10 +116,10 @@ class TestNotificationFactory:
 
     @pytest.mark.asyncio
     async def test_create_share_notification_message(self, notification_factory, mock_notification_repo):
-        """Test share notification creation for message sharing."""
+        """Test share notification creation for message sharing using generic batcher."""
         # Arrange
         mock_notification = MagicMock()
-        mock_notification_repo.create.return_value = mock_notification
+        notification_factory.batcher.create_or_update_batch = AsyncMock(return_value=mock_notification)
 
         # Act
         result = await notification_factory.create_share_notification(
@@ -132,21 +132,21 @@ class TestNotificationFactory:
 
         # Assert
         assert result == mock_notification
-        mock_notification_repo.create.assert_called_once()
-        call_args = mock_notification_repo.create.call_args
-        assert call_args[1]["user_id"] == 123
-        assert call_args[1]["type"] == "post_shared"
-        assert call_args[1]["title"] == "Post Sent"
-        assert "test_user sent you a post" in call_args[1]["message"]
-        assert call_args[1]["data"]["sharer_username"] == "test_user"
-        assert call_args[1]["data"]["share_method"] == "message"
+        notification_factory.batcher.create_or_update_batch.assert_called_once()
+        call_args = notification_factory.batcher.create_or_update_batch.call_args[0][0]  # First argument is the notification
+        assert call_args.user_id == 123
+        assert call_args.type == "post_shared"
+        assert call_args.title == "Post Sent"
+        assert "test_user sent you a post" in call_args.message
+        assert call_args.data["sharer_username"] == "test_user"
+        assert call_args.data["share_method"] == "message"
 
     @pytest.mark.asyncio
     async def test_create_share_notification_url(self, notification_factory, mock_notification_repo):
-        """Test share notification creation for URL sharing."""
+        """Test share notification creation for URL sharing using generic batcher."""
         # Arrange
         mock_notification = MagicMock()
-        mock_notification_repo.create.return_value = mock_notification
+        notification_factory.batcher.create_or_update_batch = AsyncMock(return_value=mock_notification)
 
         # Act
         result = await notification_factory.create_share_notification(
@@ -159,17 +159,17 @@ class TestNotificationFactory:
 
         # Assert
         assert result == mock_notification
-        call_args = mock_notification_repo.create.call_args
-        assert call_args[1]["title"] == "Post Shared"
-        assert "test_user shared your post" in call_args[1]["message"]
-        assert call_args[1]["data"]["share_method"] == "url"
+        call_args = notification_factory.batcher.create_or_update_batch.call_args[0][0]  # First argument is the notification
+        assert call_args.title == "Post Shared"
+        assert "test_user shared your post" in call_args.message
+        assert call_args.data["share_method"] == "url"
 
     @pytest.mark.asyncio
     async def test_create_mention_notification(self, notification_factory, mock_notification_repo):
-        """Test mention notification creation."""
+        """Test mention notification creation using generic batcher."""
         # Arrange
         mock_notification = MagicMock()
-        mock_notification_repo.create.return_value = mock_notification
+        notification_factory.batcher.create_or_update_batch = AsyncMock(return_value=mock_notification)
 
         # Act
         result = await notification_factory.create_mention_notification(
@@ -182,13 +182,13 @@ class TestNotificationFactory:
 
         # Assert
         assert result == mock_notification
-        call_args = mock_notification_repo.create.call_args
-        assert call_args[1]["user_id"] == 123
-        assert call_args[1]["type"] == "mention"
-        assert call_args[1]["title"] == "You were mentioned"
-        assert "author_user mentioned you in a post" in call_args[1]["message"]
-        assert call_args[1]["data"]["author_username"] == "author_user"
-        assert call_args[1]["data"]["post_preview"] == "This is a test post..."
+        call_args = notification_factory.batcher.create_or_update_batch.call_args[0][0]  # First argument is the notification
+        assert call_args.user_id == 123
+        assert call_args.type == "mention"
+        assert call_args.title == "You were mentioned"
+        assert "author_user mentioned you in a post" in call_args.message
+        assert call_args.data["author_username"] == "author_user"
+        assert call_args.data["post_preview"] == "This is a test post..."
 
     @pytest.mark.asyncio
     async def test_create_mention_notification_prevents_self_mention(self, notification_factory, mock_notification_repo):
@@ -208,10 +208,10 @@ class TestNotificationFactory:
 
     @pytest.mark.asyncio
     async def test_create_reaction_notification(self, notification_factory, mock_notification_repo):
-        """Test reaction notification creation."""
+        """Test reaction notification creation using PostInteractionBatcher."""
         # Arrange
         mock_notification = MagicMock()
-        mock_notification_repo.create.return_value = mock_notification
+        notification_factory.post_interaction_batcher.create_interaction_notification = AsyncMock(return_value=mock_notification)
 
         # Act
         result = await notification_factory.create_reaction_notification(
@@ -224,21 +224,23 @@ class TestNotificationFactory:
 
         # Assert
         assert result == mock_notification
-        call_args = mock_notification_repo.create.call_args
-        assert call_args[1]["user_id"] == 123
-        assert call_args[1]["type"] == "emoji_reaction"
-        assert call_args[1]["title"] == "New Reaction"
-        # Should use actual emoji (👏) instead of code (clap)
-        assert "reactor_user reacted to your post with 👏" in call_args[1]["message"]
-        assert call_args[1]["data"]["reactor_username"] == "reactor_user"
-        assert call_args[1]["data"]["emoji_code"] == "clap"
+        notification_factory.post_interaction_batcher.create_interaction_notification.assert_called_once_with(
+            notification_type="emoji_reaction",
+            post_id="post-123",
+            user_id=123,
+            actor_data={
+                "user_id": 456,
+                "username": "reactor_user",
+                "emoji_code": "clap"
+            }
+        )
 
     @pytest.mark.asyncio
     async def test_create_like_notification(self, notification_factory, mock_notification_repo):
-        """Test like notification creation."""
+        """Test like notification creation using PostInteractionBatcher."""
         # Arrange
         mock_notification = MagicMock()
-        mock_notification_repo.create.return_value = mock_notification
+        notification_factory.post_interaction_batcher.create_interaction_notification = AsyncMock(return_value=mock_notification)
 
         # Act
         result = await notification_factory.create_like_notification(
@@ -250,19 +252,22 @@ class TestNotificationFactory:
 
         # Assert
         assert result == mock_notification
-        call_args = mock_notification_repo.create.call_args
-        assert call_args[1]["user_id"] == 123
-        assert call_args[1]["type"] == "like"
-        assert call_args[1]["title"] == "New Like"
-        assert "liker_user liked your post" in call_args[1]["message"]
-        assert call_args[1]["data"]["liker_username"] == "liker_user"
+        notification_factory.post_interaction_batcher.create_interaction_notification.assert_called_once_with(
+            notification_type="like",
+            post_id="post-123",
+            user_id=123,
+            actor_data={
+                "user_id": 456,
+                "username": "liker_user"
+            }
+        )
 
     @pytest.mark.asyncio
     async def test_create_follow_notification(self, notification_factory, mock_notification_repo):
-        """Test follow notification creation."""
+        """Test follow notification creation using UserInteractionBatcher."""
         # Arrange
         mock_notification = MagicMock()
-        mock_notification_repo.create.return_value = mock_notification
+        notification_factory.user_interaction_batcher.create_user_notification = AsyncMock(return_value=mock_notification)
 
         # Act
         result = await notification_factory.create_follow_notification(
@@ -273,10 +278,11 @@ class TestNotificationFactory:
 
         # Assert
         assert result == mock_notification
-        call_args = mock_notification_repo.create.call_args
-        assert call_args[1]["user_id"] == 123
-        assert call_args[1]["type"] == "follow"
-        assert call_args[1]["title"] == "New Follower"
-        assert "follower_user started following you" in call_args[1]["message"]
-        assert call_args[1]["data"]["follower_username"] == "follower_user"
-        assert call_args[1]["data"]["follower_id"] == 456
+        notification_factory.user_interaction_batcher.create_user_notification.assert_called_once_with(
+            notification_type="follow",
+            target_user_id=123,
+            actor_data={
+                "user_id": 456,
+                "username": "follower_user"
+            }
+        )

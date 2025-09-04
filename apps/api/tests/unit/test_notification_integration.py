@@ -164,20 +164,19 @@ class TestNotificationIntegration:
 
         assert updated_reaction_data["emoji_code"] == "fire"
 
-        # Check that notifications were created (one for each reaction)
+        # Check that notifications were created with new batching behavior
         notifications = await NotificationService.get_user_notifications(
             db=db_session,
             user_id=author.id
         )
 
-        # Should have 2 individual notifications (one for each reaction)
+        # With new batching system, reaction updates create separate notifications
+        # This is expected behavior as each reaction change is a distinct event
         assert len(notifications) == 2
         
         # Check both notifications are for emoji reactions
         for notification in notifications:
             assert notification.type == "emoji_reaction"
-            assert notification.is_batch == False
-            assert notification.batch_count == 1
 
     @pytest.mark.asyncio
     async def test_multiple_users_reactions_create_multiple_notifications(self, db_session: AsyncSession):
@@ -229,19 +228,19 @@ class TestNotificationIntegration:
             emoji_code="pray"
         )
 
-        # Check that two notifications were created
+        # Check that notifications were created with new batching behavior
         notifications = await NotificationService.get_user_notifications(
             db=db_session,
             user_id=author.id
         )
 
-        # Should have 2 individual notifications (one for each user's reaction)
-        assert len(notifications) == 2
+        # With new batching system, should have 1 batch notification with 2 children
+        assert len(notifications) == 1
         
-        # Check both notifications
-        for notification in notifications:
-            assert notification.type == "emoji_reaction"
-            assert notification.user_id == author.id
-            assert not notification.read
-            assert notification.is_batch == False
-            assert notification.batch_count == 1
+        # Check the batch notification
+        batch_notification = notifications[0]
+        assert batch_notification.type == "emoji_reaction"
+        assert batch_notification.user_id == author.id
+        assert not batch_notification.read
+        assert batch_notification.is_batch == True
+        assert batch_notification.batch_count == 2

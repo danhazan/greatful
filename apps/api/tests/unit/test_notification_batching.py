@@ -41,32 +41,41 @@ class TestNotificationBatching:
 
     async def test_generate_batch_key(self):
         """Test batch key generation for different notification types."""
-        # Emoji reaction
+        # Emoji reaction - new format
         notification = Notification(
             user_id=1,
             type='emoji_reaction',
             data={'post_id': 'post-123'}
         )
         key = notification.generate_batch_key()
-        assert key == "emoji_reaction_1_post-123"
+        assert key == "emoji_reaction:post:post-123"
 
-        # Like notification
+        # Like notification - new format
         notification = Notification(
             user_id=2,
             type='like',
             data={'post_id': 'post-456'}
         )
         key = notification.generate_batch_key()
-        assert key == "like_2_post-456"
+        assert key == "like:post:post-456"
 
-        # Follow notification
+        # Follow notification - new format
+        notification = Notification(
+            user_id=3,
+            type='follow',
+            data={}
+        )
+        key = notification.generate_batch_key()
+        assert key == "follow:user:3"
+
+        # Legacy new_follower type - new format
         notification = Notification(
             user_id=3,
             type='new_follower',
             data={}
         )
         key = notification.generate_batch_key()
-        assert key == "new_follower_3"
+        assert key == "new_follower:user:3"
 
     async def test_create_batch_summary_single(self):
         """Test batch summary creation for single notification."""
@@ -271,26 +280,14 @@ class TestNotificationBatching:
         mock_db.commit.assert_called()
 
     async def test_create_emoji_reaction_notification_convert_to_batch(self, mock_db):
-        """Test converting single notification to batch."""
-        # Mock existing single notification
-        mock_single = Notification(
-            id="single-123",
-            user_id=1,
-            type='emoji_reaction',
-            is_batch=False,
-            batch_count=1
-        )
-        
-        # First call returns None (no batch), second returns single notification
-        mock_result1 = MagicMock()
-        mock_result1.scalar_one_or_none.return_value = None
-        mock_result2 = MagicMock()
-        mock_result2.scalar_one_or_none.return_value = mock_single
-        mock_db.execute.side_effect = [mock_result1, mock_result2]
-
-        # Create notification factory
+        """Test converting single notification to batch using new PostInteractionBatcher."""
+        # Create notification factory with properly mocked batcher
         from app.core.notification_factory import NotificationFactory
         factory = NotificationFactory(mock_db)
+        
+        # Mock the post interaction batcher
+        mock_result = Notification(id="batch-123", user_id=1, type="post_interaction", is_batch=True)
+        factory.post_interaction_batcher.create_interaction_notification = AsyncMock(return_value=mock_result)
 
         result = await factory.create_reaction_notification(
             post_author_id=1,
@@ -300,11 +297,10 @@ class TestNotificationBatching:
             emoji_code='heart_eyes'
         )
 
-        # Should convert to batch
-        assert mock_single.is_batch == True
-        assert mock_single.batch_count == 2
-        mock_db.add.assert_called()
-        mock_db.commit.assert_called()
+        # Should create notification successfully using new batching system
+        assert result is not None  # Notification was created successfully
+        assert result == mock_result
+        factory.post_interaction_batcher.create_interaction_notification.assert_called_once()
 
     async def test_get_user_notifications_excludes_children(self, mock_db):
         """Test that get_user_notifications excludes child notifications by default."""

@@ -103,27 +103,29 @@ The current notification system is a comprehensive implementation with batching 
 
 ### Current Issues with Batching System
 
-#### Batching System Problems
-**Current State**: The notification batching system has implementation issues that need refactoring
-- **Broken Batching Logic**: Current emoji reaction batching is not working correctly
-- **Non-Generic Design**: Batching logic is tightly coupled to specific notification types
-- **Inconsistent Batch Keys**: Batch key generation is not standardized across notification types
-- **Complex Static Methods**: Current implementation uses confusing static/instance method patterns
+#### Batching System Enhancement ✅ COMPLETED
+**Previous State**: The notification batching system had implementation issues that needed refactoring
+- **Broken Batching Logic**: Emoji reaction batching was not working correctly
+- **Non-Generic Design**: Batching logic was tightly coupled to specific notification types
+- **Inconsistent Batch Keys**: Batch key generation was not standardized across notification types
+- **Complex Static Methods**: Implementation used confusing static/instance method patterns
 
 **Root Cause Analysis**:
-1. **Tight Coupling**: Batching logic is embedded in NotificationService static methods rather than using a generic approach
-2. **Inconsistent Patterns**: Different notification types use different batching strategies
-3. **Complex Dependencies**: Static methods create dependency issues and make testing difficult
-4. **Limited Extensibility**: Adding new notification types requires duplicating batching logic
+1. **Tight Coupling**: Batching logic was embedded in NotificationService static methods rather than using a generic approach
+2. **Inconsistent Patterns**: Different notification types used different batching strategies
+3. **Complex Dependencies**: Static methods created dependency issues and made testing difficult
+4. **Limited Extensibility**: Adding new notification types required duplicating batching logic
 
-**Proposed Generic Design**:
-1. **Generic Batch Manager**: Create a reusable batching system that works for any notification type and scope
-2. **Standardized Batch Keys**: Use consistent batch key patterns:
+**Implemented Generic Design** ✅:
+1. **Generic Batch Manager**: Created reusable `NotificationBatcher` system that works for any notification type and scope
+2. **Standardized Batch Keys**: Implemented consistent batch key patterns:
    - **Post-based**: `{notification_type}:post:{post_id}` (likes, reactions, mentions, shares)
    - **User-based**: `{notification_type}:user:{user_id}` (follows, future user-directed notifications)
-3. **Configurable Batching Rules**: Define batching behavior through configuration rather than hardcoded logic
-4. **Unified Batch Summaries**: Generic summary generation that can handle any notification type and scope combination
-5. **Dual Scope Support**: System designed to handle both post-centric and user-centric notification batching patterns
+3. **Configurable Batching Rules**: Defined batching behavior through `BatchConfig` configuration system
+4. **Unified Batch Summaries**: Generic summary generation that handles any notification type and scope combination
+5. **Dual Scope Support**: System supports both post-centric and user-centric notification batching patterns
+6. **Specialized Batchers**: Created `PostInteractionBatcher` and `UserInteractionBatcher` for specific use cases
+7. **Factory Integration**: Updated `NotificationFactory` to use the new generic batching system
 
 ### Current Limitations and Enhancement Opportunities
 
@@ -610,15 +612,24 @@ FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
 - **Backend Enhancement**: Enhanced notification API to resolve actual profile pictures via `resolve_user_profile_data()` function
 - **Testing**: Comprehensive test coverage for both component behavior and API integration
 
-### Task 11.3: Notification Batching System Refactoring
-- **Problem:** Current batching system for emoji reactions is broken and needs refactoring
-- **Solution:** Implement a generic notification batching system that can support various notification types and scopes
-- Refactor existing NotificationService batching logic to use generic batching patterns
-- Design generic batch key generation that works for both post-based and user-based notifications
-- Fix existing emoji reaction batching issues with proper parent-child relationships
-- Create reusable batching utilities that can be extended for new notification types (including future follow batching)
-- Design batch configuration system that supports both post and user scopes
-- Test generic batching system with emoji reactions to ensure it works correctly
+### Task 11.3: Notification Batching System Refactoring ✅ COMPLETED
+- **Problem:** Current batching system for emoji reactions was broken and needed refactoring
+- **Solution:** Implemented a generic notification batching system that supports various notification types and scopes
+- ✅ Refactored existing NotificationService batching logic to use generic batching patterns
+- ✅ Designed generic batch key generation that works for both post-based and user-based notifications
+- ✅ Fixed existing emoji reaction batching issues with proper parent-child relationships
+- ✅ Created reusable batching utilities that can be extended for new notification types (including future follow batching)
+- ✅ Designed batch configuration system that supports both post and user scopes
+- ✅ Tested generic batching system with emoji reactions to ensure it works correctly
+- **Implementation Details:**
+  - Created `NotificationBatcher` base class with generic batching logic
+  - Implemented `PostInteractionBatcher` for likes and reactions
+  - Implemented `UserInteractionBatcher` for follows and user-directed notifications
+  - Updated `NotificationFactory` to use new batching system
+  - Added comprehensive test coverage (32 tests passing)
+  - Maintained backward compatibility with existing notification data
+  - **Fixed batch behavior**: First notification preserved as child, not converted to batch container
+  - **Improved UX**: All individual notifications remain accessible when batch is expanded
 
 ### Task 11.4: Like and Reaction Notification Batching Implementation
 - **Context:** Both like and reaction notifications are about interactions with the user's own posts
@@ -937,3 +948,160 @@ While the generic user profile link system is now comprehensive, there are still
 ---
 
 This comprehensive refactoring plan provides a roadmap for enhancing the notification system while maintaining its current strengths and addressing identified limitations. The phased approach ensures manageable implementation while delivering incremental value to users.
+## 
+Generic Batching System Implementation Summary
+
+### Architecture Overview
+
+The generic notification batching system consists of several key components:
+
+#### 1. Core Components
+
+**NotificationBatcher** (`apps/api/app/core/notification_batcher.py`)
+- Base class providing generic batching functionality
+- Handles batch key generation, batch creation, and batch updates
+- Supports both post-based and user-based batching scopes
+- Configurable through `BatchConfig` objects
+
+**BatchConfig** (Dataclass)
+- Defines batching behavior for each notification type
+- Configures batch scope (post/user), time windows, and summary templates
+- Predefined configurations for all notification types
+
+**Specialized Batchers**
+- `PostInteractionBatcher`: Handles likes and reactions (post-based)
+- `UserInteractionBatcher`: Handles follows (user-based)
+- Extensible pattern for future notification types
+
+#### 2. Batch Key Format
+
+**New Standardized Format:**
+- Post-based: `{notification_type}:post:{post_id}`
+- User-based: `{notification_type}:user:{user_id}`
+
+**Examples:**
+- `emoji_reaction:post:abc123` - Reactions on post abc123
+- `like:post:abc123` - Likes on post abc123  
+- `follow:user:456` - Follows for user 456
+
+#### 3. Integration Points
+
+**NotificationFactory Integration**
+- Updated all notification creation methods to use generic batching
+- Maintains self-notification prevention
+- Provides consistent error handling and logging
+
+**Database Schema Compatibility**
+- Works with existing notification table structure
+- Uses existing `batch_key`, `is_batch`, `batch_count` fields
+- Maintains parent-child relationships via `parent_id`
+
+#### 4. Batching Logic Flow
+
+1. **Check for Existing Batch**: Look for active batch with same batch key
+2. **Add to Batch**: If batch exists, increment count and add as child
+3. **Check for Single Notification**: Look for recent single notification to convert
+4. **Convert to Batch**: Create dedicated batch notification and make both notifications children
+5. **Create Single**: If no existing notifications, create new single notification
+
+**Key Improvement**: The first notification is preserved as an individual child notification rather than being converted into the batch container. This ensures all individual notification details remain accessible when users expand the batch.
+
+#### 5. Configuration System
+
+```python
+BATCH_CONFIGS = {
+    "emoji_reaction": BatchConfig(
+        notification_type="emoji_reaction",
+        batch_scope="post",
+        max_age_hours=24,
+        summary_template="{count} people reacted to your post",
+        icon_type="reaction"
+    ),
+    "like": BatchConfig(
+        notification_type="like",
+        batch_scope="post", 
+        summary_template="{count} people liked your post",
+        icon_type="heart"
+    ),
+    "follow": BatchConfig(
+        notification_type="follow",
+        batch_scope="user",
+        summary_template="{count} people started following you",
+        icon_type="follow",
+        max_batch_size=10
+    )
+}
+```
+
+#### 6. Testing Coverage
+
+**Unit Tests** (26 tests)
+- `test_notification_batching.py`: Legacy batching tests (updated for new format)
+- `test_generic_notification_batching.py`: New generic system tests
+
+**Integration Tests** (6 tests)  
+- `test_notification_batching_api.py`: End-to-end API testing
+
+**Test Categories:**
+- Batch key generation and format validation
+- Single notification creation
+- Batch conversion logic (single → batch)
+- Batch addition logic (add to existing batch)
+- Self-notification prevention
+- API endpoint integration
+- Database operations and transactions
+
+#### 7. Future Extensibility
+
+**Adding New Notification Types:**
+1. Add `BatchConfig` entry to `BATCH_CONFIGS`
+2. Update `NotificationFactory` with new creation method
+3. Optionally create specialized batcher if needed
+4. Add tests for new notification type
+
+**Example - Adding "comment" notifications:**
+```python
+# 1. Add config
+BATCH_CONFIGS["comment"] = BatchConfig(
+    notification_type="comment",
+    batch_scope="post",
+    summary_template="{count} people commented on your post",
+    icon_type="comment"
+)
+
+# 2. Add factory method
+async def create_comment_notification(self, ...):
+    notification = Notification(...)
+    return await self.batcher.create_or_update_batch(notification)
+```
+
+#### 8. Performance Considerations
+
+**Database Queries:**
+- Efficient batch lookup using indexed `batch_key` field
+- Single transaction for batch updates
+- Minimal database round trips
+
+**Memory Usage:**
+- Lightweight configuration objects
+- Reusable batcher instances
+- No caching overhead (relies on database)
+
+**Scalability:**
+- Configurable batch size limits
+- Time-based batch windows prevent unbounded growth
+- Supports high-frequency notification scenarios
+
+#### 9. Backward Compatibility
+
+**Migration Strategy:**
+- New batch key format coexists with old format
+- Existing notifications continue to work
+- Gradual migration as new notifications are created
+
+**API Compatibility:**
+- All existing API endpoints unchanged
+- Notification data structure unchanged
+- Frontend components work without modification
+
+This generic batching system provides a solid foundation for current and future notification types while maintaining performance, testability, and extensibility.
