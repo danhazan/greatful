@@ -253,20 +253,23 @@ class TestNotificationsAPI:
         user = test_user
 
         # Create two emoji reaction notifications for the same post to trigger batching
-        notification1 = await NotificationService.create_emoji_reaction_notification(
-            db=db_session,
+        from app.core.notification_factory import NotificationFactory
+        factory = NotificationFactory(db_session)
+        
+        notification1 = await factory.create_reaction_notification(
             post_author_id=user.id,
             reactor_username="reactor1",
-            emoji_code="heart_eyes",
-            post_id="test-post-batch"
+            reactor_id=999,  # Mock reactor ID
+            post_id="test-post-batch",
+            emoji_code="heart_eyes"
         )
 
-        notification2 = await NotificationService.create_emoji_reaction_notification(
-            db=db_session,
+        notification2 = await factory.create_reaction_notification(
             post_author_id=user.id,
-            reactor_username="reactor2", 
-            emoji_code="fire",
-            post_id="test-post-batch"
+            reactor_username="reactor2",
+            reactor_id=998,  # Mock reactor ID
+            post_id="test-post-batch",
+            emoji_code="fire"
         )
 
         # Get notifications to find the batch

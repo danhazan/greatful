@@ -211,20 +211,23 @@ class TestNotificationBatching:
         mock_db.refresh.assert_any_call(batch)
         mock_db.refresh.assert_any_call(new_notification)
 
-    @patch('app.models.user.User.get_by_username')
-    async def test_create_emoji_reaction_notification_new_single(self, mock_get_user, mock_db):
+    async def test_create_emoji_reaction_notification_new_single(self, mock_db):
         """Test creating new single emoji reaction notification."""
-        # Mock user lookup
-        mock_user = User(id=2, username='reactor')
-        mock_get_user.return_value = mock_user
-
         # Mock no existing batch or single notification
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
 
-        result = await NotificationService.create_emoji_reaction_notification(
-            mock_db, 1, 'reactor', 'heart_eyes', 'post-123'
+        # Create notification factory
+        from app.core.notification_factory import NotificationFactory
+        factory = NotificationFactory(mock_db)
+
+        result = await factory.create_reaction_notification(
+            post_author_id=1,
+            reactor_username='reactor',
+            reactor_id=2,
+            post_id='post-123',
+            emoji_code='heart_eyes'
         )
 
         # Should create new single notification
@@ -232,13 +235,8 @@ class TestNotificationBatching:
         mock_db.commit.assert_called_once()
         mock_db.refresh.assert_called_once()
 
-    @patch('app.models.user.User.get_by_username')
-    async def test_create_emoji_reaction_notification_add_to_batch(self, mock_get_user, mock_db):
+    async def test_create_emoji_reaction_notification_add_to_batch(self, mock_db):
         """Test adding emoji reaction to existing batch."""
-        # Mock user lookup
-        mock_user = User(id=2, username='reactor')
-        mock_get_user.return_value = mock_user
-
         # Mock existing batch
         mock_batch = Notification(
             id="batch-123",
@@ -255,8 +253,16 @@ class TestNotificationBatching:
         mock_result2.scalar_one_or_none.return_value = None
         mock_db.execute.side_effect = [mock_result1, mock_result2]
 
-        result = await NotificationService.create_emoji_reaction_notification(
-            mock_db, 1, 'reactor', 'heart_eyes', 'post-123'
+        # Create notification factory
+        from app.core.notification_factory import NotificationFactory
+        factory = NotificationFactory(mock_db)
+
+        result = await factory.create_reaction_notification(
+            post_author_id=1,
+            reactor_username='reactor',
+            reactor_id=2,
+            post_id='post-123',
+            emoji_code='heart_eyes'
         )
 
         # Should add to existing batch
@@ -264,13 +270,8 @@ class TestNotificationBatching:
         mock_db.add.assert_called()
         mock_db.commit.assert_called()
 
-    @patch('app.models.user.User.get_by_username')
-    async def test_create_emoji_reaction_notification_convert_to_batch(self, mock_get_user, mock_db):
+    async def test_create_emoji_reaction_notification_convert_to_batch(self, mock_db):
         """Test converting single notification to batch."""
-        # Mock user lookup
-        mock_user = User(id=2, username='reactor')
-        mock_get_user.return_value = mock_user
-
         # Mock existing single notification
         mock_single = Notification(
             id="single-123",
@@ -287,8 +288,16 @@ class TestNotificationBatching:
         mock_result2.scalar_one_or_none.return_value = mock_single
         mock_db.execute.side_effect = [mock_result1, mock_result2]
 
-        result = await NotificationService.create_emoji_reaction_notification(
-            mock_db, 1, 'reactor', 'heart_eyes', 'post-123'
+        # Create notification factory
+        from app.core.notification_factory import NotificationFactory
+        factory = NotificationFactory(mock_db)
+
+        result = await factory.create_reaction_notification(
+            post_author_id=1,
+            reactor_username='reactor',
+            reactor_id=2,
+            post_id='post-123',
+            emoji_code='heart_eyes'
         )
 
         # Should convert to batch
@@ -410,16 +419,20 @@ class TestNotificationBatching:
 
     async def test_self_notification_prevention(self, mock_db):
         """Test that users don't get notifications for their own actions."""
-        # Mock user lookup - same user as post author
-        with patch('app.models.user.User.get_by_username') as mock_get_user:
-            mock_user = User(id=1, username='author')  # Same ID as post_author_id
-            mock_get_user.return_value = mock_user
+        # Create notification factory
+        from app.core.notification_factory import NotificationFactory
+        factory = NotificationFactory(mock_db)
 
-            result = await NotificationService.create_emoji_reaction_notification(
-                mock_db, 1, 'author', 'heart_eyes', 'post-123'
-            )
+        # Same user ID as post author - should prevent self-notification
+        result = await factory.create_reaction_notification(
+            post_author_id=1,
+            reactor_username='author',
+            reactor_id=1,  # Same as post_author_id
+            post_id='post-123',
+            emoji_code='heart_eyes'
+        )
 
-            # Should return None (no notification created)
-            assert result is None
-            mock_db.add.assert_not_called()
-            mock_db.commit.assert_not_called()
+        # Should return None (no notification created)
+        assert result is None
+        mock_db.add.assert_not_called()
+        mock_db.commit.assert_not_called()

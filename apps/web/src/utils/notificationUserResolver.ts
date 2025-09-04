@@ -38,6 +38,7 @@ interface NotificationUser {
   id?: number | string
   username?: string
   profile_image_url?: string
+  image?: string  // Backend sends this field
 }
 
 interface Notification {
@@ -146,19 +147,41 @@ export function extractNotificationUserId(notification: Notification): string {
 
 /**
  * Extracts user image from notification.
+ * After API mapping, the image should be on fromUser.image (frontend format).
+ * This function handles both mapped and raw backend formats for compatibility.
  */
-export function extractNotificationUserImage(notification: Notification): string | undefined {
-  return notification.from_user?.profile_image_url || undefined
+export function extractNotificationUserImage(notification: any): string | undefined {
+  // After API mapping, the image should be on fromUser.image
+  if (notification.fromUser?.image) {
+    return notification.fromUser.image
+  }
+  
+  // Fallback for raw backend format (before mapping)
+  return notification.from_user?.image || notification.from_user?.profile_image_url || undefined
 }
 
 /**
  * Creates a complete fromUser object for notification display.
+ * Handles both mapped frontend format and raw backend format.
  */
-export function resolveNotificationUser(notification: Notification) {
+export function resolveNotificationUser(notification: any) {
+  // If already mapped to frontend format, prefer that
+  if (notification.fromUser) {
+    return notification.fromUser
+  }
+  
+  // Otherwise, resolve from raw backend format
+  const img = notification.from_user?.image ?? 
+              notification.from_user?.profile_image_url ?? 
+              notification.data?.from_user?.image ?? 
+              notification.data?.from_user?.profile_image_url ?? 
+              null
+
   return {
     id: extractNotificationUserId(notification),
     name: extractNotificationUsername(notification),
-    image: extractNotificationUserImage(notification)
+    username: notification.from_user?.username ?? undefined,
+    image: img,
   }
 }
 

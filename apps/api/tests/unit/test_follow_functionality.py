@@ -79,7 +79,7 @@ class TestFollowService:
             created_at=datetime.now(timezone.utc)
         )
 
-    @patch('app.services.notification_service.NotificationService.create_follow_notification')
+    @patch('app.core.notification_factory.NotificationFactory.create_follow_notification')
     async def test_follow_user_success(self, mock_create_notification, follow_service, mock_follow_repo, mock_user_repo, sample_user1, sample_user2, sample_follow):
         """Test successful user follow."""
         # Arrange
@@ -103,7 +103,6 @@ class TestFollowService:
         
         # Verify notification was created
         mock_create_notification.assert_called_once_with(
-            db=follow_service.db,
             followed_user_id=sample_user2.id,
             follower_username=sample_user1.username,
             follower_id=sample_user1.id

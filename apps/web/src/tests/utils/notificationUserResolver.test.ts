@@ -260,6 +260,7 @@ describe('NotificationUserResolver', () => {
       expect(result).toEqual({
         id: '123',
         name: 'test_user',
+        username: 'test_user',
         image: 'https://example.com/image.jpg'
       })
     })
@@ -275,7 +276,8 @@ describe('NotificationUserResolver', () => {
       expect(result).toEqual({
         id: 'reactor_user',
         name: 'reactor_user',
-        image: undefined
+        username: undefined,
+        image: null
       })
     })
   })

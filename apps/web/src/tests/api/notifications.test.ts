@@ -72,6 +72,7 @@ describe('/api/notifications', () => {
         fromUser: {
           id: "2",
           name: 'john_doe',
+          username: 'john_doe',
           image: 'https://example.com/john.jpg'
         },
         createdAt: '2025-01-08T12:00:00Z',

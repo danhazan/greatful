@@ -35,8 +35,14 @@ async def test_notification_batching_flow(
     await db_session.commit()
     
     # Create notification for first reaction
-    notification1 = await NotificationService.create_emoji_reaction_notification(
-        db_session, test_user.id, test_user_2.username, 'heart_eyes', test_post.id
+    from app.core.notification_factory import NotificationFactory
+    factory = NotificationFactory(db_session)
+    notification1 = await factory.create_reaction_notification(
+        post_author_id=test_user.id,
+        reactor_username=test_user_2.username,
+        reactor_id=test_user_2.id,
+        post_id=test_post.id,
+        emoji_code='heart_eyes'
     )
     
     assert notification1 is not None
@@ -54,8 +60,12 @@ async def test_notification_batching_flow(
     await db_session.commit()
     
     # Create notification for second reaction
-    notification2 = await NotificationService.create_emoji_reaction_notification(
-        db_session, test_user.id, test_user_3.username, 'pray', test_post.id
+    notification2 = await factory.create_reaction_notification(
+        post_author_id=test_user.id,
+        reactor_username=test_user_3.username,
+        reactor_id=test_user_3.id,
+        post_id=test_post.id,
+        emoji_code='pray'
     )
     
     # Refresh the first notification to see changes
@@ -146,8 +156,13 @@ async def test_add_to_existing_batch(
     await db_session.commit()
     
     # Create new reaction notification (should add to existing batch)
-    new_notification = await NotificationService.create_emoji_reaction_notification(
-        db_session, test_user.id, test_user_2.username, 'star', test_post.id
+    factory = NotificationFactory(db_session)
+    new_notification = await factory.create_reaction_notification(
+        post_author_id=test_user.id,
+        reactor_username=test_user_2.username,
+        reactor_id=test_user_2.id,
+        post_id=test_post.id,
+        emoji_code='star'
     )
     
     # Refresh batch
@@ -199,11 +214,20 @@ async def test_different_post_notifications_separate_batches(
     await db_session.commit()
     
     # Create notifications for both posts
-    notification1 = await NotificationService.create_emoji_reaction_notification(
-        db_session, test_user.id, test_user_2.username, 'heart_eyes', post1.id
+    factory = NotificationFactory(db_session)
+    notification1 = await factory.create_reaction_notification(
+        post_author_id=test_user.id,
+        reactor_username=test_user_2.username,
+        reactor_id=test_user_2.id,
+        post_id=post1.id,
+        emoji_code='heart_eyes'
     )
-    notification2 = await NotificationService.create_emoji_reaction_notification(
-        db_session, test_user.id, test_user_2.username, 'heart_eyes', post2.id
+    notification2 = await factory.create_reaction_notification(
+        post_author_id=test_user.id,
+        reactor_username=test_user_2.username,
+        reactor_id=test_user_2.id,
+        post_id=post2.id,
+        emoji_code='heart_eyes'
     )
     
     # Should create separate single notifications (different batch keys)
@@ -344,8 +368,13 @@ async def test_notification_batching_time_window(
     await db_session.commit()
     
     # Create new notification (should not batch with old one)
-    new_notification = await NotificationService.create_emoji_reaction_notification(
-        db_session, test_user.id, test_user_2.username, 'pray', test_post.id
+    factory = NotificationFactory(db_session)
+    new_notification = await factory.create_reaction_notification(
+        post_author_id=test_user.id,
+        reactor_username=test_user_2.username,
+        reactor_id=test_user_2.id,
+        post_id=test_post.id,
+        emoji_code='pray'
     )
     
     # Should create separate notification, not batch with old one

@@ -69,65 +69,40 @@
 - ✅ Backend now accepts all frontend emoji picker options
 - ✅ Added comprehensive tests for emoji validation
 
+### Notification Profile Pictures & Username Display - COMPLETED ✅
+**Issue**: Notifications showed letter fallback avatars instead of actual profile pictures, and displayed usernames instead of display names  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: January 9, 2025  
+**Impact**: High - Core user experience feature  
+
+**What was Fixed**:
+- ✅ Created centralized notification mapping utility for consistent field transformation
+- ✅ Fixed profile image URL conversion from relative to absolute URLs
+- ✅ Enhanced ClickableProfilePicture component to reset image errors on URL changes
+- ✅ Updated notification user resolver to handle both mapped and raw backend formats
+- ✅ Fixed username vs display name issue - notifications now show proper display names
+- ✅ Added comprehensive test coverage (12/12 tests passing)
+- ✅ Improved error handling with referrerPolicy for cross-origin images
+
+**Technical Implementation**:
+- Created `notificationMapping.ts` utility for backend-to-frontend transformation
+- Updated API route to use centralized mapper instead of manual transformation
+- Enhanced profile picture component with better error recovery
+- Fixed notification message parsing to use display names instead of usernames
+- Added URL normalization for consistent absolute image URLs
+
+**Files Modified**:
+- `apps/web/src/utils/notificationMapping.ts` - New centralized mapper
+- `apps/web/src/app/api/notifications/route.ts` - Uses new mapper
+- `apps/web/src/utils/notificationUserResolver.ts` - Enhanced compatibility
+- `apps/web/src/components/ClickableProfilePicture.tsx` - Better error handling
+- Test files for comprehensive coverage
+
 ---
 
 ## ⚠️ Active Issues
 
-### Notification Username Instead of Display Name
-**Issue**: Notifications show username instead of display name in clickable text  
-**Status**: ⚠️ Active Issue  
-**Priority**: High  
-**Impact**: User Experience & Inconsistent Identity Display  
-**Discovered**: September 2, 2025  
 
-**Description**:
-Notifications display the username (e.g., "Bob7") instead of the user's display name (e.g., "BB") in the clickable text. This creates inconsistency with the user's chosen display identity and makes notifications less user-friendly.
-
-**Technical Details**:
-- Backend: Provides correct data structure with separate `name` (display name) and `username` fields ✅
-- Database: User data stored correctly with both display name and username ✅
-- Frontend: NotificationUser interface updated to include both fields ✅
-- Issue: ClickableUsername component showing username instead of display name ❌
-
-**Current Behavior**:
-- User has display name: "BB" and username: "Bob7"
-- Notification shows: "[Bob7] liked your post" (username displayed)
-- Clickable text shows the technical username instead of friendly display name
-
-**Expected Behavior**:
-- Should show: "[BB] liked your post" (display name displayed)
-- Clickable text should show the user's chosen display name
-- Username should only be used for navigation/routing, not display
-
-**Reproduction Steps**:
-1. Have a user with different display name and username (e.g., display: "BB", username: "Bob7")
-2. Perform any action that generates a notification (follow, like, share, etc.)
-3. View the notification in the notification panel
-4. Observe that "Bob7" (username) appears instead of "BB" (display name)
-
-**Root Cause**: 
-The `ClickableUsername` component is receiving and displaying the `username` prop instead of the `displayName` prop, or the notification parser is passing the wrong data to the component.
-
-**Code Location**: 
-- `apps/web/src/utils/notificationMessageParser.tsx` - Message parsing logic
-- `apps/web/src/components/NotificationSystem.tsx` - Notification rendering
-- `apps/web/src/components/ClickableUsername.tsx` - Username display component
-
-**Attempted Fixes**:
-1. ✅ Updated NotificationUser interface to include separate username and displayName fields
-2. ✅ Modified ClickableUsername component calls to pass correct props
-3. ✅ Updated message parsing logic to extract display name from message
-4. ❌ Issue persists despite multiple fix attempts
-
-**Current Workaround**: None available - users see duplicate names in all notifications.
-
-**Priority**: High - Significantly affects user experience and notification readability.
-
-**Next Steps**:
-1. Debug the exact data flow from backend to frontend notification rendering
-2. Verify that message parsing logic correctly identifies and extracts display names
-3. Test with various username/display name combinations
-4. Consider alternative parsing approaches if current logic fails
 
 ### Engagement Summary Auto-Popup
 **Issue**: Metrics popup automatically appears when posts reach 6+ total reactions (hearts + emoji reactions)  

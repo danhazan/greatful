@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { validProfileId } from "@/utils/idGuards"
 
@@ -29,6 +29,11 @@ export default function ClickableProfilePicture({
 }: ClickableProfilePictureProps) {
   const router = useRouter()
   const [imageError, setImageError] = useState(false)
+
+  // Reset image error when URL changes
+  useEffect(() => {
+    setImageError(false)
+  }, [imageUrl])
 
   // Size configurations
   const sizeClasses = {
@@ -131,6 +136,7 @@ export default function ClickableProfilePicture({
           src={imageUrl}
           alt={fallbackName}
           className="w-full h-full object-cover object-center"
+          referrerPolicy="no-referrer"
           onError={handleImageError}
         />
       </div>

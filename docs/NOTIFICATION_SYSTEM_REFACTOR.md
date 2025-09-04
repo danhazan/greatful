@@ -117,10 +117,13 @@ The current notification system is a comprehensive implementation with batching 
 4. **Limited Extensibility**: Adding new notification types requires duplicating batching logic
 
 **Proposed Generic Design**:
-1. **Generic Batch Manager**: Create a reusable batching system that works for any notification type
-2. **Standardized Batch Keys**: Use consistent batch key patterns: `{notification_type}:{post_id}` or `{notification_type}:{user_id}`
+1. **Generic Batch Manager**: Create a reusable batching system that works for any notification type and scope
+2. **Standardized Batch Keys**: Use consistent batch key patterns:
+   - **Post-based**: `{notification_type}:post:{post_id}` (likes, reactions, mentions, shares)
+   - **User-based**: `{notification_type}:user:{user_id}` (follows, future user-directed notifications)
 3. **Configurable Batching Rules**: Define batching behavior through configuration rather than hardcoded logic
-4. **Unified Batch Summaries**: Generic summary generation that can handle any notification type combination
+4. **Unified Batch Summaries**: Generic summary generation that can handle any notification type and scope combination
+5. **Dual Scope Support**: System designed to handle both post-centric and user-centric notification batching patterns
 
 ### Current Limitations and Enhancement Opportunities
 
@@ -236,6 +239,7 @@ class BatchConfig:
     batch_window_minutes: int = 60
     summary_template: str
     icon_type: str
+    max_batch_size: int = 10  # Maximum notifications per batch
     
 # Predefined batch configurations
 BATCH_CONFIGS = {
@@ -256,6 +260,14 @@ BATCH_CONFIGS = {
         batch_scope="post", 
         summary_template="{count} people engaged with your post",
         icon_type="engagement"
+    ),
+    "follow": BatchConfig(  # User-based batching (Post-MVP)
+        notification_type="follow",
+        batch_scope="user",
+        summary_template="{count} people started following you",
+        icon_type="follow",
+        batch_window_minutes=60,  # Batch follows within 1 hour
+        max_batch_size=10
     )
 }
 ```
@@ -297,6 +309,48 @@ class PostInteractionBatcher(NotificationBatcher):
             return "New Reactions", f"{batch_count} people reacted to your post"
         else:
             return "New Interactions", f"{batch_count} interactions on your post"
+```
+
+#### 4. User-Based Batching Strategy (Post-MVP)
+For follow notifications and other user-directed notifications:
+
+```python
+class UserInteractionBatcher(NotificationBatcher):
+    """Specialized batcher for user-directed interactions (follows, etc.)."""
+    
+    async def create_user_notification(
+        self,
+        notification_type: str,  # "follow"
+        target_user_id: int,
+        actor_data: dict
+    ) -> Optional[Notification]:
+        """Create user-directed notification with batching."""
+        
+        # Use user-based batch key
+        batch_key = self.generate_batch_key(notification_type, str(target_user_id), "user")
+        
+        # Find existing batch for this user and notification type
+        existing_batch = await self._find_existing_batch(target_user_id, batch_key)
+        
+        if existing_batch:
+            # Check batch size limit
+            if existing_batch.batch_count >= BATCH_CONFIGS[notification_type].max_batch_size:
+                # Create new batch if current one is full
+                return await self._create_new_user_batch(notification, batch_key)
+            else:
+                return await self._add_to_user_batch(existing_batch, notification)
+        else:
+            return await self._create_new_user_batch(notification, batch_key)
+    
+    def _generate_user_summary(self, batch_count: int, notification_type: str) -> tuple[str, str]:
+        """Generate summary for user-directed notifications."""
+        if notification_type == "follow":
+            if batch_count == 1:
+                return "New Follower", "Someone started following you"
+            else:
+                return "New Followers", f"{batch_count} people started following you"
+        # Add other user-directed notification types here
+        return "New Activity", f"{batch_count} new interactions"
 ```
 
 ## Planned Enhancements
@@ -558,11 +612,12 @@ FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
 
 ### Task 11.3: Notification Batching System Refactoring
 - **Problem:** Current batching system for emoji reactions is broken and needs refactoring
-- **Solution:** Implement a generic notification batching system that can support various notification types
+- **Solution:** Implement a generic notification batching system that can support various notification types and scopes
 - Refactor existing NotificationService batching logic to use generic batching patterns
-- Design generic batch key generation that works for any notification type and post combination
+- Design generic batch key generation that works for both post-based and user-based notifications
 - Fix existing emoji reaction batching issues with proper parent-child relationships
-- Create reusable batching utilities that can be extended for new notification types
+- Create reusable batching utilities that can be extended for new notification types (including future follow batching)
+- Design batch configuration system that supports both post and user scopes
 - Test generic batching system with emoji reactions to ensure it works correctly
 
 ### Task 11.4: Like and Reaction Notification Batching Implementation
@@ -570,10 +625,20 @@ FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
 - **Note:** These should be batched together as "post interaction" notifications
 - Add like notification creation to NotificationFactory with proper data structure
 - Integrate like notifications into the refactored generic batching system from Task 11.3
-- Implement combined batching for likes and reactions on the same post
+- Implement combined batching for likes and reactions on the same post (post-based batching)
 - Create intelligent batch summaries for mixed likes and reactions
 - Implement purple heart styling (💜) for like notifications
 - Test like and reaction batching scenarios with mixed notification types
+- Validate that the generic system can handle both post-based and future user-based batching
+
+### Task 13: Follow Notification Batching System (Post-MVP)
+- **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
+- **Challenge:** Unlike post interactions, follows are directed at users, not posts
+- Extend generic batching system to support user-based batching (not just post-based)
+- Implement follow notification batching using user-based batch keys: `follow:user:{user_id}`
+- Create batch summaries: "X people started following you" with expandable individual notifications
+- Implement time-based batching windows and batch size limits for follow notifications
+- Test follow notification batching with multiple followers and time windows
 
 ## Shared Types Updates
 

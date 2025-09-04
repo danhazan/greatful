@@ -276,8 +276,8 @@ class TestShareEdgeCases:
         recipient = test_users[1]
         post = test_posts[0]
         
-        # Mock notification service to fail
-        with patch('app.services.notification_service.NotificationService.create_share_notification') as mock_notify:
+        # Mock notification factory to fail
+        with patch('app.core.notification_factory.NotificationFactory.create_share_notification') as mock_notify:
             mock_notify.side_effect = Exception("Notification service down")
             
             # Share should still succeed even if notification fails

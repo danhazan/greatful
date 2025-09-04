@@ -84,14 +84,18 @@ class FollowService(BaseService):
         
         logger.info(f"User {follower_id} started following user {followed_id}")
         
-        # Create notification for followed user
-        from app.services.notification_service import NotificationService
-        await NotificationService.create_follow_notification(
-            db=self.db,
-            followed_user_id=followed_id,
-            follower_username=follower.username,
-            follower_id=follower_id
-        )
+        # Create notification for followed user using factory
+        try:
+            from app.core.notification_factory import NotificationFactory
+            notification_factory = NotificationFactory(self.db)
+            await notification_factory.create_follow_notification(
+                followed_user_id=followed_id,
+                follower_username=follower.username,
+                follower_id=follower_id
+            )
+        except Exception as e:
+            logger.error(f"Failed to create follow notification: {e}")
+            # Don't fail the follow if notification fails
         
         return {
             "id": follow.id,

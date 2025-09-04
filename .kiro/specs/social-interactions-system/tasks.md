@@ -338,16 +338,19 @@ The implementation maintains consistency with the reference implementation's pur
 - [ ] **11.3 Notification Batching System Refactoring**
   - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md - Generic Batching Design
   - **Problem:** Current batching system for emoji reactions is broken and needs refactoring with a generic design
-  - **Solution:** Implement a generic notification batching system that can support various notification types
+  - **Solution:** Implement a generic notification batching system that can support various notification types and batching scopes
   - Refactor existing NotificationService batching logic to use generic batching patterns
-  - Design generic batch key generation that works for any notification type and post combination
-  - Implement generic batch summary generation that can handle different notification types
+  - Design generic batch key generation that works for both post-based and user-based notifications
+    - Post-based: `{notification_type}:post:{post_id}` (likes, reactions, mentions, shares)
+    - User-based: `{notification_type}:user:{user_id}` (follows, future user-directed notifications)
+  - Implement generic batch summary generation that can handle different notification types and scopes
   - Fix existing emoji reaction batching issues with proper parent-child relationships
-  - Create reusable batching utilities that can be extended for new notification types
-  - Update database queries to properly handle batch creation, updates, and retrieval
+  - Create reusable batching utilities that can be extended for new notification types (including future follow batching)
+  - Design batch configuration system that supports both post and user scopes
+  - Update database queries to properly handle batch creation, updates, and retrieval for different scopes
   - Implement proper batch read state management (reading parent marks all children as read)
   - Test generic batching system with emoji reactions to ensure it works correctly
-  - Document generic batching patterns for future notification type implementations
+  - Document generic batching patterns for future notification type implementations (post-MVP follow batching)
   - **Test Execution:** Run backend tests (`pytest -v`) to verify batching logic works correctly. Test emoji reaction batching scenarios with multiple users and reactions.
 - [ ] **11.4 Like and Reaction Notification Batching Implementation**
   - **Reference:** See docs/NOTIFICATION_SYSTEM_REFACTOR.md - Post Interaction Notifications
@@ -355,19 +358,50 @@ The implementation maintains consistency with the reference implementation's pur
   - **Note:** Both like and reaction notifications are about interactions with the user's own posts and should be batched together
   - Add like notification creation to NotificationFactory with proper data structure
   - Integrate like notifications into the refactored generic batching system from Task 11.3
-  - Implement combined batching for likes and reactions on the same post (same batch type: "post_interaction")
+  - Implement combined batching for likes and reactions on the same post (batch scope: "post", batch type: "post_interaction")
   - Create intelligent batch summaries: "X people reacted to your post" (reactions only), "X people liked your post" (likes only), "X people engaged with your post" (mixed likes and reactions)
   - Implement purple heart styling (💜) for like notifications to match app branding
   - Update batch expansion to show individual like and reaction notifications with proper icons
   - Test like and reaction batching scenarios with mixed notification types on same post
   - Ensure proper rate limiting and spam prevention for like notifications
+  - Validate that the generic batching system can handle both post-based (likes/reactions) and future user-based (follows) batching patterns
   - **Test Execution:** Run backend tests (`pytest -v`) to verify like notification creation and batching. Test mixed like/reaction batching scenarios. Run frontend tests (`npm test`) to verify batch display and expansion.
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
-
-
-
 - [ ] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** All notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
+
+## Post-MVP Enhancement Tasks
+
+### **TASK 13: Follow Notification Batching System** (Post-MVP)
+**Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
+- [ ] **13.1 Follow Notification Batching Analysis and Design**
+  - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
+  - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
+  - Analyze current follow notification patterns and volume for batching opportunities
+  - Design user-based batching strategy: batch multiple followers for the same user
+  - Define batch key pattern for follow notifications: `follow:user:{user_id}`
+  - Design batch summaries: "X people started following you" with expandable individual notifications
+  - Plan time-based batching windows (e.g., batch follows within 1-hour windows)
+  - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
+  - Design batch metadata to track follower information and timestamps
+  - Plan integration with existing generic batching system from Task 11.3
+- [ ] **13.2 Follow Notification Batching Implementation**
+  - Extend generic batching system to support user-based batching (not just post-based)
+  - Implement follow notification batching using the generic NotificationBatcher
+  - Create batch configuration for follow notifications with user-based scope
+  - Update follow notification creation to use batching logic
+  - Implement proper batch summary generation for follow notifications
+  - Add batch expansion to show individual follower notifications with profile pictures
+  - Test follow notification batching with multiple followers and time windows
+- [ ] **13.3 Cross-Notification Type Batching Strategy (Future)**
+  - **Advanced Feature:** Consider batching different notification types for the same user
+  - Research feasibility of "activity digest" notifications combining multiple types
+  - Design user preference system for notification batching granularity
+  - Plan implementation of smart batching based on user activity patterns
+  - Document advanced batching strategies for future implementation
+- [ ] **Test Execution:** Run backend tests to verify follow notification batching logic. Test scenarios with multiple followers in different time windows. Verify batch expansion and individual notification display.
+- [ ] **Update Project Documentation:** Document follow notification batching patterns in docs/NOTIFICATION_SYSTEM_REFACTOR.md. Add user-based batching examples to generic batching documentation.
+**Acceptance Criteria:** Follow notifications are properly batched when multiple users follow the same person, batch summaries show appropriate counts and can be expanded to show individual followers, and the system integrates seamlessly with the generic batching framework.
 
 ### **TASK 12: Enhanced Post System**
 **Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Enhanced)
