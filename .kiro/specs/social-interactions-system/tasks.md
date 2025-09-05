@@ -367,12 +367,13 @@ The implementation maintains consistency with the reference implementation's pur
   - Validate that the generic batching system can handle both post-based (likes/reactions) and future user-based (follows) batching patterns
   - **Test Execution:** Run backend tests (`pytest -v`) to verify like notification creation and batching. Test mixed like/reaction batching scenarios. Run frontend tests (`npm test`) to verify batch display and expansion.
 - [x] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
-- [x] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
+- [x] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md. Create docs/NOTIFICATION_SYSTEM_REFACTOR.md with comprehensive notification system enhancement architecture, then merge and cleanup content into existing documentation files for consistency.
 **Acceptance Criteria:** All notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
 
 ### **TASK 12: Enhanced Post System**
 **Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Enhanced)
-- [ ] **12.0 Post System Refactoring and Planning**
+- [x] **12.0 Post System Refactoring and Planning**
+  - **Reference:** See docs/POST_SYSTEM_REFACTOR.md for comprehensive post system enhancement architecture
   - Document current post system architecture in docs/POST_SYSTEM_REFACTOR.md
   - Analyze existing Post model, PostCard component, CreatePostModal, and post-related API endpoints
   - Plan refactoring of post creation and display components for automatic type detection and enhanced features
@@ -389,44 +390,53 @@ The implementation maintains consistency with the reference implementation's pur
   - **Refactor Standards Validation:** Validate that all post-related code follows established patterns, proper type annotations, and architectural consistency
   - _Requirements: Post system architecture preparation_
 - [ ] **12.1 Automatic Post Type Assignment**
+  - **Reference:** See docs/POST_SYSTEM_REFACTOR.md Phase 1: Content Analysis and Automatic Type Detection
   - Remove post type selection from post creation modal
   - Implement automatic type detection: text <20 words = spontaneous, photo only = photo gratitude, all others = daily gratitude
   - Update post creation logic to assign types based on content analysis
   - Modify PostCard display to reflect automatic type assignment
   - Update character limits to apply automatically based on detected type
 - [ ] **12.2 Location Support for Posts**
+  - **Reference:** See docs/POST_SYSTEM_REFACTOR.md Phase 3: Location Integration and Services
   - Add location field to Post model with optional location data
-  - Implement location input in post creation modal (optional field) reusing existing user profile location system components and validation
-  - Add location display in PostCard component when location is present using existing location formatting utilities
-  - Leverage existing location validation and formatting from user profile system for consistent display
+  - Implement location input in post creation modal (optional field) reusing existing user profile location system components and validation from Task 10.2
+  - Add location display in PostCard component when location is present using existing location formatting utilities from user profile system
+  - Leverage existing LocationService and location validation patterns from user profile system for consistent display and data handling
+  - Reuse existing location picker components and privacy controls from enhanced profile system
   - Add database migration for post location field
 - [ ] **12.3 Drag and Drop Image Upload**
+  - **Reference:** See docs/POST_SYSTEM_REFACTOR.md Phase 2: Rich Content and Visual Enhancements - Drag-and-Drop Interface
   - Implement drag and drop functionality for post image upload in CreatePostModal
-  - Reuse existing profile picture upload mechanism and components from Task 10.1
+  - Reuse existing FileUploadService and image processing pipeline from Task 10.1 profile photo upload system
+  - Leverage existing image validation, compression, and storage mechanisms from apps/api/app/services/file_upload_service.py
+  - Reuse existing image upload utilities from apps/web/src/utils/imageUpload.ts for client-side validation and compression
   - Add visual drag-and-drop zone with proper feedback states (hover, active, error)
   - Support multiple image formats with same validation as profile picture system
   - Integrate drag-and-drop with existing file picker for flexible upload options
   - Add image preview and removal functionality before post submission
 - [ ] **12.4 Post Image Optimization**
-  - Implement automatic image resizing to fit post container dimensions
-  - Add image compression and optimization for faster loading
+  - **Reference:** See docs/POST_SYSTEM_REFACTOR.md Phase 2: Enhanced Image System
+  - Implement automatic image resizing to fit post container dimensions using existing FileUploadService image processing capabilities
+  - Add image compression and optimization for faster loading leveraging existing PIL-based processing from profile photo system
   - Create responsive image display that adapts to post size
   - Implement lazy loading for post images in feed
-  - Add image error handling and fallback display
+  - Add image error handling and fallback display using existing image utilities
 - [ ] **12.5 Advanced Post Creation Design**
+  - **Reference:** See docs/POST_SYSTEM_REFACTOR.md Phase 2: Rich Text Editor Integration
   - Add comprehensive emoji support throughout post creation and display
   - Implement background color/template options for posts
   - Add colored and styled text formatting options
   - Create rich text editor with formatting controls
   - Add additional styling options (fonts, text effects, borders)
 - [ ] **12.6 Post Management (Edit/Delete)**
+  - **Reference:** See docs/POST_SYSTEM_REFACTOR.md Phase 4: Post Management and Analytics
   - Add edit and delete functionality for user's own posts
   - Implement post editing modal with content preservation
   - Add delete confirmation dialog with proper warnings
   - Ensure edit/delete options appear in feed page, profile page, and post share page
   - Add proper permission checks to prevent editing others' posts
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify automatic post type detection, location handling, drag-and-drop functionality, and edit/delete functionality. Run frontend tests (`npm test`) to verify post creation enhancements, image upload, and post management features. Test image optimization and rich text editing functionality.
-- [ ] **Update Project Documentation:** Document automatic post type logic in docs/BACKEND_API_DOCUMENTATION.md. Add post enhancement features to docs/ARCHITECTURE_AND_SETUP.md. Update post schema with location field in docs/DATABASE_STRUCTURE.md.
+- [ ] **Update Project Documentation:** Document automatic post type logic in docs/BACKEND_API_DOCUMENTATION.md. Add post enhancement features to docs/ARCHITECTURE_AND_SETUP.md. Update post schema with location field in docs/DATABASE_STRUCTURE.md. Merge and cleanup docs/POST_SYSTEM_REFACTOR.md content into existing documentation files for consistency and remove redundancy.
 **Acceptance Criteria:** Post types are assigned automatically based on content, posts support optional location data using existing location system, drag-and-drop image upload works seamlessly, images are properly sized and optimized, advanced styling options are available in post creation, and users can edit/delete their own posts from all relevant pages.
 
 ### **TASK 12.5: Navbar Enhancement - Profile Picture Integration**
