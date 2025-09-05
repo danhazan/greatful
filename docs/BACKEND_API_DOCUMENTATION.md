@@ -167,11 +167,61 @@ await factory.create_like_notification(post_author_id, liker_username, liker_id,
 await factory.create_follow_notification(followed_user_id, follower_username, follower_id)
 ```
 
-**Legacy Features**:
+**Advanced Notification Features**:
 - **Real-time Notifications**: Automatic notification creation from user actions with batching logic
-- **Rate Limiting**: Configurable rate limiting per notification type to prevent spam
-- **Batch Operations**: Intelligent batching, mark all as read, notification statistics, and parent-child relationships
+- **Rate Limiting**: Configurable rate limiting per notification type (20 notifications/hour per type) to prevent spam
+- **Intelligent Batching**: Smart batching system with parent-child relationships and unified post interactions
 - **API Integration**: Full REST API with pagination, filtering, and batch expansion functionality
+
+**Notification Batching Architecture**:
+The notification system uses a sophisticated batching approach to prevent notification spam while maintaining individual notification details:
+
+**Generic Batch Manager**:
+```python
+class NotificationBatcher:
+    """Generic notification batching system."""
+    
+    def generate_batch_key(self, notification_type: str, target_id: str, batch_scope: str = "post") -> str:
+        """Generate standardized batch key."""
+        return f"{notification_type}:{batch_scope}:{target_id}"
+    
+    async def create_or_update_batch(self, notification: Notification, batch_config: BatchConfig) -> Notification:
+        """Create new notification or add to existing batch."""
+        # Implementation handles batch creation, conversion, and updates
+```
+
+**Batch Configuration System**:
+```python
+BATCH_CONFIGS = {
+    "emoji_reaction": BatchConfig(
+        notification_type="emoji_reaction",
+        batch_scope="post",
+        max_age_hours=24,
+        summary_template="{count} people reacted to your post",
+        icon_type="reaction"
+    ),
+    "like": BatchConfig(
+        notification_type="like",
+        batch_scope="post", 
+        summary_template="{count} people liked your post",
+        icon_type="heart"
+    ),
+    "follow": BatchConfig(
+        notification_type="follow",
+        batch_scope="user",
+        summary_template="{count} people started following you",
+        icon_type="follow",
+        max_batch_size=10
+    )
+}
+```
+
+**Batching Logic Flow**:
+1. **Check for Existing Batch**: Look for active batch with same batch key
+2. **Add to Batch**: If batch exists, increment count and add as child
+3. **Check for Single Notification**: Look for recent single notification to convert
+4. **Convert to Batch**: Create dedicated batch notification and make both notifications children
+5. **Create Single**: If no existing notifications, create new single notification
 
 #### 8. **Mention System with User Search**
 - **@Username Detection**: Automatic detection and parsing of @username mentions in post content
@@ -289,6 +339,126 @@ GET    /api/v1/notifications/summary     # Get notification summary (unread coun
 POST   /api/v1/notifications/{id}/read   # Mark specific notification as read
 POST   /api/v1/notifications/read-all    # Mark all notifications as read
 GET    /api/v1/notifications/stats       # Get notification statistics & rate limits
+GET    /api/v1/notifications/{id}/children # Get child notifications for a batch
+```
+
+#### Notification Batching API Details
+
+**Get User Notifications with Batching**
+```http
+GET /api/v1/notifications?limit=20&offset=0&include_children=false
+Authorization: Bearer <token>
+```
+
+**Response (with batched notifications):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "batch-uuid-123",
+      "type": "post_interaction",
+      "title": "New Engagement 💜",
+      "message": "3 people engaged with your post",
+      "is_batch": true,
+      "batch_count": 3,
+      "read": false,
+      "created_at": "2025-01-01T10:00:00Z",
+      "last_updated_at": "2025-01-01T12:30:00Z",
+      "data": {
+        "post_id": "post-123"
+      }
+    },
+    {
+      "id": "single-uuid-456", 
+      "type": "mention",
+      "title": "You were mentioned",
+      "message": "alice mentioned you in a post",
+      "is_batch": false,
+      "batch_count": 1,
+      "read": true,
+      "created_at": "2025-01-01T09:00:00Z",
+      "data": {
+        "post_id": "post-456",
+        "author_username": "alice"
+      }
+    }
+  ],
+  "pagination": {
+    "total": 15,
+    "limit": 20,
+    "offset": 0
+  }
+}
+```
+
+**Get Batch Children**
+```http
+GET /api/v1/notifications/batch-uuid-123/children
+Authorization: Bearer <token>
+```
+
+**Response (individual notifications in batch):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "child-uuid-1",
+      "type": "like",
+      "title": "New Like 💜",
+      "message": "bob liked your post",
+      "parent_id": "batch-uuid-123",
+      "created_at": "2025-01-01T10:00:00Z",
+      "data": {
+        "post_id": "post-123",
+        "liker_username": "bob",
+        "actor_user_id": "2",
+        "actor_username": "bob"
+      }
+    },
+    {
+      "id": "child-uuid-2", 
+      "type": "emoji_reaction",
+      "title": "New Reaction",
+      "message": "charlie reacted to your post with 🔥",
+      "parent_id": "batch-uuid-123",
+      "created_at": "2025-01-01T11:15:00Z",
+      "data": {
+        "post_id": "post-123",
+        "reactor_username": "charlie",
+        "emoji_code": "fire",
+        "actor_user_id": "3",
+        "actor_username": "charlie"
+      }
+    }
+  ]
+}
+```
+
+**Mark Batch as Read (marks all children as read)**
+```http
+POST /api/v1/notifications/batch-uuid-123/read
+Authorization: Bearer <token>
+```
+
+**Notification Summary with Batching**
+```http
+GET /api/v1/notifications/summary
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "unread_count": 5,
+    "total_notifications": 25,
+    "batch_notifications": 2,
+    "single_notifications": 3
+  }
+}
 ```
 
 ### Reactions (Emoji)

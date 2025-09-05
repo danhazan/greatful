@@ -367,7 +367,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Validate that the generic batching system can handle both post-based (likes/reactions) and future user-based (follows) batching patterns
   - **Test Execution:** Run backend tests (`pytest -v`) to verify like notification creation and batching. Test mixed like/reaction batching scenarios. Run frontend tests (`npm test`) to verify batch display and expansion.
 - [x] **Test Execution:** Run backend tests (`pytest -v`) to verify notification creation, batching logic, and link generation. Run frontend tests (`npm test`) to verify notification rendering, click handlers, and username links. Test notification batching with multiple users and notification types.
-- [ ] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
+- [x] **Update Project Documentation:** Document notification batching logic in docs/BACKEND_API_DOCUMENTATION.md. Add notification link handling to docs/ARCHITECTURE_AND_SETUP.md. Update notification schema in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** All notifications link to relevant content, usernames in notifications are clickable profile links, like notifications are properly created and batched, and advanced batching groups multiple notification types per post with proper expand/collapse functionality.
 
 ### **TASK 12: Enhanced Post System**
@@ -377,9 +377,8 @@ The implementation maintains consistency with the reference implementation's pur
   - Analyze existing Post model, PostCard component, CreatePostModal, and post-related API endpoints
   - Plan refactoring of post creation and display components for automatic type detection and enhanced features
   - Design post content analysis system for automatic type assignment (text length, image presence detection)
-  - Plan navbar refactoring to replace welcome message with profile picture integration
-  - Design location support system with optional location data and validation
-  - Plan image optimization and resizing architecture for post images
+  - Design location support system leveraging existing user profile location infrastructure
+  - Plan image optimization and resizing architecture for post images with drag-and-drop support
   - Design rich text editor integration with emoji support, backgrounds, and styling options
   - Plan post management system (edit/delete) with proper permission controls and UI integration
   - Refactor post API endpoints to support location data, enhanced content, and management operations
@@ -395,18 +394,19 @@ The implementation maintains consistency with the reference implementation's pur
   - Update post creation logic to assign types based on content analysis
   - Modify PostCard display to reflect automatic type assignment
   - Update character limits to apply automatically based on detected type
-- [ ] **12.2 Profile Picture in Navbar**
-  - Replace "welcome, <username>" message with profile picture in navbar
-  - Position profile picture to the left of notification bell
-  - Add click handler to profile picture for navigation to profile page
-  - Add hover tooltip showing username on profile picture
-  - Remove separate "profile" link from navbar (replaced by profile picture click)
-- [ ] **12.3 Location Support for Posts**
+- [ ] **12.2 Location Support for Posts**
   - Add location field to Post model with optional location data
-  - Implement location input in post creation modal (optional field)
-  - Add location display in PostCard component when location is present
-  - Create location validation and formatting for consistent display
+  - Implement location input in post creation modal (optional field) reusing existing user profile location system components and validation
+  - Add location display in PostCard component when location is present using existing location formatting utilities
+  - Leverage existing location validation and formatting from user profile system for consistent display
   - Add database migration for post location field
+- [ ] **12.3 Drag and Drop Image Upload**
+  - Implement drag and drop functionality for post image upload in CreatePostModal
+  - Reuse existing profile picture upload mechanism and components from Task 10.1
+  - Add visual drag-and-drop zone with proper feedback states (hover, active, error)
+  - Support multiple image formats with same validation as profile picture system
+  - Integrate drag-and-drop with existing file picker for flexible upload options
+  - Add image preview and removal functionality before post submission
 - [ ] **12.4 Post Image Optimization**
   - Implement automatic image resizing to fit post container dimensions
   - Add image compression and optimization for faster loading
@@ -425,9 +425,23 @@ The implementation maintains consistency with the reference implementation's pur
   - Add delete confirmation dialog with proper warnings
   - Ensure edit/delete options appear in feed page, profile page, and post share page
   - Add proper permission checks to prevent editing others' posts
-- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify automatic post type detection, location handling, and edit/delete functionality. Run frontend tests (`npm test`) to verify navbar changes, post creation enhancements, and post management features. Test image optimization and rich text editing functionality.
+- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify automatic post type detection, location handling, drag-and-drop functionality, and edit/delete functionality. Run frontend tests (`npm test`) to verify post creation enhancements, image upload, and post management features. Test image optimization and rich text editing functionality.
 - [ ] **Update Project Documentation:** Document automatic post type logic in docs/BACKEND_API_DOCUMENTATION.md. Add post enhancement features to docs/ARCHITECTURE_AND_SETUP.md. Update post schema with location field in docs/DATABASE_STRUCTURE.md.
-**Acceptance Criteria:** Post types are assigned automatically based on content, navbar shows profile picture instead of welcome message, posts support optional location data, images are properly sized and optimized, advanced styling options are available in post creation, and users can edit/delete their own posts from all relevant pages.
+**Acceptance Criteria:** Post types are assigned automatically based on content, posts support optional location data using existing location system, drag-and-drop image upload works seamlessly, images are properly sized and optimized, advanced styling options are available in post creation, and users can edit/delete their own posts from all relevant pages.
+
+### **TASK 12.5: Navbar Enhancement - Profile Picture Integration**
+**Module Reference:** UI/UX Enhancement - Navbar Profile Integration
+- [ ] **12.5.1 Profile Picture in Navbar**
+  - Replace "welcome, <username>" message with profile picture in navbar
+  - Position profile picture to the left of notification bell
+  - Add click handler to profile picture for navigation to profile page
+  - Add hover tooltip showing username on profile picture
+  - Remove separate "profile" link from navbar (replaced by profile picture click)
+  - Ensure profile picture displays properly with fallback to letter avatar when no photo exists
+  - Maintain responsive design for mobile navbar layout
+- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify navbar profile picture integration and navigation functionality. Test responsive behavior on mobile devices.
+- [ ] **Update Project Documentation:** Document navbar profile picture integration in docs/ARCHITECTURE_AND_SETUP.md.
+**Acceptance Criteria:** Navbar displays user's profile picture instead of welcome message, profile picture is clickable for navigation to profile page, proper fallbacks are in place for users without profile photos, and navbar maintains responsive design across all devices.
 
 ### **TASK 13: MVP Production Readiness**
 **Module Reference:** Final MVP polish and production deployment preparation

@@ -178,40 +178,133 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 
 ### Notifications Table (`notifications`)
 
-**Tracks user notifications for various events.**
+**Tracks user notifications with advanced batching support for various events.**
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | String (UUID) | Primary Key | Unique notification identifier |
 | `user_id` | Integer | Foreign Key (users.id), Not Null, Index | Notification recipient |
 | `type` | String | Not Null | Notification type |
-| `priority` | String | Not Null, Default: 'normal' | Priority level |
 | `title` | String | Not Null | Notification title |
 | `message` | Text | Not Null | Notification message |
 | `data` | JSON | Nullable | Additional notification data |
-| `channel` | String | Not Null, Default: 'in_app' | Delivery channel |
-| `read_at` | DateTime | Nullable | When notification was read |
+| `read` | Boolean | Default: False | Whether notification has been read |
 | `created_at` | DateTime | Default: now() | Notification creation timestamp |
+| `read_at` | DateTime | Nullable | When notification was read |
+| `parent_id` | String (UUID) | Foreign Key (notifications.id), Nullable, Index | Parent notification for batching |
+| `is_batch` | Boolean | Default: False, Index | Whether this is a batch notification |
+| `batch_count` | Integer | Default: 1 | Number of notifications in this batch |
+| `batch_key` | String | Nullable, Index | Key for grouping similar notifications |
+| `last_updated_at` | DateTime | Default: now() | When notification was last updated |
 
-**Notification Types:**
-- `like` - Someone liked your post
-- `comment` - Someone commented on your post
-- `follow` - Someone started following you
-- `mention` - Someone mentioned you in a post/comment
+**Enhanced Notification Types:**
+- `like` - Someone liked your post (💜 purple heart styling)
 - `emoji_reaction` - Someone reacted to your post with an emoji
+- `post_shared` - Someone shared your post
+- `mention` - Someone mentioned you in a post
+- `follow` - Someone started following you
+- `post_interaction` - Combined likes and reactions (unified batching)
 
-**Priority Levels:**
-- `low` - Non-urgent notifications
-- `normal` - Standard notifications
-- `high` - Important notifications
+**Notification Batching Schema:**
 
-**Channels:**
-- `in_app` - In-app notifications
-- `email` - Email notifications
-- `push` - Push notifications
+**Parent-Child Relationship Structure:**
+```sql
+-- Batch notification (parent)
+INSERT INTO notifications (
+    id, user_id, type, title, message, 
+    is_batch, batch_count, batch_key, 
+    last_updated_at
+) VALUES (
+    'batch-uuid-123', 1, 'post_interaction', 
+    'New Engagement 💜', '3 people engaged with your post',
+    TRUE, 3, 'post_interaction:post:post-456',
+    NOW()
+);
+
+-- Individual notifications (children)
+INSERT INTO notifications (
+    id, user_id, type, title, message,
+    parent_id, data
+) VALUES 
+    ('child-uuid-1', 1, 'like', 'New Like 💜', 'alice liked your post', 'batch-uuid-123', '{"post_id": "post-456", "liker_username": "alice"}'),
+    ('child-uuid-2', 1, 'emoji_reaction', 'New Reaction', 'bob reacted with 🔥', 'batch-uuid-123', '{"post_id": "post-456", "emoji_code": "fire"}');
+```
+
+**Batch Key Format:**
+- **Post-based**: `{notification_type}:post:{post_id}` (e.g., `emoji_reaction:post:post-123`)
+- **User-based**: `{notification_type}:user:{user_id}` (e.g., `follow:user:456`)
+- **Unified interactions**: `post_interaction:post:{post_id}` (combines likes and reactions)
+
+**Batching Behavior:**
+1. **Single Notification**: First interaction creates a single notification
+2. **Batch Conversion**: Second similar interaction creates a dedicated batch notification and converts the original to a child
+3. **Batch Updates**: Subsequent interactions increment `batch_count` and update `last_updated_at`
+4. **Unread Management**: Only parent notifications (where `parent_id IS NULL`) count toward unread count
+
+**Performance Indexes for Batching:**
+```sql
+-- Core notification indexes
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+CREATE INDEX idx_notifications_read ON notifications(read);
+
+-- Batching-specific indexes
+CREATE INDEX idx_notifications_parent_id ON notifications(parent_id);
+CREATE INDEX idx_notifications_is_batch ON notifications(is_batch);
+CREATE INDEX idx_notifications_batch_key ON notifications(batch_key);
+CREATE INDEX idx_notifications_last_updated_at ON notifications(last_updated_at DESC);
+
+-- Composite indexes for efficient queries
+CREATE INDEX idx_notifications_user_parent_read ON notifications(user_id, parent_id, read);
+CREATE INDEX idx_notifications_batch_key_user ON notifications(batch_key, user_id);
+```
 
 **Relationships:**
 - `user` - Many-to-One with Users (notification recipient)
+- `parent` - Many-to-One with Notifications (parent batch notification)
+- `children` - One-to-Many with Notifications (child notifications in batch)
+
+### Notification Batching Configuration
+
+**Batch Configuration System:**
+The notification system uses predefined batch configurations for different notification types:
+
+```python
+BATCH_CONFIGS = {
+    "emoji_reaction": BatchConfig(
+        notification_type="emoji_reaction",
+        batch_scope="post",
+        max_age_hours=24,
+        summary_template="{count} people reacted to your post",
+        icon_type="reaction"
+    ),
+    "like": BatchConfig(
+        notification_type="like",
+        batch_scope="post", 
+        summary_template="{count} people liked your post",
+        icon_type="heart"
+    ),
+    "follow": BatchConfig(
+        notification_type="follow",
+        batch_scope="user",
+        summary_template="{count} people started following you",
+        icon_type="follow",
+        max_batch_size=10
+    )
+}
+```
+
+**Batching Logic Flow:**
+1. **Check for Existing Batch**: Look for active batch with same batch key
+2. **Add to Batch**: If batch exists, increment count and add as child
+3. **Check for Single Notification**: Look for recent single notification to convert
+4. **Convert to Batch**: Create dedicated batch notification and make both notifications children
+5. **Create Single**: If no existing notifications, create new single notification
+
+**Rate Limiting Integration:**
+- **20 notifications per hour per type**: Prevents spam while allowing batching
+- **Rate limit checking**: Applied before notification creation
+- **Batching reduces notification volume**: Multiple interactions create fewer notifications
 
 ## Database Relationships
 
@@ -602,6 +695,227 @@ Posts table includes denormalized engagement counts that are automatically updat
 - Engagement-based queries: < 2ms execution time
 - Follow relationship queries: < 1ms execution time
 - Trending posts calculation: < 10ms execution time
+
+## Notification Batching System Database Design
+
+### Advanced Notification Batching Architecture
+
+The notification system uses a sophisticated parent-child relationship model to implement intelligent batching while maintaining individual notification details:
+
+#### Batching Database Schema
+
+**Core Batching Tables:**
+The notification batching system uses a single `notifications` table with self-referencing relationships:
+
+```sql
+-- Enhanced notifications table with batching support
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    data JSONB,
+    read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    read_at TIMESTAMP,
+    
+    -- Batching fields
+    parent_id UUID REFERENCES notifications(id) ON DELETE CASCADE,
+    is_batch BOOLEAN DEFAULT FALSE,
+    batch_count INTEGER DEFAULT 1,
+    batch_key VARCHAR(255),
+    last_updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### Batch Key Generation Strategy
+
+**Standardized Batch Keys:**
+Batch keys follow a consistent format for grouping similar notifications:
+
+```sql
+-- Post-based notifications (reactions, likes, shares on same post)
+'emoji_reaction:post:post-123'
+'like:post:post-123' 
+'post_interaction:post:post-123'  -- Unified likes + reactions
+'post_shared:post:post-123'
+'mention:post:post-123'
+
+-- User-based notifications (follows, profile interactions)
+'follow:user:456'
+'profile_interaction:user:456'
+```
+
+#### Batching Query Patterns
+
+**Find Existing Batch:**
+```sql
+-- Check for existing batch notification
+SELECT * FROM notifications 
+WHERE user_id = ? 
+  AND batch_key = ? 
+  AND is_batch = TRUE 
+  AND created_at >= NOW() - INTERVAL '24 hours'
+  AND parent_id IS NULL;
+```
+
+**Find Single Notification for Conversion:**
+```sql
+-- Find recent single notification to convert to batch
+SELECT * FROM notifications 
+WHERE user_id = ? 
+  AND batch_key = ? 
+  AND is_batch = FALSE 
+  AND parent_id IS NULL
+  AND created_at >= NOW() - INTERVAL '1 hour';
+```
+
+**Get User Notifications (Parents Only):**
+```sql
+-- Get user notifications excluding children (for main notification list)
+SELECT * FROM notifications 
+WHERE user_id = ? 
+  AND parent_id IS NULL 
+ORDER BY 
+  CASE WHEN is_batch THEN last_updated_at ELSE created_at END DESC
+LIMIT ? OFFSET ?;
+```
+
+**Get Batch Children:**
+```sql
+-- Get individual notifications within a batch
+SELECT * FROM notifications 
+WHERE parent_id = ? 
+  AND user_id = ?  -- Security check
+ORDER BY created_at DESC;
+```
+
+**Unread Count (Parents Only):**
+```sql
+-- Count unread notifications (only parents count)
+SELECT COUNT(*) FROM notifications 
+WHERE user_id = ? 
+  AND read = FALSE 
+  AND parent_id IS NULL;
+```
+
+#### Batch Lifecycle Management
+
+**Batch Creation Process:**
+1. **Single Notification**: First interaction creates a regular notification
+2. **Batch Conversion**: Second similar interaction triggers batch creation:
+   ```sql
+   -- Create dedicated batch notification
+   INSERT INTO notifications (user_id, type, title, message, is_batch, batch_count, batch_key, last_updated_at)
+   VALUES (?, 'post_interaction', 'New Engagement 💜', '2 people engaged with your post', TRUE, 2, ?, NOW());
+   
+   -- Update original notification to be a child
+   UPDATE notifications SET parent_id = ? WHERE id = ?;
+   
+   -- Insert new notification as child
+   INSERT INTO notifications (user_id, type, title, message, parent_id, data)
+   VALUES (?, ?, ?, ?, ?, ?);
+   ```
+
+**Batch Update Process:**
+```sql
+-- Add to existing batch
+UPDATE notifications 
+SET batch_count = batch_count + 1,
+    title = ?,  -- Updated batch summary
+    message = ?,
+    last_updated_at = NOW(),
+    read = FALSE,  -- Mark as unread when new items added
+    read_at = NULL
+WHERE id = ? AND is_batch = TRUE;
+
+-- Insert new child notification
+INSERT INTO notifications (user_id, type, title, message, parent_id, data)
+VALUES (?, ?, ?, ?, ?, ?);
+```
+
+#### Performance Optimizations
+
+**Strategic Indexing:**
+```sql
+-- Primary performance indexes
+CREATE INDEX idx_notifications_user_parent_read ON notifications(user_id, parent_id, read);
+CREATE INDEX idx_notifications_batch_lookup ON notifications(user_id, batch_key, is_batch, created_at);
+CREATE INDEX idx_notifications_timeline ON notifications(user_id, parent_id, last_updated_at DESC, created_at DESC);
+
+-- Batch-specific indexes
+CREATE INDEX idx_notifications_batch_children ON notifications(parent_id, created_at DESC);
+CREATE INDEX idx_notifications_batch_key_recent ON notifications(batch_key, created_at) WHERE parent_id IS NULL;
+```
+
+**Query Performance Metrics:**
+- **User notification list**: < 5ms (with proper indexing)
+- **Batch children lookup**: < 2ms (indexed by parent_id)
+- **Unread count**: < 1ms (indexed count query)
+- **Batch existence check**: < 1ms (composite index)
+
+#### Data Integrity and Constraints
+
+**Foreign Key Constraints:**
+```sql
+-- Self-referencing parent-child relationship
+ALTER TABLE notifications 
+ADD CONSTRAINT fk_notifications_parent 
+FOREIGN KEY (parent_id) REFERENCES notifications(id) ON DELETE CASCADE;
+
+-- User relationship
+ALTER TABLE notifications 
+ADD CONSTRAINT fk_notifications_user 
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+```
+
+**Check Constraints:**
+```sql
+-- Ensure batch notifications have proper structure
+ALTER TABLE notifications 
+ADD CONSTRAINT chk_batch_structure 
+CHECK (
+  (is_batch = TRUE AND parent_id IS NULL AND batch_count >= 1) OR
+  (is_batch = FALSE)
+);
+
+-- Ensure child notifications have parents
+ALTER TABLE notifications 
+ADD CONSTRAINT chk_child_structure 
+CHECK (
+  (parent_id IS NOT NULL AND is_batch = FALSE) OR
+  (parent_id IS NULL)
+);
+```
+
+#### Migration Strategy
+
+**Batching Migration:**
+```sql
+-- Migration: Add batching fields to existing notifications table
+ALTER TABLE notifications ADD COLUMN parent_id UUID REFERENCES notifications(id);
+ALTER TABLE notifications ADD COLUMN is_batch BOOLEAN DEFAULT FALSE;
+ALTER TABLE notifications ADD COLUMN batch_count INTEGER DEFAULT 1;
+ALTER TABLE notifications ADD COLUMN batch_key VARCHAR(255);
+ALTER TABLE notifications ADD COLUMN last_updated_at TIMESTAMP DEFAULT NOW();
+
+-- Update existing notifications with batch keys
+UPDATE notifications 
+SET batch_key = CASE 
+  WHEN type IN ('emoji_reaction', 'like', 'post_shared', 'mention') 
+    THEN type || ':post:' || (data->>'post_id')
+  WHEN type IN ('follow', 'new_follower') 
+    THEN type || ':user:' || user_id::text
+  ELSE type || '_' || user_id::text
+END
+WHERE batch_key IS NULL;
+
+-- Create indexes after data migration
+CREATE INDEX CONCURRENTLY idx_notifications_parent_id ON notifications(parent_id);
+CREATE INDEX CONCURRENTLY idx_notifications_batch_key ON notifications(batch_key);
+CREATE INDEX CONCURRENTLY idx_notifications_is_batch ON notifications(is_batch);
+```
 
 ## AlgorithmService Database Integration
 

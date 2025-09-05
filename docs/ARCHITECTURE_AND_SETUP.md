@@ -126,11 +126,10 @@ The Grateful platform includes a comprehensive social interaction system with th
 
 #### 🔔 Enhanced Notification System
 - **Multiple Types**: Emoji reactions, hearts, mentions, follows, shares
-- **Notification Batching**: Intelligent batching to prevent spam (e.g., "3 people reacted to your post")
 - **Rate Limiting**: Configurable limits per notification type (max 5/hour per type)
 - **Real-time Updates**: Polling-based updates every 30 seconds
 - **Batch Operations**: Mark individual or all notifications as read
-- **Unread Counter**: Shows count of unread parent notifications in navbar
+- **Unread Counter**: Shows count of unread notifications in navbar
 
 #### 🧠 Enhanced Feed Algorithm
 - **Engagement Scoring**: Weighted scoring system (Hearts×1.0, Reactions×1.5, Shares×4.0)
@@ -174,6 +173,7 @@ The Grateful platform includes a comprehensive social interaction system with th
 #### Backend Architecture
 - **Service Layer**: Clean separation of business logic (UserService, ReactionService, NotificationService, FollowService)
 - **NotificationFactory**: Centralized notification creation with built-in error handling and consistency
+- **Advanced Notification Batching**: Generic batching system with specialized batchers for different interaction types
 - **Repository Pattern**: Standardized data access with query optimization
 - **API Contract Validation**: Runtime validation against shared type definitions
 - **Performance Monitoring**: Query performance tracking and optimization
@@ -829,3 +829,109 @@ npm run dev -- --host 0.0.0.0
 - See [DATABASE_STRUCTURE.md](./DATABASE_STRUCTURE.md) for database schema
 - See [GRATEFUL_PRD.md](./GRATEFUL_PRD.md) for project requirements
 - See [TEST_GUIDELINES.md](./TEST_GUIDELINES.md) for mobile testing procedures 
+##
+ Notification Link Handling System
+
+### Link Generation Architecture
+
+The Grateful platform includes a comprehensive notification link system that provides smart navigation from notifications to relevant content:
+
+#### Notification Link Types
+
+**Post-Related Notifications**:
+- **Emoji Reactions**: Navigate to the post where the reaction occurred
+- **Likes/Hearts**: Navigate to the liked post
+- **Mentions**: Navigate to the post containing the mention
+- **Shares**: Navigate to the shared post
+
+**User-Related Notifications**:
+- **Follows**: Navigate to the follower's profile page
+- **Profile Interactions**: Navigate to relevant user profiles
+
+**Batch Notifications**:
+- **Batch Expansion**: Toggle expansion to show individual notifications within the batch
+- **No Navigation**: Batch notifications themselves don't navigate, only expand/collapse
+
+#### Link Generation Logic
+
+**Frontend Link Utilities** (`apps/web/src/utils/notificationLinks.ts`):
+```typescript
+// Generate appropriate link for notification
+export function generateNotificationLink(notification: {
+  type: string
+  postId?: string
+  fromUser?: { id: string, name: string }
+  isBatch?: boolean
+  data?: any
+}): NotificationLinkData | null
+
+// Handle notification click with proper navigation
+export function handleNotificationClick(
+  notification: NotificationData,
+  callbacks: {
+    markAsRead: (id: string) => void
+    toggleBatchExpansion: (id: string) => void
+    navigate: (url: string) => void
+    closeDropdown: () => void
+  }
+)
+```
+
+**Link Resolution Strategy**:
+1. **Batch Check**: If notification is a batch, only toggle expansion (no navigation)
+2. **Post Links**: For post-related notifications, generate `/post/{postId}` URLs
+3. **User Links**: For user-related notifications, generate `/profile/{userId}` URLs
+4. **Fallback**: Unknown notification types have no navigation
+
+#### Clickable Username System
+
+**ClickableUsername Component** (`apps/web/src/components/ClickableUsername.tsx`):
+- **ID Resolution**: Automatically resolves usernames to user IDs for navigation
+- **Fallback Handling**: Graceful fallback when user data is unavailable
+- **Consistent Styling**: Purple-themed styling matching app design
+- **Accessibility**: Proper keyboard navigation and ARIA labels
+
+**Username Resolution Process**:
+1. **Direct ID Navigation**: If valid user ID is provided, navigate directly
+2. **Username Resolution**: If only username is available, resolve to ID via API
+3. **API Lookup**: Use `/api/users/by-username/{username}` endpoint for resolution
+4. **Error Handling**: Graceful fallback with user-friendly error messages
+
+#### Navigation Integration
+
+**Router Integration**:
+- Uses Next.js router for client-side navigation
+- Proper URL generation for SEO and bookmarking
+- Back button support for navigation history
+
+**Dropdown Management**:
+- Automatically closes notification dropdown after navigation
+- Maintains dropdown state for batch expansion/collapse
+- Prevents navigation conflicts with dropdown interactions
+
+#### Security and Validation
+
+**ID Validation** (`apps/web/src/utils/idGuards.ts`):
+```typescript
+// Validate if ID is a proper profile ID format
+export function validProfileId(id: string | number): boolean
+
+// Ensure safe navigation with validated IDs
+```
+
+**Authentication Handling**:
+- Username resolution requires valid authentication token
+- Graceful degradation when authentication is unavailable
+- Proper error handling for unauthorized access
+
+#### Performance Optimizations
+
+**Efficient Resolution**:
+- Batch username resolution to minimize API calls
+- Caching of resolved user IDs for repeated access
+- Debounced resolution for rapid interactions
+
+**Lazy Loading**:
+- Username resolution only occurs when navigation is attempted
+- Avoids unnecessary API calls for notifications that aren't clicked
+- Efficient memory usage for large notification lists

@@ -11,7 +11,7 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 
 ### 🗄️ Database & Data
 - **[Database Structure](DATABASE_STRUCTURE.md)** - Complete database documentation and relationships
-- **[Backend API Documentation](../api/BACKEND_API_DOCUMENTATION.md)** - FastAPI backend setup and usage
+- **[Backend API Documentation](BACKEND_API_DOCUMENTATION.md)** - FastAPI backend setup and usage
 
 ### 🧪 Testing & Quality
 - **[Test Guidelines](TEST_GUIDELINES.md)** - Comprehensive testing guidelines and best practices
@@ -22,7 +22,8 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 
 ### 📋 Project Management
 - **[Known Issues](KNOWN_ISSUES.md)** - Troubleshooting guide and common solutions
-- **[Popular Fixes](POPULAR_FIXES.md)** - Solutions to recurring development issues (notifications, etc.)
+- **[Common Fixes](COMMON_FIXES.md)** - Solutions to recurring development issues
+- **[Test Status](TESTS_STATUS.md)** - Current test status and coverage information
 
 ## 🚀 Quick Start
 
@@ -32,7 +33,7 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 3. Check **[Authentication Flow](AUTHENTICATION_FLOW.md)** for auth implementation
 4. Follow **[Test Guidelines](TEST_GUIDELINES.md)** for testing practices
 5. Use **[Useful Commands](USEFUL_COMMANDS.md)** for development workflow
-6. Check **[Popular Fixes](POPULAR_FIXES.md)** when encountering common issues
+6. Check **[Common Fixes](COMMON_FIXES.md)** and **[Known Issues](KNOWN_ISSUES.md)** when encountering issues
 
 ### For Testers
 1. Follow **[Test Guidelines](TEST_GUIDELINES.md)** for writing tests
