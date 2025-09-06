@@ -36,7 +36,7 @@ class TestContractValidationMiddleware:
         # Test with invalid post type
         invalid_post_data = {
             "content": "Test content",
-            "post_type": "invalid_type",  # Invalid enum value
+            "post_type_override": "invalid_type",  # Invalid enum value
             "is_public": True
         }
         

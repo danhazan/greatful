@@ -115,9 +115,10 @@ describe('CreatePostModal Image Upload', () => {
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledWith({
         content: 'Test gratitude post',
-        postType: 'daily',
         imageUrl: undefined,
-        location: undefined
+        location: undefined,
+        imageFile: undefined,
+        mentions: undefined
       })
     })
   })

@@ -290,7 +290,7 @@ class TestAPIContracts:
         # Test invalid post type
         invalid_post_data = {
             "content": "Test content",
-            "post_type": "invalid_type"
+            "post_type_override": "invalid_type"
         }
         
         response = await http_client.post("/api/v1/posts/", json=invalid_post_data, headers=auth_headers)

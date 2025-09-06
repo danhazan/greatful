@@ -31,6 +31,20 @@ interface Post {
   postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   location?: string
+  location_data?: {
+    display_name: string
+    lat: number
+    lon: number
+    place_id?: string
+    address: {
+      city?: string
+      state?: string
+      country?: string
+      country_code?: string
+    }
+    importance?: number
+    type?: string
+  }
   heartsCount?: number
   isHearted?: boolean
   reactionsCount?: number
@@ -510,12 +524,7 @@ export default function PostCard({
                 >
                   {formatDate(post.createdAt)}
                 </a>
-                {post.location && (
-                  <>
-                    <MapPin className="h-4 w-4" />
-                    <span>{post.location}</span>
-                  </>
-                )}
+
               </div>
             </div>
             <div className={styling.badge}>
@@ -793,6 +802,16 @@ export default function PostCard({
                 <span className="font-medium">Share</span>
               </button>
             </div>
+
+            {/* Location Display - Right aligned */}
+            {(post.location_data || post.location) && (
+              <div className="flex items-center space-x-1 text-gray-500">
+                <MapPin className="h-4 w-4" />
+                <span className={`${styling.textSize} truncate max-w-32`}>
+                  {post.location_data ? post.location_data.display_name : post.location}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </article>

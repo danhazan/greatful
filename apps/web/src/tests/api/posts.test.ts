@@ -7,6 +7,7 @@ global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>
 
 import { NextRequest } from 'next/server'
 import { POST, GET } from '@/app/api/posts/route'
+import { describe, it, beforeEach } from 'node:test'
 
 describe('/api/posts', () => {
   beforeEach(() => {
@@ -27,6 +28,8 @@ describe('/api/posts', () => {
         },
         created_at: '2025-01-08T12:00:00Z',
         image_url: null,
+        location: null,
+        location_data: null,
         hearts_count: 0,
         reactions_count: 0,
         current_user_reaction: null
@@ -45,7 +48,7 @@ describe('/api/posts', () => {
         },
         body: JSON.stringify({
           content: 'Test gratitude post',
-          postType: 'daily'
+          postTypeOverride: 'daily'
         })
       })
 
@@ -64,6 +67,8 @@ describe('/api/posts', () => {
         createdAt: '2025-01-08T12:00:00Z',
         postType: 'daily',
         imageUrl: null,
+        location: null,
+        location_data: null,
         heartsCount: 0,
         isHearted: false,
         reactionsCount: 0,
@@ -80,10 +85,11 @@ describe('/api/posts', () => {
           },
           body: JSON.stringify({
             content: 'Test gratitude post',
-            post_type: 'daily',
             title: null,
             image_url: null,
             location: null,
+            location_data: null,
+            post_type_override: 'daily',
             is_public: true
           })
         }
@@ -119,10 +125,19 @@ describe('/api/posts', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data.error).toBe('Content and post type are required')
+      expect(data.error).toBe('Content is required')
     })
 
-    it('validates post type', async () => {
+    it('validates post type override', async () => {
+      // Mock backend response for invalid post type override
+      ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: async () => ({
+          detail: 'Invalid post type override. Must be one of: daily, photo, spontaneous'
+        })
+      } as Response)
+
       const request = new NextRequest('http://localhost:3000/api/posts', {
         method: 'POST',
         headers: {
@@ -130,56 +145,54 @@ describe('/api/posts', () => {
         },
         body: JSON.stringify({
           content: 'Test content',
-          postType: 'invalid'
+          postTypeOverride: 'invalid'
         })
       })
 
       const response = await POST(request)
       const data = await response.json()
 
-      expect(response.status).toBe(400)
-      expect(data.error).toBe('Invalid post type. Must be daily, photo, or spontaneous')
+      expect(response.status).toBe(422)
+      expect(data.error).toContain('Invalid post type override')
     })
 
-    it('validates character limits for daily posts', async () => {
+    it('validates character limits for auto-detected daily posts', async () => {
+      // Mock backend response for character limit validation
+      ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: async () => ({
+          detail: 'Content too long. Maximum 500 characters for daily posts. Current: 501 characters.'
+        })
+      } as Response)
+
       const request = new NextRequest('http://localhost:3000/api/posts', {
         method: 'POST',
         headers: {
           'authorization': 'Bearer test-token'
         },
         body: JSON.stringify({
-          content: 'a'.repeat(501), // Exceeds 500 char limit
-          postType: 'daily'
+          content: 'a'.repeat(501) // Long content will be auto-detected as daily type
         })
       })
 
       const response = await POST(request)
       const data = await response.json()
 
-      expect(response.status).toBe(400)
-      expect(data.error).toBe('Content too long. Maximum 500 characters for daily posts')
+      expect(response.status).toBe(422)
+      expect(data.error).toContain('Content too long')
     })
 
-    it('validates character limits for photo posts', async () => {
-      const request = new NextRequest('http://localhost:3000/api/posts', {
-        method: 'POST',
-        headers: {
-          'authorization': 'Bearer test-token'
-        },
-        body: JSON.stringify({
-          content: 'a'.repeat(301), // Exceeds 300 char limit
-          postType: 'photo'
+    it('validates character limits for post type override', async () => {
+      // Mock backend response for character limit validation with override
+      ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: async () => ({
+          detail: 'Content too long. Maximum 200 characters for spontaneous posts. Current: 201 characters.'
         })
-      })
+      } as Response)
 
-      const response = await POST(request)
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data.error).toBe('Content too long. Maximum 300 characters for photo posts')
-    })
-
-    it('validates character limits for spontaneous posts', async () => {
       const request = new NextRequest('http://localhost:3000/api/posts', {
         method: 'POST',
         headers: {
@@ -187,15 +200,15 @@ describe('/api/posts', () => {
         },
         body: JSON.stringify({
           content: 'a'.repeat(201), // Exceeds 200 char limit
-          postType: 'spontaneous'
+          postTypeOverride: 'spontaneous'
         })
       })
 
       const response = await POST(request)
       const data = await response.json()
 
-      expect(response.status).toBe(400)
-      expect(data.error).toBe('Content too long. Maximum 200 characters for spontaneous posts')
+      expect(response.status).toBe(422)
+      expect(data.error).toContain('Content too long')
     })
 
     it('handles backend errors', async () => {

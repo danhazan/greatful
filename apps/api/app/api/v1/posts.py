@@ -22,6 +22,7 @@ from app.models.user import User
 from app.services.share_service import ShareService
 from app.services.mention_service import MentionService
 from app.services.algorithm_service import AlgorithmService
+from app.services.content_analysis_service import ContentAnalysisService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -29,37 +30,24 @@ security = HTTPBearer()
 
 
 class PostCreate(BaseModel):
-    """Post creation request model."""
+    """Post creation request model with automatic type detection."""
     content: str = Field(..., min_length=1)
-    post_type: str = Field(..., description="Post type: daily, photo, or spontaneous")
     title: Optional[str] = Field(None, max_length=100)
     image_url: Optional[str] = None
     location: Optional[str] = Field(None, max_length=100)
+    location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
     is_public: bool = True
+    # Optional override for post type (for future use or manual override)
+    post_type_override: Optional[str] = Field(None, description="Optional manual override for post type")
 
-    @field_validator('post_type')
+    @field_validator('post_type_override')
     @classmethod
-    def validate_post_type(cls, v):
-        valid_types = ['daily', 'photo', 'spontaneous']
-        if v not in valid_types:
-            raise ValueError(f'Invalid post type. Must be one of: {valid_types}')
+    def validate_post_type_override(cls, v):
+        if v is not None:
+            valid_types = ['daily', 'photo', 'spontaneous']
+            if v not in valid_types:
+                raise ValueError(f'Invalid post type override. Must be one of: {valid_types}')
         return v
-
-    @model_validator(mode='after')
-    def validate_content_length(self):
-        # Define max lengths based on post type
-        max_lengths = {
-            'daily': 500,
-            'photo': 300,
-            'spontaneous': 200
-        }
-        
-        if self.post_type in max_lengths:
-            max_length = max_lengths[self.post_type]
-            if len(self.content) > max_length:
-                raise ValueError(f'Content too long. Maximum {max_length} characters for {self.post_type} posts')
-        
-        return self
 
 
 class PostResponse(BaseModel):
@@ -71,6 +59,7 @@ class PostResponse(BaseModel):
     post_type: str
     image_url: Optional[str] = None
     location: Optional[str] = None
+    location_data: Optional[dict] = None
     is_public: bool
     created_at: str
     updated_at: Optional[str] = None
@@ -194,7 +183,7 @@ async def create_post_json(
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a new gratitude post (JSON only)."""
+    """Create a new gratitude post with automatic type detection (JSON only)."""
     try:
         # Get user to verify they exist
         user = await User.get_by_id(db, current_user_id)
@@ -204,15 +193,50 @@ async def create_post_json(
                 detail="User not found"
             )
 
-        # Create post directly
+        # Analyze content to determine post type automatically
+        content_analysis_service = ContentAnalysisService(db)
+        has_image = bool(post_data.image_url)
+        
+        analysis_result = content_analysis_service.analyze_content(
+            content=post_data.content,
+            has_image=has_image
+        )
+        
+        # Use override if provided, otherwise use analyzed type
+        final_post_type = PostType(post_data.post_type_override) if post_data.post_type_override else analysis_result.suggested_type
+        
+        # Validate content length for the determined type
+        validation_result = content_analysis_service.validate_content_for_type(
+            content=post_data.content,
+            post_type=final_post_type
+        )
+        
+        if not validation_result["is_valid"]:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Content too long. Maximum {validation_result['character_limit']} characters for {final_post_type.value} posts. Current: {validation_result['character_count']} characters."
+            )
+
+        # Validate location_data if provided
+        if post_data.location_data:
+            from app.services.location_service import LocationService
+            location_service = LocationService(db)
+            if not location_service.validate_location_data(post_data.location_data):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid location data format"
+                )
+
+        # Create post with automatically determined type
         db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
             title=post_data.title,
             content=post_data.content,
-            post_type=PostType(post_data.post_type),
+            post_type=final_post_type,
             image_url=post_data.image_url,
             location=post_data.location,
+            location_data=post_data.location_data,
             is_public=post_data.is_public
         )
         
@@ -241,6 +265,7 @@ async def create_post_json(
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
             location=db_post.location,
+            location_data=db_post.location_data,
             is_public=db_post.is_public,
             created_at=db_post.created_at.isoformat(),
             updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
@@ -257,6 +282,8 @@ async def create_post_json(
             is_hearted=False
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error creating post: {str(e)}")
         raise HTTPException(
@@ -271,19 +298,33 @@ async def create_post_with_file(
     db: AsyncSession = Depends(get_db),
     # FormData parameters
     content: str = Form(...),
-    post_type: str = Form(...),
     title: Optional[str] = Form(None),
     location: Optional[str] = Form(None),
+    location_data: Optional[str] = Form(None),  # JSON string
+    post_type_override: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None)
 ):
-    """Create a new gratitude post with optional file upload."""
+    """Create a new gratitude post with automatic type detection and optional file upload."""
     try:
+        # Parse location_data if provided
+        parsed_location_data = None
+        if location_data:
+            try:
+                import json
+                parsed_location_data = json.loads(location_data)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid location_data JSON format"
+                )
+
         # Create PostCreate object and validate it
         post_data_dict = {
             "content": content,
-            "post_type": post_type,
             "title": title,
             "location": location,
+            "location_data": parsed_location_data,
+            "post_type_override": post_type_override,
             "is_public": True
         }
         
@@ -320,15 +361,50 @@ async def create_post_with_file(
             
             image_url = await _save_uploaded_file(image, db)
 
-        # Create post
+        # Analyze content to determine post type automatically
+        content_analysis_service = ContentAnalysisService(db)
+        has_image = bool(image_url)
+        
+        analysis_result = content_analysis_service.analyze_content(
+            content=post_data.content,
+            has_image=has_image
+        )
+        
+        # Use override if provided, otherwise use analyzed type
+        final_post_type = PostType(post_data.post_type_override) if post_data.post_type_override else analysis_result.suggested_type
+        
+        # Validate content length for the determined type
+        validation_result = content_analysis_service.validate_content_for_type(
+            content=post_data.content,
+            post_type=final_post_type
+        )
+        
+        if not validation_result["is_valid"]:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Content too long. Maximum {validation_result['character_limit']} characters for {final_post_type.value} posts. Current: {validation_result['character_count']} characters."
+            )
+
+        # Validate location_data if provided
+        if post_data.location_data:
+            from app.services.location_service import LocationService
+            location_service = LocationService(db)
+            if not location_service.validate_location_data(post_data.location_data):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid location data format"
+                )
+
+        # Create post with automatically determined type
         db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
             title=post_data.title,
             content=post_data.content,
-            post_type=PostType(post_data.post_type),
+            post_type=final_post_type,
             image_url=image_url,
             location=post_data.location,
+            location_data=post_data.location_data,
             is_public=post_data.is_public
         )
 
@@ -357,6 +433,7 @@ async def create_post_with_file(
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
             location=db_post.location,
+            location_data=db_post.location_data,
             is_public=db_post.is_public,
             created_at=db_post.created_at.isoformat(),
             updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
@@ -631,6 +708,7 @@ async def get_post_by_id(
                        p.post_type,
                        p.image_url,
                        p.location,
+                       p.location_data,
                        p.is_public,
                        p.created_at,
                        p.updated_at,
@@ -671,6 +749,7 @@ async def get_post_by_id(
                        p.post_type,
                        p.image_url,
                        p.location,
+                       p.location_data,
                        p.is_public,
                        p.created_at,
                        p.updated_at,
@@ -723,6 +802,7 @@ async def get_post_by_id(
             post_type=row.post_type,
             image_url=row.image_url,
             location=row.location,
+            location_data=row.location_data,
             is_public=row.is_public,
             created_at=row.created_at.isoformat(),
             updated_at=row.updated_at.isoformat() if row.updated_at else None,

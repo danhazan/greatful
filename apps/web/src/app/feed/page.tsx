@@ -194,9 +194,9 @@ export default function FeedPage() {
 
   const handleCreatePost = async (postData: {
     content: string
-    postType: 'daily' | 'photo' | 'spontaneous'
     imageUrl?: string
     location?: string
+    location_data?: any
     imageFile?: File  // Add support for actual file
   }) => {
     setIsCreatingPost(true)
@@ -214,8 +214,8 @@ export default function FeedPage() {
       if (postData.imageFile) {
         const formData = new FormData()
         formData.append('content', postData.content.trim())
-        formData.append('post_type', postData.postType)
         if (postData.location) formData.append('location', postData.location)
+        if (postData.location_data) formData.append('location_data', JSON.stringify(postData.location_data))
         formData.append('image', postData.imageFile)
 
         response = await fetch('/api/posts', {
@@ -236,9 +236,9 @@ export default function FeedPage() {
           },
           body: JSON.stringify({
             content: postData.content.trim(),
-            postType: postData.postType,
             imageUrl: postData.imageUrl,
-            location: postData.location
+            location: postData.location,
+            location_data: postData.location_data
           })
         })
       }

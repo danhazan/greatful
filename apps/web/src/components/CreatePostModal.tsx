@@ -6,6 +6,8 @@ import { validateImageFile, createImagePreview, revokeImagePreview } from "@/uti
 import { extractMentions } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
+import LocationModal from "./LocationModal"
+
 // UserInfo type defined locally
 interface UserInfo {
   id: number
@@ -14,59 +16,70 @@ interface UserInfo {
   bio?: string
 }
 
+// Location result type from LocationAutocomplete
+interface LocationResult {
+  display_name: string
+  lat: number
+  lon: number
+  place_id?: string
+  address: {
+    city?: string
+    state?: string
+    country?: string
+    country_code?: string
+  }
+  importance?: number
+  type?: string
+}
+
 interface CreatePostModalProps {
   isOpen: boolean
   onClose: () => void
   onSubmit: (postData: {
     content: string
-    postType: 'daily' | 'photo' | 'spontaneous'
     imageUrl?: string
     location?: string
+    location_data?: LocationResult
     imageFile?: File
     mentions?: string[]
   }) => void
 }
 
-const POST_TYPES = [
-  {
-    id: 'daily' as const,
+// Character limits for automatic type detection
+const CHARACTER_LIMITS = {
+  daily: 500,
+  photo: 300,
+  spontaneous: 200
+}
+
+// Post type information for display purposes
+const POST_TYPE_INFO = {
+  daily: {
     name: 'Daily Gratitude',
-    icon: Type,
-    description: 'Share your daily gratitude reflection',
-    maxChars: 500,
-    color: 'purple',
+    description: 'Longer reflective content',
     prominence: '3x larger display'
   },
-  {
-    id: 'photo' as const,
-    name: 'Photo Gratitude',
-    icon: ImageIcon,
-    description: 'Share a moment with a photo',
-    maxChars: 300,
-    color: 'blue',
+  photo: {
+    name: 'Photo Gratitude', 
+    description: 'Image with caption',
     prominence: '2x boost display'
   },
-  {
-    id: 'spontaneous' as const,
+  spontaneous: {
     name: 'Spontaneous Text',
-    icon: Zap,
     description: 'Quick appreciation note',
-    maxChars: 200,
-    color: 'green',
     prominence: 'Compact display'
   }
-]
+}
 
 export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
   const { showSuccess, showError, showLoading, hideToast } = useToast()
   const [postData, setPostData] = useState<{
     content: string
-    postType: 'daily' | 'photo' | 'spontaneous'
     imageUrl?: string
     location?: string
+    location_data?: LocationResult
   }>({
     content: '',
-    postType: 'daily',
     imageUrl: '',
     location: ''
   })
@@ -82,19 +95,50 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 })
   const [currentMentionStart, setCurrentMentionStart] = useState(-1)
 
-  // Get current post type config
-  const currentPostType = POST_TYPES.find(type => type.id === postData.postType)!
-  const maxChars = currentPostType.maxChars
+  // Location state
+  const [showLocationModal, setShowLocationModal] = useState(false)
+
+  // Analyze content to determine post type and character limit
+  const analyzeContent = (content: string, hasImage: boolean) => {
+    const wordCount = content.trim().split(/\s+/).filter(word => word.length > 0).length
+    
+    // Simple Rules (matching backend):
+    // 1. Photo only (has image, no meaningful text) -> photo gratitude
+    // 2. Just text under limit (< 20 words, no image) -> spontaneous  
+    // 3. All others -> daily gratitude (large text, or text+image)
+    
+    if (hasImage && wordCount === 0) {
+      return { type: 'photo' as const, limit: CHARACTER_LIMITS.photo }
+    } else if (!hasImage && wordCount < 20) {
+      return { type: 'spontaneous' as const, limit: CHARACTER_LIMITS.spontaneous }
+    } else {
+      return { type: 'daily' as const, limit: CHARACTER_LIMITS.daily }
+    }
+  }
+
+  const hasImage = Boolean(postData.imageUrl)
+  const contentAnalysis = analyzeContent(postData.content, hasImage)
+  const detectedType = contentAnalysis.type
+  const maxChars = contentAnalysis.limit
+  const currentPostTypeInfo = POST_TYPE_INFO[detectedType]
 
   // Handle click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        // Don't close if clicking on mention autocomplete dropdown
         const target = event.target as Element
+        
+        // ✅ Ignore clicks inside LocationModal if open
+        if (showLocationModal && target.closest('[data-location-modal]')) {
+          return
+        }
+        
+        // ✅ Ignore clicks inside mention autocomplete dropdown
         if (target.closest('[data-mention-autocomplete]')) {
           return
         }
+        
+        // Otherwise close post modal
         onClose()
       }
     }
@@ -103,7 +147,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, showLocationModal])
 
   // Handle escape key and mention autocomplete navigation
   useEffect(() => {
@@ -176,7 +220,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
 
     if (postData.content.length > maxChars) {
-      setError(`Content is too long. Maximum ${maxChars} characters for ${currentPostType.name}`)
+      setError(`Content is too long. Maximum ${maxChars} characters for ${currentPostTypeInfo.name}`)
       return
     }
 
@@ -195,9 +239,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
       await onSubmit({
         content: postData.content.trim(),
-        postType: postData.postType,
         imageUrl: postData.imageUrl || undefined,
         location: postData.location || undefined,
+        location_data: postData.location_data || undefined,
         imageFile: imageFile || undefined,
         mentions: mentionUsernames.length > 0 ? mentionUsernames : undefined
       })
@@ -216,10 +260,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       setImageFile(null)
       setPostData({
         content: '',
-        postType: 'daily',
         imageUrl: '',
         location: ''
       })
+      setShowLocationModal(false)
       localStorage.removeItem('grateful_post_draft')
       onClose()
     } catch (error: any) {
@@ -240,21 +284,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
   }
 
-  const handlePostTypeChange = (newType: 'daily' | 'photo' | 'spontaneous') => {
-    const newMaxChars = POST_TYPES.find(type => type.id === newType)!.maxChars
 
-    // Truncate content if it exceeds new limit
-    let newContent = postData.content
-    if (newContent.length > newMaxChars) {
-      newContent = newContent.substring(0, newMaxChars)
-    }
-
-    setPostData({
-      ...postData,
-      postType: newType,
-      content: newContent
-    })
-  }
 
   const handleAddPhoto = () => {
     const input = document.createElement('input')
@@ -310,8 +340,23 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   }
 
   const handleAddLocation = () => {
-    // TODO: Implement location picker
-    alert('Location picker coming soon!')
+    setShowLocationModal(true)
+  }
+
+  const handleLocationSelect = (location: LocationResult | null) => {
+    if (location) {
+      setPostData({
+        ...postData,
+        location: location.display_name,
+        location_data: location
+      })
+    } else {
+      setPostData({
+        ...postData,
+        location: '',
+        location_data: undefined
+      })
+    }
   }
 
   // Handle mention detection and autocomplete
@@ -389,7 +434,15 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" />
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 z-40" 
+        onClick={(e) => {
+          // Don't close if location modal is open
+          if (e.target === e.currentTarget && !showLocationModal) {
+            onClose()
+          }
+        }}
+      />
 
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
@@ -416,43 +469,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-              {/* Post Type Selection */}
-              <div className="p-6 border-b border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Post Type
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {POST_TYPES.map((type) => {
-                    const Icon = type.icon
-                    const isSelected = postData.postType === type.id
 
-                    return (
-                      <button
-                        key={type.id}
-                        type="button"
-                        onClick={() => handlePostTypeChange(type.id)}
-                        className={`p-4 rounded-lg border-2 transition-all text-left ${isSelected
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                          }`}
-                      >
-                        <div className="flex items-center space-x-3 mb-2">
-                          <Icon className={`h-5 w-5 ${isSelected ? 'text-purple-600' : 'text-gray-500'
-                            }`} />
-                          <span className={`font-medium ${isSelected ? 'text-purple-900' : 'text-gray-900'
-                            }`}>
-                            {type.name}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-1">{type.description}</p>
-                        <p className="text-xs text-gray-400">
-                          {type.maxChars} chars • {type.prominence}
-                        </p>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
 
               {/* Content Input */}
               <div className="flex-1 p-6">
@@ -469,7 +486,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 />
                 <div className="flex justify-between items-center mt-2">
                   <div className="text-xs text-gray-500">
-                    {currentPostType.name} • {currentPostType.prominence}
+                    Auto-detected as {currentPostTypeInfo.name}
                   </div>
                   <div className={`text-sm ${postData.content.length > maxChars * 0.9
                     ? 'text-red-500'
@@ -520,12 +537,50 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   <button
                     type="button"
                     onClick={handleAddLocation}
-                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${
+                      postData.location_data 
+                        ? 'border-purple-300 bg-purple-50 text-purple-700' 
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
                   >
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-700">Add Location</span>
+                    <MapPin className={`h-4 w-4 ${postData.location_data ? 'text-purple-600' : 'text-gray-500'}`} />
+                    <span className="text-sm">
+                      {postData.location_data ? 'Change Location' : 'Add Location'}
+                    </span>
                   </button>
                 </div>
+
+                {/* Selected Location Display */}
+                {postData.location_data && (
+                  <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="h-4 w-4 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-medium text-purple-900">
+                            {postData.location_data.display_name}
+                          </p>
+                          {postData.location_data.address.country && (
+                            <p className="text-xs text-purple-700">
+                              {[
+                                postData.location_data.address.city,
+                                postData.location_data.address.state,
+                                postData.location_data.address.country
+                              ].filter(Boolean).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleLocationSelect(null)}
+                        className="text-purple-600 hover:text-purple-800 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -576,6 +631,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           position={mentionPosition}
         />
       </div>
+
+      {/* Location Modal */}
+      <LocationModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onLocationSelect={handleLocationSelect}
+        initialValue={postData.location_data?.display_name || postData.location || ''}
+      />
     </>
   )
 }

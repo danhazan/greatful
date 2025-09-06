@@ -89,8 +89,8 @@ class TestPostsAPIContracts:
         assert "current_user_reaction" in data
         assert "is_hearted" in data
 
-    def test_invalid_post_type_validation(self, setup_test_database, test_user):
-        """Test that invalid post_type is rejected by Pydantic validation."""
+    def test_invalid_post_type_override_validation(self, setup_test_database, test_user):
+        """Test that invalid post_type_override is rejected by Pydantic validation."""
         client = TestClient(app)
         
         # Create auth token
@@ -99,7 +99,7 @@ class TestPostsAPIContracts:
         
         invalid_post_data = {
             "content": "Test content",
-            "post_type": "invalid_type",  # Invalid enum value
+            "post_type_override": "invalid_type",  # Invalid enum value
             "is_public": True
         }
         
@@ -121,17 +121,35 @@ class TestPostsAPIContracts:
         token = create_access_token({"sub": str(test_user.id)})
         headers = {"Authorization": f"Bearer {token}"}
         
-        # Test daily post with content too long (>500 chars)
+        # Test content too long for automatically detected daily type (>500 chars)
+        # Long content will be auto-detected as daily type, which has 500 char limit
         long_content = "a" * 501
-        invalid_daily_post = {
+        invalid_long_post = {
             "content": long_content,
-            "post_type": "daily",
             "is_public": True
         }
         
         response = client.post(
             "/api/v1/posts/",
-            json=invalid_daily_post,
+            json=invalid_long_post,
+            headers=headers
+        )
+        
+        assert response.status_code == 422  # FastAPI returns 422 for validation errors
+        error_data = response.json()
+        assert "detail" in error_data
+        
+        # Test content too long for spontaneous type override (>200 chars)
+        medium_content = "a" * 201
+        invalid_spontaneous_post = {
+            "content": medium_content,
+            "post_type_override": "spontaneous",  # Force spontaneous type with 200 char limit
+            "is_public": True
+        }
+        
+        response = client.post(
+            "/api/v1/posts/",
+            json=invalid_spontaneous_post,
             headers=headers
         )
         

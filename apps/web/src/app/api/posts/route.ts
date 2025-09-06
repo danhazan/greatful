@@ -22,9 +22,10 @@ export async function POST(request: NextRequest) {
       const formData = await request.formData()
       body = {
         content: formData.get('content') as string,
-        postType: formData.get('post_type') as string,
         title: formData.get('title') as string,
         location: formData.get('location') as string,
+        location_data: formData.get('location_data') as string,
+        post_type_override: formData.get('post_type_override') as string,
         image: formData.get('image') as File
       }
       isFormData = true
@@ -33,39 +34,16 @@ export async function POST(request: NextRequest) {
       body = await request.json()
     }
 
-    // Validate required fields
-    if (!body.content || !(body.postType || body.post_type)) {
+    // Validate required fields (only content is required now)
+    if (!body.content) {
       return NextResponse.json(
-        { error: 'Content and post type are required' },
+        { error: 'Content is required' },
         { status: 400 }
       )
     }
 
-    const postType = body.postType || body.post_type
-
-    // Validate post type
-    const validPostTypes = ['daily', 'photo', 'spontaneous']
-    if (!validPostTypes.includes(postType)) {
-      return NextResponse.json(
-        { error: 'Invalid post type. Must be daily, photo, or spontaneous' },
-        { status: 400 }
-      )
-    }
-
-    // Validate character limits based on post type
-    const maxLengths = {
-      daily: 500,
-      photo: 300,
-      spontaneous: 200
-    }
-    
-    const maxLength = maxLengths[postType as keyof typeof maxLengths]
-    if (body.content.length > maxLength) {
-      return NextResponse.json(
-        { error: `Content too long. Maximum ${maxLength} characters for ${postType} posts` },
-        { status: 400 }
-      )
-    }
+    // Note: Character limit validation is now handled by the backend
+    // based on automatically detected post type
 
     let response: Response
 
@@ -73,9 +51,10 @@ export async function POST(request: NextRequest) {
       // Forward FormData to backend for file upload
       const backendFormData = new FormData()
       backendFormData.append('content', body.content.trim())
-      backendFormData.append('post_type', postType)
       if (body.title) backendFormData.append('title', body.title)
       if (body.location) backendFormData.append('location', body.location)
+      if (body.location_data) backendFormData.append('location_data', body.location_data)
+      if (body.post_type_override) backendFormData.append('post_type_override', body.post_type_override)
       if (body.image) backendFormData.append('image', body.image)
 
       response = await fetch(`${API_BASE_URL}/api/v1/posts/upload`, {
@@ -90,10 +69,11 @@ export async function POST(request: NextRequest) {
       // Transform the request to match the backend API format for JSON
       const postData = {
         content: body.content.trim(),
-        post_type: postType,
         title: body.title || null,
         image_url: body.imageUrl || null,
         location: body.location || null,
+        location_data: body.location_data || null,
+        post_type_override: body.postTypeOverride || null,
         is_public: body.isPublic !== false // Default to true
       }
 
@@ -141,6 +121,8 @@ export async function POST(request: NextRequest) {
       createdAt: createdPost.created_at,
       postType: createdPost.post_type,
       imageUrl: createdPost.image_url,
+      location: createdPost.location,
+      location_data: createdPost.location_data,
       heartsCount: createdPost.hearts_count || 0,
       isHearted: false,
       reactionsCount: createdPost.reactions_count || 0,
@@ -218,6 +200,8 @@ export async function GET(request: NextRequest) {
       createdAt: post.created_at,
       postType: post.post_type,
       imageUrl: post.image_url,
+      location: post.location,
+      location_data: post.location_data,
       heartsCount: post.hearts_count || 0,
       isHearted: post.is_hearted || false,
       reactionsCount: post.reactions_count || 0,

@@ -2,9 +2,10 @@
 Post model for gratitude posts.
 """
 
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, ForeignKey, Enum
+from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, ForeignKey, Enum, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
 import enum
 import uuid
@@ -23,7 +24,8 @@ class Post(Base):
     content = Column(Text, nullable=False)
     post_type = Column(Enum(PostType, name="posttype", schema="public"), default=PostType.daily, nullable=False)
     image_url = Column(String, nullable=True)
-    location = Column(String, nullable=True)
+    location = Column(String, nullable=True)  # Keep for backward compatibility
+    location_data = Column(JSON, nullable=True)  # New structured location data (JSON for SQLite compatibility)
     is_public = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
