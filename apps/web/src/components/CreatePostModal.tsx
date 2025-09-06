@@ -172,6 +172,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
   }, [isOpen, onClose, showMentionAutocomplete])
 
+  // Handle keyboard navigation for drag and drop zone
+  const handleDragZoneKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleAddPhoto()
+    }
+  }
+
   // Focus textarea when modal opens
   useEffect(() => {
     if (isOpen && textareaRef.current) {
@@ -209,6 +217,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       }
     }
   }, [postData.imageUrl])
+
+  // Reset drag state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsDragOver(false)
+      setDragCounter(0)
+    }
+  }, [isOpen])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -286,6 +302,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
 
 
+  // Drag and drop state
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dragCounter, setDragCounter] = useState(0)
+
   const handleAddPhoto = () => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -325,6 +345,63 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       console.error('Error handling image:', error)
       setError('Failed to process image. Please try again.')
     }
+  }
+
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragCounter(prev => prev + 1)
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragOver(true)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newCounter = dragCounter - 1
+    setDragCounter(newCounter)
+    if (newCounter <= 0) {
+      setIsDragOver(false)
+      setDragCounter(0)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    setDragCounter(0)
+
+    const files = Array.from(e.dataTransfer.files)
+    
+    if (files.length === 0) {
+      setError('No files were dropped')
+      return
+    }
+
+    const imageFiles = files.filter(file => file.type.startsWith('image/'))
+    
+    if (imageFiles.length === 0) {
+      const fileTypes = files.map(f => f.type).join(', ')
+      setError(`Please drop an image file. Received: ${fileTypes || 'unknown file types'}`)
+      return
+    }
+
+    if (imageFiles.length > 1) {
+      setError('Please drop only one image at a time')
+      return
+    }
+
+    // Handle the first image file (MVP supports single image)
+    const file = imageFiles[0]
+    handleImageUpload(file)
   }
 
   const handleRemoveImage = () => {
@@ -451,10 +528,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           role="dialog"
           aria-labelledby="modal-title"
           aria-modal="true"
-          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl max-h-[90vh] flex flex-col"
+          className={`bg-white rounded-xl shadow-xl border w-full max-w-2xl max-h-[90vh] flex flex-col transition-colors ${
+            isDragOver ? 'border-purple-400 shadow-purple-200' : 'border-gray-200'
+          }`}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className={`flex items-center justify-between p-6 border-b transition-colors ${
+            isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
+          }`}>
             <h2 id="modal-title" className="text-xl font-semibold text-gray-900">Share Your Gratitude</h2>
             <button
               onClick={onClose}
@@ -476,14 +561,40 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   What are you grateful for?
                 </label>
-                <textarea
-                  ref={textareaRef}
-                  value={postData.content}
-                  onChange={handleContentChange}
-                  className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                  placeholder={`Share what you're grateful for today... (Use @username to mention someone)`}
-                  maxLength={maxChars}
-                />
+                
+                {/* Drag and Drop Zone */}
+                <div
+                  className={`relative ${isDragOver ? 'pointer-events-none' : ''}`}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                >
+                  <textarea
+                    ref={textareaRef}
+                    value={postData.content}
+                    onChange={handleContentChange}
+                    className={`w-full h-32 p-4 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none transition-colors ${
+                      isDragOver 
+                        ? 'border-purple-400 bg-purple-50' 
+                        : 'border-gray-300'
+                    }`}
+                    placeholder={`Share what you're grateful for today... (Use @username to mention someone)`}
+                    maxLength={maxChars}
+                  />
+                  
+                  {/* Drag Overlay */}
+                  {isDragOver && (
+                    <div className="absolute inset-0 bg-purple-100 bg-opacity-90 border-2 border-dashed border-purple-400 rounded-lg flex items-center justify-center z-10">
+                      <div className="text-center">
+                        <ImageIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                        <p className="text-purple-700 font-medium">Drop image to upload</p>
+                        <p className="text-purple-600 text-sm">Supports JPG, PNG, WebP</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
                 <div className="flex justify-between items-center mt-2">
                   <div className="text-xs text-gray-500">
                     Auto-detected as {currentPostTypeInfo.name}
@@ -499,20 +610,26 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 {/* Image Preview */}
                 {postData.imageUrl && (
                   <div className="mt-4">
-                    <div className="relative inline-block">
+                    <div className="relative inline-block group">
                       <img
                         src={postData.imageUrl}
                         alt="Post preview"
-                        className="max-w-full h-32 object-cover rounded-lg border border-gray-200"
+                        className="max-w-full h-32 object-cover rounded-lg border border-gray-200 transition-opacity group-hover:opacity-90"
                       />
                       <button
                         type="button"
                         onClick={handleRemoveImage}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400"
                         title="Remove image"
+                        aria-label="Remove uploaded image"
                       >
                         <X className="h-4 w-4" />
                       </button>
+                      {imageFile && (
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                          {imageFile.name} ({(imageFile.size / 1024 / 1024).toFixed(1)}MB)
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -520,6 +637,38 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
               {/* Additional Options */}
               <div className="px-6 pb-8">
+                {/* Drag and Drop Zone (when no image) */}
+                {!postData.imageUrl && (
+                  <div
+                    className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                      isDragOver
+                        ? 'border-purple-400 bg-purple-50'
+                        : 'border-gray-300 hover:border-purple-300 hover:bg-purple-50'
+                    }`}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    onClick={handleAddPhoto}
+                    onKeyDown={handleDragZoneKeyDown}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Upload image by dragging and dropping or clicking to browse"
+                  >
+                    <ImageIcon className={`h-8 w-8 mx-auto mb-2 ${
+                      isDragOver ? 'text-purple-600' : 'text-gray-400'
+                    }`} />
+                    <p className={`text-sm font-medium mb-1 ${
+                      isDragOver ? 'text-purple-700' : 'text-gray-600'
+                    }`}>
+                      {isDragOver ? 'Drop your image here' : 'Drag and drop an image, or click to browse'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Supports JPG, PNG, WebP up to 5MB
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex space-x-3">
                   <button
                     type="button"
