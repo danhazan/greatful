@@ -1,47 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { NextRequest } from 'next/server'
+import { handleApiProxy } from '@/lib/api-proxy'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { username: string } }
 ) {
-  try {
-    const { username } = params
-    
-    // Get auth token from request headers
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
-    // URL encode the username to handle special characters
-    const encodedUsername = encodeURIComponent(username)
-    
-    // Forward request to FastAPI backend - note the by-username endpoint
-    const response = await fetch(`${API_BASE_URL}/api/v1/users/by-username/${encodedUsername}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status })
-    }
-
-    return NextResponse.json(data)
-  } catch (error) {
-    console.error('Error resolving username to ID:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
+  // URL encode the username to handle special characters
+  const encodedUsername = encodeURIComponent(params.username)
+  
+  // Use generic proxy handler
+  return handleApiProxy(request, `/api/v1/users/by-username/${encodedUsername}`)
 }
