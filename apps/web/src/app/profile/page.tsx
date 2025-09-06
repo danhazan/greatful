@@ -43,6 +43,20 @@ interface Post {
   postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   location?: string
+  location_data?: {
+    display_name: string
+    lat: number
+    lon: number
+    place_id?: string
+    address: {
+      city?: string
+      state?: string
+      country?: string
+      country_code?: string
+    }
+    importance?: number
+    type?: string
+  }
   heartsCount?: number
   isHearted?: boolean
   reactionsCount?: number
@@ -136,7 +150,11 @@ export default function ProfilePage() {
           if (postsResponse.ok) {
             const postsResponseData = await postsResponse.json()
             const userPosts = postsResponseData.data || postsResponseData // Handle both wrapped and unwrapped responses
-            setPosts(Array.isArray(userPosts) ? userPosts : [])
+            // Sort posts by creation date (newest first) as a backup
+            const sortedPosts = Array.isArray(userPosts) ? userPosts.sort((a, b) => 
+              new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime()
+            ) : []
+            setPosts(sortedPosts)
           } else {
             console.error('Failed to fetch user posts')
             setPosts([])

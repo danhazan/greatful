@@ -242,6 +242,21 @@ export interface BackendUserPost {
   created_at: string
   post_type?: string
   image_url?: string
+  location?: string
+  location_data?: {
+    display_name: string
+    lat: number
+    lon: number
+    place_id?: string
+    address: {
+      city?: string
+      state?: string
+      country?: string
+      country_code?: string
+    }
+    importance?: number
+    type?: string
+  }
   hearts_count?: number
   is_hearted?: boolean
   reactions_count?: number
@@ -261,6 +276,21 @@ export interface FrontendUserPost {
   createdAt: string
   postType?: string
   imageUrl?: string
+  location?: string
+  location_data?: {
+    display_name: string
+    lat: number
+    lon: number
+    place_id?: string
+    address: {
+      city?: string
+      state?: string
+      country?: string
+      country_code?: string
+    }
+    importance?: number
+    type?: string
+  }
   heartsCount: number
   isHearted: boolean
   reactionsCount: number
@@ -284,6 +314,8 @@ export function transformUserPost(post: BackendUserPost, userProfile?: any): Fro
     createdAt: ensureTimezoneIndicator(post.created_at),
     postType: post.post_type,
     imageUrl: post.image_url,
+    location: post.location,
+    location_data: post.location_data,
     heartsCount: post.hearts_count || 0,
     isHearted: post.is_hearted || false,
     reactionsCount: post.reactions_count || 0,

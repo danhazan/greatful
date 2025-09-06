@@ -96,8 +96,16 @@ class PostRepository(BaseRepository):
         Returns:
             List[Dict]: List of posts with engagement data
         """
+        import json
+        import logging
+        from fastapi.encoders import jsonable_encoder
+        
+        logger = logging.getLogger(__name__)
+        
         # Build the base query conditions
-        where_conditions = ["p.is_public = true"] if public_only else []
+        where_conditions = []
+        if public_only:
+            where_conditions.append("p.is_public = true")
         if author_id:
             where_conditions.append("p.author_id = :author_id")
         
@@ -110,121 +118,137 @@ class PostRepository(BaseRepository):
         except Exception:
             has_likes_table = False
         
-        if has_likes_table:
-            query = text(f"""
-                SELECT p.id,
-                       p.author_id,
-                       p.title,
-                       p.content,
-                       p.post_type,
-                       p.image_url,
-                       p.location,
-                       p.location_data,
-                       p.is_public,
-                       p.created_at,
-                       p.updated_at,
-                       u.id as author_user_id,
-                       u.username as author_username,
-                       u.email as author_email,
-                       u.profile_image_url as author_profile_image_url,
-                       COALESCE(hearts.hearts_count, 0) as hearts_count,
-                       COALESCE(reactions.reactions_count, 0) as reactions_count,
-                       user_reactions.emoji_code as current_user_reaction,
-                       CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
-                FROM posts p
-                LEFT JOIN users u ON u.id = p.author_id
-                LEFT JOIN (
-                    SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
-                    FROM likes
-                    GROUP BY post_id
-                ) hearts ON hearts.post_id = p.id
-                LEFT JOIN (
-                    SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
-                    FROM emoji_reactions
-                    GROUP BY post_id
-                ) reactions ON reactions.post_id = p.id
-                LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                    AND user_reactions.user_id = :user_id
-                LEFT JOIN likes user_hearts ON user_hearts.post_id = p.id 
-                    AND user_hearts.user_id = :user_id
-                {where_clause}
-                ORDER BY p.created_at DESC
-                LIMIT :limit OFFSET :offset
-            """)
-        else:
-            query = text(f"""
-                SELECT p.id,
-                       p.author_id,
-                       p.title,
-                       p.content,
-                       p.post_type,
-                       p.image_url,
-                       p.location,
-                       p.location_data,
-                       p.is_public,
-                       p.created_at,
-                       p.updated_at,
-                       u.id as author_user_id,
-                       u.username as author_username,
-                       u.email as author_email,
-                       u.profile_image_url as author_profile_image_url,
-                       0 as hearts_count,
-                       COALESCE(reactions.reactions_count, 0) as reactions_count,
-                       user_reactions.emoji_code as current_user_reaction,
-                       false as is_hearted
-                FROM posts p
-                LEFT JOIN users u ON u.id = p.author_id
-                LEFT JOIN (
-                    SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
-                    FROM emoji_reactions
-                    GROUP BY post_id
-                ) reactions ON reactions.post_id = p.id
-                LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                    AND user_reactions.user_id = :user_id
-                {where_clause}
-                ORDER BY p.created_at DESC
-                LIMIT :limit OFFSET :offset
-            """)
-        
-        params = {
-            "user_id": user_id,
-            "limit": limit,
-            "offset": offset
-        }
-        
-        if author_id:
-            params["author_id"] = author_id
-        
-        result = await self.execute_raw_query(query, params)
-        rows = result.fetchall()
-        
-        posts = []
-        for row in rows:
-            posts.append({
-                "id": row.id,
-                "author_id": row.author_id,
-                "title": row.title,
-                "content": row.content,
-                "post_type": row.post_type,
-                "image_url": row.image_url,
-                "location": row.location,
-                "location_data": row.location_data,
-                "is_public": row.is_public,
-                "created_at": str(row.created_at),
-                "updated_at": str(row.updated_at) if row.updated_at else None,
-                "author": {
-                    "id": row.author_user_id,
-                    "username": row.author_username,
-                    "email": row.author_email,
-                    "profile_image_url": row.author_profile_image_url
-                },
-                "hearts_count": int(row.hearts_count) if row.hearts_count else 0,
-                "reactions_count": int(row.reactions_count) if row.reactions_count else 0,
-                "current_user_reaction": row.current_user_reaction,
-                "is_hearted": bool(row.is_hearted) if hasattr(row, 'is_hearted') else False
-            })
-        
-        return posts
+        try:
+            if has_likes_table:
+                query = text(f"""
+                    SELECT p.id,
+                           p.author_id,
+                           p.title,
+                           p.content,
+                           p.post_type,
+                           p.image_url,
+                           p.location,
+                           p.location_data,
+                           p.is_public,
+                           p.created_at,
+                           p.updated_at,
+                           u.id as author_user_id,
+                           u.username as author_username,
+                           u.email as author_email,
+                           u.profile_image_url as author_profile_image_url,
+                           COALESCE(hearts.hearts_count, 0) as hearts_count,
+                           COALESCE(reactions.reactions_count, 0) as reactions_count,
+                           user_reactions.emoji_code as current_user_reaction,
+                           CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
+                    FROM posts p
+                    LEFT JOIN users u ON u.id = p.author_id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
+                        FROM likes
+                        GROUP BY post_id
+                    ) hearts ON hearts.post_id = p.id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
+                        FROM emoji_reactions
+                        GROUP BY post_id
+                    ) reactions ON reactions.post_id = p.id
+                    LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
+                        AND user_reactions.user_id = :user_id
+                    LEFT JOIN likes user_hearts ON user_hearts.post_id = p.id 
+                        AND user_hearts.user_id = :user_id
+                    {where_clause}
+                    ORDER BY p.created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """)
+            else:
+                query = text(f"""
+                    SELECT p.id,
+                           p.author_id,
+                           p.title,
+                           p.content,
+                           p.post_type,
+                           p.image_url,
+                           p.location,
+                           p.location_data,
+                           p.is_public,
+                           p.created_at,
+                           p.updated_at,
+                           u.id as author_user_id,
+                           u.username as author_username,
+                           u.email as author_email,
+                           u.profile_image_url as author_profile_image_url,
+                           0 as hearts_count,
+                           COALESCE(reactions.reactions_count, 0) as reactions_count,
+                           user_reactions.emoji_code as current_user_reaction,
+                           false as is_hearted
+                    FROM posts p
+                    LEFT JOIN users u ON u.id = p.author_id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
+                        FROM emoji_reactions
+                        GROUP BY post_id
+                    ) reactions ON reactions.post_id = p.id
+                    LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
+                        AND user_reactions.user_id = :user_id
+                    {where_clause}
+                    ORDER BY p.created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """)
+            
+            params = {
+                "user_id": user_id,
+                "limit": limit,
+                "offset": offset
+            }
+            
+            if author_id:
+                params["author_id"] = author_id
+            
+            logger.debug(f"Executing query with params: {params}")
+            result = await self.execute_raw_query(query, params)
+            rows = result.fetchall()
+            
+            posts = []
+            for row in rows:
+                # Normalize location_data safely
+                loc_data = row.location_data
+                if isinstance(loc_data, str):
+                    try:
+                        loc_data = json.loads(loc_data)
+                    except Exception:
+                        loc_data = None
+                
+                post_dict = {
+                    "id": row.id,
+                    "author_id": row.author_id,
+                    "title": row.title,
+                    "content": row.content,
+                    "post_type": row.post_type,
+                    "image_url": row.image_url,
+                    "location": row.location,
+                    "location_data": loc_data,
+                    "is_public": row.is_public,
+                    "created_at": str(row.created_at),
+                    "updated_at": str(row.updated_at) if row.updated_at else None,
+                    "author": {
+                        "id": row.author_user_id,
+                        "username": row.author_username,
+                        "email": row.author_email,
+                        "profile_image_url": row.author_profile_image_url
+                    },
+                    "hearts_count": int(row.hearts_count) if row.hearts_count else 0,
+                    "reactions_count": int(row.reactions_count) if row.reactions_count else 0,
+                    "current_user_reaction": row.current_user_reaction,
+                    "is_hearted": bool(row.is_hearted) if hasattr(row, 'is_hearted') else False
+                }
+                posts.append(post_dict)
+            
+            logger.debug(f"post_repo.get_posts_with_engagement - returning {len(posts)} posts")
+            return posts
+            
+        except Exception as e:
+            logger.error(f"Error in get_posts_with_engagement: {e}")
+            raise
     
     async def get_posts_by_type(
         self, 

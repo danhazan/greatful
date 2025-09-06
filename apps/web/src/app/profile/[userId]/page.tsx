@@ -34,6 +34,20 @@ interface Post {
   postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   location?: string
+  location_data?: {
+    display_name: string
+    lat: number
+    lon: number
+    place_id?: string
+    address: {
+      city?: string
+      state?: string
+      country?: string
+      country_code?: string
+    }
+    importance?: number
+    type?: string
+  }
   heartsCount?: number
   isHearted?: boolean
   reactionsCount?: number
@@ -146,7 +160,11 @@ export default function UserProfilePage() {
             if (userPostsResponse.ok) {
               const userPostsApiResponse = await userPostsResponse.json()
               const userPostsData = userPostsApiResponse.data || userPostsApiResponse  // Handle both wrapped and direct responses
-              setPosts(Array.isArray(userPostsData) ? userPostsData : [])
+              // Sort posts by creation date (newest first) as a backup
+              const sortedPosts = Array.isArray(userPostsData) ? userPostsData.sort((a, b) => 
+                new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime()
+              ) : []
+              setPosts(sortedPosts)
             } else {
               // Fallback: get all posts from feed and filter by author
               const feedResponse = await fetch('/api/posts', {

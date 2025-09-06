@@ -277,6 +277,10 @@ class UserService(BaseService):
             offset=offset
         )
 
+        # Add logging to trace data shape
+        from fastapi.encoders import jsonable_encoder
+        logger.debug("user_service.get_user_posts - returning: %s", jsonable_encoder(posts))
+
         logger.info(f"Retrieved {len(posts)} posts for user {user_id}")
         return posts
 

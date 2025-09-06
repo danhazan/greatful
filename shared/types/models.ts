@@ -59,6 +59,21 @@ export interface Post extends BaseEntity {
   content: string
   post_type: PostType
   image_url?: string
+  location?: string
+  location_data?: {
+    display_name: string
+    lat: number
+    lon: number
+    place_id?: string
+    address: {
+      city?: string
+      state?: string
+      country?: string
+      country_code?: string
+    }
+    importance?: number
+    type?: string
+  }
   is_public: boolean
   author?: UserInfo
 }

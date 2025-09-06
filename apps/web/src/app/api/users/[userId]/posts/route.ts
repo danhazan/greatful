@@ -56,6 +56,8 @@ export async function GET(
       createdAt: post.created_at,
       postType: post.post_type,
       imageUrl: post.image_url,
+      location: post.location,
+      location_data: post.location_data,
       heartsCount: post.hearts_count || 0,
       isHearted: post.is_hearted || false,
       reactionsCount: post.reactions_count || 0,

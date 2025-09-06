@@ -183,6 +183,10 @@ async def get_my_posts(
         public_only=False
     )
     
+    # Add logging to trace data shape
+    from fastapi.encoders import jsonable_encoder
+    logger.debug("users.get_my_posts - result payload: %s", jsonable_encoder(result))
+    
     return success_response(result, getattr(request.state, 'request_id', None))
 
 
@@ -214,6 +218,10 @@ async def get_user_posts(
         current_user_id=current_user_id,
         public_only=True  # Only show public posts for other users
     )
+    
+    # Add logging to trace data shape
+    from fastapi.encoders import jsonable_encoder
+    logger.debug("users.get_user_posts - result payload: %s", jsonable_encoder(result))
     
     return success_response(result, getattr(request.state, 'request_id', None))
 
