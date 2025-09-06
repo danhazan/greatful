@@ -7,7 +7,7 @@ global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>
 
 import { NextRequest } from 'next/server'
 import { POST, GET } from '@/app/api/posts/route'
-import { describe, it, beforeEach } from 'node:test'
+import { describe, it, beforeEach, expect } from '@jest/globals'
 
 describe('/api/posts', () => {
   beforeEach(() => {
@@ -47,8 +47,8 @@ describe('/api/posts', () => {
           'content-type': 'application/json'
         },
         body: JSON.stringify({
-          content: 'Test gratitude post',
-          postTypeOverride: 'daily'
+          content: 'Test gratitude post'
+          // No postTypeOverride - let backend classify automatically
         })
       })
 
@@ -89,7 +89,7 @@ describe('/api/posts', () => {
             image_url: null,
             location: null,
             location_data: null,
-            post_type_override: 'daily',
+            post_type_override: null, // No override - let backend classify
             is_public: true
           })
         }

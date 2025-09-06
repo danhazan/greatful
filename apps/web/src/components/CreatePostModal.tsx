@@ -47,9 +47,9 @@ interface CreatePostModalProps {
 
 // Character limits for automatic type detection
 const CHARACTER_LIMITS = {
-  daily: 5000,  // Generous limit for thoughtful daily gratitudes
-  photo: 0,     // Photo gratitude has no text - image only
-  spontaneous: 200  // Quick appreciation notes
+  daily: 5000,      // enforced for any text post
+  photo: 0,         // image-only
+  spontaneous: 200  // keep for reference/metadata only — DO NOT enforce this limit
 }
 
 // Post type information for display purposes
@@ -98,31 +98,37 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   // Location state
   const [showLocationModal, setShowLocationModal] = useState(false)
 
-  // Analyze content to determine post type and character limit
+  // BEFORE: analyzeContent returned {type, limit} and UI used limit to enforce input. 
+  // AFTER: analyzeContent returns predicted type only (for display), and we compute maxChars separately.
   const analyzeContent = (content: string, hasImage: boolean) => {
-    const trimmedContent = content.trim()
-    const wordCount = trimmedContent.split(/\s+/).filter(word => word.length > 0).length
-    const charCount = trimmedContent.length
-    
-    // Simple Rules (matching backend):
-    // 1. Photo only (has image, no meaningful text) -> photo gratitude
-    // 2. Just text under limit (< 20 words AND < 100 chars, no image) -> spontaneous  
-    // 3. All others -> daily gratitude (large text, or text+image)
+    const trimmed = content.trim()
+    const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
     
     if (hasImage && wordCount === 0) {
-      return { type: 'photo' as const, limit: CHARACTER_LIMITS.photo }
-    } else if (!hasImage && wordCount < 20 && charCount < 100) {
-      return { type: 'spontaneous' as const, limit: CHARACTER_LIMITS.spontaneous }
-    } else {
-      return { type: 'daily' as const, limit: CHARACTER_LIMITS.daily }
+      return { type: 'photo' as const } // image only
     }
+    
+    // Predicted spontaneous if very short; this is only a UI hint
+    if (!hasImage && wordCount < 20) {
+      return { type: 'spontaneous' as const }
+    }
+    
+    // Otherwise predicted as daily (longer text)
+    return { type: 'daily' as const }
   }
 
   const hasImage = Boolean(postData.imageUrl)
-  const contentAnalysis = analyzeContent(postData.content, hasImage)
-  const detectedType = contentAnalysis.type
-  const maxChars = contentAnalysis.limit
-  const currentPostTypeInfo = POST_TYPE_INFO[detectedType]
+  
+  // inside component render / memo
+  const trimmed = postData.content.trim()
+  const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
+  
+  // predicted type only for display
+  const predicted = analyzeContent(postData.content, hasImage)
+  
+  // Input max: photo-only -> 0, else text -> 5000
+  const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
+  const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
 
   // Handle click outside to close
   useEffect(() => {
@@ -255,14 +261,21 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       const mentions = extractMentions(postData.content.trim())
       const mentionUsernames = mentions.map(m => m.username)
 
-      await onSubmit({
+      // Build payload without definitive postType
+      const payload: any = {
         content: postData.content.trim(),
-        imageUrl: postData.imageUrl || undefined,
-        location: postData.location || undefined,
-        location_data: postData.location_data || undefined,
-        imageFile: imageFile || undefined,
-        mentions: mentionUsernames.length > 0 ? mentionUsernames : undefined
-      })
+        // include image if present
+        ...(postData.imageUrl ? { imageUrl: postData.imageUrl } : {}),
+        ...(postData.location ? { location: postData.location } : {}),
+        ...(postData.location_data ? { location_data: postData.location_data } : {}),
+        ...(imageFile ? { imageFile } : {}),
+        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {})
+        // DO NOT attach `postType` or limit enforcement client-side
+        // Optionally:
+        // auto_classify: true
+      }
+
+      await onSubmit(payload)
 
       // Hide loading toast and show success
       hideToast(loadingToastId)
@@ -598,8 +611,12 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 </div>
                 
                 <div className="flex justify-between items-center mt-2">
-                  <div className="text-xs text-gray-500">
-                    Auto-detected as {currentPostTypeInfo.name}
+                  {/* Predicted label — not enforced */}
+                  <div className="text-sm text-gray-500">
+                    Predicted: {predicted.type === 'photo' ? 'Photo' : predicted.type === 'daily' ? 'Daily Gratitude' : 'Spontaneous'}
+                    {predicted.type === 'spontaneous' && (
+                      <span className="ml-2 text-xs text-gray-400"> (UI hint — not a character limit)</span>
+                    )}
                   </div>
                   <div className={`text-sm ${postData.content.length > maxChars * 0.9
                     ? 'text-red-500'
