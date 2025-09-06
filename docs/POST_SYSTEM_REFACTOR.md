@@ -10,10 +10,10 @@ Task 12 will implement the foundational post system enhancements including:
 
 - **Content Analysis**: Intelligent post type detection and content quality scoring
 - **Rich Text Editing**: Enhanced content creation with formatting and visual customization
-- **Multi-Image Support**: Advanced image handling with optimization and variants
+- **Basic Image Support**: Drag-and-drop image upload with existing processing capabilities
 - **Location Integration**: Basic location services reusing existing profile infrastructure
 
-The implementation will establish the foundation for future enhancements while focusing on core functionality.
+The implementation will establish the foundation for future enhancements while focusing on core functionality. Advanced image optimization and multi-image support are planned for the post-MVP phase.
 
 ## Current Post System Architecture Analysis
 
@@ -233,7 +233,7 @@ interface GratitudeTemplate {
 }
 ```
 
-#### Enhanced Image System
+#### Enhanced Image System (Post-MVP)
 
 **Multi-Image Support**
 ```python
@@ -268,34 +268,52 @@ class EnhancedImageService:
         """
 ```
 
-**Image Enhancement Features**
+**Image Enhancement Features (Post-MVP)**
 - **Automatic Enhancement**: Brightness, contrast, and saturation optimization
 - **Gratitude Filters**: Warm, positive filters that enhance mood
 - **Smart Cropping**: AI-powered cropping for optimal composition
-- **Compression**: Intelligent compression balancing quality and performance
+- **Advanced Compression**: Intelligent compression balancing quality and performance
 - **Lazy Loading**: Progressive loading with blur-to-sharp transitions
 
 #### Drag-and-Drop Interface
 
-**Enhanced Upload UX**
+**Basic Upload UX (MVP)**
 ```typescript
-interface DragDropUpload {
-  // Multi-file support
-  maxFiles: number
+interface BasicDragDropUpload {
+  // Single file support (MVP)
+  maxFiles: 1
   acceptedTypes: string[]
   
   // Visual feedback
   dragOverlay: boolean
-  uploadProgress: number[]
+  uploadProgress: number
   
-  // Image preview and editing
-  imagePreview: ImagePreview[]
-  cropTool: boolean
-  filterOptions: ImageFilter[]
+  // Basic image preview
+  imagePreview: ImagePreview
   
   // Accessibility
   keyboardNavigation: boolean
   screenReaderSupport: boolean
+}
+```
+
+**Enhanced Upload UX (Post-MVP)**
+```typescript
+interface EnhancedDragDropUpload extends BasicDragDropUpload {
+  // Multi-file support (Post-MVP)
+  maxFiles: number // Up to 4
+  
+  // Advanced visual feedback
+  uploadProgress: number[] // Multiple files
+  
+  // Advanced image preview and editing
+  imagePreview: ImagePreview[]
+  cropTool: boolean
+  filterOptions: ImageFilter[]
+  
+  // Enhanced features
+  imageReordering: boolean
+  batchProcessing: boolean
 }
 ```
 
@@ -1038,9 +1056,9 @@ interface PostAnalyticsDashboard {
 
 ### Phase 2: Visual Enhancements (Weeks 3-4)
 1. **Rich Text Editor**: Integrate comprehensive rich text editing
-2. **Enhanced Image System**: Multi-image support and optimization
-3. **Drag-and-Drop Upload**: Modern upload interface with preview
-4. **Visual Customization**: Background colors and text styling
+2. **Basic Image Upload**: Drag-and-drop upload interface with existing processing
+3. **Visual Customization**: Background colors and text styling
+4. **Content Templates**: Basic gratitude content templates
 
 ### Phase 3: Location Integration (Weeks 5-6)
 1. **Location Service**: OpenStreetMap integration and search (reusing profile system)
@@ -1172,3 +1190,7 @@ interface PostAnalyticsDashboard {
 - **Analytics Engagement**: Usage of post analytics features
 
 This comprehensive refactoring plan transforms the basic post system into a sophisticated, intelligent content creation and management platform that enhances user experience while maintaining the core gratitude-focused mission of the Grateful platform.
+
+## Post-MVP Enhancements
+
+Advanced features including multi-image support, image optimization, lazy loading, advanced analytics, and comprehensive post management are planned for the post-MVP phase. These enhancements are documented in the separate post-MVP specification located at `.kiro/specs/post-enhancements-mvp/` which builds upon the foundational system established in Task 12.

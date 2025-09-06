@@ -18,12 +18,14 @@ export default function PostPage({ params }: PostPageProps) {
 
   useEffect(() => {
     const token = localStorage.getItem("access_token")
+    
+    // If no token, allow viewing in read-only mode
     if (!token) {
-      router.push("/auth/login")
+      setIsLoading(false)
       return
     }
 
-    // Get user info from API
+    // Get user info from API if token exists
     const fetchUserInfo = async () => {
       try {
         const response = await fetch('/api/users/me/profile', {
@@ -43,20 +45,19 @@ export default function PostPage({ params }: PostPageProps) {
           }
           setUser(currentUser)
         } else {
-          // Check if it's an auth error
+          // Check if it's an auth error - clear token but don't redirect
           if (response.status === 401 || response.status === 403) {
             localStorage.removeItem("access_token")
-            router.push("/auth/login")
-            return
+            setUser(null)
+          } else {
+            throw new Error('Failed to fetch user info')
           }
-          throw new Error('Failed to fetch user info')
         }
       } catch (error) {
         console.error('Error fetching user info:', error)
-        // Redirect to login on auth failure
+        // Clear invalid token but allow viewing in read-only mode
         localStorage.removeItem("access_token")
-        router.push("/auth/login")
-        return
+        setUser(null)
       } finally {
         setIsLoading(false)
       }
@@ -100,13 +101,13 @@ export default function PostPage({ params }: PostPageProps) {
             <SinglePostView postId={params.id} />
           </div>
           
-          {/* Back to feed link */}
+          {/* Back to feed/home link */}
           <div className="mt-6 text-center">
             <a 
-              href="/feed" 
+              href={user ? "/feed" : "/"} 
               className="text-purple-600 hover:text-purple-700 font-medium"
             >
-              ← Back to Feed
+              ← Back to {user ? "Feed" : "Home"}
             </a>
           </div>
         </div>

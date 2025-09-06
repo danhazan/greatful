@@ -59,23 +59,27 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
         setError(null)
 
         const token = localStorage.getItem('access_token')
-        if (!token) {
-          setError('Authentication required')
-          return
+        
+        // Build headers - include auth if available
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        }
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
         }
 
         const response = await fetch(`/api/posts/${postId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers,
         })
 
         if (!response.ok) {
           if (response.status === 404) {
             setError('Post not found')
-          } else if (response.status === 401) {
-            setError('Authentication required')
+          } else if (response.status === 403) {
+            setError('This post is private')
+          } else if (response.status === 401 && !token) {
+            setError('Authentication required to view this post')
           } else {
             setError('Failed to load post')
           }
@@ -121,15 +125,29 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
         <p className="text-gray-500 mb-4">
           {error === 'Post not found'
             ? 'This post may have been deleted or you may not have permission to view it.'
+            : error === 'This post is private'
+            ? 'This post is private and can only be viewed by the author.'
+            : error === 'Authentication required to view this post'
+            ? 'Please log in to view this post.'
             : 'Please try again or check your internet connection.'
           }
         </p>
-        <button
-          onClick={() => router.push('/feed')}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-        >
-          Back to Feed
-        </button>
+        <div className="space-x-4">
+          {(error === 'Authentication required to view this post' || error === 'This post is private') && (
+            <button
+              onClick={() => router.push('/auth/login')}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              Log In
+            </button>
+          )}
+          <button
+            onClick={() => router.push('/')}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+          >
+            Back to Home
+          </button>
+        </div>
       </div>
     )
   }
@@ -156,6 +174,12 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
         router.push(`/profile/${userId}`)
       }}
       onHeart={(postId, isCurrentlyHearted, heartInfo) => {
+        // If no current user, redirect to login
+        if (!currentUser) {
+          router.push('/auth/login')
+          return
+        }
+        
         if (heartInfo) {
           setPost(prev => prev ? {
             ...prev,
@@ -165,6 +189,12 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
         }
       }}
       onReaction={(postId, emojiCode, reactionSummary) => {
+        // If no current user, redirect to login
+        if (!currentUser) {
+          router.push('/auth/login')
+          return
+        }
+        
         if (reactionSummary) {
           setPost(prev => prev ? {
             ...prev,
@@ -174,6 +204,12 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
         }
       }}
       onRemoveReaction={(postId, reactionSummary) => {
+        // If no current user, redirect to login
+        if (!currentUser) {
+          router.push('/auth/login')
+          return
+        }
+        
         if (reactionSummary) {
           setPost(prev => prev ? {
             ...prev,
