@@ -34,7 +34,7 @@ class PostCreate(BaseModel):
     content: str = Field(..., min_length=1)
     title: Optional[str] = Field(None, max_length=100)
     image_url: Optional[str] = None
-    location: Optional[str] = Field(None, max_length=100)
+    location: Optional[str] = Field(None, max_length=150)
     location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
     is_public: bool = True
     # Optional override for post type (for future use or manual override)
@@ -535,6 +535,7 @@ async def get_feed(
                     post_type=post_data['post_type'],
                     image_url=post_data['image_url'],
                     location=post_data.get('location'),
+                    location_data=post_data.get('location_data'),
                     is_public=post_data['is_public'],
                     created_at=post_data['created_at'],
                     updated_at=post_data['updated_at'],
@@ -565,6 +566,7 @@ async def get_feed(
                            p.post_type,
                            p.image_url,
                            p.location,
+                           p.location_data,
                            p.is_public,
                            p.created_at,
                            p.updated_at,
@@ -606,6 +608,7 @@ async def get_feed(
                            p.post_type,
                            p.image_url,
                            p.location,
+                           p.location_data,
                            p.is_public,
                            p.created_at,
                            p.updated_at,
@@ -649,6 +652,7 @@ async def get_feed(
                     post_type=row.post_type,
                     image_url=row.image_url,
                     location=getattr(row, 'location', None),
+                    location_data=getattr(row, 'location_data', None),
                     is_public=row.is_public,
                     created_at=row.created_at.isoformat() if hasattr(row.created_at, 'isoformat') else str(row.created_at),
                     updated_at=row.updated_at.isoformat() if row.updated_at and hasattr(row.updated_at, 'isoformat') else str(row.updated_at) if row.updated_at else None,

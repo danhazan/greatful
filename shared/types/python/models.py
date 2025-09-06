@@ -163,7 +163,7 @@ class CreatePostRequest(BaseModel):
     post_type: PostType
     title: Optional[str] = Field(None, max_length=100)
     image_url: Optional[str] = None
-    location: Optional[str] = Field(None, max_length=100)
+    location: Optional[str] = Field(None, max_length=150)
     is_public: bool = True
 
     @validator('content')

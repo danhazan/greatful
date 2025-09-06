@@ -71,7 +71,8 @@ export default function LocationAutocomplete({
         },
         body: JSON.stringify({
           query: query.trim(),
-          limit: 8
+          limit: 8,
+          max_length: 150
         })
       })
 
@@ -306,7 +307,7 @@ export default function LocationAutocomplete({
                   index === selectedIndex ? 'text-purple-500' : 'text-gray-400'
                 }`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
+                  <p className="text-sm font-medium break-words line-clamp-2">
                     {location.display_name}
                   </p>
                   {location.address.country && (

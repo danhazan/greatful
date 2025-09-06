@@ -88,7 +88,7 @@ class TestLocationAPI:
             
             assert response.status_code == 200
             # Should be capped at 10
-            mock_search.assert_called_with(query="New York", limit=10)
+            mock_search.assert_called_with(query="New York", limit=10, max_length=150)
 
     def test_location_search_service_error(self, client, auth_headers):
         """Test location search when service raises error."""

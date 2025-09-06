@@ -395,6 +395,7 @@ class LocationSearchRequest(BaseModel):
     """Location search request model."""
     query: str
     limit: Optional[int] = 10
+    max_length: Optional[int] = 150
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -424,20 +425,23 @@ async def search_locations(
     
     - **query**: Search query (city, neighborhood, place name, minimum 2 characters)
     - **limit**: Maximum number of results (1-10, default: 10)
+    - **max_length**: Maximum length for location display names (default: 150)
     
     Returns list of location suggestions with display names, coordinates, and address data.
     Used for location autocomplete in profile editing.
     """
     from app.services.location_service import LocationService
     
-    # Validate limit
+    # Validate limit and max_length
     limit = min(max(search_request.limit or 10, 1), 10)
+    max_length = min(max(search_request.max_length or 150, 50), 300)
     
     location_service = LocationService(db)
     try:
         results = await location_service.search_locations(
             query=search_request.query,
-            limit=limit
+            limit=limit,
+            max_length=max_length
         )
         
         return success_response(results, getattr(request.state, 'request_id', None))

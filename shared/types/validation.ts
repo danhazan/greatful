@@ -194,7 +194,7 @@ export function validateCreatePostRequest(data: any): data is CreatePostRequest 
   return (
     (data.title === undefined || data.title === null || (typeof data.title === 'string' && data.title.length <= 100)) &&
     (data.image_url === undefined || data.image_url === null || typeof data.image_url === 'string') &&
-    (data.location === undefined || data.location === null || (typeof data.location === 'string' && data.location.length <= 100)) &&
+    (data.location === undefined || data.location === null || (typeof data.location === 'string' && data.location.length <= 150)) &&
     (data.is_public === undefined || typeof data.is_public === 'boolean')
   )
 }

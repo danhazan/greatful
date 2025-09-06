@@ -557,7 +557,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                       <div className="flex items-center space-x-2">
                         <MapPin className="h-4 w-4 text-purple-600" />
                         <div>
-                          <p className="text-sm font-medium text-purple-900">
+                          <p className="text-sm font-medium text-purple-900 break-words line-clamp-2">
                             {postData.location_data.display_name}
                           </p>
                           {postData.location_data.address.country && (

@@ -41,7 +41,8 @@ class LocationService(BaseService):
     async def search_locations(
         self, 
         query: str, 
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
+        max_length: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         Search for locations using Nominatim API.
@@ -49,6 +50,7 @@ class LocationService(BaseService):
         Args:
             query: Search query (city, neighborhood, place name)
             limit: Maximum number of results (default: 10, max: 10)
+            max_length: Maximum length for display_name (default: 150)
             
         Returns:
             List of location results with display_name, lat, lon, and raw data
@@ -66,6 +68,7 @@ class LocationService(BaseService):
         
         query = query.strip()
         search_limit = min(limit or self.SEARCH_LIMIT, self.SEARCH_LIMIT)
+        max_display_length = max_length or 150
         
         try:
             client = await self._get_client()
@@ -104,7 +107,7 @@ class LocationService(BaseService):
             formatted_results = []
             for item in raw_results:
                 try:
-                    formatted_result = self._format_location_result(item)
+                    formatted_result = self._format_location_result(item, max_display_length)
                     if formatted_result:
                         formatted_results.append(formatted_result)
                 except Exception as e:
@@ -133,12 +136,13 @@ class LocationService(BaseService):
                 "location_search_error"
             )
     
-    def _format_location_result(self, raw_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _format_location_result(self, raw_item: Dict[str, Any], max_length: int = 150) -> Optional[Dict[str, Any]]:
         """
         Format a raw Nominatim result into our standard format.
         
         Args:
             raw_item: Raw result from Nominatim API
+            max_length: Maximum length for display_name
             
         Returns:
             Formatted location result or None if invalid
@@ -151,6 +155,10 @@ class LocationService(BaseService):
             
             if not display_name or not lat or not lon:
                 return None
+            
+            # Truncate display_name if it exceeds max_length
+            if len(display_name) > max_length:
+                display_name = display_name[:max_length-3] + "..."
             
             # Convert coordinates to float
             try:
