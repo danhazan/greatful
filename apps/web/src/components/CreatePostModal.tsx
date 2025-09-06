@@ -100,16 +100,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   // Analyze content to determine post type and character limit
   const analyzeContent = (content: string, hasImage: boolean) => {
-    const wordCount = content.trim().split(/\s+/).filter(word => word.length > 0).length
+    const trimmedContent = content.trim()
+    const wordCount = trimmedContent.split(/\s+/).filter(word => word.length > 0).length
+    const charCount = trimmedContent.length
     
     // Simple Rules (matching backend):
     // 1. Photo only (has image, no meaningful text) -> photo gratitude
-    // 2. Just text under limit (< 20 words, no image) -> spontaneous  
+    // 2. Just text under limit (< 20 words AND < 100 chars, no image) -> spontaneous  
     // 3. All others -> daily gratitude (large text, or text+image)
     
     if (hasImage && wordCount === 0) {
       return { type: 'photo' as const, limit: CHARACTER_LIMITS.photo }
-    } else if (!hasImage && wordCount < 20) {
+    } else if (!hasImage && wordCount < 20 && charCount < 100) {
       return { type: 'spontaneous' as const, limit: CHARACTER_LIMITS.spontaneous }
     } else {
       return { type: 'daily' as const, limit: CHARACTER_LIMITS.daily }

@@ -156,20 +156,20 @@ class ContentAnalysisService(BaseService):
         has_image: bool
     ) -> PostType:
         """
-        Determine post type based on simplified content analysis rules.
+        Determine post type based on content analysis rules.
         
-        Simple Rules:
+        Rules:
         1. Photo only (has image, no meaningful text) -> photo gratitude
-        2. Just text under limit (< 20 words, no image) -> spontaneous
-        3. All others -> daily gratitude (large text, or text+image)
+        2. Short text (< 20 words AND < 100 characters, no image) -> spontaneous
+        3. All others -> daily gratitude (longer text, or any text+image)
         """
         
         # Rule 1: Photo only - has image and no meaningful text content
         if has_image and word_count == 0:
             return PostType.photo
         
-        # Rule 2: Just text under limit - short text content without image
-        if not has_image and word_count < self.SPONTANEOUS_WORD_THRESHOLD:
+        # Rule 2: Just text under limit - both word count AND character count must be small
+        if not has_image and word_count < self.SPONTANEOUS_WORD_THRESHOLD and len(content) < 100:
             return PostType.spontaneous
         
         # Rule 3: All others - large text, or any text+image combination
