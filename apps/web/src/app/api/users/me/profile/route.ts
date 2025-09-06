@@ -1,69 +1,12 @@
-import { NextRequest, NextResponse } from "next/server"
-import { 
-  handleApiError, 
-  createAuthHeaders, 
-  makeBackendRequest, 
-  createErrorResponse,
-  hasValidAuth
-} from '@/lib/api-utils'
+import { NextRequest } from "next/server"
+import { handleUserProfileGetRequest, handleUserProfilePutRequest } from '@/lib/user-profile-api'
 
 export async function GET(request: NextRequest) {
-  try {
-    // Check authorization
-    if (!hasValidAuth(request)) {
-      return createErrorResponse('Authorization header required', 401)
-    }
-    
-    const authHeaders = createAuthHeaders(request)
-
-    const response = await makeBackendRequest('/api/v1/users/me/profile', {
-      method: 'GET',
-      authHeaders,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
-        { error: errorData.detail || 'Failed to fetch profile' },
-        { status: response.status }
-      )
-    }
-
-    const profileResponse = await response.json()
-    return NextResponse.json(profileResponse)
-  } catch (error) {
-    return handleApiError(error, 'getting profile')
-  }
+  // Use shared handler with no userId (defaults to 'me' endpoint, requires auth)
+  return handleUserProfileGetRequest(request)
 }
 
 export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json()
-    
-    // Check authorization
-    if (!hasValidAuth(request)) {
-      return createErrorResponse('Authorization header required', 401)
-    }
-    
-    const authHeaders = createAuthHeaders(request)
-
-    const response = await makeBackendRequest('/api/v1/users/me/profile', {
-      method: 'PUT',
-      authHeaders,
-      body: JSON.stringify(body),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
-        { error: errorData.detail || 'Failed to update profile' },
-        { status: response.status }
-      )
-    }
-
-    const profileResponse = await response.json()
-    return NextResponse.json(profileResponse)
-  } catch (error) {
-    return handleApiError(error, 'updating profile')
-  }
+  // Use shared handler for profile updates (always requires auth)
+  return handleUserProfilePutRequest(request)
 }

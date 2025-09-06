@@ -8,19 +8,6 @@ import { useRouter } from 'next/navigation'
 import PostPage from '@/app/post/[id]/page'
 import { UserProvider } from '@/contexts/UserContext'
 import { ToastProvider } from '@/contexts/ToastContext'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { beforeEach } from 'node:test'
-import { describe } from 'node:test'
-import { it } from 'node:test'
-import { it } from 'node:test'
-import { beforeEach } from 'node:test'
-import { describe } from 'node:test'
-import { beforeEach } from 'node:test'
-import { describe } from 'node:test'
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
@@ -155,7 +142,7 @@ describe('PostPage Authentication', () => {
       )
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+        expect(screen.queryByText('Loading post...')).not.toBeInTheDocument()
       })
 
       // Should show authentication notice
