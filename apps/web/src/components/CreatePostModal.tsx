@@ -47,9 +47,9 @@ interface CreatePostModalProps {
 
 // Character limits for automatic type detection
 const CHARACTER_LIMITS = {
-  daily: 500,
-  photo: 300,
-  spontaneous: 200
+  daily: 2000,  // Increased for thoughtful daily gratitudes
+  photo: 0,     // Photo gratitude has no text - image only
+  spontaneous: 200  // Quick appreciation notes
 }
 
 // Post type information for display purposes

@@ -27,7 +27,7 @@ class TestContentAnalysisService:
         assert result.suggested_type == PostType.daily  # Text + image = daily
         assert result.has_image is True
         assert result.word_count == 2
-        assert result.character_limit == 500
+        assert result.character_limit == 2000
         assert result.confidence > 0.7
 
     def test_analyze_content_photo_with_no_text(self, service):
@@ -40,7 +40,7 @@ class TestContentAnalysisService:
         assert result.suggested_type == PostType.photo
         assert result.has_image is True
         assert result.word_count == 0
-        assert result.character_limit == 300
+        assert result.character_limit == 0
         assert result.confidence > 0.9
 
     def test_analyze_content_spontaneous_short_text(self, service):
@@ -66,7 +66,7 @@ class TestContentAnalysisService:
         assert result.suggested_type == PostType.daily
         assert result.has_image is False
         assert result.word_count > 20
-        assert result.character_limit == 500
+        assert result.character_limit == 2000
         assert result.confidence > 0.8
 
     def test_analyze_content_edge_case_19_words(self, service):
@@ -89,7 +89,7 @@ class TestContentAnalysisService:
         
         assert result.suggested_type == PostType.daily
         assert result.word_count >= 20
-        assert result.character_limit == 500
+        assert result.character_limit == 2000
 
     def test_analyze_content_image_with_long_text(self, service):
         """Test that image with long text is detected as daily."""
@@ -101,7 +101,7 @@ class TestContentAnalysisService:
         assert result.suggested_type == PostType.daily  # Any text + image = daily
         assert result.has_image is True
         assert result.word_count > 20
-        assert result.character_limit == 500
+        assert result.character_limit == 2000
 
     def test_validate_content_for_type_valid(self, service):
         """Test content validation for valid content length."""
@@ -170,8 +170,8 @@ class TestContentAnalysisService:
 
     def test_calculate_confidence_high_for_clear_cases(self, service):
         """Test that confidence is high for clear-cut cases."""
-        # Very short text with image -> high confidence photo
-        confidence = service._calculate_confidence(PostType.photo, 2, True, 10)
+        # Image with no text -> high confidence photo
+        confidence = service._calculate_confidence(PostType.photo, 0, True, 0)
         assert confidence >= 0.85
         
         # Very short text without image -> high confidence spontaneous
