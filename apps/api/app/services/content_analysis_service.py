@@ -38,7 +38,7 @@ class ContentAnalysisService(BaseService):
     
     # Character limits for each post type
     CHARACTER_LIMITS = {
-        PostType.daily: 2000,  # Increased for thoughtful daily gratitudes
+        PostType.daily: 5000,  # Generous limit for thoughtful daily gratitudes
         PostType.photo: 0,     # Photo gratitude has no text - image only
         PostType.spontaneous: 200  # Quick appreciation notes
     }
