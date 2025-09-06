@@ -257,6 +257,12 @@ export interface BackendUserPost {
     importance?: number
     type?: string
   }
+  author: {
+    id: string
+    username: string
+    email: string
+    profile_image_url?: string
+  }
   hearts_count?: number
   is_hearted?: boolean
   reactions_count?: number
@@ -305,11 +311,11 @@ export function transformUserPost(post: BackendUserPost, userProfile?: any): Fro
     id: post.id,
     content: post.content,
     author: {
-      id: userProfile?.id?.toString() || '1',
-      name: userProfile?.display_name || userProfile?.username || 'Unknown User',
-      username: userProfile?.username || 'unknown',
-      display_name: userProfile?.display_name,
-      image: userProfile?.profile_image_url
+      id: post.author.id.toString(),
+      name: post.author.username || 'Unknown User',
+      username: post.author.username || 'unknown',
+      display_name: post.author.username,
+      image: post.author.profile_image_url
     },
     createdAt: ensureTimezoneIndicator(post.created_at),
     postType: post.post_type,

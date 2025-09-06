@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar"
 import ProfilePhotoUpload from "@/components/ProfilePhotoUpload"
 import ProfileImageSection from "@/components/ProfileImageSection"
 import LocationAutocomplete from "@/components/LocationAutocomplete"
+import { transformUserPosts } from "@/lib/transformers"
 
 interface UserProfile {
   id: number
@@ -150,10 +151,12 @@ export default function ProfilePage() {
           if (postsResponse.ok) {
             const postsResponseData = await postsResponse.json()
             const userPosts = postsResponseData.data || postsResponseData // Handle both wrapped and unwrapped responses
+            // Transform posts from backend format to frontend format
+            const transformedPosts = Array.isArray(userPosts) ? transformUserPosts(userPosts) : []
             // Sort posts by creation date (newest first) as a backup
-            const sortedPosts = Array.isArray(userPosts) ? userPosts.sort((a, b) => 
-              new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime()
-            ) : []
+            const sortedPosts = transformedPosts.sort((a, b) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            )
             setPosts(sortedPosts)
           } else {
             console.error('Failed to fetch user posts')

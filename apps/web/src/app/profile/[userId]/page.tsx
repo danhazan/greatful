@@ -7,6 +7,7 @@ import PostCard from "@/components/PostCard"
 import Navbar from "@/components/Navbar"
 import FollowButton from "@/components/FollowButton"
 import ProfileImageSection from "@/components/ProfileImageSection"
+import { transformUserPosts } from "@/lib/transformers"
 
 interface UserProfile {
   id: number
@@ -147,7 +148,8 @@ export default function UserProfilePage() {
             if (postsResponse.ok) {
               const postsApiResponse = await postsResponse.json()
               const postsData = postsApiResponse.data || postsApiResponse  // Handle both wrapped and direct responses
-              setPosts(Array.isArray(postsData) ? postsData : [])
+              const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
+              setPosts(transformedPosts)
             }
           } else {
             // For other users, try the dedicated endpoint first
@@ -160,10 +162,12 @@ export default function UserProfilePage() {
             if (userPostsResponse.ok) {
               const userPostsApiResponse = await userPostsResponse.json()
               const userPostsData = userPostsApiResponse.data || userPostsApiResponse  // Handle both wrapped and direct responses
+              // Transform posts from backend format to frontend format
+              const transformedPosts = Array.isArray(userPostsData) ? transformUserPosts(userPostsData) : []
               // Sort posts by creation date (newest first) as a backup
-              const sortedPosts = Array.isArray(userPostsData) ? userPostsData.sort((a, b) => 
-                new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime()
-              ) : []
+              const sortedPosts = transformedPosts.sort((a, b) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )
               setPosts(sortedPosts)
             } else {
               // Fallback: get all posts from feed and filter by author

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { proxyApiRequest } from "@/lib/api-proxy";
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -7,36 +8,23 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params
+    const postId = params.id;
     
-    // Get authorization header if present
-    const authHeader = request.headers.get('authorization')
-    
-    // Build headers for backend request
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-    
-    // Add authorization header if present (for authenticated users)
-    if (authHeader) {
-      headers['Authorization'] = authHeader
-    }
+    // Use the robust proxy for the backend call
+    // public endpoint - optional auth
+    const response = await proxyApiRequest(request, `/api/v1/posts/${postId}`, { 
+      requireAuth: false, 
+      forwardCookies: true, 
+      passthroughOn401: true 
+    });
 
-    // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/${id}`, {
-      method: 'GET',
-      headers,
-    })
-
+    // If the proxy returned an error response, return it as-is
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
-        { error: errorData.detail || 'Failed to fetch post' },
-        { status: response.status }
-      )
+      return response;
     }
 
-    const post = await response.json()
+    const responseText = await response.text();
+    const post = JSON.parse(responseText);
 
     // Helper function to transform profile image URL
     const transformProfileImageUrl = (url: string | null): string | null => {
