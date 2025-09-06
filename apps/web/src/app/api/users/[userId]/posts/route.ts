@@ -1,76 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  createErrorResponse,
+  hasValidAuth
+} from '@/lib/api-utils'
+import { fetchUserPosts } from '@/lib/user-posts-api'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
+    // Check authorization
+    if (!hasValidAuth(request)) {
+      return createErrorResponse('Authorization header required', 401)
     }
-
+    
+    const authHeaders = createAuthHeaders(request)
     const userId = params.userId
 
-    // Get query parameters
-    const { searchParams } = new URL(request.url)
-    const limit = searchParams.get('limit') || '20'
-    const offset = searchParams.get('offset') || '0'
-
-    // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/posts?limit=${limit}&offset=${offset}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
+    // Fetch and transform posts using shared utility
+    const transformedPosts = await fetchUserPosts({
+      userId,
+      request,
+      authHeaders,
     })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
-        { error: errorData.detail || 'Failed to fetch user posts' },
-        { status: response.status }
-      )
-    }
-
-    const postsResponse = await response.json()
-    const posts = postsResponse.data || postsResponse
-
-    // Transform the posts to match the frontend format
-    const transformedPosts = posts.map((post: any) => ({
-      id: post.id,
-      content: post.content,
-      author: {
-        id: post.author?.id?.toString() || userId,
-        name: post.author?.display_name || post.author?.username || 'Unknown User',
-        username: post.author?.username || 'unknown',
-        display_name: post.author?.display_name,
-        image: post.author?.profile_image_url
-      },
-      createdAt: post.created_at,
-      postType: post.post_type,
-      imageUrl: post.image_url,
-      location: post.location,
-      location_data: post.location_data,
-      heartsCount: post.hearts_count || 0,
-      isHearted: post.is_hearted || false,
-      reactionsCount: post.reactions_count || 0,
-      currentUserReaction: post.current_user_reaction
-    }))
 
     return NextResponse.json(transformedPosts)
 
   } catch (error) {
-    console.error('Error fetching user posts:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'fetching user posts')
   }
 }
