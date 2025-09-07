@@ -125,6 +125,8 @@ class PostRepository(BaseRepository):
                            p.author_id,
                            p.title,
                            p.content,
+                           p.rich_content,
+                           p.post_style,
                            p.post_type,
                            p.image_url,
                            p.location,
@@ -166,6 +168,8 @@ class PostRepository(BaseRepository):
                            p.author_id,
                            p.title,
                            p.content,
+                           p.rich_content,
+                           p.post_style,
                            p.post_type,
                            p.image_url,
                            p.location,
@@ -218,11 +222,21 @@ class PostRepository(BaseRepository):
                     except Exception:
                         loc_data = None
                 
+                # Normalize post_style safely
+                post_style_data = row.post_style
+                if isinstance(post_style_data, str):
+                    try:
+                        post_style_data = json.loads(post_style_data)
+                    except Exception:
+                        post_style_data = None
+                
                 post_dict = {
                     "id": row.id,
                     "author_id": row.author_id,
                     "title": row.title,
                     "content": row.content,
+                    "rich_content": row.rich_content,
+                    "post_style": post_style_data,
                     "post_type": row.post_type,
                     "image_url": row.image_url,
                     "location": row.location,

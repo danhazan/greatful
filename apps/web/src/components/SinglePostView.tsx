@@ -13,6 +13,17 @@ interface SinglePostViewProps {
 interface Post {
   id: string
   content: string
+  richContent?: string
+  postStyle?: {
+    id: string
+    name: string
+    backgroundColor: string
+    backgroundGradient?: string
+    textColor: string
+    borderStyle?: string
+    fontFamily?: string
+    textShadow?: string
+  }
   author: {
     id: string
     name: string
