@@ -8,16 +8,60 @@ import CreatePostModal from "@/components/CreatePostModal"
 
 import Navbar from "@/components/Navbar"
 
-// No mock data - use real API data exclusively
+// Post interface matching the API response
+interface Post {
+  id: string
+  content: string
+  richContent?: string
+  postStyle?: {
+    id: string
+    name: string
+    backgroundColor: string
+    backgroundGradient?: string
+    textColor: string
+    borderStyle?: string
+    fontFamily?: string
+    textShadow?: string
+  }
+  author: {
+    id: string
+    name: string
+    username?: string
+    display_name?: string
+    image?: string
+  }
+  createdAt: string
+  postType: "daily" | "photo" | "spontaneous"
+  imageUrl?: string
+  location?: string
+  location_data?: {
+    display_name: string
+    lat: number
+    lon: number
+    place_id?: string
+    address: {
+      city?: string
+      state?: string
+      country?: string
+      country_code?: string
+    }
+    importance?: number
+    type?: string
+  }
+  heartsCount: number
+  isHearted: boolean
+  reactionsCount: number
+  currentUserReaction?: string
+}
 
 export default function FeedPage() {
   const router = useRouter()
-  const [posts, setPosts] = useState<any[]>([])
+  const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)
-  const [selectedPost, setSelectedPost] = useState<any>(null)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Load posts from API - server is authoritative for all data
@@ -50,13 +94,16 @@ export default function FeedPage() {
       }
 
       const postsData = await response.json()
+      console.log('Raw posts data from API:', postsData)
 
       // Handle both wrapped and unwrapped responses
       const posts = postsData.data || postsData
       if (!Array.isArray(posts)) {
+        console.error('Posts data is not an array:', posts)
         throw new Error('Invalid posts data format')
       }
 
+      console.log('Processed posts:', posts)
       // The API already returns the correct format, just use it directly
       setPosts(posts)
     } catch (error) {
@@ -197,7 +244,10 @@ export default function FeedPage() {
     imageUrl?: string
     location?: string
     location_data?: any
-    imageFile?: File  // Add support for actual file
+    imageFile?: File
+    richContent?: string
+    postStyle?: any
+    mentions?: string[]
   }) => {
     setIsCreatingPost(true)
     
@@ -214,6 +264,8 @@ export default function FeedPage() {
       if (postData.imageFile) {
         const formData = new FormData()
         formData.append('content', postData.content.trim())
+        if (postData.richContent) formData.append('richContent', postData.richContent)
+        if (postData.postStyle) formData.append('postStyle', JSON.stringify(postData.postStyle))
         if (postData.location) formData.append('location', postData.location)
         if (postData.location_data) formData.append('location_data', JSON.stringify(postData.location_data))
         formData.append('image', postData.imageFile)
@@ -236,6 +288,8 @@ export default function FeedPage() {
           },
           body: JSON.stringify({
             content: postData.content.trim(),
+            richContent: postData.richContent,
+            postStyle: postData.postStyle,
             imageUrl: postData.imageUrl,
             location: postData.location,
             location_data: postData.location_data

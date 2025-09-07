@@ -1,12 +1,15 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Camera, MapPin, Type, Image as ImageIcon, Zap } from "lucide-react"
+import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush } from "lucide-react"
 import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
 import LocationModal from "./LocationModal"
+import RichTextEditor from "./RichTextEditor"
+import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
+
 
 // UserInfo type defined locally
 interface UserInfo {
@@ -42,6 +45,8 @@ interface CreatePostModalProps {
     location_data?: LocationResult
     imageFile?: File
     mentions?: string[]
+    postStyle?: PostStyle
+    richContent?: string
   }) => void
 }
 
@@ -89,6 +94,12 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const modalRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Rich text and styling state (always enabled)
+  const [richContent, setRichContent] = useState('')
+  const [selectedStyle, setSelectedStyle] = useState<PostStyle>(POST_STYLES[0])
+  const [showBackgrounds, setShowBackgrounds] = useState(false)
+  const [backgroundsPosition, setBackgroundsPosition] = useState({ x: 0, y: 0 })
+
   // Mention autocomplete state
   const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false)
   const [mentionQuery, setMentionQuery] = useState('')
@@ -119,12 +130,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   const hasImage = Boolean(postData.imageUrl)
   
-  // inside component render / memo
-  const trimmed = postData.content.trim()
+  // Always use rich content for analysis
+  const contentForAnalysis = richContent || postData.content
+  const trimmed = contentForAnalysis.trim()
   const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
   
   // predicted type only for display
-  const predicted = analyzeContent(postData.content, hasImage)
+  const predicted = analyzeContent(contentForAnalysis, hasImage)
   
   // Input max: photo-only -> 0, else text -> 5000
   const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
@@ -145,6 +157,16 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         if (target.closest('[data-mention-autocomplete]')) {
           return
         }
+
+        // ✅ Ignore clicks inside background selector if open
+        if (showBackgrounds && (target.closest('.background-selector') || target.closest('[data-backgrounds-modal]'))) {
+          return
+        }
+
+        // ✅ Ignore clicks inside rich text editor modals (color pickers, etc.)
+        if (target.closest('.rich-text-toolbar') || target.closest('[data-rich-text-modal]')) {
+          return
+        }
         
         // Otherwise close post modal
         onClose()
@@ -155,7 +177,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose, showLocationModal])
+  }, [isOpen, onClose, showLocationModal, showBackgrounds])
 
   // Handle escape key and mention autocomplete navigation
   useEffect(() => {
@@ -238,12 +260,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     e.preventDefault()
     setError('')
 
-    if (!postData.content.trim()) {
+    const contentToSubmit = richContent || postData.content
+    if (!contentToSubmit.trim()) {
       setError('Please write something you\'re grateful for')
       return
     }
 
-    if (postData.content.length > maxChars) {
+    if (contentToSubmit.length > maxChars) {
       setError(`Content is too long. Maximum ${maxChars} characters for ${currentPostTypeInfo.name}`)
       return
     }
@@ -258,21 +281,32 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
     try {
       // Extract mentions from content
-      const mentions = extractMentions(postData.content.trim())
+      const mentions = extractMentions(contentToSubmit.trim())
       const mentionUsernames = mentions.map(m => m.username)
 
-      // Build payload without definitive postType
+      // Build payload with rich content support
       const payload: any = {
-        content: postData.content.trim(),
+        content: contentToSubmit.trim(),
         // include image if present
         ...(postData.imageUrl ? { imageUrl: postData.imageUrl } : {}),
         ...(postData.location ? { location: postData.location } : {}),
         ...(postData.location_data ? { location_data: postData.location_data } : {}),
         ...(imageFile ? { imageFile } : {}),
-        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {})
-        // DO NOT attach `postType` or limit enforcement client-side
-        // Optionally:
-        // auto_classify: true
+        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {}),
+        // Always include rich content and styling
+        ...(richContent ? { richContent: richContent } : {}),
+        ...(selectedStyle.id !== 'default' ? { 
+          postStyle: {
+            id: selectedStyle.id,
+            name: selectedStyle.name,
+            backgroundColor: selectedStyle.backgroundColor,
+            backgroundGradient: selectedStyle.backgroundGradient,
+            textColor: selectedStyle.textColor,
+            borderStyle: selectedStyle.borderStyle,
+            fontFamily: selectedStyle.fontFamily,
+            textShadow: selectedStyle.textShadow
+          }
+        } : {})
       }
 
       await onSubmit(payload)
@@ -294,6 +328,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         imageUrl: '',
         location: ''
       })
+      setRichContent('')
+      setSelectedStyle(POST_STYLES[0])
       setShowLocationModal(false)
       localStorage.removeItem('grateful_post_draft')
       onClose()
@@ -521,6 +557,33 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     setCurrentMentionStart(-1)
   }
 
+  // Rich text and styling handlers
+  const handleRichTextChange = (plainText: string, formattedText: string) => {
+    setPostData({ ...postData, content: plainText })
+    setRichContent(formattedText)
+  }
+
+  const handleRichTextMentionTrigger = (query: string, position: { x: number, y: number }) => {
+    setMentionQuery(query)
+    setMentionPosition(position)
+    setShowMentionAutocomplete(true)
+    // Set current mention start based on rich text content
+    const cursorPosition = richContent.length
+    const textBeforeCursor = richContent.slice(0, cursorPosition)
+    const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
+    if (mentionMatch) {
+      setCurrentMentionStart(cursorPosition - mentionMatch[0].length)
+    }
+  }
+
+
+
+  const handleShowBackgrounds = (e: React.MouseEvent) => {
+    const rect = (e.target as HTMLElement).getBoundingClientRect()
+    setBackgroundsPosition({ x: rect.left, y: rect.bottom + 8 })
+    setShowBackgrounds(true)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -573,11 +636,26 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
               {/* Content Input */}
               <div className="flex-1 p-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  What are you grateful for?
-                </label>
-                
-                {/* Drag and Drop Zone */}
+                <div className="flex items-center justify-between mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    What are you grateful for?
+                  </label>
+                  
+                  {/* Rich Text Toggle */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={handleShowBackgrounds}
+                      className="flex items-center space-x-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                      title="Choose style"
+                    >
+                      <Brush className="h-3 w-3" />
+                      <span>Style</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content Editor - Always Rich Text */}
                 <div
                   className={`relative ${isDragOver ? 'pointer-events-none' : ''}`}
                   onDragEnter={handleDragEnter}
@@ -585,18 +663,17 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
                 >
-                  <textarea
-                    ref={textareaRef}
-                    value={postData.content}
-                    onChange={handleContentChange}
-                    className={`w-full h-32 p-4 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none transition-colors ${
-                      isDragOver 
-                        ? 'border-purple-400 bg-purple-50' 
-                        : 'border-gray-300'
-                    }`}
-                    placeholder={`Share what you're grateful for today... (Use @username to mention someone)`}
-                    maxLength={maxChars}
-                  />
+                  <div className={`border rounded-lg ${isDragOver ? 'border-purple-400 bg-purple-50' : 'border-gray-300'}`}>
+                    <RichTextEditor
+                      value={postData.content}
+                      onChange={handleRichTextChange}
+                      placeholder="Share what you're grateful for today... (Use @username to mention someone)"
+                      maxLength={maxChars}
+                      onMentionTrigger={handleRichTextMentionTrigger}
+                      selectedStyle={selectedStyle}
+                      onStyleChange={setSelectedStyle}
+                    />
+                  </div>
                   
                   {/* Drag Overlay */}
                   {isDragOver && (
@@ -618,11 +695,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                       <span className="ml-2 text-xs text-gray-400"> (UI hint — not a character limit)</span>
                     )}
                   </div>
-                  <div className={`text-sm ${postData.content.length > maxChars * 0.9
+                  <div className={`text-sm ${contentForAnalysis.length > maxChars * 0.9
                     ? 'text-red-500'
                     : 'text-gray-500'
                     }`}>
-                    {postData.content.length}/{maxChars}
+                    {contentForAnalysis.length}/{maxChars}
                   </div>
                 </div>
 
@@ -806,6 +883,15 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         onClose={() => setShowLocationModal(false)}
         onLocationSelect={handleLocationSelect}
         initialValue={postData.location_data?.display_name || postData.location || ''}
+      />
+
+      {/* Background Selector */}
+      <PostStyleSelector
+        isOpen={showBackgrounds}
+        onClose={() => setShowBackgrounds(false)}
+        selectedStyle={selectedStyle}
+        onStyleChange={setSelectedStyle}
+        position={backgroundsPosition}
       />
     </>
   )

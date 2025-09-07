@@ -30,8 +30,10 @@ security = HTTPBearer()
 
 
 class PostCreate(BaseModel):
-    """Post creation request model with automatic type detection."""
+    """Post creation request model with automatic type detection and rich content support."""
     content: str = Field(..., min_length=1)
+    rich_content: Optional[str] = Field(None, description="Rich text formatted content")
+    post_style: Optional[dict] = Field(None, description="Post styling information")
     title: Optional[str] = Field(None, max_length=100)
     image_url: Optional[str] = None
     location: Optional[str] = Field(None, max_length=150)
@@ -49,13 +51,25 @@ class PostCreate(BaseModel):
                 raise ValueError(f'Invalid post type override. Must be one of: {valid_types}')
         return v
 
+    @field_validator('post_style')
+    @classmethod
+    def validate_post_style(cls, v):
+        if v is not None:
+            required_fields = ['id', 'name', 'backgroundColor', 'textColor']
+            for field in required_fields:
+                if field not in v:
+                    raise ValueError(f'Post style missing required field: {field}')
+        return v
+
 
 class PostResponse(BaseModel):
-    """Post response model."""
+    """Post response model with rich content support."""
     id: str
     author_id: int
     title: Optional[str] = None
     content: str
+    rich_content: Optional[str] = None
+    post_style: Optional[dict] = None
     post_type: str
     image_url: Optional[str] = None
     location: Optional[str] = None
@@ -227,12 +241,14 @@ async def create_post_json(
                     detail="Invalid location data format"
                 )
 
-        # Create post with automatically determined type
+        # Create post with automatically determined type and rich content support
         db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
             title=post_data.title,
             content=post_data.content,
+            rich_content=post_data.rich_content,
+            post_style=post_data.post_style,
             post_type=final_post_type,
             image_url=post_data.image_url,
             location=post_data.location,
@@ -262,6 +278,8 @@ async def create_post_json(
             author_id=db_post.author_id,
             title=db_post.title,
             content=db_post.content,
+            rich_content=db_post.rich_content,
+            post_style=db_post.post_style,
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
             location=db_post.location,
@@ -298,6 +316,8 @@ async def create_post_with_file(
     db: AsyncSession = Depends(get_db),
     # FormData parameters
     content: str = Form(...),
+    rich_content: Optional[str] = Form(None),
+    post_style: Optional[str] = Form(None),  # JSON string
     title: Optional[str] = Form(None),
     location: Optional[str] = Form(None),
     location_data: Optional[str] = Form(None),  # JSON string
@@ -306,21 +326,34 @@ async def create_post_with_file(
 ):
     """Create a new gratitude post with automatic type detection and optional file upload."""
     try:
-        # Parse location_data if provided
+        # Parse JSON fields if provided
+        import json
+        
         parsed_location_data = None
         if location_data:
             try:
-                import json
                 parsed_location_data = json.loads(location_data)
             except json.JSONDecodeError:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Invalid location_data JSON format"
                 )
+        
+        parsed_post_style = None
+        if post_style:
+            try:
+                parsed_post_style = json.loads(post_style)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid post_style JSON format"
+                )
 
         # Create PostCreate object and validate it
         post_data_dict = {
             "content": content,
+            "rich_content": rich_content,
+            "post_style": parsed_post_style,
             "title": title,
             "location": location,
             "location_data": parsed_location_data,
@@ -395,12 +428,14 @@ async def create_post_with_file(
                     detail="Invalid location data format"
                 )
 
-        # Create post with automatically determined type
+        # Create post with automatically determined type and rich content support
         db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
             title=post_data.title,
             content=post_data.content,
+            rich_content=post_data.rich_content,
+            post_style=post_data.post_style,
             post_type=final_post_type,
             image_url=image_url,
             location=post_data.location,
@@ -430,6 +465,8 @@ async def create_post_with_file(
             author_id=db_post.author_id,
             title=db_post.title,
             content=db_post.content,
+            rich_content=db_post.rich_content,
+            post_style=db_post.post_style,
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
             location=db_post.location,

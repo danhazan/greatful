@@ -20,6 +20,8 @@ describe('/api/posts', () => {
       const mockBackendResponse = {
         id: 'post-123',
         content: 'Test gratitude post',
+        rich_content: null,
+        post_style: null,
         post_type: 'daily',
         author: {
           id: 1,
@@ -59,6 +61,8 @@ describe('/api/posts', () => {
       expect(data).toEqual({
         id: 'post-123',
         content: 'Test gratitude post',
+        richContent: null,
+        postStyle: null,
         author: {
           id: '1',
           name: 'testuser',
@@ -85,6 +89,8 @@ describe('/api/posts', () => {
           },
           body: JSON.stringify({
             content: 'Test gratitude post',
+            rich_content: null,
+            post_style: null,
             title: null,
             image_url: null,
             location: null,

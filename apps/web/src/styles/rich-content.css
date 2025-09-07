@@ -1,0 +1,224 @@
+/* Rich Content Styles */
+
+.rich-content-rendered .mention {
+  color: #7C3AED;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.rich-content-rendered .mention:hover {
+  color: #5B21B6;
+  text-decoration: underline;
+}
+
+.rich-content-rendered strong {
+  font-weight: bold;
+}
+
+.rich-content-rendered em {
+  font-style: italic;
+}
+
+.rich-content-rendered u {
+  text-decoration: underline;
+}
+
+/* Rich text editor toolbar styles */
+.rich-text-toolbar {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 8px 8px 0 0;
+}
+
+.rich-text-toolbar button {
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rich-text-toolbar button:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.rich-text-toolbar button.active {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+/* Post style preview */
+.post-style-preview {
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  transition: all 0.3s ease;
+}
+
+/* Enhanced emoji picker styles */
+.emoji-picker-category {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.emoji-picker-category.active {
+  color: #7c3aed;
+  border-bottom-color: #7c3aed;
+  background: #f3e8ff;
+}
+
+.emoji-picker-category:hover {
+  background: #f9fafb;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  padding: 12px;
+}
+
+.emoji-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.emoji-button:hover {
+  background: #f3f4f6;
+  transform: scale(1.1);
+}
+
+/* Template picker styles */
+.template-picker {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.template-item {
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.template-item:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.template-item.selected {
+  border-color: #7c3aed;
+  background: #f3e8ff;
+}
+
+.template-preview {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 14px;
+  color: #374151;
+}
+
+.template-example {
+  background: #f3e8ff;
+  border: 1px solid #c084fc;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .rich-text-toolbar {
+    padding: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .rich-text-toolbar button {
+    padding: 6px;
+    margin: 2px;
+  }
+  
+  .emoji-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 2px;
+    padding: 8px;
+  }
+  
+  .emoji-button {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+  
+  .template-item {
+    padding: 8px;
+  }
+}
+
+/* Animation for modals */
+.modal-enter {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.modal-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: all 0.2s ease;
+}
+
+.modal-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.modal-exit-active {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: all 0.2s ease;
+}
+
+/* Scrollbar styling for webkit browsers */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

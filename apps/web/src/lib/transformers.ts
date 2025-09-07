@@ -239,6 +239,17 @@ export function transformReactions(reactions: BackendReaction[]): FrontendReacti
 export interface BackendUserPost {
   id: string
   content: string
+  rich_content?: string
+  post_style?: {
+    id: string
+    name: string
+    backgroundColor: string
+    backgroundGradient?: string
+    textColor: string
+    borderStyle?: string
+    fontFamily?: string
+    textShadow?: string
+  }
   created_at: string
   post_type?: string
   image_url?: string
@@ -272,6 +283,17 @@ export interface BackendUserPost {
 export interface FrontendUserPost {
   id: string
   content: string
+  richContent?: string
+  postStyle?: {
+    id: string
+    name: string
+    backgroundColor: string
+    backgroundGradient?: string
+    textColor: string
+    borderStyle?: string
+    fontFamily?: string
+    textShadow?: string
+  }
   author: {
     id: string
     name: string
@@ -280,7 +302,7 @@ export interface FrontendUserPost {
     image?: string
   }
   createdAt: string
-  postType?: string
+  postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   location?: string
   location_data?: {
@@ -310,6 +332,8 @@ export function transformUserPost(post: BackendUserPost, userProfile?: any): Fro
   return {
     id: post.id,
     content: post.content,
+    richContent: post.rich_content,
+    postStyle: post.post_style,
     author: {
       id: post.author.id.toString(),
       name: post.author.username || 'Unknown User',
@@ -318,7 +342,7 @@ export function transformUserPost(post: BackendUserPost, userProfile?: any): Fro
       image: post.author.profile_image_url
     },
     createdAt: ensureTimezoneIndicator(post.created_at),
-    postType: post.post_type,
+    postType: (post.post_type as "daily" | "photo" | "spontaneous") || "daily",
     imageUrl: post.image_url,
     location: post.location,
     location_data: post.location_data,

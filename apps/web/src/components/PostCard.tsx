@@ -10,6 +10,7 @@ import ShareModal from "./ShareModal"
 import MentionHighlighter from "./MentionHighlighter"
 import FollowButton from "./FollowButton"
 import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
+import RichContentRenderer from "./RichContentRenderer"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
@@ -20,6 +21,17 @@ import { useToast } from "@/contexts/ToastContext"
 interface Post {
   id: string
   content: string
+  richContent?: string
+  postStyle?: {
+    id: string
+    name: string
+    backgroundColor: string
+    backgroundGradient?: string
+    textColor: string
+    borderStyle?: string
+    fontFamily?: string
+    textShadow?: string
+  }
   author: {
     id: string
     name: string
@@ -535,13 +547,14 @@ export default function PostCard({
 
         {/* Post Content */}
         <div className={styling.content}>
-          <p className={`${styling.text} text-gray-900`}>
-            <MentionHighlighter
-              content={post.content}
-              onMentionClick={handleMentionClick}
-              validUsernames={validUsernames}
-            />
-          </p>
+          {/* Always use RichContentRenderer for consistency */}
+          <RichContentRenderer
+            content={post.content}
+            richContent={post.richContent}
+            postStyle={post.postStyle}
+            className={`${styling.text} text-gray-900`}
+            onMentionClick={handleMentionClick}
+          />
           {post.imageUrl && (
             <img
               src={getImageUrl(post.imageUrl) || post.imageUrl}
