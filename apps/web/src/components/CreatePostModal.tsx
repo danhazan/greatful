@@ -688,13 +688,40 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 </div>
                 
                 <div className="flex justify-between items-center mt-2">
-                  {/* Predicted label — not enforced */}
-                  <div className="text-sm text-gray-500">
-                    Predicted: {predicted.type === 'photo' ? 'Photo' : predicted.type === 'daily' ? 'Daily Gratitude' : 'Spontaneous'}
-                    {predicted.type === 'spontaneous' && (
-                      <span className="ml-2 text-xs text-gray-400"> (UI hint — not a character limit)</span>
+                  {/* Location Section */}
+                  <div className="flex items-center space-x-3">
+                    {/* Minimalist Location Button */}
+                    <button
+                      type="button"
+                      onClick={handleAddLocation}
+                      className={`p-2 rounded-full transition-colors ${
+                        postData.location_data 
+                          ? 'text-purple-600 bg-purple-50 hover:bg-purple-100' 
+                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                      }`}
+                      title={postData.location_data ? 'Change location' : 'Add location'}
+                    >
+                      <MapPin className="h-4 w-4" />
+                    </button>
+                    
+                    {/* Location Display - To the right of button */}
+                    {postData.location_data && (
+                      <div className="flex items-center space-x-2">
+                        <div className="text-sm text-purple-700 font-medium truncate max-w-xs">
+                          {postData.location_data.display_name}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleLocationSelect(null)}
+                          className="text-purple-600 hover:text-purple-800 transition-colors"
+                          title="Remove location"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
                     )}
                   </div>
+                  
                   <div className={`text-sm ${contentForAnalysis.length > maxChars * 0.9
                     ? 'text-red-500'
                     : 'text-gray-500'
@@ -765,67 +792,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   </div>
                 )}
 
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={handleAddPhoto}
-                    className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${postData.imageUrl
-                      ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                      : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                  >
-                    <Camera className={`h-4 w-4 ${postData.imageUrl ? 'text-purple-600' : 'text-gray-500'}`} />
-                    <span className="text-sm">
-                      {postData.imageUrl ? 'Change Photo' : 'Add Photo'}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddLocation}
-                    className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${
-                      postData.location_data 
-                        ? 'border-purple-300 bg-purple-50 text-purple-700' 
-                        : 'border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <MapPin className={`h-4 w-4 ${postData.location_data ? 'text-purple-600' : 'text-gray-500'}`} />
-                    <span className="text-sm">
-                      {postData.location_data ? 'Change Location' : 'Add Location'}
-                    </span>
-                  </button>
-                </div>
 
-                {/* Selected Location Display */}
-                {postData.location_data && (
-                  <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="h-4 w-4 text-purple-600" />
-                        <div>
-                          <p className="text-sm font-medium text-purple-900 break-words line-clamp-2">
-                            {postData.location_data.display_name}
-                          </p>
-                          {postData.location_data.address.country && (
-                            <p className="text-xs text-purple-700">
-                              {[
-                                postData.location_data.address.city,
-                                postData.location_data.address.state,
-                                postData.location_data.address.country
-                              ].filter(Boolean).join(', ')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleLocationSelect(null)}
-                        className="text-purple-600 hover:text-purple-800 transition-colors"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+
+
               </div>
             </div>
 
