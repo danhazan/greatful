@@ -17,7 +17,7 @@ export default function RichContentRenderer({
   className = "",
   onMentionClick
 }: RichContentRendererProps) {
-  // If no rich content or style, render plain content with mentions
+  // If no rich content AND no style, render plain content with mentions
   if (!richContent && !postStyle) {
     return (
       <p className={className}>
@@ -39,7 +39,7 @@ export default function RichContentRenderer({
     margin: '8px 0'
   } : {}
 
-  // Process rich content if available
+  // Process rich content if available, otherwise fall back to plain content
   const contentToRender = richContent || content
 
   return (
@@ -99,28 +99,37 @@ function renderMentions(text: string, onMentionClick?: (username: string) => voi
 
 // Helper function to render rich content with formatting
 function renderRichContent(content: string, onMentionClick?: (username: string) => void) {
-  // Simple rich content parser for basic formatting
-  // In a production app, you'd want a more robust parser
+  // Enhanced rich content parser that handles both HTML and markdown formatting
   
   let processedContent = content
 
-  // Handle mentions first
-  if (onMentionClick) {
-    processedContent = processedContent.replace(
-      /@([a-zA-Z0-9_\-\.]+)/g,
-      '<span class="mention" data-username="$1">@$1</span>'
-    )
+  // Check if content already contains HTML tags (from rich text editor)
+  const hasHtmlTags = /<[^>]+>/.test(content)
+  
+  if (hasHtmlTags) {
+    // Content already has HTML formatting, just handle mentions
+    if (onMentionClick) {
+      processedContent = processedContent.replace(
+        /@([a-zA-Z0-9_\-\.]+)/g,
+        '<span class="mention" data-username="$1">@$1</span>'
+      )
+    }
+  } else {
+    // Handle mentions first
+    if (onMentionClick) {
+      processedContent = processedContent.replace(
+        /@([a-zA-Z0-9_\-\.]+)/g,
+        '<span class="mention" data-username="$1">@$1</span>'
+      )
+    }
+
+    // Handle basic markdown-style formatting
+    processedContent = processedContent
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+      .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+      .replace(/__(.*?)__/g, '<u>$1</u>') // Underline
+      .replace(/\n/g, '<br>') // Line breaks
   }
-
-  // Handle basic markdown-style formatting
-  processedContent = processedContent
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
-    .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
-    .replace(/__(.*?)__/g, '<u>$1</u>') // Underline
-    .replace(/\n/g, '<br>') // Line breaks
-
-  // Handle HTML spans for colors (from rich text editor)
-  // These are already in HTML format, so we keep them as-is
 
   return (
     <div

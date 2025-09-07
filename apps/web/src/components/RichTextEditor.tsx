@@ -105,7 +105,15 @@ export default function RichTextEditor({
     const end = textarea.selectionEnd
     const newValue = value.substring(0, start) + emoji + value.substring(end)
     
-    onChange(newValue, newValue)
+    // Generate formatted HTML if any formatting is applied
+    const hasFormatting = currentFormat.bold || currentFormat.italic || currentFormat.underline ||
+                         currentFormat.color !== DEFAULT_FORMAT.color ||
+                         currentFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor ||
+                         currentFormat.fontSize !== DEFAULT_FORMAT.fontSize
+    
+    const formattedHTML = hasFormatting ? generateFormattedHTML(newValue) : newValue
+    
+    onChange(newValue, formattedHTML)
     
     // Position cursor after emoji
     setTimeout(() => {
@@ -117,11 +125,58 @@ export default function RichTextEditor({
     // Don't close the emoji picker - let user select multiple emojis
   }
 
+  const generateFormattedHTML = (text: string) => {
+    // Generate HTML based on current formatting state
+    let html = text
+    
+    // Apply text formatting
+    if (currentFormat.bold) {
+      html = `<strong>${html}</strong>`
+    }
+    if (currentFormat.italic) {
+      html = `<em>${html}</em>`
+    }
+    if (currentFormat.underline) {
+      html = `<u>${html}</u>`
+    }
+    
+    // Apply color and background styling
+    const styles = []
+    if (currentFormat.color !== DEFAULT_FORMAT.color) {
+      styles.push(`color: ${currentFormat.color}`)
+    }
+    if (currentFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor) {
+      styles.push(`background-color: ${currentFormat.backgroundColor}`)
+    }
+    if (currentFormat.fontSize !== DEFAULT_FORMAT.fontSize) {
+      const fontSize = currentFormat.fontSize === 'small' ? '14px' : 
+                      currentFormat.fontSize === 'large' ? '18px' : '16px'
+      styles.push(`font-size: ${fontSize}`)
+    }
+    
+    if (styles.length > 0) {
+      html = `<span style="${styles.join('; ')}">${html}</span>`
+    }
+    
+    // Convert line breaks to <br> tags
+    html = html.replace(/\n/g, '<br>')
+    
+    return html
+  }
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value
     const cursorPosition = e.target.selectionStart || 0
     
-    onChange(newValue, newValue)
+    // Generate formatted HTML if any formatting is applied
+    const hasFormatting = currentFormat.bold || currentFormat.italic || currentFormat.underline ||
+                         currentFormat.color !== DEFAULT_FORMAT.color ||
+                         currentFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor ||
+                         currentFormat.fontSize !== DEFAULT_FORMAT.fontSize
+    
+    const formattedHTML = hasFormatting ? generateFormattedHTML(newValue) : newValue
+    
+    onChange(newValue, formattedHTML)
     
     // Check for mention trigger
     if (onMentionTrigger) {
