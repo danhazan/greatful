@@ -313,9 +313,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   return (
     <div ref={editorRef} className={`relative ${className}`}>
       {/* Formatting Toolbar */}
-      <div className="flex items-center space-x-2 p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
         {/* Text Formatting */}
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={(e) => {
@@ -360,7 +360,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           </button>
         </div>
 
-        <div className="w-px h-6 bg-gray-300" />
+        <div className="hidden sm:block w-px h-6 bg-gray-300" />
 
         {/* Font Size */}
         <select
@@ -373,7 +373,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           <option value="large">Large</option>
         </select>
 
-        <div className="w-px h-6 bg-gray-300" />
+        <div className="hidden sm:block w-px h-6 bg-gray-300" />
 
         {/* Color Picker */}
         <div className="relative">
@@ -452,7 +452,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           )}
         </div>
 
-        <div className="w-px h-6 bg-gray-300" />
+        <div className="hidden sm:block w-px h-6 bg-gray-300" />
 
         {/* Emoji Picker */}
         <div className="relative">
