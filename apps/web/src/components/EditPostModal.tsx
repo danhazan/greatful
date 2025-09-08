@@ -107,6 +107,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   // Rich text and styling state (always enabled)
   // Convert HTML content to plain text for editing
   const [richContent, setRichContent] = useState(htmlToPlainText(post.content || ''))
+  const [formattedContent, setFormattedContent] = useState('')
   const [selectedStyle, setSelectedStyle] = useState<PostStyle>(
     post.postStyle || post.post_style || POST_STYLES[0]
   )
@@ -242,7 +243,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     
     if (isSubmitting) return
     
-    const finalContent = richContent || postData.content
+    const finalContent = formattedContent || richContent || postData.content
     
     if (!finalContent.trim()) {
       setError('Please enter some content for your post')
@@ -381,28 +382,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
           {/* Content */}
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Post Type Indicator */}
-              <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center">
-                      {predicted.type === 'daily' && <Calendar className="h-4 w-4 text-purple-700" />}
-                      {predicted.type === 'photo' && <Camera className="h-4 w-4 text-purple-700" />}
-                      {predicted.type === 'spontaneous' && <Zap className="h-4 w-4 text-purple-700" />}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-purple-900">{currentPostTypeInfo.name}</h3>
-                      <p className="text-sm text-purple-700">{currentPostTypeInfo.description}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-purple-900">{currentPostTypeInfo.prominence}</p>
-                    <p className="text-xs text-purple-600">
-                      {richContent.length}/{maxChars === 0 ? 'Image only' : maxChars}
-                    </p>
-                  </div>
-                </div>
-              </div>
+
 
 
 
@@ -414,7 +394,10 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                 <RichTextEditor
                   ref={richTextEditorRef}
                   value={richContent}
-                  onChange={(plainText, formattedText) => setRichContent(formattedText)}
+                  onChange={(plainText, formattedText) => {
+                    setRichContent(plainText)
+                    setFormattedContent(formattedText)
+                  }}
                   onMentionTrigger={handleMentionTrigger}
                   onMentionHide={handleMentionClose}
                   selectedStyle={selectedStyle}

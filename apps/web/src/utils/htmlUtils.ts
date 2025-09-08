@@ -9,6 +9,12 @@
 export function stripHtmlTags(html: string): string {
   if (!html) return ''
   
+  // Check if we're in a browser environment
+  if (typeof document === 'undefined') {
+    // Fallback for server-side rendering - use regex to strip HTML tags
+    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  }
+  
   // Create a temporary DOM element to parse HTML
   const tempDiv = document.createElement('div')
   tempDiv.innerHTML = html
@@ -34,7 +40,16 @@ export function htmlToPlainText(html: string): string {
     return html
   }
   
-  return stripHtmlTags(html)
+  // Handle common HTML entities
+  let processed = html
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+  
+  return stripHtmlTags(processed)
 }
 
 /**

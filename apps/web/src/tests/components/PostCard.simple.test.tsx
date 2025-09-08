@@ -1,6 +1,7 @@
 import { render, screen } from '@/tests/utils/testUtils'
 import '@testing-library/jest-dom'
 import PostCard from '../../components/PostCard'
+import { describe, it } from '@jest/globals'
 
 // Mock the analytics service
 jest.mock('@/services/analytics', () => ({
