@@ -548,6 +548,7 @@ export default function PostCard({
         {/* Post Content */}
         <div className={styling.content}>
           {/* Always use RichContentRenderer for consistency */}
+
           <RichContentRenderer
             content={post.content}
             richContent={post.richContent}

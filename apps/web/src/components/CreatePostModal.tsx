@@ -284,6 +284,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       const mentions = extractMentions(contentToSubmit.trim())
       const mentionUsernames = mentions.map(m => m.username)
 
+
+
       // Build payload with rich content support
       const payload: any = {
         content: contentToSubmit.trim(),
@@ -293,8 +295,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         ...(postData.location_data ? { location_data: postData.location_data } : {}),
         ...(imageFile ? { imageFile } : {}),
         ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {}),
-        // Always include rich content and styling
-        ...(richContent ? { richContent: richContent } : {}),
+        // Include rich content only if it's different from plain text (i.e., contains HTML formatting)
+        ...(richContent && richContent.trim() && richContent !== contentToSubmit.trim() ? { richContent: richContent } : {}),
+        // Always include styling if not default
         ...(selectedStyle.id !== 'default' ? { 
           postStyle: {
             id: selectedStyle.id,
@@ -559,6 +562,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   // Rich text and styling handlers
   const handleRichTextChange = (plainText: string, formattedText: string) => {
+
+    
     setPostData({ ...postData, content: plainText })
     setRichContent(formattedText)
   }

@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
         is_public: body.isPublic !== false // Default to true
       }
 
+
+
       response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
         method: 'POST',
         headers: {

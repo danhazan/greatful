@@ -93,8 +93,56 @@ export default function RichTextEditor({
     const newFormat = { ...currentFormat, [formatType]: formatValue }
     setCurrentFormat(newFormat)
     
-    // Just update the visual formatting state - don't modify the text content
-    // The formatting will be applied via CSS styles to the textarea
+    // Re-generate HTML with the new formatting applied to current text
+    const hasFormatting = newFormat.bold || newFormat.italic || newFormat.underline ||
+                         newFormat.color !== DEFAULT_FORMAT.color ||
+                         newFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor ||
+                         newFormat.fontSize !== DEFAULT_FORMAT.fontSize
+    
+    // Generate HTML using the new format
+    let html = value
+    
+    if (hasFormatting) {
+      // Escape HTML entities first to prevent XSS
+      html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      
+      // Convert line breaks to <br> tags
+      html = html.replace(/\n/g, '<br>')
+      
+      // Apply text formatting
+      if (newFormat.bold) {
+        html = `<strong>${html}</strong>`
+      }
+      if (newFormat.italic) {
+        html = `<em>${html}</em>`
+      }
+      if (newFormat.underline) {
+        html = `<u>${html}</u>`
+      }
+      
+      // Apply color and background styling
+      const styles = []
+      if (newFormat.color !== DEFAULT_FORMAT.color) {
+        styles.push(`color: ${newFormat.color}`)
+      }
+      if (newFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor) {
+        styles.push(`background-color: ${newFormat.backgroundColor}`)
+      }
+      if (newFormat.fontSize !== DEFAULT_FORMAT.fontSize) {
+        const fontSize = newFormat.fontSize === 'small' ? '14px' : 
+                        newFormat.fontSize === 'large' ? '18px' : '16px'
+        styles.push(`font-size: ${fontSize}`)
+      }
+      
+      if (styles.length > 0) {
+        html = `<span style="${styles.join('; ')}">${html}</span>`
+      }
+    }
+    
+
+    
+    // Notify parent component of the change
+    onChange(value, html)
   }
 
   const insertEmoji = (emoji: string) => {
@@ -113,6 +161,8 @@ export default function RichTextEditor({
     
     const formattedHTML = hasFormatting ? generateFormattedHTML(newValue) : newValue
     
+
+    
     onChange(newValue, formattedHTML)
     
     // Position cursor after emoji
@@ -128,6 +178,12 @@ export default function RichTextEditor({
   const generateFormattedHTML = (text: string) => {
     // Generate HTML based on current formatting state
     let html = text
+    
+    // Escape HTML entities first to prevent XSS
+    html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    
+    // Convert line breaks to <br> tags
+    html = html.replace(/\n/g, '<br>')
     
     // Apply text formatting
     if (currentFormat.bold) {
@@ -158,9 +214,6 @@ export default function RichTextEditor({
       html = `<span style="${styles.join('; ')}">${html}</span>`
     }
     
-    // Convert line breaks to <br> tags
-    html = html.replace(/\n/g, '<br>')
-    
     return html
   }
 
@@ -175,6 +228,8 @@ export default function RichTextEditor({
                          currentFormat.fontSize !== DEFAULT_FORMAT.fontSize
     
     const formattedHTML = hasFormatting ? generateFormattedHTML(newValue) : newValue
+    
+
     
     onChange(newValue, formattedHTML)
     
