@@ -883,7 +883,7 @@ export default function ProfilePage() {
                 <PostCard
                   key={post.id}
                   post={post}
-                  currentUserId={currentUser?.id}
+                  currentUserId={currentUser?.id?.toString()}
                   hideFollowButton={true}
                   onHeart={handleHeart}
                   onReaction={handleReaction}

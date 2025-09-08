@@ -177,8 +177,9 @@ describe('PostCard Simple Tests', () => {
       />
     )
 
-    // Daily post should have specific styling
-    expect(screen.getByText('daily')).toBeInTheDocument()
+    // Daily post should have specific styling (larger container)
+    const dailyPost = screen.getByRole('article')
+    expect(dailyPost).toHaveClass('bg-white', 'rounded-xl', 'shadow-lg')
 
     // Test photo post
     rerender(
@@ -187,7 +188,9 @@ describe('PostCard Simple Tests', () => {
         currentUserId="current-user"
       />
     )
-    expect(screen.getByText('photo')).toBeInTheDocument()
+    // Photo post should have different styling (medium container)
+    const photoPost = screen.getByRole('article')
+    expect(photoPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
 
     // Test spontaneous post
     rerender(
@@ -196,6 +199,8 @@ describe('PostCard Simple Tests', () => {
         currentUserId="current-user"
       />
     )
-    expect(screen.getByText('spontaneous')).toBeInTheDocument()
+    // Spontaneous post should have compact styling
+    const spontaneousPost = screen.getByRole('article')
+    expect(spontaneousPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-sm')
   })
 })

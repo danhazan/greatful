@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, Calendar } from "lucide-react"
 import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
+import { htmlToPlainText } from "@/utils/htmlUtils"
 import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
 import LocationModal from "./LocationModal"
@@ -104,7 +105,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const richTextEditorRef = useRef<RichTextEditorRef>(null)
 
   // Rich text and styling state (always enabled)
-  const [richContent, setRichContent] = useState(post.content || '')
+  // Convert HTML content to plain text for editing
+  const [richContent, setRichContent] = useState(htmlToPlainText(post.content || ''))
   const [selectedStyle, setSelectedStyle] = useState<PostStyle>(
     post.postStyle || post.post_style || POST_STYLES[0]
   )
