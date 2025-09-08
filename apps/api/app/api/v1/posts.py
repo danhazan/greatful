@@ -32,7 +32,6 @@ security = HTTPBearer()
 class PostCreate(BaseModel):
     """Post creation request model with automatic type detection and rich content support."""
     content: str = Field(..., min_length=1)
-    rich_content: Optional[str] = Field(None, description="Rich text formatted content")
     post_style: Optional[dict] = Field(None, description="Post styling information")
     title: Optional[str] = Field(None, max_length=100)
     image_url: Optional[str] = None
@@ -68,7 +67,6 @@ class PostResponse(BaseModel):
     author_id: int
     title: Optional[str] = None
     content: str
-    rich_content: Optional[str] = None
     post_style: Optional[dict] = None
     post_type: str
     image_url: Optional[str] = None
@@ -247,7 +245,6 @@ async def create_post_json(
             author_id=current_user_id,
             title=post_data.title,
             content=post_data.content,
-            rich_content=post_data.rich_content,
             post_style=post_data.post_style,
             post_type=final_post_type,
             image_url=post_data.image_url,
@@ -278,7 +275,6 @@ async def create_post_json(
             author_id=db_post.author_id,
             title=db_post.title,
             content=db_post.content,
-            rich_content=db_post.rich_content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
@@ -316,7 +312,6 @@ async def create_post_with_file(
     db: AsyncSession = Depends(get_db),
     # FormData parameters
     content: str = Form(...),
-    rich_content: Optional[str] = Form(None),
     post_style: Optional[str] = Form(None),  # JSON string
     title: Optional[str] = Form(None),
     location: Optional[str] = Form(None),
@@ -352,7 +347,6 @@ async def create_post_with_file(
         # Create PostCreate object and validate it
         post_data_dict = {
             "content": content,
-            "rich_content": rich_content,
             "post_style": parsed_post_style,
             "title": title,
             "location": location,
@@ -434,7 +428,6 @@ async def create_post_with_file(
             author_id=current_user_id,
             title=post_data.title,
             content=post_data.content,
-            rich_content=post_data.rich_content,
             post_style=post_data.post_style,
             post_type=final_post_type,
             image_url=image_url,
@@ -465,7 +458,6 @@ async def create_post_with_file(
             author_id=db_post.author_id,
             title=db_post.title,
             content=db_post.content,
-            rich_content=db_post.rich_content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
@@ -569,7 +561,6 @@ async def get_feed(
                     author_id=post_data['author_id'],
                     title=post_data['title'],
                     content=post_data['content'],
-                    rich_content=post_data.get('rich_content'),
                     post_style=post_data.get('post_style'),
                     post_type=post_data['post_type'],
                     image_url=post_data['image_url'],
@@ -602,7 +593,6 @@ async def get_feed(
                            p.author_id,
                            p.title,
                            p.content,
-                           p.rich_content,
                            p.post_style,
                            p.post_type,
                            p.image_url,
@@ -646,7 +636,6 @@ async def get_feed(
                            p.author_id,
                            p.title,
                            p.content,
-                           p.rich_content,
                            p.post_style,
                            p.post_type,
                            p.image_url,
@@ -692,7 +681,6 @@ async def get_feed(
                     author_id=row.author_id,
                     title=row.title,
                     content=row.content,
-                    rich_content=getattr(row, 'rich_content', None),
                     post_style=getattr(row, 'post_style', None),
                     post_type=row.post_type,
                     image_url=row.image_url,
@@ -754,7 +742,6 @@ async def get_post_by_id(
                        p.author_id,
                        p.title,
                        p.content,
-                       p.rich_content,
                        p.post_style,
                        p.post_type,
                        p.image_url,
@@ -797,7 +784,6 @@ async def get_post_by_id(
                        p.author_id,
                        p.title,
                        p.content,
-                       p.rich_content,
                        p.post_style,
                        p.post_type,
                        p.image_url,
@@ -852,7 +838,6 @@ async def get_post_by_id(
             author_id=row.author_id,
             title=row.title,
             content=row.content,
-            rich_content=row.rich_content,
             post_style=row.post_style,
             post_type=row.post_type,
             image_url=row.image_url,

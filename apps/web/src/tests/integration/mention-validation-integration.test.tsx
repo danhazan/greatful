@@ -96,9 +96,9 @@ describe('Mention Validation Integration Test', () => {
     )
 
     // Initially, all mentions should be rendered as plain text
-    expect(screen.getByText('@Bob7')).toBeInTheDocument()
-    expect(screen.getByText('@juan')).toBeInTheDocument()
-    expect(screen.getByText('@nonexistent')).toBeInTheDocument()
+    expect(screen.getByText(/@Bob7/)).toBeInTheDocument()
+    expect(screen.getByText(/@juan/)).toBeInTheDocument()
+    expect(screen.getByText(/@nonexistent/)).toBeInTheDocument()
 
     // Wait for the batch validation API call to complete
     await waitFor(() => {
@@ -113,18 +113,19 @@ describe('Mention Validation Integration Test', () => {
 
     // After validation, only Bob7 should be highlighted (purple)
     await waitFor(() => {
-      const bob7Element = screen.getByText('@Bob7')
-      const juanElement = screen.getByText('@juan')
-      const nonexistentElement = screen.getByText('@nonexistent')
-      
       // Bob7 should have mention styling (exists in database)
+      const bob7Element = screen.getByText('@Bob7')
       expect(bob7Element).toHaveClass('mention', 'text-purple-600')
       
-      // juan and nonexistent should NOT have mention styling (don't exist in database)
-      expect(juanElement).not.toHaveClass('mention')
-      expect(juanElement).not.toHaveClass('text-purple-600')
-      expect(nonexistentElement).not.toHaveClass('mention')
-      expect(nonexistentElement).not.toHaveClass('text-purple-600')
+      // juan and nonexistent should be plain text (don't exist in database)
+      // They should still be visible in the content but without mention styling
+      expect(screen.getByText(/@juan/)).toBeInTheDocument()
+      expect(screen.getByText(/@nonexistent/)).toBeInTheDocument()
+      
+      // Verify only one mention element exists (Bob7)
+      const mentionElements = document.querySelectorAll('.mention')
+      expect(mentionElements).toHaveLength(1)
+      expect(mentionElements[0]).toHaveTextContent('@Bob7')
     }, { timeout: 3000 })
   })
 })

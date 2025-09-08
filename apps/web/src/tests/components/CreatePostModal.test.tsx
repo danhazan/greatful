@@ -33,7 +33,7 @@ describe('CreatePostModal Image Upload', () => {
       />
     )
 
-    expect(screen.getByText('Add Photo')).toBeInTheDocument()
+    expect(screen.getByText('Drag and drop an image, or click to browse')).toBeInTheDocument()
   })
 
   it('should change button text to "Change Photo" when image is selected', async () => {
@@ -61,8 +61,8 @@ describe('CreatePostModal Image Upload', () => {
       return originalCreateElement.call(document, tagName)
     })
 
-    const addPhotoButton = screen.getByText('Add Photo')
-    fireEvent.click(addPhotoButton)
+    const dragDropZone = screen.getByText('Drag and drop an image, or click to browse')
+    fireEvent.click(dragDropZone)
 
     // Simulate file selection
     Object.defineProperty(mockInput, 'files', {
@@ -73,7 +73,7 @@ describe('CreatePostModal Image Upload', () => {
     fireEvent.change(mockInput)
 
     await waitFor(() => {
-      expect(screen.getByText('Change Photo')).toBeInTheDocument()
+      expect(screen.getByAltText('Post preview')).toBeInTheDocument()
     })
 
     // Restore original createElement
@@ -89,10 +89,10 @@ describe('CreatePostModal Image Upload', () => {
       />
     )
 
-    // We'll test this by checking if the image preview container appears
+    // We'll test this by checking if the drag and drop zone appears
     // Since we're mocking the file input interaction, we'll simulate the state change
-    const addPhotoButton = screen.getByText('Add Photo')
-    expect(addPhotoButton).toBeInTheDocument()
+    const dragDropZone = screen.getByText('Drag and drop an image, or click to browse')
+    expect(dragDropZone).toBeInTheDocument()
   })
 
   it('should include imageUrl in form submission', async () => {

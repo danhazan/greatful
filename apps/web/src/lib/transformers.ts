@@ -95,6 +95,8 @@ export interface BackendPost {
   id: string
   user_id: number
   content: string
+  rich_content?: string
+  post_style?: any
   image_url?: string
   created_at: string
   updated_at: string
@@ -110,6 +112,8 @@ export interface FrontendPost {
   id: string
   userId: number
   content: string
+  postStyle?: any
+  post_style?: any  // Backend field name
   imageUrl?: string
   createdAt: string
   updatedAt: string
@@ -129,6 +133,8 @@ export function transformPost(post: BackendPost): FrontendPost {
     id: post.id,
     userId: post.user_id,
     content: post.content,
+    postStyle: post.post_style,
+    post_style: post.post_style,  // Keep backend field name for compatibility
     imageUrl: post.image_url,
     createdAt: ensureTimezoneIndicator(post.created_at),
     updatedAt: ensureTimezoneIndicator(post.updated_at),
@@ -283,8 +289,17 @@ export interface BackendUserPost {
 export interface FrontendUserPost {
   id: string
   content: string
-  richContent?: string
   postStyle?: {
+    id: string
+    name: string
+    backgroundColor: string
+    backgroundGradient?: string
+    textColor: string
+    borderStyle?: string
+    fontFamily?: string
+    textShadow?: string
+  }
+  post_style?: {  // Backend field name
     id: string
     name: string
     backgroundColor: string
@@ -332,8 +347,8 @@ export function transformUserPost(post: BackendUserPost, userProfile?: any): Fro
   return {
     id: post.id,
     content: post.content,
-    richContent: post.rich_content,
     postStyle: post.post_style,
+    post_style: post.post_style,  // Keep backend field name for compatibility
     author: {
       id: post.author.id.toString(),
       name: post.author.username || 'Unknown User',

@@ -7,7 +7,7 @@ import { extractMentions } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
 import LocationModal from "./LocationModal"
-import RichTextEditor from "./RichTextEditor"
+import RichTextEditor, { RichTextEditorRef } from "./RichTextEditor"
 import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
 
 
@@ -46,7 +46,6 @@ interface CreatePostModalProps {
     imageFile?: File
     mentions?: string[]
     postStyle?: PostStyle
-    richContent?: string
   }) => void
 }
 
@@ -93,6 +92,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const [error, setError] = useState('')
   const modalRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const richTextEditorRef = useRef<RichTextEditorRef>(null)
 
   // Rich text and styling state (always enabled)
   const [richContent, setRichContent] = useState('')
@@ -296,10 +296,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         ...(imageFile ? { imageFile } : {}),
         ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {}),
         // Include rich content only if it's different from plain text (i.e., contains HTML formatting)
-        ...(richContent && richContent.trim() && richContent !== contentToSubmit.trim() ? { richContent: richContent } : {}),
+        ...(richContent && richContent.trim() && richContent !== contentToSubmit.trim() ? { rich_content: richContent } : {}),
         // Always include styling if not default
         ...(selectedStyle.id !== 'default' ? { 
-          postStyle: {
+          post_style: {
             id: selectedStyle.id,
             name: selectedStyle.name,
             backgroundColor: selectedStyle.backgroundColor,
@@ -529,24 +529,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
 
   const handleMentionSelect = (user: UserInfo) => {
-    if (currentMentionStart >= 0 && textareaRef.current) {
-      const textarea = textareaRef.current
+    if (currentMentionStart >= 0 && richTextEditorRef.current) {
       const currentContent = postData.content
-      const cursorPosition = textarea.selectionStart
       
-      // Replace the partial mention with the selected username
-      const beforeMention = currentContent.slice(0, currentMentionStart)
-      const afterCursor = currentContent.slice(cursorPosition)
-      const newContent = `${beforeMention}@${user.username} ${afterCursor}`
+      // Find the end of the current partial mention
+      let mentionEnd = currentMentionStart + 1 // Start after the @
+      while (mentionEnd < currentContent.length && 
+             /[a-zA-Z0-9_\-\.]/.test(currentContent[mentionEnd])) {
+        mentionEnd++
+      }
       
-      setPostData({ ...postData, content: newContent })
-      
-      // Set cursor position after the inserted mention
-      const newCursorPosition = currentMentionStart + user.username.length + 2 // +2 for @ and space
-      setTimeout(() => {
-        textarea.focus()
-        textarea.setSelectionRange(newCursorPosition, newCursorPosition)
-      }, 0)
+      // Use the RichTextEditor's insertMention method to handle the insertion properly
+      richTextEditorRef.current.insertMention(user.username, currentMentionStart, mentionEnd)
     }
     
     setShowMentionAutocomplete(false)
@@ -562,23 +556,30 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   // Rich text and styling handlers
   const handleRichTextChange = (plainText: string, formattedText: string) => {
-
-    
     setPostData({ ...postData, content: plainText })
     setRichContent(formattedText)
   }
 
-  const handleRichTextMentionTrigger = (query: string, position: { x: number, y: number }) => {
+  const handleRichTextMentionTrigger = (query: string, position: { x: number, y: number }, cursorPosition?: number) => {
     setMentionQuery(query)
     setMentionPosition(position)
     setShowMentionAutocomplete(true)
-    // Set current mention start based on rich text content
-    const cursorPosition = richContent.length
-    const textBeforeCursor = richContent.slice(0, cursorPosition)
-    const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
-    if (mentionMatch) {
-      setCurrentMentionStart(cursorPosition - mentionMatch[0].length)
+    
+    // Use the provided cursor position to find mention start
+    if (cursorPosition !== undefined) {
+      const currentContent = postData.content
+      const textBeforeCursor = currentContent.slice(0, cursorPosition)
+      const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
+      if (mentionMatch) {
+        setCurrentMentionStart(cursorPosition - mentionMatch[0].length)
+      }
     }
+  }
+
+  const handleRichTextMentionHide = () => {
+    setShowMentionAutocomplete(false)
+    setMentionQuery('')
+    setCurrentMentionStart(-1)
   }
 
 
@@ -670,11 +671,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 >
                   <div className={`border rounded-lg ${isDragOver ? 'border-purple-400 bg-purple-50' : 'border-gray-300'}`}>
                     <RichTextEditor
+                      ref={richTextEditorRef}
                       value={postData.content}
                       onChange={handleRichTextChange}
                       placeholder="Share what you're grateful for today... (Use @username to mention someone)"
                       maxLength={maxChars}
                       onMentionTrigger={handleRichTextMentionTrigger}
+                      onMentionHide={handleRichTextMentionHide}
                       selectedStyle={selectedStyle}
                       onStyleChange={setSelectedStyle}
                     />

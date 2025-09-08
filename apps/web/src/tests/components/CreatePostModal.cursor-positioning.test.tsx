@@ -4,6 +4,7 @@
 
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, jest } from '@jest/globals'
 import CreatePostModal from '@/components/CreatePostModal'
 
@@ -128,6 +129,8 @@ describe('CreatePostModal - Cursor Positioning', () => {
   })
 
   it('should hide autocomplete when @ is removed', async () => {
+    const user = userEvent.setup()
+    
     render(
       <CreatePostModal
         isOpen={true}
@@ -136,29 +139,18 @@ describe('CreatePostModal - Cursor Positioning', () => {
       />
     )
 
-    const textarea = screen.getByRole('textbox')
+    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
     
-    // Type @ to show autocomplete
-    fireEvent.change(textarea, { 
-      target: { 
-        value: 'Hello @',
-        selectionStart: 7,
-        selectionEnd: 7
-      } 
-    })
+    // Focus and type to show autocomplete
+    await user.click(textarea)
+    await user.type(textarea, 'Hello @')
 
     await waitFor(() => {
       expect(document.querySelector('[data-mention-autocomplete]')).toBeInTheDocument()
     })
 
-    // Remove the @
-    fireEvent.change(textarea, { 
-      target: { 
-        value: 'Hello ',
-        selectionStart: 6,
-        selectionEnd: 6
-      } 
-    })
+    // Remove the @ by backspacing
+    await user.keyboard('{Backspace}')
 
     await waitFor(() => {
       expect(document.querySelector('[data-mention-autocomplete]')).not.toBeInTheDocument()

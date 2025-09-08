@@ -21,8 +21,17 @@ import { useToast } from "@/contexts/ToastContext"
 interface Post {
   id: string
   content: string
-  richContent?: string
   postStyle?: {
+    id: string
+    name: string
+    backgroundColor: string
+    backgroundGradient?: string
+    textColor: string
+    borderStyle?: string
+    fontFamily?: string
+    textShadow?: string
+  }
+  post_style?: {  // Backend field name
     id: string
     name: string
     backgroundColor: string
@@ -551,10 +560,11 @@ export default function PostCard({
 
           <RichContentRenderer
             content={post.content}
-            richContent={post.richContent}
             postStyle={post.postStyle}
+            post_style={post.post_style}
             className={`${styling.text} text-gray-900`}
             onMentionClick={handleMentionClick}
+            validUsernames={validUsernames}
           />
           {post.imageUrl && (
             <img

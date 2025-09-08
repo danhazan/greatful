@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "react"
 import { Bold, Italic, Underline, Type, Palette, Smile } from "lucide-react"
 import EnhancedEmojiPicker from "./EnhancedEmojiPicker"
 
@@ -10,9 +10,14 @@ interface RichTextEditorProps {
   placeholder?: string
   maxLength?: number
   className?: string
-  onMentionTrigger?: (query: string, position: { x: number, y: number }) => void
+  onMentionTrigger?: (query: string, position: { x: number, y: number }, cursorPosition?: number) => void
+  onMentionHide?: () => void
   selectedStyle?: any
   onStyleChange?: (style: any) => void
+}
+
+export interface RichTextEditorRef {
+  insertMention: (username: string, mentionStart: number, mentionEnd: number) => void
 }
 
 interface TextFormat {
@@ -71,16 +76,17 @@ const BACKGROUND_COLORS = [
   { name: 'Light Lime', value: '#F7FEE7' }
 ]
 
-export default function RichTextEditor({
+const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   value,
   onChange,
   placeholder = "What are you grateful for?",
   maxLength = 5000,
   className = "",
   onMentionTrigger,
+  onMentionHide,
   selectedStyle,
   onStyleChange
-}: RichTextEditorProps) {
+}, ref) => {
   const [currentFormat, setCurrentFormat] = useState<TextFormat>(DEFAULT_FORMAT)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false)
@@ -88,6 +94,47 @@ export default function RichTextEditor({
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    insertMention: (username: string, mentionStart: number, mentionEnd: number) => {
+      const textarea = textareaRef.current
+      if (!textarea) return
+
+      // Replace the partial mention with the complete username
+      const beforeMention = value.slice(0, mentionStart)
+      const afterMention = value.slice(mentionEnd)
+      
+      // Build the new value - if beforeMention ends with "@", don't add another one
+      let newValue
+      if (beforeMention.endsWith('@')) {
+        newValue = beforeMention + username + ' ' + afterMention
+      } else {
+        newValue = beforeMention + '@' + username + ' ' + afterMention
+      }
+      
+      // Fix double @ issue if it occurs
+      newValue = newValue.replace(/@@/g, '@')
+      
+      // Generate formatted HTML if any formatting is applied
+      const hasFormatting = currentFormat.bold || currentFormat.italic || currentFormat.underline ||
+                           currentFormat.color !== DEFAULT_FORMAT.color ||
+                           currentFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor ||
+                           currentFormat.fontSize !== DEFAULT_FORMAT.fontSize
+      
+      const formattedHTML = hasFormatting ? generateFormattedHTML(newValue) : newValue
+      
+      // Update the content
+      onChange(newValue, formattedHTML)
+      
+      // Position cursor after the mention
+      const newCursorPosition = mentionStart + username.length + 2 // +2 for @ and space
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition)
+      }, 0)
+    }
+  }))
 
   const applyFormat = (formatType: keyof TextFormat, formatValue: any) => {
     const newFormat = { ...currentFormat, [formatType]: formatValue }
@@ -234,17 +281,19 @@ export default function RichTextEditor({
     onChange(newValue, formattedHTML)
     
     // Check for mention trigger
-    if (onMentionTrigger) {
+    if (onMentionTrigger || onMentionHide) {
       const textBeforeCursor = newValue.slice(0, cursorPosition)
       const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
       
-      if (mentionMatch) {
+      if (mentionMatch && onMentionTrigger) {
         const rect = textareaRef.current?.getBoundingClientRect()
         if (rect) {
           const x = rect.left + 16
           const y = rect.bottom + 8
-          onMentionTrigger(mentionMatch[1] || '', { x, y })
+          onMentionTrigger(mentionMatch[1] || '', { x, y }, cursorPosition)
         }
+      } else if (!mentionMatch && onMentionHide) {
+        onMentionHide()
       }
     }
   }
@@ -455,4 +504,8 @@ export default function RichTextEditor({
       />
     </div>
   )
-}
+})
+
+RichTextEditor.displayName = 'RichTextEditor'
+
+export default RichTextEditor

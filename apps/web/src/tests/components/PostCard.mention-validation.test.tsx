@@ -149,11 +149,13 @@ describe('PostCard Mention Validation', () => {
     // fetch should not be called for unauthenticated users
     expect(global.fetch).not.toHaveBeenCalled()
 
-    // Both mentions should be rendered but without highlighting
-    const bob7Element = screen.getByText('@Bob7')
-    const juanElement = screen.getByText('@juan')
+    // Both mentions should be rendered as plain text without highlighting
+    // Verify the content contains the mentions as plain text
+    expect(screen.getByText(/@Bob7/)).toBeInTheDocument()
+    expect(screen.getByText(/@juan/)).toBeInTheDocument()
     
-    expect(bob7Element).not.toHaveClass('mention')
-    expect(juanElement).not.toHaveClass('mention')
+    // Verify no mention elements with the mention class exist
+    const mentionElements = document.querySelectorAll('.mention')
+    expect(mentionElements).toHaveLength(0)
   })
 })

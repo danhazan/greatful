@@ -250,7 +250,10 @@ class UserRepository(BaseRepository):
         if not usernames:
             return []
         
-        query = self.query().filter(User.username.in_(usernames)).build()
+        # Use case-insensitive comparison for username matching
+        from sqlalchemy import func
+        lowercase_usernames = [username.lower() for username in usernames]
+        query = self.query().filter(func.lower(User.username).in_(lowercase_usernames)).build()
         result = await self._execute_query(query, "get existing usernames")
         users = result.scalars().all()
         

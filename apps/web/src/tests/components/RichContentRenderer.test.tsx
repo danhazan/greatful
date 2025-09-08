@@ -22,13 +22,12 @@ describe('RichContentRenderer', () => {
     expect(screen.getByText('This is plain text content')).toBeInTheDocument()
   })
 
-  it('renders rich content with formatting', () => {
-    const richContent = 'This is **bold** and *italic* text with __underline__'
+  it('renders content with markdown formatting', () => {
+    const contentWithMarkdown = 'This is **bold** and *italic* text with __underline__'
     
     render(
       <RichContentRenderer
-        content="Plain content"
-        richContent={richContent}
+        content={contentWithMarkdown}
         onMentionClick={mockOnMentionClick}
       />
     )
@@ -77,6 +76,7 @@ describe('RichContentRenderer', () => {
       <RichContentRenderer
         content="Hello @john and @jane_doe"
         onMentionClick={mockOnMentionClick}
+        validUsernames={['john', 'jane_doe']}
       />
     )
 
@@ -93,14 +93,14 @@ describe('RichContentRenderer', () => {
     expect(mockOnMentionClick).toHaveBeenCalledWith('jane_doe')
   })
 
-  it('handles mentions in rich content', () => {
-    const richContent = 'Hello @alice with **bold** text'
+  it('handles mentions in markdown content', () => {
+    const contentWithMentions = 'Hello @alice with **bold** text'
     
     render(
       <RichContentRenderer
-        content="Plain content"
-        richContent={richContent}
+        content={contentWithMentions}
         onMentionClick={mockOnMentionClick}
+        validUsernames={['alice']}
       />
     )
 
@@ -121,36 +121,34 @@ describe('RichContentRenderer', () => {
     expect(screen.getByText('Hello @user without click handler')).toBeInTheDocument()
   })
 
-  it('handles line breaks in rich content', () => {
-    const richContent = 'Line 1\nLine 2\nLine 3'
+  it('handles line breaks in content', () => {
+    const contentWithLineBreaks = 'Line 1\nLine 2\nLine 3'
     
     const { container } = render(
       <RichContentRenderer
-        content="Plain content"
-        richContent={richContent}
+        content={contentWithLineBreaks}
       />
     )
 
-    const richContentDiv = container.querySelector('.rich-content-rendered')
-    expect(richContentDiv?.innerHTML).toContain('<br>')
-    expect(richContentDiv?.innerHTML).toContain('Line 1')
-    expect(richContentDiv?.innerHTML).toContain('Line 2')
-    expect(richContentDiv?.innerHTML).toContain('Line 3')
+    const contentDiv = container.querySelector('.rich-content-rendered')
+    expect(contentDiv?.innerHTML).toContain('<br>')
+    expect(contentDiv?.innerHTML).toContain('Line 1')
+    expect(contentDiv?.innerHTML).toContain('Line 2')
+    expect(contentDiv?.innerHTML).toContain('Line 3')
   })
 
-  it('combines post style with rich content formatting', () => {
+  it('combines post style with markdown formatting', () => {
     const postStyle: PostStyle = {
       id: 'combined-style',
       name: 'Combined Style',
       backgroundColor: '#fff0f0',
       textColor: '#800000'
     }
-    const richContent = 'This is **bold** text with style'
+    const contentWithMarkdown = 'This is **bold** text with style'
 
     render(
       <RichContentRenderer
-        content="Plain content"
-        richContent={richContent}
+        content={contentWithMarkdown}
         postStyle={postStyle}
         onMentionClick={mockOnMentionClick}
       />

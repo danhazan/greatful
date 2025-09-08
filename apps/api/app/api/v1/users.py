@@ -73,7 +73,6 @@ class UserPostResponse(BaseModel):
     """User post response model."""
     id: str
     content: str
-    rich_content: Optional[str] = None
     post_style: Optional[dict] = None
     post_type: str
     image_url: Optional[str] = None

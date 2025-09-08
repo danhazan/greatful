@@ -13,7 +13,6 @@ interface SinglePostViewProps {
 interface Post {
   id: string
   content: string
-  richContent?: string
   postStyle?: {
     id: string
     name: string

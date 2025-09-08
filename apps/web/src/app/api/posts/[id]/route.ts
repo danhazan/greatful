@@ -42,7 +42,6 @@ export async function GET(
     const transformedPost = {
       id: post.id,
       content: post.content,
-      richContent: post.rich_content,
       postStyle: post.post_style,
       title: post.title,
       author: {

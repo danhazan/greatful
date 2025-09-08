@@ -22,7 +22,6 @@ class Post(Base):
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=True)
     content = Column(Text, nullable=False)
-    rich_content = Column(Text, nullable=True)  # Rich text formatted content
     post_style = Column(JSON, nullable=True)  # Post styling information
     post_type = Column(Enum(PostType, name="posttype", schema="public"), default=PostType.daily, nullable=False)
     image_url = Column(String, nullable=True)

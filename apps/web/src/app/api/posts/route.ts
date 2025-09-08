@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
       const formData = await request.formData()
       body = {
         content: formData.get('content') as string,
-        richContent: formData.get('richContent') as string,
         postStyle: formData.get('postStyle') as string,
         title: formData.get('title') as string,
         location: formData.get('location') as string,
@@ -53,7 +52,6 @@ export async function POST(request: NextRequest) {
       // Forward FormData to backend for file upload
       const backendFormData = new FormData()
       backendFormData.append('content', body.content.trim())
-      if (body.richContent) backendFormData.append('rich_content', body.richContent)
       if (body.postStyle) backendFormData.append('post_style', body.postStyle)
       if (body.title) backendFormData.append('title', body.title)
       if (body.location) backendFormData.append('location', body.location)
@@ -73,7 +71,6 @@ export async function POST(request: NextRequest) {
       // Transform the request to match the backend API format for JSON
       const postData = {
         content: body.content.trim(),
-        rich_content: body.richContent || null,
         post_style: body.postStyle || null,
         title: body.title || null,
         image_url: body.imageUrl || null,
@@ -121,7 +118,6 @@ export async function POST(request: NextRequest) {
     const transformedPost = {
       id: createdPost.id,
       content: createdPost.content,
-      richContent: createdPost.rich_content,
       postStyle: createdPost.post_style,
       author: {
         id: createdPost.author.id.toString(),
@@ -200,7 +196,6 @@ export async function GET(request: NextRequest) {
     const transformedPosts = posts.map((post: any) => ({
       id: post.id,
       content: post.content,
-      richContent: post.rich_content,
       postStyle: post.post_style,
       author: {
         id: post.author.id.toString(),

@@ -6,47 +6,51 @@ import "../styles/rich-content.css"
 
 interface RichContentRendererProps {
   content: string
-  richContent?: string
   postStyle?: PostStyle
+  post_style?: PostStyle  // Backend field name
   className?: string
   onMentionClick?: (username: string) => void
+  validUsernames?: string[]
 }
 
 export default function RichContentRenderer({
   content,
-  richContent,
   postStyle,
+  post_style,
   className = "",
-  onMentionClick
+  onMentionClick,
+  validUsernames = []
 }: RichContentRendererProps) {
-  // Apply post style
-  const containerStyle: React.CSSProperties = postStyle ? {
-    backgroundColor: postStyle.backgroundColor,
-    background: postStyle.backgroundGradient || postStyle.backgroundColor,
-    color: postStyle.textColor,
-    border: postStyle.borderStyle || 'none',
-    textShadow: postStyle.textShadow || 'none',
-    fontFamily: postStyle.fontFamily || 'inherit',
+  // Apply post style (prefer backend field names)
+  const activePostStyle = post_style || postStyle
+  const containerStyle: React.CSSProperties = activePostStyle ? {
+    backgroundColor: activePostStyle.backgroundColor,
+    background: activePostStyle.backgroundGradient || activePostStyle.backgroundColor,
+    color: activePostStyle.textColor,
+    border: activePostStyle.borderStyle || 'none',
+    textShadow: activePostStyle.textShadow || 'none',
+    fontFamily: activePostStyle.fontFamily || 'inherit',
     padding: '16px',
     borderRadius: '12px',
     margin: '8px 0'
   } : {}
 
-  // Determine what content to render
-  const hasRichContent = richContent && richContent.trim() !== '' && richContent !== content
-  const contentToRender = hasRichContent ? richContent : content
+  // Use content field directly - it contains the rich text
+  const contentToRender = content
 
   // Check if content contains HTML tags
   const hasHtmlTags = /<[^>]+>/.test(contentToRender)
 
-  // DEBUG: Log what we're rendering
-  console.log("🎨 RichContentRenderer Debug:", {
-    content,
-    richContent,
-    hasRichContent,
-    contentToRender,
-    hasHtmlTags
-  })
+  // DEBUG: Log what we're rendering (commented out for production)
+  // console.log("🎨 RichContentRenderer Debug:", {
+  //   content,
+  //   richContent,
+  //   rich_content,
+  //   activeRichContent,
+  //   hasRichContent,
+  //   contentToRender,
+  //   hasHtmlTags
+  // })
 
   // Process content into HTML (either existing HTML or convert markdown to HTML)
   let processedContent = contentToRender
@@ -56,7 +60,15 @@ export default function RichContentRenderer({
     if (onMentionClick) {
       processedContent = processedContent.replace(
         /@([a-zA-Z0-9_\-\.]+)/g,
-        '<span class="mention" data-username="$1">@$1</span>'
+        (match, username) => {
+          const isValid = validUsernames.includes(username)
+          if (isValid) {
+            return `<span class="mention text-purple-600" data-username="${username}">@${username}</span>`
+          } else {
+            // Invalid usernames get no special styling, just plain text
+            return `@${username}`
+          }
+        }
       )
     }
   } else {
@@ -65,7 +77,15 @@ export default function RichContentRenderer({
     if (onMentionClick) {
       processedContent = processedContent.replace(
         /@([a-zA-Z0-9_\-\.]+)/g,
-        '<span class="mention" data-username="$1">@$1</span>'
+        (match, username) => {
+          const isValid = validUsernames.includes(username)
+          if (isValid) {
+            return `<span class="mention text-purple-600" data-username="${username}">@${username}</span>`
+          } else {
+            // Invalid usernames get no special styling, just plain text
+            return `@${username}`
+          }
+        }
       )
     }
 
@@ -88,7 +108,7 @@ export default function RichContentRenderer({
     })
 
     return (
-      <div 
+      <div
         className="rich-content"
         style={containerStyle}
       >
@@ -115,12 +135,12 @@ export default function RichContentRenderer({
   } else {
     // Plain text content, render with mention support
     return (
-      <div 
+      <div
         className="rich-content"
         style={containerStyle}
       >
         <div className={`rich-content-rendered ${className}`.trim()}>
-          {renderMentions(contentToRender, onMentionClick)}
+          {renderMentions(contentToRender, onMentionClick, validUsernames)}
         </div>
       </div>
     )
@@ -128,7 +148,7 @@ export default function RichContentRenderer({
 }
 
 // Helper function to render mentions in plain text
-function renderMentions(text: string, onMentionClick?: (username: string) => void) {
+function renderMentions(text: string, onMentionClick?: (username: string) => void, validUsernames: string[] = []) {
   if (!text) {
     return ""
   }
@@ -148,17 +168,25 @@ function renderMentions(text: string, onMentionClick?: (username: string) => voi
       parts.push(text.slice(lastIndex, match.index))
     }
 
-    // Add mention as clickable element
+    // Add mention as clickable element or plain text
     const username = match[1]
-    parts.push(
-      <button
-        key={`mention-${match.index}`}
-        onClick={() => onMentionClick(username)}
-        className="text-purple-600 hover:text-purple-800 hover:underline font-medium"
-      >
-        @{username}
-      </button>
-    )
+    const isValid = validUsernames.includes(username)
+    
+    if (isValid) {
+      parts.push(
+        <span
+          key={`mention-${match.index}`}
+          onClick={() => onMentionClick(username)}
+          className="mention text-purple-600 hover:text-purple-800 hover:underline font-medium"
+          data-username={username}
+        >
+          @{username}
+        </span>
+      )
+    } else {
+      // Invalid usernames are just plain text
+      parts.push(`@${username}`)
+    }
 
     lastIndex = match.index + match[0].length
   }
