@@ -60,9 +60,9 @@ interface Post {
     importance?: number
     type?: string
   }
-  heartsCount?: number
-  isHearted?: boolean
-  reactionsCount?: number
+  heartsCount: number
+  isHearted: boolean
+  reactionsCount: number
   currentUserReaction?: string
 }
 
@@ -287,6 +287,18 @@ export default function UserProfilePage() {
     }
   }
 
+  const handleEditPost = (postId: string, updatedPost: any) => {
+    // Update the post in the local state
+    setPosts(posts.map(post => 
+      post.id === postId ? updatedPost : post
+    ))
+  }
+
+  const handleDeletePost = (postId: string) => {
+    // Remove the post from the local state
+    setPosts(posts.filter(post => post.id !== postId))
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -431,6 +443,8 @@ export default function UserProfilePage() {
                     onRemoveReaction={handleRemoveReaction}
                     onShare={handleShare}
                     onUserClick={handleUserClick}
+                    onEdit={handleEditPost}
+                    onDelete={handleDeletePost}
                   />
                 ))}
               </div>

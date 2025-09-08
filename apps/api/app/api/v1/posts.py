@@ -5,6 +5,7 @@ Posts API endpoints.
 import logging
 import uuid
 import os
+import json
 from pathlib import Path
 from typing import List, Optional
 
@@ -33,7 +34,6 @@ class PostCreate(BaseModel):
     """Post creation request model with automatic type detection and rich content support."""
     content: str = Field(..., min_length=1)
     post_style: Optional[dict] = Field(None, description="Post styling information")
-    title: Optional[str] = Field(None, max_length=100)
     image_url: Optional[str] = None
     location: Optional[str] = Field(None, max_length=150)
     location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
@@ -65,7 +65,6 @@ class PostResponse(BaseModel):
     """Post response model with rich content support."""
     id: str
     author_id: int
-    title: Optional[str] = None
     content: str
     post_style: Optional[dict] = None
     post_type: str
@@ -139,6 +138,30 @@ class ShareResponse(BaseModel):
     created_at: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PostUpdate(BaseModel):
+    """Post update request model."""
+    content: Optional[str] = Field(None, min_length=1)
+    post_style: Optional[dict] = Field(None, description="Post styling information")
+    location: Optional[str] = Field(None, max_length=150)
+    location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
+
+    @field_validator('post_style')
+    @classmethod
+    def validate_post_style(cls, v):
+        if v is not None:
+            required_fields = ['id', 'name', 'backgroundColor', 'textColor']
+            for field in required_fields:
+                if field not in v:
+                    raise ValueError(f'Post style missing required field: {field}')
+        return v
+
+
+class DeleteResponse(BaseModel):
+    """Delete response model."""
+    success: bool
+    message: str
 
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
@@ -243,7 +266,6 @@ async def create_post_json(
         db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
-            title=post_data.title,
             content=post_data.content,
             post_style=post_data.post_style,
             post_type=final_post_type,
@@ -273,7 +295,6 @@ async def create_post_json(
         return PostResponse(
             id=db_post.id,
             author_id=db_post.author_id,
-            title=db_post.title,
             content=db_post.content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
@@ -313,7 +334,6 @@ async def create_post_with_file(
     # FormData parameters
     content: str = Form(...),
     post_style: Optional[str] = Form(None),  # JSON string
-    title: Optional[str] = Form(None),
     location: Optional[str] = Form(None),
     location_data: Optional[str] = Form(None),  # JSON string
     post_type_override: Optional[str] = Form(None),
@@ -348,7 +368,6 @@ async def create_post_with_file(
         post_data_dict = {
             "content": content,
             "post_style": parsed_post_style,
-            "title": title,
             "location": location,
             "location_data": parsed_location_data,
             "post_type_override": post_type_override,
@@ -426,7 +445,6 @@ async def create_post_with_file(
         db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
-            title=post_data.title,
             content=post_data.content,
             post_style=post_data.post_style,
             post_type=final_post_type,
@@ -456,7 +474,6 @@ async def create_post_with_file(
         return PostResponse(
             id=db_post.id,
             author_id=db_post.author_id,
-            title=db_post.title,
             content=db_post.content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
@@ -559,7 +576,6 @@ async def get_feed(
                 posts_with_user_data.append(PostResponse(
                     id=post_data['id'],
                     author_id=post_data['author_id'],
-                    title=post_data['title'],
                     content=post_data['content'],
                     post_style=post_data.get('post_style'),
                     post_type=post_data['post_type'],
@@ -591,7 +607,6 @@ async def get_feed(
                 query = text("""
                     SELECT p.id,
                            p.author_id,
-                           p.title,
                            p.content,
                            p.post_style,
                            p.post_type,
@@ -634,7 +649,6 @@ async def get_feed(
                 query = text("""
                     SELECT p.id,
                            p.author_id,
-                           p.title,
                            p.content,
                            p.post_style,
                            p.post_type,
@@ -679,7 +693,6 @@ async def get_feed(
                 posts_with_counts.append(PostResponse(
                     id=row.id,
                     author_id=row.author_id,
-                    title=row.title,
                     content=row.content,
                     post_style=getattr(row, 'post_style', None),
                     post_type=row.post_type,
@@ -740,7 +753,6 @@ async def get_post_by_id(
             query = text("""
                 SELECT p.id,
                        p.author_id,
-                       p.title,
                        p.content,
                        p.post_style,
                        p.post_type,
@@ -782,7 +794,6 @@ async def get_post_by_id(
             query = text("""
                 SELECT p.id,
                        p.author_id,
-                       p.title,
                        p.content,
                        p.post_style,
                        p.post_type,
@@ -836,7 +847,6 @@ async def get_post_by_id(
         return PostResponse(
             id=row.id,
             author_id=row.author_id,
-            title=row.title,
             content=row.content,
             post_style=row.post_style,
             post_type=row.post_type,
@@ -990,3 +1000,223 @@ async def share_post(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Failed to share post"
                 )
+
+
+@router.put("/{post_id}", response_model=PostResponse)
+async def edit_post(
+    post_id: str,
+    post_update: PostUpdate,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Edit a post. Only the post author can edit their posts."""
+    try:
+        # Get the post
+        post = await Post.get_by_id(db, post_id)
+        if not post:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Post not found"
+            )
+        
+        # Check permission - only author can edit
+        if post.author_id != current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only edit your own posts"
+            )
+        
+        # Update only provided fields
+        update_data = {}
+        if post_update.content is not None:
+            update_data['content'] = post_update.content
+        if post_update.post_style is not None:
+            update_data['post_style'] = post_update.post_style
+        if post_update.location is not None:
+            update_data['location'] = post_update.location
+        if post_update.location_data is not None:
+            update_data['location_data'] = post_update.location_data
+        
+        # If content is being updated, re-analyze post type
+        if 'content' in update_data:
+            content_analysis_service = ContentAnalysisService(db)
+            has_image = bool(post.image_url)
+            
+            analysis_result = content_analysis_service.analyze_content(
+                content=update_data['content'],
+                has_image=has_image
+            )
+            
+            # Update post type based on new content
+            update_data['post_type'] = analysis_result.suggested_type
+            
+            # Validate content length for the new type
+            validation_result = content_analysis_service.validate_content_for_type(
+                content=update_data['content'],
+                post_type=analysis_result.suggested_type
+            )
+            
+            if not validation_result["is_valid"]:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Content too long. Maximum {validation_result['character_limit']} characters for {analysis_result.suggested_type.value} posts. Current: {validation_result['character_count']} characters."
+                )
+        
+        # Validate location_data if provided
+        if 'location_data' in update_data and update_data['location_data']:
+            from app.services.location_service import LocationService
+            location_service = LocationService(db)
+            if not location_service.validate_location_data(update_data['location_data']):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid location data format"
+                )
+        
+        # Update the post
+        for field, value in update_data.items():
+            setattr(post, field, value)
+        
+        # Set updated_at timestamp manually
+        from datetime import datetime, timezone
+        post.updated_at = datetime.now(timezone.utc)
+        
+        await db.commit()
+        await db.refresh(post)
+        
+        # Process mentions if content was updated
+        if 'content' in update_data:
+            try:
+                mention_service = MentionService(db)
+                # Remove old mentions
+                await mention_service.delete_post_mentions(post.id)
+                # Create new mentions
+                await mention_service.create_mentions(
+                    post_id=post.id,
+                    author_id=current_user_id,
+                    content=update_data['content']
+                )
+            except Exception as e:
+                logger.error(f"Error processing mentions for updated post {post.id}: {e}")
+                # Don't fail post update if mention processing fails
+        
+        # Get user info for response
+        user = await User.get_by_id(db, current_user_id)
+        
+        # Format response
+        return PostResponse(
+            id=post.id,
+            author_id=post.author_id,
+            content=post.content,
+            post_style=post.post_style,
+            post_type=post.post_type.value,
+            image_url=post.image_url,
+            location=post.location,
+            location_data=post.location_data,
+            is_public=post.is_public,
+            created_at=post.created_at.isoformat(),
+            updated_at=post.updated_at.isoformat() if post.updated_at else None,
+            author={
+                "id": user.id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "name": user.display_name or user.username,
+                "email": user.email
+            },
+            hearts_count=post.hearts_count or 0,
+            reactions_count=post.reactions_count or 0,
+            current_user_reaction=None,  # Will be populated by frontend if needed
+            is_hearted=False  # Will be populated by frontend if needed
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error editing post: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to edit post"
+        )
+
+
+@router.delete("/{post_id}", response_model=DeleteResponse)
+async def delete_post(
+    post_id: str,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a post. Only the post author can delete their posts."""
+    try:
+        # Get the post
+        post = await Post.get_by_id(db, post_id)
+        if not post:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Post not found"
+            )
+        
+        # Check permission - only author can delete
+        if post.author_id != current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only delete your own posts"
+            )
+        
+        # Delete related data first (cascade delete)
+        try:
+            # Delete mentions
+            mention_service = MentionService(db)
+            await mention_service.delete_post_mentions(post.id)
+            
+            # Delete reactions
+            from app.services.reaction_service import ReactionService
+            reaction_service = ReactionService(db)
+            await reaction_service.delete_all_post_reactions(post.id)
+            
+            # Delete likes/hearts
+            from sqlalchemy import text
+            await db.execute(text("DELETE FROM likes WHERE post_id = :post_id"), {"post_id": post.id})
+            
+            # Delete shares
+            await db.execute(text("DELETE FROM shares WHERE post_id = :post_id"), {"post_id": post.id})
+            
+            # Delete notifications related to this post
+            # Notifications store post_id in the data JSON field, not as a direct column
+            await db.execute(text("DELETE FROM notifications WHERE data::jsonb @> :post_data"), {"post_data": json.dumps({"post_id": post.id})})
+            
+        except Exception as e:
+            logger.warning(f"Error cleaning up related data for post {post.id}: {e}")
+            # Continue with post deletion even if cleanup fails
+        
+        # Delete the post itself
+        await db.delete(post)
+        await db.commit()
+        
+        # Clean up image file if it exists
+        if post.image_url:
+            try:
+                import os
+                from pathlib import Path
+                
+                # Extract filename from URL (assuming format like /uploads/posts/filename.jpg)
+                if post.image_url.startswith('/uploads/'):
+                    file_path = Path("apps/api") / post.image_url.lstrip('/')
+                    if file_path.exists():
+                        os.remove(file_path)
+                        logger.info(f"Deleted image file: {file_path}")
+            except Exception as e:
+                logger.warning(f"Error deleting image file for post {post.id}: {e}")
+                # Don't fail the deletion if file cleanup fails
+        
+        return DeleteResponse(
+            success=True,
+            message="Post deleted successfully"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting post: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete post"
+        )

@@ -20,7 +20,6 @@ class Post(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    title = Column(String, nullable=True)
     content = Column(Text, nullable=False)
     post_style = Column(JSON, nullable=True)  # Post styling information
     post_type = Column(Enum(PostType, name="posttype", schema="public"), default=PostType.daily, nullable=False)
@@ -41,3 +40,10 @@ class Post(Base):
 
     # Relationships
     author = relationship("User", back_populates="posts")
+    
+    @classmethod
+    async def get_by_id(cls, db, post_id: str):
+        """Get a post by ID."""
+        from sqlalchemy.future import select
+        result = await db.execute(select(cls).where(cls.id == post_id))
+        return result.scalar_one_or_none()

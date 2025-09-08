@@ -209,7 +209,6 @@ class AlgorithmService(BaseService):
             scored_posts.append({
                 'id': post.id,
                 'author_id': post.author_id,
-                'title': post.title,
                 'content': post.content,
                 'post_style': post.post_style,
                 'post_type': post.post_type.value,
@@ -279,7 +278,6 @@ class AlgorithmService(BaseService):
             recent_posts.append({
                 'id': post.id,
                 'author_id': post.author_id,
-                'title': post.title,
                 'content': post.content,
                 'post_style': post.post_style,
                 'post_type': post.post_type.value,
@@ -412,7 +410,6 @@ class AlgorithmService(BaseService):
                 trending_posts.append({
                     'id': post.id,
                     'author_id': post.author_id,
-                    'title': post.title,
                     'content': post.content,
                     'post_type': post.post_type.value,
                     'image_url': post.image_url,

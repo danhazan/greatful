@@ -258,12 +258,14 @@ class MentionRepository(BaseRepository):
         Returns:
             int: Number of mentions deleted
         """
-        mentions = await self.find_all({"post_id": post_id})
-        count = len(mentions)
+        from sqlalchemy import text
         
-        for mention in mentions:
-            await self.delete(mention)
+        # Use direct SQL delete to avoid foreign key constraint issues
+        query = text("DELETE FROM mentions WHERE post_id = :post_id")
+        result = await self.db.execute(query, {"post_id": post_id})
+        count = result.rowcount
         
+        await self.db.commit()
         return count
     
     async def bulk_create_mentions(

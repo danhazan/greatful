@@ -17,9 +17,9 @@ interface Post {
   postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   location?: string
-  heartsCount?: number
-  isHearted?: boolean
-  reactionsCount?: number
+  heartsCount: number
+  isHearted: boolean
+  reactionsCount: number
   currentUserReaction?: string
 }
 
@@ -69,7 +69,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
                 ...prevPost,
                 isHearted: postData.is_hearted || false,
                 currentUserReaction: postData.current_user_reaction || undefined,
-                heartsCount: postData.hearts_count || prevPost.heartsCount || 0,
+                heartsCount: postData.hearts_count || 0,
                 reactionsCount: postData.reactions_count || prevPost.reactionsCount || 0,
               }))
             }
@@ -105,7 +105,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
       // Fallback optimistic update
       setPost(prevPost => ({
         ...prevPost,
-        heartsCount: (prevPost.heartsCount || 0) + (isCurrentlyHearted ? -1 : 1),
+        heartsCount: prevPost.heartsCount + (isCurrentlyHearted ? -1 : 1),
         isHearted: !isCurrentlyHearted,
       }))
     }

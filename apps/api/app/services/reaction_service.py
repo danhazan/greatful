@@ -187,6 +187,20 @@ class ReactionService(BaseService):
             for reaction in reactions
         ]
 
+    async def delete_all_post_reactions(self, post_id: str) -> int:
+        """
+        Delete all reactions for a specific post.
+        
+        Args:
+            post_id: ID of the post
+            
+        Returns:
+            int: Number of reactions deleted
+        """
+        count = await self.reaction_repo.delete_all_post_reactions(post_id)
+        logger.info(f"Deleted {count} reactions for post {post_id}")
+        return count
+
     async def get_user_reaction(
         self, 
         user_id: int, 

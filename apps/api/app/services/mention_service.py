@@ -392,16 +392,16 @@ class MentionService(BaseService):
         highlighted_content = self.MENTION_PATTERN.sub(replace_mention, content)
         return highlighted_content
 
-    async def remove_post_mentions(self, post_id: str) -> int:
+    async def delete_post_mentions(self, post_id: str) -> int:
         """
-        Remove all mentions for a specific post.
+        Delete all mentions for a specific post.
         
         Args:
             post_id: ID of the post
             
         Returns:
-            int: Number of mentions removed
+            int: Number of mentions deleted
         """
         count = await self.mention_repo.delete_post_mentions(post_id)
-        logger.info(f"Removed {count} mentions for post {post_id}")
+        logger.info(f"Deleted {count} mentions for post {post_id}")
         return count

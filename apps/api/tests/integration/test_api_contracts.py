@@ -82,7 +82,6 @@ class TestPostsAPIContracts:
         assert data["reactions_count"] >= 0
         
         # Optional fields should be present but can be null
-        assert "title" in data
         assert "image_url" in data
         assert "location" in data
         assert "updated_at" in data

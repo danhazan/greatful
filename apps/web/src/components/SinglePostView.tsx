@@ -48,9 +48,9 @@ interface Post {
     importance?: number
     type?: string
   }
-  heartsCount?: number
-  isHearted?: boolean
-  reactionsCount?: number
+  heartsCount: number
+  isHearted: boolean
+  reactionsCount: number
   currentUserReaction?: string
 }
 
@@ -227,6 +227,14 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
             currentUserReaction: reactionSummary.user_reaction || undefined
           } : null)
         }
+      }}
+      onEdit={(postId, updatedPost) => {
+        // Update the post with the new data
+        setPost(updatedPost)
+      }}
+      onDelete={(postId) => {
+        // Redirect to feed after deletion
+        router.push('/feed')
       }}
     />
   )

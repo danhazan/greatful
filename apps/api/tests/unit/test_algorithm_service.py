@@ -35,7 +35,7 @@ class TestAlgorithmService:
         post = Post(
             id="test-post-1",
             author_id=1,
-            title="Test Post",
+
             content="This is a test gratitude post",
             post_type=PostType.daily,
             image_url=None,

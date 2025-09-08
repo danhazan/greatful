@@ -278,6 +278,33 @@ class EmojiReactionRepository(BaseRepository):
         
         return False
     
+    async def delete_all_post_reactions(self, post_id: str) -> int:
+        """
+        Delete all reactions for a specific post.
+        
+        Args:
+            post_id: ID of the post
+            
+        Returns:
+            int: Number of reactions deleted
+        """
+        from sqlalchemy import text
+        
+        # Count reactions before deletion
+        count_result = await self.db.execute(
+            text("SELECT COUNT(*) FROM emoji_reactions WHERE post_id = :post_id"),
+            {"post_id": post_id}
+        )
+        count = count_result.scalar() or 0
+        
+        # Delete all reactions for the post
+        await self.db.execute(
+            text("DELETE FROM emoji_reactions WHERE post_id = :post_id"),
+            {"post_id": post_id}
+        )
+        
+        return count
+    
     async def update_user_reaction(
         self, 
         user_id: int, 

@@ -232,6 +232,18 @@ export default function FeedPage() {
     }
   }
 
+  const handleEditPost = (postId: string, updatedPost: Post) => {
+    // Update the post in the local state
+    setPosts(posts.map(post => 
+      post.id === postId ? updatedPost : post
+    ))
+  }
+
+  const handleDeletePost = (postId: string) => {
+    // Remove the post from the local state
+    setPosts(posts.filter(post => post.id !== postId))
+  }
+
   const refreshPosts = async () => {
     const token = localStorage.getItem("access_token")
     if (token) {
@@ -390,6 +402,8 @@ export default function FeedPage() {
                   onRemoveReaction={handleRemoveReaction}
                   onShare={handleShare}
                   onUserClick={handleUserClick}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
                 />
               ))
             )}

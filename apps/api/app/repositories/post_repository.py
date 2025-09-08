@@ -123,7 +123,6 @@ class PostRepository(BaseRepository):
                 query = text(f"""
                     SELECT p.id,
                            p.author_id,
-                           p.title,
                            p.content,
                            p.post_style,
                            p.post_type,
@@ -165,7 +164,6 @@ class PostRepository(BaseRepository):
                 query = text(f"""
                     SELECT p.id,
                            p.author_id,
-                           p.title,
                            p.content,
                            p.post_style,
                            p.post_type,
@@ -231,7 +229,6 @@ class PostRepository(BaseRepository):
                 post_dict = {
                     "id": row.id,
                     "author_id": row.author_id,
-                    "title": row.title,
                     "content": row.content,
                     "post_style": post_style_data,
                     "post_type": row.post_type,

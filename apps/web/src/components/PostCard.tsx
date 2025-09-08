@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Share, Calendar, MapPin, Plus, Loader2 } from "lucide-react"
+import { Share, Calendar, MapPin, Plus, Loader2, MoreHorizontal, Edit3, Trash2 } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
@@ -11,6 +11,8 @@ import MentionHighlighter from "./MentionHighlighter"
 import FollowButton from "./FollowButton"
 import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import RichContentRenderer from "./RichContentRenderer"
+import EditPostModal from "./EditPostModal"
+import DeleteConfirmationModal from "./DeleteConfirmationModal"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
@@ -49,6 +51,7 @@ interface Post {
     image?: string
   }
   createdAt: string
+  updatedAt?: string
   postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   location?: string
@@ -66,9 +69,9 @@ interface Post {
     importance?: number
     type?: string
   }
-  heartsCount?: number
-  isHearted?: boolean
-  reactionsCount?: number
+  heartsCount: number
+  isHearted: boolean
+  reactionsCount: number
   currentUserReaction?: string
 }
 
@@ -81,6 +84,8 @@ interface PostCardProps {
   onRemoveReaction?: (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => void
   onShare?: (postId: string) => void
   onUserClick?: (userId: string) => void
+  onEdit?: (postId: string, updatedPost: Post) => void
+  onDelete?: (postId: string) => void
 }
 
 // Removed local emoji mapping - now using utility function
@@ -93,12 +98,17 @@ export default function PostCard({
   onReaction,
   onRemoveReaction,
   onShare,
-  onUserClick 
+  onUserClick,
+  onEdit,
+  onDelete
 }: PostCardProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionViewer, setShowReactionViewer] = useState(false)
   const [showHeartsViewer, setShowHeartsViewer] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false)
   const [isUserAuthenticated, setIsUserAuthenticated] = useState(false)
 
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
@@ -107,15 +117,23 @@ export default function PostCard({
   const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const [validUsernames, setValidUsernames] = useState<string[]>([])
+  const [currentPost, setCurrentPost] = useState(post)
+
+  // Sync post prop with local state
+  useEffect(() => {
+    setCurrentPost(post)
+  }, [post])
   
   // Loading states
   const [isHeartLoading, setIsHeartLoading] = useState(false)
   const [isReactionLoading, setIsReactionLoading] = useState(false)
   const [isReactionsViewerLoading, setIsReactionsViewerLoading] = useState(false)
   const [isHeartsViewerLoading, setIsHeartsViewerLoading] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const shareButtonRef = useRef<HTMLButtonElement>(null)
+  const optionsButtonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
   const { showSuccess, showError, showLoading, hideToast } = useToast()
 
@@ -123,6 +141,24 @@ export default function PostCard({
   useEffect(() => {
     setIsUserAuthenticated(isAuthenticated() && !!currentUserId)
   }, [currentUserId])
+
+  // Handle click outside to close options menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (optionsButtonRef.current && !optionsButtonRef.current.contains(event.target as Node)) {
+        const target = event.target as Element
+        // Check if click is outside the options dropdown
+        if (!target.closest('.absolute')) {
+          setShowOptionsMenu(false)
+        }
+      }
+    }
+
+    if (showOptionsMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showOptionsMenu])
 
   // Track post view when component mounts
   useEffect(() => {
@@ -136,12 +172,12 @@ export default function PostCard({
   useEffect(() => {
     const validateMentions = async () => {
 
-      if (!post.content || !isAuthenticated() || !currentUserId) {
+      if (!currentPost.content || !isAuthenticated() || !currentUserId) {
         setValidUsernames([])
         return
       }
 
-      const usernames = getUniqueUsernames(post.content)
+      const usernames = getUniqueUsernames(currentPost.content)
       if (usernames.length === 0) {
         setValidUsernames([])
         return
@@ -190,16 +226,37 @@ export default function PostCard({
     }
 
     validateMentions()
-  }, [post.content, currentUserId])
+  }, [currentPost.content, currentUserId])
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "Unknown date"
+    
     const date = new Date(dateString)
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString)
+      return "Invalid date"
+    }
+    
     const now = new Date()
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
     
     if (diffInHours < 1) return "Just now"
     if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`
     return date.toLocaleDateString()
+  }
+
+  // Determine which date to show and whether to indicate it was edited
+  const getDisplayDate = () => {
+    // Show updated date if post was edited, otherwise show created date
+    const dateToShow = currentPost.updatedAt || currentPost.createdAt
+    const wasEdited = currentPost.updatedAt && currentPost.updatedAt !== currentPost.createdAt
+    
+    return {
+      dateString: dateToShow,
+      wasEdited
+    }
   }
 
   const handleReactionButtonClick = async (event: React.MouseEvent) => {
@@ -212,7 +269,7 @@ export default function PostCard({
     }
     
     // If user already has a reaction, remove it
-    if (post.currentUserReaction && onRemoveReaction) {
+    if (currentPost.currentUserReaction && onRemoveReaction) {
       // Track analytics event for reaction removal
       if (currentUserId) {
         analyticsService.trackReactionEvent(
@@ -220,7 +277,7 @@ export default function PostCard({
           post.id,
           currentUserId,
           undefined,
-          post.currentUserReaction
+          currentPost.currentUserReaction
         )
       }
       
@@ -276,13 +333,13 @@ export default function PostCard({
     
     // Track analytics event
     if (currentUserId) {
-      const eventType = post.currentUserReaction ? 'reaction_change' : 'reaction_add'
+      const eventType = currentPost.currentUserReaction ? 'reaction_change' : 'reaction_add'
       analyticsService.trackReactionEvent(
         eventType,
         post.id,
         currentUserId,
         emojiCode,
-        post.currentUserReaction
+        currentPost.currentUserReaction
       )
     }
     
@@ -451,9 +508,139 @@ export default function PostCard({
     }
   }
 
+  // Edit and delete handlers
+  const handleEditPost = async (postData: {
+    content: string
+    postStyle?: any
+    title?: string
+    location?: string
+    location_data?: any
+    mentions?: string[]
+  }) => {
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        showError('Authentication Error', 'Please log in to edit posts.')
+        return
+      }
+
+      const loadingToastId = showLoading('Updating Post', 'Saving your changes...')
+
+      const updateData = {
+        content: postData.content,
+        post_style: postData.postStyle,
+        title: postData.title,
+        location: postData.location,
+        location_data: postData.location_data
+      }
+
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+      })
+
+      hideToast(loadingToastId)
+
+      if (response.ok) {
+        const updatedPost = await response.json()
+        showSuccess('Post Updated', 'Your post has been updated successfully.')
+        setShowEditModal(false)
+        
+        // Update local post state
+        setCurrentPost(updatedPost)
+        
+        // Call the onEdit callback if provided
+        if (onEdit) {
+          onEdit(post.id, updatedPost)
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        showError(
+          'Update Failed',
+          errorData.detail || 'Unable to update post. Please try again.',
+          {
+            label: 'Retry',
+            onClick: () => handleEditPost(postData)
+          }
+        )
+      }
+    } catch (error) {
+      console.error('Error updating post:', error)
+      showError(
+        'Network Error',
+        'Please check your connection and try again.',
+        {
+          label: 'Retry',
+          onClick: () => handleEditPost(postData)
+        }
+      )
+    }
+  }
+
+  const handleDeletePost = async () => {
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        showError('Authentication Error', 'Please log in to delete posts.')
+        return
+      }
+
+      setIsDeleting(true)
+      const loadingToastId = showLoading('Deleting Post', 'Removing your post...')
+
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      })
+
+      hideToast(loadingToastId)
+
+      if (response.ok) {
+        showSuccess('Post Deleted', 'Your post has been deleted successfully.')
+        setShowDeleteModal(false)
+        
+        // Call the onDelete callback if provided
+        if (onDelete) {
+          onDelete(post.id)
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        showError(
+          'Delete Failed',
+          errorData.detail || 'Unable to delete post. Please try again.',
+          {
+            label: 'Retry',
+            onClick: handleDeletePost
+          }
+        )
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error)
+      showError(
+        'Network Error',
+        'Please check your connection and try again.',
+        {
+          label: 'Retry',
+          onClick: handleDeletePost
+        }
+      )
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // Check if current user is the post author
+  const isPostAuthor = currentUserId && currentUserId === currentPost.author.id
+
   // Get styling based on post type
   const getPostStyling = () => {
-    switch (post.postType) {
+    switch (currentPost.postType) {
       case 'daily':
         return {
           container: 'bg-white rounded-xl shadow-lg border-2 border-purple-100 overflow-hidden mb-8',
@@ -508,29 +695,29 @@ export default function PostCard({
         <div className={styling.header}>
           <div className="flex items-start space-x-3">
             <ProfilePhotoDisplay
-              photoUrl={post.author.image}
-              username={post.author.username || post.author.name}
+              photoUrl={currentPost.author.image}
+              username={currentPost.author.username || currentPost.author.name}
               size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
               className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all"
-              onClick={() => onUserClick?.(post.author.id)}
+              onClick={() => onUserClick?.(currentPost.author.id)}
             />
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <div 
                   className="cursor-pointer hover:text-purple-700 transition-colors"
-                  onClick={() => onUserClick?.(post.author.id)}
+                  onClick={() => onUserClick?.(currentPost.author.id)}
                 >
                   <h3 className={`${styling.name} text-gray-900 font-bold`}>
-                    {post.author.display_name || post.author.name}
+                    {currentPost.author.display_name || currentPost.author.name}
                   </h3>
                 </div>
                 {/* Follow button positioned right next to the username */}
                 {currentUserId && 
-                 currentUserId !== post.author.id && 
-                 !isNaN(parseInt(post.author.id)) &&
+                 currentUserId !== currentPost.author.id && 
+                 !isNaN(parseInt(currentPost.author.id)) &&
                  !hideFollowButton && (
                   <FollowButton 
-                    userId={parseInt(post.author.id)} 
+                    userId={parseInt(currentPost.author.id)} 
                     size="xxs"
                     variant="outline"
                   />
@@ -543,13 +730,58 @@ export default function PostCard({
                   className="hover:text-purple-600 hover:underline transition-colors cursor-pointer"
                   title="View post details"
                 >
-                  {formatDate(post.createdAt)}
+                  {(() => {
+                    const { dateString, wasEdited } = getDisplayDate()
+                    const formattedDate = formatDate(dateString)
+                    return wasEdited ? `${formattedDate} (edited)` : formattedDate
+                  })()}
                 </a>
-
               </div>
             </div>
-            <div className={styling.badge}>
-              {post.postType}
+            <div className="flex items-center space-x-2">
+              <div className={styling.badge}>
+                {currentPost.postType}
+              </div>
+              
+              {/* Options Menu for Post Author */}
+              {isPostAuthor && (
+                <div className="relative">
+                  <button
+                    ref={optionsButtonRef}
+                    onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Post options"
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                  </button>
+                  
+                  {/* Options Dropdown */}
+                  {showOptionsMenu && (
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                      <button
+                        onClick={() => {
+                          setShowEditModal(true)
+                          setShowOptionsMenu(false)
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                        <span>Edit post</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowDeleteModal(true)
+                          setShowOptionsMenu(false)
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Delete post</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -559,16 +791,16 @@ export default function PostCard({
           {/* Always use RichContentRenderer for consistency */}
 
           <RichContentRenderer
-            content={post.content}
-            postStyle={post.postStyle}
-            post_style={post.post_style}
+            content={currentPost.content}
+            postStyle={currentPost.postStyle}
+            post_style={currentPost.post_style}
             className={`${styling.text} text-gray-900`}
             onMentionClick={handleMentionClick}
             validUsernames={validUsernames}
           />
-          {post.imageUrl && (
+          {currentPost.imageUrl && (
             <img
-              src={getImageUrl(post.imageUrl) || post.imageUrl}
+              src={getImageUrl(currentPost.imageUrl) || currentPost.imageUrl}
               alt="Post image"
               className={styling.image}
             />
@@ -637,13 +869,13 @@ export default function PostCard({
                 onClick={async () => {
                   if (!isUserAuthenticated) {
                     // Call the onHeart handler which will handle the redirect
-                    onHeart?.(post.id, post.isHearted || false)
+                    onHeart?.(post.id, currentPost.isHearted || false)
                     return
                   }
 
                   if (isHeartLoading) return
 
-                  const isCurrentlyHearted = post.isHearted || false
+                  const isCurrentlyHearted = currentPost.isHearted || false
                   setIsHeartLoading(true)
                   
                   // Track analytics event
@@ -730,7 +962,7 @@ export default function PostCard({
                 className={`heart-button flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                   !isUserAuthenticated
                     ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
-                    : post.isHearted 
+                    : currentPost.isHearted 
                       ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100' 
                       : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
                 }`}
@@ -828,11 +1060,11 @@ export default function PostCard({
             </div>
 
             {/* Location Display - Right aligned */}
-            {(post.location_data || post.location) && (
+            {(currentPost.location_data || currentPost.location) && (
               <div className="flex items-center space-x-1 text-gray-500">
                 <MapPin className="h-4 w-4" />
                 <span className={`${styling.textSize} truncate max-w-32`}>
-                  {post.location_data ? post.location_data.display_name : post.location}
+                  {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
                 </span>
               </div>
             )}
@@ -882,6 +1114,22 @@ export default function PostCard({
           // Call original onShare callback if provided
           onShare?.(post.id)
         }}
+      />
+
+      {/* Edit Post Modal */}
+      <EditPostModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        post={currentPost}
+        onSubmit={handleEditPost}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeletePost}
+        isDeleting={isDeleting}
       />
     </>
   )

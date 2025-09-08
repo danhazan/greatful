@@ -69,9 +69,9 @@ interface Post {
     importance?: number
     type?: string
   }
-  heartsCount?: number
-  isHearted?: boolean
-  reactionsCount?: number
+  heartsCount: number
+  isHearted: boolean
+  reactionsCount: number
   currentUserReaction?: string
 }
 
@@ -331,7 +331,7 @@ export default function ProfilePage() {
       if (post.id === postId) {
         return {
           ...post,
-          heartsCount: isCurrentlyHearted ? (post.heartsCount || 1) - 1 : (post.heartsCount || 0) + 1,
+          heartsCount: isCurrentlyHearted ? Math.max(0, post.heartsCount - 1) : post.heartsCount + 1,
           isHearted: !isCurrentlyHearted
         }
       }
@@ -373,6 +373,18 @@ export default function ProfilePage() {
 
   const handleUserClick = () => {
     // Stay on current profile since it's the user's own profile
+  }
+
+  const handleEditPost = (postId: string, updatedPost: any) => {
+    // Update the post in the local state
+    setPosts(posts.map(post => 
+      post.id === postId ? updatedPost : post
+    ))
+  }
+
+  const handleDeletePost = (postId: string) => {
+    // Remove the post from the local state
+    setPosts(posts.filter(post => post.id !== postId))
   }
 
   const formatDate = (dateString: string) => {
@@ -878,6 +890,8 @@ export default function ProfilePage() {
                   onRemoveReaction={handleRemoveReaction}
                   onShare={handleShare}
                   onUserClick={handleUserClick}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
                 />
               ))
             )}
