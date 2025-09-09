@@ -7,12 +7,39 @@ Now includes generic batching system for all notification types.
 """
 
 import logging
+import re
+import html
 from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.notification_repository import NotificationRepository
 from app.core.notification_batcher import NotificationBatcher, PostInteractionBatcher, UserInteractionBatcher
 
 logger = logging.getLogger(__name__)
+
+
+def _strip_html_tags(html_content: str) -> str:
+    """
+    Strip HTML tags and decode HTML entities to get plain text.
+    
+    Args:
+        html_content: HTML content that may contain tags and entities
+        
+    Returns:
+        Plain text with HTML tags removed and entities decoded
+    """
+    if not html_content:
+        return ""
+    
+    # Remove HTML tags using regex
+    clean_text = re.sub(r'<[^>]+>', '', html_content)
+    
+    # Decode HTML entities (like &amp; -> &, &lt; -> <, etc.)
+    clean_text = html.unescape(clean_text)
+    
+    # Clean up extra whitespace
+    clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+    
+    return clean_text
 
 
 class NotificationFactory:
@@ -142,17 +169,20 @@ class NotificationFactory:
             return None
         
         try:
+            # Strip HTML from post preview for clean notification text
+            plain_text_preview = _strip_html_tags(post_preview)
+            
             # Create notification object for batching
             from app.models.notification import Notification
             notification = Notification(
                 user_id=mentioned_user_id,
                 type='mention',
                 title='You were mentioned',
-                message=f'{author_username} mentioned you in a post: {post_preview[:50]}...',
+                message=f'{author_username} mentioned you in a post: {plain_text_preview[:50]}...',
                 data={
                     'post_id': post_id,
                     'author_username': author_username,
-                    'post_preview': post_preview,
+                    'post_preview': plain_text_preview,
                     'actor_user_id': str(author_id),
                     'actor_username': author_username
                 }

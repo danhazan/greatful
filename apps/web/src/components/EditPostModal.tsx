@@ -105,8 +105,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const richTextEditorRef = useRef<RichTextEditorRef>(null)
 
   // Rich text and styling state (always enabled)
-  // Convert HTML content to plain text for editing
-  const [richContent, setRichContent] = useState(htmlToPlainText(post.content || ''))
+  const [richContent, setRichContent] = useState('')
   const [formattedContent, setFormattedContent] = useState('')
   const [selectedStyle, setSelectedStyle] = useState<PostStyle>(
     post.postStyle || post.post_style || POST_STYLES[0]
@@ -224,15 +223,17 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         location: post.location || '',
         location_data: post.location_data
       })
-      setRichContent(post.content || '')
+      // Don't convert HTML to plain text - keep the rich content
+      setRichContent('')
+      setFormattedContent('')
       setSelectedStyle(post.postStyle || post.post_style || POST_STYLES[0])
       setError('')
       setIsSubmitting(false)
       
       // Focus on content editor after a short delay
       setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus()
+        if (richTextEditorRef.current) {
+          richTextEditorRef.current.focus()
         }
       }, 100)
     }
@@ -243,15 +244,17 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     
     if (isSubmitting) return
     
-    const finalContent = formattedContent || richContent || postData.content
+    // Get content from the rich text editor
+    const finalHtml = richTextEditorRef.current?.getHtml() || ''
+    const finalPlainText = richTextEditorRef.current?.getPlainText() || ''
     
-    if (!finalContent.trim()) {
+    if (!finalPlainText.trim()) {
       setError('Please enter some content for your post')
       return
     }
 
-    // Validate content length
-    if (finalContent.length > maxChars) {
+    // Validate content length using plain text
+    if (finalPlainText.length > maxChars) {
       setError(`Content is too long. Maximum ${maxChars} characters allowed for ${predicted.type} posts.`)
       return
     }
@@ -260,12 +263,12 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     setError('')
 
     try {
-      // Extract mentions from content
-      const mentionMatches = extractMentions(finalContent)
+      // Extract mentions from plain text content
+      const mentionMatches = extractMentions(finalPlainText)
       const mentions = mentionMatches.map(match => match.username)
 
       const submitData = {
-        content: finalContent,
+        content: finalHtml || finalPlainText, // Send HTML if available, fallback to plain text
         postStyle: selectedStyle,
         location: postData.location,
         location_data: postData.location_data,
@@ -277,6 +280,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       // Reset form on successful submission
       setPostData({ content: '', location: '' })
       setRichContent('')
+      setFormattedContent('')
       setSelectedStyle(POST_STYLES[0])
       
     } catch (error) {
@@ -393,7 +397,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                 </label>
                 <RichTextEditor
                   ref={richTextEditorRef}
-                  value={richContent}
+                  htmlValue={post.content || null}
                   onChange={(plainText, formattedText) => {
                     setRichContent(plainText)
                     setFormattedContent(formattedText)
@@ -439,7 +443,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
                 {/* Character Count */}
                 <div className="text-sm text-gray-500">
-                  {richContent.length}/{maxChars === 0 ? '∞' : maxChars}
+                  {(richTextEditorRef.current?.getPlainText() || '').length}/{maxChars === 0 ? '∞' : maxChars}
                 </div>
               </div>
 
@@ -470,17 +474,17 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
             {/* Footer */}
             <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-center space-x-3">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !richContent.trim()}
+                  disabled={isSubmitting || !(richTextEditorRef.current?.getPlainText() || '').trim()}
                   className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                 >
                   {isSubmitting ? 'Updating...' : 'Update Post'}

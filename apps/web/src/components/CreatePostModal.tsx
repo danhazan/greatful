@@ -134,6 +134,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const contentForAnalysis = richContent || postData.content
   const trimmed = contentForAnalysis.trim()
   const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
+
+  // Helper function to determine if there's an active draft
+  const hasActiveDraft = () => {
+    return Boolean(
+      postData.content.trim() || 
+      postData.imageUrl || 
+      postData.location || 
+      postData.location_data ||
+      richContent?.trim() ||
+      imageFile
+    )
+  }
   
   // predicted type only for display
   const predicted = analyzeContent(contentForAnalysis, hasImage)
@@ -530,7 +542,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   const handleMentionSelect = (user: UserInfo) => {
     if (currentMentionStart >= 0 && richTextEditorRef.current) {
-      const currentContent = postData.content
+      // Get the current plain text from the editor to ensure accuracy
+      const currentContent = richTextEditorRef.current.getPlainText()
       
       // Find the end of the current partial mention
       let mentionEnd = currentMentionStart + 1 // Start after the @
@@ -567,7 +580,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     
     // Use the provided cursor position to find mention start
     if (cursorPosition !== undefined) {
-      const currentContent = postData.content
+      // Get the current plain text from the editor (not from postData.content which might be stale)
+      const currentContent = richTextEditorRef.current?.getPlainText() || postData.content
       const textBeforeCursor = currentContent.slice(0, cursorPosition)
       const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
       if (mentionMatch) {
@@ -581,6 +595,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     setMentionQuery('')
     setCurrentMentionStart(-1)
   }
+
+
 
 
 
@@ -642,23 +658,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
               {/* Content Input */}
               <div className="flex-1 p-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">
                     What are you grateful for?
                   </label>
-                  
-                  {/* Rich Text Toggle */}
-                  <div className="flex items-center space-x-2">
-                    <button
-                      type="button"
-                      onClick={handleShowBackgrounds}
-                      className="flex items-center space-x-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                      title="Choose style"
-                    >
-                      <Brush className="h-3 w-3" />
-                      <span>Style</span>
-                    </button>
-                  </div>
                 </div>
 
                 {/* Content Editor - Always Rich Text */}
@@ -694,42 +697,38 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     </div>
                   )}
                 </div>
-                
-                <div className="flex justify-between items-center mt-2">
-                  {/* Location Section */}
+
+                {/* Toolbar - Style and Location buttons under textbox */}
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-4">
                   <div className="flex items-center space-x-3">
-                    {/* Minimalist Location Button */}
+                    {/* Style Button */}
+                    <button
+                      type="button"
+                      onClick={handleShowBackgrounds}
+                      className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    >
+                      <Brush className="h-4 w-4" />
+                      <span className="text-sm font-medium">Style</span>
+                    </button>
+
+                    {/* Location Button */}
                     <button
                       type="button"
                       onClick={handleAddLocation}
-                      className={`p-2 rounded-full transition-colors ${
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
                         postData.location_data 
-                          ? 'text-purple-600 bg-purple-50 hover:bg-purple-100' 
-                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                          ? 'text-purple-600 bg-purple-50' 
+                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
                       }`}
-                      title={postData.location_data ? 'Change location' : 'Add location'}
                     >
                       <MapPin className="h-4 w-4" />
+                      <span className="text-sm font-medium">
+                        {postData.location_data ? 'Location Added' : 'Location'}
+                      </span>
                     </button>
-                    
-                    {/* Location Display - To the right of button */}
-                    {postData.location_data && (
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm text-purple-700 font-medium truncate max-w-xs">
-                          {postData.location_data.display_name}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleLocationSelect(null)}
-                          className="text-purple-600 hover:text-purple-800 transition-colors"
-                          title="Remove location"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )}
                   </div>
                   
+                  {/* Character Count */}
                   <div className={`text-sm ${contentForAnalysis.length > maxChars * 0.9
                     ? 'text-red-500'
                     : 'text-gray-500'
@@ -737,6 +736,24 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     {contentForAnalysis.length}/{maxChars}
                   </div>
                 </div>
+
+                {/* Location Display */}
+                {postData.location_data && (
+                  <div className="flex items-center space-x-2 mt-2 p-2 bg-purple-50 rounded-lg">
+                    <MapPin className="h-4 w-4 text-purple-600" />
+                    <div className="text-sm text-purple-700 font-medium truncate flex-1">
+                      {postData.location_data.display_name}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleLocationSelect(null)}
+                      className="text-purple-600 hover:text-purple-800 transition-colors"
+                      title="Remove location"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
 
                 {/* Image Preview */}
                 {postData.imageUrl && (
@@ -818,7 +835,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             {/* Footer */}
             <div className="p-6 border-t border-gray-200">
               <div className="flex flex-col space-y-3">
-                <div className="flex justify-end space-x-3">
+                {/* Centered buttons */}
+                <div className="flex justify-center space-x-3">
                   <button
                     type="button"
                     onClick={onClose}
@@ -829,12 +847,41 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   <button
                     type="submit"
                     disabled={isSubmitting || !postData.content.trim()}
-                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
                   >
                     {isSubmitting ? 'Sharing...' : 'Share Gratitude'}
                   </button>
                 </div>
-                <div className="text-center">
+                {/* Draft status and discard button */}
+                <div className="flex justify-between items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Clear draft and form
+                      localStorage.removeItem('grateful_post_draft')
+                      if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
+                        revokeImagePreview(postData.imageUrl)
+                      }
+                      setImageFile(null)
+                      setPostData({
+                        content: '',
+                        imageUrl: '',
+                        location: ''
+                      })
+                      setRichContent('')
+                      setSelectedStyle(POST_STYLES[0])
+                      // Clear the editor content
+                      richTextEditorRef.current?.clear()
+                      // Focus the editor after clearing
+                      setTimeout(() => {
+                        richTextEditorRef.current?.focus()
+                      }, 0)
+                    }}
+                    className="text-xs text-red-600 hover:text-red-800 transition-colors underline"
+                    disabled={!hasActiveDraft()}
+                  >
+                    Discard Draft
+                  </button>
                   <span className="text-xs text-gray-500">
                     Draft saved automatically
                   </span>

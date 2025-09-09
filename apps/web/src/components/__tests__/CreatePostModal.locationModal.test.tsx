@@ -66,7 +66,7 @@ describe('CreatePostModal - LocationModal Integration', () => {
     )
 
     // Open the location modal by clicking the button in CreatePostModal
-    const addLocationButton = screen.getByRole('button', { name: /add location/i })
+    const addLocationButton = screen.getByRole('button', { name: /location/i })
     fireEvent.click(addLocationButton)
 
     // Wait for location modal to appear
@@ -114,7 +114,7 @@ describe('CreatePostModal - LocationModal Integration', () => {
     )
 
     // Open the location modal
-    const addLocationButton = screen.getByRole('button', { name: /add location/i })
+    const addLocationButton = screen.getByRole('button', { name: /location/i })
     fireEvent.click(addLocationButton)
 
     // Select a location
@@ -145,7 +145,7 @@ describe('CreatePostModal - LocationModal Integration', () => {
     )
 
     // Open the location modal
-    const addLocationButton = screen.getByRole('button', { name: /add location/i })
+    const addLocationButton = screen.getByRole('button', { name: /location/i })
     fireEvent.click(addLocationButton)
 
     // Check that location modal has the data attribute

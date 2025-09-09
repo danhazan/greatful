@@ -24,6 +24,7 @@ from app.services.share_service import ShareService
 from app.services.mention_service import MentionService
 from app.services.algorithm_service import AlgorithmService
 from app.services.content_analysis_service import ContentAnalysisService
+from app.utils.html_sanitizer import sanitize_html
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -33,6 +34,7 @@ security = HTTPBearer()
 class PostCreate(BaseModel):
     """Post creation request model with automatic type detection and rich content support."""
     content: str = Field(..., min_length=1)
+    rich_content: Optional[str] = Field(None, description="HTML formatted content")
     post_style: Optional[dict] = Field(None, description="Post styling information")
     image_url: Optional[str] = None
     location: Optional[str] = Field(None, max_length=150)
@@ -66,6 +68,7 @@ class PostResponse(BaseModel):
     id: str
     author_id: int
     content: str
+    rich_content: Optional[str] = None
     post_style: Optional[dict] = None
     post_type: str
     image_url: Optional[str] = None
@@ -143,6 +146,7 @@ class ShareResponse(BaseModel):
 class PostUpdate(BaseModel):
     """Post update request model."""
     content: Optional[str] = Field(None, min_length=1)
+    rich_content: Optional[str] = Field(None, description="HTML formatted content")
     post_style: Optional[dict] = Field(None, description="Post styling information")
     location: Optional[str] = Field(None, max_length=150)
     location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
@@ -267,6 +271,7 @@ async def create_post_json(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
             content=post_data.content,
+            rich_content=sanitize_html(post_data.rich_content),
             post_style=post_data.post_style,
             post_type=final_post_type,
             image_url=post_data.image_url,
@@ -296,6 +301,7 @@ async def create_post_json(
             id=db_post.id,
             author_id=db_post.author_id,
             content=db_post.content,
+            rich_content=db_post.rich_content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
@@ -333,6 +339,7 @@ async def create_post_with_file(
     db: AsyncSession = Depends(get_db),
     # FormData parameters
     content: str = Form(...),
+    rich_content: Optional[str] = Form(None),
     post_style: Optional[str] = Form(None),  # JSON string
     location: Optional[str] = Form(None),
     location_data: Optional[str] = Form(None),  # JSON string
@@ -367,6 +374,7 @@ async def create_post_with_file(
         # Create PostCreate object and validate it
         post_data_dict = {
             "content": content,
+            "rich_content": rich_content,
             "post_style": parsed_post_style,
             "location": location,
             "location_data": parsed_location_data,
@@ -446,6 +454,7 @@ async def create_post_with_file(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
             content=post_data.content,
+            rich_content=sanitize_html(post_data.rich_content),
             post_style=post_data.post_style,
             post_type=final_post_type,
             image_url=image_url,
@@ -475,6 +484,7 @@ async def create_post_with_file(
             id=db_post.id,
             author_id=db_post.author_id,
             content=db_post.content,
+            rich_content=db_post.rich_content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
@@ -577,6 +587,7 @@ async def get_feed(
                     id=post_data['id'],
                     author_id=post_data['author_id'],
                     content=post_data['content'],
+                    rich_content=post_data.get('rich_content'),
                     post_style=post_data.get('post_style'),
                     post_type=post_data['post_type'],
                     image_url=post_data['image_url'],
@@ -608,6 +619,7 @@ async def get_feed(
                     SELECT p.id,
                            p.author_id,
                            p.content,
+                           p.rich_content,
                            p.post_style,
                            p.post_type,
                            p.image_url,
@@ -650,6 +662,7 @@ async def get_feed(
                     SELECT p.id,
                            p.author_id,
                            p.content,
+                           p.rich_content,
                            p.post_style,
                            p.post_type,
                            p.image_url,
@@ -694,6 +707,7 @@ async def get_feed(
                     id=row.id,
                     author_id=row.author_id,
                     content=row.content,
+                    rich_content=getattr(row, 'rich_content', None),
                     post_style=getattr(row, 'post_style', None),
                     post_type=row.post_type,
                     image_url=row.image_url,
@@ -754,6 +768,7 @@ async def get_post_by_id(
                 SELECT p.id,
                        p.author_id,
                        p.content,
+                       p.rich_content,
                        p.post_style,
                        p.post_type,
                        p.image_url,
@@ -795,6 +810,7 @@ async def get_post_by_id(
                 SELECT p.id,
                        p.author_id,
                        p.content,
+                       p.rich_content,
                        p.post_style,
                        p.post_type,
                        p.image_url,
@@ -848,6 +864,7 @@ async def get_post_by_id(
             id=row.id,
             author_id=row.author_id,
             content=row.content,
+            rich_content=getattr(row, 'rich_content', None),
             post_style=row.post_style,
             post_type=row.post_type,
             image_url=row.image_url,
@@ -1030,6 +1047,8 @@ async def edit_post(
         update_data = {}
         if post_update.content is not None:
             update_data['content'] = post_update.content
+        if post_update.rich_content is not None:
+            update_data['rich_content'] = sanitize_html(post_update.rich_content)
         if post_update.post_style is not None:
             update_data['post_style'] = post_update.post_style
         if post_update.location is not None:
@@ -1107,6 +1126,7 @@ async def edit_post(
             id=post.id,
             author_id=post.author_id,
             content=post.content,
+            rich_content=post.rich_content,
             post_style=post.post_style,
             post_type=post.post_type.value,
             image_url=post.image_url,

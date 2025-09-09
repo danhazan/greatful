@@ -104,9 +104,10 @@ describe('CreatePostModal Image Upload', () => {
       />
     )
 
-    // Fill in content
-    const textarea = screen.getByPlaceholderText(/Share what you're grateful for/)
-    fireEvent.change(textarea, { target: { value: 'Test gratitude post' } })
+    // Fill in content using contentEditable
+    const editor = screen.getByRole('textbox')
+    editor.textContent = 'Test gratitude post'
+    fireEvent.input(editor)
 
     // Submit form
     const submitButton = screen.getByText('Share Gratitude')

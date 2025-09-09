@@ -275,6 +275,27 @@ export const suppressActWarnings = () => {
  */
 export const waitForAsync = () => new Promise(resolve => setTimeout(resolve, 0))
 
+/**
+ * Simulate typing in a contentEditable element
+ */
+export const typeInContentEditable = (element: HTMLElement, text: string) => {
+  // Set the text content
+  element.textContent = text
+  
+  // Create and dispatch input event
+  const inputEvent = new Event('input', { bubbles: true })
+  element.dispatchEvent(inputEvent)
+  
+  return element
+}
+
+/**
+ * Get contentEditable element by placeholder text
+ */
+export const getContentEditableByPlaceholder = (container: HTMLElement, placeholder: string) => {
+  return container.querySelector(`[data-placeholder="${placeholder}"]`) as HTMLElement
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -306,4 +327,8 @@ export default {
   // Async helpers
   suppressActWarnings,
   waitForAsync,
+  
+  // ContentEditable helpers
+  typeInContentEditable,
+  getContentEditableByPlaceholder,
 }

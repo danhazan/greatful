@@ -1,17 +1,24 @@
-import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, jest } from '@jest/globals'
+import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import RichTextEditor from '@/components/RichTextEditor'
+import { typeInContentEditable, getContentEditableByPlaceholder } from '@/tests/utils/test-helpers'
+
+// Mock document.execCommand for testing
+Object.defineProperty(document, 'execCommand', {
+  value: jest.fn(() => true),
+  writable: true
+})
 
 describe('RichTextEditor', () => {
   const mockOnChange = jest.fn()
 
   beforeEach(() => {
     mockOnChange.mockClear()
+    ;(document.execCommand as jest.Mock).mockClear()
   })
 
   it('renders basic text editor', () => {
-    render(
+    const { container } = render(
       <RichTextEditor
         value=""
         onChange={mockOnChange}
@@ -19,24 +26,26 @@ describe('RichTextEditor', () => {
       />
     )
 
-    expect(screen.getByPlaceholderText('Test placeholder')).toBeInTheDocument()
+    const editor = getContentEditableByPlaceholder(container, 'Test placeholder')
+    expect(editor).toBeInTheDocument()
+    expect(editor).toHaveAttribute('contenteditable', 'true')
   })
 
   it('calls onChange with plain text when no formatting is applied', () => {
-    render(
+    const { container } = render(
       <RichTextEditor
         value=""
         onChange={mockOnChange}
       />
     )
 
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Hello world' } })
+    const editor = screen.getByRole('textbox')
+    typeInContentEditable(editor, 'Hello world')
 
     expect(mockOnChange).toHaveBeenCalledWith('Hello world', 'Hello world')
   })
 
-  it('generates HTML when bold formatting is applied', () => {
+  it('calls execCommand when bold button is clicked', () => {
     render(
       <RichTextEditor
         value=""
@@ -44,18 +53,13 @@ describe('RichTextEditor', () => {
       />
     )
 
-    // Click bold button
     const boldButton = screen.getByTitle('Bold')
     fireEvent.click(boldButton)
 
-    // Type text
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Bold text' } })
-
-    expect(mockOnChange).toHaveBeenCalledWith('Bold text', '<strong>Bold text</strong>')
+    expect(document.execCommand).toHaveBeenCalledWith('bold', false, undefined)
   })
 
-  it('generates HTML when italic formatting is applied', () => {
+  it('calls execCommand when italic button is clicked', () => {
     render(
       <RichTextEditor
         value=""
@@ -63,18 +67,13 @@ describe('RichTextEditor', () => {
       />
     )
 
-    // Click italic button
     const italicButton = screen.getByTitle('Italic')
     fireEvent.click(italicButton)
 
-    // Type text
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Italic text' } })
-
-    expect(mockOnChange).toHaveBeenCalledWith('Italic text', '<em>Italic text</em>')
+    expect(document.execCommand).toHaveBeenCalledWith('italic', false, undefined)
   })
 
-  it('generates HTML when underline formatting is applied', () => {
+  it('calls execCommand when underline button is clicked', () => {
     render(
       <RichTextEditor
         value=""
@@ -82,18 +81,13 @@ describe('RichTextEditor', () => {
       />
     )
 
-    // Click underline button
     const underlineButton = screen.getByTitle('Underline')
     fireEvent.click(underlineButton)
 
-    // Type text
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Underlined text' } })
-
-    expect(mockOnChange).toHaveBeenCalledWith('Underlined text', '<u>Underlined text</u>')
+    expect(document.execCommand).toHaveBeenCalledWith('underline', false, undefined)
   })
 
-  it('generates HTML with multiple formatting options', () => {
+  it('handles text input in contentEditable', () => {
     render(
       <RichTextEditor
         value=""
@@ -101,35 +95,22 @@ describe('RichTextEditor', () => {
       />
     )
 
-    // Click bold and italic buttons
-    const boldButton = screen.getByTitle('Bold')
-    const italicButton = screen.getByTitle('Italic')
-    fireEvent.click(boldButton)
-    fireEvent.click(italicButton)
+    const editor = screen.getByRole('textbox')
+    typeInContentEditable(editor, 'Test content')
 
-    // Type text
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Bold and italic' } })
-
-    expect(mockOnChange).toHaveBeenCalledWith('Bold and italic', '<em><strong>Bold and italic</strong></em>')
+    expect(mockOnChange).toHaveBeenCalled()
   })
 
-  it('handles line breaks in formatted text', () => {
-    render(
+  it('initializes with HTML value when provided', () => {
+    const { container } = render(
       <RichTextEditor
         value=""
+        htmlValue="<strong>Bold text</strong>"
         onChange={mockOnChange}
       />
     )
 
-    // Click bold button
-    const boldButton = screen.getByTitle('Bold')
-    fireEvent.click(boldButton)
-
-    // Type text with line breaks
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Line 1\nLine 2' } })
-
-    expect(mockOnChange).toHaveBeenCalledWith('Line 1\nLine 2', '<strong>Line 1<br>Line 2</strong>')
+    const editor = screen.getByRole('textbox')
+    expect(editor.innerHTML).toContain('Bold text')
   })
 })

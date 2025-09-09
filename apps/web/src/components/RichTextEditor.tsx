@@ -1,41 +1,30 @@
 "use client"
 
-import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "react"
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
 import { Bold, Italic, Underline, Type, Palette, Smile } from "lucide-react"
+import { sanitizeHtml } from "@/utils/htmlUtils"
+import { wrapMentions, mentionsToPlainText } from "@/utils/mentions"
 import EnhancedEmojiPicker from "./EnhancedEmojiPicker"
 
+export interface RichTextEditorRef {
+  getHtml: () => string
+  getPlainText: () => string
+  focus: () => void
+  insertMention: (username: string, mentionStart: number, mentionEnd: number) => void
+  clear: () => void
+}
+
 interface RichTextEditorProps {
-  value: string
-  onChange: (value: string, formattedValue: string) => void
+  value?: string // plain fallback or initial plain text
+  htmlValue?: string | null // initial formatted HTML (preferred)
   placeholder?: string
-  maxLength?: number
+  onChange?: (plainText: string, formattedHtml: string) => void
   className?: string
+  maxLength?: number
   onMentionTrigger?: (query: string, position: { x: number, y: number }, cursorPosition?: number) => void
   onMentionHide?: () => void
   selectedStyle?: any
   onStyleChange?: (style: any) => void
-}
-
-export interface RichTextEditorRef {
-  insertMention: (username: string, mentionStart: number, mentionEnd: number) => void
-}
-
-interface TextFormat {
-  bold: boolean
-  italic: boolean
-  underline: boolean
-  color: string
-  backgroundColor: string
-  fontSize: 'small' | 'medium' | 'large'
-}
-
-const DEFAULT_FORMAT: TextFormat = {
-  bold: false,
-  italic: false,
-  underline: false,
-  color: '#374151', // gray-700
-  backgroundColor: 'transparent',
-  fontSize: 'medium'
 }
 
 const TEXT_COLORS = [
@@ -76,302 +65,385 @@ const BACKGROUND_COLORS = [
   { name: 'Light Lime', value: '#F7FEE7' }
 ]
 
+// Utility functions for range-based mention handling
+function getNodeForCharacterOffset(root: HTMLElement, index: number) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let current = walker.nextNode() as Text | null;
+  let accumulated = 0;
+  
+  while (current) {
+    const len = (current.textContent || "").length;
+    if (accumulated + len >= index) {
+      return { node: current, offset: Math.max(0, index - accumulated) };
+    }
+    accumulated += len;
+    current = walker.nextNode() as Text | null;
+  }
+  
+  // If index is at or beyond end, return null to handle it in caller
+  return null;
+}
+
+function getPlainText(root: HTMLElement): string {
+  // Uses Range.toString() so it matches how browsers produce visible text
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  return range.toString();
+}
+
+function getTextUpToCursor(root: HTMLElement): string {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return "";
+  
+  const range = document.createRange();
+  try {
+    range.setStart(root, 0);
+    const selRange = selection.getRangeAt(0);
+    range.setEnd(selRange.endContainer, selRange.endOffset);
+    return range.toString();
+  } catch (e) {
+    // fallback: last resort try anchorNode approach
+    const anchorNode = selection.anchorNode;
+    return anchorNode ? (anchorNode.textContent || "").slice(0, selection.anchorOffset) : "";
+  }
+}
+
 const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
-  value,
-  onChange,
+  value = "",
+  htmlValue = null,
   placeholder = "What are you grateful for?",
-  maxLength = 5000,
+  onChange,
   className = "",
+  maxLength = 5000,
   onMentionTrigger,
   onMentionHide,
   selectedStyle,
   onStyleChange
 }, ref) => {
-  const [currentFormat, setCurrentFormat] = useState<TextFormat>(DEFAULT_FORMAT)
+  const editableRef = useRef<HTMLDivElement | null>(null)
+  const [isComposing, setIsComposing] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const editorRef = useRef<HTMLDivElement>(null)
+  
+  // Prevent controlled component race conditions
+  const typingRef = useRef(false)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const initializedRef = useRef(false)
 
-  // Expose methods to parent component
-  useImperativeHandle(ref, () => ({
-    insertMention: (username: string, mentionStart: number, mentionEnd: number) => {
-      const textarea = textareaRef.current
-      if (!textarea) return
+  // Cleanup typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
-      // Replace the partial mention with the complete username
-      const beforeMention = value.slice(0, mentionStart)
-      const afterMention = value.slice(mentionEnd)
-      
-      // Build the new value - if beforeMention ends with "@", don't add another one
-      let newValue
-      if (beforeMention.endsWith('@')) {
-        newValue = beforeMention + username + ' ' + afterMention
+  // Initialize contentEditable with incoming HTML (if present) else plain text
+  useEffect(() => {
+    if (!editableRef.current) return
+
+    // CRITICAL FIX: Don't overwrite content while user is typing
+    // This prevents the backwards text bug caused by controlled component race conditions
+    if (typingRef.current) {
+      return;
+    }
+
+    // Only set initial content once when mounting to avoid overwriting user input
+    if (!initializedRef.current) {
+      if (htmlValue) {
+        // Sanitize & preserve mention spans
+        editableRef.current.innerHTML = sanitizeHtml(htmlValue)
       } else {
-        newValue = beforeMention + '@' + username + ' ' + afterMention
+        // If only plain text provided, escape & set
+        editableRef.current.textContent = value || ""
       }
+      initializedRef.current = true;
+    } else {
+      // For subsequent updates, only update if content is significantly different
+      // This prevents minor typing changes from triggering content overwrites
+      const currentText = editableRef.current.textContent || "";
+      const newText = value || "";
       
-      // Fix double @ issue if it occurs
-      newValue = newValue.replace(/@@/g, '@')
-      
-      // Generate formatted HTML if any formatting is applied
-      const hasFormatting = currentFormat.bold || currentFormat.italic || currentFormat.underline ||
-                           currentFormat.color !== DEFAULT_FORMAT.color ||
-                           currentFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor ||
-                           currentFormat.fontSize !== DEFAULT_FORMAT.fontSize
-      
-      const formattedHTML = hasFormatting ? generateFormattedHTML(newValue) : newValue
-      
-      // Update the content
-      onChange(newValue, formattedHTML)
-      
-      // Position cursor after the mention
-      const newCursorPosition = mentionStart + username.length + 2 // +2 for @ and space
-      setTimeout(() => {
-        textarea.focus()
-        textarea.setSelectionRange(newCursorPosition, newCursorPosition)
-      }, 0)
-    }
-  }))
-
-  const applyFormat = (formatType: keyof TextFormat, formatValue: any) => {
-    const newFormat = { ...currentFormat, [formatType]: formatValue }
-    setCurrentFormat(newFormat)
-    
-    // Re-generate HTML with the new formatting applied to current text
-    const hasFormatting = newFormat.bold || newFormat.italic || newFormat.underline ||
-                         newFormat.color !== DEFAULT_FORMAT.color ||
-                         newFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor ||
-                         newFormat.fontSize !== DEFAULT_FORMAT.fontSize
-    
-    // Generate HTML using the new format
-    let html = value
-    
-    if (hasFormatting) {
-      // Escape HTML entities first to prevent XSS
-      html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      
-      // Convert line breaks to <br> tags
-      html = html.replace(/\n/g, '<br>')
-      
-      // Apply text formatting
-      if (newFormat.bold) {
-        html = `<strong>${html}</strong>`
-      }
-      if (newFormat.italic) {
-        html = `<em>${html}</em>`
-      }
-      if (newFormat.underline) {
-        html = `<u>${html}</u>`
-      }
-      
-      // Apply color and background styling
-      const styles = []
-      if (newFormat.color !== DEFAULT_FORMAT.color) {
-        styles.push(`color: ${newFormat.color}`)
-      }
-      if (newFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor) {
-        styles.push(`background-color: ${newFormat.backgroundColor}`)
-      }
-      if (newFormat.fontSize !== DEFAULT_FORMAT.fontSize) {
-        const fontSize = newFormat.fontSize === 'small' ? '14px' : 
-                        newFormat.fontSize === 'large' ? '18px' : '16px'
-        styles.push(`font-size: ${fontSize}`)
-      }
-      
-      if (styles.length > 0) {
-        html = `<span style="${styles.join('; ')}">${html}</span>`
+      if (Math.abs(currentText.length - newText.length) > 5) {
+        if (htmlValue) {
+          editableRef.current.innerHTML = sanitizeHtml(htmlValue)
+        } else {
+          editableRef.current.textContent = newText
+        }
       }
     }
-    
+  }, [htmlValue, value])
 
+  const emitChange = () => {
+    if (!editableRef.current || isComposing) return
     
-    // Notify parent component of the change
-    onChange(value, html)
+    const rawHtml = editableRef.current.innerHTML
+    const clean = sanitizeHtml(rawHtml)
+    const plain = mentionsToPlainText(clean)
+    
+    onChange?.(plain, clean)
+  }
+
+  // Expose ref methods
+  useImperativeHandle(ref, () => ({
+    getHtml: () => {
+      const raw = editableRef.current?.innerHTML ?? ""
+      return sanitizeHtml(raw)
+    },
+    getPlainText: () => {
+      // Use mention helper to convert mention spans to plain text
+      const raw = editableRef.current?.innerHTML ?? ""
+      return mentionsToPlainText(raw)
+    },
+    focus: () => editableRef.current?.focus(),
+    insertMention: (username: string, mentionStart: number, mentionEnd: number) => {
+      if (!editableRef.current) return
+
+      // Temporarily allow programmatic updates
+      const wasTyping = typingRef.current;
+      typingRef.current = false;
+
+      try {
+        const root = editableRef.current;
+        // Compute the actual plain text length and clamp indices
+        const fullText = getPlainText(root);
+        const startIndex = Math.max(0, Math.min(mentionStart, fullText.length));
+        const endIndex = Math.max(0, Math.min(mentionEnd, fullText.length));
+
+        // Map indices to text nodes
+        const startNodeInfo = getNodeForCharacterOffset(root, startIndex);
+        const endNodeInfo = getNodeForCharacterOffset(root, endIndex);
+
+        // Build a range that covers the mention text and replace it
+        const range = document.createRange();
+        if (startNodeInfo) {
+          range.setStart(startNodeInfo.node, startNodeInfo.offset);
+        } else {
+          // fallback: start at end of root
+          range.setStart(root, root.childNodes.length);
+        }
+
+        if (endNodeInfo) {
+          range.setEnd(endNodeInfo.node, endNodeInfo.offset);
+        } else {
+          range.setEnd(root, root.childNodes.length);
+        }
+
+        // Get the text that will be replaced to check if it includes @
+        const rangeText = range.toString();
+        const includesAtSymbol = rangeText.includes('@');
+
+        // Delete the matched content
+        range.deleteContents();
+
+        // Create mention span
+        const mentionSpan = document.createElement("span");
+        mentionSpan.className = "mention";
+        mentionSpan.setAttribute("data-username", username);
+        mentionSpan.setAttribute("contenteditable", "false"); // prevents caret entering the mention
+        
+        // The mention span should always show @username, regardless of what was replaced
+        mentionSpan.textContent = `@${username}`;
+
+        // Insert mention at range
+        range.insertNode(mentionSpan);
+
+        // Insert a single space after the mention for normal typing
+        const spaceNode = document.createTextNode(" "); // regular space
+        mentionSpan.parentNode?.insertBefore(spaceNode, mentionSpan.nextSibling);
+
+        // Place caret after the inserted space
+        const sel = window.getSelection();
+        const newRange = document.createRange();
+        newRange.setStartAfter(spaceNode);
+        newRange.collapse(true);
+        sel?.removeAllRanges();
+        sel?.addRange(newRange);
+
+        // Emit change to update post data
+        emitChange();
+      } catch (err) {
+        console.error("insertMention error", err);
+      } finally {
+        typingRef.current = wasTyping;
+        setTimeout(() => editableRef.current?.focus(), 0);
+      }
+    },
+    clear: () => {
+      if (!editableRef.current) return
+      
+      // Force clear the editor content
+      editableRef.current.innerHTML = ''
+      editableRef.current.textContent = ''
+      
+      // Reset initialization flag so next value prop will be applied
+      initializedRef.current = false
+      
+      // Emit change to notify parent
+      emitChange()
+    }
+  }), [])
+
+  // Composition events for IME support
+  const handleCompositionStart = () => {
+    setIsComposing(true)
+  }
+  
+  const handleCompositionEnd = () => { 
+    setIsComposing(false) 
+    emitChange() 
+  }
+
+  const handleInput = () => {
+    if (!editableRef.current) return
+    
+    // Set typing flag to prevent external overwrites during user input
+    typingRef.current = true;
+    
+    // Clear previous timeout and set new one
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      typingRef.current = false;
+    }, 500);
+    
+    // Always enforce LTR direction to prevent backwards text
+    editableRef.current.dir = 'ltr'
+    editableRef.current.style.direction = 'ltr'
+    editableRef.current.style.textAlign = 'left'
+    
+    // Enhanced mention detection using range-based approach
+    if (onMentionTrigger || onMentionHide) {
+      try {
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0 && selection.anchorNode) {
+          // Check if cursor is inside a mention span (improved logic)
+          let currentNode: Node | null = selection.anchorNode
+          let isInsideMentionSpan = false
+          
+          while (currentNode && currentNode !== editableRef.current) {
+            if (currentNode.nodeType === Node.ELEMENT_NODE &&
+                (currentNode as Element).classList?.contains('mention')) {
+              // if selection.anchorNode is the mention's text node and the anchorOffset < textLength,
+              // then we are inside mention. If anchorOffset is at end, it's after mention: don't hide.
+              const mentionEl = currentNode as Element;
+              const textNode = mentionEl.firstChild;
+              if (textNode && selection.anchorNode === textNode) {
+                const offset = selection.anchorOffset || 0;
+                if (offset < (textNode.textContent || "").length) {
+                  isInsideMentionSpan = true;
+                }
+              } else {
+                // if anchorNode is the mention element itself, assume inside only if offset within it
+                isInsideMentionSpan = true;
+              }
+              break;
+            }
+            currentNode = currentNode.parentNode
+          }
+          
+          // If we're inside a mention span, hide the dropdown and return
+          if (isInsideMentionSpan) {
+            onMentionHide?.();
+            return;
+          }
+          
+          // Use range-based text extraction for robust mention detection
+          const textUpToCursor = getTextUpToCursor(editableRef.current);
+          const mentionMatch = textUpToCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/);
+          
+          if (mentionMatch && onMentionTrigger) {
+            const cursorPosition = textUpToCursor.length;
+            const rect = editableRef.current.getBoundingClientRect();
+            onMentionTrigger(mentionMatch[1] || '', { x: rect.left + 16, y: rect.bottom + 8 }, cursorPosition);
+          } else if (!mentionMatch && onMentionHide) {
+            onMentionHide();
+          }
+        }
+      } catch (error) {
+        // If mention detection fails, just continue with normal input
+        console.warn('Mention detection error:', error)
+      }
+    }
+    
+    emitChange()
+  }
+
+  // Toolbar helpers (simple execCommand wrappers)
+  const exec = (command: string, value?: string) => {
+    // Check if execCommand is available (not available in test environments)
+    if (typeof document.execCommand === 'function') {
+      // Force CSS styling mode to prevent direction issues
+      document.execCommand('styleWithCSS', false, 'true')
+      document.execCommand(command, false, value)
+    }
+    
+    // Ensure LTR direction is maintained after formatting
+    if (editableRef.current) {
+      editableRef.current.dir = 'ltr'
+      editableRef.current.style.direction = 'ltr'
+      editableRef.current.style.textAlign = 'left'
+    }
+    
+    emitChange()
+    editableRef.current?.focus()
   }
 
   const insertEmoji = (emoji: string) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
+    if (!editableRef.current) return
 
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const newValue = value.substring(0, start) + emoji + value.substring(end)
-    
-    // Generate formatted HTML if any formatting is applied
-    const hasFormatting = currentFormat.bold || currentFormat.italic || currentFormat.underline ||
-                         currentFormat.color !== DEFAULT_FORMAT.color ||
-                         currentFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor ||
-                         currentFormat.fontSize !== DEFAULT_FORMAT.fontSize
-    
-    const formattedHTML = hasFormatting ? generateFormattedHTML(newValue) : newValue
-    
-
-    
-    onChange(newValue, formattedHTML)
-    
-    // Position cursor after emoji
-    setTimeout(() => {
-      const newPosition = start + emoji.length
-      textarea.setSelectionRange(newPosition, newPosition)
-      textarea.focus()
-    }, 0)
-    
-    // Don't close the emoji picker - let user select multiple emojis
-  }
-
-  const generateFormattedHTML = (text: string) => {
-    // Generate HTML based on current formatting state
-    let html = text
-    
-    // Escape HTML entities first to prevent XSS
-    html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    
-    // Convert line breaks to <br> tags
-    html = html.replace(/\n/g, '<br>')
-    
-    // Apply text formatting
-    if (currentFormat.bold) {
-      html = `<strong>${html}</strong>`
-    }
-    if (currentFormat.italic) {
-      html = `<em>${html}</em>`
-    }
-    if (currentFormat.underline) {
-      html = `<u>${html}</u>`
+    const selection = window.getSelection()
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      range.deleteContents()
+      range.insertNode(document.createTextNode(emoji))
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    } else {
+      // Fallback: append to end
+      editableRef.current.appendChild(document.createTextNode(emoji))
     }
     
-    // Apply color and background styling
-    const styles = []
-    if (currentFormat.color !== DEFAULT_FORMAT.color) {
-      styles.push(`color: ${currentFormat.color}`)
-    }
-    if (currentFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor) {
-      styles.push(`background-color: ${currentFormat.backgroundColor}`)
-    }
-    if (currentFormat.fontSize !== DEFAULT_FORMAT.fontSize) {
-      const fontSize = currentFormat.fontSize === 'small' ? '14px' : 
-                      currentFormat.fontSize === 'large' ? '18px' : '16px'
-      styles.push(`font-size: ${fontSize}`)
-    }
-    
-    if (styles.length > 0) {
-      html = `<span style="${styles.join('; ')}">${html}</span>`
-    }
-    
-    return html
-  }
-
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value
-    const cursorPosition = e.target.selectionStart || 0
-    
-    // Generate formatted HTML if any formatting is applied
-    const hasFormatting = currentFormat.bold || currentFormat.italic || currentFormat.underline ||
-                         currentFormat.color !== DEFAULT_FORMAT.color ||
-                         currentFormat.backgroundColor !== DEFAULT_FORMAT.backgroundColor ||
-                         currentFormat.fontSize !== DEFAULT_FORMAT.fontSize
-    
-    const formattedHTML = hasFormatting ? generateFormattedHTML(newValue) : newValue
-    
-
-    
-    onChange(newValue, formattedHTML)
-    
-    // Check for mention trigger
-    if (onMentionTrigger || onMentionHide) {
-      const textBeforeCursor = newValue.slice(0, cursorPosition)
-      const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
-      
-      if (mentionMatch && onMentionTrigger) {
-        const rect = textareaRef.current?.getBoundingClientRect()
-        if (rect) {
-          const x = rect.left + 16
-          const y = rect.bottom + 8
-          onMentionTrigger(mentionMatch[1] || '', { x, y }, cursorPosition)
-        }
-      } else if (!mentionMatch && onMentionHide) {
-        onMentionHide()
-      }
-    }
-  }
-
-  const getTextareaStyle = () => {
-    return {
-      color: currentFormat.color,
-      backgroundColor: currentFormat.backgroundColor,
-      fontWeight: currentFormat.bold ? 'bold' : 'normal',
-      fontStyle: currentFormat.italic ? 'italic' : 'normal',
-      textDecoration: currentFormat.underline ? 'underline' : 'none',
-      fontSize: currentFormat.fontSize === 'small' ? '14px' : 
-                currentFormat.fontSize === 'large' ? '18px' : '16px'
-    }
+    emitChange()
+    editableRef.current.focus()
   }
 
   return (
-    <div ref={editorRef} className={`relative ${className}`}>
-      {/* Formatting Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+    <div className={`rich-editor ${className || ""}`}>
+      <div className="toolbar mb-2 flex flex-wrap items-center gap-2 p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
         {/* Text Formatting */}
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              applyFormat('bold', !currentFormat.bold)
-            }}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-              currentFormat.bold ? 'bg-purple-100 text-purple-700' : 'text-gray-600'
-            }`}
+          <button 
+            type="button" 
+            onMouseDown={(e)=>e.preventDefault()} 
+            onClick={() => exec('bold')}
+            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
             title="Bold"
           >
             <Bold className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              applyFormat('italic', !currentFormat.italic)
-            }}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-              currentFormat.italic ? 'bg-purple-100 text-purple-700' : 'text-gray-600'
-            }`}
+          <button 
+            type="button" 
+            onMouseDown={(e)=>e.preventDefault()} 
+            onClick={() => exec('italic')}
+            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
             title="Italic"
           >
             <Italic className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              applyFormat('underline', !currentFormat.underline)
-            }}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-              currentFormat.underline ? 'bg-purple-100 text-purple-700' : 'text-gray-600'
-            }`}
+          <button 
+            type="button" 
+            onMouseDown={(e)=>e.preventDefault()} 
+            onClick={() => exec('underline')}
+            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
             title="Underline"
           >
             <Underline className="h-4 w-4" />
           </button>
         </div>
-
-        <div className="hidden sm:block w-px h-6 bg-gray-300" />
-
-        {/* Font Size */}
-        <select
-          value={currentFormat.fontSize}
-          onChange={(e) => applyFormat('fontSize', e.target.value)}
-          className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
-        >
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
 
         <div className="hidden sm:block w-px h-6 bg-gray-300" />
 
@@ -396,10 +468,11 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   <button
                     key={color.value}
                     type="button"
+                    onMouseDown={(e)=>e.preventDefault()}
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      applyFormat('color', color.value)
+                      exec('foreColor', color.value)
                       setShowColorPicker(false)
                     }}
                     className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
@@ -433,10 +506,11 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   <button
                     key={color.value}
                     type="button"
+                    onMouseDown={(e)=>e.preventDefault()}
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      applyFormat('backgroundColor', color.value)
+                      exec('backColor', color.value === 'transparent' ? '#ffffff' : color.value)
                       setShowBackgroundPicker(false)
                     }}
                     className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
@@ -473,15 +547,27 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         </div>
       </div>
 
-      {/* Text Area */}
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={handleTextChange}
-        placeholder={placeholder}
-        maxLength={maxLength}
-        style={getTextareaStyle()}
-        className="w-full h-32 p-4 border-0 rounded-b-lg focus:ring-2 focus:ring-purple-500 focus:outline-none resize-none transition-colors"
+      {/* ContentEditable Editor */}
+      <div
+        ref={editableRef}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label={placeholder}
+        onInput={handleInput}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
+        className="min-h-[120px] p-3 border rounded-b-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+        data-placeholder={placeholder}
+        dir="ltr"
+        style={{
+          minHeight: '120px',
+          maxHeight: '300px',
+          overflowY: 'auto',
+          direction: 'ltr',
+          textAlign: 'left'
+        } as React.CSSProperties}
       />
 
       {/* Click outside handlers */}
@@ -502,6 +588,21 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         onEmojiSelect={insertEmoji}
         position={emojiPickerPosition}
       />
+
+      <style jsx>{`
+        [contenteditable]:empty:before {
+          content: attr(data-placeholder);
+          color: #9ca3af;
+          pointer-events: none;
+        }
+        .mention {
+          background-color: #e0e7ff;
+          color: #3730a3;
+          padding: 2px 4px;
+          border-radius: 4px;
+          font-weight: 500;
+        }
+      `}</style>
     </div>
   )
 })

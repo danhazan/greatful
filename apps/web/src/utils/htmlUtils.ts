@@ -2,6 +2,8 @@
  * Utility functions for HTML processing
  */
 
+import DOMPurify from "dompurify"
+
 /**
  * Strips HTML tags and returns plain text content
  * Preserves line breaks and basic formatting structure
@@ -57,4 +59,22 @@ export function htmlToPlainText(html: string): string {
  */
 export function containsHtml(content: string): boolean {
   return content.includes('<') && content.includes('>')
+}
+
+/**
+ * Sanitizes HTML content using DOMPurify
+ * Allows safe HTML tags and attributes for rich text editing
+ */
+export function sanitizeHtml(inputHtml: string): string {
+  if (!inputHtml) return ""
+  
+  // Allow inline styles and mention data attributes
+  return DOMPurify.sanitize(inputHtml, {
+    ALLOWED_TAGS: [
+      "b", "strong", "i", "em", "u", "span", "p", "br", "ul", "ol", "li", "a"
+    ],
+    ALLOWED_ATTR: ["style", "class", "data-username", "href"],
+    // Allow inline styles (colors/background)
+    ALLOW_DATA_ATTR: true,
+  })
 }
