@@ -53,7 +53,7 @@ class TestContentAnalysisService:
         assert result.suggested_type == PostType.spontaneous
         assert result.has_image is False
         assert result.word_count == 5  # "Grateful", "for", "coffee", "this", "morning!"
-        assert result.character_limit == 200
+        assert result.character_limit == 5000
         assert result.confidence > 0.8
 
     def test_analyze_content_daily_long_text(self, service):
@@ -78,7 +78,7 @@ class TestContentAnalysisService:
         
         assert result.suggested_type == PostType.spontaneous
         assert result.word_count == 16  # Actual word count
-        assert result.character_limit == 200
+        assert result.character_limit == 5000
 
     def test_analyze_content_edge_case_20_words(self, service):
         """Test edge case with exactly 20 words (at threshold)."""
@@ -112,21 +112,21 @@ class TestContentAnalysisService:
         
         assert result["is_valid"] is True
         assert result["character_count"] == len(content)
-        assert result["character_limit"] == 200
+        assert result["character_limit"] == 5000
         assert result["characters_over"] == 0
         assert result["characters_remaining"] > 0
 
     def test_validate_content_for_type_too_long(self, service):
         """Test content validation for content that's too long."""
-        content = "x" * 250  # 250 characters
-        post_type = PostType.spontaneous  # 200 char limit
+        content = "x" * 6000  # 6000 characters (over 5000 limit)
+        post_type = PostType.spontaneous  # 5000 char limit
         
         result = service.validate_content_for_type(content, post_type)
         
         assert result["is_valid"] is False
-        assert result["character_count"] == 250
-        assert result["character_limit"] == 200
-        assert result["characters_over"] == 50
+        assert result["character_count"] == 6000
+        assert result["character_limit"] == 5000
+        assert result["characters_over"] == 1000
         assert result["characters_remaining"] == 0
 
     def test_clean_content_removes_extra_whitespace(self, service):
@@ -201,7 +201,7 @@ class TestContentAnalysisService:
         assert result.suggested_type == PostType.spontaneous
         # Confidence will be high for very short content, so just check it's reasonable
         assert 0.5 <= result.confidence <= 1.0
-        assert result.character_limit == 200
+        assert result.character_limit == 5000
         # Should have normal metadata, not error metadata since None is handled gracefully
         assert result.analysis_metadata["content_length_category"] == "empty"
 

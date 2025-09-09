@@ -400,8 +400,8 @@ class TestShareEdgeCases:
         
         assert result["recipient_count"] == 5
         
-        # Test with exactly 200 character message (should work)
-        long_message = "x" * 200
+        # Test with exactly 5000 character message (should work)
+        long_message = "x" * 5000
         result = await share_service.share_via_message(
             sender_id=sender.id,
             post_id=post.id,

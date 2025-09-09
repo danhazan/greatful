@@ -49,11 +49,11 @@ interface CreatePostModalProps {
   }) => void
 }
 
-// Character limits for automatic type detection
+// Character limits for all posts
 const CHARACTER_LIMITS = {
-  daily: 5000,      // enforced for any text post
+  daily: 5000,      // Universal limit for all text posts
   photo: 0,         // image-only
-  spontaneous: 200  // keep for reference/metadata only — DO NOT enforce this limit
+  spontaneous: 5000 // Same limit as daily posts - no artificial restriction
 }
 
 // Post type information for display purposes

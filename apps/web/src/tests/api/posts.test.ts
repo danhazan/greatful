@@ -166,7 +166,7 @@ describe('/api/posts', () => {
         ok: false,
         status: 422,
         json: async () => ({
-          detail: 'Content too long. Maximum 500 characters for daily posts. Current: 501 characters.'
+          detail: 'Content too long. Maximum 5000 characters allowed. Current: 5001 characters.'
         })
       } as Response)
 
@@ -176,7 +176,7 @@ describe('/api/posts', () => {
           'authorization': 'Bearer test-token'
         },
         body: JSON.stringify({
-          content: 'a'.repeat(501) // Long content will be auto-detected as daily type
+          content: 'a'.repeat(5001) // Long content exceeds universal limit
         })
       })
 
@@ -193,7 +193,7 @@ describe('/api/posts', () => {
         ok: false,
         status: 422,
         json: async () => ({
-          detail: 'Content too long. Maximum 200 characters for spontaneous posts. Current: 201 characters.'
+          detail: 'Content too long. Maximum 5000 characters allowed. Current: 5001 characters.'
         })
       } as Response)
 
@@ -203,7 +203,7 @@ describe('/api/posts', () => {
           'authorization': 'Bearer test-token'
         },
         body: JSON.stringify({
-          content: 'a'.repeat(201), // Exceeds 200 char limit
+          content: 'a'.repeat(5001), // Exceeds 5000 char limit
           postTypeOverride: 'spontaneous'
         })
       })

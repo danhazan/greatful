@@ -195,7 +195,7 @@ class TestShareAPI:
         share_data = {
             "share_method": "message",
             "recipient_ids": [test_recipient.id],
-            "message": "x" * 201  # More than 200 characters
+            "message": "x" * 5001  # More than 5000 characters
         }
         
         response = await async_client.post(

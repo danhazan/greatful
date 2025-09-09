@@ -120,35 +120,17 @@ class TestPostsAPIContracts:
         token = create_access_token({"sub": str(test_user.id)})
         headers = {"Authorization": f"Bearer {token}"}
         
-        # Test content too long for automatically detected daily type (>500 chars)
-        # Long content will be auto-detected as daily type, which has 500 char limit
-        long_content = "a" * 501
+        # Test content too long for any post type (>5000 chars)
+        very_long_content = "a" * 5001
         invalid_long_post = {
-            "content": long_content,
+            "content": very_long_content,
+            "post_type_override": "spontaneous",  # Force spontaneous type with 5000 char limit
             "is_public": True
         }
         
         response = client.post(
             "/api/v1/posts/",
             json=invalid_long_post,
-            headers=headers
-        )
-        
-        assert response.status_code == 422  # FastAPI returns 422 for validation errors
-        error_data = response.json()
-        assert "detail" in error_data
-        
-        # Test content too long for spontaneous type override (>200 chars)
-        medium_content = "a" * 201
-        invalid_spontaneous_post = {
-            "content": medium_content,
-            "post_type_override": "spontaneous",  # Force spontaneous type with 200 char limit
-            "is_public": True
-        }
-        
-        response = client.post(
-            "/api/v1/posts/",
-            json=invalid_spontaneous_post,
             headers=headers
         )
         

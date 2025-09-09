@@ -236,17 +236,13 @@ class ContractValidator:
             ValidationException: If content is too long
         """
         # Define max lengths based on post type
-        max_lengths = {
-            'daily': 500,
-            'photo': 300,
-            'spontaneous': 200
-        }
+        # Universal character limit for all text posts
+        # Photo posts have no text content limit (image-only)
+        max_length = 5000 if post_type != 'photo' else 0
         
-        max_length = max_lengths.get(post_type, 200)  # Default to spontaneous limit
-        
-        if len(content) > max_length:
+        if max_length > 0 and len(content) > max_length:
             raise ValidationException(
-                message=f"Content too long for {post_type} post",
+                message=f"Content too long. Maximum {max_length} characters allowed.",
                 fields={field_name: f"Maximum {max_length} characters allowed"}
             )
         
