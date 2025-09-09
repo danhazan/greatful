@@ -8,6 +8,7 @@ export interface ApiPost {
   author_id?: number
   content: string
   post_style?: any
+  postStyle?: any
   post_type?: string
   postType?: string
   image_url?: string
@@ -73,7 +74,7 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
 
   if (!post || !post.id) return null
 
-  const author = post.author ?? {}
+  const author = post.author ?? {} as any
 
   return {
     id: String(post.id),
