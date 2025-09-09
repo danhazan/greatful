@@ -445,6 +445,79 @@ When a user unfollows someone and then follows them again on the same day, a new
 - Query existing notifications by follower_id and creation date
 - Skip notification creation if duplicate exists within same day
 
+### Edit Post Functionality Limitations
+**Issue**: Edit post feature has limited functionality for location and image management  
+**Status**: ⚠️ Active Issue  
+**Priority**: Medium  
+**Impact**: User Experience & Feature Completeness  
+**Discovered**: January 9, 2025  
+
+**Description**:
+The edit post functionality works well for basic text content and post styles, but has significant limitations when it comes to location and image management. Users cannot effectively modify or remove locations and images from existing posts.
+
+**Technical Details**:
+- Backend: PUT /api/posts/{id} endpoint supports location and image updates ✅
+- Database: Post model supports location_data and image_url fields ✅
+- Frontend: EditPostModal has limited UI for location/image management ❌
+- Issue: Missing comprehensive location and image editing capabilities
+
+**Current Limitations**:
+
+**Location Management**:
+- ❌ Cannot remove existing location from post
+- ❌ Cannot change location to a different location
+- ❌ No location search/autocomplete in edit modal
+- ❌ Location display in edit modal is read-only
+
+**Image Management**:
+- ❌ Cannot remove existing image from post
+- ❌ Cannot replace existing image with new image
+- ❌ No image upload functionality in edit modal
+- ❌ Image display in edit modal is read-only
+
+**What Works**:
+- ✅ Text content editing works perfectly
+- ✅ Post style changes work correctly
+- ✅ Basic post metadata updates work
+- ✅ Date tracking (createdAt/updatedAt) works correctly
+
+**Expected Behavior**:
+- Users should be able to remove locations from posts
+- Users should be able to change post location using location search
+- Users should be able to remove images from posts
+- Users should be able to replace images with new uploads
+- Edit modal should have full location autocomplete functionality
+- Edit modal should have image upload/management capabilities
+
+**Reproduction Steps**:
+1. Create a post with location and image
+2. Edit the post using the edit button
+3. Observe that location and image cannot be modified or removed
+4. Note that only text content and styling can be changed
+
+**Root Cause**: 
+- EditPostModal component was designed for basic text editing
+- Location and image management features were not implemented in edit flow
+- Focus was on core edit functionality (text/style) rather than comprehensive editing
+
+**Workaround**: Users must delete and recreate posts to change location or images.
+
+**Priority**: Medium - Limits user control over their content but doesn't break core functionality.
+
+**Implementation Requirements**:
+- Add location search/autocomplete to EditPostModal
+- Add "Remove Location" functionality
+- Add image upload/replacement functionality  
+- Add "Remove Image" functionality
+- Update EditPostModal UI to handle location and image management
+- Add proper validation for location and image updates
+- Ensure backend API properly handles location/image removal (null values)
+
+**Files Affected**:
+- `apps/web/src/components/EditPostModal.tsx` - Main edit interface
+- `apps/web/src/components/LocationAutocomplete.tsx` - Location search component
+- `apps/api/app/api/v1/posts.py` - Backend PUT endpoint validation
+
 ### Reaction Notification Duplication
 **Issue**: Reaction notifications create duplicates instead of updating existing notifications when users change their emoji reaction  
 **Status**: ⚠️ Active Issue  
