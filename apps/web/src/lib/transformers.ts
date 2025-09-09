@@ -257,6 +257,7 @@ export interface BackendUserPost {
     textShadow?: string
   }
   created_at: string
+  updated_at?: string
   post_type?: string
   image_url?: string
   location?: string
@@ -317,6 +318,7 @@ export interface FrontendUserPost {
     image?: string
   }
   createdAt: string
+  updatedAt?: string
   postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   location?: string
@@ -357,6 +359,7 @@ export function transformUserPost(post: BackendUserPost, userProfile?: any): Fro
       image: post.author.profile_image_url
     },
     createdAt: ensureTimezoneIndicator(post.created_at),
+    updatedAt: post.updated_at ? ensureTimezoneIndicator(post.updated_at) : undefined,
     postType: (post.post_type as "daily" | "photo" | "spontaneous") || "daily",
     imageUrl: post.image_url,
     location: post.location,

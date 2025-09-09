@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Heart, Plus } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
+import { normalizePostFromApi } from "@/utils/normalizePost"
 
 import Navbar from "@/components/Navbar"
 
@@ -105,8 +106,31 @@ export default function FeedPage() {
       }
 
       console.log('Processed posts:', posts)
-      // The API already returns the correct format, just use it directly
-      setPosts(posts)
+      
+      // 🔍 DEBUG: Check if updatedAt is present in first post (before normalization)
+      if (posts.length > 0) {
+        console.log('First post debug (before normalization):', {
+          id: posts[0].id,
+          createdAt: posts[0].createdAt,
+          updatedAt: posts[0].updatedAt,
+          created_at: posts[0].created_at,
+          updated_at: posts[0].updated_at
+        })
+      }
+      
+      // 🔧 FIX: Normalize posts to ensure consistent field naming
+      const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
+      
+      // 🔍 DEBUG: Check if updatedAt is present after normalization
+      if (normalizedPosts.length > 0) {
+        console.log('First post debug (after normalization):', {
+          id: normalizedPosts[0].id,
+          createdAt: normalizedPosts[0].createdAt,
+          updatedAt: normalizedPosts[0].updatedAt
+        })
+      }
+      
+      setPosts(normalizedPosts)
     } catch (error) {
       console.error('Error loading posts:', error)
       setError(error instanceof Error ? error.message : 'Failed to load posts')
