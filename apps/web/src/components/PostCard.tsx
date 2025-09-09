@@ -19,6 +19,7 @@ import { getImageUrl } from "@/utils/imageUtils"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
+import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
 
 interface Post {
   id: string
@@ -546,16 +547,29 @@ export default function PostCard({
       hideToast(loadingToastId)
 
       if (response.ok) {
-        const updatedPost = await response.json()
+        // Parse raw JSON response (could be wrapper)
+        const raw = await response.json()
+        debugApiResponse(raw, "PUT /api/posts/:id response")
+        
+        const normalized = normalizePostFromApi(raw)
+        if (!normalized) {
+          console.warn("Could not normalize post response:", raw)
+          // Fallback: close modal and try to refetch from server
+          setShowEditModal(false)
+          if (onEdit) onEdit(post.id, raw) // best-effort
+          return
+        }
+
         showSuccess('Post Updated', 'Your post has been updated successfully.')
         setShowEditModal(false)
         
-        // Update local post state
-        setCurrentPost(updatedPost)
+        // Merge updated fields into local post state (safe)
+        // Use specialized merge function to preserve author fields like profile image
+        setCurrentPost(prev => mergePostUpdate(prev, normalized))
         
         // Call the onEdit callback if provided
         if (onEdit) {
-          onEdit(post.id, updatedPost)
+          onEdit(post.id, normalized)
         }
       } else {
         const errorData = await response.json().catch(() => ({}))

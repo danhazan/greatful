@@ -1140,7 +1140,8 @@ async def edit_post(
                 "username": user.username,
                 "display_name": user.display_name,
                 "name": user.display_name or user.username,
-                "email": user.email
+                "email": user.email,
+                "profile_image_url": user.profile_image_url
             },
             hearts_count=post.hearts_count or 0,
             reactions_count=post.reactions_count or 0,
