@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
         image: transformProfileImageUrl(getAuthorImageUrl(createdPost.author))
       },
       createdAt: createdPost.created_at,
+      updatedAt: createdPost.updated_at, // Add missing updatedAt field mapping
       postType: createdPost.post_type,
       imageUrl: createdPost.image_url,
       location: createdPost.location,
@@ -205,6 +206,7 @@ export async function GET(request: NextRequest) {
         image: transformProfileImageUrl(getAuthorImageUrl(post.author))
       },
       createdAt: post.created_at,
+      updatedAt: post.updated_at, // Add missing updatedAt field mapping
       postType: post.post_type,
       imageUrl: post.image_url,
       location: post.location,

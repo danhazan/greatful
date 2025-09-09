@@ -31,6 +31,7 @@ interface Post {
     image?: string
   }
   createdAt: string
+  updatedAt?: string // Add missing updatedAt field
   postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   location?: string

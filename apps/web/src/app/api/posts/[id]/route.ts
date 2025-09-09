@@ -52,6 +52,7 @@ export async function GET(
         image: transformProfileImageUrl(getAuthorImageUrl(post.author))
       },
       createdAt: post.created_at,
+      updatedAt: post.updated_at, // Add missing updatedAt field mapping
       postType: post.post_type,
       imageUrl: post.image_url,
       location: post.location,
@@ -105,7 +106,44 @@ export async function PUT(
       return NextResponse.json(data, { status: response.status })
     }
 
-    return NextResponse.json(data)
+    // Helper function to transform profile image URL
+    const transformProfileImageUrl = (url: string | null): string | null => {
+      if (!url) return null
+      if (url.startsWith('http')) return url // Already a full URL
+      return `${API_BASE_URL}${url}` // Convert relative URL to full URL
+    }
+
+    // Helper function to get profile image URL from author object (handles both field names)
+    const getAuthorImageUrl = (author: any): string | null => {
+      return author.image || author.profile_image_url || null
+    }
+
+    // Transform the response to match the frontend format
+    const transformedPost = {
+      id: data.id,
+      content: data.content,
+      postStyle: data.post_style,
+      title: data.title,
+      author: {
+        id: data.author.id.toString(),
+        name: data.author.display_name || data.author.name || data.author.username,
+        username: data.author.username,
+        display_name: data.author.display_name,
+        image: transformProfileImageUrl(getAuthorImageUrl(data.author))
+      },
+      createdAt: data.created_at,
+      updatedAt: data.updated_at, // Include updatedAt field mapping
+      postType: data.post_type,
+      imageUrl: data.image_url,
+      location: data.location,
+      location_data: data.location_data,
+      heartsCount: data.hearts_count || 0,
+      isHearted: data.is_hearted || false,
+      reactionsCount: data.reactions_count || 0,
+      currentUserReaction: data.current_user_reaction
+    }
+
+    return NextResponse.json(transformedPost)
   } catch (error) {
     console.error('Error editing post:', error)
     return NextResponse.json(
