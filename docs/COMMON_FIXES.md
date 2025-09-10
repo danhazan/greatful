@@ -2,6 +2,8 @@
 
 This document contains solutions to recurring issues that happen during development, especially when implementing new notification types or social features.
 
+> 📊 **For current system status and active issues, see [`KNOWN_ISSUES.md`](./KNOWN_ISSUES.md)**
+
 ## 🎉 NOTIFICATION SYSTEM REFACTORED (December 2024)
 
 **IMPORTANT**: The notification issues documented below have been **PERMANENTLY SOLVED** through a comprehensive refactoring.

@@ -1,7 +1,8 @@
 "use client"
 
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
-import { Bold, Italic, Underline, Type, Palette, Smile } from "lucide-react"
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from "react"
+import { createPortal } from "react-dom"
+import { Bold, Italic, Underline, Type, Palette, Smile, MoreHorizontal } from "lucide-react"
 import { sanitizeHtml } from "@/utils/htmlUtils"
 import { wrapMentions, mentionsToPlainText } from "@/utils/mentions"
 import EnhancedEmojiPicker from "./EnhancedEmojiPicker"
@@ -65,6 +66,13 @@ const BACKGROUND_COLORS = [
   { name: 'Light Lime', value: '#F7FEE7' }
 ]
 
+const TEXT_SIZES = [
+  { name: 'Small', value: '1', label: 'A' },
+  { name: 'Normal', value: '3', label: 'A' },
+  { name: 'Large', value: '5', label: 'A' },
+  { name: 'Extra Large', value: '7', label: 'A' }
+]
+
 // Utility functions for range-based mention handling
 function getNodeForCharacterOffset(root: HTMLElement, index: number) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
@@ -126,6 +134,42 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
+  const [showTextSizePicker, setShowTextSizePicker] = useState(false)
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false)
+  const [overflowItems, setOverflowItems] = useState<string[]>([])
+  
+  // Position tracking for portal dropdowns
+  const [dropdownPositions, setDropdownPositions] = useState({
+    textSize: { x: 0, y: 0 },
+    color: { x: 0, y: 0 },
+    background: { x: 0, y: 0 },
+    overflow: { x: 0, y: 0 }
+  })
+  
+  // Formatting state tracking
+  const [formatState, setFormatState] = useState({
+    bold: false,
+    italic: false,
+    underline: false
+  })
+  
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const primaryToolbarRef = useRef<HTMLDivElement>(null)
+  
+  // Check current formatting state
+  const updateFormatState = useCallback(() => {
+    if (!editableRef.current || typeof document.queryCommandState !== 'function') return
+    
+    try {
+      setFormatState({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline')
+      })
+    } catch (error) {
+      // Ignore errors in test environments or unsupported browsers
+    }
+  }, [])
   
   // Prevent controlled component race conditions
   const typingRef = useRef(false)
@@ -140,6 +184,90 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       }
     };
   }, []);
+
+  // Responsive toolbar logic
+  const checkToolbarOverflow = useCallback(() => {
+    if (!toolbarRef.current || !primaryToolbarRef.current) return;
+
+    const toolbar = toolbarRef.current;
+    const primaryToolbar = primaryToolbarRef.current;
+    const toolbarWidth = toolbar.clientWidth;
+    const primaryWidth = primaryToolbar.scrollWidth;
+    
+    // Calculate available width (subtract padding and overflow button space)
+    const availableWidth = toolbarWidth - 60; // 60px buffer for overflow button and padding
+    
+    // If content overflows, progressively move items to overflow menu
+    if (primaryWidth > availableWidth) {
+      // Priority order for hiding (least important first): background, color, textSize, underline, italic, emoji (emoji is now more important)
+      const hideOrder = ['background', 'color', 'textSize', 'underline', 'italic', 'emoji'];
+      const newOverflowItems: string[] = [];
+      
+      // Start with current overflow items and add more if needed
+      for (const item of hideOrder) {
+        if (!overflowItems.includes(item)) {
+          newOverflowItems.push(item);
+          // Check if this would be enough (approximate)
+          if (newOverflowItems.length >= 3) break; // Don't hide too many at once
+        }
+      }
+      
+      setOverflowItems(prev => {
+        const combined = [...prev, ...newOverflowItems];
+        return Array.from(new Set(combined));
+      });
+    } else if (primaryWidth < availableWidth - 100) { // 100px buffer before showing items again
+      // If there's plenty of space, show some overflow items
+      if (overflowItems.length > 0) {
+        const showOrder = ['emoji', 'italic', 'underline', 'textSize', 'color', 'background'];
+        const itemsToShow = showOrder.filter(item => overflowItems.includes(item));
+        
+        if (itemsToShow.length > 0) {
+          // Show the most important item that's currently hidden
+          const itemToShow = itemsToShow[0];
+          setOverflowItems(prev => prev.filter(item => item !== itemToShow));
+        }
+      }
+    }
+  }, [overflowItems]);
+
+  // Check overflow on mount and resize with debouncing
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const debouncedCheck = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(checkToolbarOverflow, 100);
+    };
+    
+    // Initial check
+    debouncedCheck();
+    
+    const handleResize = debouncedCheck;
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
+  }, [checkToolbarOverflow]);
+
+  // Add selection change listener to update format state
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      // Only update if the selection is within our editor
+      const selection = window.getSelection();
+      if (selection && editableRef.current && editableRef.current.contains(selection.anchorNode)) {
+        updateFormatState();
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [updateFormatState]);
 
   // Initialize contentEditable with incoming HTML (if present) else plain text
   useEffect(() => {
@@ -314,6 +442,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
     editableRef.current.style.direction = 'ltr'
     editableRef.current.style.textAlign = 'left'
     
+    // Update format state
+    updateFormatState()
+    
     // Enhanced mention detection using range-based approach
     if (onMentionTrigger || onMentionHide) {
       try {
@@ -387,6 +518,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       editableRef.current.style.textAlign = 'left'
     }
     
+    // Update format state after command execution
+    setTimeout(updateFormatState, 0)
+    
     emitChange()
     editableRef.current?.focus()
   }
@@ -413,138 +547,175 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
   return (
     <div className={`rich-editor ${className || ""}`}>
-      <div className="toolbar mb-2 flex flex-wrap items-center gap-2 p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-        {/* Text Formatting */}
-        <div className="flex items-center gap-1">
+      <div ref={toolbarRef} className="toolbar mb-2 flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+        <div ref={primaryToolbarRef} className="flex items-center gap-1 flex-nowrap min-w-0">
+          {/* Emoji button - moved to beginning */}
+          {!overflowItems.includes('emoji') && (
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setEmojiPickerPosition({ x: rect.left, y: rect.bottom + 8 })
+                  setShowEmojiPicker(!showEmojiPicker)
+                }}
+                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+                title="Add Emoji"
+              >
+                <Smile className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Divider after emoji */}
+          {!overflowItems.includes('emoji') && (
+            <div className="w-px h-6 bg-gray-300 mx-1 flex-shrink-0" />
+          )}
+
+          {/* Always visible: Bold */}
           <button 
             type="button" 
             onMouseDown={(e)=>e.preventDefault()} 
             onClick={() => exec('bold')}
-            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+            className={`p-2 rounded transition-colors flex-shrink-0 ${
+              formatState.bold 
+                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
             title="Bold"
           >
             <Bold className="h-4 w-4" />
           </button>
-          <button 
-            type="button" 
-            onMouseDown={(e)=>e.preventDefault()} 
-            onClick={() => exec('italic')}
-            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-            title="Italic"
-          >
-            <Italic className="h-4 w-4" />
-          </button>
-          <button 
-            type="button" 
-            onMouseDown={(e)=>e.preventDefault()} 
-            onClick={() => exec('underline')}
-            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-            title="Underline"
-          >
-            <Underline className="h-4 w-4" />
-          </button>
-        </div>
 
-        <div className="hidden sm:block w-px h-6 bg-gray-300" />
+          {/* Conditionally visible based on overflow */}
+          {!overflowItems.includes('italic') && (
+            <button 
+              type="button" 
+              onMouseDown={(e)=>e.preventDefault()} 
+              onClick={() => exec('italic')}
+              className={`p-2 rounded transition-colors flex-shrink-0 ${
+                formatState.italic 
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+              title="Italic"
+            >
+              <Italic className="h-4 w-4" />
+            </button>
+          )}
 
-        {/* Color Picker */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setShowColorPicker(!showColorPicker)
-            }}
-            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-            title="Text Color"
-          >
-            <Type className="h-4 w-4" />
-          </button>
-          {showColorPicker && (
-            <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50" data-rich-text-modal>
-              <div className="grid grid-cols-6 gap-1">
-                {TEXT_COLORS.map((color) => (
-                  <button
-                    key={color.value}
-                    type="button"
-                    onMouseDown={(e)=>e.preventDefault()}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      exec('foreColor', color.value)
-                      setShowColorPicker(false)
-                    }}
-                    className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
-                    style={{ backgroundColor: color.value }}
-                    title={color.name}
-                  />
-                ))}
-              </div>
+          {!overflowItems.includes('underline') && (
+            <button 
+              type="button" 
+              onMouseDown={(e)=>e.preventDefault()} 
+              onClick={() => exec('underline')}
+              className={`p-2 rounded transition-colors flex-shrink-0 ${
+                formatState.underline 
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+              title="Underline"
+            >
+              <Underline className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Divider after underline */}
+          {!overflowItems.includes('underline') && (
+            <div className="w-px h-6 bg-gray-300 mx-1 flex-shrink-0" />
+          )}
+
+          {!overflowItems.includes('textSize') && (
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setDropdownPositions(prev => ({
+                    ...prev,
+                    textSize: { x: rect.left, y: rect.bottom + 4 }
+                  }))
+                  setShowTextSizePicker(!showTextSizePicker)
+                }}
+                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600 flex items-center"
+                title="Text Size"
+              >
+                <span className="text-sm font-bold">A</span>
+              </button>
+            </div>
+          )}
+
+          {!overflowItems.includes('color') && (
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setDropdownPositions(prev => ({
+                    ...prev,
+                    color: { x: rect.left, y: rect.bottom + 4 }
+                  }))
+                  setShowColorPicker(!showColorPicker)
+                }}
+                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+                title="Text Color"
+              >
+                <Type className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {!overflowItems.includes('background') && (
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setDropdownPositions(prev => ({
+                    ...prev,
+                    background: { x: rect.left, y: rect.bottom + 4 }
+                  }))
+                  setShowBackgroundPicker(!showBackgroundPicker)
+                }}
+                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+                title="Background Color"
+              >
+                <Palette className="h-4 w-4" />
+              </button>
             </div>
           )}
         </div>
 
-        {/* Background Color Picker */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setShowBackgroundPicker(!showBackgroundPicker)
-            }}
-            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-            title="Background Color"
-          >
-            <Palette className="h-4 w-4" />
-          </button>
-          {showBackgroundPicker && (
-            <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50" data-rich-text-modal>
-              <div className="grid grid-cols-6 gap-1">
-                {BACKGROUND_COLORS.map((color) => (
-                  <button
-                    key={color.value}
-                    type="button"
-                    onMouseDown={(e)=>e.preventDefault()}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      exec('backColor', color.value === 'transparent' ? '#ffffff' : color.value)
-                      setShowBackgroundPicker(false)
-                    }}
-                    className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
-                    style={{ 
-                      backgroundColor: color.value === 'transparent' ? '#ffffff' : color.value,
-                      border: color.value === 'transparent' ? '2px dashed #d1d5db' : '1px solid #d1d5db'
-                    }}
-                    title={color.name}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="hidden sm:block w-px h-6 bg-gray-300" />
-
-        {/* Emoji Picker */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              const rect = e.currentTarget.getBoundingClientRect()
-              setEmojiPickerPosition({ x: rect.left, y: rect.bottom + 8 })
-              setShowEmojiPicker(!showEmojiPicker)
-            }}
-            className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-            title="Add Emoji"
-          >
-            <Smile className="h-4 w-4" />
-          </button>
-        </div>
+        {/* Overflow Menu */}
+        {overflowItems.length > 0 && (
+          <div className="relative flex-shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const rect = e.currentTarget.getBoundingClientRect()
+                setDropdownPositions(prev => ({
+                  ...prev,
+                  overflow: { x: rect.right - 150, y: rect.bottom + 4 } // Position from right edge
+                }))
+                setShowOverflowMenu(!showOverflowMenu)
+              }}
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="More Options"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ContentEditable Editor */}
@@ -571,14 +742,250 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       />
 
       {/* Click outside handlers */}
-      {(showColorPicker || showBackgroundPicker) && (
+      {(showColorPicker || showBackgroundPicker || showTextSizePicker || showOverflowMenu) && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-[9998]"
           onClick={() => {
             setShowColorPicker(false)
             setShowBackgroundPicker(false)
+            setShowTextSizePicker(false)
+            setShowOverflowMenu(false)
           }}
         />
+      )}
+
+      {/* Portal-based Dropdowns */}
+      {typeof document !== 'undefined' && showTextSizePicker && createPortal(
+        <div 
+          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]" 
+          style={{ 
+            left: dropdownPositions.textSize.x, 
+            top: dropdownPositions.textSize.y 
+          }}
+          data-rich-text-modal
+        >
+          <div className="flex flex-col gap-1">
+            {TEXT_SIZES.map((size) => (
+              <button
+                key={size.value}
+                type="button"
+                onMouseDown={(e)=>e.preventDefault()}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  exec('fontSize', size.value)
+                  setShowTextSizePicker(false)
+                }}
+                className="px-3 py-1 text-left hover:bg-gray-100 rounded transition-colors"
+                title={size.name}
+              >
+                <span style={{ fontSize: size.value === '1' ? '12px' : size.value === '3' ? '16px' : size.value === '5' ? '20px' : '24px' }}>
+                  {size.name}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {typeof document !== 'undefined' && showColorPicker && createPortal(
+        <div 
+          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]" 
+          style={{ 
+            left: dropdownPositions.color.x, 
+            top: dropdownPositions.color.y 
+          }}
+          data-rich-text-modal
+        >
+          <div className="grid grid-cols-6 gap-1">
+            {TEXT_COLORS.map((color) => (
+              <button
+                key={color.value}
+                type="button"
+                onMouseDown={(e)=>e.preventDefault()}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  exec('foreColor', color.value)
+                  setShowColorPicker(false)
+                }}
+                className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
+                style={{ backgroundColor: color.value }}
+                title={color.name}
+              />
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {typeof document !== 'undefined' && showBackgroundPicker && createPortal(
+        <div 
+          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]" 
+          style={{ 
+            left: dropdownPositions.background.x, 
+            top: dropdownPositions.background.y 
+          }}
+          data-rich-text-modal
+        >
+          <div className="grid grid-cols-6 gap-1">
+            {BACKGROUND_COLORS.map((color) => (
+              <button
+                key={color.value}
+                type="button"
+                onMouseDown={(e)=>e.preventDefault()}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  exec('backColor', color.value === 'transparent' ? '#ffffff' : color.value)
+                  setShowBackgroundPicker(false)
+                }}
+                className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
+                style={{ 
+                  backgroundColor: color.value === 'transparent' ? '#ffffff' : color.value,
+                  border: color.value === 'transparent' ? '2px dashed #d1d5db' : '1px solid #d1d5db'
+                }}
+                title={color.name}
+              />
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {typeof document !== 'undefined' && showOverflowMenu && createPortal(
+        <div 
+          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] min-w-[150px]" 
+          style={{ 
+            left: dropdownPositions.overflow.x, 
+            top: dropdownPositions.overflow.y 
+          }}
+          data-rich-text-modal
+        >
+          <div className="flex flex-col gap-1">
+            {overflowItems.includes('italic') && (
+              <button 
+                type="button" 
+                onMouseDown={(e)=>e.preventDefault()} 
+                onClick={() => {
+                  exec('italic')
+                  setShowOverflowMenu(false)
+                }}
+                className={`flex items-center gap-2 px-3 py-2 text-left rounded transition-colors ${
+                  formatState.italic 
+                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                    : 'hover:bg-gray-100'
+                }`}
+                title="Italic"
+              >
+                <Italic className="h-4 w-4" />
+                <span>Italic</span>
+              </button>
+            )}
+            {overflowItems.includes('underline') && (
+              <button 
+                type="button" 
+                onMouseDown={(e)=>e.preventDefault()} 
+                onClick={() => {
+                  exec('underline')
+                  setShowOverflowMenu(false)
+                }}
+                className={`flex items-center gap-2 px-3 py-2 text-left rounded transition-colors ${
+                  formatState.underline 
+                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                    : 'hover:bg-gray-100'
+                }`}
+                title="Underline"
+              >
+                <Underline className="h-4 w-4" />
+                <span>Underline</span>
+              </button>
+            )}
+            {overflowItems.includes('textSize') && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setDropdownPositions(prev => ({
+                    ...prev,
+                    textSize: { x: rect.left, y: rect.bottom + 4 }
+                  }))
+                  setShowOverflowMenu(false)
+                  setShowTextSizePicker(true)
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-100 rounded transition-colors"
+                title="Text Size"
+              >
+                <span className="text-sm font-bold">A</span>
+                <span>Text Size</span>
+              </button>
+            )}
+            {overflowItems.includes('color') && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setDropdownPositions(prev => ({
+                    ...prev,
+                    color: { x: rect.left, y: rect.bottom + 4 }
+                  }))
+                  setShowOverflowMenu(false)
+                  setShowColorPicker(true)
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-100 rounded transition-colors"
+                title="Text Color"
+              >
+                <Type className="h-4 w-4" />
+                <span>Text Color</span>
+              </button>
+            )}
+            {overflowItems.includes('background') && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setDropdownPositions(prev => ({
+                    ...prev,
+                    background: { x: rect.left, y: rect.bottom + 4 }
+                  }))
+                  setShowOverflowMenu(false)
+                  setShowBackgroundPicker(true)
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-100 rounded transition-colors"
+                title="Background Color"
+              >
+                <Palette className="h-4 w-4" />
+                <span>Background</span>
+              </button>
+            )}
+            {overflowItems.includes('emoji') && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setEmojiPickerPosition({ x: rect.left, y: rect.bottom + 8 })
+                  setShowOverflowMenu(false)
+                  setShowEmojiPicker(true)
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-100 rounded transition-colors"
+                title="Add Emoji"
+              >
+                <Smile className="h-4 w-4" />
+                <span>Add Emoji</span>
+              </button>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Enhanced Emoji Picker */}

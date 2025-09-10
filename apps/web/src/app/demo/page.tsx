@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Heart } from "lucide-react"
 import PostCard from "@/components/PostCard"
+import RichTextEditor from "@/components/RichTextEditor"
 
 // Mock data for demo
 const mockPosts = [
@@ -61,6 +62,7 @@ const mockPosts = [
 export default function DemoPage() {
   const router = useRouter()
   const [posts, setPosts] = useState(mockPosts)
+  const [editorContent, setEditorContent] = useState("")
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
     setPosts(posts.map(post => {
@@ -147,6 +149,38 @@ export default function DemoPage() {
               <p>• Click reaction counts to see who reacted (simulated)</p>
               <p>• Notice the visual hierarchy: Daily posts are larger, photo posts medium, spontaneous compact</p>
               <p>• Use keyboard shortcuts 1-8 when emoji picker is open</p>
+            </div>
+          </div>
+
+          {/* Responsive Toolbar Demo */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+            <h2 className="text-lg font-semibold text-blue-900 mb-3">
+              📝 Responsive Rich Text Editor Demo
+            </h2>
+            <div className="text-blue-800 space-y-2 mb-4">
+              <p>• <strong>Resize your browser window</strong> to see the toolbar adapt responsively</p>
+              <p>• On narrow screens, less important tools move to the <strong>⋯</strong> overflow menu</p>
+              <p>• Try the new <strong>Text Size</strong> feature with multiple size options</p>
+              <p>• All formatting options remain accessible regardless of screen size</p>
+            </div>
+            
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <RichTextEditor
+                value={editorContent}
+                onChange={(plainText, html) => setEditorContent(plainText)}
+                placeholder="Try typing here and test the responsive toolbar..."
+                className="w-full"
+              />
+            </div>
+            
+            <div className="mt-4 text-sm text-blue-700">
+              <strong>Test Instructions:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Make your browser window very narrow to see overflow behavior</li>
+                <li>Click the "A" button to test text size options</li>
+                <li>Try all formatting options (bold, italic, underline, colors, emoji)</li>
+                <li>Notice how the toolbar always stays on a single line</li>
+              </ul>
             </div>
           </div>
 

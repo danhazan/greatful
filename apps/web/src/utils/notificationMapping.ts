@@ -3,6 +3,8 @@
  * Handles URL normalization and consistent field mapping.
  */
 
+import { stripHtmlTags } from '@/utils/htmlUtils'
+
 /**
  * Converts relative URLs to absolute URLs using the API base URL.
  */
@@ -50,7 +52,7 @@ export function mapBackendNotificationToFrontend(n: any) {
   return {
     id: n.id,
     type: n.type === "emoji_reaction" ? "reaction" : n.type,
-    message: n.message,
+    message: stripHtmlTags(n.message || ""),
     postId: n.post_id || n.data?.post_id || "",
     createdAt: n.created_at ? (
       n.created_at.endsWith('Z') 

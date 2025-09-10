@@ -19,6 +19,11 @@
 ### ✅ Recently Resolved
 - **Heart Counter Real-time Updates**: ✅ COMPLETED - Real-time updates without page refresh
 - **Missing Emoji Support**: ✅ COMPLETED - Backend now supports all 10 frontend emojis
+- **RichTextEditor Z-Index Dropdown Issue**: ✅ COMPLETED - Dropdowns now appear above modal content using React Portals
+- **Notification HTML Content Display**: ✅ COMPLETED - Notifications now display plain text instead of HTML formatting
+- **RichTextEditor Toolbar Improvements**: ✅ COMPLETED - Added pressed states, emoji repositioning, and dividers
+
+> 📚 **For detailed troubleshooting guides and historical fixes, see [`COMMON_FIXES.md`](./COMMON_FIXES.md)**
 
 ### 📊 System Health Status
 - ✅ **Heart Counter**: Working perfectly with real-time updates
@@ -68,6 +73,92 @@
 - ✅ Added 'joy' and 'thinking' to valid emoji codes
 - ✅ Backend now accepts all frontend emoji picker options
 - ✅ Added comprehensive tests for emoji validation
+
+### RichTextEditor Z-Index Dropdown Issue - COMPLETED ✅
+**Issue**: Dropdown menus in RichTextEditor (text size, color picker, background picker, overflow menu) appeared behind contentEditable text area in CreatePostModal  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: January 9, 2025  
+**Impact**: High - Core editor functionality  
+
+**What was Fixed**:
+- ✅ Implemented React Portal solution for all dropdown menus
+- ✅ Removed `overflow-hidden` from toolbar to prevent stacking context issues
+- ✅ Added position tracking for portal-based dropdowns
+- ✅ Ensured dropdowns render at document.body level with z-[9999]
+- ✅ Fixed stacking context problems caused by modal overflow containers
+- ✅ Updated responsive toolbar tests to reflect new behavior
+- ✅ All dropdown menus now appear above modal content correctly
+
+**Technical Implementation**:
+- Used `createPortal` from React DOM to render dropdowns outside modal stacking context
+- Added position calculation for each dropdown type (textSize, color, background, overflow)
+- Removed toolbar `overflow-hidden` that was clipping absolutely-positioned dropdowns
+- Maintained all existing functionality while fixing z-index issues
+- Ensured cross-browser compatibility and proper positioning
+
+**Files Modified**:
+- `apps/web/src/components/RichTextEditor.tsx` - Portal implementation and position tracking
+- `apps/web/src/tests/components/RichTextEditor.responsive-toolbar.test.tsx` - Updated test expectations
+
+**Root Cause**: 
+Modal containers with `overflow-y-auto` and toolbar with `overflow-hidden` created stacking contexts that trapped absolutely-positioned dropdowns, making them appear behind the contentEditable area despite high z-index values.
+
+### Notification HTML Content Display - COMPLETED ✅
+**Issue**: Notifications were displaying HTML formatting (like `</spa......`) instead of plain text content  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: January 9, 2025  
+**Impact**: High - Core user experience and readability  
+
+**What was Fixed**:
+- ✅ Added HTML stripping to frontend notification mapping function
+- ✅ Enhanced `mapBackendNotificationToFrontend` to use `stripHtmlTags` utility
+- ✅ Ensured all notification messages display as clean plain text
+- ✅ Preserved HTML entity decoding for proper character display
+- ✅ Added comprehensive test coverage for HTML stripping scenarios
+- ✅ Fixed the specific bug case showing `hi </spa......` in notifications
+
+**Technical Implementation**:
+- Modified `notificationMapping.ts` to import and use `stripHtmlTags` from `htmlUtils`
+- Applied HTML stripping to `n.message` field during backend-to-frontend transformation
+- Maintained existing backend HTML stripping while adding frontend safety layer
+- Created comprehensive test suite covering various HTML content scenarios
+
+**Files Modified**:
+- `apps/web/src/utils/notificationMapping.ts` - Added HTML stripping to message field
+- `apps/web/src/tests/utils/notificationMapping.html-stripping.test.ts` - New comprehensive test suite
+
+**Root Cause**: 
+While the backend was supposed to strip HTML content from notifications, some HTML fragments were still getting through to the frontend. The frontend notification mapping was directly passing through the message content without additional HTML sanitization, causing HTML tags and fragments to be displayed to users instead of clean plain text.
+
+### RichTextEditor Toolbar Improvements - COMPLETED ✅
+**Issue**: Toolbar formatting buttons didn't show pressed state, emoji was in wrong position, and lacked visual dividers  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: January 9, 2025  
+**Impact**: High - Core editor user experience  
+
+**What was Fixed**:
+- ✅ Added pressed state visual feedback for Bold, Italic, and Underline buttons
+- ✅ Moved emoji button to the beginning of the toolbar for better accessibility
+- ✅ Added visual dividers between emoji and formatting buttons
+- ✅ Added divider between underline and text size buttons
+- ✅ Implemented real-time format state tracking using `document.queryCommandState`
+- ✅ Updated overflow menu to show pressed states for hidden formatting buttons
+- ✅ Maintained all existing responsive toolbar functionality
+
+**Technical Implementation**:
+- Added `formatState` tracking with `bold`, `italic`, `underline` properties
+- Implemented `updateFormatState` function using `document.queryCommandState`
+- Added selection change event listener to update button states in real-time
+- Updated button styling to show purple background when pressed
+- Reorganized toolbar layout with emoji first, then dividers, then formatting buttons
+- Updated responsive overflow logic to prioritize emoji visibility
+
+**Files Modified**:
+- `apps/web/src/components/RichTextEditor.tsx` - Added format state tracking and toolbar reorganization
+- All existing tests continue to pass with new functionality
+
+**Root Cause**: 
+The original toolbar implementation focused on functionality over user experience feedback. Users couldn't tell which formatting was active, and the layout wasn't optimally organized for common use patterns.
 
 ### Notification Profile Pictures & Username Display - COMPLETED ✅
 **Issue**: Notifications showed letter fallback avatars instead of actual profile pictures, and displayed usernames instead of display names  
