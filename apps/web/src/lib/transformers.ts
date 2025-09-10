@@ -2,6 +2,8 @@
  * Data transformation utilities for API responses
  */
 
+import { stripHtmlTags } from '@/utils/htmlUtils'
+
 // Notification transformation types
 export interface BackendNotification {
   id: string
@@ -52,7 +54,7 @@ export function transformNotification(notification: BackendNotification): Fronte
     userId: notification.user_id,
     type: notification.type,
     title: notification.title,
-    message: notification.message,
+    message: stripHtmlTags(notification.message || ""),
     isRead: notification.is_read,
     createdAt: ensureTimezoneIndicator(notification.created_at),
     updatedAt: ensureTimezoneIndicator(notification.updated_at),

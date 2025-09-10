@@ -162,15 +162,21 @@ class Notification(Base):
         post_preview: str
     ) -> "Notification":
         """Create a notification for mention."""
+        # Import here to avoid circular imports
+        from app.core.notification_factory import _strip_html_tags
+        
+        # Strip HTML from post preview for clean notification text
+        plain_text_preview = _strip_html_tags(post_preview)
+        
         notification = cls(
             user_id=user_id,
             type='mention',
             title='You were mentioned',
-            message=f'{author_username} mentioned you in a post: {post_preview[:50]}...',
+            message=f'{author_username} mentioned you in a post: {plain_text_preview[:50]}...',
             data={
                 'post_id': post_id,
                 'author_username': author_username,
-                'post_preview': post_preview
+                'post_preview': plain_text_preview
             }
         )
         notification.batch_key = notification.generate_batch_key()
