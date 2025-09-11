@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface User {
   id: string
   name: string
-  username?: string
+  username: string  // Required - all users have usernames
   email: string
   image?: string
 }

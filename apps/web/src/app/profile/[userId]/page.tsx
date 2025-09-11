@@ -102,7 +102,11 @@ export default function UserProfilePage() {
             setCurrentUser({
               id: currentUserData.id,
               name: currentUserData.display_name || currentUserData.name || currentUserData.username,
-              email: currentUserData.email
+              display_name: currentUserData.display_name,
+              username: currentUserData.username,
+              email: currentUserData.email,
+              profile_image_url: currentUserData.profile_image_url,
+              image: currentUserData.image // Use normalized image field
             })
           }
         }

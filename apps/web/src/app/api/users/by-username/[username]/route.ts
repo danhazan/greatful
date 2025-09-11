@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { handleApiProxy } from '@/lib/api-proxy'
+import { normalizeUserData } from '@/utils/userDataMapping'
 
 export async function GET(
   request: NextRequest,
@@ -9,5 +10,29 @@ export async function GET(
   const encodedUsername = encodeURIComponent(params.username)
   
   // Username lookup requires authentication
-  return handleApiProxy(request, `/api/v1/users/by-username/${encodedUsername}`, { requireAuth: true })
+  const response = await handleApiProxy(request, `/api/v1/users/by-username/${encodedUsername}`, { requireAuth: true })
+  
+  // If the response is successful, normalize the user data
+  if (response.ok) {
+    try {
+      const data = await response.json();
+      // Check if data has a nested structure (e.g., { data: user })
+      if (data.data) {
+        const normalizedData = {
+          ...data,
+          data: normalizeUserData(data.data)
+        };
+        return NextResponse.json(normalizedData, { status: response.status });
+      } else {
+        // Direct user object
+        const normalizedData = normalizeUserData(data);
+        return NextResponse.json(normalizedData, { status: response.status });
+      }
+    } catch (error) {
+      // If JSON parsing fails, return the original response
+      return response;
+    }
+  }
+  
+  return response;
 }

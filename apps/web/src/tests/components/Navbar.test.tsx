@@ -14,6 +14,17 @@ jest.mock('@/components/NotificationSystem', () => {
   }
 })
 
+// Mock ProfileDropdown component
+jest.mock('@/components/ProfileDropdown', () => {
+  return function MockProfileDropdown({ user }: { user: any }) {
+    return (
+      <button aria-label={`${user.name}'s profile`}>
+        Profile Dropdown for {user.name}
+      </button>
+    )
+  }
+})
+
 const mockPush = jest.fn()
 const mockBack = jest.fn()
 
@@ -39,18 +50,18 @@ describe('Navbar Component', () => {
     expect(screen.getByText('Grateful')).toBeInTheDocument()
   })
 
-  it('renders navigation links', () => {
+  it('renders mobile menu button', () => {
     render(<Navbar />)
     
-    expect(screen.getByText('Feed')).toBeInTheDocument()
-    expect(screen.getByText('Profile')).toBeInTheDocument()
-    expect(screen.getByText('Logout')).toBeInTheDocument()
+    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
+    expect(mobileMenuButton).toBeInTheDocument()
   })
 
-  it('shows user welcome message when user is provided', () => {
+  it('shows profile dropdown when user is provided', () => {
     render(<Navbar user={mockUser} />)
     
-    expect(screen.getByText('Welcome, John Doe!')).toBeInTheDocument()
+    const profileButton = screen.getByRole('button', { name: /John Doe's profile/i })
+    expect(profileButton).toBeInTheDocument()
   })
 
   it('renders NotificationSystem when user is provided', () => {
@@ -89,8 +100,23 @@ describe('Navbar Component', () => {
     expect(mockPush).toHaveBeenCalledWith('/feed')
   })
 
-  it('navigates to feed when Feed link is clicked', () => {
+  it('shows mobile menu with navigation links when opened', () => {
     render(<Navbar />)
+    
+    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
+    fireEvent.click(mobileMenuButton)
+    
+    expect(screen.getByText('Feed')).toBeInTheDocument()
+    expect(screen.getByText('Profile')).toBeInTheDocument()
+    expect(screen.getByText('Logout')).toBeInTheDocument()
+  })
+
+  it('navigates to feed when Feed link in mobile menu is clicked', () => {
+    render(<Navbar />)
+    
+    // Open mobile menu first
+    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
+    fireEvent.click(mobileMenuButton)
     
     const feedLink = screen.getByText('Feed')
     fireEvent.click(feedLink)
@@ -98,18 +124,13 @@ describe('Navbar Component', () => {
     expect(mockPush).toHaveBeenCalledWith('/feed')
   })
 
-  it('navigates to profile when Profile link is clicked', () => {
-    render(<Navbar />)
-    
-    const profileLink = screen.getByText('Profile')
-    fireEvent.click(profileLink)
-    
-    expect(mockPush).toHaveBeenCalledWith('/profile')
-  })
-
-  it('calls onLogout when provided and Logout is clicked', () => {
+  it('calls onLogout when provided and Logout is clicked in mobile menu', () => {
     const mockOnLogout = jest.fn()
     render(<Navbar onLogout={mockOnLogout} />)
+    
+    // Open mobile menu first
+    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
+    fireEvent.click(mobileMenuButton)
     
     const logoutButton = screen.getByText('Logout')
     fireEvent.click(logoutButton)
@@ -128,6 +149,10 @@ describe('Navbar Component', () => {
     })
 
     render(<Navbar />)
+    
+    // Open mobile menu first
+    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
+    fireEvent.click(mobileMenuButton)
     
     const logoutButton = screen.getByText('Logout')
     fireEvent.click(logoutButton)

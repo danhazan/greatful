@@ -41,7 +41,11 @@ export default function PostPage({ params }: PostPageProps) {
           const currentUser = {
             id: profileData.id,
             name: profileData.display_name || profileData.username,
-            email: profileData.email
+            display_name: profileData.display_name,
+            username: profileData.username,
+            email: profileData.email,
+            profile_image_url: profileData.profile_image_url,
+            image: profileData.image // Use normalized image field
           }
           setUser(currentUser)
         } else {

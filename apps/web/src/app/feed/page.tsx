@@ -162,7 +162,18 @@ export default function FeedPage() {
           const currentUser = {
             id: profileData.id,
             name: profileData.display_name || profileData.username,
-            email: profileData.email
+            display_name: profileData.display_name,
+            username: profileData.username,
+            email: profileData.email,
+            profile_image_url: profileData.profile_image_url,
+            image: profileData.image // Use normalized image field
+          }
+          
+          // Debug: Check if username is properly set
+          if (!profileData.username) {
+            console.error('Username is missing from API response:', profileData)
+          } else {
+            console.log('Username correctly set:', profileData.username)
           }
           setUser(currentUser)
         } else {

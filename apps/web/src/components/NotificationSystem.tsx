@@ -279,10 +279,9 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
         {/* Notifications Dropdown */}
         {showNotifications && (
           <div 
-            className="fixed mt-2 w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden" 
+            className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden" 
             style={{
-              top: '73px',
-              right: '16px',
+              right: '0',
               left: 'auto'
             }}
             role="region"

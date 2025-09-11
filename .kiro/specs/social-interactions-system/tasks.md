@@ -505,41 +505,106 @@ The implementation maintains consistency with the reference implementation's pur
   - **Consistency Check**: Ensure all documentation reflects the actual codebase implementation rather than planned features
 **Acceptance Criteria:** Post types are assigned automatically based on content, posts support optional location data using existing location system, drag-and-drop image upload works seamlessly, advanced styling options are available in post creation, and users can edit/delete their own posts from all relevant pages.
 
-### **TASK 12.5: Navbar Enhancement - Profile Picture Integration**
-**Module Reference:** UI/UX Enhancement - Navbar Profile Integration
-- [ ] **12.5.1 Profile Picture in Navbar**
-  - Replace "welcome, <username>" message with profile picture in navbar
-  - Position profile picture to the left of notification bell
-  - Add click handler to profile picture for navigation to profile page
-  - Add hover tooltip showing username on profile picture
-  - Remove separate "profile" link from navbar (replaced by profile picture click)
-  - Ensure profile picture displays properly with fallback to letter avatar when no photo exists
-  - Maintain responsive design for mobile navbar layout
-- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify navbar profile picture integration and navigation functionality. Test responsive behavior on mobile devices.
-- [ ] **Update Project Documentation:** Document navbar profile picture integration in docs/ARCHITECTURE_AND_SETUP.md.
-**Acceptance Criteria:** Navbar displays user's profile picture instead of welcome message, profile picture is clickable for navigation to profile page, proper fallbacks are in place for users without profile photos, and navbar maintains responsive design across all devices.
+### **TASK 13: Enhanced Navbar System**
+**Module Reference:** UI/UX Enhancement - Complete Navbar Redesign
 
-### **TASK 13: MVP Production Readiness**
+- [x] **13.1 Navbar Enhancement Planning and Documentation**
+  - Document current navbar architecture and components in docs/NAVBAR_ENHANCEMENT_PLAN.md
+  - Analyze existing navbar structure, styling, and responsive behavior
+  - Plan comprehensive navbar redesign with new component layout (right to left):
+    - Profile image with dropdown menu (Profile, Logout links)
+    - Notifications bell (existing functionality)
+    - Purple heart icon replacing Feed link (leads to feed page)
+    - User searchbar with autocomplete (using existing user search functionality)
+    - Logo remains unchanged on the left
+  - Design responsive behavior for mobile devices with collapsible/hamburger menu
+  - Plan integration with existing user search API and mention system code
+  - Document component interaction patterns and state management
+  - Plan dropdown menu styling and positioning for profile menu
+  - Design user search results display and navigation to user profiles
+  - Document accessibility considerations for new navbar components
+  - Plan testing strategy for navbar components and interactions
+  - **Test Execution:** No code changes in this planning phase
+  - _Requirements: Navbar system architecture preparation_
+
+- [x] **13.2 Profile Image with Dropdown Menu**
+  - **Reference:** See docs/NAVBAR_ENHANCEMENT_PLAN.md for detailed implementation guidance
+  - Replace "welcome, <username>" message with profile picture in navbar
+  - Position profile picture as the rightmost element in navbar
+  - Create dropdown menu component that appears on profile picture click
+  - Add "Profile" and "Logout" links to dropdown menu with proper navigation
+  - Implement click-outside-to-close functionality for dropdown
+  - Add hover tooltip showing username on profile picture
+  - Ensure profile picture displays properly with fallback to letter avatar when no photo exists
+  - Style dropdown menu to match existing design system and purple theme
+  - Add proper ARIA labels and keyboard navigation support for accessibility
+  - _Requirements: Profile navigation and user menu_
+
+- [ ] **13.3 Purple Heart Feed Icon**
+  - **Reference:** See docs/NAVBAR_ENHANCEMENT_PLAN.md for detailed implementation guidance
+  - Replace existing "Feed" text link with purple heart icon (💜)
+  - Position purple heart icon to the left of notifications bell
+  - Add click handler to navigate to feed page (existing functionality)
+  - Add hover tooltip showing "Feed" text on heart icon
+  - Ensure heart icon maintains consistent purple theming with rest of application
+  - Add proper ARIA label for screen reader accessibility
+  - Test heart icon visibility and click area on mobile devices
+  - _Requirements: Feed navigation with consistent branding_
+
+- [ ] **13.4 User Search Bar Integration**
+  - **Reference:** See docs/NAVBAR_ENHANCEMENT_PLAN.md for detailed implementation guidance
+  - Add user search input field to navbar (positioned left of purple heart icon)
+  - Integrate with existing user search API from mention system (check docs and mention/message code)
+  - Implement autocomplete dropdown showing user results with profile pictures and usernames
+  - Add debounced search functionality (300ms delay) to prevent excessive API calls
+  - Implement click-to-navigate functionality - clicking user leads to their profile page
+  - Style search bar and results dropdown to match navbar design
+  - Add proper placeholder text ("Search users...")
+  - Implement keyboard navigation (arrow keys, enter) for search results
+  - Add loading state indicator during search
+  - Handle empty search results with appropriate messaging
+  - Ensure search functionality works on mobile with proper touch interactions
+  - _Requirements: User discovery and navigation_
+
+- [ ] **13.5 Responsive Design and Mobile Optimization**
+  - **Reference:** See docs/NAVBAR_ENHANCEMENT_PLAN.md for detailed implementation guidance
+  - Implement responsive behavior for new navbar components
+  - Create collapsible/hamburger menu for mobile devices
+  - Ensure all navbar components work properly on touch devices
+  - Test navbar layout on various screen sizes (desktop, tablet, mobile)
+  - Optimize search bar width and dropdown positioning for different screen sizes
+  - Ensure dropdown menus don't overflow viewport on mobile
+  - Test touch interactions for all clickable elements (44px minimum touch targets)
+  - Maintain existing navbar functionality while adding new components
+  - _Requirements: Mobile-first responsive design_
+
+- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify all navbar components work correctly. Test user search integration with existing API endpoints. Test responsive behavior on mobile devices. Test accessibility with screen readers and keyboard navigation.
+
+- [ ] **Update Project Documentation:** Update docs/ARCHITECTURE_AND_SETUP.md with new navbar architecture. Document user search integration in docs/BACKEND_API_DOCUMENTATION.md. Add navbar component testing guidelines to docs/TEST_GUIDELINES.md.
+
+**Acceptance Criteria:** Navbar contains (right to left) profile image with dropdown menu, notifications bell, purple heart feed icon, and user searchbar with autocomplete. Profile dropdown has Profile and Logout links. Purple heart navigates to feed. User search shows autocomplete results and navigates to user profiles. All components work responsively on mobile devices. Logo remains unchanged on the left.
+
+### **TASK 14: MVP Production Readiness**
 **Module Reference:** Final MVP polish and production deployment preparation
-- [ ] **13.1 Performance Optimization and Monitoring**
+- [ ] **14.1 Performance Optimization and Monitoring**
   - Add database connection pooling configuration for production workloads
   - Implement query result caching for frequently accessed data (user profiles, follower counts)
   - Add database query performance monitoring and slow query logging
   - Optimize image loading with lazy loading and proper image sizing/compression
   - Add performance metrics collection for feed loading and API response times
-- [ ] **13.2 Security Hardening**
+- [ ] **14.2 Security Hardening**
   - Implement rate limiting on all API endpoints (100 requests/minute per user)
   - Add CSRF protection for all state-changing operations (POST, PUT, DELETE)
   - Implement input sanitization for all user-generated content (posts, bios, usernames)
   - Configure secure headers for production (CORS, CSP, HSTS, X-Frame-Options)
   - Add API key validation and request signing for sensitive operations
-- [ ] **13.3 Error Monitoring and Logging**
+- [ ] **14.3 Error Monitoring and Logging**
   - Add structured logging for all API endpoints with request IDs and user context
   - Implement frontend error tracking for JavaScript errors and API failures
   - Create health check endpoints for monitoring (`/api/health`, `/api/ready`, `/api/metrics`)
   - Add error alerting system for critical failures (database connection, API errors)
   - Implement log aggregation and monitoring dashboard setup
-- [ ] **13.4 Final Testing and Quality Assurance**
+- [ ] **14.4 Final Testing and Quality Assurance**
   - Run complete end-to-end test suite covering all user workflows
   - Perform load testing on feed algorithm with 1000+ posts and 100+ concurrent users
   - Validate all social interactions work correctly under concurrent usage scenarios
@@ -551,41 +616,41 @@ The implementation maintains consistency with the reference implementation's pur
 
 ## Phase 2: Enhanced Social Features (Post-MVP)
 
-### **TASK 14: Privacy Controls System** (Post-MVP)
+### **TASK 15: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 15: Advanced Social Features** (Post-MVP)
+### **TASK 16: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 16: Fast Login Page for Development** (Post-MVP)
+### **TASK 17: Fast Login Page for Development** (Post-MVP)
 **Module Reference:** Development Tools - Fast Login Interface for Testing
-- [ ] **16.1 Create Fast Login Page Route**
+- [ ] **17.1 Create Fast Login Page Route**
   - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
   - Copy existing login page layout and styling from `/auth/login/page.tsx`
   - Replace email/password form with user selection dropdown
   - Add development environment detection to prevent production access
   - Implement purple theme consistency matching regular login page
-- [ ] **16.2 User Selection Interface**
+- [ ] **17.2 User Selection Interface**
   - Create dropdown showing all existing users (username, email, profile picture)
   - Implement one-click login functionality that generates development token
   - Add user search/filter functionality for large user lists
   - Display user information clearly (username, email, join date)
   - Add "Login as [Username]" button for each user selection
-- [ ] **16.3 Development Environment Protection**
+- [ ] **17.3 Development Environment Protection**
   - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
   - Implement build-time exclusion using Next.js conditional compilation
   - Add clear development warning banner on fast login page
   - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
   - Add rate limiting and IP restrictions for development endpoints
-- [ ] **16.4 Fast Login UX and Navigation**
+- [ ] **17.4 Fast Login UX and Navigation**
   - Style page identical to regular login with "Fast Login (Dev Mode)" title
   - Add "Back to Regular Login" link for normal authentication flow
   - Implement responsive design matching existing login page
@@ -594,9 +659,9 @@ The implementation maintains consistency with the reference implementation's pur
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
 **Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
-### **TASK 17: Follow Notification Batching System** (Post-MVP)
+### **TASK 18: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **13.1 Follow Notification Batching Analysis and Design**
+- [ ] **18.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -607,7 +672,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **13.2 Follow Notification Batching Implementation**
+- [ ] **18.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope
@@ -615,7 +680,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Implement proper batch summary generation for follow notifications
   - Add batch expansion to show individual follower notifications with profile pictures
   - Test follow notification batching with multiple followers and time windows
-- [ ] **13.3 Cross-Notification Type Batching Strategy (Future)**
+- [ ] **18.3 Cross-Notification Type Batching Strategy (Future)**
   - **Advanced Feature:** Consider batching different notification types for the same user
   - Research feasibility of "activity digest" notifications combining multiple types
   - Design user preference system for notification batching granularity

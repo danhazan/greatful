@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { normalizeUserDataArray } from '@/utils/userDataMapping'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +31,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(data, { status: response.status })
     }
 
-    return NextResponse.json(data)
+    // Normalize user data in search results
+    const normalizedData = Array.isArray(data) ? normalizeUserDataArray(data) : data
+
+    return NextResponse.json(normalizedData)
   } catch (error) {
     console.error('User search API error:', error)
     return NextResponse.json(

@@ -160,6 +160,39 @@ While the backend was supposed to strip HTML content from notifications, some HT
 **Root Cause**: 
 The original toolbar implementation focused on functionality over user experience feedback. Users couldn't tell which formatting was active, and the layout wasn't optimally organized for common use patterns.
 
+### Navbar Profile Image Not Showing - COMPLETED ✅
+**Issue**: Profile pictures were not displaying in navbar dropdown — only initials were shown, even when profile_image_url existed in backend response  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: January 9, 2025  
+**Impact**: High - Core user experience feature  
+
+**What was Fixed**:
+- ✅ Applied system-wide user data normalization following the notification pattern
+- ✅ Fixed API response handling to normalize wrapped backend responses correctly
+- ✅ Updated all pages (feed, profile, post) to use normalized image field
+- ✅ Enhanced UserAvatar component structure to match working ClickableProfilePicture
+- ✅ Added comprehensive test coverage for entire normalization flow
+- ✅ Ensured consistent profile image display across all components
+
+**Technical Implementation**:
+- Extended existing `userDataMapping.ts` utility to handle wrapped API responses
+- Updated `user-profile-api.ts` to normalize the `data` field in backend responses
+- Modified all page components to pass normalized `image` field to Navbar
+- Fixed UserAvatar component to use container structure like ClickableProfilePicture
+- Created integration tests covering the complete backend-to-frontend flow
+
+**Root Cause**: 
+The navbar was using the same data normalization issue that was previously fixed for notifications, but the fix hadn't been applied system-wide. The backend returns `profile_image_url` but components expect `image` field.
+
+**Files Modified**:
+- `apps/web/src/lib/user-profile-api.ts` - Enhanced to normalize wrapped responses
+- `apps/web/src/app/feed/page.tsx` - Uses normalized image field
+- `apps/web/src/app/profile/page.tsx` - Uses normalized image field  
+- `apps/web/src/app/profile/[userId]/page.tsx` - Uses normalized image field
+- `apps/web/src/app/post/[id]/page.tsx` - Uses normalized image field
+- `apps/web/src/components/UserAvatar.tsx` - Fixed container structure
+- Test files for comprehensive coverage
+
 ### Notification Profile Pictures & Username Display - COMPLETED ✅
 **Issue**: Notifications showed letter fallback avatars instead of actual profile pictures, and displayed usernames instead of display names  
 **Status**: ✅ RESOLVED  

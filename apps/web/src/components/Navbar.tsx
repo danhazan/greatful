@@ -4,12 +4,17 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Menu, X } from "lucide-react"
 import NotificationSystem from "./NotificationSystem"
+import ProfileDropdown from "./ProfileDropdown"
 
 interface NavbarProps {
   user?: {
     id: string | number
     name: string
+    display_name?: string
+    username: string  // Required - all users have usernames
     email: string
+    profile_image_url?: string
+    profile_photo_filename?: string
   }
   showBackButton?: boolean
   onLogout?: () => void
@@ -18,6 +23,7 @@ interface NavbarProps {
 export default function Navbar({ user, showBackButton = false, onLogout }: NavbarProps) {
   const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
 
   const handleLogout = () => {
     if (onLogout) {
@@ -27,11 +33,21 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
       router.push("/")
     }
     setIsMobileMenuOpen(false)
+    setIsProfileDropdownOpen(false)
   }
 
   const handleNavigation = (path: string) => {
     router.push(path)
     setIsMobileMenuOpen(false)
+    setIsProfileDropdownOpen(false)
+  }
+
+  const handleProfileDropdownToggle = () => {
+    setIsProfileDropdownOpen(!isProfileDropdownOpen)
+  }
+
+  const handleProfileDropdownClose = () => {
+    setIsProfileDropdownOpen(false)
   }
 
   return (
@@ -58,41 +74,21 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
             </button>
           </div>
           
-          <div className="flex items-center space-x-1 sm:space-x-4 min-w-0">
-            {user && (
-              <span className="text-xs sm:text-sm text-gray-600 truncate max-w-[80px] sm:max-w-[100px] md:max-w-[120px]">
-                Welcome, {user.name}!
-              </span>
-            )}
+          <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
             {user && <NotificationSystem userId={user.id} />}
             
-            {/* Desktop Navigation */}
-            <div className="hidden sm:flex items-center space-x-4" role="menubar" aria-label="Main menu">
-              <button
-                onClick={() => handleNavigation("/feed")}
-                className="text-purple-600 hover:text-purple-700 text-sm font-medium px-2 py-2 min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
-                role="menuitem"
-                aria-label="Go to feed page"
-              >
-                Feed
-              </button>
-              <button
-                onClick={() => handleNavigation("/profile")}
-                className="text-purple-600 hover:text-purple-700 text-sm font-medium px-2 py-2 min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
-                role="menuitem"
-                aria-label="Go to profile page"
-              >
-                Profile
-              </button>
-              <button
-                onClick={handleLogout}
-                className="text-purple-600 hover:text-purple-700 text-sm font-medium px-2 py-2 min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
-                role="menuitem"
-                aria-label="Log out of account"
-              >
-                Logout
-              </button>
-            </div>
+            {/* Desktop Profile Dropdown */}
+            {user && (
+              <div className="hidden sm:block">
+                <ProfileDropdown
+                  user={user}
+                  isOpen={isProfileDropdownOpen}
+                  onToggle={handleProfileDropdownToggle}
+                  onClose={handleProfileDropdownClose}
+                  onLogout={handleLogout}
+                />
+              </div>
+            )}
 
             {/* Mobile Menu Button */}
             <button

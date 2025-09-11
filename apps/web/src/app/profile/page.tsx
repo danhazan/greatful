@@ -140,7 +140,11 @@ export default function ProfilePage() {
           setCurrentUser({
             id: userProfile.id,
             name: userProfile.displayName || userProfile.username,
-            email: userProfile.email
+            display_name: userProfile.displayName,
+            username: userProfile.username,
+            email: userProfile.email,
+            profile_image_url: profileData.profile_image_url,
+            image: profileData.image // Use normalized image field
           })
           setEditForm({
             username: userProfile.username,
