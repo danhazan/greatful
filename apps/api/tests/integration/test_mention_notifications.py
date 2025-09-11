@@ -306,16 +306,17 @@ class TestMentionNotifications:
         
         assert notification_row is not None
         assert notification_row.title == "You were mentioned"
-        assert "grateful_author mentioned you in a post:" in notification_row.message
+        assert "grateful_author mentioned you in a post" in notification_row.message
+        # Verify the message does not contain post content
+        assert ":" not in notification_row.message.split("post")[1]  # No colon after "post"
         
         # Verify notification data
         import json
         notification_data = json.loads(notification_row.data)
         assert notification_data["post_id"] == post_id
         assert notification_data["author_username"] == "grateful_author"
-        assert "post_preview" in notification_data
-        # Preview should be truncated if content is long
-        assert len(notification_data["post_preview"]) <= 103  # 100 chars + "..."
+        # Verify post_preview is no longer included in notification data
+        assert "post_preview" not in notification_data
 
     async def test_post_creation_with_file_upload_processes_mentions(
         self,

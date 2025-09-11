@@ -176,8 +176,7 @@ class TestNotificationFactory:
             mentioned_user_id=123,
             author_username="author_user",
             author_id=456,
-            post_id="post-123",
-            post_preview="This is a test post..."
+            post_id="post-123"
         )
 
         # Assert
@@ -188,7 +187,8 @@ class TestNotificationFactory:
         assert call_args.title == "You were mentioned"
         assert "author_user mentioned you in a post" in call_args.message
         assert call_args.data["author_username"] == "author_user"
-        assert call_args.data["post_preview"] == "This is a test post..."
+        # Verify post_preview is no longer included
+        assert "post_preview" not in call_args.data
 
     @pytest.mark.asyncio
     async def test_create_mention_notification_prevents_self_mention(self, notification_factory, mock_notification_repo):
@@ -198,8 +198,7 @@ class TestNotificationFactory:
             mentioned_user_id=123,
             author_username="test_user",
             author_id=123,  # Same as mentioned_user_id
-            post_id="post-123",
-            post_preview="This is a test post..."
+            post_id="post-123"
         )
 
         # Assert

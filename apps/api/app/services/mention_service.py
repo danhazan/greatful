@@ -144,8 +144,7 @@ class MentionService(BaseService):
                     mentioned_user_id=user.id,
                     author_username=author.username,
                     author_id=author_id,
-                    post_id=post_id,
-                    post_preview=content[:100] + "..." if len(content) > 100 else content
+                    post_id=post_id
                 )
             except Exception as e:
                 logger.error(f"Failed to create mention notification for user {user.id}: {e}")

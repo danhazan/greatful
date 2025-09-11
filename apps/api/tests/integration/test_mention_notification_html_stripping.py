@@ -71,21 +71,18 @@ class TestMentionNotificationHtmlStripping:
         assert notification.type == "mention"
         assert notification.title == "You were mentioned"
         
-        # The message should contain plain text, not HTML
-        assert "mentioned you in a post:" in notification.message
+        # The message should be clean without post content
+        assert "author_user mentioned you in a post" in notification.message
         assert "<span" not in notification.message  # No HTML tags
         assert "<strong>" not in notification.message  # No HTML tags
         assert "<em>" not in notification.message  # No HTML tags
-        assert "Thanks @mentioned_user for the a" in notification.message  # Plain text content (truncated at 50 chars)
+        # Should not contain post content anymore
+        assert "Thanks" not in notification.message
+        assert ":" not in notification.message.split("post")[1]  # No colon after "post"
         
-        # Verify notification data also has plain text
+        # Verify notification data no longer contains post_preview
         notification_data = notification.data  # Already a dict
-        post_preview = notification_data["post_preview"]
-        assert "<span" not in post_preview  # No HTML tags
-        assert "<strong>" not in post_preview  # No HTML tags
-        assert "<em>" not in post_preview  # No HTML tags
-        assert "@mentioned_user" in post_preview  # Plain mention text
-        assert "Thanks @mentioned_user for the a" in post_preview  # Plain text content (truncated)
+        assert "post_preview" not in notification_data  # Post content removed from notifications
 
     @pytest.mark.asyncio
     async def test_mention_notification_handles_html_entities(self, db_session: AsyncSession):
@@ -137,11 +134,13 @@ class TestMentionNotificationHtmlStripping:
         assert len(notifications) == 1
         notification = notifications[0]
         
-        # Verify HTML entities are decoded
-        assert "&lt;" not in notification.message  # Should be decoded to <
-        assert "&gt;" not in notification.message  # Should be decoded to >
-        assert "&amp;" not in notification.message  # Should be decoded to &
-        assert "&quot;" not in notification.message  # Should be decoded to "
-        
-        # Should contain the decoded characters (within the 50 char limit)
-        assert "<code>" in notification.message
+        # Verify notification message is clean without post content
+        assert "author2 mentioned you in a post" in notification.message
+        # Should not contain HTML entities since post content is no longer included
+        assert "&lt;" not in notification.message
+        assert "&gt;" not in notification.message
+        assert "&amp;" not in notification.message
+        assert "&quot;" not in notification.message
+        # Should not contain post content
+        assert "check this" not in notification.message
+        assert "<code>" not in notification.message
