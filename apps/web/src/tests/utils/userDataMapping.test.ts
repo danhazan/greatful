@@ -22,7 +22,7 @@ describe('userDataMapping', () => {
       })
     })
 
-    it('should preserve existing image field over profile_image_url', () => {
+    it('should preserve existing image field over profile_image_url and normalize both to absolute URLs', () => {
       const user = {
         id: 123,
         username: 'testuser',
@@ -32,8 +32,9 @@ describe('userDataMapping', () => {
 
       const normalized = normalizeUserData(user)
 
+      // Both fields should use the image field value (prioritized) and be absolute URLs
       expect(normalized.image).toBe('https://example.com/new-profile.jpg')
-      expect(normalized.profile_image_url).toBe('https://example.com/old-profile.jpg')
+      expect(normalized.profile_image_url).toBe('https://example.com/new-profile.jpg')
     })
 
     it('should set image to null when no profile image exists', () => {
@@ -58,6 +59,32 @@ describe('userDataMapping', () => {
       const normalized = normalizeUserData(user)
 
       expect(normalized.name).toBe('testuser')
+    })
+
+    it('should convert relative URLs to absolute URLs', () => {
+      const user = {
+        id: 123,
+        username: 'testuser',
+        profile_image_url: '/uploads/profile_photos/profile_123.jpg'
+      }
+
+      const normalized = normalizeUserData(user)
+
+      expect(normalized.image).toBe('http://localhost:8000/uploads/profile_photos/profile_123.jpg')
+      expect(normalized.profile_image_url).toBe('http://localhost:8000/uploads/profile_photos/profile_123.jpg')
+    })
+
+    it('should preserve absolute URLs unchanged', () => {
+      const user = {
+        id: 123,
+        username: 'testuser',
+        profile_image_url: 'https://cdn.example.com/profile.jpg'
+      }
+
+      const normalized = normalizeUserData(user)
+
+      expect(normalized.image).toBe('https://cdn.example.com/profile.jpg')
+      expect(normalized.profile_image_url).toBe('https://cdn.example.com/profile.jpg')
     })
 
     it('should handle null/undefined input', () => {

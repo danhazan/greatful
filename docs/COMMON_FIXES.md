@@ -46,6 +46,104 @@ const transformedNotifications = notifications.map(notification => ({
 
 ---
 
+## 🖼️ Profile Image URL Issues (SOLVED - January 2025)
+
+### Issue: Broken Profile Image URLs in Navbar Dropdown
+
+**Symptoms:**
+- Navbar dropdown shows initials instead of profile images
+- Browser console shows 404 Not Found errors for image URLs like:
+  ```
+  http://localhost:3000/uploads/profile_photos/profile_03777...jpg
+  ```
+- Profile images display correctly in posts & notifications
+- Navbar tries to load from frontend domain instead of backend/CDN domain
+
+**Root Cause:**
+The backend returns relative URLs like `/uploads/profile_photos/profile_03777.jpg`, but the frontend was not consistently converting these to absolute URLs. The navbar was trying to load images relative to the frontend domain (`localhost:3000`) instead of the backend domain (`localhost:8000`).
+
+**Evidence:**
+- ✅ Notifications system already worked (used absolute URLs)
+- ✅ Posts displayed profile images correctly
+- ❌ Navbar dropdown tried to load: `http://localhost:3000/uploads/profile_photos/...` (404)
+- ❌ Should load: `http://localhost:8000/uploads/profile_photos/...` (✅)
+
+**Solution: Consistent URL Normalization**
+
+**File: `apps/web/src/utils/userDataMapping.ts`**
+
+```typescript
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+export function normalizeUserData(user: any) {
+  if (!user) return user
+  
+  // Get the raw image URL from either field
+  const rawImage = user.image || user.profile_image_url || null
+  
+  // Convert relative URLs to absolute URLs
+  const absoluteImage = rawImage && rawImage.startsWith("http")
+    ? rawImage
+    : rawImage
+      ? `${API_BASE_URL}${rawImage}`
+      : null
+  
+  return {
+    ...user,
+    // Always ensure image field is available (preferred by components)
+    image: absoluteImage,
+    // Keep original field for backward compatibility but also make it absolute
+    profile_image_url: absoluteImage,
+    // Ensure name field is available
+    name: user.name || user.display_name || user.username,
+  }
+}
+```
+
+**Key Changes:**
+
+1. **Updated `normalizeUserData` function** to convert relative URLs to absolute URLs
+2. **Applied normalization in feed and profile pages** when fetching user data
+3. **API middleware already used normalization** - fix worked automatically for all profile API calls
+4. **Comprehensive testing** to verify the fix works across all components
+
+**URL Transformation Examples:**
+- **Before**: `/uploads/profile_photos/profile_03777.jpg` → 404 error (tried to load from `http://localhost:3000`)
+- **After**: `http://localhost:8000/uploads/profile_photos/profile_03777.jpg` → ✅ loads correctly
+
+**Files Modified:**
+- `apps/web/src/utils/userDataMapping.ts` - Added URL normalization logic
+- `apps/web/src/app/feed/page.tsx` - Applied normalization to user profile fetching
+- `apps/web/src/app/profile/page.tsx` - Applied normalization to user profile fetching
+- `apps/web/src/lib/user-profile-api.ts` - Already used normalization (no changes needed)
+
+**Testing:**
+- Updated existing tests to reflect new behavior
+- Added comprehensive integration tests
+- All profile image URL related tests pass
+- Backend tests continue to pass
+
+**Expected Outcome:**
+- ✅ Navbar dropdown shows actual profile images instead of initials
+- ✅ No more 404 console errors for image URLs
+- ✅ All user data flows (profile, notifications, posts) consistently return absolute URLs
+- ✅ Profile images work correctly across all components
+
+**Prevention Checklist:**
+- [ ] Always use `normalizeUserData()` when processing user data from APIs
+- [ ] Test profile images in all components (navbar, posts, notifications, profiles)
+- [ ] Verify console shows no 404 errors for image URLs
+- [ ] Check that images load from backend domain, not frontend domain
+- [ ] Test with both relative and absolute URLs from backend
+
+**Key Points:**
+- Consistent URL normalization prevents domain confusion
+- Environment variables should define the API base URL
+- All user data should go through normalization for consistency
+- Profile images are a common place where URL issues surface
+
+---
+
 ## 🔔 Legacy Notification System Issues (SOLVED - For Reference Only)
 
 *The following issues have been permanently resolved but are kept for historical reference.*

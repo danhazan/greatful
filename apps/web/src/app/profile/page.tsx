@@ -9,6 +9,7 @@ import ProfilePhotoUpload from "@/components/ProfilePhotoUpload"
 import ProfileImageSection from "@/components/ProfileImageSection"
 import LocationAutocomplete from "@/components/LocationAutocomplete"
 import { transformUserPosts } from "@/lib/transformers"
+import { normalizeUserData } from "@/utils/userDataMapping"
 
 interface UserProfile {
   id: number
@@ -118,7 +119,11 @@ export default function ProfilePage() {
 
         if (response.ok) {
           const responseData = await response.json()
-          const profileData = responseData.data || responseData // Handle both wrapped and unwrapped responses
+          const rawProfileData = responseData.data || responseData // Handle both wrapped and unwrapped responses
+          
+          // Normalize user data to ensure consistent field names and absolute URLs
+          const profileData = normalizeUserData(rawProfileData)
+          
           const userProfile: UserProfile = {
             id: profileData.id,
             username: profileData.username || 'Unknown User',

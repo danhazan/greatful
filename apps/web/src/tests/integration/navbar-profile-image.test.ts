@@ -43,6 +43,33 @@ describe('Navbar Profile Image Integration', () => {
       })
     })
 
+    it('should convert relative profile image URLs to absolute URLs', () => {
+      // Simulate backend response with relative URL (the actual issue)
+      const backendResponse = {
+        success: true,
+        data: {
+          id: 123,
+          username: 'testuser',
+          display_name: 'Test User',
+          email: 'test@example.com',
+          profile_image_url: '/uploads/profile_photos/profile_03777.jpg', // Relative URL
+          bio: 'Test bio'
+        }
+      }
+
+      // Normalize the user data (what the API middleware does)
+      const normalizedUserData = normalizeUserData(backendResponse.data)
+
+      // Both image fields should now be absolute URLs
+      expect(normalizedUserData.image).toBe('http://localhost:8000/uploads/profile_photos/profile_03777.jpg')
+      expect(normalizedUserData.profile_image_url).toBe('http://localhost:8000/uploads/profile_photos/profile_03777.jpg')
+      
+      // This prevents the browser from trying to load:
+      // http://localhost:3000/uploads/profile_photos/profile_03777.jpg (404 error)
+      // Instead it correctly loads:
+      // http://localhost:8000/uploads/profile_photos/profile_03777.jpg (backend/CDN)
+    })
+
     it('should handle user data without profile image', () => {
       const backendResponse = {
         success: true,

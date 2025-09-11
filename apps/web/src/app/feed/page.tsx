@@ -6,6 +6,7 @@ import { Heart, Plus } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 import { normalizePostFromApi } from "@/utils/normalizePost"
+import { normalizeUserData } from "@/utils/userDataMapping"
 
 import Navbar from "@/components/Navbar"
 
@@ -159,21 +160,31 @@ export default function FeedPage() {
           const userData = await response.json()
           // Handle both wrapped and unwrapped responses
           const profileData = userData.data || userData
+          
+          // Debug: Log raw profile data to check image URL format
+          console.log("Raw profile data from API:", profileData)
+          
+          // Normalize user data to ensure consistent field names and absolute URLs
+          const normalizedUser = normalizeUserData(profileData)
+          
+          // Debug: Log normalized user data
+          console.log("Normalized user data:", normalizedUser)
+          
           const currentUser = {
-            id: profileData.id,
-            name: profileData.display_name || profileData.username,
-            display_name: profileData.display_name,
-            username: profileData.username,
-            email: profileData.email,
-            profile_image_url: profileData.profile_image_url,
-            image: profileData.image // Use normalized image field
+            id: normalizedUser.id,
+            name: normalizedUser.name,
+            display_name: normalizedUser.display_name,
+            username: normalizedUser.username,
+            email: normalizedUser.email,
+            profile_image_url: normalizedUser.profile_image_url,
+            image: normalizedUser.image
           }
           
           // Debug: Check if username is properly set
-          if (!profileData.username) {
+          if (!normalizedUser.username) {
             console.error('Username is missing from API response:', profileData)
           } else {
-            console.log('Username correctly set:', profileData.username)
+            console.log('Username correctly set:', normalizedUser.username)
           }
           setUser(currentUser)
         } else {

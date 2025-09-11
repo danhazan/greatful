@@ -83,10 +83,10 @@ export default function ProfileDropdown({
         className="min-h-[44px] min-w-[44px] touch-manipulation"
       />
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu - Responsive for both desktop and mobile */}
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-w-[calc(100vw-32px)]"
+          className="absolute right-0 top-full mt-2 w-48 sm:w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-w-[calc(100vw-16px)] sm:max-w-[calc(100vw-32px)]"
           style={{
             right: '0',
             left: 'auto'
@@ -96,7 +96,7 @@ export default function ProfileDropdown({
           aria-orientation="vertical"
         >
           {/* User Info Header */}
-          <div className="px-4 py-3 border-b border-gray-100">
+          <div className="px-3 sm:px-4 py-3 border-b border-gray-100">
             <div className="flex items-center space-x-3">
               <UserAvatar user={user} size="sm" />
               <div className="min-w-0 flex-1">
@@ -114,21 +114,21 @@ export default function ProfileDropdown({
           <div className="py-1">
             <button
               onClick={handleProfileClick}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700"
+              className="w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700 min-h-[44px] sm:min-h-auto touch-manipulation"
               role="menuitem"
               aria-label="Go to profile page"
             >
-              <User className="h-4 w-4 mr-3" aria-hidden="true" />
+              <User className="h-4 w-4 mr-3 flex-shrink-0" aria-hidden="true" />
               Profile
             </button>
 
             <button
               onClick={handleLogoutClick}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700"
+              className="w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700 min-h-[44px] sm:min-h-auto touch-manipulation"
               role="menuitem"
               aria-label="Log out of account"
             >
-              <LogOut className="h-4 w-4 mr-3" aria-hidden="true" />
+              <LogOut className="h-4 w-4 mr-3 flex-shrink-0" aria-hidden="true" />
               Logout
             </button>
           </div>
