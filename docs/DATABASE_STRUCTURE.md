@@ -80,10 +80,13 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 |--------|------|-------------|-------------|
 | `id` | String (UUID) | Primary Key | Unique post identifier |
 | `author_id` | Integer | Foreign Key (users.id), Not Null | Post author |
-| `title` | String | Nullable | Post title |
-| `content` | Text | Not Null | Post content |
+| `content` | Text | Not Null | Post content (plain text) |
+| `rich_content` | Text | Nullable | HTML formatted content for rich text display |
+| `post_style` | JSON | Nullable | Post styling information (colors, fonts, etc.) |
 | `post_type` | Enum | Not Null, Default: 'daily' | Type: daily, photo, spontaneous |
 | `image_url` | String | Nullable | Image URL for photo posts |
+| `location` | String | Nullable | Location string (backward compatibility) |
+| `location_data` | JSON | Nullable | Structured location data with coordinates |
 | `is_public` | Boolean | Default: True | Post visibility |
 | `created_at` | DateTime | Default: now() | Post creation timestamp |
 | `updated_at` | DateTime | On Update | Last modification timestamp |
@@ -95,6 +98,38 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 - `daily` - Daily gratitude posts (3x styling)
 - `photo` - Photo gratitude posts (2x styling)
 - `spontaneous` - Spontaneous text posts (compact styling)
+
+**Enhanced Content Fields:**
+
+**Rich Content Support:**
+- `rich_content`: HTML formatted version of post content for enhanced display
+- `post_style`: JSON object containing styling information such as:
+  ```json
+  {
+    "backgroundColor": "#f3f4f6",
+    "textColor": "#1f2937", 
+    "fontFamily": "Inter"
+  }
+  ```
+
+**Location Data:**
+- `location`: Simple string field maintained for backward compatibility
+- `location_data`: Structured JSON with coordinates and address information:
+  ```json
+  {
+    "display_name": "Central Park, New York, NY, USA",
+    "lat": 40.7829,
+    "lon": -73.9654,
+    "place_id": "123456",
+    "address": {
+      "city": "New York",
+      "state": "NY", 
+      "country": "USA"
+    },
+    "importance": 0.9,
+    "type": "park"
+  }
+  ```
 
 **Performance Indexes:**
 - `idx_posts_created_at_desc` - For chronological feeds (created_at DESC)

@@ -316,12 +316,12 @@ class TestAPIContracts:
     async def test_content_length_validation(self, http_client: AsyncClient, auth_headers):
         """Test that content length validation works correctly."""
         
-        # Test content too long for post type
-        long_content = "x" * 600  # Exceeds daily post limit of 500
+        # Test content too long for post type (universal 5000 character limit)
+        long_content = "x" * 5001  # Exceeds universal limit of 5000
         
         invalid_post_data = {
             "content": long_content,
-            "post_type": "daily"
+            "post_type_override": "daily"
         }
         
         response = await http_client.post("/api/v1/posts/", json=invalid_post_data, headers=auth_headers)
@@ -402,8 +402,8 @@ class TestContractValidation:
         result = contract_validator.validate_content_length("Test content", "daily")
         assert result == "Test content"
         
-        # Content too long
-        long_content = "x" * 600
+        # Content too long (exceeds universal 5000 character limit)
+        long_content = "x" * 5001
         with pytest.raises(Exception):
             contract_validator.validate_content_length(long_content, "daily")
         

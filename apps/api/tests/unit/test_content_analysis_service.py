@@ -188,8 +188,8 @@ class TestContentAnalysisService:
         confidence = service._calculate_confidence(PostType.spontaneous, 18, False, 100)
         assert confidence < 0.8
         
-        # Content exceeding character limit -> lower confidence
-        confidence = service._calculate_confidence(PostType.spontaneous, 10, False, 250)
+        # Content exceeding character limit -> lower confidence (use 5001 to exceed the 5000 limit)
+        confidence = service._calculate_confidence(PostType.spontaneous, 10, False, 5001)
         assert confidence < 0.8
 
     def test_error_handling_returns_safe_default(self, service):

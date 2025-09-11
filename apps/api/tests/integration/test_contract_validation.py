@@ -52,11 +52,11 @@ class TestContractValidationMiddleware:
         """Test that content length validation works through middleware."""
         
         # Test content too long for post type
-        long_content = "x" * 600  # Exceeds daily post limit of 500
+        long_content = "x" * 5001  # Exceeds universal limit of 5000
         
         invalid_post_data = {
             "content": long_content,
-            "post_type": "daily",
+            "post_type_override": "daily",
             "is_public": True
         }
         

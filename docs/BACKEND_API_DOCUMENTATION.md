@@ -322,7 +322,8 @@ POST   /api/v1/users/location/search     # Search locations for profile city fie
 
 ### Posts
 ```
-POST   /api/v1/posts/                    # Create post
+POST   /api/v1/posts/                    # Create post with automatic type detection
+POST   /api/v1/posts/multipart           # Create post with image upload (multipart form)
 GET    /api/v1/posts/                    # Get posts (with filters)
 GET    /api/v1/posts/feed                # Get personalized feed with algorithm ranking
 GET    /api/v1/posts/{post_id}           # Get specific post
@@ -331,6 +332,149 @@ DELETE /api/v1/posts/{post_id}           # Delete post
 POST   /api/v1/posts/{post_id}/heart     # Heart/like post
 DELETE /api/v1/posts/{post_id}/heart     # Remove heart from post
 ```
+
+#### Automatic Post Type Detection System
+
+The post creation system includes intelligent automatic type detection that categorizes posts based on content characteristics:
+
+**Detection Rules:**
+1. **Photo Gratitude**: Image with no text content (0 characters allowed)
+2. **Spontaneous Text**: Text-only posts under 20 words (200 characters max)  
+3. **Daily Gratitude**: All other content - longer text or any text+image (5000 characters max)
+
+**Character Limits by Type:**
+- **Daily Gratitude (5000 chars)**: Generous space for thoughtful reflection (~750-1000 words)
+- **Photo Gratitude (0 chars)**: Pure visual expression, image speaks for itself
+- **Spontaneous Text (200 chars)**: Quick appreciation notes (~30-40 words)
+
+**Post Creation API Details:**
+
+**Create Post (JSON)**
+```http
+POST /api/v1/posts/
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "content": "Today I'm grateful for the beautiful sunrise that reminded me to appreciate simple moments...",
+  "rich_content": "<p>Today I'm grateful for the <strong>beautiful sunrise</strong> that reminded me to appreciate simple moments...</p>",
+  "post_style": {
+    "backgroundColor": "#f3f4f6",
+    "textColor": "#1f2937",
+    "fontFamily": "Inter"
+  },
+  "location": "Central Park, New York",
+  "location_data": {
+    "display_name": "Central Park, New York, NY, USA",
+    "lat": 40.7829,
+    "lon": -73.9654,
+    "place_id": "123456",
+    "address": {
+      "city": "New York",
+      "state": "NY",
+      "country": "USA"
+    }
+  }
+}
+```
+
+**Response (with automatic type detection):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "post-uuid-123",
+    "content": "Today I'm grateful for the beautiful sunrise...",
+    "rich_content": "<p>Today I'm grateful for the <strong>beautiful sunrise</strong> that reminded me to appreciate simple moments...</p>",
+    "post_style": {
+      "backgroundColor": "#f3f4f6",
+      "textColor": "#1f2937",
+      "fontFamily": "Inter"
+    },
+    "post_type": "daily",
+    "location": "Central Park, New York",
+    "location_data": {
+      "display_name": "Central Park, New York, NY, USA",
+      "lat": 40.7829,
+      "lon": -73.9654,
+      "place_id": "123456",
+      "address": {
+        "city": "New York",
+        "state": "NY",
+        "country": "USA"
+      }
+    },
+    "author": {
+      "id": 1,
+      "username": "alice",
+      "display_name": "Alice Smith",
+      "profile_image_url": "/uploads/profile_photos/profile_abc123_medium.jpg"
+    },
+    "hearts_count": 0,
+    "reactions_count": 0,
+    "shares_count": 0,
+    "created_at": "2025-01-01T10:00:00Z",
+    "updated_at": "2025-01-01T10:00:00Z"
+  },
+  "timestamp": "2025-01-01T10:00:00Z",
+  "request_id": "req_123"
+}
+```
+
+**Create Post with Image (Multipart)**
+```http
+POST /api/v1/posts/multipart
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**Request Body:**
+- `content`: Text content (optional for photo posts)
+- `rich_content`: HTML formatted content (optional)
+- `post_style`: JSON string with styling information (optional)
+- `image`: Image file (JPEG, PNG, WebP, max 10MB)
+- `location`: Location string (optional, for backward compatibility)
+- `location_data`: JSON string with structured location data (optional)
+
+**Response (automatic photo type detection):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "post-uuid-456",
+    "content": "",
+    "post_type": "photo",
+    "image_url": "/uploads/posts/image_def456.jpg",
+    "location": "Golden Gate Bridge, San Francisco",
+    "author": {
+      "id": 2,
+      "username": "bob",
+      "display_name": "Bob Johnson"
+    },
+    "hearts_count": 0,
+    "reactions_count": 0,
+    "shares_count": 0,
+    "created_at": "2025-01-01T11:00:00Z"
+  }
+}
+```
+
+**Type Detection Logic:**
+The system automatically determines the optimal post type based on:
+- **Content Length**: Character count and word analysis
+- **Image Presence**: Whether an image is included
+- **Content Quality**: Analysis of gratitude-specific language patterns
+- **User Intent**: Contextual clues from content structure
+
+**Validation Rules:**
+- Daily posts: 1-5000 characters, optional image
+- Photo posts: 0 characters (image only), required image
+- Spontaneous posts: 1-200 characters, no image
+- Location field: Optional, max 100 characters
+- Image files: JPEG/PNG/WebP, max 10MB
 
 ### Notifications
 ```
