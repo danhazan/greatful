@@ -716,7 +716,7 @@ export default function PostCard({
               onClick={() => onUserClick?.(currentPost.author.id)}
             />
             <div className="flex-1">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-between">
                 <div 
                   className="cursor-pointer hover:text-purple-700 transition-colors"
                   onClick={() => onUserClick?.(currentPost.author.id)}
@@ -725,14 +725,14 @@ export default function PostCard({
                     {currentPost.author.display_name || currentPost.author.name}
                   </h3>
                 </div>
-                {/* Follow button positioned right next to the username */}
+                {/* Follow button positioned on the right side */}
                 {currentUserId && 
                  currentUserId !== currentPost.author.id && 
                  !isNaN(parseInt(currentPost.author.id)) &&
                  !hideFollowButton && (
                   <FollowButton 
                     userId={parseInt(currentPost.author.id)} 
-                    size="xxs"
+                    size="xs"
                     variant="outline"
                   />
                 )}

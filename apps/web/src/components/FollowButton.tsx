@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { UserPlus, UserMinus, Loader2 } from 'lucide-react'
+import { Heart, Loader2 } from 'lucide-react'
 import { isAuthenticated, getAccessToken } from '@/utils/auth'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
 import { useToast } from '@/contexts/ToastContext'
@@ -35,29 +35,32 @@ export default function FollowButton({
   const errorRef = useRef<HTMLDivElement>(null)
   const { showSuccess, showError, showLoading, hideToast, updateToast } = useToast()
 
-  // Size classes with minimum touch targets - reduced by 50%
+  // Size classes with minimum touch targets and fixed widths for heart-shaped button
   const sizeClasses = {
-    xxs: 'px-0.5 py-0.25 text-xs min-w-[22px] min-h-[22px]',
-    xs: 'px-1 py-0.5 text-xs min-w-[22px] min-h-[22px]',
-    sm: 'px-1.5 py-1 text-xs min-w-[22px] min-h-[22px]',
-    md: 'px-2 py-1 text-xs min-w-[22px] min-h-[22px]',
-    lg: 'px-3 py-1.5 text-sm min-w-[22px] min-h-[22px]'
+    xxs: 'px-1 py-0.5 text-xs min-w-[22px] min-h-[22px] w-[80px]',
+    xs: 'px-2 py-1 text-xs min-w-[22px] min-h-[22px] w-[90px]',
+    sm: 'px-2 py-1 text-xs min-w-[22px] min-h-[22px] w-[100px]',
+    md: 'px-3 py-1.5 text-sm min-w-[22px] min-h-[22px] w-[110px]',
+    lg: 'px-3 py-2 text-sm min-w-[22px] min-h-[22px] w-[120px]'
   }
 
-  // Variant classes
-  const getVariantClasses = (following: boolean) => {
+  // Heart icon sizes for different button sizes - consistent sizing
+  const heartSizes = {
+    xxs: 'w-3.5 h-3.5',
+    xs: 'w-4 h-4',
+    sm: 'w-4 h-4',
+    md: 'w-4.5 h-4.5',
+    lg: 'w-5 h-5'
+  }
+
+  // Heart-shaped button styling
+  const getHeartButtonClasses = (following: boolean) => {
     if (following) {
-      return {
-        primary: 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300',
-        secondary: 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300',
-        outline: 'bg-transparent text-gray-700 border border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300'
-      }
+      // Filled purple background when following
+      return 'bg-purple-600 text-white border-2 border-purple-600 hover:bg-purple-700 hover:border-purple-700'
     } else {
-      return {
-        primary: 'bg-purple-600 text-white border border-purple-600 hover:bg-purple-700 hover:border-purple-700',
-        secondary: 'bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200 hover:border-purple-400',
-        outline: 'bg-transparent text-purple-600 border border-purple-600 hover:bg-purple-50'
-      }
+      // Clear background with purple border and text when not following
+      return 'bg-transparent text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
     }
   }
 
@@ -193,9 +196,8 @@ export default function FollowButton({
     }
   }
 
-  const buttonText = isFollowing ? 'Following' : 'Follow'
-  const Icon = isFollowing ? UserMinus : UserPlus
-  const variantClasses = getVariantClasses(isFollowing)[variant]
+  const buttonText = isFollowing ? 'Following  ' : 'Follow me!'
+  const heartButtonClasses = getHeartButtonClasses(isFollowing)
 
   return (
     <div className="relative">
@@ -203,14 +205,14 @@ export default function FollowButton({
         onClick={handleFollowToggle}
         disabled={isLoading}
         className={`
-          inline-flex items-center justify-center gap-2 
-          font-medium rounded-lg transition-all duration-200
+          inline-flex items-center justify-center gap-1.5
+          font-medium rounded-full transition-all duration-200
           disabled:opacity-50 disabled:cursor-not-allowed
           focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
           touch-manipulation select-none
           active:scale-95 active:shadow-inner
           ${sizeClasses[size]}
-          ${variantClasses}
+          ${heartButtonClasses}
           ${className}
         `}
         aria-label={isFollowing ? `Unfollow user ${userId}` : `Follow user ${userId}`}
@@ -219,11 +221,14 @@ export default function FollowButton({
         {...createTouchHandlers(undefined, 'light')}
       >
         {isLoading ? (
-          <Loader2 className="w-3 h-3 animate-spin" />
+          <Loader2 className={`${heartSizes[size]} animate-spin`} />
         ) : (
-          <Icon className="w-3 h-3" />
+          <Heart 
+            className={`${heartSizes[size]} ${!isFollowing ? 'fill-current' : ''} flex-shrink-0`}
+            strokeWidth={2}
+          />
         )}
-        <span className="whitespace-nowrap">{isLoading ? 'Loading...' : buttonText}</span>
+        <span className="whitespace-nowrap whitespace-pre text-xs font-medium">{isLoading ? 'Loading...' : buttonText}</span>
       </button>
 
       {error && (
