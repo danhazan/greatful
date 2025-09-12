@@ -54,9 +54,9 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
       role="navigation" 
       aria-label="Main navigation"
     >
-      <div className="max-w-4xl mx-auto flex items-center gap-2 sm:gap-4">
+      <div className="max-w-4xl mx-auto flex items-center gap-2 sm:gap-4 relative">
         {/* Left section: Back button + Logo */}
-        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0 relative z-20">
           {showBackButton && (
             <button
               onClick={() => router.back()}
@@ -67,17 +67,19 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
             </button>
           )}
           <div className="flex items-center space-x-1 sm:space-x-2 min-h-[44px]">
-            <span className="text-xl sm:text-2xl" aria-hidden="true">💜</span>
-            <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none">Grateful</h1>
+            {/* Purple heart - always visible, higher z-index */}
+            <span className="text-xl sm:text-2xl relative z-30" aria-hidden="true">💜</span>
+            {/* Grateful text - can be covered by search on mobile */}
+            <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-10">Grateful</h1>
           </div>
         </div>
         
         {/* Middle section: Search bar - Responsive layout */}
         {user && (
-          <div className="flex-1 min-w-0 max-w-md mx-auto">
-            {/* Mobile: Collapsible search */}
-            <div className="flex sm:hidden justify-end">
-              <UserSearchBar isMobile={true} className="w-auto" />
+          <div className="flex-1 min-w-0 max-w-md mx-auto relative overflow-visible">
+            {/* Mobile: Collapsible search - positioned to expand leftward over "Grateful" text */}
+            <div className="flex sm:hidden justify-end relative overflow-visible">
+              <UserSearchBar isMobile={true} className="w-auto relative z-25" />
             </div>
             {/* Desktop: Fixed width centered search bar */}
             <div className="hidden sm:flex justify-center">
@@ -87,7 +89,7 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
         )}
         
         {/* Right section: Feed icon + Notifications + Profile */}
-        <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0">
+        <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0 relative z-20">
           {/* Purple Heart Feed Icon */}
           {user && (
             <button

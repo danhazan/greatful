@@ -31,7 +31,7 @@ export default function UserSearchBar({
   const [loading, setLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isFocused, setIsFocused] = useState(false)
+
   const [hasSearched, setHasSearched] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   
@@ -236,7 +236,6 @@ export default function UserSearchBar({
   }
 
   const handleInputFocus = () => {
-    setIsFocused(true)
     setIsExpanded(true)
     if (searchQuery.trim()) {
       setIsDropdownOpen(true)
@@ -244,7 +243,6 @@ export default function UserSearchBar({
   }
 
   const handleInputBlur = () => {
-    setIsFocused(false)
     // Don't close dropdown immediately to allow for clicks
     // In tests, the :hover pseudo-class doesn't work, so we need a longer delay
     setTimeout(() => {
@@ -294,39 +292,41 @@ export default function UserSearchBar({
               </button>
             </div>
           ) : (
-            /* Expanded state: Full input */
-            <div className="relative w-full max-w-[calc(100vw-2rem)]">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
+            /* Expanded state: Full input that expands leftward to cover "Grateful" text */
+            <div className="fixed top-3 left-12 right-16 z-50 sm:hidden">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                </div>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleInputChange}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                  placeholder="Search users..."
+                  className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation shadow-lg"
+                  aria-label="Search for users"
+                  aria-expanded={isDropdownOpen}
+                  aria-haspopup="listbox"
+                  aria-autocomplete="list"
+                  role="combobox"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setIsExpanded(false)
+                  }}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 active:text-gray-700 transition-colors min-w-[44px] min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
+                  aria-label="Close search"
+                  title="Close search"
+                  {...createTouchHandlers(undefined, 'light')}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
               </div>
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchQuery}
-                onChange={handleInputChange}
-                onFocus={handleInputFocus}
-                onBlur={handleInputBlur}
-                placeholder="Search users..."
-                className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation"
-                aria-label="Search for users"
-                aria-expanded={isDropdownOpen}
-                aria-haspopup="listbox"
-                aria-autocomplete="list"
-                role="combobox"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("")
-                  setIsExpanded(false)
-                }}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 active:text-gray-700 transition-colors min-w-[44px] min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
-                aria-label="Close search"
-                title="Close search"
-                {...createTouchHandlers(undefined, 'light')}
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
             </div>
           )
         ) : (
