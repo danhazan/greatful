@@ -3,6 +3,7 @@
 ## 📋 Executive Summary
 
 ### ⚠️ Active Issues
+- **📱 Mobile Search Bar Expansion**: Mobile search bar not expanding when search icon is clicked
 - **🔤 Notification Username Instead of Display Name**: Notifications show username instead of display name
 - **📊 Engagement Summary Auto-Popup**: Metrics popup automatically appears when posts reach 6+ total reactions
 - **🎭 Emoji Reactions 6 & 7**: Click handlers not working for emojis 6 (😂) and 7 (🤔)
@@ -226,7 +227,69 @@ The navbar was using the same data normalization issue that was previously fixed
 
 ## ⚠️ Active Issues
 
+### Mobile Search Bar Expansion Issue
+**Issue**: Mobile search bar in navbar is not expanding when the search icon is clicked  
+**Status**: ⚠️ Active Issue  
+**Priority**: High  
+**Impact**: Core Mobile User Experience  
+**Discovered**: January 9, 2025  
 
+**Description**:
+The mobile search bar in the navbar does not expand when users click the search icon. The `isExpanded` state updates correctly (verified in React DevTools), but the UI does not re-render to show the expanded input. Desktop behavior with the fixed w-64 input works correctly.
+
+**Technical Details**:
+- Backend: Not applicable ✅
+- Database: Not applicable ✅
+- Frontend: Conditional rendering and state management issues ❌
+- Issue: UI not re-rendering despite state changes
+
+**Root Cause Suspicions**:
+1. **Conditional Rendering Bug**: `{isMobile && !placeholder ? (...) : (...)}` where `placeholder` is passed as `""` from navbar, making the condition potentially unreliable
+2. **State/Ref Timing**: Using `setTimeout` for focusing can be flaky; React may batch updates
+3. **CSS/Layout**: Collapsed and expanded states might be fighting width constraints (`w-full` vs `justify-end`)
+
+**Current Behavior**:
+- Mobile collapsed: Shows search icon button ✅
+- Mobile expanded: Icon click updates state but UI doesn't change ❌
+- Desktop: Fixed w-64 input works correctly ✅
+- State: `isExpanded` updates correctly in React DevTools ✅
+
+**Expected Behavior**:
+- Mobile collapsed: Only search icon, right-aligned
+- Mobile expanded: Full-width search input with icon on left and close button on right
+- Focus auto-applied when expanded
+- Desktop unchanged: Compact w-64 input
+
+**Reproduction Steps**:
+1. Open the app on mobile or resize browser to mobile width
+2. Navigate to a page with the navbar (feed, profile, etc.)
+3. Click the search icon in the navbar
+4. Observe that the input does not expand despite state change
+
+**Root Cause Analysis**:
+The conditional rendering logic `{isMobile && !placeholder ? (...) : (...)}` may be problematic because:
+- `placeholder=""` is passed from Navbar component
+- This condition may always evaluate false, preventing the expanded state UI from showing
+- The expanded input may be rendered but visually hidden due to flexbox constraints
+
+**Potential Solutions**:
+1. **Simplify Conditional Rendering**: Update mobile branch to use clearer logic
+2. **Fix Focus Management**: Replace `setTimeout` with `useEffect` dependency on `isExpanded`
+3. **CSS Layout**: Ensure expanded input is properly wrapped in `w-full` container
+4. **Remove Placeholder Dependency**: Simplify navbar props to avoid placeholder hacks
+
+**Code Location**: 
+- `apps/web/src/components/UserSearchBar.tsx` - Main component with conditional rendering
+- `apps/web/src/components/Navbar.tsx` - Passes `placeholder=""` prop
+
+**Workaround**: Use desktop view or manually refresh page - no current mobile workaround.
+
+**Priority**: High - Core mobile functionality is broken, affecting user experience significantly.
+
+**Files Affected**:
+- `apps/web/src/components/UserSearchBar.tsx` - Conditional rendering logic
+- `apps/web/src/components/Navbar.tsx` - Mobile search bar props
+- `apps/web/src/tests/components/UserSearchBar.test.tsx` - Test expectations
 
 ### Engagement Summary Auto-Popup
 **Issue**: Metrics popup automatically appears when posts reach 6+ total reactions (hearts + emoji reactions)  

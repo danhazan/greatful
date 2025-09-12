@@ -233,8 +233,12 @@ describe('UserSearchBar', () => {
   it('applies mobile styling when isMobile prop is true', () => {
     render(<UserSearchBar isMobile={true} />)
     
-    const input = screen.getByRole('combobox')
-    expect(input).toHaveClass('min-h-[44px]')
+    // In mobile mode, should start collapsed with just a search button
+    const searchButton = screen.getByRole('button', { name: 'Search for users' })
+    expect(searchButton).toBeInTheDocument()
+    
+    // Should not show input initially
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
 
   it('applies custom className', () => {
@@ -275,14 +279,31 @@ describe('UserSearchBar', () => {
   it('renders mobile icon-only mode when isMobile=true and no placeholder', () => {
     render(<UserSearchBar isMobile={true} placeholder="" />)
     
-    // Should show search icon button
+    // Should show search icon button in collapsed state
     const searchButton = screen.getByRole('button', { name: 'Search for users' })
     expect(searchButton).toBeInTheDocument()
     expect(searchButton).toHaveAttribute('type', 'button')
     
-    // Should have hidden input for functionality
-    const hiddenInput = screen.getByRole('combobox')
-    expect(hiddenInput).toHaveClass('opacity-0')
-    expect(hiddenInput).toHaveClass('pointer-events-none')
+    // Should not have input visible initially (collapsed state)
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  it('expands mobile search when icon is clicked', async () => {
+    render(<UserSearchBar isMobile={true} placeholder="" />)
+    
+    // Initially collapsed - only button visible
+    const searchButton = screen.getByRole('button', { name: 'Search for users' })
+    expect(searchButton).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    
+    // Click to expand
+    fireEvent.click(searchButton)
+    
+    // Should now show the input
+    await waitFor(() => {
+      const input = screen.getByRole('combobox')
+      expect(input).toBeInTheDocument()
+      expect(input).toHaveClass('min-h-[44px]') // Mobile expanded styling
+    })
   })
 })

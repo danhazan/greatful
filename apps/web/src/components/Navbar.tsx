@@ -68,16 +68,16 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
           </div>
         </div>
         
-        {/* Middle section: Search bar (fills available space) */}
+        {/* Middle section: Search bar */}
         {user && (
           <div className="flex-1 min-w-0">
-            {/* Mobile: Search icon only */}
-            <div className="flex sm:hidden justify-end">
-              <UserSearchBar placeholder="" isMobile={true} className="w-11" />
+            {/* Mobile: Search that fills available space */}
+            <div className="flex sm:hidden">
+              <UserSearchBar isMobile={true} className="w-full" />
             </div>
-            {/* Desktop: Full search bar that fills available space */}
-            <div className="hidden sm:block">
-              <UserSearchBar placeholder="Search users..." />
+            {/* Desktop: Compact fixed width search bar */}
+            <div className="hidden sm:flex justify-center">
+              <UserSearchBar placeholder="Search users..." className="w-64" />
             </div>
           </div>
         )}

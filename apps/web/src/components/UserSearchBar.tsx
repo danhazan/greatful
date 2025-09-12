@@ -33,6 +33,7 @@ export default function UserSearchBar({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -135,6 +136,13 @@ export default function UserSearchBar({
     }
   }, [searchQuery, debouncedSearch])
 
+  // Handle focus when expanded (better than setTimeout)
+  useEffect(() => {
+    if (isExpanded && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isExpanded])
+
   const handleUserSelect = useCallback((user: UserSearchResult) => {
     // Navigate to user profile
     router.push(`/profile/${user.id}`)
@@ -153,6 +161,7 @@ export default function UserSearchBar({
     setUsers([])
     setSelectedIndex(0)
     setHasSearched(false)
+    setIsExpanded(false)
     resultRefs.current = []
     inputRef.current?.blur()
   }, [])
@@ -228,6 +237,7 @@ export default function UserSearchBar({
 
   const handleInputFocus = () => {
     setIsFocused(true)
+    setIsExpanded(true)
     if (searchQuery.trim()) {
       setIsDropdownOpen(true)
     }
@@ -241,6 +251,10 @@ export default function UserSearchBar({
       if (!dropdownRef.current?.matches(':hover')) {
         // Only close if not interacting with dropdown
         setIsDropdownOpen(false)
+        // Collapse mobile search if no query
+        if (isMobile && !searchQuery.trim()) {
+          setIsExpanded(false)
+        }
       }
     }, 300)
   }
@@ -252,43 +266,67 @@ export default function UserSearchBar({
     setSelectedIndex(0)
     setHasSearched(false)
     resultRefs.current = []
-    inputRef.current?.focus()
+    if (isMobile) {
+      setIsExpanded(false)
+      inputRef.current?.blur()
+    } else {
+      inputRef.current?.focus()
+    }
   }
 
   return (
     <div className={`relative ${className}`}>
       {/* Search Input */}
       <div className="relative">
-        {/* Mobile compact mode: Icon only */}
-        {isMobile && !placeholder ? (
-          <div className="flex items-center justify-center w-11 h-11 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors touch-manipulation">
-            <button
-              type="button"
-              onClick={() => {
-                inputRef.current?.focus()
-                setIsDropdownOpen(true)
-              }}
-              className="w-full h-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
-              aria-label="Search for users"
-            >
-              <Search className="h-5 w-5 text-gray-400" />
-            </button>
-            {/* Hidden input for functionality */}
-            <input
-              ref={inputRef}
-              type="text"
-              value={searchQuery}
-              onChange={handleInputChange}
-              onFocus={handleInputFocus}
-              onBlur={handleInputBlur}
-              className="absolute opacity-0 pointer-events-none"
-              aria-label="Search for users"
-              aria-expanded={isDropdownOpen}
-              aria-haspopup="listbox"
-              aria-autocomplete="list"
-              role="combobox"
-            />
-          </div>
+        {/* Mobile mode: Icon that expands to full input */}
+        {isMobile ? (
+          !isExpanded ? (
+            /* Collapsed state: Icon button right-aligned */
+            <div className="flex justify-end w-full">
+              <button
+                type="button"
+                onClick={() => setIsExpanded(true)}
+                className="flex items-center justify-center w-11 h-11 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                aria-label="Search for users"
+              >
+                <Search className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+          ) : (
+            /* Expanded state: Full input */
+            <div className="relative w-full">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
+              </div>
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchQuery}
+                onChange={handleInputChange}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
+                placeholder="Search users..."
+                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation"
+                aria-label="Search for users"
+                aria-expanded={isDropdownOpen}
+                aria-haspopup="listbox"
+                aria-autocomplete="list"
+                role="combobox"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("")
+                  setIsExpanded(false)
+                }}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close search"
+                {...createTouchHandlers(undefined, 'light')}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          )
         ) : (
           /* Desktop mode: Full search bar */
           <>
@@ -303,14 +341,7 @@ export default function UserSearchBar({
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
               placeholder={placeholder}
-              className={`
-                block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md 
-                leading-5 bg-white placeholder-gray-500 
-                focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500
-                text-sm transition-colors
-                ${isMobile ? 'min-h-[44px]' : 'h-9'}
-                touch-manipulation
-              `}
+              className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors h-9 touch-manipulation"
               aria-label="Search for users"
               aria-expanded={isDropdownOpen}
               aria-haspopup="listbox"
@@ -337,8 +368,8 @@ export default function UserSearchBar({
         <div
           ref={dropdownRef}
           className={`z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto ${
-            isMobile && !placeholder 
-              ? 'fixed top-16 left-1/2 transform -translate-x-1/2 w-64' // Mobile: screen-centered
+            isMobile 
+              ? 'absolute right-0 w-64' // Mobile: right-aligned to match expanded input
               : 'absolute w-full left-0' // Desktop: full width, left-aligned
           }`}
           role="listbox"
