@@ -555,6 +555,7 @@ The implementation maintains consistency with the reference implementation's pur
   - **Reference:** See docs/NAVBAR_ENHANCEMENT_PLAN.md for detailed implementation guidance
   - Add user search input field to navbar (positioned left of purple heart icon)
   - Integrate with existing user search API from mention system (check docs and mention/message code)
+  - Share code with the existing user search mention system (check docs and mention/message code. Refactor if needed.
   - Implement autocomplete dropdown showing user results with profile pictures and usernames
   - Add debounced search functionality (300ms delay) to prevent excessive API calls
   - Implement click-to-navigate functionality - clicking user leads to their profile page
