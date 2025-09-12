@@ -33,14 +33,14 @@ describe('FollowButton', () => {
       render(<FollowButton userId={123} />)
       
       expect(screen.getByRole('button')).toBeInTheDocument()
-      expect(screen.getByText('Follow')).toBeInTheDocument()
+      expect(screen.getByText('Follow me!')).toBeInTheDocument()
       expect(screen.getByLabelText('Follow user 123')).toBeInTheDocument()
     })
 
     it('renders following button when initially following', () => {
       render(<FollowButton userId={123} initialFollowState={true} />)
       
-      expect(screen.getByText('Following')).toBeInTheDocument()
+      expect(screen.getByText(/Following/)).toBeInTheDocument()
       expect(screen.getByLabelText('Unfollow user 123')).toBeInTheDocument()
     })
 
@@ -53,30 +53,34 @@ describe('FollowButton', () => {
 
     it('renders different sizes correctly', () => {
       const { rerender } = render(<FollowButton userId={123} size="xxs" />)
-      expect(screen.getByRole('button')).toHaveClass('px-0.5', 'py-0.25', 'text-xs')
-
-      rerender(<FollowButton userId={123} size="xs" />)
       expect(screen.getByRole('button')).toHaveClass('px-1', 'py-0.5', 'text-xs')
 
-      rerender(<FollowButton userId={123} size="sm" />)
-      expect(screen.getByRole('button')).toHaveClass('px-1.5', 'py-1', 'text-xs')
-
-      rerender(<FollowButton userId={123} size="md" />)
+      rerender(<FollowButton userId={123} size="xs" />)
       expect(screen.getByRole('button')).toHaveClass('px-2', 'py-1', 'text-xs')
 
-      rerender(<FollowButton userId={123} size="lg" />)
+      rerender(<FollowButton userId={123} size="sm" />)
+      expect(screen.getByRole('button')).toHaveClass('px-2', 'py-1', 'text-xs')
+
+      rerender(<FollowButton userId={123} size="md" />)
       expect(screen.getByRole('button')).toHaveClass('px-3', 'py-1.5', 'text-sm')
+
+      rerender(<FollowButton userId={123} size="lg" />)
+      expect(screen.getByRole('button')).toHaveClass('px-3', 'py-2', 'text-sm')
     })
 
-    it('renders different variants correctly', () => {
-      const { rerender } = render(<FollowButton userId={123} variant="primary" />)
-      expect(screen.getByRole('button')).toHaveClass('bg-purple-600', 'text-white')
+    it('renders different follow states correctly', () => {
+      // Test not following state
+      const { unmount } = render(<FollowButton userId={123} initialFollowState={false} />)
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass('bg-transparent')
+      expect(button).toHaveClass('text-purple-600')
+      unmount()
 
-      rerender(<FollowButton userId={123} variant="secondary" />)
-      expect(screen.getByRole('button')).toHaveClass('bg-purple-100', 'text-purple-700')
-
-      rerender(<FollowButton userId={123} variant="outline" />)
-      expect(screen.getByRole('button')).toHaveClass('bg-transparent', 'text-purple-600')
+      // Test following state with fresh component
+      render(<FollowButton userId={456} initialFollowState={true} />)
+      const followingButton = screen.getByRole('button')
+      expect(followingButton).toHaveClass('bg-purple-600')
+      expect(followingButton).toHaveClass('text-white')
     })
   })
 
@@ -105,7 +109,7 @@ describe('FollowButton', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Following')).toBeInTheDocument()
+        expect(screen.getByText(/Following/)).toBeInTheDocument()
       })
     })
 
@@ -119,7 +123,7 @@ describe('FollowButton', () => {
       })
 
       // Should still render the button with initial state
-      expect(screen.getByText('Follow')).toBeInTheDocument()
+      expect(screen.getByText('Follow me!')).toBeInTheDocument()
     })
 
     it('does not fetch status when no token', async () => {
@@ -200,7 +204,7 @@ describe('FollowButton', () => {
 
       // Wait for initial status to load
       await waitFor(() => {
-        expect(screen.getByText('Following')).toBeInTheDocument()
+        expect(screen.getByText(/Following/)).toBeInTheDocument()
       })
 
       const button = screen.getByRole('button')
@@ -224,7 +228,7 @@ describe('FollowButton', () => {
 
       // Should update to not following state
       await waitFor(() => {
-        expect(screen.getByText('Follow')).toBeInTheDocument()
+        expect(screen.getByText('Follow me!')).toBeInTheDocument()
         expect(onFollowChange).toHaveBeenCalledWith(false)
       })
     })

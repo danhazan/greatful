@@ -50,11 +50,11 @@ describe('Navbar Component', () => {
     expect(screen.getByText('Grateful')).toBeInTheDocument()
   })
 
-  it('renders mobile menu button', () => {
+  it('does not render mobile menu button (removed in favor of profile dropdown)', () => {
     render(<Navbar />)
     
-    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
-    expect(mobileMenuButton).toBeInTheDocument()
+    const mobileMenuButton = screen.queryByRole('button', { name: /open menu/i })
+    expect(mobileMenuButton).not.toBeInTheDocument()
   })
 
   it('shows profile dropdown when user is provided', () => {
@@ -100,65 +100,47 @@ describe('Navbar Component', () => {
     expect(mockPush).toHaveBeenCalledWith('/feed')
   })
 
-  it('shows mobile menu with navigation links when opened', () => {
+  it('does not show mobile menu overlay (removed in favor of profile dropdown)', () => {
     render(<Navbar />)
     
-    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
-    fireEvent.click(mobileMenuButton)
-    
-    expect(screen.getByText('Feed')).toBeInTheDocument()
-    expect(screen.getByText('Profile')).toBeInTheDocument()
-    expect(screen.getByText('Logout')).toBeInTheDocument()
+    // Mobile menu no longer exists
+    expect(screen.queryByText('Feed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Profile')).not.toBeInTheDocument()
+    expect(screen.queryByText('Logout')).not.toBeInTheDocument()
   })
 
-  it('navigates to feed when Feed link in mobile menu is clicked', () => {
-    render(<Navbar />)
+  it('navigation is now handled through profile dropdown (mobile menu removed)', () => {
+    render(<Navbar user={mockUser} />)
     
-    // Open mobile menu first
-    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
-    fireEvent.click(mobileMenuButton)
+    // Profile dropdown is now the primary navigation method
+    const profileButton = screen.getByRole('button', { name: /John Doe's profile/i })
+    expect(profileButton).toBeInTheDocument()
     
-    const feedLink = screen.getByText('Feed')
-    fireEvent.click(feedLink)
-    
-    expect(mockPush).toHaveBeenCalledWith('/feed')
+    // Mobile menu no longer exists
+    expect(screen.queryByRole('button', { name: /open menu/i })).not.toBeInTheDocument()
   })
 
-  it('calls onLogout when provided and Logout is clicked in mobile menu', () => {
+  it('logout functionality is now handled through ProfileDropdown component', () => {
     const mockOnLogout = jest.fn()
-    render(<Navbar onLogout={mockOnLogout} />)
+    render(<Navbar user={mockUser} onLogout={mockOnLogout} />)
     
-    // Open mobile menu first
-    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
-    fireEvent.click(mobileMenuButton)
+    // ProfileDropdown handles logout functionality
+    const profileButton = screen.getByRole('button', { name: /John Doe's profile/i })
+    expect(profileButton).toBeInTheDocument()
     
-    const logoutButton = screen.getByText('Logout')
-    fireEvent.click(logoutButton)
-    
-    expect(mockOnLogout).toHaveBeenCalled()
+    // Mobile menu logout no longer exists
+    expect(screen.queryByText('Logout')).not.toBeInTheDocument()
   })
 
-  it('handles logout with default behavior when onLogout is not provided', () => {
-    // Mock localStorage
-    const mockRemoveItem = jest.fn()
-    Object.defineProperty(window, 'localStorage', {
-      value: {
-        removeItem: mockRemoveItem,
-      },
-      writable: true,
-    })
-
-    render(<Navbar />)
+  it('default logout behavior is now handled by ProfileDropdown component', () => {
+    render(<Navbar user={mockUser} />)
     
-    // Open mobile menu first
-    const mobileMenuButton = screen.getByRole('button', { name: /open menu/i })
-    fireEvent.click(mobileMenuButton)
+    // ProfileDropdown handles default logout behavior
+    const profileButton = screen.getByRole('button', { name: /John Doe's profile/i })
+    expect(profileButton).toBeInTheDocument()
     
-    const logoutButton = screen.getByText('Logout')
-    fireEvent.click(logoutButton)
-    
-    expect(mockRemoveItem).toHaveBeenCalledWith('access_token')
-    expect(mockPush).toHaveBeenCalledWith('/')
+    // Mobile menu logout no longer exists
+    expect(screen.queryByRole('button', { name: /open menu/i })).not.toBeInTheDocument()
   })
 
   it('navigates back when back button is clicked', () => {
