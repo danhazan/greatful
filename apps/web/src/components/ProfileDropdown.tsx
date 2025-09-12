@@ -86,10 +86,13 @@ export default function ProfileDropdown({
       {/* Dropdown Menu - Responsive for both desktop and mobile */}
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-2 w-48 sm:w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-w-[calc(100vw-16px)] sm:max-w-[calc(100vw-32px)]"
+          className="absolute right-0 top-full mt-2 w-48 sm:w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-w-[calc(100vw-16px)] sm:max-w-[calc(100vw-32px)]"
           style={{
             right: '0',
-            left: 'auto'
+            left: 'auto',
+            // Ensure dropdown doesn't overflow viewport on mobile
+            transform: 'translateX(0)',
+            maxWidth: 'min(12rem, calc(100vw - 1rem))'
           }}
           role="menu"
           aria-label="Profile menu"
@@ -98,7 +101,7 @@ export default function ProfileDropdown({
           {/* User Info Header - Clickable to go to profile */}
           <button
             onClick={handleProfileClick}
-            className="w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 transition-colors focus:outline-none focus:bg-purple-50 min-h-[44px] touch-manipulation"
+            className="w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 active:bg-purple-100 transition-colors focus:outline-none focus:bg-purple-50 min-h-[44px] touch-manipulation"
             aria-label="Go to profile page"
           >
             <div className="flex items-center space-x-3">
@@ -118,7 +121,7 @@ export default function ProfileDropdown({
           <div className="py-1">
             <button
               onClick={handleLogoutClick}
-              className="w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700 min-h-[44px] sm:min-h-auto touch-manipulation"
+              className="w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 active:bg-purple-100 active:text-purple-800 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700 min-h-[44px] sm:min-h-auto touch-manipulation"
               role="menuitem"
               aria-label="Log out of account"
             >

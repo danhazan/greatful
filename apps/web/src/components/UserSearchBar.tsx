@@ -286,15 +286,16 @@ export default function UserSearchBar({
               <button
                 type="button"
                 onClick={() => setIsExpanded(true)}
-                className="flex items-center justify-center w-11 h-11 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                className="flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 border border-gray-300 rounded-md bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                 aria-label="Search for users"
+                title="Search users"
               >
                 <Search className="h-5 w-5 text-gray-400" />
               </button>
             </div>
           ) : (
             /* Expanded state: Full input */
-            <div className="relative w-full">
+            <div className="relative w-full max-w-[calc(100vw-2rem)]">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
               </div>
@@ -306,7 +307,7 @@ export default function UserSearchBar({
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
                 placeholder="Search users..."
-                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation"
+                className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation"
                 aria-label="Search for users"
                 aria-expanded={isDropdownOpen}
                 aria-haspopup="listbox"
@@ -319,8 +320,9 @@ export default function UserSearchBar({
                   setSearchQuery("")
                   setIsExpanded(false)
                 }}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 active:text-gray-700 transition-colors min-w-[44px] min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
                 aria-label="Close search"
+                title="Close search"
                 {...createTouchHandlers(undefined, 'light')}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
@@ -352,8 +354,9 @@ export default function UserSearchBar({
               <button
                 type="button"
                 onClick={handleClearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 active:text-gray-700 transition-colors min-w-[32px] min-h-[32px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
                 aria-label="Clear search"
+                title="Clear search"
                 {...createTouchHandlers(undefined, 'light')}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
@@ -367,11 +370,7 @@ export default function UserSearchBar({
       {isDropdownOpen && (
         <div
           ref={dropdownRef}
-          className={`z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto ${
-            isMobile 
-              ? 'absolute right-0 w-64' // Mobile: right-aligned to match expanded input
-              : 'absolute w-full left-0' // Desktop: full width, left-aligned
-          }`}
+          className="fixed top-16 left-1/2 transform -translate-x-1/2 w-80 sm:w-96 max-w-[calc(100vw-16px)] bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto sm:absolute sm:top-full sm:mt-1 sm:left-0 sm:right-auto sm:transform-none sm:w-full sm:max-w-sm"
           role="listbox"
           aria-label="User search results"
         >
@@ -399,7 +398,7 @@ export default function UserSearchBar({
                   type="button"
                   role="option"
                   aria-selected={index === selectedIndex}
-                  className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
+                  className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
                     index === selectedIndex ? 'bg-purple-50' : ''
                   }`}
                   onMouseDown={(e) => {

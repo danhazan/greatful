@@ -49,14 +49,18 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
   }
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4" role="navigation" aria-label="Main navigation">
+    <nav 
+      className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 sticky top-0 z-40" 
+      role="navigation" 
+      aria-label="Main navigation"
+    >
       <div className="max-w-4xl mx-auto flex items-center gap-2 sm:gap-4">
         {/* Left section: Back button + Logo */}
         <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
           {showBackButton && (
             <button
               onClick={() => router.back()}
-              className="text-gray-600 hover:text-gray-900 transition-colors p-1 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+              className="text-gray-600 hover:text-gray-900 active:text-gray-700 transition-colors p-1 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
               aria-label="Go back"
             >
               <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -64,41 +68,41 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
           )}
           <div className="flex items-center space-x-1 sm:space-x-2 min-h-[44px]">
             <span className="text-xl sm:text-2xl" aria-hidden="true">💜</span>
-            <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap">Grateful</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none">Grateful</h1>
           </div>
         </div>
         
-        {/* Middle section: Search bar */}
+        {/* Middle section: Search bar - Responsive layout */}
         {user && (
-          <div className="flex-1 min-w-0">
-            {/* Mobile: Search that fills available space */}
-            <div className="flex sm:hidden">
-              <UserSearchBar isMobile={true} className="w-full" />
+          <div className="flex-1 min-w-0 max-w-md mx-auto">
+            {/* Mobile: Collapsible search */}
+            <div className="flex sm:hidden justify-end">
+              <UserSearchBar isMobile={true} className="w-auto" />
             </div>
-            {/* Desktop: Compact fixed width search bar */}
+            {/* Desktop: Fixed width centered search bar */}
             <div className="hidden sm:flex justify-center">
-              <UserSearchBar placeholder="Search users..." className="w-64" />
+              <UserSearchBar placeholder="Search users..." className="w-full max-w-xs" />
             </div>
           </div>
         )}
         
         {/* Right section: Feed icon + Notifications + Profile */}
-        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+        <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0">
           {/* Purple Heart Feed Icon */}
           {user && (
             <button
               onClick={() => handleNavigation("/feed")}
-              className="text-purple-600 hover:text-purple-700 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
+              className="text-purple-600 hover:text-purple-700 active:text-purple-800 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
               aria-label="Go to feed"
               title="Feed"
             >
-              <span className="text-2xl" aria-hidden="true">💜</span>
+              <span className="text-xl sm:text-2xl" aria-hidden="true">💜</span>
             </button>
           )}
           
           {user && <NotificationSystem userId={user.id} />}
           
-          {/* Profile Dropdown - Now works on both desktop and mobile */}
+          {/* Profile Dropdown - Responsive for both desktop and mobile */}
           {user && (
             <ProfileDropdown
               user={user}
