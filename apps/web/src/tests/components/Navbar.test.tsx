@@ -78,6 +78,20 @@ describe('Navbar Component', () => {
     expect(screen.queryByTestId('notification-system')).not.toBeInTheDocument()
   })
 
+  it('shows feed icon when user is provided', () => {
+    render(<Navbar user={mockUser} />)
+    
+    const feedButton = screen.getByRole('button', { name: /go to feed/i })
+    expect(feedButton).toBeInTheDocument()
+    expect(feedButton).toHaveAttribute('title', 'Feed')
+  })
+
+  it('does not show feed icon when user is not provided', () => {
+    render(<Navbar />)
+    
+    expect(screen.queryByRole('button', { name: /go to feed/i })).not.toBeInTheDocument()
+  })
+
   it('shows back button when showBackButton is true', () => {
     render(<Navbar showBackButton={true} />)
     
@@ -91,11 +105,11 @@ describe('Navbar Component', () => {
     expect(screen.queryByRole('button', { name: /go back/i })).not.toBeInTheDocument()
   })
 
-  it('navigates to feed when logo is clicked', () => {
-    render(<Navbar />)
+  it('navigates to feed when feed icon is clicked', () => {
+    render(<Navbar user={mockUser} />)
     
-    const logoButton = screen.getByRole('button', { name: /grateful/i })
-    fireEvent.click(logoButton)
+    const feedButton = screen.getByRole('button', { name: /go to feed/i })
+    fireEvent.click(feedButton)
     
     expect(mockPush).toHaveBeenCalledWith('/feed')
   })
@@ -158,7 +172,7 @@ describe('Navbar Component', () => {
     const nav = screen.getByRole('navigation')
     expect(nav).toHaveClass('bg-white', 'border-b', 'border-gray-200')
     
-    const logoButton = screen.getByRole('button', { name: /grateful/i })
-    expect(logoButton).toHaveClass('flex', 'items-center', 'space-x-1', 'sm:space-x-2')
+    const feedButton = screen.getByRole('button', { name: /go to feed/i })
+    expect(feedButton).toHaveClass('text-purple-600', 'hover:text-purple-700', 'transition-colors')
   })
 })
