@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import NotificationSystem from "./NotificationSystem"
 import ProfileDropdown from "./ProfileDropdown"
+import UserSearchBar from "./UserSearchBar"
 
 interface NavbarProps {
   user?: {
@@ -49,8 +50,9 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
 
   return (
     <nav className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4" role="navigation" aria-label="Main navigation">
-      <div className="max-w-4xl mx-auto flex items-center justify-between">
-        <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
+      <div className="max-w-4xl mx-auto flex items-center gap-2 sm:gap-4">
+        {/* Left section: Back button + Logo */}
+        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
           {showBackButton && (
             <button
               onClick={() => router.back()}
@@ -62,11 +64,26 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
           )}
           <div className="flex items-center space-x-1 sm:space-x-2 min-h-[44px]">
             <span className="text-xl sm:text-2xl" aria-hidden="true">💜</span>
-            <h1 className="text-lg sm:text-xl font-bold text-purple-700 truncate">Grateful</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap">Grateful</h1>
           </div>
         </div>
         
-        <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
+        {/* Middle section: Search bar (fills available space) */}
+        {user && (
+          <div className="flex-1 min-w-0">
+            {/* Mobile: Search icon only */}
+            <div className="flex sm:hidden justify-end">
+              <UserSearchBar placeholder="" isMobile={true} className="w-11" />
+            </div>
+            {/* Desktop: Full search bar that fills available space */}
+            <div className="hidden sm:block">
+              <UserSearchBar placeholder="Search users..." />
+            </div>
+          </div>
+        )}
+        
+        {/* Right section: Feed icon + Notifications + Profile */}
+        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
           {/* Purple Heart Feed Icon */}
           {user && (
             <button

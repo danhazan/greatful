@@ -279,11 +279,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
         {/* Notifications Dropdown */}
         {showNotifications && (
           <div 
-            className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden" 
-            style={{
-              right: '0',
-              left: 'auto'
-            }}
+            className="fixed top-16 left-1/2 transform -translate-x-1/2 w-80 sm:w-96 max-w-[calc(100vw-16px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden sm:absolute sm:top-full sm:mt-2 sm:left-auto sm:right-0 sm:transform-none" 
             role="region"
             aria-label="Notifications panel"
             aria-live="polite"
