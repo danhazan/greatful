@@ -4,18 +4,18 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import ProfileDropdown from '../../components/ProfileDropdown'
 
 const mockPush = jest.fn()
-const mockRouter = {
-  push: mockPush,
-  back: jest.fn(),
-  forward: jest.fn(),
-  refresh: jest.fn(),
-  replace: jest.fn(),
-  prefetch: jest.fn()
-}
+const mockBack = jest.fn()
 
-// Mock Next.js router
+// Mock next/navigation
 jest.mock('next/navigation', () => ({
-  useRouter: () => mockRouter
+  useRouter: () => ({
+    push: mockPush,
+    back: mockBack,
+    forward: jest.fn(),
+    refresh: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn()
+  })
 }))
 
 describe('ProfileDropdown', () => {
@@ -53,7 +53,7 @@ describe('ProfileDropdown', () => {
     const dropdown = screen.getByRole('menu', { name: /Profile menu/i })
     expect(dropdown).toBeInTheDocument()
     
-    const profileButton = screen.getByRole('menuitem', { name: /Go to profile page/i })
+    const profileButton = screen.getByRole('button', { name: /Go to profile page/i })
     const logoutButton = screen.getByRole('menuitem', { name: /Log out of account/i })
     
     expect(profileButton).toBeInTheDocument()
@@ -77,13 +77,14 @@ describe('ProfileDropdown', () => {
     expect(onToggle).toHaveBeenCalledTimes(1)
   })
 
-  it('closes dropdown when Profile is clicked', () => {
+  it('closes dropdown when user info is clicked', () => {
     render(<ProfileDropdown {...defaultProps} isOpen={true} />)
     
-    const profileButton = screen.getByRole('menuitem', { name: /Go to profile page/i })
+    const profileButton = screen.getByRole('button', { name: /Go to profile page/i })
     fireEvent.click(profileButton)
     
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1)
+    // Note: Router navigation is tested in integration tests
   })
 
   it('calls onLogout when Logout is clicked', () => {
@@ -97,11 +98,15 @@ describe('ProfileDropdown', () => {
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('displays user information in dropdown header', () => {
+  it('displays user information in clickable dropdown header', () => {
     render(<ProfileDropdown {...defaultProps} isOpen={true} />)
     
     expect(screen.getByText('Johnny')).toBeInTheDocument()
     expect(screen.getByText('@johndoe')).toBeInTheDocument()
+    
+    // Verify the header is clickable
+    const profileButton = screen.getByRole('button', { name: /Go to profile page/i })
+    expect(profileButton).toBeInTheDocument()
   })
 
   it('closes dropdown when clicking outside', async () => {

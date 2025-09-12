@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { User, LogOut } from "lucide-react"
+import { LogOut } from "lucide-react"
 import UserAvatar from "./UserAvatar"
 
 interface ProfileDropdownProps {
@@ -95,33 +95,27 @@ export default function ProfileDropdown({
           aria-label="Profile menu"
           aria-orientation="vertical"
         >
-          {/* User Info Header */}
-          <div className="px-3 sm:px-4 py-3 border-b border-gray-100">
+          {/* User Info Header - Clickable to go to profile */}
+          <button
+            onClick={handleProfileClick}
+            className="w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 transition-colors focus:outline-none focus:bg-purple-50 min-h-[44px] touch-manipulation"
+            aria-label="Go to profile page"
+          >
             <div className="flex items-center space-x-3">
               <UserAvatar user={user} size="sm" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-sm font-medium text-gray-900 truncate hover:text-purple-700 transition-colors">
                   {user.display_name || user.name}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="text-xs text-gray-500 truncate hover:text-purple-600 transition-colors">
                   @{user.username}
                 </p>
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Menu Items */}
           <div className="py-1">
-            <button
-              onClick={handleProfileClick}
-              className="w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700 min-h-[44px] sm:min-h-auto touch-manipulation"
-              role="menuitem"
-              aria-label="Go to profile page"
-            >
-              <User className="h-4 w-4 mr-3 flex-shrink-0" aria-hidden="true" />
-              Profile
-            </button>
-
             <button
               onClick={handleLogoutClick}
               className="w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700 min-h-[44px] sm:min-h-auto touch-manipulation"
