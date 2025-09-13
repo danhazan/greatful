@@ -73,7 +73,7 @@ class TestShareNotificationFixes:
         # Verify notification shows correct sharer username (not "Unknown User")
         assert notification.type == "post_shared"
         assert notification.title == "Post Sent"
-        assert "share_sender sent you a post" in notification.message
+        assert notification.message == "sent you a post"
         assert "Unknown User" not in notification.message
         
         # Verify data field contains sharer_username

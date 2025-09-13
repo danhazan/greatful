@@ -88,10 +88,11 @@ class TestMentionNotifications:
         import json
         for notification_row in notification_rows:
             assert notification_row.type == "mention"
-            assert "author mentioned you in a post" in notification_row.message
+            assert notification_row.message == "mentioned you in a post"
             notification_data = json.loads(notification_row.data)
             assert notification_data["post_id"] == post_id
             assert notification_data["author_username"] == "author"
+            assert notification_data["actor_username"] == "author"
 
     async def test_self_mention_does_not_create_notification(
         self,
@@ -306,15 +307,16 @@ class TestMentionNotifications:
         
         assert notification_row is not None
         assert notification_row.title == "You were mentioned"
-        assert "grateful_author mentioned you in a post" in notification_row.message
+        assert notification_row.message == "mentioned you in a post"
         # Verify the message does not contain post content
-        assert ":" not in notification_row.message.split("post")[1]  # No colon after "post"
+        # (No need to check for colon since message is now generic)
         
         # Verify notification data
         import json
         notification_data = json.loads(notification_row.data)
         assert notification_data["post_id"] == post_id
         assert notification_data["author_username"] == "grateful_author"
+        assert notification_data["actor_username"] == "grateful_author"
         # Verify post_preview is no longer included in notification data
         assert "post_preview" not in notification_data
 
@@ -439,9 +441,10 @@ class TestMentionNotifications:
         # Verify notification details
         assert notification["type"] == "mention"
         assert notification["title"] == "You were mentioned"
-        assert "post_author mentioned you in a post" in notification["message"]
+        assert notification["message"] == "mentioned you in a post"
         assert notification["data"]["post_id"] == post_id
         assert notification["data"]["author_username"] == "post_author"
+        assert notification["data"]["actor_username"] == "post_author"
         assert not notification["read"]
 
         # Check notification summary

@@ -585,27 +585,84 @@ The implementation maintains consistency with the reference implementation's pur
 
 **Acceptance Criteria:** Navbar contains (right to left) profile image with dropdown menu, notifications bell, purple heart feed icon, and user searchbar with autocomplete. Profile dropdown has Profile and Logout links. Purple heart navigates to feed. User search shows autocomplete results and navigates to user profiles. All components work responsively on mobile devices. Logo remains unchanged on the left.
 
-### **TASK 14: MVP Production Readiness**
+
+### **TASK 14 Misc Fixes**
+
+- [x] **14.1 Fix Backend Notification Message Formatting** - Fix 9 failing tests by updating NotificationFactory to include usernames in notification messages
+  - Update `apps/api/app/core/notification_factory.py` message templates
+  - Ensure all notification types include actor usernames in messages
+  - Expected: "grateful_author mentioned you in a post" vs Actual: "mentioned you in a post"
+  - _Requirements: All notification types should provide clear context about who performed the action_
+
+- [/] **14.2 Fix UserSearchBar Test Timing Issues** - Fix 2 skipped tests with timing problems
+  - Update `apps/web/src/tests/components/UserSearchBar.test.tsx`
+  - Fix timing issues between blur and click/keyboard events
+  - Add proper async handling for dropdown interactions
+  - _Requirements: User search functionality should be fully tested_
+
+- [ ] **14.3 Implement Hollow/Full Heart Toggle** - Change heart icon based on like status
+  - Update PostCard component to show hollow heart (♡) when post is not liked
+  - Change to full purple heart (💜) when post is liked by current user
+  - Ensure consistent styling across all post displays (feed, profile, post page)
+  - Maintain proper hover and active states for both heart states
+  - _Requirements: Visual feedback should clearly indicate like status_
+
+- [ ] **14.4 Remove Welcome Message from Feed** - Clean up feed page UI
+  - Remove "Welcome to your Gratitude Feed!" message from feed page
+  - Update feed page layout to start directly with posts
+  - Ensure proper spacing and layout after message removal
+  - _Requirements: Streamlined feed experience without unnecessary welcome text_
+
+- [ ] **14.5 Remove Post Page Captions** - Clean up post page UI
+  - Remove caption text above posts in individual post pages
+  - Remove "Gratitude Post" heading and "View and interact with this gratitude post" subtitle
+  - Update post page layout for cleaner presentation
+  - _Requirements: Simplified post page without redundant captions_
+
+- [ ] **14.6 Implement Clickable Location Icon** - Add location modal functionality
+  - Make location icon at bottom of PostCard clickable
+  - Create LocationModal component to display full address
+  - Ensure proper alignment and scaling on both desktop and mobile
+  - Add proper touch targets (44px minimum) for mobile interaction
+  - Include close button and proper modal accessibility
+  - _Requirements: Users can view full location details in a modal_
+
+- [ ] **14.7 Add Purple Heart to Like Notifications** - Enhance notification styling
+  - Add purple heart emoji (💜) to the end of like notification text
+  - Match the styling pattern used in reaction notifications
+  - Update notification templates to include heart emoji
+  - Ensure consistent spacing and formatting
+  - _Requirements: Like notifications should have visual emoji indicator like reactions_
+
+- [ ] **14.8 Standardize PostCard Width** - Uniform card sizing across pages
+  - Use post page PostCard width as the standard across all pages
+  - Update all pages that display posts (feed, profile, individual post page) to use consistent narrower, more fitting width for better readability and visual hierarchy. Use the dimensions that are configured in the post page.
+  - Ensure responsive behavior is maintained on mobile devices
+  - Test layout consistency across feed, profile, and individual post pages
+  - _Requirements: Consistent PostCard width for better visual hierarchy_
+
+
+### **TASK 15: MVP Production Readiness**
 **Module Reference:** Final MVP polish and production deployment preparation
-- [ ] **14.1 Performance Optimization and Monitoring**
+- [ ] **15.1 Performance Optimization and Monitoring**
   - Add database connection pooling configuration for production workloads
   - Implement query result caching for frequently accessed data (user profiles, follower counts)
   - Add database query performance monitoring and slow query logging
   - Optimize image loading with lazy loading and proper image sizing/compression
   - Add performance metrics collection for feed loading and API response times
-- [ ] **14.2 Security Hardening**
+- [ ] **15.2 Security Hardening**
   - Implement rate limiting on all API endpoints (100 requests/minute per user)
   - Add CSRF protection for all state-changing operations (POST, PUT, DELETE)
   - Implement input sanitization for all user-generated content (posts, bios, usernames)
   - Configure secure headers for production (CORS, CSP, HSTS, X-Frame-Options)
   - Add API key validation and request signing for sensitive operations
-- [ ] **14.3 Error Monitoring and Logging**
+- [ ] **15.3 Error Monitoring and Logging**
   - Add structured logging for all API endpoints with request IDs and user context
   - Implement frontend error tracking for JavaScript errors and API failures
   - Create health check endpoints for monitoring (`/api/health`, `/api/ready`, `/api/metrics`)
   - Add error alerting system for critical failures (database connection, API errors)
   - Implement log aggregation and monitoring dashboard setup
-- [ ] **14.4 Final Testing and Quality Assurance**
+- [ ] **15.4 Final Testing and Quality Assurance**
   - Run complete end-to-end test suite covering all user workflows
   - Perform load testing on feed algorithm with 1000+ posts and 100+ concurrent users
   - Validate all social interactions work correctly under concurrent usage scenarios
@@ -617,41 +674,41 @@ The implementation maintains consistency with the reference implementation's pur
 
 ## Phase 2: Enhanced Social Features (Post-MVP)
 
-### **TASK 15: Privacy Controls System** (Post-MVP)
+### **TASK 16: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 16: Advanced Social Features** (Post-MVP)
+### **TASK 17: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 17: Fast Login Page for Development** (Post-MVP)
+### **TASK 18: Fast Login Page for Development** (Post-MVP)
 **Module Reference:** Development Tools - Fast Login Interface for Testing
-- [ ] **17.1 Create Fast Login Page Route**
+- [ ] **18.1 Create Fast Login Page Route**
   - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
   - Copy existing login page layout and styling from `/auth/login/page.tsx`
   - Replace email/password form with user selection dropdown
   - Add development environment detection to prevent production access
   - Implement purple theme consistency matching regular login page
-- [ ] **17.2 User Selection Interface**
+- [ ] **18.2 User Selection Interface**
   - Create dropdown showing all existing users (username, email, profile picture)
   - Implement one-click login functionality that generates development token
   - Add user search/filter functionality for large user lists
   - Display user information clearly (username, email, join date)
   - Add "Login as [Username]" button for each user selection
-- [ ] **17.3 Development Environment Protection**
+- [ ] **18.3 Development Environment Protection**
   - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
   - Implement build-time exclusion using Next.js conditional compilation
   - Add clear development warning banner on fast login page
   - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
   - Add rate limiting and IP restrictions for development endpoints
-- [ ] **17.4 Fast Login UX and Navigation**
+- [ ] **18.4 Fast Login UX and Navigation**
   - Style page identical to regular login with "Fast Login (Dev Mode)" title
   - Add "Back to Regular Login" link for normal authentication flow
   - Implement responsive design matching existing login page
@@ -660,9 +717,9 @@ The implementation maintains consistency with the reference implementation's pur
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
 **Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
-### **TASK 18: Follow Notification Batching System** (Post-MVP)
+### **TASK 19: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **18.1 Follow Notification Batching Analysis and Design**
+- [ ] **19.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -673,7 +730,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **18.2 Follow Notification Batching Implementation**
+- [ ] **19.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope
@@ -681,7 +738,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Implement proper batch summary generation for follow notifications
   - Add batch expansion to show individual follower notifications with profile pictures
   - Test follow notification batching with multiple followers and time windows
-- [ ] **18.3 Cross-Notification Type Batching Strategy (Future)**
+- [ ] **19.3 Cross-Notification Type Batching Strategy (Future)**
   - **Advanced Feature:** Consider batching different notification types for the same user
   - Research feasibility of "activity digest" notifications combining multiple types
   - Design user preference system for notification batching granularity

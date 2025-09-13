@@ -1,14 +1,21 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import UserSearchBar from '@/components/UserSearchBar'
 
 // Mock next/navigation
 const mockPush = jest.fn()
+
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({
+  useRouter: jest.fn(() => ({
     push: mockPush,
-  }),
+    replace: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+    refresh: jest.fn(),
+    prefetch: jest.fn(),
+  })),
 }))
 
 // Mock haptic feedback
@@ -57,6 +64,7 @@ describe('UserSearchBar', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockPush.mockClear()
     mockLocalStorage.getItem.mockReturnValue('mock-token')
     mockFetch.mockResolvedValue({
       ok: true,
@@ -134,8 +142,33 @@ describe('UserSearchBar', () => {
   })
 
   it.skip('navigates to user profile when result is clicked', async () => {
-    // Skip this test for now - there's an issue with the dropdown closing before click
-    // TODO: Fix the timing issue between blur and click events
+    const user = userEvent.setup()
+    
+    render(<UserSearchBar />)
+    
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'test')
+    
+    // Wait for results to appear
+    await waitFor(() => {
+      expect(screen.getByText('Test User 1')).toBeInTheDocument()
+    })
+
+    // Get the first result button
+    const firstResult = screen.getByRole('option', { name: /Test User 1/ })
+    
+    // Verify the dropdown is open and the result is clickable
+    expect(firstResult).toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-expanded', 'true')
+    
+    // Use userEvent to click which handles timing better
+    await user.click(firstResult)
+    
+    // Check if mockPush was called at all
+    console.log('mockPush calls:', mockPush.mock.calls)
+    
+    // Should navigate to user profile
+    expect(mockPush).toHaveBeenCalledWith('/profile/1')
   })
 
   it('clears search when clear button is clicked', () => {
@@ -206,8 +239,30 @@ describe('UserSearchBar', () => {
   })
 
   it.skip('handles Enter key to select highlighted result', async () => {
-    // Skip this test for now - there's an issue with the dropdown closing before key events
-    // TODO: Fix the timing issue between blur and keyboard events
+    const user = userEvent.setup()
+    
+    render(<UserSearchBar />)
+    
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'test')
+    
+    // Wait for results to appear
+    await waitFor(() => {
+      expect(screen.getByText('Test User 1')).toBeInTheDocument()
+    })
+
+    // The first result should be selected by default (selectedIndex = 0)
+    const firstResult = screen.getByRole('option', { name: /Test User 1/ })
+    expect(firstResult).toHaveClass('bg-purple-50')
+    
+    // Verify the dropdown is open
+    expect(input).toHaveAttribute('aria-expanded', 'true')
+    
+    // Press Enter while input is focused
+    await user.keyboard('{Enter}')
+    
+    // Should navigate to user profile
+    expect(mockPush).toHaveBeenCalledWith('/profile/1')
   })
 
   it('handles Escape key to close dropdown', async () => {

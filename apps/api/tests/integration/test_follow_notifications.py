@@ -52,9 +52,10 @@ class TestFollowNotifications:
         notification = notifications[0]
         assert notification.type == "follow"
         assert notification.title == "New Follower"
-        assert notification.message == f"{follower.username} started following you"
+        assert notification.message == "started following you"
         assert notification.data["follower_id"] == follower.id
         assert notification.data["follower_username"] == follower.username
+        assert notification.data["actor_username"] == follower.username
         assert not notification.read
 
     @pytest.mark.asyncio

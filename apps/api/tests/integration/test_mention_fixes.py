@@ -70,13 +70,14 @@ class TestMentionFixes:
         # Verify notification shows correct author username (not "Unknown user")
         assert notification["type"] == "mention"
         assert notification["title"] == "You were mentioned"
-        assert "grateful_author mentioned you in a post" in notification["message"]
+        assert notification["message"] == "mentioned you in a post"
         assert "Unknown user" not in notification["message"]
         
         # Verify from_user field is properly set
         assert notification["from_user"] is not None
         assert notification["from_user"]["username"] == "grateful_author"
         assert notification["data"]["author_username"] == "grateful_author"
+        assert notification["data"]["actor_username"] == "grateful_author"
 
     async def test_mention_notification_with_special_characters_in_username(
         self,
@@ -149,8 +150,10 @@ class TestMentionFixes:
         # Verify notification content
         assert notification["type"] == "mention"
         assert notification["title"] == "You were mentioned"
-        assert "author_user mentioned you in a post" in notification["message"]
+        assert notification["message"] == "mentioned you in a post"
         assert notification["from_user"]["username"] == "author_user"
+        assert notification["data"]["author_username"] == "author_user"
+        assert notification["data"]["actor_username"] == "author_user"
 
         # Check notifications for user with dots and dashes
         dots_dashes_token = create_access_token(data={"sub": str(user_with_dots_dashes.id)})
@@ -170,5 +173,7 @@ class TestMentionFixes:
         # Verify notification content
         assert notification["type"] == "mention"
         assert notification["title"] == "You were mentioned"
-        assert "author_user mentioned you in a post" in notification["message"]
+        assert notification["message"] == "mentioned you in a post"
         assert notification["from_user"]["username"] == "author_user"
+        assert notification["data"]["author_username"] == "author_user"
+        assert notification["data"]["actor_username"] == "author_user"

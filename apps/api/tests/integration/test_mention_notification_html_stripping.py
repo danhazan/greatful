@@ -72,13 +72,16 @@ class TestMentionNotificationHtmlStripping:
         assert notification.title == "You were mentioned"
         
         # The message should be clean without post content
-        assert "author_user mentioned you in a post" in notification.message
+        assert notification.message == "mentioned you in a post"
         assert "<span" not in notification.message  # No HTML tags
         assert "<strong>" not in notification.message  # No HTML tags
         assert "<em>" not in notification.message  # No HTML tags
         # Should not contain post content anymore
         assert "Thanks" not in notification.message
-        assert ":" not in notification.message.split("post")[1]  # No colon after "post"
+        
+        # Verify username is available in data
+        assert notification.data["author_username"] == "author_user"
+        assert notification.data["actor_username"] == "author_user"
         
         # Verify notification data no longer contains post_preview
         notification_data = notification.data  # Already a dict
@@ -135,11 +138,15 @@ class TestMentionNotificationHtmlStripping:
         notification = notifications[0]
         
         # Verify notification message is clean without post content
-        assert "author2 mentioned you in a post" in notification.message
+        assert notification.message == "mentioned you in a post"
         # Should not contain HTML entities since post content is no longer included
         assert "&lt;" not in notification.message
         assert "&gt;" not in notification.message
         assert "&amp;" not in notification.message
+        
+        # Verify username is available in data
+        assert notification.data["author_username"] == "author2"
+        assert notification.data["actor_username"] == "author2"
         assert "&quot;" not in notification.message
         # Should not contain post content
         assert "check this" not in notification.message

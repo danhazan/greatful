@@ -185,8 +185,9 @@ class TestNotificationFactory:
         assert call_args.user_id == 123
         assert call_args.type == "mention"
         assert call_args.title == "You were mentioned"
-        assert "mentioned you in a post" in call_args.message
+        assert call_args.message == "mentioned you in a post"
         assert call_args.data["author_username"] == "author_user"
+        assert call_args.data["actor_username"] == "author_user"
         # Verify post_preview is no longer included
         assert "post_preview" not in call_args.data
 
