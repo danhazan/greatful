@@ -874,7 +874,7 @@ export default function PostCard({
           )}
           
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
               {/* Heart Button */}
               <button 
                 onClick={async () => {
@@ -1072,9 +1072,9 @@ export default function PostCard({
 
             {/* Location Display - Right aligned */}
             {(currentPost.location_data || currentPost.location) && (
-              <div className="flex items-center space-x-1 text-gray-500">
-                <MapPin className="h-4 w-4" />
-                <span className={`${styling.textSize} truncate max-w-32`}>
+              <div className="flex items-center space-x-1 text-gray-500 flex-shrink-0 ml-2">
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className={`${styling.textSize} truncate max-w-24 sm:max-w-32 md:max-w-40`}>
                   {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
                 </span>
               </div>
