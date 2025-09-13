@@ -627,7 +627,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Include close button and proper modal accessibility
   - _Requirements: Users can view full location details in a modal_
 
-- [ ] **14.7 Add Purple Heart to Like Notifications** - Enhance notification styling
+- [x] **14.7 Add Purple Heart to Like Notifications** - Enhance notification styling
   - Add purple heart emoji (💜) to the end of like notification text
   - Match the styling pattern used in reaction notifications
   - Update notification templates to include heart emoji

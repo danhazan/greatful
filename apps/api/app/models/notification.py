@@ -89,15 +89,15 @@ class Notification(Base):
         elif self.type == 'like':
             data = self.data or {}
             if count == 1:
-                return "New Like 💜", f"{data.get('liker_username')} liked your post"
+                return "New Like 💜", f"{data.get('liker_username')} liked your post 💜"
             else:
-                return "New Likes 💜", f"{count} people liked your post"
+                return "New Likes 💜", f"{count} people liked your post 💜"
         elif self.type == 'post_interaction':
             # Combined likes and reactions
             if count == 1:
-                return "New Engagement 💜", "Someone engaged with your post"
+                return "New Engagement 💜", "Someone engaged with your post 💜"
             else:
-                return "New Engagement 💜", f"{count} people engaged with your post"
+                return "New Engagement 💜", f"{count} people engaged with your post 💜"
         elif self.type == 'new_follower':
             data = self.data or {}
             if count == 1:

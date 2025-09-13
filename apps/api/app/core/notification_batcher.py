@@ -291,7 +291,7 @@ class PostInteractionBatcher(NotificationBatcher):
                 user_id=user_id,
                 type="like",
                 title="New Like 💜",  # Purple heart styling
-                message="liked your post",
+                message="liked your post 💜",  # Purple heart emoji added to match reaction styling
                 data={
                     "post_id": post_id,
                     "liker_username": actor_data["username"],
@@ -500,11 +500,11 @@ class PostInteractionBatcher(NotificationBatcher):
         
         if count == 1:
             # Single notification - shouldn't happen in batch context
-            return "New Engagement 💜", "Someone engaged with your post"
+            return "New Engagement 💜", "Someone engaged with your post 💜"
         elif count == 2:
-            return "New Engagement 💜", f"{count} people engaged with your post"
+            return "New Engagement 💜", f"{count} people engaged with your post 💜"
         else:
-            return "New Engagement 💜", f"{count} people engaged with your post"
+            return "New Engagement 💜", f"{count} people engaged with your post 💜"
 
 
 class UserInteractionBatcher(NotificationBatcher):

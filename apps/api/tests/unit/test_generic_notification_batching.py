@@ -312,17 +312,17 @@ class TestPostInteractionBatcher:
         # Test summary for 2 people
         title, message = post_interaction_batcher._generate_combined_batch_summary(2, {})
         assert title == "New Engagement 💜"
-        assert message == "2 people engaged with your post"
+        assert message == "2 people engaged with your post 💜"
         
         # Test summary for 5 people
         title, message = post_interaction_batcher._generate_combined_batch_summary(5, {})
         assert title == "New Engagement 💜"
-        assert message == "5 people engaged with your post"
+        assert message == "5 people engaged with your post 💜"
         
         # Test summary for 1 person (edge case)
         title, message = post_interaction_batcher._generate_combined_batch_summary(1, {})
         assert title == "New Engagement 💜"
-        assert message == "Someone engaged with your post"
+        assert message == "Someone engaged with your post 💜"
 
     async def test_find_existing_interaction_notification(self, post_interaction_batcher):
         """Test finding existing like or reaction notifications for the same post."""
@@ -529,7 +529,7 @@ class TestNotificationModelBatchSummary:
         
         title, message = notification.create_batch_summary(1)
         assert title == "New Like 💜"
-        assert message == "john liked your post"
+        assert message == "john liked your post 💜"
 
     def test_like_batch_summary_multiple(self):
         """Test like notification batch summary for multiple notifications."""
@@ -540,7 +540,7 @@ class TestNotificationModelBatchSummary:
         
         title, message = notification.create_batch_summary(3)
         assert title == "New Likes 💜"
-        assert message == "3 people liked your post"
+        assert message == "3 people liked your post 💜"
 
     def test_post_interaction_batch_summary_single(self):
         """Test post_interaction notification batch summary for single notification."""
@@ -551,7 +551,7 @@ class TestNotificationModelBatchSummary:
         
         title, message = notification.create_batch_summary(1)
         assert title == "New Engagement 💜"
-        assert message == "Someone engaged with your post"
+        assert message == "Someone engaged with your post 💜"
 
     def test_post_interaction_batch_summary_multiple(self):
         """Test post_interaction notification batch summary for multiple notifications."""
@@ -562,7 +562,7 @@ class TestNotificationModelBatchSummary:
         
         title, message = notification.create_batch_summary(5)
         assert title == "New Engagement 💜"
-        assert message == "5 people engaged with your post"
+        assert message == "5 people engaged with your post 💜"
 
     def test_generate_batch_key_post_interaction(self):
         """Test batch key generation for post_interaction type."""
