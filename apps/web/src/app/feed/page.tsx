@@ -412,7 +412,7 @@ export default function FeedPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-20">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           {/* Posts */}
           <div className="space-y-6">
             {posts.length === 0 ? (

@@ -543,7 +543,7 @@ export default function ProfilePage() {
 
       {/* Profile Content */}
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           {/* Profile Header */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-8 mb-6 sm:mb-8">
             <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0">

@@ -634,12 +634,29 @@ The implementation maintains consistency with the reference implementation's pur
   - Ensure consistent spacing and formatting
   - _Requirements: Like notifications should have visual emoji indicator like reactions_
 
-- [ ] **14.8 Standardize PostCard Width** - Uniform card sizing across pages
+- [x] **14.8 Standardize PostCard Width** - Uniform card sizing across pages
   - Use post page PostCard width as the standard across all pages
   - Update all pages that display posts (feed, profile, individual post page) to use consistent narrower, more fitting width for better readability and visual hierarchy. Use the dimensions that are configured in the post page.
   - Ensure responsive behavior is maintained on mobile devices
   - Test layout consistency across feed, profile, and individual post pages
   - _Requirements: Consistent PostCard width for better visual hierarchy_
+
+- [ ] **14.9 Fix User Dropdown Menu Keyboard Navigation** - Improve accessibility for dropdown menus
+  - Update all user dropdown menus to scroll down when navigating with keyboard
+  - Ensure proper focus management and scroll behavior for arrow key navigation
+  - Test keyboard navigation in user search autocomplete, mention autocomplete, and share modal user selection
+  - Add proper ARIA attributes for screen reader support
+  - Implement smooth scrolling to keep focused items visible
+  - _Requirements: All user dropdown menus should be fully keyboard accessible with proper scrolling_
+
+- [ ] **14.10 Fix PostCard Toolbar Alignment** - Improve mobile display consistency
+  - Fix PostCard toolbar at bottom that sometimes gets badly aligned, especially on mobile
+  - Adjust spacing and ensure all icons appear properly across different screen sizes
+  - Ensure consistent alignment of heart, reaction, share, and location icons
+  - Test toolbar layout on various mobile devices and screen orientations
+  - Maintain proper touch targets (44px minimum) for mobile interaction
+  - Fix any icon overflow or wrapping issues on smaller screens
+  - _Requirements: PostCard toolbar should display consistently with proper icon alignment on all devices_
 
 
 ### **TASK 15: MVP Production Readiness**
