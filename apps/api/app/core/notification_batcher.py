@@ -291,7 +291,7 @@ class PostInteractionBatcher(NotificationBatcher):
                 user_id=user_id,
                 type="like",
                 title="New Like 💜",  # Purple heart styling
-                message=f"{actor_data['username']} liked your post",
+                message="liked your post",
                 data={
                     "post_id": post_id,
                     "liker_username": actor_data["username"],
@@ -307,7 +307,7 @@ class PostInteractionBatcher(NotificationBatcher):
                 user_id=user_id,
                 type="emoji_reaction",
                 title="New Reaction",
-                message=f"{actor_data['username']} reacted to your post with {emoji_display}",
+                message=f"reacted to your post with {emoji_display}",
                 data={
                     "post_id": post_id,
                     "reactor_username": actor_data["username"],
@@ -523,7 +523,7 @@ class UserInteractionBatcher(NotificationBatcher):
                 user_id=target_user_id,
                 type="follow",
                 title="New Follower",
-                message=f"{actor_data['username']} started following you",
+                message="started following you",
                 data={
                     "follower_username": actor_data["username"],
                     "follower_id": actor_data["user_id"],

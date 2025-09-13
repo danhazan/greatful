@@ -96,10 +96,10 @@ class NotificationFactory:
         try:
             if share_method == "message":
                 title = "Post Sent"
-                message = f'{sharer_username} sent you a post'
+                message = 'sent you a post'
             else:
                 title = "Post Shared"
-                message = f'{sharer_username} shared your post'
+                message = 'shared your post'
             
             # Create notification object for batching
             from app.models.notification import Notification
@@ -147,7 +147,7 @@ class NotificationFactory:
                 user_id=mentioned_user_id,
                 type='mention',
                 title='You were mentioned',
-                message=f'{author_username} mentioned you in a post',
+                message='mentioned you in a post',
                 data={
                     'post_id': post_id,
                     'author_username': author_username,

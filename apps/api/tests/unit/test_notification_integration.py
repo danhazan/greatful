@@ -66,7 +66,7 @@ class TestNotificationIntegration:
         notification = notifications[0]
         assert notification.type == "emoji_reaction"
         assert notification.user_id == author.id
-        assert "reactor" in notification.message
+        assert "reacted to your post" in notification.message
         assert "😍" in notification.message
         assert notification.data["post_id"] == post.id
         assert notification.data["emoji_code"] == "heart_eyes"

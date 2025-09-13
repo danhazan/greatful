@@ -1066,7 +1066,7 @@ export default function PostCard({
                 className={`flex items-center space-x-1.5 px-2 py-1 rounded-full text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 ${styling.textSize}`}
               >
                 <Share className={styling.iconSize} />
-                <span className="font-medium">Share</span>
+                <span className="font-medium hidden sm:inline">Share</span>
               </button>
             </div>
 

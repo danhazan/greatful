@@ -137,7 +137,7 @@ class TestNotificationFactory:
         assert call_args.user_id == 123
         assert call_args.type == "post_shared"
         assert call_args.title == "Post Sent"
-        assert "test_user sent you a post" in call_args.message
+        assert "sent you a post" in call_args.message
         assert call_args.data["sharer_username"] == "test_user"
         assert call_args.data["share_method"] == "message"
 
@@ -161,7 +161,7 @@ class TestNotificationFactory:
         assert result == mock_notification
         call_args = notification_factory.batcher.create_or_update_batch.call_args[0][0]  # First argument is the notification
         assert call_args.title == "Post Shared"
-        assert "test_user shared your post" in call_args.message
+        assert "shared your post" in call_args.message
         assert call_args.data["share_method"] == "url"
 
     @pytest.mark.asyncio
@@ -185,7 +185,7 @@ class TestNotificationFactory:
         assert call_args.user_id == 123
         assert call_args.type == "mention"
         assert call_args.title == "You were mentioned"
-        assert "author_user mentioned you in a post" in call_args.message
+        assert "mentioned you in a post" in call_args.message
         assert call_args.data["author_username"] == "author_user"
         # Verify post_preview is no longer included
         assert "post_preview" not in call_args.data
