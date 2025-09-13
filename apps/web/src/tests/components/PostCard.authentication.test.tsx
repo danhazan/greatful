@@ -153,7 +153,7 @@ describe('PostCard Authentication Controls', () => {
       render(<PostCard post={heartedPost} currentUserId="current-user-123" {...mockHandlers} />)
       
       // Heart should be filled for authenticated users who hearted the post
-      const heartButton = screen.getByRole('button', { name: /💜 \d+/ })
+      const heartButton = buttons.find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
       expect(heartButton).toHaveClass('text-purple-500')
     })
 
@@ -167,7 +167,7 @@ describe('PostCard Authentication Controls', () => {
       
       // Find heart button by looking for buttons that contain heart icon
       const buttons = screen.getAllByRole('button')
-      const heartButton = screen.getByRole('button', { name: /💜 \d+/ })
+      const heartButton = buttons.find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
       
       expect(heartButton).toBeInTheDocument()
       

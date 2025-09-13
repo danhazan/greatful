@@ -104,8 +104,8 @@ describe('PostCard Interactions', () => {
     )
 
     // Find the heart button by looking for the button with heart count
-    const heartButton = screen.getByRole('button', { name: '💜 5' })
-    fireEvent.click(heartButton)
+    const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
+    fireEvent.click(heartButton!)
 
     // Wait for async operations to complete
     await waitFor(() => {

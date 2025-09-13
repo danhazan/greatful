@@ -78,8 +78,8 @@ describe('PostCard Real-time Updates', () => {
       />
     )
 
-    // Initial state - check heart count in button
-    const heartButton = screen.getByRole('button', { name: '💜 5' })
+    // Initial state - check heart count in button (heart icon when not hearted)
+    const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
     expect(heartButton).toBeInTheDocument()
     
     // Click heart button
@@ -139,8 +139,8 @@ describe('PostCard Real-time Updates', () => {
       />
     )
 
-    // Initial state - check heart count in button
-    const heartButton = screen.getByRole('button', { name: '💜 6' })
+    // Initial state - check heart count in button (filled heart when hearted)
+    const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('6') && btn.className.includes('heart-button'))
     expect(heartButton).toBeInTheDocument()
     
     // Click heart button to remove heart
@@ -190,8 +190,8 @@ describe('PostCard Real-time Updates', () => {
     )
 
     // Click heart button
-    const heartButton = screen.getByRole('button', { name: '💜 5' })
-    fireEvent.click(heartButton)
+    const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
+    fireEvent.click(heartButton!)
 
     // Wait for API calls to complete
     await waitFor(() => {
@@ -217,9 +217,9 @@ describe('PostCard Real-time Updates', () => {
       />
     )
 
-    // Click heart button
-    const heartButton = screen.getByRole('button', { name: '💜 5' })
-    fireEvent.click(heartButton)
+    // Click heart button (heart icon when not hearted)
+    const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
+    fireEvent.click(heartButton!)
 
     // Wait for error handling
     await waitFor(() => {
@@ -240,8 +240,8 @@ describe('PostCard Real-time Updates', () => {
       />
     )
 
-    // Initially not hearted
-    let heartButton = screen.getByRole('button', { name: '💜 5' })
+    // Initially not hearted (outline heart)
+    let heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
     expect(heartButton).toHaveClass('text-gray-500')
 
     // Rerender with hearted state
@@ -253,8 +253,8 @@ describe('PostCard Real-time Updates', () => {
       />
     )
 
-    // Get the button again after rerender
-    heartButton = screen.getByRole('button', { name: '💜 5' })
+    // Get the button again after rerender (filled heart when hearted)
+    heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
     expect(heartButton).toHaveClass('text-purple-500')
   })
 
@@ -266,8 +266,9 @@ describe('PostCard Real-time Updates', () => {
       />
     )
 
-    // Check heart count in button
-    expect(screen.getByRole('button', { name: '💜 5' })).toBeInTheDocument()
+    // Check heart count in button (heart icon when not hearted)
+    const heartButton5 = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
+    expect(heartButton5).toBeInTheDocument()
 
     // Test with different count
     rerender(
@@ -277,6 +278,7 @@ describe('PostCard Real-time Updates', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: '💜 42' })).toBeInTheDocument()
+    const heartButton42 = screen.getAllByRole('button').find(btn => btn.textContent?.includes('42') && btn.className.includes('heart-button'))
+    expect(heartButton42).toBeInTheDocument()
   })
 })

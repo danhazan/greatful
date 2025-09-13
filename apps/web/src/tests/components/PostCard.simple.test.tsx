@@ -85,8 +85,10 @@ describe('PostCard Simple Tests', () => {
       />
     )
 
-    // Check heart count
-    expect(screen.getByRole('button', { name: '💜 5' })).toBeInTheDocument()
+    // Check heart count (should show heart icon when not hearted)
+    const heartButton = screen.getAllByRole('button').find(btn => btn.className.includes('heart-button'))
+    expect(heartButton).toBeInTheDocument()
+    expect(heartButton?.textContent).toContain('5')
     
     // Check reaction count
     expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument()
@@ -125,7 +127,8 @@ describe('PostCard Simple Tests', () => {
       />
     )
 
-    const heartButton = screen.getByRole('button', { name: '💜 6' })
+    const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('6'))
+    expect(heartButton).toBeInTheDocument()
     expect(heartButton).toHaveClass('text-purple-500')
   })
 
@@ -137,7 +140,8 @@ describe('PostCard Simple Tests', () => {
       />
     )
 
-    const heartButton = screen.getByRole('button', { name: '💜 5' })
+    const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
+    expect(heartButton).toBeInTheDocument()
     expect(heartButton).toHaveClass('text-gray-500')
   })
 

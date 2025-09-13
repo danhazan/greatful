@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Share, Calendar, MapPin, Plus, Loader2, MoreHorizontal, Edit3, Trash2 } from "lucide-react"
+import { Share, Calendar, MapPin, Plus, Loader2, MoreHorizontal, Edit3, Trash2, Heart } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
@@ -982,9 +982,9 @@ export default function PostCard({
                 {isHeartLoading ? (
                   <Loader2 className={`${styling.iconSize} animate-spin`} />
                 ) : (
-                  <span className={`${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
-                    💜
-                  </span>
+                  <Heart 
+                    className={`${styling.iconSize} ${currentPost.isHearted ? 'fill-purple-500 text-purple-500' : 'text-current'}`}
+                  />
                 )}
                 <span 
                   className={`${styling.textSize} font-medium ${isUserAuthenticated && !isHeartsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
