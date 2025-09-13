@@ -152,7 +152,8 @@ describe('PostCard Authentication Controls', () => {
       const heartedPost = { ...mockPost, isHearted: true }
       render(<PostCard post={heartedPost} currentUserId="current-user-123" {...mockHandlers} />)
       
-      // Heart should be filled for authenticated users who hearted the post
+      // Find all buttons and locate the heart button
+      const buttons = screen.getAllByRole('button')
       const heartButton = buttons.find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
       expect(heartButton).toHaveClass('text-purple-500')
     })

@@ -13,6 +13,7 @@ import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import RichContentRenderer from "./RichContentRenderer"
 import EditPostModal from "./EditPostModal"
 import DeleteConfirmationModal from "./DeleteConfirmationModal"
+import LocationDisplayModal from "./LocationDisplayModal"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
@@ -109,11 +110,13 @@ export default function PostCard({
   const [showShareModal, setShowShareModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
   const [showOptionsMenu, setShowOptionsMenu] = useState(false)
   const [isUserAuthenticated, setIsUserAuthenticated] = useState(false)
 
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [shareModalPosition, setShareModalPosition] = useState({ x: 0, y: 0 })
+  const [locationModalPosition, setLocationModalPosition] = useState({ x: 0, y: 0 })
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
   const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
   const [hasTrackedView, setHasTrackedView] = useState(false)
@@ -134,6 +137,7 @@ export default function PostCard({
   
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const shareButtonRef = useRef<HTMLButtonElement>(null)
+  const locationButtonRef = useRef<HTMLButtonElement>(null)
   const optionsButtonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
   const { showSuccess, showError, showLoading, hideToast } = useToast()
@@ -1072,12 +1076,29 @@ export default function PostCard({
 
             {/* Location Display - Right aligned */}
             {(currentPost.location_data || currentPost.location) && (
-              <div className="flex items-center space-x-1 text-gray-500 flex-shrink-0 ml-2">
+              <button
+                ref={locationButtonRef}
+                onClick={(event) => {
+                  event.preventDefault()
+                  
+                  if (locationButtonRef.current) {
+                    const rect = locationButtonRef.current.getBoundingClientRect()
+                    setLocationModalPosition({
+                      x: rect.left + rect.width / 2,
+                      y: rect.top
+                    })
+                  }
+                  
+                  setShowLocationModal(true)
+                }}
+                className="flex items-center space-x-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-1 transition-all duration-200 flex-shrink-0 ml-2 min-w-[44px] min-h-[44px]"
+                title="View location details"
+              >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
                 <span className={`${styling.textSize} truncate max-w-24 sm:max-w-32 md:max-w-40`}>
                   {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
                 </span>
-              </div>
+              </button>
             )}
           </div>
         </div>
@@ -1125,6 +1146,15 @@ export default function PostCard({
           // Call original onShare callback if provided
           onShare?.(post.id)
         }}
+      />
+
+      {/* Location Display Modal */}
+      <LocationDisplayModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        location={currentPost.location}
+        locationData={currentPost.location_data}
+        position={locationModalPosition}
       />
 
       {/* Edit Post Modal */}

@@ -607,19 +607,19 @@ The implementation maintains consistency with the reference implementation's pur
   - Maintain proper hover and active states for both heart states
   - _Requirements: Visual feedback should clearly indicate like status_
 
-- [ ] **14.4 Remove Welcome Message from Feed** - Clean up feed page UI
+- [x] **14.4 Remove Welcome Message from Feed** - Clean up feed page UI
   - Remove "Welcome to your Gratitude Feed!" message from feed page
   - Update feed page layout to start directly with posts
   - Ensure proper spacing and layout after message removal
   - _Requirements: Streamlined feed experience without unnecessary welcome text_
 
-- [ ] **14.5 Remove Post Page Captions** - Clean up post page UI
+- [x] **14.5 Remove Post Page Captions** - Clean up post page UI
   - Remove caption text above posts in individual post pages
   - Remove "Gratitude Post" heading and "View and interact with this gratitude post" subtitle
   - Update post page layout for cleaner presentation
   - _Requirements: Simplified post page without redundant captions_
 
-- [ ] **14.6 Implement Clickable Location Icon** - Add location modal functionality
+- [x] **14.6 Implement Clickable Location Icon** - Add location modal functionality
   - Make location icon at bottom of PostCard clickable
   - Create LocationModal component to display full address
   - Ensure proper alignment and scaling on both desktop and mobile

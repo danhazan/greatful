@@ -413,17 +413,6 @@ export default function FeedPage() {
       {/* Main Content */}
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-20">
         <div className="max-w-4xl mx-auto">
-          {/* Welcome Message */}
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
-            <h2 className="text-base sm:text-lg font-semibold text-purple-900 mb-2">
-              🎉 Welcome to your Gratitude Feed!
-            </h2>
-            <p className="text-sm sm:text-base text-purple-800">
-              Share your gratitude and connect with others! Heart posts you love and react with positive emotions. 
-              All your interactions are synced across devices.
-            </p>
-          </div>
-
           {/* Posts */}
           <div className="space-y-6">
             {posts.length === 0 ? (

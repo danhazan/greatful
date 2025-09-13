@@ -95,11 +95,6 @@ export default function PostPage({ params }: PostPageProps) {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Gratitude Post</h1>
-            <p className="text-gray-600">View and interact with this gratitude post</p>
-          </div>
-          
           {/* Single post display */}
           <div className="bg-white rounded-lg shadow-sm">
             <SinglePostView postId={params.id} />
