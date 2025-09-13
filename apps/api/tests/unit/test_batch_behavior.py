@@ -137,4 +137,4 @@ class TestBatchBehavior:
         
         title, message = notification.create_batch_summary(5)
         assert title == "New Likes 💜"  # Updated to include purple heart
-        assert message == "5 people liked your post"
+        assert message == "5 people liked your post 💜"

@@ -82,7 +82,7 @@ async def test_notification_batching_flow(
     assert notification2.is_batch == True
     assert notification2.batch_count == 2
     assert notification2.title == "New Engagement 💜"
-    assert notification2.message == "2 people engaged with your post"
+    assert notification2.message == "2 people engaged with your post 💜"
     
     # Test API: Get notifications (should only return parent)
     response = await async_client.get("/api/v1/notifications", headers=auth_headers)
@@ -173,7 +173,7 @@ async def test_add_to_existing_batch(
     
     # Batch should be updated
     assert batch.batch_count == 3
-    assert batch.message == "3 people engaged with your post"
+    assert batch.message == "3 people engaged with your post 💜"
     
     # New notification should be a child
     assert new_notification.parent_id == batch.id

@@ -877,8 +877,10 @@ export default function PostCard({
             </div>
           )}
           
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
+          {/* Post Actions Toolbar - Fixed alignment and mobile optimization */}
+          <div className="flex items-center justify-between gap-2">
+            {/* Left side: Main interaction buttons */}
+            <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
               {/* Heart Button */}
               <button 
                 onClick={async () => {
@@ -974,7 +976,7 @@ export default function PostCard({
                   }
                 }}
                 disabled={isHeartLoading}
-                className={`heart-button flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`heart-button flex items-center gap-1.5 px-2 py-2 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
                   !isUserAuthenticated
                     ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
                     : currentPost.isHearted 
@@ -984,14 +986,14 @@ export default function PostCard({
                 title={!isUserAuthenticated ? 'Login to like posts' : undefined}
               >
                 {isHeartLoading ? (
-                  <Loader2 className={`${styling.iconSize} animate-spin`} />
+                  <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
                 ) : (
                   <Heart 
-                    className={`${styling.iconSize} ${currentPost.isHearted ? 'fill-purple-500 text-purple-500' : 'text-current'}`}
+                    className={`${styling.iconSize} flex-shrink-0 ${currentPost.isHearted ? 'fill-purple-500 text-purple-500' : 'text-current'}`}
                   />
                 )}
                 <span 
-                  className={`${styling.textSize} font-medium ${isUserAuthenticated && !isHeartsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+                  className={`${styling.textSize} font-medium ${isUserAuthenticated && !isHeartsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'} hidden xs:inline`}
                   onClick={(e) => {
                     e.stopPropagation()
                     if (isUserAuthenticated && !isHeartsViewerLoading) {
@@ -1012,7 +1014,7 @@ export default function PostCard({
                 ref={reactionButtonRef}
                 onClick={handleReactionButtonClick}
                 disabled={isReactionLoading}
-                className={`flex items-center space-x-1.5 px-2 py-1 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`flex items-center gap-1.5 px-2 py-2 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
                   !isUserAuthenticated
                     ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
                     : post.currentUserReaction
@@ -1022,18 +1024,18 @@ export default function PostCard({
                 title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
               >
                 {isReactionLoading ? (
-                  <Loader2 className={`${styling.iconSize} animate-spin`} />
+                  <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
                 ) : post.currentUserReaction ? (
-                  <span className={styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}>
+                  <span className={`flex-shrink-0 ${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
                     {getEmojiFromCode(post.currentUserReaction)}
                   </span>
                 ) : (
-                  <div className={`${styling.iconSize} rounded-full border-2 border-current flex items-center justify-center`}>
+                  <div className={`${styling.iconSize} rounded-full border-2 border-current flex items-center justify-center flex-shrink-0`}>
                     <Plus className="h-3 w-3" />
                   </div>
                 )}
                 <span 
-                  className={`${styling.textSize} font-medium ${!isReactionsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+                  className={`${styling.textSize} font-medium ${!isReactionsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'} hidden xs:inline`}
                   onClick={(e) => {
                     e.stopPropagation()
                     if (!isReactionsViewerLoading) {
@@ -1048,8 +1050,6 @@ export default function PostCard({
                   )}
                 </span>
               </button>
-
-
 
               {/* Share Button */}
               <button 
@@ -1067,14 +1067,15 @@ export default function PostCard({
                   
                   setShowShareModal(true)
                 }}
-                className={`flex items-center space-x-1.5 px-2 py-1 rounded-full text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 ${styling.textSize}`}
+                className={`flex items-center gap-1.5 px-2 py-2 rounded-full text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 min-w-[44px] min-h-[44px] ${styling.textSize}`}
+                title="Share this post"
               >
-                <Share className={styling.iconSize} />
+                <Share className={`${styling.iconSize} flex-shrink-0`} />
                 <span className="font-medium hidden sm:inline">Share</span>
               </button>
             </div>
 
-            {/* Location Display - Right aligned */}
+            {/* Right side: Location button (when present) */}
             {(currentPost.location_data || currentPost.location) && (
               <button
                 ref={locationButtonRef}
@@ -1091,11 +1092,11 @@ export default function PostCard({
                   
                   setShowLocationModal(true)
                 }}
-                className="flex items-center space-x-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-1 transition-all duration-200 flex-shrink-0 ml-2 min-w-[44px] min-h-[44px]"
+                className="flex items-center gap-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-2 transition-all duration-200 flex-shrink-0 min-w-[44px] min-h-[44px] max-w-[120px] sm:max-w-[160px]"
                 title="View location details"
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span className={`${styling.textSize} truncate max-w-24 sm:max-w-32 md:max-w-40`}>
+                <span className={`${styling.textSize} truncate`}>
                   {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
                 </span>
               </button>

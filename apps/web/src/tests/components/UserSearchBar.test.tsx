@@ -308,6 +308,34 @@ describe('UserSearchBar', () => {
     const mockScrollIntoView = jest.fn()
     Element.prototype.scrollIntoView = mockScrollIntoView
 
+    // Mock getBoundingClientRect to simulate item being out of view
+    const mockGetBoundingClientRect = jest.fn()
+    Element.prototype.getBoundingClientRect = mockGetBoundingClientRect
+
+    // Mock container rect (dropdown)
+    mockGetBoundingClientRect.mockImplementation(function(this: Element) {
+      if (this.classList.contains('max-h-60')) {
+        // Container rect
+        return {
+          top: 100,
+          bottom: 300,
+          left: 0,
+          right: 200,
+          width: 200,
+          height: 200
+        }
+      }
+      // Item rect - simulate item being below visible area
+      return {
+        top: 350,
+        bottom: 400,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: 50
+      }
+    })
+
     render(<UserSearchBar />)
     
     const input = screen.getByRole('combobox')
@@ -319,16 +347,24 @@ describe('UserSearchBar', () => {
       expect(screen.getByText('Test User 1')).toBeInTheDocument()
     })
 
-    // Navigate down with arrow key
+    // Navigate down with arrow key to select the second item
     fireEvent.keyDown(document, { key: 'ArrowDown' })
+    
+    // Wait a bit for the effect to run
+    await waitFor(() => {
+      // The second user should be selected (aria-selected="true")
+      const secondUser = screen.getByRole('option', { name: /Test User 2/ })
+      expect(secondUser).toHaveAttribute('aria-selected', 'true')
+    })
     
     // Should call scrollIntoView on the selected element
     await waitFor(() => {
       expect(mockScrollIntoView).toHaveBeenCalledWith({
         behavior: 'smooth',
         block: 'nearest',
+        inline: 'nearest'
       })
-    })
+    }, { timeout: 1000 })
   })
 
   it('renders mobile icon-only mode when isMobile=true and no placeholder', () => {
