@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Heart } from "lucide-react"
+import { Heart } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import RichTextEditor from "@/components/RichTextEditor"
 
@@ -117,21 +117,11 @@ export default function DemoPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <button
-            onClick={() => router.push("/")}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span>Back to Home</span>
-          </button>
-          
+        <div className="max-w-4xl mx-auto flex items-center justify-center">
           <div className="flex items-center space-x-2">
             <span className="text-2xl">💜</span>
             <h1 className="text-xl font-bold text-purple-700">Grateful Demo</h1>
           </div>
-          
-          <div className="w-20" /> {/* Spacer for centering */}
         </div>
       </div>
 

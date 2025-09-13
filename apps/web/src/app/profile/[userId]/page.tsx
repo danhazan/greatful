@@ -321,10 +321,10 @@ export default function UserProfilePage() {
           <div className="text-gray-400 text-6xl mb-4">😔</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">{error}</h2>
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push('/feed')}
             className="text-purple-600 hover:text-purple-700"
           >
-            Go back
+            Go to Feed
           </button>
         </div>
       </div>
@@ -338,7 +338,7 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <Navbar user={currentUser} showBackButton={true} />
+      <Navbar user={currentUser} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

@@ -13,8 +13,7 @@ import {
   Users, 
   Globe,
   Lock,
-  Save,
-  ArrowLeft
+  Save
 } from 'lucide-react'
 
 interface UserPreferences {
@@ -161,13 +160,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
-            </button>
+          <div className="flex items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Privacy & Settings</h1>
               <p className="text-gray-600">Manage your account privacy and notification preferences</p>

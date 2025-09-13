@@ -72,11 +72,7 @@ describe('Navbar Responsive Design', () => {
 
   describe('Touch Target Optimization', () => {
     it('ensures all interactive elements meet 44px touch target minimum', () => {
-      render(<Navbar user={mockUser} showBackButton={true} />)
-      
-      // Check back button
-      const backButton = screen.getByLabelText('Go back')
-      expect(backButton).toHaveClass('min-h-[44px]', 'min-w-[44px]', 'touch-manipulation')
+      render(<Navbar user={mockUser} />)
       
       // Check feed button
       const feedButton = screen.getByLabelText('Go to feed')
@@ -88,10 +84,7 @@ describe('Navbar Responsive Design', () => {
     })
 
     it('provides proper active states for touch feedback', () => {
-      render(<Navbar user={mockUser} showBackButton={true} />)
-      
-      const backButton = screen.getByLabelText('Go back')
-      expect(backButton).toHaveClass('active:text-gray-700')
+      render(<Navbar user={mockUser} />)
       
       const feedButton = screen.getByLabelText('Go to feed')
       expect(feedButton).toHaveClass('active:text-purple-800')
@@ -156,10 +149,7 @@ describe('Navbar Responsive Design', () => {
     })
 
     it('provides proper focus management', () => {
-      render(<Navbar user={mockUser} showBackButton={true} />)
-      
-      const backButton = screen.getByLabelText('Go back')
-      expect(backButton).toHaveClass('focus:outline-none', 'focus:ring-2', 'focus:ring-purple-500')
+      render(<Navbar user={mockUser} />)
       
       const feedButton = screen.getByLabelText('Go to feed')
       expect(feedButton).toHaveClass('focus:outline-none', 'focus:ring-2', 'focus:ring-purple-500')
@@ -188,22 +178,15 @@ describe('Navbar Responsive Design', () => {
 
   describe('Interactive Behavior', () => {
     it('provides proper interactive elements with touch targets', () => {
-      render(<Navbar user={mockUser} showBackButton={true} />)
+      render(<Navbar user={mockUser} />)
       
       const feedButton = screen.getByLabelText('Go to feed')
       expect(feedButton).toBeInTheDocument()
       expect(feedButton).toHaveClass('min-h-[44px]', 'min-w-[44px]', 'touch-manipulation')
-      
-      const backButton = screen.getByLabelText('Go back')
-      expect(backButton).toBeInTheDocument()
-      expect(backButton).toHaveClass('min-h-[44px]', 'min-w-[44px]', 'touch-manipulation')
     })
 
     it('ensures all buttons have proper focus states', () => {
-      render(<Navbar user={mockUser} showBackButton={true} />)
-      
-      const backButton = screen.getByLabelText('Go back')
-      expect(backButton).toHaveClass('focus:outline-none', 'focus:ring-2', 'focus:ring-purple-500')
+      render(<Navbar user={mockUser} />)
       
       const feedButton = screen.getByLabelText('Go to feed')
       expect(feedButton).toHaveClass('focus:outline-none', 'focus:ring-2', 'focus:ring-purple-500')

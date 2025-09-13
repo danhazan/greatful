@@ -92,18 +92,7 @@ describe('Navbar Component', () => {
     expect(screen.queryByRole('button', { name: 'Go to feed' })).not.toBeInTheDocument()
   })
 
-  it('shows back button when showBackButton is true', () => {
-    render(<Navbar showBackButton={true} />)
-    
-    const backButton = screen.getByRole('button', { name: /go back/i })
-    expect(backButton).toBeInTheDocument()
-  })
 
-  it('does not show back button by default', () => {
-    render(<Navbar />)
-    
-    expect(screen.queryByRole('button', { name: /go back/i })).not.toBeInTheDocument()
-  })
 
   it('navigates to feed when feed icon is clicked', () => {
     render(<Navbar user={mockUser} />)
@@ -176,17 +165,10 @@ describe('Navbar Component', () => {
     expect(screen.queryByRole('button', { name: /open menu/i })).not.toBeInTheDocument()
   })
 
-  it('navigates back when back button is clicked', () => {
-    render(<Navbar showBackButton={true} />)
-    
-    const backButton = screen.getByRole('button', { name: /go back/i })
-    fireEvent.click(backButton)
-    
-    expect(mockBack).toHaveBeenCalled()
-  })
+
 
   it('applies correct styling classes', () => {
-    render(<Navbar user={mockUser} showBackButton={true} />)
+    render(<Navbar user={mockUser} />)
     
     const nav = screen.getByRole('navigation')
     expect(nav).toHaveClass('bg-white', 'border-b', 'border-gray-200')
