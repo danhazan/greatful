@@ -66,12 +66,26 @@ export default function Navbar({ user, showBackButton = false, onLogout }: Navba
               <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           )}
-          <div className="flex items-center space-x-1 sm:space-x-2 min-h-[44px]">
-            {/* Purple heart - always visible, higher z-index */}
-            <span className="text-xl sm:text-2xl relative z-30" aria-hidden="true">💜</span>
-            {/* Grateful text - can be covered by search on mobile */}
-            <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-10">Grateful</h1>
-          </div>
+          {user ? (
+            <button
+              onClick={() => handleNavigation("/feed")}
+              className="flex items-center space-x-1 sm:space-x-2 min-h-[44px] hover:opacity-80 active:opacity-70 transition-opacity touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1"
+              aria-label="Go to Grateful home"
+              title="Go to Grateful home"
+            >
+              {/* Purple heart - always visible, higher z-index */}
+              <span className="text-xl sm:text-2xl relative z-30" aria-hidden="true">💜</span>
+              {/* Grateful text - can be covered by search on mobile */}
+              <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-10">Grateful</h1>
+            </button>
+          ) : (
+            <div className="flex items-center space-x-1 sm:space-x-2 min-h-[44px]">
+              {/* Purple heart - always visible, higher z-index */}
+              <span className="text-xl sm:text-2xl relative z-30" aria-hidden="true">💜</span>
+              {/* Grateful text - can be covered by search on mobile */}
+              <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-10">Grateful</h1>
+            </div>
+          )}
         </div>
         
         {/* Middle section: Search bar - Responsive layout */}

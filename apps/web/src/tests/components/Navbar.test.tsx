@@ -81,7 +81,7 @@ describe('Navbar Component', () => {
   it('shows feed icon when user is provided', () => {
     render(<Navbar user={mockUser} />)
     
-    const feedButton = screen.getByRole('button', { name: /go to feed/i })
+    const feedButton = screen.getByRole('button', { name: 'Go to feed' })
     expect(feedButton).toBeInTheDocument()
     expect(feedButton).toHaveAttribute('title', 'Feed')
   })
@@ -89,7 +89,7 @@ describe('Navbar Component', () => {
   it('does not show feed icon when user is not provided', () => {
     render(<Navbar />)
     
-    expect(screen.queryByRole('button', { name: /go to feed/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Go to feed' })).not.toBeInTheDocument()
   })
 
   it('shows back button when showBackButton is true', () => {
@@ -108,10 +108,29 @@ describe('Navbar Component', () => {
   it('navigates to feed when feed icon is clicked', () => {
     render(<Navbar user={mockUser} />)
     
-    const feedButton = screen.getByRole('button', { name: /go to feed/i })
+    const feedButton = screen.getByRole('button', { name: 'Go to feed' })
     fireEvent.click(feedButton)
     
     expect(mockPush).toHaveBeenCalledWith('/feed')
+  })
+
+  it('navigates to feed when logo is clicked', () => {
+    render(<Navbar user={mockUser} />)
+    
+    const logoButton = screen.getByRole('button', { name: /go to grateful home/i })
+    expect(logoButton).toBeInTheDocument()
+    
+    fireEvent.click(logoButton)
+    
+    expect(mockPush).toHaveBeenCalledWith('/feed')
+  })
+
+  it('logo is not clickable when no user is provided', () => {
+    render(<Navbar />)
+    
+    expect(screen.queryByRole('button', { name: /go to grateful home/i })).not.toBeInTheDocument()
+    expect(screen.getByText('💜')).toBeInTheDocument()
+    expect(screen.getByText('Grateful')).toBeInTheDocument()
   })
 
   it('does not show mobile menu overlay (removed in favor of profile dropdown)', () => {
@@ -172,7 +191,7 @@ describe('Navbar Component', () => {
     const nav = screen.getByRole('navigation')
     expect(nav).toHaveClass('bg-white', 'border-b', 'border-gray-200')
     
-    const feedButton = screen.getByRole('button', { name: /go to feed/i })
+    const feedButton = screen.getByRole('button', { name: 'Go to feed' })
     expect(feedButton).toHaveClass('text-purple-600', 'hover:text-purple-700', 'transition-colors')
   })
 })

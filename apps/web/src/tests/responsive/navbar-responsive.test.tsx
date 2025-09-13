@@ -112,8 +112,8 @@ describe('Navbar Responsive Design', () => {
     it('applies responsive spacing between elements', () => {
       render(<Navbar user={mockUser} />)
       
-      const leftSection = screen.getByText('Grateful').closest('div')?.parentElement
-      expect(leftSection).toHaveClass('space-x-2', 'sm:space-x-4')
+      const logoButton = screen.getByRole('button', { name: /go to grateful home/i })
+      expect(logoButton).toHaveClass('space-x-1', 'sm:space-x-2')
       
       const rightSection = screen.getByLabelText('Go to feed').closest('div')
       expect(rightSection).toHaveClass('space-x-1', 'sm:space-x-3')
