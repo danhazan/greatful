@@ -844,8 +844,301 @@ npm run dev -- --host 0.0.0.0
 - See [DATABASE_STRUCTURE.md](./DATABASE_STRUCTURE.md) for database schema
 - See [GRATEFUL_PRD.md](./GRATEFUL_PRD.md) for project requirements
 - See [TEST_GUIDELINES.md](./TEST_GUIDELINES.md) for mobile testing procedures 
-##
- Notification Link Handling System
+
+---
+
+## Navbar Architecture
+
+### Modern Responsive Navigation System
+
+The Grateful platform features a modern, responsive navbar architecture designed for optimal user experience across all devices:
+
+#### Navbar Component Structure
+
+**Core Architecture** (`apps/web/src/components/Navbar.tsx`):
+- **Responsive Layout**: Three-section layout (logo, search, user actions) with mobile-first design
+- **Conditional Rendering**: User-specific components only shown when authenticated
+- **Touch-Optimized**: 44px minimum touch targets for mobile accessibility
+- **Z-Index Management**: Proper layering for mobile search expansion
+
+**Layout Sections**:
+```typescript
+// Left Section: Logo and branding
+<div className="flex items-center flex-shrink-0 relative z-20">
+  {/* Purple heart emoji (💜) + "Grateful" text */}
+  {/* Clickable when user is authenticated */}
+</div>
+
+// Middle Section: User search (authenticated users only)
+<div className="flex-1 min-w-0 max-w-md mx-auto relative overflow-visible">
+  {/* Mobile: Collapsible search expanding leftward */}
+  {/* Desktop: Fixed width centered search bar */}
+</div>
+
+// Right Section: User actions
+<div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0 relative z-20">
+  {/* Feed icon, notifications, profile dropdown */}
+</div>
+```
+
+#### Mobile-First Responsive Design
+
+**Mobile Optimization**:
+- **Collapsible Search**: Search icon that expands to full input overlay
+- **Touch Targets**: All interactive elements meet 44px minimum size
+- **Overlay Positioning**: Mobile search expands leftward over logo text
+- **Z-Index Layering**: Purple heart emoji (💜) always visible at highest z-index
+
+**Desktop Enhancement**:
+- **Fixed Search Bar**: Centered search input with consistent width
+- **Horizontal Layout**: All elements visible simultaneously
+- **Hover States**: Enhanced interaction feedback for mouse users
+
+#### User Search Integration
+
+**Search Component** (`apps/web/src/components/UserSearchBar.tsx`):
+- **Debounced Search**: 300ms delay to prevent excessive API calls
+- **Real-time Results**: Live user search with profile photos and bios
+- **Keyboard Navigation**: Arrow keys, Enter, and Escape key support
+- **Accessibility**: Full ARIA support with screen reader compatibility
+
+**Search Features**:
+- **Profile Navigation**: Click users to navigate to their profiles
+- **Visual Feedback**: Loading states and empty state handling
+- **Touch Optimization**: Proper touch targets and haptic feedback
+- **Responsive Dropdown**: Adaptive positioning for mobile and desktop
+
+#### Component Integration
+
+**Integrated Components**:
+- **NotificationSystem**: Bell icon with unread count badge
+- **ProfileDropdown**: User avatar with dropdown menu for navigation
+- **UserSearchBar**: Intelligent user search with autocomplete
+- **Purple Heart Branding**: Consistent 💜 emoji throughout navigation
+
+**State Management**:
+- **Profile Dropdown**: Controlled open/close state with click-outside handling
+- **Search Expansion**: Mobile search expansion state management
+- **Navigation Handling**: Centralized routing with proper cleanup
+
+#### Accessibility Features
+
+**ARIA Implementation**:
+- **Navigation Landmarks**: Proper `role="navigation"` with aria-label
+- **Search Combobox**: Complete ARIA combobox pattern for search
+- **Keyboard Navigation**: Full keyboard support for all interactions
+- **Screen Reader Support**: Descriptive labels and live regions
+
+**Touch Accessibility**:
+- **Minimum Touch Targets**: 44px minimum for all interactive elements
+- **Focus Management**: Proper focus indicators and tab order
+- **Touch Feedback**: Visual and haptic feedback for touch interactions
+
+#### Performance Optimizations
+
+**Efficient Rendering**:
+- **Conditional Components**: User-specific components only render when needed
+- **Debounced Search**: Prevents excessive API calls during typing
+- **Memoized Callbacks**: Optimized event handlers to prevent re-renders
+- **Lazy Loading**: Search results loaded on-demand
+
+**Mobile Performance**:
+- **Touch Optimization**: Optimized touch event handling
+- **Smooth Animations**: CSS transitions for search expansion
+- **Memory Management**: Proper cleanup of event listeners and timeouts
+
+---
+
+## Post Type Detection System
+
+### Intelligent Content Categorization
+
+The Grateful platform uses an intelligent post type detection system that automatically categorizes user content into three distinct post types based on content characteristics:
+
+#### Post Types and Limits
+
+**Daily Gratitude Posts**:
+- **Character Limit**: 5,000 characters
+- **Display Prominence**: 3x larger display in feed
+- **Purpose**: Thoughtful, reflective gratitude expressions
+- **Detection**: Longer text (≥20 words) or any text + image combination
+
+**Photo Gratitude Posts**:
+- **Character Limit**: 0 characters (image only)
+- **Display Prominence**: 2x boost display in feed
+- **Purpose**: Visual gratitude expression through images
+- **Detection**: Has image with no meaningful text content
+
+**Spontaneous Text Posts**:
+- **Character Limit**: 200 characters
+- **Display Prominence**: Compact display in feed
+- **Purpose**: Quick appreciation notes and brief gratitude moments
+- **Detection**: Short text (<20 words) with no image
+
+#### Detection Algorithm
+
+**Classification Rules**:
+```
+1. Photo Only (has image, no meaningful text) → Photo Gratitude
+2. Short Text (< 20 words, no image) → Spontaneous Text  
+3. All Others (longer text, or any text + image) → Daily Gratitude
+```
+
+**Backend Implementation** (`ContentAnalysisService`):
+```python
+def _determine_post_type(self, content: str, word_count: int, has_image: bool) -> PostType:
+    if has_image and word_count == 0:
+        return PostType.photo
+    if not has_image and word_count < 20:  # 20 word threshold
+        return PostType.spontaneous
+    return PostType.daily
+```
+
+**Frontend Implementation** (`CreatePostModal`):
+- Real-time content analysis as users type
+- Dynamic character limit updates based on detected type
+- Visual feedback showing post type and display prominence
+- Character count display with color coding (green/yellow/red)
+
+#### User Experience Features
+
+**Real-Time Detection**:
+- Content analyzed as users type
+- Post type displayed automatically: "Auto-detected as [Type]"
+- Character limits update dynamically
+- Visual hierarchy preview for users
+
+**Character Limit Rationale**:
+- **Daily (5,000)**: Deep reflection space (~750-1,000 words)
+- **Photo (0)**: Pure visual expression philosophy
+- **Spontaneous (200)**: Quick appreciation notes (~30-40 words)
+
+---
+
+## Location Management System
+
+### Location Length Optimization
+
+The platform implements intelligent location string management to ensure optimal user experience and database performance:
+
+#### Location Length Constraints
+
+**Optimal Length: 150 Characters**
+- **User Experience**: Meaningful context without UI overflow
+- **International Support**: Accommodates various language location formats
+- **Database Efficiency**: Reasonable length for indexing and storage
+- **Display Flexibility**: Works across different UI components
+
+#### Implementation Details
+
+**Backend Location Service** (`apps/api/app/services/location_service.py`):
+```python
+async def search_locations(
+    self, 
+    query: str, 
+    limit: Optional[int] = None,
+    max_length: Optional[int] = 150  # Configurable parameter
+) -> List[Dict[str, Any]]:
+```
+
+**Features**:
+- Server-side truncation with "..." suffix
+- Configurable `max_length` parameter (default: 150)
+- Validation of length constraints (50-300 character range)
+- Database migration with automatic truncation of existing long locations
+
+**Frontend Integration**:
+- `LocationAutocomplete` component sends `max_length: 150` parameter
+- Improved CSS with `break-words` and `line-clamp-2` for text wrapping
+- Utility functions for location truncation and validation
+
+#### Truncation Algorithm
+
+**Server-Side (Python)**:
+```python
+if len(display_name) > max_length:
+    display_name = display_name[:max_length-3] + "..."
+```
+
+**Client-Side (TypeScript)**:
+```typescript
+if (!displayName || displayName.length <= maxLength) {
+    return displayName
+}
+return displayName.substring(0, maxLength - 3) + '...'
+```
+
+---
+
+## Rich Text Editor Architecture
+
+### ContentEditable Component Design
+
+The platform uses a sophisticated rich text editor built on contentEditable with advanced mention support and race condition prevention:
+
+#### Core Architecture
+
+**Component Structure** (`apps/web/src/components/RichTextEditor.tsx`):
+- ContentEditable-based editor with React integration
+- Mention autocomplete with user search integration
+- Real-time content analysis and type detection
+- Advanced cursor position management
+
+#### Race Condition Prevention
+
+**Typing Protection Mechanism**:
+```typescript
+const typingRef = useRef(false)
+const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+const handleInput = () => {
+  // Set typing flag to prevent external overwrites during user input
+  typingRef.current = true;
+  
+  // Clear previous timeout and set new one
+  if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+  typingTimeoutRef.current = setTimeout(() => {
+    typingRef.current = false;
+  }, 500);
+}
+```
+
+**Protected Content Updates**:
+- Prevents DOM overwrites during active user input
+- Debounced timeout clears typing flag after 500ms of inactivity
+- Initialization guard ensures content is set only once on mount
+- Significant change detection for external updates (>5 characters)
+
+#### Mention System Integration
+
+**DOM Range API Usage**:
+```typescript
+insertMention: (username: string, mentionStart: number, mentionEnd: number) => {
+  const selection = window.getSelection();
+  const range = selection.getRangeAt(0);
+  
+  // Create mention span element
+  const mentionSpan = document.createElement('span');
+  mentionSpan.className = 'mention';
+  mentionSpan.setAttribute('data-username', username);
+  mentionSpan.contentEditable = 'false';
+  mentionSpan.textContent = `@${username}`;
+  
+  // Insert using DOM range API instead of innerHTML
+  range.deleteContents();
+  range.insertNode(mentionSpan);
+}
+```
+
+**Key Features**:
+- Proper DOM manipulation instead of innerHTML replacement
+- Selection preservation during programmatic updates
+- Fallback support for range manipulation failures
+- Integration with user search API for autocomplete
+
+---
+
+## Notification Link Handling System
 
 ### Link Generation Architecture
 

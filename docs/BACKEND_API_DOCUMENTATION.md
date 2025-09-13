@@ -1348,6 +1348,11 @@ Trending Score = Base Engagement + Recency Bonus
 ## 🔍 Mention System API Details
 
 ### User Search Endpoint
+
+**Real-time User Search for Navbar Integration**
+
+The user search endpoint provides real-time user search functionality integrated into the navbar search bar. This endpoint supports autocomplete functionality with debounced queries and is optimized for responsive user interfaces.
+
 ```http
 POST /api/v1/users/search
 Content-Type: application/json
@@ -1359,18 +1364,75 @@ Authorization: Bearer <token>
 }
 ```
 
+**Request Parameters:**
+- `query` (string, required): Search query (partial username, minimum 1 character)
+- `limit` (integer, optional): Maximum number of results (1-50, default: 10)
+
+**Search Features:**
+- **Case-insensitive matching**: Searches usernames regardless of case
+- **Partial matching**: Supports prefix matching for autocomplete
+- **Self-exclusion**: Automatically excludes the current user from results
+- **Profile data**: Returns profile photos and bios for rich display
+- **Performance optimized**: Efficient database queries with proper indexing
+
 **Response:**
 ```json
 {
+  "success": true,
   "data": [
     {
       "id": 1,
       "username": "bob7",
-      "profile_image_url": "https://example.com/avatar.jpg",
-      "bio": "Grateful for every day"
+      "display_name": "Bob Johnson",
+      "profile_image_url": "/uploads/profile_photos/profile_abc123_medium.jpg",
+      "bio": "Grateful for every day and spreading positivity"
+    },
+    {
+      "id": 15,
+      "username": "bobby_grateful",
+      "display_name": "Bobby Smith",
+      "profile_image_url": null,
+      "bio": "Finding joy in small moments"
     }
   ],
+  "timestamp": "2025-01-08T10:00:00Z",
   "request_id": "req_123"
+}
+```
+
+**Frontend Integration:**
+- **Debounced Queries**: Frontend implements 300ms debounce to prevent excessive API calls
+- **Keyboard Navigation**: Results support arrow key navigation and Enter selection
+- **Profile Navigation**: Clicking results navigates to user profiles
+- **Loading States**: Proper loading and empty state handling
+- **Mobile Optimization**: Responsive dropdown positioning for mobile devices
+
+**Rate Limiting:**
+- **Authenticated Users**: 100 requests per minute
+- **Search Throttling**: Backend implements additional throttling for search-specific endpoints
+- **Abuse Prevention**: Monitoring for excessive search patterns
+
+**Error Responses:**
+```json
+// Empty query
+{
+  "success": false,
+  "error": "validation_error",
+  "message": "Query must be at least 1 character long",
+  "details": {
+    "field": "query",
+    "constraint": "min_length"
+  }
+}
+
+// Rate limit exceeded
+{
+  "success": false,
+  "error": "rate_limit_exceeded",
+  "message": "Too many search requests. Please wait before searching again.",
+  "details": {
+    "retry_after": 60
+  }
 }
 ```
 
@@ -1428,16 +1490,215 @@ Authorization: Bearer <token>
 - **Navigation Support**: Click-to-navigate from mentions to user profiles
 
 #### Backend Services
-- **UserService.search_users()**: Handles username search with filtering and pagination
+
+**User Search Service** (`apps/api/app/services/mention_service.py`):
+- **MentionService.search_users()**: Primary search method with filtering and pagination
+  - Case-insensitive username matching with ILIKE queries
+  - Automatic exclusion of current user from results
+  - Efficient database queries with proper indexing
+  - Profile data loading (display_name, bio, profile_image_url)
+  - Configurable result limits with validation
+
+**User Repository** (`apps/api/app/repositories/user_repository.py`):
+- **UserRepository.search_by_username()**: Database-level search implementation
+  - Optimized SQL queries with username prefix matching
+  - Proper JOIN operations for profile data
+  - Index utilization for performance
+  - Exclusion filtering for user lists
+
+**Navbar Integration Architecture**:
+- **Real-time Search**: Supports debounced frontend queries (300ms)
+- **Autocomplete Support**: Optimized for typeahead user interfaces
+- **Profile Navigation**: Seamless integration with user profile routing
+- **Mobile Optimization**: Responsive API design for mobile search interfaces
+
+**Additional Services**:
 - **UserService.validate_usernames_batch()**: Efficiently validates multiple usernames
 - **UserService.get_user_by_username()**: Retrieves user profile by username
 - **MentionService**: Handles mention extraction and notification creation
 
 #### Security & Performance
-- **Authentication Required**: All mention endpoints require valid JWT tokens
-- **Rate Limiting**: Search requests limited to prevent abuse
-- **Efficient Queries**: Batch validation uses single database query
-- **Input Validation**: Username format validation and sanitization
+
+**Authentication & Authorization**:
+- **JWT Required**: All search endpoints require valid authentication tokens
+- **User Context**: Search results automatically exclude the requesting user
+- **Permission Validation**: Proper authorization checks for user data access
+
+**Performance Optimizations**:
+- **Database Indexing**: Optimized indexes on username columns for fast searches
+- **Query Efficiency**: Single database queries for search operations
+- **Result Caching**: Strategic caching for frequently searched users
+- **Rate Limiting**: Configurable rate limits to prevent search abuse
+
+**Input Validation & Security**:
+- **Query Sanitization**: Proper sanitization of search queries to prevent injection
+- **Length Validation**: Minimum and maximum query length enforcement
+- **Character Filtering**: Username format validation and special character handling
+- **Abuse Prevention**: Monitoring and throttling for excessive search patterns
+
+---
+
+## Post Type Detection and Content Analysis
+
+### Intelligent Content Categorization System
+
+The backend implements an advanced content analysis system that automatically categorizes posts into three distinct types based on content characteristics:
+
+#### Content Analysis Service
+
+**Core Service** (`apps/api/app/services/content_analysis_service.py`):
+```python
+class ContentAnalysisService:
+    def analyze_content(self, content: str, has_image: bool) -> Dict[str, Any]:
+        """
+        Analyze content and determine optimal post type.
+        
+        Returns:
+            Dict containing post_type, confidence_score, word_count, and metadata
+        """
+        word_count = self._count_words(content)
+        post_type = self._determine_post_type(content, word_count, has_image)
+        confidence = self._calculate_confidence(content, word_count, has_image, post_type)
+        
+        return {
+            "post_type": post_type,
+            "confidence_score": confidence,
+            "word_count": word_count,
+            "character_count": len(content),
+            "has_image": has_image
+        }
+```
+
+#### Post Type Classification
+
+**Detection Algorithm**:
+```python
+def _determine_post_type(self, content: str, word_count: int, has_image: bool) -> PostType:
+    # Rule 1: Photo only - has image and no meaningful text content
+    if has_image and word_count == 0:
+        return PostType.photo
+    
+    # Rule 2: Short text - use word count threshold for spontaneous posts
+    if not has_image and word_count < SPONTANEOUS_WORD_THRESHOLD:  # 20 words
+        return PostType.spontaneous
+    
+    # Rule 3: All others - longer text, or any text+image combination
+    return PostType.daily
+```
+
+**Character Limits by Type**:
+- **Daily Gratitude**: 5,000 characters (thoughtful reflection)
+- **Photo Gratitude**: 0 characters (pure visual expression)
+- **Spontaneous Text**: 200 characters (quick appreciation notes)
+
+#### API Integration
+
+**Post Creation Endpoint** (`POST /api/v1/posts/`):
+- Automatic content analysis during post creation
+- Real-time type detection and validation
+- Character limit enforcement based on detected type
+- Confidence scoring for edge case handling
+
+**Content Analysis Response**:
+```json
+{
+  "post_type": "daily",
+  "confidence_score": 0.95,
+  "word_count": 45,
+  "character_count": 287,
+  "analysis_metadata": {
+    "content_category": "reflective",
+    "estimated_reading_time": "1 minute"
+  }
+}
+```
+
+#### Performance Optimizations
+
+**Efficient Analysis**:
+- O(n) word counting with regex optimization
+- Cached analysis results for repeated content
+- Minimal memory footprint for content processing
+- Fast classification rules without ML overhead
+
+**Database Integration**:
+- `post_type` field automatically populated
+- Character limits enforced at database level
+- Indexing on post_type for efficient queries
+- Migration support for existing content
+
+---
+
+## Location Management System
+
+### Location Length Optimization
+
+The backend implements intelligent location string management to ensure optimal performance and user experience:
+
+#### Location Service Enhancement
+
+**Enhanced Location Service** (`apps/api/app/services/location_service.py`):
+```python
+async def search_locations(
+    self, 
+    query: str, 
+    limit: Optional[int] = 10,
+    max_length: Optional[int] = 150
+) -> List[Dict[str, Any]]:
+    """
+    Search locations with configurable length limits.
+    
+    Args:
+        query: Search query string
+        limit: Maximum number of results (1-10)
+        max_length: Maximum display name length (50-300)
+    
+    Returns:
+        List of location results with truncated display names
+    """
+```
+
+#### API Endpoint Updates
+
+**Location Search Request Model**:
+```python
+class LocationSearchRequest(BaseModel):
+    query: str = Field(..., min_length=2, max_length=100)
+    limit: Optional[int] = Field(10, ge=1, le=10)
+    max_length: Optional[int] = Field(150, ge=50, le=300)
+```
+
+**Truncation Implementation**:
+```python
+def format_location_result(self, result: Dict, max_length: int = 150) -> Dict[str, Any]:
+    """Format location result with length constraints."""
+    display_name = result.get('display_name', '')
+    
+    if len(display_name) > max_length:
+        display_name = display_name[:max_length-3] + "..."
+    
+    return {
+        "display_name": display_name,
+        "lat": result.get('lat'),
+        "lon": result.get('lon'),
+        "place_id": result.get('place_id'),
+        "address": result.get('address', {})
+    }
+```
+
+#### Database Constraints
+
+**Migration Implementation**:
+- Added 150-character constraint to `posts.location` column
+- Automatic truncation of existing long locations during migration
+- Backward-compatible downgrade path
+- Preservation of meaningful location information
+
+**Performance Benefits**:
+- Improved indexing performance with fixed-length constraint
+- Reduced payload size for location data
+- Faster layout calculations with predictable text lengths
+- Lower memory usage for location strings
 
 ## 🔧 Test Categories Explained
 

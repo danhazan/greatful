@@ -946,6 +946,674 @@ describe('/api/posts', () => {
 })
 ```
 
+#### Navbar Component Testing
+
+**Navbar Component Tests** (`apps/web/src/tests/components/Navbar.test.tsx`):
+
+The Navbar component requires comprehensive testing due to its complex responsive behavior and integrated search functionality:
+
+```typescript
+import { render, screen, fireEvent } from '@testing-library/react'
+import { useRouter } from 'next/navigation'
+import Navbar from '@/components/Navbar'
+
+// Mock dependencies
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(),
+}))
+
+jest.mock('@/components/NotificationSystem', () => {
+  return function MockNotificationSystem({ userId }: { userId: string }) {
+    return <div data-testid="notification-system">Notifications for {userId}</div>
+  }
+})
+
+jest.mock('@/components/UserSearchBar', () => {
+  return function MockUserSearchBar({ isMobile }: { isMobile?: boolean }) {
+    return (
+      <div data-testid={isMobile ? "mobile-search" : "desktop-search"}>
+        Search Component
+      </div>
+    )
+  }
+})
+
+describe('Navbar Component', () => {
+  const mockUser = {
+    id: 'user-123',
+    name: 'John Doe',
+    username: 'johndoe',
+    email: 'john@example.com'
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(useRouter as jest.Mock).mockReturnValue({
+      push: jest.fn(),
+      back: jest.fn(),
+    })
+  })
+
+  describe('Basic Rendering', () => {
+    it('renders logo and branding correctly', () => {
+      render(<Navbar />)
+      
+      expect(screen.getByText('💜')).toBeInTheDocument()
+      expect(screen.getByText('Grateful')).toBeInTheDocument()
+    })
+
+    it('shows user-specific components when authenticated', () => {
+      render(<Navbar user={mockUser} />)
+      
+      expect(screen.getByTestId('notification-system')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Go to feed' })).toBeInTheDocument()
+    })
+
+    it('hides user-specific components when not authenticated', () => {
+      render(<Navbar />)
+      
+      expect(screen.queryByTestId('notification-system')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Go to feed' })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Search Integration', () => {
+    it('renders search component for authenticated users', () => {
+      render(<Navbar user={mockUser} />)
+      
+      // Should render both mobile and desktop search components
+      expect(screen.getByTestId('mobile-search')).toBeInTheDocument()
+      expect(screen.getByTestId('desktop-search')).toBeInTheDocument()
+    })
+
+    it('does not render search for unauthenticated users', () => {
+      render(<Navbar />)
+      
+      expect(screen.queryByTestId('mobile-search')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('desktop-search')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Navigation Behavior', () => {
+    it('navigates to feed when logo is clicked (authenticated)', () => {
+      const mockPush = jest.fn()
+      ;(useRouter as jest.Mock).mockReturnValue({ push: mockPush })
+      
+      render(<Navbar user={mockUser} />)
+      
+      const logoButton = screen.getByRole('button', { name: /go to grateful home/i })
+      fireEvent.click(logoButton)
+      
+      expect(mockPush).toHaveBeenCalledWith('/feed')
+    })
+
+    it('logo is not clickable when not authenticated', () => {
+      render(<Navbar />)
+      
+      expect(screen.queryByRole('button', { name: /go to grateful home/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Responsive Design', () => {
+    it('applies correct responsive classes', () => {
+      render(<Navbar user={mockUser} />)
+      
+      const nav = screen.getByRole('navigation')
+      expect(nav).toHaveClass('sticky', 'top-0', 'z-40')
+      expect(nav).toHaveClass('px-3', 'sm:px-4', 'py-3', 'sm:py-4')
+    })
+
+    it('ensures proper touch targets for mobile', () => {
+      render(<Navbar user={mockUser} />)
+      
+      const feedButton = screen.getByRole('button', { name: 'Go to feed' })
+      expect(feedButton).toHaveClass('min-h-[44px]', 'min-w-[44px]')
+    })
+  })
+
+  describe('Accessibility', () => {
+    it('has proper ARIA labels and navigation structure', () => {
+      render(<Navbar user={mockUser} />)
+      
+      const nav = screen.getByRole('navigation')
+      expect(nav).toHaveAttribute('aria-label', 'Main navigation')
+      
+      const feedButton = screen.getByRole('button', { name: 'Go to feed' })
+      expect(feedButton).toHaveAttribute('title', 'Feed')
+    })
+
+    it('provides proper focus management', () => {
+      render(<Navbar user={mockUser} />)
+      
+      const feedButton = screen.getByRole('button', { name: 'Go to feed' })
+      expect(feedButton).toHaveClass('focus:outline-none', 'focus:ring-2', 'focus:ring-purple-500')
+    })
+  })
+})
+```
+
+**UserSearchBar Component Tests** (`apps/web/src/tests/components/UserSearchBar.test.tsx`):
+
+```typescript
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { useRouter } from 'next/navigation'
+import UserSearchBar from '@/components/UserSearchBar'
+
+// Mock dependencies
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(),
+}))
+
+// Mock fetch for API calls
+global.fetch = jest.fn()
+
+describe('UserSearchBar Component', () => {
+  const mockPush = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(useRouter as jest.Mock).mockReturnValue({ push: mockPush })
+    ;(global.fetch as jest.Mock).mockClear()
+    
+    // Mock localStorage
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: jest.fn(() => 'mock-token'),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+      },
+      writable: true,
+    })
+  })
+
+  describe('Desktop Mode', () => {
+    it('renders search input with proper attributes', () => {
+      render(<UserSearchBar placeholder="Search users..." />)
+      
+      const input = screen.getByRole('combobox', { name: 'Search for users' })
+      expect(input).toHaveAttribute('placeholder', 'Search users...')
+      expect(input).toHaveAttribute('aria-expanded', 'false')
+      expect(input).toHaveAttribute('aria-haspopup', 'listbox')
+    })
+
+    it('shows clear button when query is entered', async () => {
+      const user = userEvent.setup()
+      render(<UserSearchBar />)
+      
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'test query')
+      
+      expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument()
+    })
+  })
+
+  describe('Mobile Mode', () => {
+    it('renders collapsed search icon initially', () => {
+      render(<UserSearchBar isMobile={true} />)
+      
+      expect(screen.getByRole('button', { name: 'Search for users' })).toBeInTheDocument()
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    })
+
+    it('expands to full input when icon is clicked', async () => {
+      const user = userEvent.setup()
+      render(<UserSearchBar isMobile={true} />)
+      
+      const searchButton = screen.getByRole('button', { name: 'Search for users' })
+      await user.click(searchButton)
+      
+      expect(screen.getByRole('combobox')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Close search' })).toBeInTheDocument()
+    })
+  })
+
+  describe('Search Functionality', () => {
+    it('performs debounced search after 300ms', async () => {
+      const mockResponse = {
+        success: true,
+        data: [
+          {
+            id: 1,
+            username: 'testuser',
+            display_name: 'Test User',
+            profile_image_url: null,
+            bio: 'Test bio'
+          }
+        ]
+      }
+      
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      })
+
+      const user = userEvent.setup()
+      render(<UserSearchBar />)
+      
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'test')
+      
+      // Wait for debounce
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/users/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer mock-token',
+          },
+          body: JSON.stringify({
+            query: 'test',
+            limit: 10
+          }),
+        })
+      }, { timeout: 500 })
+    })
+
+    it('navigates to user profile when result is clicked', async () => {
+      const mockResponse = {
+        success: true,
+        data: [
+          {
+            id: 1,
+            username: 'testuser',
+            display_name: 'Test User',
+            profile_image_url: null,
+            bio: 'Test bio'
+          }
+        ]
+      }
+      
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      })
+
+      const user = userEvent.setup()
+      render(<UserSearchBar />)
+      
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'test')
+      
+      // Wait for results
+      await waitFor(() => {
+        expect(screen.getByRole('option')).toBeInTheDocument()
+      })
+      
+      const result = screen.getByRole('option')
+      await user.click(result)
+      
+      expect(mockPush).toHaveBeenCalledWith('/profile/1')
+    })
+  })
+
+  describe('Keyboard Navigation', () => {
+    it('supports arrow key navigation through results', async () => {
+      const mockResponse = {
+        success: true,
+        data: [
+          { id: 1, username: 'user1', display_name: 'User 1' },
+          { id: 2, username: 'user2', display_name: 'User 2' }
+        ]
+      }
+      
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      })
+
+      const user = userEvent.setup()
+      render(<UserSearchBar />)
+      
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'user')
+      
+      // Wait for results
+      await waitFor(() => {
+        expect(screen.getAllByRole('option')).toHaveLength(2)
+      })
+      
+      // Test arrow key navigation
+      await user.keyboard('{ArrowDown}')
+      expect(screen.getAllByRole('option')[0]).toHaveClass('bg-purple-50')
+      
+      await user.keyboard('{ArrowDown}')
+      expect(screen.getAllByRole('option')[1]).toHaveClass('bg-purple-50')
+      
+      await user.keyboard('{Enter}')
+      expect(mockPush).toHaveBeenCalledWith('/profile/2')
+    })
+
+    it('closes dropdown on Escape key', async () => {
+      const user = userEvent.setup()
+      render(<UserSearchBar />)
+      
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'test')
+      await user.keyboard('{Escape}')
+      
+      expect(input).toHaveValue('')
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Error Handling', () => {
+    it('handles API errors gracefully', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'))
+
+      const user = userEvent.setup()
+      render(<UserSearchBar />)
+      
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'test')
+      
+      // Wait for error handling
+      await waitFor(() => {
+        expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+      })
+    })
+
+    it('shows no results message when search returns empty', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] })
+      })
+
+      const user = userEvent.setup()
+      render(<UserSearchBar />)
+      
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'nonexistent')
+      
+      await waitFor(() => {
+        expect(screen.getByText('No users found for "nonexistent"')).toBeInTheDocument()
+      })
+    })
+  })
+})
+```
+
+**Testing Best Practices for Navbar Components**:
+
+1. **Mock External Dependencies**: Always mock Next.js router, localStorage, and fetch API
+2. **Test Responsive Behavior**: Verify both mobile and desktop modes work correctly
+3. **Accessibility Testing**: Ensure proper ARIA attributes and keyboard navigation
+4. **Touch Target Validation**: Verify minimum 44px touch targets for mobile
+5. **State Management**: Test component state changes and cleanup
+6. **Error Handling**: Test network failures and edge cases
+7. **Performance**: Test debounced search and efficient re-renders
+8. **Integration**: Test interaction between navbar components
+
+---
+
+## Rich Text Editor Testing
+
+### ContentEditable Component Testing
+
+The RichTextEditor component requires specialized testing approaches due to its contentEditable nature and complex interaction patterns:
+
+#### Race Condition Prevention Testing
+
+**Typing Protection Tests** (`RichTextEditor.backwards-text.test.tsx`):
+```typescript
+describe('Race Condition Prevention', () => {
+  it('prevents content corruption during rapid typing', async () => {
+    const user = userEvent.setup()
+    const mockOnChange = jest.fn()
+    
+    render(<RichTextEditor value="" onChange={mockOnChange} />)
+    
+    const editor = screen.getByRole('textbox')
+    
+    // Simulate rapid typing
+    await user.type(editor, 'Hello world', { delay: 10 })
+    
+    // Verify content is not corrupted
+    expect(editor).toHaveTextContent('Hello world')
+    expect(mockOnChange).toHaveBeenCalledWith('Hello world')
+  })
+
+  it('respects typing flag during external updates', async () => {
+    const { rerender } = render(
+      <RichTextEditor value="initial" onChange={jest.fn()} />
+    )
+    
+    const editor = screen.getByRole('textbox')
+    
+    // Start typing to set typing flag
+    fireEvent.input(editor, { target: { textContent: 'typing...' } })
+    
+    // Attempt external update while typing
+    rerender(<RichTextEditor value="external update" onChange={jest.fn()} />)
+    
+    // Content should not be overwritten during typing
+    expect(editor).toHaveTextContent('typing...')
+  })
+})
+```
+
+#### Mention System Testing
+
+**Mention Insertion Tests**:
+```typescript
+describe('Mention System', () => {
+  it('inserts mentions using DOM range API', () => {
+    const mockOnChange = jest.fn()
+    const { result } = renderHook(() => useRichTextEditor({
+      value: '',
+      onChange: mockOnChange
+    }))
+    
+    // Mock DOM selection
+    const mockRange = {
+      deleteContents: jest.fn(),
+      insertNode: jest.fn(),
+      setStartAfter: jest.fn(),
+      collapse: jest.fn()
+    }
+    
+    Object.defineProperty(window, 'getSelection', {
+      value: () => ({ getRangeAt: () => mockRange })
+    })
+    
+    // Test mention insertion
+    result.current.insertMention('testuser', 0, 9)
+    
+    expect(mockRange.deleteContents).toHaveBeenCalled()
+    expect(mockRange.insertNode).toHaveBeenCalled()
+  })
+
+  it('handles mention insertion failures gracefully', () => {
+    // Test fallback behavior when DOM range API fails
+    Object.defineProperty(window, 'getSelection', {
+      value: () => { throw new Error('Selection failed') }
+    })
+    
+    const { result } = renderHook(() => useRichTextEditor({
+      value: '',
+      onChange: jest.fn()
+    }))
+    
+    // Should not throw error
+    expect(() => {
+      result.current.insertMention('testuser', 0, 9)
+    }).not.toThrow()
+  })
+})
+```
+
+#### Content Analysis Testing
+
+**Real-time Analysis Tests**:
+```typescript
+describe('Content Analysis Integration', () => {
+  it('analyzes content in real-time', async () => {
+    const user = userEvent.setup()
+    const mockOnAnalysis = jest.fn()
+    
+    render(
+      <RichTextEditor 
+        value="" 
+        onChange={jest.fn()} 
+        onContentAnalysis={mockOnAnalysis}
+      />
+    )
+    
+    const editor = screen.getByRole('textbox')
+    
+    // Type short content
+    await user.type(editor, 'Quick note')
+    
+    // Should detect spontaneous type
+    expect(mockOnAnalysis).toHaveBeenCalledWith({
+      type: 'spontaneous',
+      wordCount: 2,
+      characterCount: 10
+    })
+  })
+
+  it('updates character limits based on detected type', async () => {
+    const user = userEvent.setup()
+    
+    render(<CreatePostModal isOpen={true} onClose={jest.fn()} />)
+    
+    const editor = screen.getByRole('textbox')
+    
+    // Type long content to trigger daily type
+    await user.type(editor, 'This is a longer gratitude post that should be detected as daily gratitude type')
+    
+    // Should show daily gratitude character limit
+    expect(screen.getByText(/5000/)).toBeInTheDocument()
+  })
+})
+```
+
+### Testing Best Practices for Rich Text Components
+
+1. **ContentEditable Simulation**: Use proper DOM events and selection APIs
+2. **Async Behavior**: Test debounced operations and timeout cleanup
+3. **Race Condition Testing**: Verify typing protection mechanisms
+4. **DOM Manipulation**: Test range API usage and fallback behavior
+5. **Memory Management**: Verify proper cleanup of timeouts and event listeners
+6. **Cross-browser Compatibility**: Test contentEditable behavior across browsers
+
+---
+
+## Post Type Detection Testing
+
+### Content Analysis Testing Strategy
+
+Testing the post type detection system requires comprehensive coverage of classification rules and edge cases:
+
+#### Classification Logic Tests
+
+**Backend Content Analysis Tests** (`test_content_analysis_service.py`):
+```python
+class TestContentAnalysisService:
+    def test_photo_post_detection(self):
+        """Test photo post detection with image and no text."""
+        service = ContentAnalysisService()
+        result = service.analyze_content("", has_image=True)
+        
+        assert result["post_type"] == PostType.photo
+        assert result["confidence_score"] >= 0.95
+        assert result["word_count"] == 0
+
+    def test_spontaneous_post_detection(self):
+        """Test spontaneous post detection with short text."""
+        service = ContentAnalysisService()
+        content = "Grateful for coffee this morning!"
+        result = service.analyze_content(content, has_image=False)
+        
+        assert result["post_type"] == PostType.spontaneous
+        assert result["word_count"] < 20
+        assert result["confidence_score"] >= 0.8
+
+    def test_daily_post_detection(self):
+        """Test daily post detection with longer content."""
+        service = ContentAnalysisService()
+        content = "Today I'm incredibly grateful for the opportunity to spend quality time with my family and reflect on all the positive moments we've shared together this week."
+        result = service.analyze_content(content, has_image=False)
+        
+        assert result["post_type"] == PostType.daily
+        assert result["word_count"] >= 20
+        assert result["confidence_score"] >= 0.85
+
+    def test_edge_case_word_threshold(self):
+        """Test edge case at 20-word threshold."""
+        service = ContentAnalysisService()
+        # Exactly 20 words
+        content = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty"
+        result = service.analyze_content(content, has_image=False)
+        
+        # Should be classified as daily (>= 20 words)
+        assert result["post_type"] == PostType.daily
+```
+
+#### Frontend Real-time Detection Tests
+
+**CreatePostModal Analysis Tests**:
+```typescript
+describe('Real-time Post Type Detection', () => {
+  it('detects photo post type with image upload', async () => {
+    const user = userEvent.setup()
+    
+    render(<CreatePostModal isOpen={true} onClose={jest.fn()} />)
+    
+    // Upload image file
+    const fileInput = screen.getByLabelText(/upload image/i)
+    const file = new File(['image'], 'test.jpg', { type: 'image/jpeg' })
+    await user.upload(fileInput, file)
+    
+    // Should detect photo type
+    expect(screen.getByText(/photo gratitude/i)).toBeInTheDocument()
+    expect(screen.getByText(/0 characters/i)).toBeInTheDocument()
+  })
+
+  it('switches type detection based on content changes', async () => {
+    const user = userEvent.setup()
+    
+    render(<CreatePostModal isOpen={true} onClose={jest.fn()} />)
+    
+    const editor = screen.getByRole('textbox')
+    
+    // Start with short content (spontaneous)
+    await user.type(editor, 'Quick note')
+    expect(screen.getByText(/spontaneous/i)).toBeInTheDocument()
+    
+    // Add more content (daily)
+    await user.type(editor, ' about how grateful I am for this beautiful day and all the wonderful opportunities it brings')
+    expect(screen.getByText(/daily gratitude/i)).toBeInTheDocument()
+  })
+
+  it('shows appropriate character limits for each type', async () => {
+    const user = userEvent.setup()
+    
+    render(<CreatePostModal isOpen={true} onClose={jest.fn()} />)
+    
+    const editor = screen.getByRole('textbox')
+    
+    // Spontaneous type
+    await user.type(editor, 'Short')
+    expect(screen.getByText(/200/)).toBeInTheDocument()
+    
+    // Clear and type longer content for daily type
+    await user.clear(editor)
+    await user.type(editor, 'This is a much longer piece of content that should trigger daily gratitude detection')
+    expect(screen.getByText(/5000/)).toBeInTheDocument()
+  })
+})
+```
+
+### Testing Best Practices for Content Analysis
+
+1. **Boundary Testing**: Test edge cases at word count thresholds
+2. **Real-time Updates**: Verify analysis updates as content changes
+3. **Performance Testing**: Ensure analysis doesn't impact typing performance
+4. **Character Limit Validation**: Test enforcement of type-specific limits
+5. **Confidence Scoring**: Validate confidence calculations for edge cases
+6. **Cross-platform Consistency**: Ensure same results on frontend and backend
+
 ## Test Configuration
 
 ### Backend Test Setup
