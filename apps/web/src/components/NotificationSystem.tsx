@@ -6,6 +6,7 @@ import { X } from "lucide-react"
 import { handleNotificationClick } from "@/utils/notificationLinks"
 import { parseNotificationMessage, formatNotificationWithClickableUser, formatNotificationWithEnhancedData } from "@/utils/notificationMessageParser"
 import ClickableProfilePicture from "@/components/ClickableProfilePicture"
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 
 interface Notification {
   id: string
@@ -44,10 +45,38 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
   const [batchChildren, setBatchChildren] = useState<Record<string, Notification[]>>({})
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [selectedIndex, setSelectedIndex] = useState(0)
 
 
 
 
+
+  // Handle keyboard navigation for notifications
+  const { setItemRef } = useKeyboardNavigation({
+    isOpen: showNotifications,
+    itemCount: notifications.length,
+    selectedIndex,
+    onIndexChange: setSelectedIndex,
+    onSelect: () => {
+      if (notifications[selectedIndex]) {
+        handleNotificationClick(notifications[selectedIndex], {
+          markAsRead,
+          toggleBatchExpansion,
+          navigate: (url: string) => router.push(url),
+          closeDropdown: () => setShowNotifications(false)
+        })
+      }
+    },
+    onClose: () => setShowNotifications(false),
+    scrollBehavior: 'smooth'
+  })
+
+  // Reset selected index when dropdown opens
+  useEffect(() => {
+    if (showNotifications) {
+      setSelectedIndex(0)
+    }
+  }, [showNotifications])
 
   // Update current time every minute for live relative time updates
   useEffect(() => {
@@ -309,6 +338,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
             {/* Notifications List */}
             <div 
+              data-notifications-list
               className="max-h-[50vh] sm:max-h-80 overflow-y-auto custom-scrollbar"
               role="list"
               aria-label="Notification items"
@@ -321,13 +351,15 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {Array.isArray(notifications) && notifications.map((notification) => (
+                  {Array.isArray(notifications) && notifications.map((notification, index) => (
                     <div key={notification.id}>
                       {/* Main notification */}
                       <div
+                        ref={setItemRef(index)}
+                        data-notification-item
                         className={`p-4 sm:p-5 hover:bg-gray-50 cursor-pointer transition-colors min-h-[60px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
                           !notification.read ? 'bg-purple-50' : ''
-                        }`}
+                        } ${index === selectedIndex ? 'bg-gray-100' : ''}`}
                         onClick={() => {
                           handleNotificationClick(notification, {
                             markAsRead,
@@ -336,6 +368,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                             closeDropdown: () => setShowNotifications(false)
                           })
                         }}
+                        onMouseEnter={() => setSelectedIndex(index)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault()

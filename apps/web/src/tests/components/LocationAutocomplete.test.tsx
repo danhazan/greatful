@@ -49,7 +49,7 @@ describe('LocationAutocomplete', () => {
       />
     )
 
-    const input = screen.getByRole('textbox')
+    const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'New York' } })
 
     expect(mockOnChange).toHaveBeenCalledWith('New York')
@@ -71,7 +71,7 @@ describe('LocationAutocomplete', () => {
       />
     )
 
-    const input = screen.getByRole('textbox')
+    const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'New York' } })
 
     // Wait for debounce and loading state
@@ -108,7 +108,7 @@ describe('LocationAutocomplete', () => {
       />
     )
 
-    const input = screen.getByRole('textbox')
+    const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'New York' } })
 
     await waitFor(() => {
@@ -142,15 +142,15 @@ describe('LocationAutocomplete', () => {
       />
     )
 
-    const input = screen.getByRole('textbox')
+    const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'New York' } })
 
     await waitFor(() => {
       expect(screen.getAllByText('New York, NY, USA')).toHaveLength(2)
     })
 
-    // Click the button containing the result
-    const resultButton = screen.getByRole('button', { name: /new york/i })
+    // Click the option containing the result
+    const resultButton = screen.getByRole('option', { name: /new york/i })
     fireEvent.click(resultButton)
 
     expect(mockOnLocationSelect).toHaveBeenCalledWith(mockResult)
@@ -215,7 +215,7 @@ describe('LocationAutocomplete', () => {
       />
     )
 
-    const input = screen.getByRole('textbox')
+    const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'New' } })
 
     await waitFor(() => {
@@ -240,7 +240,7 @@ describe('LocationAutocomplete', () => {
       />
     )
 
-    const input = screen.getByRole('textbox')
+    const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'New York' } })
 
     await waitFor(() => {
@@ -257,7 +257,7 @@ describe('LocationAutocomplete', () => {
       />
     )
 
-    const input = screen.getByRole('textbox')
+    const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'N' } })
 
     // Should not make API call
@@ -274,7 +274,7 @@ describe('LocationAutocomplete', () => {
       />
     )
 
-    const input = screen.getByRole('textbox')
+    const input = screen.getByRole('combobox')
     expect(input).toBeDisabled()
   })
 })

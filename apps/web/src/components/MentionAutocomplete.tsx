@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
 import { getImageUrl } from '@/utils/imageUtils'
 import ProfilePhotoDisplay from './ProfilePhotoDisplay'
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 // UserInfo type defined locally
 interface UserInfo {
   id: number
@@ -138,36 +139,20 @@ export default function MentionAutocomplete({
     }
   }, [searchQuery, isOpen, debouncedSearch])
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isOpen || users.length === 0) return
-
-      switch (event.key) {
-        case 'ArrowDown':
-          event.preventDefault()
-          setSelectedIndex(prev => (prev + 1) % users.length)
-          break
-        case 'ArrowUp':
-          event.preventDefault()
-          setSelectedIndex(prev => (prev - 1 + users.length) % users.length)
-          break
-        case 'Enter':
-          event.preventDefault()
-          if (users[selectedIndex]) {
-            handleUserSelect(users[selectedIndex])
-          }
-          break
-        case 'Escape':
-          event.preventDefault()
-          onClose()
-          break
+  // Handle keyboard navigation with scrolling
+  const { setItemRef } = useKeyboardNavigation({
+    isOpen,
+    itemCount: users.length,
+    selectedIndex,
+    onIndexChange: setSelectedIndex,
+    onSelect: () => {
+      if (users[selectedIndex]) {
+        handleUserSelect(users[selectedIndex])
       }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, users, selectedIndex, onClose])
+    },
+    onClose,
+    scrollBehavior: 'smooth'
+  })
 
   // Handle click outside to close
   useEffect(() => {
@@ -231,6 +216,7 @@ export default function MentionAutocomplete({
           {users.map((user, index) => (
             <button
               key={user.id}
+              ref={setItemRef(index)}
               type="button"
               role="option"
               aria-selected={index === selectedIndex}

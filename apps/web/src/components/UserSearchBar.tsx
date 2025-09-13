@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
 import ProfilePhotoDisplay from './ProfilePhotoDisplay'
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 
 interface UserSearchResult {
   id: number
@@ -38,8 +39,6 @@ export default function UserSearchBar({
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
-  const resultRefs = useRef<(HTMLButtonElement | null)[]>([])
-
   // Debounced search function
   const debouncedSearch = useCallback(
     async (query: string) => {
@@ -151,7 +150,6 @@ export default function UserSearchBar({
     setUsers([])
     setSelectedIndex(0)
     setHasSearched(false)
-    resultRefs.current = []
     inputRef.current?.blur()
   }, [router])
 
@@ -162,50 +160,23 @@ export default function UserSearchBar({
     setSelectedIndex(0)
     setHasSearched(false)
     setIsExpanded(false)
-    resultRefs.current = []
     inputRef.current?.blur()
   }, [])
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isDropdownOpen || users.length === 0) return
-
-      switch (event.key) {
-        case 'ArrowDown':
-          event.preventDefault()
-          setSelectedIndex(prev => (prev + 1) % users.length)
-          break
-        case 'ArrowUp':
-          event.preventDefault()
-          setSelectedIndex(prev => (prev - 1 + users.length) % users.length)
-          break
-        case 'Enter':
-          event.preventDefault()
-          if (users[selectedIndex]) {
-            handleUserSelect(users[selectedIndex])
-          }
-          break
-        case 'Escape':
-          event.preventDefault()
-          handleClose()
-          break
+  // Handle keyboard navigation with scrolling
+  const { setItemRef } = useKeyboardNavigation({
+    isOpen: isDropdownOpen,
+    itemCount: users.length,
+    selectedIndex,
+    onIndexChange: setSelectedIndex,
+    onSelect: () => {
+      if (users[selectedIndex]) {
+        handleUserSelect(users[selectedIndex])
       }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isDropdownOpen, users, selectedIndex, handleUserSelect, handleClose])
-
-  // Scroll selected item into view when selectedIndex changes
-  useEffect(() => {
-    if (selectedIndex >= 0 && resultRefs.current[selectedIndex]) {
-      resultRefs.current[selectedIndex]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      })
-    }
-  }, [selectedIndex])
+    },
+    onClose: handleClose,
+    scrollBehavior: 'smooth'
+  })
 
   // Handle click outside to close
   useEffect(() => {
@@ -263,7 +234,6 @@ export default function UserSearchBar({
     setIsDropdownOpen(false)
     setSelectedIndex(0)
     setHasSearched(false)
-    resultRefs.current = []
     if (isMobile) {
       setIsExpanded(false)
       inputRef.current?.blur()
@@ -392,9 +362,7 @@ export default function UserSearchBar({
               {users.map((user, index) => (
                 <button
                   key={user.id}
-                  ref={(el) => {
-                    resultRefs.current[index] = el
-                  }}
+                  ref={setItemRef(index)}
                   type="button"
                   role="option"
                   aria-selected={index === selectedIndex}

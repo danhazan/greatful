@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import UserAvatar from "./UserAvatar"
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 
 interface ProfileDropdownProps {
   user: {
@@ -31,6 +32,13 @@ export default function ProfileDropdown({
 }: ProfileDropdownProps) {
   const router = useRouter()
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  // Menu items for keyboard navigation
+  const menuItems = [
+    { label: 'Profile', action: () => handleProfileClick() },
+    { label: 'Logout', action: () => handleLogoutClick() }
+  ]
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -46,21 +54,25 @@ export default function ProfileDropdown({
     }
   }, [isOpen, onClose])
 
-  // Handle keyboard navigation
+  // Handle keyboard navigation with scrolling
+  const { setItemRef } = useKeyboardNavigation({
+    isOpen,
+    itemCount: menuItems.length,
+    selectedIndex,
+    onIndexChange: setSelectedIndex,
+    onSelect: () => {
+      menuItems[selectedIndex]?.action()
+    },
+    onClose,
+    scrollBehavior: 'smooth'
+  })
+
+  // Reset selected index when dropdown opens
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isOpen) return
-
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-
     if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
+      setSelectedIndex(0)
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   const handleProfileClick = () => {
     router.push('/profile')
@@ -86,6 +98,7 @@ export default function ProfileDropdown({
       {/* Dropdown Menu - Responsive for both desktop and mobile */}
       {isOpen && (
         <div
+          data-profile-dropdown
           className="absolute right-0 top-full mt-2 w-48 sm:w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-w-[calc(100vw-16px)] sm:max-w-[calc(100vw-32px)]"
           style={{
             right: '0',
@@ -100,8 +113,13 @@ export default function ProfileDropdown({
         >
           {/* User Info Header - Clickable to go to profile */}
           <button
+            ref={setItemRef(0)}
             onClick={handleProfileClick}
-            className="w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 active:bg-purple-100 transition-colors focus:outline-none focus:bg-purple-50 min-h-[44px] touch-manipulation"
+            onMouseEnter={() => setSelectedIndex(0)}
+            role="menuitem"
+            className={`w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 active:bg-purple-100 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] touch-manipulation ${
+              selectedIndex === 0 ? 'bg-purple-50' : ''
+            }`}
             aria-label="Go to profile page"
           >
             <div className="flex items-center space-x-3">
@@ -120,8 +138,12 @@ export default function ProfileDropdown({
           {/* Menu Items */}
           <div className="py-1">
             <button
+              ref={setItemRef(1)}
               onClick={handleLogoutClick}
-              className="w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 active:bg-purple-100 active:text-purple-800 transition-colors focus:outline-none focus:bg-purple-50 focus:text-purple-700 min-h-[44px] sm:min-h-auto touch-manipulation"
+              onMouseEnter={() => setSelectedIndex(1)}
+              className={`w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 active:bg-purple-100 active:text-purple-800 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] sm:min-h-auto touch-manipulation ${
+                selectedIndex === 1 ? 'bg-purple-50 text-purple-700' : ''
+              }`}
               role="menuitem"
               aria-label="Log out of account"
             >

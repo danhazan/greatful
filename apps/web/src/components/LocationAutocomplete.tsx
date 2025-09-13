@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { MapPin, X, Loader2 } from "lucide-react"
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 
 interface LocationResult {
   display_name: string
@@ -160,41 +161,30 @@ export default function LocationAutocomplete({
     inputRef.current?.focus()
   }
 
-  // Handle keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen || results.length === 0) {
-      if (e.key === 'Escape') {
-        setIsOpen(false)
-        setSelectedIndex(-1)
+  // Handle keyboard navigation with scrolling
+  const { setItemRef } = useKeyboardNavigation({
+    isOpen: isOpen && results.length > 0,
+    itemCount: results.length,
+    selectedIndex,
+    onIndexChange: setSelectedIndex,
+    onSelect: () => {
+      if (selectedIndex >= 0 && selectedIndex < results.length) {
+        handleLocationSelect(results[selectedIndex])
       }
-      return
-    }
+    },
+    onClose: () => {
+      setIsOpen(false)
+      setSelectedIndex(-1)
+      inputRef.current?.blur()
+    },
+    scrollBehavior: 'smooth'
+  })
 
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setSelectedIndex(prev => 
-          prev < results.length - 1 ? prev + 1 : 0
-        )
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : results.length - 1
-        )
-        break
-      case 'Enter':
-        e.preventDefault()
-        if (selectedIndex >= 0 && selectedIndex < results.length) {
-          handleLocationSelect(results[selectedIndex])
-        }
-        break
-      case 'Escape':
-        e.preventDefault()
-        setIsOpen(false)
-        setSelectedIndex(-1)
-        inputRef.current?.blur()
-        break
+  // Handle keyboard navigation for input field
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Let the useKeyboardNavigation hook handle navigation keys
+    if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Home', 'End'].includes(e.key)) {
+      return
     }
   }
 
@@ -236,6 +226,10 @@ export default function LocationAutocomplete({
         <input
           ref={inputRef}
           type="text"
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -286,21 +280,29 @@ export default function LocationAutocomplete({
       {isOpen && (results.length > 0 || isLoading) && (
         <div
           ref={dropdownRef}
+          data-location-dropdown
+          role="listbox"
+          aria-label="Location search results"
           className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
         >
           {results.map((location, index) => (
             <button
               key={`${location.place_id}-${index}`}
+              ref={setItemRef(index)}
               type="button"
+              role="option"
+              aria-selected={index === selectedIndex}
               onMouseDown={() => {
                 isSelectingRef.current = true
               }}
               onClick={() => handleLocationSelect(location)}
+              onMouseEnter={() => setSelectedIndex(index)}
               className={`
                 w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors
-                border-b border-gray-100 last:border-b-0
+                border-b border-gray-100 last:border-b-0 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset
                 ${index === selectedIndex ? 'bg-purple-50 text-purple-700' : 'text-gray-900'}
               `}
+              aria-label={`Select location: ${location.display_name}`}
             >
               <div className="flex items-start space-x-3">
                 <MapPin className={`h-4 w-4 mt-0.5 flex-shrink-0 ${

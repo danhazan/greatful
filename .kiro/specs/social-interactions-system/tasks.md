@@ -641,7 +641,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Test layout consistency across feed, profile, and individual post pages
   - _Requirements: Consistent PostCard width for better visual hierarchy_
 
-- [ ] **14.9 Fix User Dropdown Menu Keyboard Navigation** - Improve accessibility for dropdown menus
+- [x] **14.9 Fix User Dropdown Menu Keyboard Navigation** - Improve accessibility for dropdown menus
   - Update all user dropdown menus to scroll down when navigating with keyboard
   - Ensure proper focus management and scroll behavior for arrow key navigation
   - Test keyboard navigation in user search autocomplete, mention autocomplete, and share modal user selection
@@ -657,6 +657,65 @@ The implementation maintains consistency with the reference implementation's pur
   - Maintain proper touch targets (44px minimum) for mobile interaction
   - Fix any icon overflow or wrapping issues on smaller screens
   - _Requirements: PostCard toolbar should display consistently with proper icon alignment on all devices_
+
+- [ ] **14.11 Implement RTL Language Support** - Add Hebrew and RTL language support with proper text alignment
+  - **14.11.1 Text Direction Detection and Layout**
+    - Implement automatic text direction detection for Hebrew, Arabic, and other RTL languages
+    - Add `dir="rtl"` attribute to content containers when RTL text is detected
+    - Create utility function to detect RTL characters using Unicode ranges (Hebrew: \u0590-\u05FF, Arabic: \u0600-\u06FF)
+    - Update PostCard component to handle mixed LTR/RTL content properly
+    - Ensure proper text alignment: RTL text aligns right, LTR text aligns left
+  - **14.11.2 UI Component RTL Adaptation**
+    - Update RichTextEditor component to support RTL text input and display
+    - Modify mention autocomplete positioning for RTL text contexts
+    - Ensure emoji picker and reaction viewer work correctly with RTL layouts
+    - Update notification system to handle RTL usernames and content
+    - Adapt share modal and user search components for RTL text
+  - **14.11.3 CSS and Styling Updates**
+    - Add CSS logical properties (margin-inline-start/end) instead of left/right margins
+    - Update Tailwind classes to use RTL-aware utilities (ms-*, me-* instead of ml-*, mr-*)
+    - Ensure proper icon positioning and spacing in RTL contexts
+    - Test button layouts and form elements with RTL text
+    - Maintain consistent purple theme and branding across RTL layouts
+  - **14.11.4 Mixed Content Handling**
+    - Handle posts with mixed Hebrew/English content properly
+    - Ensure mentions (@username) work correctly in RTL text
+    - Maintain proper text flow for mixed-direction content
+    - Test character limits and text validation with RTL characters
+    - Ensure proper cursor positioning in RTL text editing
+  - **14.11.5 Testing and Validation**
+    - Create comprehensive test cases for Hebrew text input and display
+    - Test all social interactions (likes, reactions, shares, mentions) with RTL content
+    - Validate proper text alignment across all components and pages
+    - Test mobile responsiveness with RTL text on various screen sizes
+    - Ensure accessibility compliance for RTL text with screen readers
+  - **Test Execution:** Run frontend tests (`npm test`) to verify RTL support doesn't break existing functionality. Test Hebrew text input in post creation, mentions, and user profiles. Verify proper text alignment and layout across all components.
+  - _Requirements: Full support for Hebrew and RTL languages with proper text alignment, mixed content handling, and consistent UI behavior across all social features_
+
+- [ ] **14.12 Fix HTML Entity Display in Posts** - Remove unwanted HTML entities from post content
+  - **Problem Analysis:** Posts are displaying `&nbsp;` instead of proper spaces, likely due to HTML entity encoding during content processing
+  - **Root Cause Investigation:**
+    - Check RichTextEditor content serialization and HTML generation
+    - Investigate content sanitization in post creation pipeline
+    - Examine how contentEditable innerHTML is processed and stored
+    - Review mention insertion and HTML manipulation that might introduce entities
+  - **Content Processing Fixes:**
+    - Update post content sanitization to decode HTML entities before storage
+    - Ensure RichTextEditor properly handles spaces without converting to `&nbsp;`
+    - Fix mention insertion logic to avoid HTML entity creation
+    - Add content cleaning utility to remove unwanted HTML entities
+  - **Display and Rendering Fixes:**
+    - Update PostCard content rendering to handle HTML entities properly
+    - Ensure proper text display in all post contexts (feed, profile, individual post)
+    - Fix content preview generation to avoid HTML entity leakage
+    - Test content display with various special characters and spaces
+  - **Testing and Validation:**
+    - Test post creation with Hebrew text and mixed content
+    - Verify no HTML entities appear in published posts
+    - Test mention insertion doesn't introduce unwanted entities
+    - Validate content display across all post types and contexts
+  - **Test Execution:** Run frontend tests to verify content processing fixes. Create posts with Hebrew text, mentions, and special characters to ensure clean display without HTML entities.
+  - _Requirements: Post content should display clean text without visible HTML entities like &nbsp; in any context_
 
 
 ### **TASK 15: MVP Production Readiness**
