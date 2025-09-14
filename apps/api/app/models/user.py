@@ -28,6 +28,9 @@ class User(Base):
     location = Column(JSON, nullable=True)  # For structured location data from Nominatim
     profile_photo_filename = Column(String(255), nullable=True, index=True)
     profile_preferences = Column(JSON, nullable=True)
+    
+    # Feed refresh mechanism
+    last_feed_view = Column(DateTime(timezone=True), nullable=True, index=True)
 
     @classmethod
     async def get_by_email(cls, db: AsyncSession, email: str):

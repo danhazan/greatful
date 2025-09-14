@@ -151,7 +151,8 @@ class AlgorithmService(BaseService):
         hearts_count: Optional[int] = None,
         reactions_count: Optional[int] = None,
         shares_count: Optional[int] = None,
-        consider_read_status: bool = True
+        consider_read_status: bool = True,
+        user_last_feed_view: Optional[datetime] = None
     ) -> float:
         """
         Calculate engagement score for a post.
@@ -217,22 +218,43 @@ class AlgorithmService(BaseService):
             if follow_result.scalar_one_or_none():
                 relationship_multiplier = self.config.follow_bonuses.base_multiplier
 
-        # Apply read status penalty if enabled and user_id provided
-        read_status_multiplier = 1.0
-        if consider_read_status and user_id and self.is_post_read(user_id, post.id):
-            # Use configurable unread boost as inverse penalty for read posts
-            unread_boost = self.config.scoring_weights.unread_boost
-            read_status_multiplier = 1.0 / unread_boost  # Inverse of unread boost
-            logger.debug(f"Applied read status penalty to post {post.id}: {read_status_multiplier:.2f}")
+        # Apply unread boost or read status penalty
+        unread_multiplier = 1.0
+        if consider_read_status and user_id:
+            # Check if post is unread based on last_feed_view timestamp
+            is_unread_by_timestamp = False
+            if user_last_feed_view and post.created_at:
+                # Handle timezone-aware comparison
+                post_created_at = post.created_at
+                if post_created_at.tzinfo is None:
+                    post_created_at = post_created_at.replace(tzinfo=timezone.utc)
+                
+                user_feed_view = user_last_feed_view
+                if user_feed_view.tzinfo is None:
+                    user_feed_view = user_feed_view.replace(tzinfo=timezone.utc)
+                
+                is_unread_by_timestamp = post_created_at > user_feed_view
+            
+            # Check session-based read status
+            is_read_in_session = self.is_post_read(user_id, post.id)
+            
+            # Apply unread boost if post is unread by timestamp and not read in session
+            if is_unread_by_timestamp and not is_read_in_session:
+                unread_multiplier = self.config.scoring_weights.unread_boost
+                logger.debug(f"Applied unread boost to post {post.id}: {unread_multiplier:.2f}")
+            elif is_read_in_session:
+                # Apply read penalty for session-read posts
+                unread_multiplier = 1.0 / self.config.scoring_weights.unread_boost
+                logger.debug(f"Applied read status penalty to post {post.id}: {unread_multiplier:.2f}")
 
         # Calculate final score
-        final_score = (base_score + content_bonus) * relationship_multiplier * read_status_multiplier
+        final_score = (base_score + content_bonus) * relationship_multiplier * unread_multiplier
         
         logger.debug(
             f"Post {post.id} score calculation: "
             f"base={base_score:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}), "
             f"content_bonus={content_bonus:.2f}, relationship_multiplier={relationship_multiplier:.2f}, "
-            f"read_status_multiplier={read_status_multiplier:.2f}, final={final_score:.2f}"
+            f"unread_multiplier={unread_multiplier:.2f}, final={final_score:.2f}"
         )
         
         return final_score
@@ -243,7 +265,8 @@ class AlgorithmService(BaseService):
         limit: int = 20, 
         offset: int = 0,
         algorithm_enabled: bool = True,
-        consider_read_status: bool = True
+        consider_read_status: bool = True,
+        refresh_mode: bool = False
     ) -> Tuple[List[Dict[str, Any]], int]:
         """
         Get personalized feed with algorithm-based ranking.
@@ -254,31 +277,61 @@ class AlgorithmService(BaseService):
             offset: Number of posts to skip for pagination
             algorithm_enabled: Whether to use algorithm scoring (80/20 split) or just recency
             consider_read_status: Whether to deprioritize already-read posts
+            refresh_mode: Whether to prioritize unread posts for refresh (default: False)
             
         Returns:
             Tuple[List[Dict[str, Any]], int]: (posts with scores, total_count)
         """
+        # Get user's last feed view timestamp for unread detection
+        user_last_feed_view = None
+        if consider_read_status:
+            user = await self.get_by_id(User, user_id)
+            if user:
+                user_last_feed_view = user.last_feed_view
+
         if not algorithm_enabled:
             # Fallback to simple recency-based feed
-            return await self._get_recent_feed(user_id, limit, offset, consider_read_status)
+            return await self._get_recent_feed(user_id, limit, offset, consider_read_status, user_last_feed_view)
 
-        # Calculate 80/20 split
-        algorithm_limit = int(limit * 0.8)
-        recent_limit = limit - algorithm_limit
+        # In refresh mode, prioritize unread posts
+        if refresh_mode:
+            # Get unread posts first, then fill with algorithm-scored posts
+            unread_posts = await self._get_unread_posts(
+                user_id, limit, offset, user_last_feed_view, consider_read_status
+            )
+            
+            # If we have enough unread posts, return them
+            if len(unread_posts) >= limit:
+                combined_posts = unread_posts[:limit]
+            else:
+                # Fill remaining slots with algorithm-scored posts
+                remaining_limit = limit - len(unread_posts)
+                unread_post_ids = {post['id'] for post in unread_posts}
+                
+                algorithm_posts = await self._get_algorithm_scored_posts(
+                    user_id, remaining_limit, 0, consider_read_status, user_last_feed_view, unread_post_ids
+                )
+                
+                combined_posts = unread_posts + algorithm_posts
+        else:
+            # Calculate 80/20 split for normal mode
+            algorithm_limit = int(limit * 0.8)
+            recent_limit = limit - algorithm_limit
 
-        # Get algorithm-scored posts (80%)
-        algorithm_posts = await self._get_algorithm_scored_posts(
-            user_id, algorithm_limit, offset, consider_read_status
-        )
+            # Get algorithm-scored posts (80%)
+            algorithm_posts = await self._get_algorithm_scored_posts(
+                user_id, algorithm_limit, offset, consider_read_status, user_last_feed_view
+            )
 
-        # Get recent posts (20%) - exclude posts already in algorithm results
-        algorithm_post_ids = {post['id'] for post in algorithm_posts}
-        recent_posts = await self._get_recent_posts_excluding(
-            user_id, recent_limit, 0, algorithm_post_ids, consider_read_status
-        )
+            # Get recent posts (20%) - exclude posts already in algorithm results
+            algorithm_post_ids = {post['id'] for post in algorithm_posts}
+            recent_posts = await self._get_recent_posts_excluding(
+                user_id, recent_limit, 0, algorithm_post_ids, consider_read_status, user_last_feed_view
+            )
+            
+            combined_posts = algorithm_posts + recent_posts
 
-        # Combine and return
-        combined_posts = algorithm_posts + recent_posts
+
         
         # Get total count for pagination
         total_count_result = await self.db.execute(
@@ -288,7 +341,7 @@ class AlgorithmService(BaseService):
 
         logger.debug(
             f"Generated personalized feed for user {user_id}: "
-            f"{len(algorithm_posts)} algorithm posts, {len(recent_posts)} recent posts, "
+            f"{len(combined_posts)} total posts, "
             f"total available: {total_count}"
         )
 
@@ -299,12 +352,18 @@ class AlgorithmService(BaseService):
         user_id: int, 
         limit: int, 
         offset: int,
-        consider_read_status: bool = True
+        consider_read_status: bool = True,
+        user_last_feed_view: Optional[datetime] = None,
+        exclude_ids: Optional[set] = None
     ) -> List[Dict[str, Any]]:
         """Get posts ranked by algorithm score."""
-        # Get all public posts first
+        # Get all public posts first, excluding specified IDs
+        conditions = [Post.is_public == True]
+        if exclude_ids:
+            conditions.append(~Post.id.in_(exclude_ids))
+        
         query = select(Post).where(
-            Post.is_public == True
+            and_(*conditions)
         ).options(
             selectinload(Post.author)
         )
@@ -332,7 +391,7 @@ class AlgorithmService(BaseService):
             shares_count = shares_result.scalar() or 0
 
             score = await self.calculate_post_score(
-                post, user_id, hearts_count, reactions_count, shares_count, consider_read_status
+                post, user_id, hearts_count, reactions_count, shares_count, consider_read_status, user_last_feed_view
             )
 
             scored_posts.append({
@@ -375,7 +434,8 @@ class AlgorithmService(BaseService):
         limit: int, 
         offset: int, 
         exclude_ids: set,
-        consider_read_status: bool = True
+        consider_read_status: bool = True,
+        user_last_feed_view: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
         """Get recent posts excluding specified IDs."""
         query = select(Post).where(
@@ -443,10 +503,11 @@ class AlgorithmService(BaseService):
         user_id: int, 
         limit: int, 
         offset: int,
-        consider_read_status: bool = True
+        consider_read_status: bool = True,
+        user_last_feed_view: Optional[datetime] = None
     ) -> Tuple[List[Dict[str, Any]], int]:
         """Get simple recency-based feed (fallback when algorithm is disabled)."""
-        recent_posts = await self._get_recent_posts_excluding(user_id, limit, offset, set(), consider_read_status)
+        recent_posts = await self._get_recent_posts_excluding(user_id, limit, offset, set(), consider_read_status, user_last_feed_view)
         
         # Get total count
         total_count_result = await self.db.execute(
@@ -455,6 +516,98 @@ class AlgorithmService(BaseService):
         total_count = total_count_result.scalar() or 0
 
         return recent_posts, total_count
+
+    async def _get_unread_posts(
+        self, 
+        user_id: int, 
+        limit: int, 
+        offset: int,
+        user_last_feed_view: Optional[datetime],
+        consider_read_status: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Get posts that are unread based on user's last feed view timestamp."""
+        if not user_last_feed_view:
+            # If no last feed view, all posts are considered "unread"
+            return await self._get_recent_posts_excluding(user_id, limit, offset, set(), consider_read_status, user_last_feed_view)
+        
+        # Get posts created after user's last feed view
+        query = select(Post).where(
+            and_(
+                Post.is_public == True,
+                Post.created_at > user_last_feed_view
+            )
+        ).order_by(Post.created_at.desc()).options(
+            selectinload(Post.author)
+        ).limit(limit).offset(offset)
+
+        result = await self.db.execute(query)
+        posts = result.scalars().all()
+
+        # Convert to dict format with engagement counts and unread boost
+        unread_posts = []
+        for post in posts:
+            # Get engagement counts
+            hearts_result = await self.db.execute(
+                select(func.count(Like.id)).where(Like.post_id == post.id)
+            )
+            hearts_count = hearts_result.scalar() or 0
+
+            reactions_result = await self.db.execute(
+                select(func.count(EmojiReaction.id)).where(EmojiReaction.post_id == post.id)
+            )
+            reactions_count = reactions_result.scalar() or 0
+
+            shares_result = await self.db.execute(
+                select(func.count(Share.id)).where(Share.post_id == post.id)
+            )
+            shares_count = shares_result.scalar() or 0
+
+            # Calculate score with unread boost
+            score = await self.calculate_post_score(
+                post, user_id, hearts_count, reactions_count, shares_count, consider_read_status, user_last_feed_view
+            )
+
+            unread_posts.append({
+                'id': post.id,
+                'author_id': post.author_id,
+                'content': post.content,
+                'post_style': post.post_style,
+                'post_type': post.post_type.value,
+                'image_url': post.image_url,
+                'location': post.location,
+                'location_data': post.location_data,
+                'is_public': post.is_public,
+                'created_at': post.created_at.isoformat() if post.created_at else None,
+                'updated_at': post.updated_at.isoformat() if post.updated_at else None,
+                'author': {
+                    'id': post.author.id,
+                    'username': post.author.username,
+                    'display_name': post.author.display_name,
+                    'name': post.author.display_name or post.author.username,
+                    'email': post.author.email,
+                    'profile_image_url': post.author.profile_image_url
+                } if post.author else None,
+                'hearts_count': hearts_count,
+                'reactions_count': reactions_count,
+                'shares_count': shares_count,
+                'algorithm_score': score,
+                'is_read': False,  # These are unread by definition
+                'is_unread': True  # Mark as unread for frontend
+            })
+
+        # Sort by algorithm score (which includes unread boost)
+        unread_posts.sort(key=lambda x: x['algorithm_score'], reverse=True)
+        
+        logger.debug(f"Found {len(unread_posts)} unread posts for user {user_id} since {user_last_feed_view}")
+        return unread_posts
+
+    async def update_user_last_feed_view(self, user_id: int) -> None:
+        """Update user's last feed view timestamp to current time."""
+        user = await self.get_by_id_or_404(User, user_id, "User")
+        current_time = datetime.now(timezone.utc)
+        user.last_feed_view = current_time
+        await self.db.commit()
+        logger.debug(f"Updated last_feed_view for user {user_id} to {current_time}")
 
     async def update_post_scores_batch(self, post_ids: List[str]) -> Dict[str, float]:
         """

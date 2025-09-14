@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Heart, Plus } from "lucide-react"
+import { Heart, Plus, RefreshCw } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 import { normalizePostFromApi } from "@/utils/normalizePost"
@@ -55,6 +55,8 @@ interface Post {
   isHearted: boolean
   reactionsCount: number
   currentUserReaction?: string
+  isRead?: boolean
+  isUnread?: boolean
 }
 
 export default function FeedPage() {
@@ -66,12 +68,19 @@ export default function FeedPage() {
   const [isCreatingPost, setIsCreatingPost] = useState(false)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Load posts from API - server is authoritative for all data
-  const loadPosts = async (token: string) => {
+  const loadPosts = async (token: string, refresh: boolean = false) => {
     try {
       setError(null)
-      const response = await fetch('/api/posts', {
+      const queryParams = new URLSearchParams()
+      if (refresh) {
+        queryParams.set('refresh', 'true')
+      }
+      
+      const response = await fetch(`/api/posts?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -127,9 +136,14 @@ export default function FeedPage() {
         console.log('First post debug (after normalization):', {
           id: normalizedPosts[0].id,
           createdAt: normalizedPosts[0].createdAt,
-          updatedAt: normalizedPosts[0].updatedAt
+          updatedAt: normalizedPosts[0].updatedAt,
+          isUnread: normalizedPosts[0].isUnread
         })
       }
+      
+      // Count unread posts
+      const unreadPostsCount = normalizedPosts.filter(post => post.isUnread).length
+      setUnreadCount(unreadPostsCount)
       
       setPosts(normalizedPosts)
     } catch (error) {
@@ -209,6 +223,20 @@ export default function FeedPage() {
     const initializePage = async () => {
       await fetchUserInfo()
       await loadPosts(token)
+      
+      // Update user's last feed view timestamp
+      try {
+        await fetch('/api/posts/update-feed-view', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+      } catch (error) {
+        console.error('Error updating feed view timestamp:', error)
+        // Don't fail the page load if this fails
+      }
+      
       setIsLoading(false)
     }
 
@@ -291,10 +319,34 @@ export default function FeedPage() {
     setPosts(posts.filter(post => post.id !== postId))
   }
 
-  const refreshPosts = async () => {
+  const refreshPosts = async (useRefreshMode: boolean = false) => {
     const token = localStorage.getItem("access_token")
     if (token) {
-      await loadPosts(token)
+      if (useRefreshMode) {
+        setIsRefreshing(true)
+      }
+      
+      try {
+        await loadPosts(token, useRefreshMode)
+        
+        // Update user's last feed view timestamp after refresh
+        if (useRefreshMode) {
+          try {
+            await fetch('/api/posts/update-feed-view', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+          } catch (error) {
+            console.error('Error updating feed view timestamp:', error)
+          }
+        }
+      } finally {
+        if (useRefreshMode) {
+          setIsRefreshing(false)
+        }
+      }
     }
   }
 
@@ -413,6 +465,19 @@ export default function FeedPage() {
       {/* Main Content */}
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-20">
         <div className="max-w-2xl mx-auto">
+          {/* Refresh Button */}
+          {unreadCount > 0 && (
+            <div className="mb-4 text-center">
+              <button
+                onClick={() => refreshPosts(true)}
+                disabled={isRefreshing}
+                className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : `${unreadCount} new post${unreadCount > 1 ? 's' : ''}`}
+              </button>
+            </div>
+          )}
           {/* Posts */}
           <div className="space-y-6">
             {posts.length === 0 ? (

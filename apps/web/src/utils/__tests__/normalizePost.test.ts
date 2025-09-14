@@ -34,6 +34,8 @@ describe('normalizePostFromApi', () => {
       isHearted: true,
       reactionsCount: 3,
       currentUserReaction: "heart_eyes",
+      isRead: false,
+      isUnread: false,
       postStyle: undefined,
       location: undefined,
       location_data: undefined,
@@ -112,6 +114,8 @@ describe('normalizePostFromApi', () => {
     expect(normalized?.isHearted).toBe(false)
     expect(normalized?.reactionsCount).toBe(0)
     expect(normalized?.postType).toBe("spontaneous")
+    expect(normalized?.isRead).toBe(false)
+    expect(normalized?.isUnread).toBe(false)
     expect(normalized?.author.name).toBe("")
   })
 

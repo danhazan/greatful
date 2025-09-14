@@ -76,6 +76,8 @@ interface Post {
   isHearted: boolean
   reactionsCount: number
   currentUserReaction?: string
+  isRead?: boolean
+  isUnread?: boolean
 }
 
 interface PostCardProps {
@@ -659,10 +661,13 @@ export default function PostCard({
 
   // Get styling based on post type
   const getPostStyling = () => {
+    const isUnread = currentPost.isUnread
+    const unreadBorder = isUnread ? 'border-purple-300 ring-2 ring-purple-100' : ''
+    
     switch (currentPost.postType) {
       case 'daily':
         return {
-          container: 'bg-white rounded-xl shadow-lg border-2 border-purple-100 overflow-hidden mb-8',
+          container: `bg-white rounded-xl shadow-lg border-2 ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-purple-100'} overflow-hidden mb-8`,
           header: 'p-6 border-b border-gray-100',
           avatar: 'w-12 h-12',
           name: 'font-bold text-lg',
@@ -676,7 +681,7 @@ export default function PostCard({
         }
       case 'photo':
         return {
-          container: 'bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden mb-6',
+          container: `bg-white rounded-lg shadow-md border ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'} overflow-hidden mb-6`,
           header: 'p-5 border-b border-gray-100',
           avatar: 'w-10 h-10',
           name: 'font-semibold text-base',
@@ -690,7 +695,7 @@ export default function PostCard({
         }
       default: // spontaneous
         return {
-          container: 'bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-4',
+          container: `bg-white rounded-lg shadow-sm border ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'} overflow-hidden mb-4`,
           header: 'p-3 border-b border-gray-100',
           avatar: 'w-8 h-8',
           name: 'font-medium text-sm',
@@ -755,6 +760,12 @@ export default function PostCard({
                     return wasEdited ? `${formattedDate} (edited)` : formattedDate
                   })()}
                 </a>
+                {/* Unread indicator */}
+                {currentPost.isUnread && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                    NEW
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-2 flex-shrink-0 max-w-[40%]">

@@ -8,6 +8,7 @@ import os
 import json
 from pathlib import Path
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -83,6 +84,7 @@ class PostResponse(BaseModel):
     current_user_reaction: Optional[str] = None
     is_hearted: Optional[bool] = False
     is_read: Optional[bool] = False
+    is_unread: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -544,7 +546,8 @@ async def get_feed(
     limit: int = 20,
     offset: int = 0,
     algorithm: bool = True,
-    consider_read_status: bool = True
+    consider_read_status: bool = True,
+    refresh: bool = False
 ):
     """
     Get user's personalized feed with algorithm-based ranking.
@@ -553,6 +556,7 @@ async def get_feed(
     - **algorithm=false**: Returns posts in chronological order (backward compatibility)
     - **consider_read_status=true** (default): Deprioritizes already-read posts in algorithm scoring
     - **consider_read_status=false**: Ignores read status in algorithm calculations
+    - **refresh=true**: Prioritizes unread posts over older content for refresh mechanism
     """
     try:
         from app.services.algorithm_service import AlgorithmService
@@ -575,7 +579,8 @@ async def get_feed(
                 limit=limit,
                 offset=offset,
                 algorithm_enabled=True,
-                consider_read_status=consider_read_status
+                consider_read_status=consider_read_status,
+                refresh_mode=refresh
             )
             
             # Get current user's reactions and hearts for each post
@@ -632,7 +637,8 @@ async def get_feed(
                     reactions_count=post_data['reactions_count'],
                     current_user_reaction=current_user_reaction,
                     is_hearted=is_hearted,
-                    is_read=post_data.get('is_read', False)
+                    is_read=post_data.get('is_read', False),
+                    is_unread=post_data.get('is_unread', False)
                 ))
             
             logger.debug(f"Retrieved {len(posts_with_user_data)} algorithm-ranked posts for user {current_user_id}")
@@ -761,7 +767,8 @@ async def get_feed(
                     reactions_count=int(row.reactions_count) if row.reactions_count else 0,
                     current_user_reaction=row.current_user_reaction,
                     is_hearted=bool(getattr(row, 'is_hearted', False)),
-                    is_read=is_read
+                    is_read=is_read,
+                    is_unread=False  # Chronological feed doesn't mark posts as unread
                 ))
 
             logger.debug(f"Retrieved {len(posts_with_counts)} chronological posts")
@@ -881,6 +888,37 @@ async def clear_read_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear read status"
+        )
+
+
+@router.post("/update-feed-view", response_model=dict)
+async def update_feed_view(
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update user's last feed view timestamp to current time.
+    
+    This endpoint should be called when the user views their feed to track
+    when they last saw posts, enabling unread post detection for refresh.
+    """
+    try:
+        from app.services.algorithm_service import AlgorithmService
+        
+        algorithm_service = AlgorithmService(db)
+        await algorithm_service.update_user_last_feed_view(current_user_id)
+        
+        return {
+            "success": True,
+            "message": "Feed view timestamp updated",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating feed view timestamp: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update feed view timestamp"
         )
 
 

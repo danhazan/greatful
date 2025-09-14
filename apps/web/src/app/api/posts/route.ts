@@ -161,9 +161,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = searchParams.get('limit') || '20'
     const offset = searchParams.get('offset') || '0'
+    const refresh = searchParams.get('refresh') || 'false'
+    const algorithm = searchParams.get('algorithm') || 'true'
+    const considerReadStatus = searchParams.get('consider_read_status') || 'true'
+
+    // Build query string
+    const queryParams = new URLSearchParams({
+      limit,
+      offset,
+      refresh,
+      algorithm,
+      consider_read_status: considerReadStatus
+    })
 
     // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed?limit=${limit}&offset=${offset}`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed?${queryParams}`, {
       method: 'GET',
       headers: {
         'Authorization': authHeader,
@@ -214,7 +226,9 @@ export async function GET(request: NextRequest) {
       heartsCount: post.hearts_count || 0,
       isHearted: post.is_hearted || false,
       reactionsCount: post.reactions_count || 0,
-      currentUserReaction: post.current_user_reaction
+      currentUserReaction: post.current_user_reaction,
+      isRead: post.is_read || false,
+      isUnread: post.is_unread || false
     }))
 
     return NextResponse.json(transformedPosts)

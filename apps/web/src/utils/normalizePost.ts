@@ -28,6 +28,10 @@ export interface ApiPost {
   reactionsCount?: number
   current_user_reaction?: string
   currentUserReaction?: string
+  is_read?: boolean
+  isRead?: boolean
+  is_unread?: boolean
+  isUnread?: boolean
   author?: {
     id: string | number
     user_id?: string | number
@@ -53,6 +57,8 @@ export interface NormalizedPost {
   isHearted: boolean
   reactionsCount: number
   currentUserReaction?: string
+  isRead?: boolean
+  isUnread?: boolean
   author: {
     id: string
     name: string
@@ -94,6 +100,8 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
     isHearted: post.is_hearted ?? post.isHearted ?? false,
     reactionsCount: post.reactions_count ?? post.reactionsCount ?? 0,
     currentUserReaction: post.current_user_reaction ?? post.currentUserReaction ?? undefined,
+    isRead: post.is_read ?? post.isRead ?? false,
+    isUnread: post.is_unread ?? post.isUnread ?? false,
     
     author: {
       id: String(author.id ?? author.user_id ?? ""),

@@ -726,7 +726,7 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
   - Implement read status persistence across sessions using localStorage or user preferences
   - Add read status consideration in feed scoring to deprioritize already-read posts
   - Test read status tracking with various user interaction patterns
-- [ ] **15.2 Feed Refresh Mechanism with Unread Priority**
+- [x] **15.2 Feed Refresh Mechanism with Unread Priority**
   - Create refresh mechanism that prioritizes recent unread posts over older content
   - Implement "pull-to-refresh" or refresh button that fetches new unread content first
   - Add unread post detection: posts created after user's last feed view timestamp
