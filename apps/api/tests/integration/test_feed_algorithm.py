@@ -215,13 +215,15 @@ class TestFeedAlgorithm:
             
             # Include time factor in expected score calculation
             time_factor = algorithm_service._calculate_time_factor(post)
+            
+            # No own post bonus since we're using a different user
             expected_score = (base_score + content_bonus) * time_factor
             expected_scores.append(expected_score)
             
-            # Test actual calculation
+            # Test actual calculation (use user_id that doesn't match any post author to avoid own post bonus)
             actual_score = await algorithm_service.calculate_post_score(
                 post, 
-                user_id=sample_users[0].id,
+                user_id=999,  # User ID that doesn't match any post author
                 hearts_count=hearts_count,
                 reactions_count=reactions_count,
                 shares_count=shares_count
@@ -615,12 +617,12 @@ class TestFeedAlgorithm:
         
         await db_session.commit()
         
-        # Calculate scores
+        # Calculate scores (use user_id that doesn't match any post author to avoid own post bonus)
         scores = []
         for post in posts:
             score = await algorithm_service.calculate_post_score(
                 post, 
-                user_id=sample_users[0].id,
+                user_id=999,  # User ID that doesn't match any post author
                 hearts_count=3,
                 reactions_count=0,
                 shares_count=0
@@ -636,11 +638,13 @@ class TestFeedAlgorithm:
         expected_daily_bonus = config.scoring_weights.daily_gratitude_bonus
         expected_photo_bonus = config.scoring_weights.photo_bonus
         
-        # Account for time factor in bonus calculations
+        # Account for time factor in calculations (no own post bonus since using different user)
         # All posts have same time factor since they're created at the same time
         time_factor = algorithm_service._calculate_time_factor(posts[0])
-        expected_daily_bonus_with_time = expected_daily_bonus * time_factor
-        expected_photo_bonus_with_time = expected_photo_bonus * time_factor
         
-        assert abs((daily_score - spontaneous_score) - expected_daily_bonus_with_time) < 0.01  # Daily bonus
-        assert abs((photo_score - spontaneous_score) - expected_photo_bonus_with_time) < 0.01  # Photo bonus
+        # The difference should be the content bonus multiplied by time factor
+        expected_daily_bonus_with_factors = expected_daily_bonus * time_factor
+        expected_photo_bonus_with_factors = expected_photo_bonus * time_factor
+        
+        assert abs((daily_score - spontaneous_score) - expected_daily_bonus_with_factors) < 0.01  # Daily bonus
+        assert abs((photo_score - spontaneous_score) - expected_photo_bonus_with_factors) < 0.01  # Photo bonus

@@ -168,8 +168,8 @@ class TestAlgorithmService:
         expected_score = expected_base * time_factor
         assert score == expected_score
 
-    async def test_calculate_post_score_own_post_no_multiplier(self, algorithm_service, sample_post, mock_db_session):
-        """Test that own posts don't get relationship multiplier."""
+    async def test_calculate_post_score_own_post_with_bonus(self, algorithm_service, sample_post, mock_db_session):
+        """Test that own posts get own post bonus but no relationship multiplier."""
         sample_post.author_id = 1  # Same as user_id
         
         score = await algorithm_service.calculate_post_score(
@@ -180,11 +180,21 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor * own_post_bonus
         # Base: 20.5 (no relationship multiplier for own post)
         expected_base = 20.5
         time_factor = algorithm_service._calculate_time_factor(sample_post)
-        expected_score = expected_base * time_factor
+        
+        # Calculate own post bonus (should be max bonus for recent post)
+        from datetime import datetime, timezone
+        current_time = datetime.now(timezone.utc)
+        post_created_at = sample_post.created_at
+        if post_created_at.tzinfo is None:
+            post_created_at = post_created_at.replace(tzinfo=timezone.utc)
+        minutes_old = (current_time - post_created_at).total_seconds() / 60
+        own_post_bonus = algorithm_service._calculate_own_post_bonus(minutes_old)
+        
+        expected_score = expected_base * time_factor * own_post_bonus
         assert score == expected_score
 
     async def test_calculate_post_score_queries_counts_when_not_provided(self, algorithm_service, sample_post, mock_db_session):

@@ -251,15 +251,27 @@ class AlgorithmService(BaseService):
                 unread_multiplier = 1.0 / self.config.scoring_weights.unread_boost
                 logger.debug(f"Applied read status penalty to post {post.id}: {unread_multiplier:.2f}")
 
-        # Calculate final score with enhanced time factoring
-        final_score = (base_score + content_bonus) * relationship_multiplier * unread_multiplier * time_multiplier
+        # Apply own post bonus if this is the user's own post
+        own_post_multiplier = 1.0
+        if user_id and post.author_id == user_id:
+            # Calculate time since post creation
+            current_time = datetime.now(timezone.utc)
+            post_created_at = post.created_at
+            if post_created_at.tzinfo is None:
+                post_created_at = post_created_at.replace(tzinfo=timezone.utc)
+            
+            minutes_old = (current_time - post_created_at).total_seconds() / 60
+            own_post_multiplier = self._calculate_own_post_bonus(minutes_old)
+        
+        # Calculate final score with enhanced time factoring and own post bonus
+        final_score = (base_score + content_bonus) * relationship_multiplier * unread_multiplier * time_multiplier * own_post_multiplier
         
         logger.debug(
             f"Post {post.id} score calculation: "
             f"base={base_score:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}), "
             f"content_bonus={content_bonus:.2f}, relationship_multiplier={relationship_multiplier:.2f}, "
             f"unread_multiplier={unread_multiplier:.2f}, time_multiplier={time_multiplier:.2f}, "
-            f"final={final_score:.2f}"
+            f"own_post_multiplier={own_post_multiplier:.2f}, final={final_score:.2f}"
         )
         
         return final_score
@@ -815,6 +827,44 @@ class AlgorithmService(BaseService):
         logger.info(f"Found {len(trending_posts)} trending posts in last {time_window_hours} hours")
         return trending_posts[:limit]
     
+    def _calculate_own_post_bonus(self, minutes_old: float) -> float:
+        """
+        Calculate own post bonus using exponential decay formula.
+        
+        Formula: own_post_bonus = max(base_multiplier, max_bonus * decay_factor) + base_multiplier
+        
+        Args:
+            minutes_old: Minutes since post creation
+            
+        Returns:
+            float: Own post bonus multiplier
+        """
+        own_post_config = self.config.own_post_factors
+        
+        if minutes_old <= own_post_config.max_visibility_minutes:
+            # Maximum boost for very recent own posts
+            return own_post_config.max_bonus_multiplier + own_post_config.base_multiplier
+        elif minutes_old <= own_post_config.decay_duration_minutes:
+            # Exponential decay from max_bonus to base_multiplier
+            # Calculate decay progress (0 to 1)
+            decay_progress = (minutes_old - own_post_config.max_visibility_minutes) / (
+                own_post_config.decay_duration_minutes - own_post_config.max_visibility_minutes
+            )
+            
+            # Exponential decay factor: starts at 1.0, decays to 0
+            decay_factor = (1.0 - decay_progress) ** 2  # Quadratic decay for smoother transition
+            
+            # Apply decay formula: max(base_multiplier, max_bonus * decay_factor) + base_multiplier
+            decayed_bonus = max(
+                own_post_config.base_multiplier,
+                own_post_config.max_bonus_multiplier * decay_factor
+            )
+            
+            return decayed_bonus + own_post_config.base_multiplier
+        else:
+            # Permanent base multiplier for older own posts
+            return own_post_config.base_multiplier + own_post_config.base_multiplier
+
     def _apply_diversity_and_own_post_factors(
         self, 
         posts: List[Dict[str, Any]], 
@@ -833,9 +883,8 @@ class AlgorithmService(BaseService):
         import random
         
         diversity_config = self.config.diversity_limits
-        own_post_config = self.config.own_post_factors
         
-        # Apply own post factors
+        # Apply own post factors with exponential decay
         current_time = datetime.now(timezone.utc)
         for post in posts:
             if user_id and post['author_id'] == user_id:
@@ -851,20 +900,23 @@ class AlgorithmService(BaseService):
                 
                 minutes_old = (current_time - post_time).total_seconds() / 60
                 
-                # Apply own post multiplier
-                if minutes_old <= own_post_config.max_visibility_minutes:
-                    # Maximum boost for very recent own posts
-                    multiplier = own_post_config.max_bonus_multiplier
-                elif minutes_old <= own_post_config.decay_duration_minutes:
-                    # Decaying boost
-                    decay_factor = (own_post_config.decay_duration_minutes - minutes_old) / own_post_config.decay_duration_minutes
-                    multiplier = own_post_config.base_multiplier + (own_post_config.max_bonus_multiplier - own_post_config.base_multiplier) * decay_factor
-                else:
-                    # Base multiplier for older own posts
-                    multiplier = own_post_config.base_multiplier
+                # Calculate own post bonus using exponential decay
+                multiplier = self._calculate_own_post_bonus(minutes_old)
                 
+                # Store original score for debugging
+                original_score = post['algorithm_score']
                 post['algorithm_score'] *= multiplier
-                logger.debug(f"Applied own post multiplier {multiplier:.2f} to post {post['id']}")
+                
+                # Add metadata for frontend visual feedback
+                post['is_own_post'] = True
+                post['own_post_bonus'] = multiplier
+                post['minutes_old'] = minutes_old
+                
+                logger.debug(
+                    f"Applied own post bonus to post {post['id']}: "
+                    f"minutes_old={minutes_old:.1f}, multiplier={multiplier:.2f}, "
+                    f"score: {original_score:.2f} -> {post['algorithm_score']:.2f}"
+                )
         
         # Apply randomization factor for diversity
         randomization_factor = diversity_config.randomization_factor
@@ -890,6 +942,129 @@ class AlgorithmService(BaseService):
         logger.debug(f"Applied diversity filters: {len(posts)} -> {len(filtered_posts)} posts")
         return filtered_posts
     
+    def get_own_post_visibility_status(self, post_id: str, user_id: int) -> Dict[str, Any]:
+        """
+        Get visibility status for user's own post for frontend feedback.
+        
+        Args:
+            post_id: ID of the post to check
+            user_id: ID of the user
+            
+        Returns:
+            Dict[str, Any]: Visibility status with timing and bonus information
+        """
+        # This would typically be called after getting a post
+        # For now, return a placeholder that can be used by the frontend
+        own_post_config = self.config.own_post_factors
+        
+        return {
+            "max_visibility_minutes": own_post_config.max_visibility_minutes,
+            "decay_duration_minutes": own_post_config.decay_duration_minutes,
+            "max_bonus_multiplier": own_post_config.max_bonus_multiplier,
+            "base_multiplier": own_post_config.base_multiplier
+        }
+
+    async def get_post_with_visibility_status(
+        self, 
+        post_id: str, 
+        user_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get a post with its current visibility status for the user.
+        
+        Args:
+            post_id: ID of the post
+            user_id: ID of the user
+            
+        Returns:
+            Optional[Dict[str, Any]]: Post data with visibility status, or None if not found
+        """
+        post = await self.get_by_id(Post, post_id, load_relationships=['author'])
+        if not post:
+            return None
+        
+        # Get engagement counts
+        hearts_result = await self.db.execute(
+            select(func.count(Like.id)).where(Like.post_id == post.id)
+        )
+        hearts_count = hearts_result.scalar() or 0
+
+        reactions_result = await self.db.execute(
+            select(func.count(EmojiReaction.id)).where(EmojiReaction.post_id == post.id)
+        )
+        reactions_count = reactions_result.scalar() or 0
+
+        shares_result = await self.db.execute(
+            select(func.count(Share.id)).where(Share.post_id == post.id)
+        )
+        shares_count = shares_result.scalar() or 0
+
+        # Calculate algorithm score
+        algorithm_score = await self.calculate_post_score(
+            post, user_id, hearts_count, reactions_count, shares_count
+        )
+
+        # Calculate own post visibility status
+        is_own_post = post.author_id == user_id
+        own_post_status = None
+        
+        if is_own_post:
+            current_time = datetime.now(timezone.utc)
+            post_created_at = post.created_at
+            if post_created_at.tzinfo is None:
+                post_created_at = post_created_at.replace(tzinfo=timezone.utc)
+            
+            minutes_old = (current_time - post_created_at).total_seconds() / 60
+            own_post_bonus = self._calculate_own_post_bonus(minutes_old)
+            
+            own_post_config = self.config.own_post_factors
+            
+            # Determine visibility phase
+            if minutes_old <= own_post_config.max_visibility_minutes:
+                phase = "max_visibility"
+            elif minutes_old <= own_post_config.decay_duration_minutes:
+                phase = "decaying"
+            else:
+                phase = "base_visibility"
+            
+            own_post_status = {
+                "is_own_post": True,
+                "minutes_old": minutes_old,
+                "bonus_multiplier": own_post_bonus,
+                "phase": phase,
+                "max_visibility_minutes": own_post_config.max_visibility_minutes,
+                "decay_duration_minutes": own_post_config.decay_duration_minutes,
+                "time_remaining_max": max(0, own_post_config.max_visibility_minutes - minutes_old),
+                "time_remaining_decay": max(0, own_post_config.decay_duration_minutes - minutes_old)
+            }
+
+        return {
+            'id': post.id,
+            'author_id': post.author_id,
+            'content': post.content,
+            'post_style': post.post_style,
+            'post_type': post.post_type.value,
+            'image_url': post.image_url,
+            'location': post.location,
+            'location_data': post.location_data,
+            'is_public': post.is_public,
+            'created_at': post.created_at.isoformat() if post.created_at else None,
+            'updated_at': post.updated_at.isoformat() if post.updated_at else None,
+            'author': {
+                'id': post.author.id,
+                'username': post.author.username,
+                'display_name': post.author.display_name,
+                'name': post.author.display_name or post.author.username,
+                'email': post.author.email,
+                'profile_image_url': post.author.profile_image_url
+            } if post.author else None,
+            'hearts_count': hearts_count,
+            'reactions_count': reactions_count,
+            'shares_count': shares_count,
+            'algorithm_score': algorithm_score,
+            'own_post_status': own_post_status
+        }
+
     def get_config_summary(self) -> Dict[str, Any]:
         """Get current algorithm configuration summary for debugging."""
         from app.config.algorithm_config import get_config_manager
