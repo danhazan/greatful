@@ -296,21 +296,19 @@ describe('/api/posts', () => {
           id: '1',
           name: 'User One',
           username: 'user1',
-          display_name: undefined,
           image: null
         },
         createdAt: '2025-01-08T12:00:00Z',
         postType: 'daily',
-        imageUrl: undefined,
-        location: undefined,
         heartsCount: 5,
         isHearted: false,
         reactionsCount: 3,
-        currentUserReaction: undefined
+        isRead: false,
+        isUnread: false
       })
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/v1/posts/feed?limit=20&offset=0',
+        'http://localhost:8000/api/v1/posts/feed?limit=20&offset=0&refresh=false&algorithm=true&consider_read_status=true',
         {
           method: 'GET',
           headers: {
@@ -337,7 +335,7 @@ describe('/api/posts', () => {
       await GET(request)
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/v1/posts/feed?limit=10&offset=5',
+        'http://localhost:8000/api/v1/posts/feed?limit=10&offset=5&refresh=false&algorithm=true&consider_read_status=true',
         expect.any(Object)
       )
     })

@@ -210,6 +210,11 @@ class TestAlgorithmService:
         ]
         algorithm_service._get_recent_feed = AsyncMock(return_value=(expected_posts, 2))
         
+        # Mock get_by_id to return a user with last_feed_view
+        mock_user = AsyncMock()
+        mock_user.last_feed_view = None
+        algorithm_service.get_by_id = AsyncMock(return_value=mock_user)
+        
         posts, total_count = await algorithm_service.get_personalized_feed(
             user_id=1,
             limit=20,
@@ -218,7 +223,7 @@ class TestAlgorithmService:
         
         assert posts == expected_posts
         assert total_count == 2
-        algorithm_service._get_recent_feed.assert_called_once_with(1, 20, 0)
+        algorithm_service._get_recent_feed.assert_called_once_with(1, 20, 0, True, None)
 
     async def test_get_personalized_feed_algorithm_enabled(self, algorithm_service, mock_db_session):
         """Test personalized feed with algorithm enabled (80/20 split)."""
@@ -228,6 +233,11 @@ class TestAlgorithmService:
         
         algorithm_service._get_algorithm_scored_posts = AsyncMock(return_value=algorithm_posts)
         algorithm_service._get_recent_posts_excluding = AsyncMock(return_value=recent_posts)
+        
+        # Mock get_by_id to return a user with last_feed_view
+        mock_user = AsyncMock()
+        mock_user.last_feed_view = None
+        algorithm_service.get_by_id = AsyncMock(return_value=mock_user)
         
         # Mock total count query
         mock_result = MagicMock()
@@ -246,9 +256,9 @@ class TestAlgorithmService:
         assert posts[1]["id"] == "recent-post-1"
         assert total_count == 100
         
-        # Verify 80/20 split calculations
-        algorithm_service._get_algorithm_scored_posts.assert_called_once_with(1, 8, 0)  # 80% of 10
-        algorithm_service._get_recent_posts_excluding.assert_called_once_with(1, 2, 0, {"algo-post-1"})  # 20% of 10
+        # Verify 80/20 split calculations with updated parameters
+        algorithm_service._get_algorithm_scored_posts.assert_called_once_with(1, 8, 0, True, None)  # 80% of 10
+        algorithm_service._get_recent_posts_excluding.assert_called_once_with(1, 2, 0, {"algo-post-1"}, True, None)  # 20% of 10
 
     async def test_update_post_scores_batch(self, algorithm_service, sample_post, mock_db_session):
         """Test batch score updates for multiple posts."""
