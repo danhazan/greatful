@@ -852,33 +852,66 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
 
 ### **TASK 16: MVP Production Readiness**
 **Module Reference:** Final MVP polish and production deployment preparation
-- [ ] **16.1 Performance Optimization and Monitoring**
-  - Add database connection pooling configuration for production workloads
-  - Implement query result caching for frequently accessed data (user profiles, follower counts)
-  - Add database query performance monitoring and slow query logging
-  - Optimize image loading with lazy loading and proper image sizing/compression
-  - Add performance metrics collection for feed loading and API response times
-- [ ] **16.2 Security Hardening**
-  - Implement rate limiting on all API endpoints (100 requests/minute per user)
-  - Add CSRF protection for all state-changing operations (POST, PUT, DELETE)
-  - Implement input sanitization for all user-generated content (posts, bios, usernames)
-  - Configure secure headers for production (CORS, CSP, HSTS, X-Frame-Options)
-  - Add API key validation and request signing for sensitive operations
-- [ ] **16.3 Error Monitoring and Logging**
-  - Add structured logging for all API endpoints with request IDs and user context
-  - Implement frontend error tracking for JavaScript errors and API failures
-  - Create health check endpoints for monitoring (`/api/health`, `/api/ready`, `/api/metrics`)
-  - Add error alerting system for critical failures (database connection, API errors)
-  - Implement log aggregation and monitoring dashboard setup
-- [ ] **16.4 Final Testing and Quality Assurance**
-  - Run complete end-to-end test suite covering all user workflows
-  - Perform load testing on feed algorithm with 1000+ posts and 100+ concurrent users
-  - Validate all social interactions work correctly under concurrent usage scenarios
-  - Test image upload and storage under various file sizes, formats, and edge cases
-  - Conduct security testing for common vulnerabilities (SQL injection, XSS, CSRF)
-- [ ] **Test Execution:** Run full test suite (`pytest -v` and `npm test`) to ensure all optimizations work correctly. Run load tests using tools like `ab` or `wrk` to verify performance under stress. Test all features in production-like environment with realistic data volumes.
-- [ ] **Update Project Documentation:** Update docs/ARCHITECTURE_AND_SETUP.md with production configuration guidelines. Add monitoring, deployment, and maintenance procedures to docs/USEFUL_COMMANDS.md. Create production deployment checklist.
-**Acceptance Criteria:** System performs well under production load (>100 concurrent users), comprehensive security measures are implemented and tested, monitoring and alerting systems are configured, all MVP features work reliably with realistic data volumes, and production deployment documentation is complete.
+
+Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions, share system, mention system, follow relationships, notification batching, profile management, mobile optimization, and comprehensive testing. This task prepares the system for production deployment.
+
+- [x] **16.1 Production Security & Rate Limiting**
+  - Implement comprehensive rate limiting on all API endpoints (100 requests/minute per user, existing share/notification limits are good)
+  - Add CORS configuration for production domains and secure headers (CSP, HSTS, X-Frame-Options)
+  - Implement input sanitization middleware for all user-generated content (posts, bios, usernames, mentions)
+  - Add request size limits and file upload validation (extend existing profile photo validation)
+  - Configure JWT token expiration and refresh token mechanism for production
+  - Add API request logging with user context and request IDs for security auditing
+
+- [ ] **16.2 Production Database & Performance**
+  - Configure database connection pooling for production workloads (extend existing async SQLAlchemy setup)
+  - Add database backup and recovery procedures with automated daily backups
+  - Implement database migration rollback procedures and testing
+  - Add slow query monitoring and alerting (extend existing query_monitor.py)
+  - Configure production-optimized algorithm settings (extend existing algorithm_config.py)
+  - Add database index monitoring and optimization recommendations
+  - Update SECURITY_AND_PRODUCTION.md with database security, performance optimization, and backup procedures
+
+- [ ] **16.3 Production Monitoring & Health Checks**
+  - Create comprehensive health check endpoints (`/api/health`, `/api/ready`, `/api/metrics`)
+  - Implement structured logging with request IDs across all services (extend existing logging)
+  - Add performance monitoring dashboard for feed algorithm and API response times
+  - Configure error alerting for critical failures (database, algorithm performance >300ms, high error rates)
+  - Add frontend error tracking and reporting for JavaScript errors and API failures
+  - Implement uptime monitoring and automated incident response procedures
+  - Update SECURITY_AND_PRODUCTION.md with monitoring, alerting, and incident response procedures
+
+- [ ] **16.4 Production Environment Configuration**
+  - Create production environment configuration files (.env.production, docker-compose.prod.yml)
+  - Configure production-grade web server (Nginx) with SSL/TLS termination and static file serving
+  - Set up production database with proper user permissions and security settings
+  - Configure production caching strategy (Redis for algorithm caches and session storage)
+  - Add production deployment scripts and CI/CD pipeline configuration
+  - Configure production logging aggregation and retention policies
+  - Update SECURITY_AND_PRODUCTION.md with complete deployment checklist and environment configuration
+
+- [ ] **16.5 Load Testing & Performance Validation**
+  - Perform load testing on feed algorithm with 1000+ posts and 100+ concurrent users (validate <300ms target)
+  - Test all social interactions under concurrent usage (reactions, shares, mentions, follows, notifications)
+  - Validate notification batching performance under high notification volume
+  - Test image upload and storage under production load with various file sizes and formats
+  - Conduct algorithm performance testing with large datasets and complex user relationships
+  - Validate mobile performance and responsiveness under production conditions
+  - Update SECURITY_AND_PRODUCTION.md with load testing procedures and performance benchmarks
+
+- [ ] **16.6 Security Testing & Compliance**
+  - Conduct security testing for common vulnerabilities (SQL injection, XSS, CSRF, authentication bypass)
+  - Test rate limiting effectiveness and bypass prevention
+  - Validate input sanitization across all user-generated content endpoints
+  - Test JWT token security and session management
+  - Conduct penetration testing on authentication and authorization systems
+  - Validate data privacy compliance and user data protection measures
+
+- [ ] **Test Execution:** Run complete test suite (`pytest -v` and `npm test`) with production configuration. Execute load tests using `ab` or `wrk` to verify >100 concurrent user capacity. Test all MVP features (algorithm, reactions, shares, mentions, follows, notifications, profiles) in production-like environment with realistic data volumes and user behavior patterns.
+
+- [ ] **Update Project Documentation:** Create production deployment guide in docs/PRODUCTION_DEPLOYMENT.md. Update docs/ARCHITECTURE_AND_SETUP.md with production configuration guidelines. Add monitoring, backup, and maintenance procedures to docs/USEFUL_COMMANDS.md. Create production troubleshooting guide and incident response procedures.
+
+**Acceptance Criteria:** System handles >100 concurrent users with <300ms feed loading, all security measures tested and validated, comprehensive monitoring and alerting configured, all MVP features (enhanced algorithm, social interactions, notifications, profiles) work reliably under production load, production deployment is fully documented and tested, and system is ready for public launch with proper security, performance, and monitoring safeguards.
 
 ## Phase 2: Enhanced Social Features (Post-MVP)
 

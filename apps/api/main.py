@@ -22,11 +22,16 @@ from app.core.validation_middleware import (
     SchemaValidationMiddleware, 
     TypeSafetyMiddleware
 )
+from app.core.rate_limiting import RateLimitingMiddleware, SecurityHeadersMiddleware, get_rate_limiter
+from app.core.input_sanitization import InputSanitizationMiddleware
+from app.core.request_size_middleware import RequestSizeLimitMiddleware
+from app.core.security_config import security_config
 from app.core.openapi_validator import create_openapi_validator
 from app.core.exceptions import BaseAPIException
 from app.core.responses import error_response
 from fastapi.responses import JSONResponse
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -43,12 +48,16 @@ async def lifespan(app: FastAPI):
     # on shutdown
     logger.info("Shutting down Grateful API...")
 
-# Create FastAPI app
+# Create FastAPI app with security configurations
 app = FastAPI(
     title="Grateful API",
     description="Backend API for the Grateful social gratitude platform",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    # Security configurations - disable docs in production
+    docs_url="/docs" if security_config.enable_docs and not security_config.is_production else None,
+    redoc_url="/redoc" if security_config.enable_docs and not security_config.is_production else None,
+    openapi_url="/openapi.json" if security_config.enable_docs and not security_config.is_production else None,
 )
 
 # Add exception handlers
@@ -72,17 +81,16 @@ async def base_api_exception_handler(request, exc: BaseAPIException):
 
 # Add middleware (order matters - first added is outermost)
 app.add_middleware(ErrorHandlingMiddleware)
-app.add_middleware(APIContractValidationMiddleware, enable_response_validation=False)  # Disable response validation for performance
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware)
+app.add_middleware(RateLimitingMiddleware, limiter=get_rate_limiter())
+app.add_middleware(InputSanitizationMiddleware)  # Re-enabled with bypass
+# app.add_middleware(APIContractValidationMiddleware, enable_response_validation=False)  # Disabled - causes request body consumption issue
 app.add_middleware(RequestValidationMiddleware)
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Add CORS middleware with centralized configuration
+cors_config = security_config.get_cors_config()
+app.add_middleware(CORSMiddleware, **cors_config)
 
 # Mount static files for uploads
 uploads_dir = Path("uploads")

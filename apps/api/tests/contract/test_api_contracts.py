@@ -84,11 +84,16 @@ class TestAPIContracts:
             
             # Verify signup response data
             signup_response = data["data"]
-            assert "id" in signup_response
-            assert "username" in signup_response
-            assert "email" in signup_response
+            assert "user" in signup_response
             assert "access_token" in signup_response
+            assert "refresh_token" in signup_response
             assert "token_type" in signup_response
+            
+            # Verify user data structure
+            user_data = signup_response["user"]
+            assert "id" in user_data
+            assert "username" in user_data
+            assert "email" in user_data
             
         else:
             # Verify error response structure

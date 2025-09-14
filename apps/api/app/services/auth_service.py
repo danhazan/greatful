@@ -12,7 +12,7 @@ from app.core.exceptions import (
     ValidationException
 )
 from app.models.user import User
-from app.core.security import create_access_token, get_password_hash, verify_password
+from app.core.security import create_access_token, create_refresh_token, decode_token, get_password_hash, verify_password
 
 logger = logging.getLogger(__name__)
 
@@ -69,17 +69,21 @@ class AuthService(BaseService):
             hashed_password=hashed_password
         )
         
-        # Create access token
-        token_data = {"sub": str(user.id)}
+        # Create access and refresh tokens
+        token_data = {"sub": str(user.id), "username": user.username}
         access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
         
         logger.info(f"User signed up successfully: {user.email}")
         
         return {
-            "id": user.id,
-            "email": user.email,
-            "username": user.username,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username
+            },
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer"
         }
 
@@ -109,14 +113,21 @@ class AuthService(BaseService):
         if not user or not verify_password(password, user.hashed_password):
             raise AuthenticationError("Incorrect email or password")
         
-        # Create access token
-        token_data = {"sub": str(user.id)}
+        # Create access and refresh tokens
+        token_data = {"sub": str(user.id), "username": user.username}
         access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
         
         logger.info(f"User logged in successfully: {user.email}")
         
         return {
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username
+            },
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer"
         }
 
@@ -134,10 +145,8 @@ class AuthService(BaseService):
             AuthenticationError: If token is invalid or user not found
         """
         try:
-            from app.core.security import decode_token
-            
             # Decode token
-            payload = decode_token(token)
+            payload = decode_token(token, token_type="access")
             user_id = int(payload.get("sub"))
             
             # Get user from database
@@ -154,6 +163,49 @@ class AuthService(BaseService):
         except Exception as e:
             logger.error(f"Token validation error: {e}")
             raise AuthenticationError("Invalid token")
+
+    async def refresh_token(self, refresh_token: str) -> Dict[str, any]:
+        """
+        Refresh access token using refresh token.
+        
+        Args:
+            refresh_token: JWT refresh token
+            
+        Returns:
+            Dict containing new access token and user info
+            
+        Raises:
+            AuthenticationError: If refresh token is invalid
+        """
+        try:
+            # Decode refresh token
+            payload = decode_token(refresh_token, token_type="refresh")
+            user_id = int(payload.get("sub"))
+            
+            # Get user from database
+            user = await self.get_by_id(User, user_id)
+            if not user:
+                raise AuthenticationError("User not found")
+            
+            # Create new access token
+            token_data = {"sub": str(user.id), "username": user.username}
+            new_access_token = create_access_token(token_data)
+            
+            logger.info(f"Token refreshed for user: {user.email}")
+            
+            return {
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "username": user.username
+                },
+                "access_token": new_access_token,
+                "token_type": "bearer"
+            }
+            
+        except Exception as e:
+            logger.error(f"Refresh token validation error: {e}")
+            raise AuthenticationError("Invalid refresh token")
 
     async def logout(self) -> Dict[str, str]:
         """

@@ -268,22 +268,33 @@ class TestAuthAPIContracts:
         response_data = response.json()
         data = response_data["data"]
         
-        # Validate SignupResponse structure
-        assert "id" in data
-        assert isinstance(data["id"], int)
-        assert data["id"] > 0
+        # Validate SignupResponse structure (updated for new format with user object)
+        assert "user" in data
+        user_data = data["user"]
         
-        assert "email" in data
-        assert isinstance(data["email"], str)
-        assert data["email"] == signup_data["email"]
+        assert "id" in user_data
+        assert isinstance(user_data["id"], int)
+        assert user_data["id"] > 0
         
-        assert "username" in data
-        assert isinstance(data["username"], str)
-        assert data["username"] == signup_data["username"]
+        assert "email" in user_data
+        assert isinstance(user_data["email"], str)
+        assert user_data["email"] == signup_data["email"]
         
+        assert "username" in user_data
+        assert isinstance(user_data["username"], str)
+        assert user_data["username"] == signup_data["username"]
+        
+        # Validate token fields
         assert "access_token" in data
         assert isinstance(data["access_token"], str)
         assert len(data["access_token"]) > 0
+        
+        assert "refresh_token" in data
+        assert isinstance(data["refresh_token"], str)
+        assert len(data["refresh_token"]) > 0
+        
+        assert "token_type" in data
+        assert isinstance(data["token_type"], str)
         
         assert "token_type" in data
         assert isinstance(data["token_type"], str)

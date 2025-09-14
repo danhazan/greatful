@@ -50,6 +50,9 @@ async def test_engine():
 @pytest_asyncio.fixture(scope="function")
 async def setup_test_database(test_engine):
     """Set up test database session factory."""
+    # Set testing environment variable to disable security middleware
+    os.environ['TESTING'] = 'true'
+    
     TestSessionLocal = sessionmaker(
         test_engine, 
         class_=AsyncSession, 
@@ -81,6 +84,9 @@ async def setup_test_database(test_engine):
         
         # Cleanup
         app.dependency_overrides.clear()
+        # Clean up testing environment variable
+        if 'TESTING' in os.environ:
+            del os.environ['TESTING']
 
 
 @pytest_asyncio.fixture
@@ -256,6 +262,9 @@ async def test_post_dict(http_client, auth_headers):
     data = response.json()
     # The API returns the post data directly, not wrapped in a success/data structure
     return data
+
+
+
 
 
 @pytest_asyncio.fixture
