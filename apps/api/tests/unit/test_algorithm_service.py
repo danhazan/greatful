@@ -74,8 +74,12 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: (5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0 (daily bonus) = 5 + 4.5 + 8 + 3 = 20.5
-        expected_score = 20.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor
+        # Base: 5 + 4.5 + 8 + 3 = 20.5
+        # Time factor for recent post (default created_at is now): 1.0 + 4.0 = 5.0
+        expected_base = 20.5
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_score = expected_base * time_factor
         assert score == expected_score
 
     async def test_calculate_post_score_photo_bonus(self, algorithm_service, sample_post, mock_db_session):
@@ -90,8 +94,11 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: (5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.5 (photo bonus) = 5 + 4.5 + 8 + 2.5 = 20.0
-        expected_score = 20.0
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.5) * time_factor
+        # Base: 5 + 4.5 + 8 + 2.5 = 20.0
+        expected_base = 20.0
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_score = expected_base * time_factor
         assert score == expected_score
 
     async def test_calculate_post_score_spontaneous_no_bonus(self, algorithm_service, sample_post, mock_db_session):
@@ -106,8 +113,11 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: (5 * 1.0) + (3 * 1.5) + (2 * 4.0) = 5 + 4.5 + 8 = 17.5
-        expected_score = 17.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0)) * time_factor
+        # Base: 5 + 4.5 + 8 = 17.5
+        expected_base = 17.5
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_score = expected_base * time_factor
         assert score == expected_score
 
     async def test_calculate_post_score_with_relationship_multiplier(self, algorithm_service, sample_post, mock_db_session):
@@ -127,8 +137,11 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * 5.0 = 20.5 * 5.0 = 102.5
-        expected_score = 102.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * 5.0 * time_factor
+        # Base: 20.5 * 5.0 = 102.5
+        expected_base = 102.5
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_score = expected_base * time_factor
         assert score == expected_score
 
     async def test_calculate_post_score_no_relationship_multiplier(self, algorithm_service, sample_post, mock_db_session):
@@ -148,8 +161,11 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: (5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0 = 20.5 (no multiplier)
-        expected_score = 20.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor
+        # Base: 20.5 (no relationship multiplier)
+        expected_base = 20.5
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_score = expected_base * time_factor
         assert score == expected_score
 
     async def test_calculate_post_score_own_post_no_multiplier(self, algorithm_service, sample_post, mock_db_session):
@@ -164,8 +180,11 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: (5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0 = 20.5 (no multiplier for own post)
-        expected_score = 20.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor
+        # Base: 20.5 (no relationship multiplier for own post)
+        expected_base = 20.5
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_score = expected_base * time_factor
         assert score == expected_score
 
     async def test_calculate_post_score_queries_counts_when_not_provided(self, algorithm_service, sample_post, mock_db_session):
@@ -183,8 +202,11 @@ class TestAlgorithmService:
         # Should have made 3 queries for engagement counts
         assert mock_db_session.execute.call_count == 3
         
-        # Expected: (5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0 = 20.5
-        expected_score = 20.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor
+        # Base: 20.5
+        expected_base = 20.5
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_score = expected_base * time_factor
         assert score == expected_score
 
     async def test_calculate_post_score_zero_engagement(self, algorithm_service, sample_post, mock_db_session):
@@ -197,8 +219,11 @@ class TestAlgorithmService:
             shares_count=0
         )
         
-        # Expected: (0 * 1.0) + (0 * 1.5) + (0 * 4.0) + 3.0 = 3.0 (only daily bonus)
-        expected_score = 3.0
+        # Expected: ((0 * 1.0) + (0 * 1.5) + (0 * 4.0) + 3.0) * time_factor
+        # Base: 3.0 (only daily bonus)
+        expected_base = 3.0
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_score = expected_base * time_factor
         assert score == expected_score
 
     async def test_get_personalized_feed_algorithm_disabled(self, algorithm_service, mock_db_session):
@@ -344,6 +369,9 @@ class TestAlgorithmService:
 
     async def test_scoring_formula_weights(self, algorithm_service, sample_post, mock_db_session):
         """Test that scoring formula uses correct weights."""
+        # Get time factor for consistent calculation
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        
         # Test shares have highest weight (4.0)
         shares_score = await algorithm_service.calculate_post_score(
             sample_post, user_id=None, hearts_count=0, reactions_count=0, shares_count=1
@@ -359,18 +387,22 @@ class TestAlgorithmService:
             sample_post, user_id=None, hearts_count=1, reactions_count=0, shares_count=0
         )
         
-        # Remove daily bonus for comparison (subtract 3.0)
-        shares_base = shares_score - 3.0  # Should be 4.0
-        reactions_base = reactions_score - 3.0  # Should be 1.5
-        hearts_base = hearts_score - 3.0  # Should be 1.0
+        # Remove daily bonus and time factor for comparison
+        # Formula: (base + daily_bonus) * time_factor
+        shares_base = (shares_score / time_factor) - 3.0  # Should be 4.0
+        reactions_base = (reactions_score / time_factor) - 3.0  # Should be 1.5
+        hearts_base = (hearts_score / time_factor) - 3.0  # Should be 1.0
         
-        assert shares_base == 4.0
-        assert reactions_base == 1.5
-        assert hearts_base == 1.0
+        assert abs(shares_base - 4.0) < 0.001
+        assert abs(reactions_base - 1.5) < 0.001
+        assert abs(hearts_base - 1.0) < 0.001
         assert shares_base > reactions_base > hearts_base
 
     async def test_content_type_bonuses(self, algorithm_service, sample_post, mock_db_session):
         """Test content type bonuses are applied correctly."""
+        # Get time factor for consistent calculation
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        
         # Daily gratitude bonus (+3.0)
         sample_post.post_type = PostType.daily
         daily_score = await algorithm_service.calculate_post_score(
@@ -389,9 +421,14 @@ class TestAlgorithmService:
             sample_post, user_id=None, hearts_count=0, reactions_count=0, shares_count=0
         )
         
-        assert daily_score == 3.0
-        assert photo_score == 2.5
-        assert spontaneous_score == 0.0
+        # Account for time factor: score = bonus * time_factor
+        expected_daily = 3.0 * time_factor
+        expected_photo = 2.5 * time_factor
+        expected_spontaneous = 0.0 * time_factor
+        
+        assert abs(daily_score - expected_daily) < 0.001
+        assert abs(photo_score - expected_photo) < 0.001
+        assert abs(spontaneous_score - expected_spontaneous) < 0.001
         assert daily_score > photo_score > spontaneous_score
 
     async def test_algorithm_service_uses_configuration(self, algorithm_service, sample_post, mock_db_session):
@@ -412,15 +449,17 @@ class TestAlgorithmService:
             shares_count=1
         )
         
-        # Expected score should use config values
+        # Expected score should use config values including time factor
         expected_base = (
             1 * config.scoring_weights.hearts +
             1 * config.scoring_weights.reactions +
             1 * config.scoring_weights.shares
         )
-        expected_total = expected_base + config.scoring_weights.daily_gratitude_bonus
+        expected_with_bonus = expected_base + config.scoring_weights.daily_gratitude_bonus
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_total = expected_with_bonus * time_factor
         
-        assert score == expected_total
+        assert abs(score - expected_total) < 0.001
 
     async def test_algorithm_service_config_reload(self, algorithm_service, mock_db_session):
         """Test that AlgorithmService can reload configuration."""
@@ -507,6 +546,185 @@ class TestAlgorithmService:
             1 * config.scoring_weights.shares +
             config.scoring_weights.daily_gratitude_bonus
         )
-        expected_total = expected_base * config.follow_bonuses.base_multiplier
+        # Include time factor in calculation
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected_total = expected_base * config.follow_bonuses.base_multiplier * time_factor
         
         assert score == expected_total
+
+    def test_calculate_time_factor_recent_posts(self, algorithm_service, sample_post):
+        """Test time factor calculation for recent posts with graduated bonuses."""
+        current_time = datetime.now(timezone.utc)
+        
+        # Test 30 minutes old (should get 1hr boost)
+        sample_post.created_at = current_time - timedelta(minutes=30)
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected = 1.0 + algorithm_service.config.time_factors.recent_boost_1hr  # 1.0 + 4.0 = 5.0
+        assert time_factor == expected
+        
+        # Test 3 hours old (should get 6hr boost)
+        sample_post.created_at = current_time - timedelta(hours=3)
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected = 1.0 + algorithm_service.config.time_factors.recent_boost_6hr  # 1.0 + 2.0 = 3.0
+        assert time_factor == expected
+        
+        # Test 12 hours old (should get 24hr boost)
+        sample_post.created_at = current_time - timedelta(hours=12)
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected = 1.0 + algorithm_service.config.time_factors.recent_boost_24hr  # 1.0 + 1.0 = 2.0
+        assert time_factor == expected
+
+    def test_calculate_time_factor_older_posts(self, algorithm_service, sample_post):
+        """Test time factor calculation for older posts with decay."""
+        current_time = datetime.now(timezone.utc)
+        
+        # Test 30 hours old (should start decay)
+        sample_post.created_at = current_time - timedelta(hours=30)
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        # Should be less than 1.0 due to decay, but greater than minimum
+        assert 0.1 < time_factor < 1.0
+        
+        # Test at decay_hours (72 hours) - should reach minimum
+        sample_post.created_at = current_time - timedelta(hours=72)
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        assert time_factor == 0.1
+        
+        # Test beyond decay_hours - should stay at minimum
+        sample_post.created_at = current_time - timedelta(hours=100)
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        assert time_factor == 0.1
+
+    def test_calculate_time_factor_no_created_at(self, algorithm_service, sample_post):
+        """Test time factor calculation when post has no created_at."""
+        sample_post.created_at = None
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        assert time_factor == 1.0
+
+    def test_calculate_time_factor_timezone_handling(self, algorithm_service, sample_post):
+        """Test time factor calculation handles timezone-naive datetimes."""
+        current_time = datetime.now()  # timezone-naive
+        sample_post.created_at = current_time - timedelta(minutes=30)
+        
+        # Should handle timezone-naive datetime without errors
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected = 1.0 + algorithm_service.config.time_factors.recent_boost_1hr
+        assert time_factor == expected
+
+    async def test_enhanced_time_factoring_in_score_calculation(self, algorithm_service, sample_post, mock_db_session):
+        """Test that enhanced time factoring is applied in post score calculation."""
+        current_time = datetime.now(timezone.utc)
+        
+        # Test recent post (1 hour old) gets time boost
+        sample_post.created_at = current_time - timedelta(minutes=30)
+        
+        score = await algorithm_service.calculate_post_score(
+            sample_post,
+            user_id=None,
+            hearts_count=1,
+            reactions_count=1,
+            shares_count=1
+        )
+        
+        # Calculate expected score with time factor
+        config = algorithm_service.config
+        base_score = (
+            1 * config.scoring_weights.hearts +
+            1 * config.scoring_weights.reactions +
+            1 * config.scoring_weights.shares +
+            config.scoring_weights.daily_gratitude_bonus
+        )
+        time_factor = 1.0 + config.time_factors.recent_boost_1hr  # 5.0
+        expected_score = base_score * time_factor
+        
+        assert score == expected_score
+
+    async def test_time_factoring_prevents_feed_staleness(self, algorithm_service, sample_post, mock_db_session):
+        """Test that time factoring prevents old high-engagement posts from dominating feed."""
+        current_time = datetime.now(timezone.utc)
+        
+        # Create old high-engagement post
+        old_post = Post(
+            id="old-post",
+            author_id=1,
+            content="Old high-engagement post",
+            post_type=PostType.daily,
+            created_at=current_time - timedelta(hours=48),  # 2 days old
+            is_public=True
+        )
+        
+        # Create recent low-engagement post
+        recent_post = Post(
+            id="recent-post",
+            author_id=1,
+            content="Recent low-engagement post",
+            post_type=PostType.daily,
+            created_at=current_time - timedelta(minutes=30),  # 30 minutes old
+            is_public=True
+        )
+        
+        # Calculate scores
+        old_score = await algorithm_service.calculate_post_score(
+            old_post,
+            user_id=None,
+            hearts_count=50,  # High engagement
+            reactions_count=30,
+            shares_count=10
+        )
+        
+        recent_score = await algorithm_service.calculate_post_score(
+            recent_post,
+            user_id=None,
+            hearts_count=5,  # Low engagement
+            reactions_count=3,
+            shares_count=1
+        )
+        
+        # Recent post should compete effectively due to time boost
+        # Even with much lower engagement, it should get a significant boost
+        assert recent_score > 0
+        
+        # The time factor should make recent posts more competitive
+        recent_time_factor = algorithm_service._calculate_time_factor(recent_post)
+        old_time_factor = algorithm_service._calculate_time_factor(old_post)
+        
+        # Recent post should have much higher time factor
+        assert recent_time_factor > old_time_factor
+        assert recent_time_factor > 4.0  # Should get the 1hr boost
+        assert old_time_factor < 1.0  # Should get decay penalty
+
+    def test_time_factor_configuration_usage(self, algorithm_service, sample_post):
+        """Test that time factor calculation uses configuration values."""
+        current_time = datetime.now(timezone.utc)
+        config = algorithm_service.config.time_factors
+        
+        # Test that configuration values are used correctly
+        sample_post.created_at = current_time - timedelta(minutes=30)
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        expected = 1.0 + config.recent_boost_1hr
+        assert time_factor == expected
+        
+        # Test decay hours configuration
+        sample_post.created_at = current_time - timedelta(hours=config.decay_hours)
+        time_factor = algorithm_service._calculate_time_factor(sample_post)
+        assert time_factor == 0.1  # Minimum decay value
+
+    def test_time_factor_diversity_prevention(self, algorithm_service, sample_post):
+        """Test that time factoring adds diversity to prevent feed staleness."""
+        current_time = datetime.now(timezone.utc)
+        
+        # Test posts at different ages get different time factors
+        ages_and_factors = []
+        
+        for hours in [0.5, 3, 12, 30, 48, 72]:
+            sample_post.created_at = current_time - timedelta(hours=hours)
+            time_factor = algorithm_service._calculate_time_factor(sample_post)
+            ages_and_factors.append((hours, time_factor))
+        
+        # Verify that time factors decrease with age (generally)
+        # Recent posts should have higher factors than old posts
+        recent_factor = ages_and_factors[0][1]  # 0.5 hours
+        old_factor = ages_and_factors[-1][1]  # 72 hours
+        
+        assert recent_factor > old_factor
+        assert recent_factor > 4.0  # Should get significant boost
+        assert old_factor == 0.1  # Should reach minimum decay

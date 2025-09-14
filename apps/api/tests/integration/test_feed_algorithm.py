@@ -213,7 +213,9 @@ class TestFeedAlgorithm:
             elif post.post_type == PostType.photo:
                 content_bonus = config.scoring_weights.photo_bonus
             
-            expected_score = base_score + content_bonus
+            # Include time factor in expected score calculation
+            time_factor = algorithm_service._calculate_time_factor(post)
+            expected_score = (base_score + content_bonus) * time_factor
             expected_scores.append(expected_score)
             
             # Test actual calculation
@@ -634,5 +636,11 @@ class TestFeedAlgorithm:
         expected_daily_bonus = config.scoring_weights.daily_gratitude_bonus
         expected_photo_bonus = config.scoring_weights.photo_bonus
         
-        assert abs((daily_score - spontaneous_score) - expected_daily_bonus) < 0.01  # Daily bonus
-        assert abs((photo_score - spontaneous_score) - expected_photo_bonus) < 0.01  # Photo bonus
+        # Account for time factor in bonus calculations
+        # All posts have same time factor since they're created at the same time
+        time_factor = algorithm_service._calculate_time_factor(posts[0])
+        expected_daily_bonus_with_time = expected_daily_bonus * time_factor
+        expected_photo_bonus_with_time = expected_photo_bonus * time_factor
+        
+        assert abs((daily_score - spontaneous_score) - expected_daily_bonus_with_time) < 0.01  # Daily bonus
+        assert abs((photo_score - spontaneous_score) - expected_photo_bonus_with_time) < 0.01  # Photo bonus

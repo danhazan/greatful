@@ -155,7 +155,7 @@ class AlgorithmService(BaseService):
         user_last_feed_view: Optional[datetime] = None
     ) -> float:
         """
-        Calculate engagement score for a post.
+        Calculate engagement score for a post with enhanced time factoring.
         
         Args:
             post: Post object to score
@@ -164,9 +164,10 @@ class AlgorithmService(BaseService):
             reactions_count: Pre-calculated reactions count (optional, will query if not provided)
             shares_count: Pre-calculated shares count (optional, will query if not provided)
             consider_read_status: Whether to apply read status penalty (default: True)
+            user_last_feed_view: User's last feed view timestamp for unread detection
             
         Returns:
-            float: Calculated engagement score with read status consideration
+            float: Calculated engagement score with time factoring and read status consideration
         """
         # Get engagement counts if not provided
         if hearts_count is None:
@@ -201,6 +202,9 @@ class AlgorithmService(BaseService):
             content_bonus += scoring_weights.photo_bonus
         elif post.post_type == PostType.daily:
             content_bonus += scoring_weights.daily_gratitude_bonus
+        
+        # Enhanced time factoring for recent posts
+        time_multiplier = self._calculate_time_factor(post)
         
         # Relationship multiplier using configurable follow bonuses
         relationship_multiplier = 1.0
@@ -247,17 +251,81 @@ class AlgorithmService(BaseService):
                 unread_multiplier = 1.0 / self.config.scoring_weights.unread_boost
                 logger.debug(f"Applied read status penalty to post {post.id}: {unread_multiplier:.2f}")
 
-        # Calculate final score
-        final_score = (base_score + content_bonus) * relationship_multiplier * unread_multiplier
+        # Calculate final score with enhanced time factoring
+        final_score = (base_score + content_bonus) * relationship_multiplier * unread_multiplier * time_multiplier
         
         logger.debug(
             f"Post {post.id} score calculation: "
             f"base={base_score:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}), "
             f"content_bonus={content_bonus:.2f}, relationship_multiplier={relationship_multiplier:.2f}, "
-            f"unread_multiplier={unread_multiplier:.2f}, final={final_score:.2f}"
+            f"unread_multiplier={unread_multiplier:.2f}, time_multiplier={time_multiplier:.2f}, "
+            f"final={final_score:.2f}"
         )
         
         return final_score
+
+    def _calculate_time_factor(self, post: Post) -> float:
+        """
+        Calculate time-based multiplier for post scoring with enhanced time factoring.
+        
+        Implements:
+        - Configurable decay hours (default: 72 hours for 3-day decay)
+        - Graduated time bonuses (0-1hr +4.0, 1-6hr +2.0, 6-24hr +1.0)
+        - Time decay factor to prevent feed staleness with old high-engagement posts
+        
+        Args:
+            post: Post object to calculate time factor for
+            
+        Returns:
+            float: Time-based multiplier (1.0 = no change, >1.0 = boost, <1.0 = decay)
+        """
+        if not post.created_at:
+            return 1.0
+        
+        # Handle timezone-aware comparison
+        post_created_at = post.created_at
+        if post_created_at.tzinfo is None:
+            post_created_at = post_created_at.replace(tzinfo=timezone.utc)
+        
+        current_time = datetime.now(timezone.utc)
+        hours_old = (current_time - post_created_at).total_seconds() / 3600
+        
+        time_factors = self.config.time_factors
+        
+        # Apply graduated time bonuses for recent posts
+        recency_bonus = 0.0
+        if hours_old <= 1:
+            recency_bonus = time_factors.recent_boost_1hr
+        elif hours_old <= 6:
+            recency_bonus = time_factors.recent_boost_6hr
+        elif hours_old <= 24:
+            recency_bonus = time_factors.recent_boost_24hr
+        
+        # Apply time decay factor for older posts
+        decay_multiplier = 1.0
+        if hours_old > 24:
+            # Exponential decay after 24 hours, reaching 0.1 at decay_hours
+            decay_hours = time_factors.decay_hours
+            if hours_old >= decay_hours:
+                # Minimum multiplier to prevent complete elimination
+                decay_multiplier = 0.1
+            else:
+                # Exponential decay: starts at 1.0 at 24hrs, reaches 0.1 at decay_hours
+                # Formula: 0.1^((hours_old - 24) / (decay_hours - 24))
+                decay_progress = (hours_old - 24) / (decay_hours - 24)
+                decay_multiplier = max(0.1, 0.1 ** decay_progress)
+        
+        # Combine recency bonus and decay multiplier
+        # Recency bonus is additive (1.0 + bonus), decay is multiplicative
+        time_multiplier = (1.0 + recency_bonus) * decay_multiplier
+        
+        logger.debug(
+            f"Time factor for post {post.id}: "
+            f"hours_old={hours_old:.1f}, recency_bonus={recency_bonus:.2f}, "
+            f"decay_multiplier={decay_multiplier:.3f}, final_multiplier={time_multiplier:.3f}"
+        )
+        
+        return time_multiplier
 
     async def get_personalized_feed(
         self, 

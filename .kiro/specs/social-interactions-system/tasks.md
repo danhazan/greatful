@@ -733,7 +733,7 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
   - Modify feed algorithm to boost unread posts using configurable multiplier (default: +3.0)
   - Add visual indicators for new/unread posts in feed display
   - Test refresh mechanism with various timing scenarios and user behaviors
-- [ ] **15.3 Enhanced Time Factoring for Recent Posts**
+- [x] **15.3 Enhanced Time Factoring for Recent Posts**
   - Strengthen time decay factor using configurable decay hours (default: 72 hours for 3-day decay)
   - Add stronger recency boost for posts using configurable time bonuses from algorithm config
   - Implement graduated time bonuses using TIME_FACTORS config (default: 0-1hr +4.0, 1-6hr +2.0, 6-24hr +1.0)
@@ -768,6 +768,13 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
     JOIN follows f2 ON f1.followed_id = f2.follower_id 
     WHERE f1.follower_id = :current_user_id 
     AND f2.followed_id != :current_user_id
+- [ ] **15.6.1 Mention Multiplier**
+  - Add multiplier for posts where the current user is mentioned using configurable bonus from MENTION_BONUSES config
+  - Leverage existing Mention database model and MentionService for efficient mention detection
+  - Apply mention bonus to base score calculation (default: +8.0 for direct mentions)
+  - Create efficient database query using existing mentions table: `SELECT post_id FROM mentions WHERE mentioned_user_id = :current_user_id`
+  - Integrate mention bonus into AlgorithmService scoring system using existing mention infrastructure
+  - Add MENTION_BONUSES configuration to algorithm_config.py with direct_mention bonus setting
     AND f2.followed_id NOT IN (SELECT followed_id FROM follows WHERE follower_id = :current_user_id)
     ```
   - Add second-tier multiplier to FOLLOW_BONUSES config (default: +1.5 for second-tier users)
