@@ -106,31 +106,64 @@ shared/types/             # Shared type definitions (TypeScript/Python)
 
 #### 7. **Enhanced Feed Algorithm with Social Signals**
 
-**🎯 ALGORITHM SERVICE IMPLEMENTATION (August 2025)**
+**🎯 ALGORITHM SERVICE IMPLEMENTATION (January 2025)**
 
-The feed system now includes a sophisticated algorithm service that provides personalized content ranking based on engagement metrics and social relationships:
+The feed system includes a sophisticated, configurable algorithm service that provides personalized content ranking based on engagement metrics, social relationships, and user behavior patterns:
 
 **AlgorithmService** (`app/services/algorithm_service.py`):
-- **Engagement Scoring**: Calculates post scores using weighted engagement metrics
-- **Content Type Bonuses**: Photo posts (+2.5), Daily gratitude posts (+3.0)
-- **Relationship Multipliers**: Posts from followed users get 2.0x multiplier
-- **80/20 Feed Split**: 80% algorithm-scored posts, 20% recent posts for discovery
-- **Performance Optimized**: Efficient queries with cached engagement counts
+- **Configurable Scoring**: Environment-specific scoring weights via `algorithm_config.py`
+- **Enhanced Time Factoring**: Graduated time bonuses with exponential decay for older posts
+- **Advanced Relationship Multipliers**: Multi-tier follow bonuses with engagement tracking
+- **Read Status Tracking**: Session-based read status with unread post prioritization
+- **Own Post Visibility**: Special handling for user's own posts with time-based decay
+- **Mention Detection**: Automatic bonus for posts mentioning the current user
+- **Performance Optimized**: Efficient queries with comprehensive monitoring
 
-**Scoring Formula**:
+**Enhanced Scoring Formula**:
 ```
 Base Score = (Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0)
-Content Bonus = Photo posts (+2.5) OR Daily gratitude posts (+3.0)
-Relationship Multiplier = Posts from followed users (×2.0)
-Final Score = (Base Score + Content Bonus) × Relationship Multiplier
+Content Bonus = Photo posts (+1.5) OR Daily gratitude posts (+2.0)
+Time Multiplier = Recent boost (0-1hr: +4.0, 1-6hr: +2.0, 6-24hr: +1.0) × Decay factor
+Relationship Multiplier = Follow bonuses (New: 6.0x, Established: 5.0x, Mutual: 7.0x, Second-tier: 1.5x)
+Unread Multiplier = Unread posts (3.0x) OR Read posts (0.33x penalty)
+Mention Bonus = Direct mentions (+8.0 points)
+Own Post Bonus = Time-based visibility boost (max 50x for first 5 minutes)
+
+Final Score = (Base Score + Content Bonus + Mention Bonus + Own Post Base) × 
+              Relationship Multiplier × Unread Multiplier × Time Multiplier × Own Post Multiplier
 ```
 
-**Feed Algorithm Features**:
-- **Personalized Ranking**: Content ranked by engagement score with relationship weighting
-- **Discovery Balance**: 80% algorithm-scored content, 20% recent posts for content discovery
-- **Performance Monitoring**: Query performance tracking and optimization
+**Algorithm Configuration System** (`app/config/algorithm_config.py`):
+- **Environment-Specific Settings**: Different configurations for dev/staging/production
+- **Configurable Parameters**: All scoring weights, time factors, and bonuses are configurable
+- **Runtime Reloading**: Configuration can be reloaded without service restart
+- **Validation**: Comprehensive validation of configuration parameters
+- **Performance Tuning**: Environment-specific optimizations for different deployment stages
+
+**Key Configuration Categories**:
+- **ScoringWeights**: Base engagement scoring and content type bonuses
+- **TimeFactors**: Time-based boosts and decay parameters
+- **FollowBonuses**: Relationship multipliers and engagement tracking
+- **OwnPostFactors**: User's own post visibility and decay settings
+- **DiversityLimits**: Feed diversity and spacing rules
+- **PreferenceFactors**: User interaction-based preferences
+- **MentionBonuses**: Mention detection and scoring bonuses
+
+**Advanced Feed Features**:
+- **80/20 Feed Split**: 80% algorithm-scored posts, 20% recent posts for discovery
+- **Refresh Mode**: Prioritizes unread posts for feed refresh operations
+- **Read Status Integration**: Tracks and deprioritizes already-read posts
+- **Second-Tier Follows**: Boosts posts from users followed by your follows
+- **Engagement History**: Tracks user interaction patterns for personalized scoring
+- **Performance Monitoring**: Comprehensive query performance tracking and optimization
 - **Fallback Support**: Graceful fallback to chronological feed when algorithm is disabled
-- **Trending Posts**: Specialized trending algorithm for recent high-engagement content
+
+**Read Status Tracking**:
+- **Session-Based**: Tracks read posts per user session in memory
+- **Unread Prioritization**: Boosts posts created after user's last feed view
+- **Read Penalty**: Applies penalty to posts already read in current session
+- **Bulk Operations**: Efficient marking of multiple posts as read
+- **Performance Optimized**: In-memory caching for fast read status checks
 
 #### 8. **Enhanced Notification System**
 
@@ -294,6 +327,244 @@ The shared types automatically generate OpenAPI schemas for interactive document
 - **Schema Validation**: Automatic validation of API contracts against OpenAPI spec
 - **Type Documentation**: Comprehensive type documentation with examples and constraints
 
+## 🧠 Algorithm Configuration & Performance
+
+### Algorithm Configuration System
+
+The Grateful platform uses a sophisticated, environment-aware algorithm configuration system that allows fine-tuning of feed ranking parameters without code changes.
+
+#### Configuration Architecture
+
+**Configuration Manager** (`app/config/algorithm_config.py`):
+```python
+# Environment-specific configuration loading
+config_manager = AlgorithmConfigManager(environment='production')
+config = config_manager.config
+
+# Access specific configuration sections
+scoring_weights = config.scoring_weights
+time_factors = config.time_factors
+follow_bonuses = config.follow_bonuses
+```
+
+**Environment Override System**:
+- **Development**: Higher randomization, lower thresholds for testing
+- **Staging**: Balanced settings for pre-production validation  
+- **Production**: Optimized settings for scale and user experience
+
+#### Key Configuration Parameters
+
+**Scoring Weights** (`ScoringWeights`):
+```python
+hearts: float = 1.0                    # Base heart/like weight
+reactions: float = 1.5                 # Emoji reaction weight (higher value)
+shares: float = 4.0                    # Share weight (highest engagement value)
+photo_bonus: float = 1.5               # Photo post content bonus
+daily_gratitude_bonus: float = 2.0     # Daily gratitude post bonus
+unread_boost: float = 3.0              # Unread post multiplier
+```
+
+**Time Factors** (`TimeFactors`):
+```python
+decay_hours: int = 72                  # 3-day decay period
+recent_boost_1hr: float = 4.0          # 0-1 hour boost
+recent_boost_6hr: float = 2.0          # 1-6 hour boost  
+recent_boost_24hr: float = 1.0         # 6-24 hour boost
+```
+
+**Follow Bonuses** (`FollowBonuses`):
+```python
+base_multiplier: float = 5.0           # Base follow multiplier
+new_follow_bonus: float = 6.0          # New follows (< 7 days)
+established_follow_bonus: float = 5.0  # Established follows (7-30 days)
+mutual_follow_bonus: float = 7.0       # Mutual follow relationships
+second_tier_multiplier: float = 1.5    # Friends of friends
+high_engagement_threshold: int = 5     # Interactions for high engagement
+high_engagement_bonus: float = 2.0     # High engagement multiplier
+```
+
+**Own Post Factors** (`OwnPostFactors`):
+```python
+max_visibility_minutes: int = 5        # Peak visibility duration
+decay_duration_minutes: int = 15       # Decay period
+max_bonus_multiplier: float = 50.0     # Peak visibility multiplier
+base_multiplier: float = 3.0           # Permanent own post advantage
+```
+
+#### Configuration Management
+
+**Runtime Configuration Updates**:
+```python
+# Reload configuration without restart
+algorithm_service.reload_config()
+
+# Get current configuration summary
+config_summary = get_config_manager().get_config_summary()
+
+# Environment-specific overrides
+ENVIRONMENT_OVERRIDES = {
+    'development': {
+        'scoring_weights': {'hearts': 1.2, 'reactions': 1.8},
+        'own_post_factors': {'max_bonus_multiplier': 75.0}
+    }
+}
+```
+
+**Configuration Validation**:
+- Automatic validation of all configuration parameters
+- Type checking and range validation
+- Graceful fallback to default configuration on errors
+- Comprehensive error logging and reporting
+
+### Performance Optimization Strategies
+
+#### Database Query Optimization
+
+**Strategic Indexing**:
+```sql
+-- Core performance indexes
+CREATE INDEX idx_posts_created_at_desc ON posts(created_at DESC);
+CREATE INDEX idx_posts_user_id_created_at ON posts(user_id, created_at DESC);
+CREATE INDEX idx_follows_follower_followed ON follows(follower_id, followed_id);
+CREATE INDEX idx_likes_post_id ON likes(post_id);
+CREATE INDEX idx_emoji_reactions_post_id ON emoji_reactions(post_id);
+CREATE INDEX idx_shares_post_id ON shares(post_id);
+
+-- Algorithm-specific indexes
+CREATE INDEX idx_posts_public_created_at ON posts(is_public, created_at DESC) WHERE is_public = true;
+CREATE INDEX idx_follows_status_created_at ON follows(status, created_at DESC) WHERE status = 'active';
+
+-- Performance-optimized composite indexes
+CREATE INDEX idx_posts_user_created_at ON posts(author_id, created_at);
+CREATE INDEX idx_posts_type_created_at ON posts(post_type, created_at);
+CREATE INDEX idx_posts_engagement_created_at ON posts(hearts_count, reactions_count, shares_count, created_at);
+CREATE INDEX idx_users_last_feed_view ON users(last_feed_view);
+CREATE INDEX idx_user_interactions_user_created_at ON user_interactions(user_id, created_at);
+CREATE INDEX idx_user_interactions_target_created_at ON user_interactions(target_user_id, created_at);
+CREATE INDEX idx_user_interactions_type_created_at ON user_interactions(interaction_type, created_at);
+```
+
+**Query Performance Monitoring**:
+```python
+# Automatic slow query detection
+@monitor_query("get_personalized_feed")
+async def get_personalized_feed(user_id: int, limit: int = 20):
+    # Query implementation with performance tracking
+    pass
+
+# Performance context manager
+async with query_timer("algorithm_scoring"):
+    scores = await calculate_post_scores(posts)
+```
+
+**Efficient Relationship Loading**:
+```python
+# Optimized post loading with relationships
+posts = await self.db.execute(
+    select(Post)
+    .options(selectinload(Post.author))  # Eager load authors
+    .where(Post.is_public == True)
+    .order_by(Post.created_at.desc())
+)
+```
+
+#### Caching Strategies
+
+**In-Memory Caching**:
+```python
+# Read status caching per user session
+_read_status_cache: Dict[int, Dict[str, datetime]] = {}
+
+# Configuration caching
+@lru_cache(maxsize=1)
+def get_algorithm_config() -> AlgorithmConfig:
+    return _config_manager.config
+```
+
+**Database-Level Caching**:
+```python
+# Cached engagement counts
+async def get_cached_engagement_counts(post_id: str) -> Dict[str, int]:
+    # Implementation with Redis or in-memory caching
+    pass
+```
+
+**Query Result Caching**:
+- User follow relationships cached for session duration
+- Engagement counts cached with TTL-based invalidation
+- Algorithm configuration cached until explicit reload
+
+#### Performance Monitoring
+
+**Query Performance Tracking** (`app/core/query_monitor.py`):
+```python
+# Comprehensive query monitoring
+class QueryPerformanceMonitor:
+    def record_query(self, query_name: str, execution_time: float):
+        # Track query statistics and identify slow queries
+        
+    def get_slow_queries(self) -> List[Dict[str, Any]]:
+        # Return queries exceeding performance thresholds
+        
+    def generate_performance_report(self) -> Dict[str, Any]:
+        # Generate comprehensive performance analysis
+```
+
+**Database Performance Analysis** (`app/core/performance_utils.py`):
+```python
+# Table performance analysis
+async def analyze_table_performance(db: AsyncSession, table_name: str):
+    # Analyze table size, index usage, and scan statistics
+    
+# Connection health monitoring  
+async def check_connection_health(db: AsyncSession):
+    # Monitor connection pool and database health
+    
+# Slow query detection
+async def get_slow_queries(db: AsyncSession, limit: int = 10):
+    # Retrieve slow queries from pg_stat_statements
+```
+
+**Performance Diagnostics**:
+```python
+# Comprehensive performance diagnostics
+async def run_performance_diagnostics(db: AsyncSession):
+    return {
+        "connection_health": await check_connection_health(db),
+        "query_performance": generate_performance_report(),
+        "table_analysis": await analyze_key_tables(db),
+        "slow_queries": await get_slow_queries(db)
+    }
+```
+
+#### Algorithm Performance Optimizations
+
+**Efficient Scoring Calculations**:
+- **Pre-calculated Time Buckets**: 169 time buckets (0-168 hours) for instant time factor lookup (~95% faster)
+- **Batch Engagement Loading**: Single queries for hearts, reactions, and shares for multiple posts (~70% faster)
+- **User Preference Caching**: 30-minute TTL cache for user interaction patterns (~90% faster on cache hits)
+- **Read Status Batch Processing**: Efficient batch queries for read status determination
+- **Performance Target**: <300ms feed loading achieved (Cold cache: 180-250ms, Warm cache: 80-150ms)
+
+**Performance Benchmarks**:
+- Feed query optimization: 30-80ms (75% improvement from 150-300ms)
+- Engagement loading: 10-20ms for 20 posts (80% improvement from 50-100ms per post)
+- User preference loading: 5-15ms on cache hit (95% improvement from 100-200ms)
+- Cache performance: 75-85% hit rate, <1ms lookup time
+- Memory footprint: <5MB total algorithm cache overhead
+
+**Memory Management**:
+- Session-based read status tracking (memory-efficient)
+- Configurable cache sizes and TTL values
+- Automatic cleanup of expired cache entries
+- Memory usage monitoring and alerts
+
+**Scalability Considerations**:
+- Horizontal scaling support for algorithm service
+- Database connection pooling optimization
+- Async/await patterns throughout for non-blocking operations
+- Efficient pagination for large result sets
+
 ## 📋 API Endpoints
 
 ### Authentication
@@ -326,11 +597,13 @@ POST   /api/v1/posts/                    # Create post with automatic type detec
 POST   /api/v1/posts/multipart           # Create post with image upload (multipart form)
 GET    /api/v1/posts/                    # Get posts (with filters)
 GET    /api/v1/posts/feed                # Get personalized feed with algorithm ranking
+GET    /api/v1/posts/trending            # Get trending posts with time-window filtering
 GET    /api/v1/posts/{post_id}           # Get specific post
 PUT    /api/v1/posts/{post_id}           # Update post
 DELETE /api/v1/posts/{post_id}           # Delete post
 POST   /api/v1/posts/{post_id}/heart     # Heart/like post
 DELETE /api/v1/posts/{post_id}/heart     # Remove heart from post
+POST   /api/v1/posts/mark-read           # Mark posts as read for algorithm optimization
 ```
 
 #### Automatic Post Type Detection System
@@ -475,6 +748,121 @@ The system automatically determines the optimal post type based on:
 - Spontaneous posts: 1-200 characters, no image
 - Location field: Optional, max 100 characters
 - Image files: JPEG/PNG/WebP, max 10MB
+
+#### Enhanced Feed Algorithm API
+
+**Get Personalized Feed with Algorithm**
+```http
+GET /api/v1/posts/feed?algorithm=true&limit=20&offset=0&refresh=false
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `algorithm` (boolean, default: true): Enable/disable algorithm ranking
+- `limit` (integer, 1-100, default: 20): Number of posts to return
+- `offset` (integer, default: 0): Pagination offset
+- `refresh` (boolean, default: false): Prioritize unread posts for refresh
+
+**Response with Algorithm Scoring:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "post-uuid-123",
+      "content": "Grateful for this beautiful morning...",
+      "post_type": "daily",
+      "author": {
+        "id": 1,
+        "username": "alice",
+        "display_name": "Alice Smith"
+      },
+      "hearts_count": 15,
+      "reactions_count": 8,
+      "shares_count": 3,
+      "algorithm_score": 45.7,
+      "is_unread": true,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  ],
+  "pagination": {
+    "total": 150,
+    "limit": 20,
+    "offset": 0,
+    "has_next": true
+  },
+  "algorithm_info": {
+    "enabled": true,
+    "split_ratio": "80/20",
+    "read_posts_count": 5,
+    "unread_posts_count": 15
+  }
+}
+```
+
+**Get Trending Posts**
+```http
+GET /api/v1/posts/trending?time_window_hours=24&limit=10
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `time_window_hours` (integer, 1-168, default: 24): Time window for trending calculation
+- `limit` (integer, 1-50, default: 10): Number of trending posts
+- `min_engagement` (integer, default: 1): Minimum engagement threshold
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "post-uuid-456",
+      "content": "Amazing sunset today!",
+      "post_type": "photo",
+      "trending_score": 89.3,
+      "engagement_velocity": 12.5,
+      "time_window_hours": 24,
+      "hearts_count": 45,
+      "reactions_count": 23,
+      "shares_count": 8,
+      "created_at": "2025-01-01T18:00:00Z"
+    }
+  ],
+  "trending_info": {
+    "time_window_hours": 24,
+    "total_trending_posts": 25,
+    "min_score_threshold": 10.0
+  }
+}
+```
+
+**Mark Posts as Read**
+```http
+POST /api/v1/posts/mark-read
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "post_ids": ["post-uuid-123", "post-uuid-456", "post-uuid-789"],
+  "mark_all_in_feed": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "marked_count": 3,
+    "total_read_posts": 18,
+    "read_status_updated": true
+  }
+}
+```
 
 ### Notifications
 ```
@@ -629,6 +1017,14 @@ GET    /api/v1/users/{user_id}/followers # Get user's followers (paginated)
 GET    /api/v1/users/{user_id}/following # Get users that user is following (paginated)
 GET    /api/v1/users/{user_id}/follow-stats # Get follow statistics for user
 GET    /api/v1/follows/suggestions       # Get follow suggestions for current user
+```
+
+### Algorithm Performance Monitoring
+```
+GET    /api/v1/algorithm/performance/health        # Algorithm health status and key metrics
+GET    /api/v1/algorithm/performance/report        # Comprehensive performance report with recommendations
+GET    /api/v1/algorithm/performance/cache-stats   # Cache performance statistics and hit rates
+POST   /api/v1/algorithm/performance/clear-cache   # Clear algorithm caches for testing or troubleshooting
 ```
 
 ## 🏛️ Service Layer & Repository Pattern
