@@ -572,17 +572,31 @@ async def get_feed(
             has_likes_table = False
             logger.warning("Likes table not found, hearts count will be 0")
 
-        # Use AlgorithmService for personalized feed
+        # Use OptimizedAlgorithmService for personalized feed with performance monitoring
         if algorithm:
-            algorithm_service = AlgorithmService(db)
-            posts_data, total_count = await algorithm_service.get_personalized_feed(
-                user_id=current_user_id,
-                limit=limit,
-                offset=offset,
-                algorithm_enabled=True,
-                consider_read_status=consider_read_status,
-                refresh_mode=refresh
-            )
+            try:
+                from app.services.optimized_algorithm_service import OptimizedAlgorithmService
+                algorithm_service = OptimizedAlgorithmService(db)
+                posts_data, total_count = await algorithm_service.get_personalized_feed_optimized(
+                    user_id=current_user_id,
+                    limit=limit,
+                    offset=offset,
+                    algorithm_enabled=True,
+                    consider_read_status=consider_read_status,
+                    refresh_mode=refresh
+                )
+            except ImportError:
+                # Fallback to regular AlgorithmService if optimized version not available
+                logger.warning("OptimizedAlgorithmService not available, falling back to regular AlgorithmService")
+                algorithm_service = AlgorithmService(db)
+                posts_data, total_count = await algorithm_service.get_personalized_feed(
+                    user_id=current_user_id,
+                    limit=limit,
+                    offset=offset,
+                    algorithm_enabled=True,
+                    consider_read_status=consider_read_status,
+                    refresh_mode=refresh
+                )
             
             # Get current user's reactions and hearts for each post
             posts_with_user_data = []
