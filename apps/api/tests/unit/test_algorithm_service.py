@@ -98,6 +98,56 @@ class TestAlgorithmService:
         # Base: 5 + 4.5 + 8 + 1.5 = 19.0 (photo_bonus changed from 2.5 to 1.5)
         expected_base = 19.0
         time_factor = algorithm_service._calculate_time_factor(sample_post)
+
+    async def test_calculate_mention_bonus_with_mention(self, algorithm_service, mock_db_session):
+        """Test mention bonus calculation when user is mentioned."""
+        from unittest.mock import MagicMock
+        
+        # Mock the database query to return a mention
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = "mention-id"
+        mock_db_session.execute.return_value = mock_result
+        
+        bonus = await algorithm_service._calculate_mention_bonus(user_id=123, post_id="test-post")
+        
+        # Should return the configured direct mention bonus (8.0)
+        assert bonus == 8.0
+
+    async def test_calculate_mention_bonus_without_mention(self, algorithm_service, mock_db_session):
+        """Test mention bonus calculation when user is not mentioned."""
+        from unittest.mock import MagicMock
+        
+        # Mock the database query to return no mention
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db_session.execute.return_value = mock_result
+        
+        bonus = await algorithm_service._calculate_mention_bonus(user_id=123, post_id="test-post")
+        
+        # Should return 0.0 when not mentioned
+        assert bonus == 0.0
+
+    async def test_calculate_post_score_with_mention_bonus(self, algorithm_service, sample_post, mock_db_session):
+        """Test post score calculation includes mention bonus."""
+        from unittest.mock import MagicMock, patch
+        
+        # Mock both mention bonus and follow relationship multiplier
+        with patch.object(algorithm_service, '_calculate_mention_bonus', return_value=8.0), \
+             patch.object(algorithm_service, '_calculate_follow_relationship_multiplier', return_value=1.0):
+            score = await algorithm_service.calculate_post_score(
+                sample_post,
+                user_id=456,  # Different from author_id (1)
+                hearts_count=5,
+                reactions_count=3,
+                shares_count=2
+            )
+            
+            # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0 + 8.0) * multipliers
+            # Base: 5 + 4.5 + 8 + 2.0 (daily bonus) + 8.0 (mention bonus) = 27.5
+            expected_base = 27.5
+            time_factor = algorithm_service._calculate_time_factor(sample_post)
+            expected_score = expected_base * time_factor
+            assert score == expected_score
         expected_score = expected_base * time_factor
         assert score == expected_score
 
@@ -122,6 +172,7 @@ class TestAlgorithmService:
 
     async def test_calculate_post_score_with_relationship_multiplier(self, algorithm_service, sample_post, mock_db_session):
         """Test post score calculation with relationship multiplier."""
+        from unittest.mock import patch
         sample_post.author_id = 2  # Different from user_id
         
         # Mock follow relationship exists - create a proper Follow object
@@ -157,13 +208,15 @@ class TestAlgorithmService:
         # Set up the mock to return different results for different calls
         mock_db_session.execute.side_effect = mock_results
         
-        score = await algorithm_service.calculate_post_score(
-            sample_post,
-            user_id=1,
-            hearts_count=5,
-            reactions_count=3,
-            shares_count=2
-        )
+        # Mock mention bonus to return 0 (no mention)
+        with patch.object(algorithm_service, '_calculate_mention_bonus', return_value=0.0):
+            score = await algorithm_service.calculate_post_score(
+                sample_post,
+                user_id=1,
+                hearts_count=5,
+                reactions_count=3,
+                shares_count=2
+            )
         
         # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0) * established_follow_bonus * time_factor
         # Base: 19.5, established_follow_bonus: 5.0, so 19.5 * 5.0 = 97.5
@@ -596,13 +649,16 @@ class TestAlgorithmService:
         # Set up the mock to return different results for different calls
         mock_db_session.execute.side_effect = mock_results
         
-        score = await algorithm_service.calculate_post_score(
-            sample_post,
-            user_id=1,
-            hearts_count=1,
-            reactions_count=1,
-            shares_count=1
-        )
+        # Mock mention bonus to return 0 (no mention)
+        from unittest.mock import patch
+        with patch.object(algorithm_service, '_calculate_mention_bonus', return_value=0.0):
+            score = await algorithm_service.calculate_post_score(
+                sample_post,
+                user_id=1,
+                hearts_count=1,
+                reactions_count=1,
+                shares_count=1
+            )
         
         # Should use config established follow bonus (15 days old follow)
         config = algorithm_service.config

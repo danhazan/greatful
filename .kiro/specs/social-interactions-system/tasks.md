@@ -768,7 +768,7 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
     JOIN follows f2 ON f1.followed_id = f2.follower_id 
     WHERE f1.follower_id = :current_user_id 
     AND f2.followed_id != :current_user_id
-- [ ] **15.6.1 Mention Multiplier**
+- [x] **15.6.1 Mention Multiplier**
   - Add multiplier for posts where the current user is mentioned using configurable bonus from MENTION_BONUSES config
   - Leverage existing Mention database model and MentionService for efficient mention detection
   - Apply mention bonus to base score calculation (default: +8.0 for direct mentions)

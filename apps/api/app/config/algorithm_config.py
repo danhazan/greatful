@@ -91,6 +91,12 @@ class PreferenceFactors:
 
 
 @dataclass
+class MentionBonuses:
+    """Mention-based scoring bonuses."""
+    direct_mention: float = 8.0  # Bonus for posts where current user is mentioned
+
+
+@dataclass
 class AlgorithmConfig:
     """Complete algorithm configuration."""
     scoring_weights: ScoringWeights
@@ -99,6 +105,7 @@ class AlgorithmConfig:
     own_post_factors: OwnPostFactors
     diversity_limits: DiversityLimits
     preference_factors: PreferenceFactors
+    mention_bonuses: MentionBonuses
 
 
 # Default configuration
@@ -108,7 +115,8 @@ DEFAULT_CONFIG = AlgorithmConfig(
     follow_bonuses=FollowBonuses(),
     own_post_factors=OwnPostFactors(),
     diversity_limits=DiversityLimits(),
-    preference_factors=PreferenceFactors()
+    preference_factors=PreferenceFactors(),
+    mention_bonuses=MentionBonuses()
 )
 
 # Environment-specific overrides
@@ -202,7 +210,8 @@ class AlgorithmConfigManager:
                 follow_bonuses=FollowBonuses(**config_dict['follow_bonuses']),
                 own_post_factors=OwnPostFactors(**config_dict['own_post_factors']),
                 diversity_limits=DiversityLimits(**config_dict['diversity_limits']),
-                preference_factors=PreferenceFactors(**config_dict['preference_factors'])
+                preference_factors=PreferenceFactors(**config_dict['preference_factors']),
+                mention_bonuses=MentionBonuses(**config_dict['mention_bonuses'])
             )
             
             logger.info(f"Algorithm configuration loaded for environment: {self.environment}")
@@ -283,6 +292,10 @@ class AlgorithmConfigManager:
         """Get preference factors configuration."""
         return self._config.preference_factors
     
+    def get_mention_bonuses(self) -> MentionBonuses:
+        """Get mention bonuses configuration."""
+        return self._config.mention_bonuses
+    
     def reload_config(self) -> None:
         """Reload configuration (useful for testing or config updates)."""
         self._load_config()
@@ -361,3 +374,8 @@ def get_diversity_limits() -> DiversityLimits:
 def get_preference_factors() -> PreferenceFactors:
     """Get preference factors configuration."""
     return get_algorithm_config().preference_factors
+
+
+def get_mention_bonuses() -> MentionBonuses:
+    """Get mention bonuses configuration."""
+    return get_algorithm_config().mention_bonuses

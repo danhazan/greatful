@@ -17,6 +17,7 @@ from app.config.algorithm_config import (
     OwnPostFactors,
     DiversityLimits,
     PreferenceFactors,
+    MentionBonuses,
     DEFAULT_CONFIG,
     ENVIRONMENT_OVERRIDES
 )
@@ -168,7 +169,11 @@ class TestAlgorithmConfigManager:
         
         preference_factors = manager.get_preference_factors()
         assert isinstance(preference_factors, PreferenceFactors)
-        assert preference_factors.interaction_threshold == 5
+        assert preference_factors.interaction_threshold == 2
+        
+        mention_bonuses = manager.get_mention_bonuses()
+        assert isinstance(mention_bonuses, MentionBonuses)
+        assert mention_bonuses.direct_mention == 8.0
 
 
 class TestGlobalConfigFunctions:

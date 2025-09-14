@@ -241,6 +241,11 @@ class AlgorithmService(BaseService):
                 unread_multiplier = 1.0 / self.config.scoring_weights.unread_boost
                 logger.debug(f"Applied read status penalty to post {post.id}: {unread_multiplier:.2f}")
 
+        # Apply mention bonus if current user is mentioned in the post
+        mention_bonus = 0.0
+        if user_id and post.author_id != user_id:
+            mention_bonus = await self._calculate_mention_bonus(user_id, post.id)
+
         # Apply own post bonus if this is the user's own post
         own_post_multiplier = 1.0
         own_post_base_score = 0.0
@@ -258,13 +263,13 @@ class AlgorithmService(BaseService):
             # even with zero engagement
             own_post_base_score = 1.0
         
-        # Calculate final score with enhanced time factoring and own post bonus
-        final_score = (base_score + content_bonus + own_post_base_score) * relationship_multiplier * unread_multiplier * time_multiplier * own_post_multiplier
+        # Calculate final score with enhanced time factoring, mention bonus, and own post bonus
+        final_score = (base_score + content_bonus + mention_bonus + own_post_base_score) * relationship_multiplier * unread_multiplier * time_multiplier * own_post_multiplier
         
         logger.debug(
             f"Post {post.id} score calculation: "
             f"base={base_score:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}), "
-            f"content_bonus={content_bonus:.2f}, own_post_base={own_post_base_score:.2f}, "
+            f"content_bonus={content_bonus:.2f}, mention_bonus={mention_bonus:.2f}, own_post_base={own_post_base_score:.2f}, "
             f"relationship_multiplier={relationship_multiplier:.2f}, "
             f"unread_multiplier={unread_multiplier:.2f}, time_multiplier={time_multiplier:.2f}, "
             f"own_post_multiplier={own_post_multiplier:.2f}, final={final_score:.2f}"
@@ -524,6 +529,43 @@ class AlgorithmService(BaseService):
             return follow_bonuses.second_tier_multiplier
         
         return 1.0
+
+    async def _calculate_mention_bonus(self, user_id: int, post_id: str) -> float:
+        """
+        Calculate mention bonus for posts where the current user is mentioned.
+        
+        Uses efficient database query to detect mentions:
+        SELECT post_id FROM mentions WHERE mentioned_user_id = :current_user_id AND post_id = :post_id
+        
+        Args:
+            user_id: ID of the current user
+            post_id: ID of the post to check for mentions
+            
+        Returns:
+            float: Mention bonus (0.0 if not mentioned, configured bonus if mentioned)
+        """
+        from app.models.mention import Mention
+        
+        mention_bonuses = self.config.mention_bonuses
+        
+        # Efficient query to check if current user is mentioned in this post
+        mention_result = await self.db.execute(
+            select(Mention.id).where(
+                and_(
+                    Mention.mentioned_user_id == user_id,
+                    Mention.post_id == post_id
+                )
+            ).limit(1)
+        )
+        
+        if mention_result.scalar_one_or_none():
+            logger.debug(
+                f"Mention bonus applied for user {user_id} in post {post_id}: "
+                f"bonus={mention_bonuses.direct_mention:.2f}"
+            )
+            return mention_bonuses.direct_mention
+        
+        return 0.0
 
     async def get_personalized_feed(
         self, 
