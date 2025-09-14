@@ -310,9 +310,11 @@ class AlgorithmService(BaseService):
         
         time_factors = self.config.time_factors
         
-        # Apply graduated time bonuses for recent posts
+        # Apply graduated time bonuses for recent posts with finer granularity
         recency_bonus = 0.0
-        if hours_old <= 1:
+        if hours_old <= 0.1:  # First 6 minutes get extra boost
+            recency_bonus = time_factors.recent_boost_1hr + 2.0  # Extra boost for very recent
+        elif hours_old <= 1:
             recency_bonus = time_factors.recent_boost_1hr
         elif hours_old <= 6:
             recency_bonus = time_factors.recent_boost_6hr
@@ -913,6 +915,14 @@ class AlgorithmService(BaseService):
                 original_score = post['algorithm_score']
                 post['algorithm_score'] *= multiplier
                 
+                # Add strong time-based component to ensure chronological order
+                # Use seconds precision for very fine-grained ordering
+                seconds_old = (current_time - post_time).total_seconds()
+                # Create a large time component that decreases by 1 for each second
+                # This ensures even 1-second differences create clear ordering
+                time_component = max(0, 100000 - seconds_old)  # Large range to dominate other factors
+                post['algorithm_score'] += time_component
+                
                 # Add metadata for frontend visual feedback
                 post['is_own_post'] = True
                 post['own_post_bonus'] = multiplier
@@ -921,15 +931,21 @@ class AlgorithmService(BaseService):
                 logger.debug(
                     f"Applied own post bonus to post {post['id']}: "
                     f"minutes_old={minutes_old:.1f}, multiplier={multiplier:.2f}, "
+                    f"time_component={time_component:.3f}, "
                     f"score: {original_score:.2f} -> {post['algorithm_score']:.2f}"
                 )
         
-        # Apply randomization factor for diversity
+        # Apply randomization factor for diversity, but skip it entirely for own posts
         randomization_factor = diversity_config.randomization_factor
         for post in posts:
-            # Add random variation to scores (±randomization_factor%)
-            variation = random.uniform(-randomization_factor, randomization_factor)
-            post['algorithm_score'] *= (1 + variation)
+            # Skip randomization entirely for own posts to maintain strict chronological order
+            if user_id and post['author_id'] == user_id:
+                # No randomization for own posts - maintain exact chronological order
+                pass
+            else:
+                # Normal randomization for other posts
+                variation = random.uniform(-randomization_factor, randomization_factor)
+                post['algorithm_score'] *= (1 + variation)
         
         # Apply author diversity limits
         author_post_counts = {}
