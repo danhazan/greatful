@@ -40,7 +40,7 @@ class TestOwnPostVisibilityIntegration:
         feed_data = feed_response.json()
         
         # The new post should be at or near the top of the feed
-        posts = feed_data["posts"]
+        posts = feed_data
         assert len(posts) > 0
         
         # Find the new post in the feed
@@ -95,7 +95,7 @@ class TestOwnPostVisibilityIntegration:
         assert feed_response.status_code == 200
         feed_data = feed_response.json()
         
-        posts = feed_data["posts"]
+        posts = feed_data
         assert len(posts) >= len(created_posts)
         
         # Check that our posts appear in the feed with proper scoring
@@ -151,7 +151,7 @@ class TestOwnPostVisibilityIntegration:
             headers=auth_headers
         )
         assert initial_response.status_code == 200
-        initial_posts = initial_response.json()["posts"]
+        initial_posts = initial_response.json()
         
         # Create a new post
         post_data = {
@@ -174,7 +174,7 @@ class TestOwnPostVisibilityIntegration:
             headers=auth_headers
         )
         assert refresh_response.status_code == 200
-        refreshed_posts = refresh_response.json()["posts"]
+        refreshed_posts = refresh_response.json()
         
         # New post should appear in refreshed feed
         new_post_ids = [p["id"] for p in refreshed_posts]
@@ -208,7 +208,7 @@ class TestOwnPostVisibilityIntegration:
         
         # Find our post in the feed
         our_post = None
-        for post in feed_data["posts"]:
+        for post in feed_data:
             if post["id"] == new_post["id"]:
                 our_post = post
                 break
@@ -226,12 +226,15 @@ class TestOwnPostVisibilityIntegration:
         from app.services.user_service import UserService
         user_service = UserService(db_session)
         
-        other_user_data = {
-            "username": "otheruser",
-            "email": "other@example.com",
-            "password": "password123"
-        }
-        other_user = await user_service.create_user(**other_user_data)
+        # Create another user directly
+        other_user = User(
+            username="otheruser",
+            email="other@example.com",
+            hashed_password="hashed_password"
+        )
+        db_session.add(other_user)
+        await db_session.commit()
+        await db_session.refresh(other_user)
         
         # Create posts from both users
         # First user's post
@@ -256,7 +259,7 @@ class TestOwnPostVisibilityIntegration:
         assert feed_response_1.status_code == 200
         
         # Verify first user sees their own post with bonus
-        posts_1 = feed_response_1.json()["posts"]
+        posts_1 = feed_response_1.json()
         assert len(posts_1) > 0
         
         # Check that the user's own post appears in their feed
@@ -334,5 +337,5 @@ class TestOwnPostVisibilityIntegration:
         assert response_time < 2.0, f"Feed response took too long: {response_time}s"
         
         # Verify we got posts back
-        posts = feed_response.json()["posts"]
+        posts = feed_response.json()
         assert len(posts) > 0

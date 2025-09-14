@@ -37,7 +37,7 @@ class TestPostsAPIContracts:
         }
         
         response = client.post(
-            "/api/v1/posts/",
+            "/api/v1/posts",
             json=valid_post_data,
             headers=headers
         )
@@ -103,7 +103,7 @@ class TestPostsAPIContracts:
         }
         
         response = client.post(
-            "/api/v1/posts/",
+            "/api/v1/posts",
             json=invalid_post_data,
             headers=headers
         )
@@ -129,7 +129,7 @@ class TestPostsAPIContracts:
         }
         
         response = client.post(
-            "/api/v1/posts/",
+            "/api/v1/posts",
             json=invalid_long_post,
             headers=headers
         )
@@ -304,7 +304,7 @@ class TestErrorResponseContracts:
         }
         
         response = client.post(
-            "/api/v1/posts/",
+            "/api/v1/posts",
             json=invalid_post_data,
             headers={"Authorization": "Bearer invalid-token"}
         )

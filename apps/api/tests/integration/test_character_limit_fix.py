@@ -41,7 +41,7 @@ class TestCharacterLimitFix:
             "is_public": True
         }
 
-        response = client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = client.post("/api/v1/posts", json=post_data, headers=headers)
         
         # Should succeed with 201 Created
         assert response.status_code == 201
@@ -75,7 +75,7 @@ class TestCharacterLimitFix:
             "is_public": True
         }
 
-        response = client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = client.post("/api/v1/posts", json=post_data, headers=headers)
         
         # Should fail with 422 Validation Error
         assert response.status_code == 422
@@ -109,7 +109,7 @@ class TestCharacterLimitFix:
             "is_public": True
         }
 
-        response = client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = client.post("/api/v1/posts", json=post_data, headers=headers)
         
         # Should succeed with 201 Created
         assert response.status_code == 201
@@ -143,7 +143,7 @@ class TestCharacterLimitFix:
             # No post_type_override - let it auto-detect
         }
 
-        response = client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = client.post("/api/v1/posts", json=post_data, headers=headers)
         
         # Should succeed and be detected as spontaneous
         assert response.status_code == 201
@@ -160,7 +160,7 @@ class TestCharacterLimitFix:
             # No post_type_override - let it auto-detect
         }
 
-        response = client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = client.post("/api/v1/posts", json=post_data, headers=headers)
         
         # Should succeed and be detected as daily
         assert response.status_code == 201

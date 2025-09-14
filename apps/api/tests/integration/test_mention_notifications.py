@@ -61,7 +61,7 @@ class TestMentionNotifications:
         token = create_access_token(data={"sub": str(user1.id)})
         headers = {"Authorization": f"Bearer {token}"}
 
-        response = await async_client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = await async_client.post("/api/v1/posts", json=post_data, headers=headers)
         
         assert response.status_code == 201
         post_response = response.json()
@@ -123,7 +123,7 @@ class TestMentionNotifications:
         token = create_access_token(data={"sub": str(user.id)})
         headers = {"Authorization": f"Bearer {token}"}
 
-        response = await async_client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = await async_client.post("/api/v1/posts", json=post_data, headers=headers)
         
         assert response.status_code == 201
         post_response = response.json()
@@ -175,7 +175,7 @@ class TestMentionNotifications:
         token = create_access_token(data={"sub": str(user.id)})
         headers = {"Authorization": f"Bearer {token}"}
 
-        response = await async_client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = await async_client.post("/api/v1/posts", json=post_data, headers=headers)
         
         assert response.status_code == 201
         post_response = response.json()
@@ -232,7 +232,7 @@ class TestMentionNotifications:
         token = create_access_token(data={"sub": str(user1.id)})
         headers = {"Authorization": f"Bearer {token}"}
 
-        response = await async_client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = await async_client.post("/api/v1/posts", json=post_data, headers=headers)
         
         assert response.status_code == 201
         post_response = response.json()
@@ -291,7 +291,7 @@ class TestMentionNotifications:
         token = create_access_token(data={"sub": str(user1.id)})
         headers = {"Authorization": f"Bearer {token}"}
 
-        response = await async_client.post("/api/v1/posts/", json=post_data, headers=headers)
+        response = await async_client.post("/api/v1/posts", json=post_data, headers=headers)
         
         assert response.status_code == 201
         post_response = response.json()
@@ -417,7 +417,7 @@ class TestMentionNotifications:
         author_token = create_access_token(data={"sub": str(user1.id)})
         author_headers = {"Authorization": f"Bearer {author_token}"}
 
-        response = await async_client.post("/api/v1/posts/", json=post_data, headers=author_headers)
+        response = await async_client.post("/api/v1/posts", json=post_data, headers=author_headers)
         assert response.status_code == 201
         post_response = response.json()
         post_id = post_response["id"]

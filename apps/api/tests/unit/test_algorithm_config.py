@@ -34,8 +34,8 @@ class TestAlgorithmConfigManager:
         assert config.scoring_weights.hearts == 1.0
         assert config.scoring_weights.reactions == 1.5
         assert config.scoring_weights.shares == 4.0
-        assert config.scoring_weights.photo_bonus == 2.5
-        assert config.scoring_weights.daily_gratitude_bonus == 3.0
+        assert config.scoring_weights.photo_bonus == 1.5
+        assert config.scoring_weights.daily_gratitude_bonus == 2.0
         assert config.scoring_weights.unread_boost == 3.0
         
         # Test default time factors
@@ -62,7 +62,7 @@ class TestAlgorithmConfigManager:
         assert config.scoring_weights.hearts == 1.2  # Overridden
         assert config.scoring_weights.reactions == 1.8  # Overridden
         assert config.scoring_weights.shares == 5.0  # Overridden
-        assert config.scoring_weights.photo_bonus == 2.5  # Default (not overridden)
+        assert config.scoring_weights.photo_bonus == 1.5  # Default (not overridden)
         
         assert config.time_factors.decay_hours == 48  # Overridden
         assert config.time_factors.recent_boost_1hr == 5.0  # Overridden

@@ -371,7 +371,6 @@ export default function FeedPage() {
       const distance = Math.max(0, currentY - touchStartY.current)
       
       if (distance > 0) {
-        e.preventDefault()
         setPullDistance(Math.min(distance * 0.5, 100)) // Damping effect
       }
     }

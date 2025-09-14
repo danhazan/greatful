@@ -85,6 +85,7 @@ class PostResponse(BaseModel):
     is_hearted: Optional[bool] = False
     is_read: Optional[bool] = False
     is_unread: Optional[bool] = False
+    algorithm_score: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -241,7 +242,7 @@ async def _save_uploaded_file(file: UploadFile, db: AsyncSession) -> str:
         )
 
 
-@router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_json(
     post_data: PostCreate,
     current_user_id: int = Depends(get_current_user_id),
@@ -638,7 +639,8 @@ async def get_feed(
                     current_user_reaction=current_user_reaction,
                     is_hearted=is_hearted,
                     is_read=post_data.get('is_read', False),
-                    is_unread=post_data.get('is_unread', False)
+                    is_unread=post_data.get('is_unread', False),
+                    algorithm_score=post_data.get('algorithm_score')
                 ))
             
             logger.debug(f"Retrieved {len(posts_with_user_data)} algorithm-ranked posts for user {current_user_id}")
@@ -768,7 +770,8 @@ async def get_feed(
                     current_user_reaction=row.current_user_reaction,
                     is_hearted=bool(getattr(row, 'is_hearted', False)),
                     is_read=is_read,
-                    is_unread=False  # Chronological feed doesn't mark posts as unread
+                    is_unread=False,  # Chronological feed doesn't mark posts as unread
+                    algorithm_score=None  # No algorithm score for chronological feed
                 ))
 
             logger.debug(f"Retrieved {len(posts_with_counts)} chronological posts")
@@ -1043,16 +1046,31 @@ async def get_post_by_id(
                 detail="This post is private"
             )
 
+        # Parse JSON fields
+        post_style = None
+        if row.post_style and row.post_style != 'null':
+            try:
+                post_style = json.loads(row.post_style) if isinstance(row.post_style, str) else row.post_style
+            except (json.JSONDecodeError, TypeError):
+                post_style = None
+        
+        location_data = None
+        if row.location_data and row.location_data != 'null':
+            try:
+                location_data = json.loads(row.location_data) if isinstance(row.location_data, str) else row.location_data
+            except (json.JSONDecodeError, TypeError):
+                location_data = None
+
         return PostResponse(
             id=row.id,
             author_id=row.author_id,
             content=row.content,
             rich_content=getattr(row, 'rich_content', None),
-            post_style=row.post_style,
+            post_style=post_style,
             post_type=row.post_type,
             image_url=row.image_url,
             location=row.location,
-            location_data=row.location_data,
+            location_data=location_data,
             is_public=row.is_public,
             created_at=row.created_at.isoformat() if hasattr(row.created_at, 'isoformat') else str(row.created_at),
             updated_at=row.updated_at.isoformat() if row.updated_at and hasattr(row.updated_at, 'isoformat') else str(row.updated_at) if row.updated_at else None,
@@ -1066,7 +1084,8 @@ async def get_post_by_id(
             hearts_count=int(row.hearts_count) if row.hearts_count else 0,
             reactions_count=int(row.reactions_count) if row.reactions_count else 0,
             current_user_reaction=row.current_user_reaction,
-            is_hearted=bool(row.is_hearted) if hasattr(row, 'is_hearted') else False
+            is_hearted=bool(row.is_hearted) if hasattr(row, 'is_hearted') else False,
+            algorithm_score=None  # Individual post view doesn't include algorithm score
         )
 
     except HTTPException:

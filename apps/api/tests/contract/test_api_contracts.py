@@ -112,7 +112,7 @@ class TestAPIContracts:
             "is_public": True
         }
         
-        response = await http_client.post("/api/v1/posts/", json=post_data, headers=auth_headers)
+        response = await http_client.post("/api/v1/posts", json=post_data, headers=auth_headers)
         assert response.status_code == status.HTTP_201_CREATED
         
         data = response.json()
@@ -224,7 +224,7 @@ class TestAPIContracts:
         assert "detail" in data
         
         # Test 403 error (no auth) - FastAPI returns 403 for missing auth
-        response = await http_client.post("/api/v1/posts/", json={"content": "test"})
+        response = await http_client.post("/api/v1/posts", json={"content": "test"})
         assert response.status_code == status.HTTP_403_FORBIDDEN
         
         data = response.json()
@@ -240,7 +240,7 @@ class TestAPIContracts:
             "post_type": "invalid_type"  # Invalid post type
         }
         
-        response = await http_client.post("/api/v1/posts/", json=invalid_post_data, headers=auth_headers)
+        response = await http_client.post("/api/v1/posts", json=invalid_post_data, headers=auth_headers)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         
         data = response.json()
@@ -293,7 +293,7 @@ class TestAPIContracts:
             "post_type_override": "invalid_type"
         }
         
-        response = await http_client.post("/api/v1/posts/", json=invalid_post_data, headers=auth_headers)
+        response = await http_client.post("/api/v1/posts", json=invalid_post_data, headers=auth_headers)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     async def test_id_format_validation(self, http_client: AsyncClient, auth_headers):
@@ -324,7 +324,7 @@ class TestAPIContracts:
             "post_type_override": "daily"
         }
         
-        response = await http_client.post("/api/v1/posts/", json=invalid_post_data, headers=auth_headers)
+        response = await http_client.post("/api/v1/posts", json=invalid_post_data, headers=auth_headers)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         
         data = response.json()

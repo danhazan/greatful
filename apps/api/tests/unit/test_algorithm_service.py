@@ -612,7 +612,8 @@ class TestAlgorithmService:
 
     def test_calculate_time_factor_timezone_handling(self, algorithm_service, sample_post):
         """Test time factor calculation handles timezone-naive datetimes."""
-        current_time = datetime.now()  # timezone-naive
+        # Use UTC time to avoid timezone conversion issues
+        current_time = datetime.now(timezone.utc)
         sample_post.created_at = current_time - timedelta(minutes=30)
         
         # Should handle timezone-naive datetime without errors

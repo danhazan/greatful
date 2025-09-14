@@ -250,7 +250,7 @@ async def test_post_dict(http_client, auth_headers):
         "is_public": True
     }
     
-    response = await http_client.post("/api/v1/posts/", json=post_data, headers=auth_headers)
+    response = await http_client.post("/api/v1/posts", json=post_data, headers=auth_headers)
     assert response.status_code == 201
     
     data = response.json()

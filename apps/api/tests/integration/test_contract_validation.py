@@ -20,7 +20,7 @@ class TestContractValidationMiddleware:
             "is_public": True
         }
         
-        response = await http_client.post("/api/v1/posts/", json=valid_post_data, headers=auth_headers)
+        response = await http_client.post("/api/v1/posts", json=valid_post_data, headers=auth_headers)
         assert response.status_code == status.HTTP_201_CREATED
         
         # Verify response structure (API returns post data directly)
@@ -40,7 +40,7 @@ class TestContractValidationMiddleware:
             "is_public": True
         }
         
-        response = await http_client.post("/api/v1/posts/", json=invalid_post_data, headers=auth_headers)
+        response = await http_client.post("/api/v1/posts", json=invalid_post_data, headers=auth_headers)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         
         data = response.json()
@@ -60,7 +60,7 @@ class TestContractValidationMiddleware:
             "is_public": True
         }
         
-        response = await http_client.post("/api/v1/posts/", json=invalid_post_data, headers=auth_headers)
+        response = await http_client.post("/api/v1/posts", json=invalid_post_data, headers=auth_headers)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         
         data = response.json()
@@ -160,7 +160,7 @@ class TestContractValidationMiddleware:
             "is_public": True
         }
         
-        response = await http_client.post("/api/v1/posts/", json=post_data, headers=auth_headers)
+        response = await http_client.post("/api/v1/posts", json=post_data, headers=auth_headers)
         assert response.status_code == status.HTTP_201_CREATED
         
         data = response.json()
@@ -179,7 +179,7 @@ class TestContractValidationMiddleware:
         
         # Test with malformed JSON
         response = await http_client.post(
-            "/api/v1/posts/",
+            "/api/v1/posts",
             content='{"invalid": json}',  # Malformed JSON
             headers={"Content-Type": "application/json"}
         )
