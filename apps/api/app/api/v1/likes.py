@@ -118,6 +118,19 @@ async def add_heart(
                 logger.error(f"Failed to create like notification: {e}")
                 # Don't fail the like if notification fails
         
+        # Track interaction for preference learning
+        try:
+            from app.services.user_preference_service import UserPreferenceService
+            preference_service = UserPreferenceService(db)
+            await preference_service.track_heart_interaction(
+                user_id=current_user_id,
+                post_author_id=post.author_id,
+                post_id=post_id
+            )
+        except Exception as e:
+            logger.error(f"Failed to track heart interaction: {e}")
+            # Don't fail the like if preference tracking fails
+        
         logger.info(f"User {current_user_id} hearted post {post_id}")
         
         # Get updated heart count and status

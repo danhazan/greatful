@@ -71,3 +71,18 @@ class User(Base):
         cascade="all, delete-orphan",
         overlaps="follower_relationships"
     )
+    
+    # User interaction relationships for preference tracking
+    interactions_given = relationship(
+        "UserInteraction",
+        foreign_keys="UserInteraction.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    
+    interactions_received = relationship(
+        "UserInteraction",
+        foreign_keys="UserInteraction.target_user_id", 
+        back_populates="target_user",
+        cascade="all, delete-orphan"
+    )

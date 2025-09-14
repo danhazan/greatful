@@ -97,6 +97,18 @@ class FollowService(BaseService):
             logger.error(f"Failed to create follow notification: {e}")
             # Don't fail the follow if notification fails
         
+        # Track interaction for preference learning
+        try:
+            from app.services.user_preference_service import UserPreferenceService
+            preference_service = UserPreferenceService(self.db)
+            await preference_service.track_follow_interaction(
+                user_id=follower_id,
+                followed_user_id=followed_id
+            )
+        except Exception as e:
+            logger.error(f"Failed to track follow interaction: {e}")
+            # Don't fail the follow if preference tracking fails
+        
         return {
             "id": follow.id,
             "follower_id": follow.follower_id,

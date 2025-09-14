@@ -3,6 +3,7 @@ Algorithm service for calculating post engagement scores and feed ranking.
 """
 
 import logging
+import random
 from typing import Any, Dict, List, Optional, Tuple, Set
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -509,8 +510,8 @@ class AlgorithmService(BaseService):
                 'is_read': self.is_post_read(user_id, post.id) if consider_read_status else False
             })
 
-        # Apply diversity limits and own post factors
-        scored_posts = self._apply_diversity_and_own_post_factors(scored_posts, user_id)
+        # Apply diversity limits and preference control
+        scored_posts = await self._apply_diversity_and_preference_control(scored_posts, user_id)
         
         # Sort by score (descending) and apply pagination
         scored_posts.sort(key=lambda x: x['algorithm_score'], reverse=True)
@@ -1085,6 +1086,212 @@ class AlgorithmService(BaseService):
             'shares_count': shares_count,
             'algorithm_score': algorithm_score,
             'own_post_status': own_post_status
+        }
+
+    async def _apply_diversity_and_preference_control(
+        self, 
+        scored_posts: List[Dict[str, Any]], 
+        user_id: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply diversity limits and preference control to scored posts.
+        
+        Args:
+            scored_posts: List of posts with scores
+            user_id: ID of the user viewing the feed
+            
+        Returns:
+            List[Dict[str, Any]]: Posts with diversity and preference adjustments
+        """
+        try:
+            # Import here to avoid circular imports
+            from app.services.user_preference_service import UserPreferenceService
+            
+            preference_service = UserPreferenceService(self.db)
+            diversity_config = self.config.diversity_limits
+            
+            # Apply preference boosts first
+            for post in scored_posts:
+                if post['author_id'] != user_id:  # Don't boost own posts
+                    try:
+                        preference_boost = await preference_service.calculate_preference_boost(
+                            user_id, post['author_id']
+                        )
+                        post['algorithm_score'] *= preference_boost
+                        if preference_boost > 1.0:
+                            post['preference_boosted'] = True
+                    except Exception as e:
+                        logger.warning(f"Failed to calculate preference boost: {e}")
+                        # Continue without preference boost
+            
+            # Apply randomization factor to prevent predictable feeds
+            randomization_factor = diversity_config.randomization_factor
+            for post in scored_posts:
+                # Apply ±15% randomization (or configured percentage)
+                random_multiplier = 1.0 + random.uniform(-randomization_factor, randomization_factor)
+                post['algorithm_score'] *= random_multiplier
+            
+            # Sort by updated scores
+            scored_posts.sort(key=lambda x: x['algorithm_score'], reverse=True)
+            
+            # Apply diversity limits
+            diversified_posts = self._apply_author_diversity_limits(scored_posts, diversity_config)
+            diversified_posts = self._apply_content_type_balancing(diversified_posts, diversity_config)
+            
+            return diversified_posts
+            
+        except Exception as e:
+            logger.error(f"Error in diversity and preference control: {e}")
+            # Return original posts if diversity control fails
+            return scored_posts
+
+    def _apply_author_diversity_limits(
+        self, 
+        posts: List[Dict[str, Any]], 
+        diversity_config
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply maximum posts per author limit to ensure feed diversity.
+        
+        Args:
+            posts: List of posts to filter
+            diversity_config: Diversity configuration
+            
+        Returns:
+            List[Dict[str, Any]]: Filtered posts with author diversity
+        """
+        max_posts_per_author = diversity_config.max_posts_per_author
+        author_counts = {}
+        filtered_posts = []
+        
+        for post in posts:
+            author_id = post['author_id']
+            current_count = author_counts.get(author_id, 0)
+            
+            if current_count < max_posts_per_author:
+                filtered_posts.append(post)
+                author_counts[author_id] = current_count + 1
+            else:
+                logger.debug(f"Filtered out post from author {author_id} due to diversity limit")
+        
+        logger.debug(
+            f"Applied author diversity: {len(posts)} -> {len(filtered_posts)} posts "
+            f"(max {max_posts_per_author} per author)"
+        )
+        
+        return filtered_posts
+
+    def _apply_content_type_balancing(
+        self, 
+        posts: List[Dict[str, Any]], 
+        diversity_config
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply content type balancing to ensure diverse post types in feed.
+        
+        Args:
+            posts: List of posts to balance
+            diversity_config: Diversity configuration
+            
+        Returns:
+            List[Dict[str, Any]]: Balanced posts with content type diversity
+        """
+        if not posts:
+            return posts
+        
+        total_posts = len(posts)
+        
+        # Calculate limits for each post type (ensure at least 1 for small datasets)
+        photo_limit = max(1, int(total_posts * diversity_config.max_photo_posts_percentage))
+        daily_limit = max(1, int(total_posts * diversity_config.max_daily_posts_percentage))
+        spontaneous_limit = max(1, int(total_posts * diversity_config.max_spontaneous_posts_percentage))
+        
+        # For small datasets (< 10 posts), be more lenient with balancing
+        if total_posts < 10:
+            photo_limit = total_posts
+            daily_limit = total_posts
+            spontaneous_limit = total_posts
+        
+        # Count posts by type and apply limits
+        type_counts = {'photo': 0, 'daily': 0, 'spontaneous': 0}
+        balanced_posts = []
+        
+        for post in posts:
+            post_type = post['post_type']
+            current_count = type_counts.get(post_type, 0)
+            
+            # Check if we can add this post type
+            can_add = True
+            if post_type == 'photo' and current_count >= photo_limit:
+                can_add = False
+            elif post_type == 'daily' and current_count >= daily_limit:
+                can_add = False
+            elif post_type == 'spontaneous' and current_count >= spontaneous_limit:
+                can_add = False
+            
+            if can_add:
+                balanced_posts.append(post)
+                type_counts[post_type] = current_count + 1
+            else:
+                logger.debug(f"Filtered out {post_type} post due to content type balancing")
+        
+        logger.debug(
+            f"Applied content type balancing: {len(posts)} -> {len(balanced_posts)} posts "
+            f"(photo: {type_counts['photo']}/{photo_limit}, "
+            f"daily: {type_counts['daily']}/{daily_limit}, "
+            f"spontaneous: {type_counts['spontaneous']}/{spontaneous_limit})"
+        )
+        
+        return balanced_posts
+
+    async def get_diversity_stats(self, posts: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Get diversity statistics for a list of posts.
+        
+        Args:
+            posts: List of posts to analyze
+            
+        Returns:
+            Dict[str, Any]: Diversity statistics
+        """
+        if not posts:
+            return {
+                'total_posts': 0,
+                'unique_authors': 0,
+                'content_type_distribution': {},
+                'author_distribution': {}
+            }
+        
+        # Count unique authors
+        unique_authors = len(set(post['author_id'] for post in posts))
+        
+        # Count posts by content type
+        content_type_counts = {}
+        for post in posts:
+            post_type = post['post_type']
+            content_type_counts[post_type] = content_type_counts.get(post_type, 0) + 1
+        
+        # Count posts by author
+        author_counts = {}
+        for post in posts:
+            author_id = post['author_id']
+            author_counts[author_id] = author_counts.get(author_id, 0) + 1
+        
+        # Calculate percentages
+        total_posts = len(posts)
+        content_type_percentages = {
+            post_type: (count / total_posts) * 100
+            for post_type, count in content_type_counts.items()
+        }
+        
+        return {
+            'total_posts': total_posts,
+            'unique_authors': unique_authors,
+            'author_diversity_ratio': unique_authors / total_posts if total_posts > 0 else 0,
+            'content_type_distribution': content_type_percentages,
+            'content_type_counts': content_type_counts,
+            'author_distribution': dict(sorted(author_counts.items(), key=lambda x: x[1], reverse=True)[:10]),
+            'max_posts_per_author': max(author_counts.values()) if author_counts else 0
         }
 
     def get_config_summary(self) -> Dict[str, Any]:

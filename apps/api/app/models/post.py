@@ -41,6 +41,7 @@ class Post(Base):
 
     # Relationships
     author = relationship("User", back_populates="posts")
+    user_interactions = relationship("UserInteraction", back_populates="post", cascade="all, delete-orphan")
     
     @classmethod
     async def get_by_id(cls, db, post_id: str):

@@ -127,6 +127,19 @@ class ShareService(BaseService):
             except Exception as e:
                 logger.error(f"Failed to create share notification: {e}")
                 # Don't fail the share if notification fails
+            
+            # Track interaction for preference learning
+            try:
+                from app.services.user_preference_service import UserPreferenceService
+                preference_service = UserPreferenceService(self.db)
+                await preference_service.track_share_interaction(
+                    user_id=user_id,
+                    post_author_id=post.author_id,
+                    post_id=post_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to track share interaction: {e}")
+                # Don't fail the share if preference tracking fails
         
         # Track analytics
         await self.track_share_analytics(user_id, post_id, "url")
@@ -222,6 +235,20 @@ class ShareService(BaseService):
             except Exception as e:
                 logger.error(f"Failed to create share notification for recipient {recipient_id}: {e}")
                 # Continue with other recipients
+        
+        # Track interaction for preference learning (with post author)
+        if post.author_id != sender_id:
+            try:
+                from app.services.user_preference_service import UserPreferenceService
+                preference_service = UserPreferenceService(self.db)
+                await preference_service.track_share_interaction(
+                    user_id=sender_id,
+                    post_author_id=post.author_id,
+                    post_id=post_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to track share interaction: {e}")
+                # Don't fail the share if preference tracking fails
         
         # Track analytics
         await self.track_share_analytics(sender_id, post_id, "message")

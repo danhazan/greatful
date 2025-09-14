@@ -60,13 +60,24 @@ class DiversityLimits:
     """Limits to ensure feed diversity."""
     max_posts_per_author: int = 3
     randomization_factor: float = 0.15  # ±15%
+    # Content type balancing limits (percentage of feed)
+    max_photo_posts_percentage: float = 0.4  # Max 40% photo posts
+    max_daily_posts_percentage: float = 0.5  # Max 50% daily gratitude posts
+    max_spontaneous_posts_percentage: float = 0.6  # Max 60% spontaneous posts
 
 
 @dataclass
 class PreferenceFactors:
     """User preference and interaction-based factors."""
-    interaction_threshold: int = 5
-    frequent_user_boost: float = 1.0
+    interaction_threshold: int = 2  # Minimum interactions to be considered "frequent"
+    frequent_user_boost: float = 3.0  # Boost for frequently interacted users
+    # Interaction scoring thresholds
+    heart_interaction_weight: float = 1.0
+    reaction_interaction_weight: float = 1.5
+    share_interaction_weight: float = 2.0
+    mention_interaction_weight: float = 1.5
+    # Preference decay (days)
+    preference_decay_days: int = 30
 
 
 @dataclass
@@ -110,6 +121,10 @@ ENVIRONMENT_OVERRIDES = {
         },
         'diversity_limits': {
             'randomization_factor': 0.25,  # More randomization for testing
+        },
+        'preference_factors': {
+            'interaction_threshold': 1,  # Lower threshold for development
+            'frequent_user_boost': 4.0,  # Higher boost for testing
         }
     },
     'staging': {

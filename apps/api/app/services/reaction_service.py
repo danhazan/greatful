@@ -84,6 +84,19 @@ class ReactionService(BaseService):
                 except Exception as e:
                     logger.error(f"Failed to create notification for reaction update: {e}")
                     # Don't fail the reaction if notification fails
+                
+                # Track interaction for preference learning
+                try:
+                    from app.services.user_preference_service import UserPreferenceService
+                    preference_service = UserPreferenceService(self.db)
+                    await preference_service.track_reaction_interaction(
+                        user_id=user_id,
+                        post_author_id=post.author_id,
+                        post_id=post_id
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to track reaction interaction: {e}")
+                    # Don't fail the reaction if preference tracking fails
             
             return {
                 "id": updated_reaction.id,
@@ -123,6 +136,19 @@ class ReactionService(BaseService):
                 except Exception as e:
                     logger.error(f"Failed to create notification for new reaction: {e}")
                     # Don't fail the reaction if notification fails
+                
+                # Track interaction for preference learning
+                try:
+                    from app.services.user_preference_service import UserPreferenceService
+                    preference_service = UserPreferenceService(self.db)
+                    await preference_service.track_reaction_interaction(
+                        user_id=user_id,
+                        post_author_id=post.author_id,
+                        post_id=post_id
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to track reaction interaction: {e}")
+                    # Don't fail the reaction if preference tracking fails
             
             return {
                 "id": reaction.id,

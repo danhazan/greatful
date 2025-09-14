@@ -739,7 +739,7 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
   - Implement graduated time bonuses using TIME_FACTORS config (default: 0-1hr +4.0, 1-6hr +2.0, 6-24hr +1.0)
   - Add time-based diversity to prevent feed staleness with old high-engagement posts
   - Test time factoring ensures recent posts compete effectively with high-engagement older posts
-- [ ] **15.4 Immediate Post Visibility with Decay**
+- [x] **15.4 Immediate Post Visibility with Decay**
   - Implement immediate top placement for user's own new posts using configurable visibility duration
   - Add exponential decay for own posts that decays to a permanent base multiplier (not zero)
   - Create decay function: `own_post_bonus = max(base_multiplier, max_bonus * decay_factor) + base_multiplier`
@@ -747,7 +747,7 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
   - Ensure own posts maintain permanent advantage but don't dominate feed after initial decay
   - Add visual feedback when user's new post appears at top of feed
   - Test own-post visibility and decay with various posting frequencies
-- [ ] **15.5 Basic Diversity and Preference Control**
+- [x] **15.5 Basic Diversity and Preference Control**
   - Implement simple diversity system using configurable limits (default: max 3 posts per author in top 20)
   - Add content type balancing using DIVERSITY_LIMITS config for post type distribution
   - Create basic preference tracking: boost posts from users the current user frequently interacts with

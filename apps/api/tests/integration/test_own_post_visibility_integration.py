@@ -71,7 +71,7 @@ class TestOwnPostVisibilityIntegration:
         for content in post_contents:
             post_data = {
                 "content": content,
-                "post_type": "text",
+                "post_type_override": "spontaneous",
                 "is_public": True
             }
             
