@@ -189,6 +189,9 @@ class TestFeedAlgorithm:
         """Test scoring calculations with various engagement combinations."""
         algorithm_service = AlgorithmService(db_session)
         
+        # Get the actual configuration values being used
+        config = algorithm_service.config
+        
         # Test each post's score calculation
         expected_scores = []
         for i, post in enumerate(posts_with_engagement):
@@ -196,15 +199,19 @@ class TestFeedAlgorithm:
             reactions_count = i + 1  # 1, 2, 3, 4, 5
             shares_count = max(0, i - 1)  # 0, 0, 1, 2, 3
             
-            # Calculate expected score based on formula
-            base_score = (hearts_count * 1.0) + (reactions_count * 1.5) + (shares_count * 4.0)
+            # Calculate expected score based on current configuration
+            base_score = (
+                (hearts_count * config.scoring_weights.hearts) + 
+                (reactions_count * config.scoring_weights.reactions) + 
+                (shares_count * config.scoring_weights.shares)
+            )
             
-            # Add content type bonus
+            # Add content type bonus using configuration values
             content_bonus = 0.0
             if post.post_type == PostType.daily:
-                content_bonus = 3.0
+                content_bonus = config.scoring_weights.daily_gratitude_bonus
             elif post.post_type == PostType.photo:
-                content_bonus = 2.5
+                content_bonus = config.scoring_weights.photo_bonus
             
             expected_score = base_score + content_bonus
             expected_scores.append(expected_score)
@@ -622,6 +629,10 @@ class TestFeedAlgorithm:
         daily_score, photo_score, spontaneous_score = scores
         assert daily_score > photo_score > spontaneous_score
         
-        # Verify specific bonuses
-        assert daily_score - spontaneous_score == 3.0  # Daily bonus
-        assert photo_score - spontaneous_score == 2.5  # Photo bonus
+        # Verify specific bonuses using configuration values
+        config = algorithm_service.config
+        expected_daily_bonus = config.scoring_weights.daily_gratitude_bonus
+        expected_photo_bonus = config.scoring_weights.photo_bonus
+        
+        assert abs((daily_score - spontaneous_score) - expected_daily_bonus) < 0.01  # Daily bonus
+        assert abs((photo_score - spontaneous_score) - expected_photo_bonus) < 0.01  # Photo bonus

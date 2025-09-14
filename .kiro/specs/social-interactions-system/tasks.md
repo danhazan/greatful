@@ -649,16 +649,17 @@ The implementation maintains consistency with the reference implementation's pur
   - Implement smooth scrolling to keep focused items visible
   - _Requirements: All user dropdown menus should be fully keyboard accessible with proper scrolling_
 
-- [ ] **14.10 Fix PostCard Toolbar Alignment** - Improve mobile display consistency
-  - Fix PostCard toolbar at bottom that sometimes gets badly aligned, especially on mobile
-  - Adjust spacing and ensure all icons appear properly across different screen sizes
-  - Ensure consistent alignment of heart, reaction, share, and location icons
+- [x] **14.10 Fix PostCard Toolbars Alignment** - Improve mobile display consistency
+  - Move location button from toolbar to be positioned on the top0 right corner, instead of the follow button (next tothe three dots for own posts). Ensure that it fits properly on both desktop and mobile displays.
+  - Move Follow button to be positioned at the left, next to the user display name.
+  - Location should maintain its clickability and open the modal correctly
+  - Toolbar should only contain three buttons (heart, reaction, share) aligned and spaced evenly at center. They should be big enough to occupy the toolbar space.
   - Test toolbar layout on various mobile devices and screen orientations
   - Maintain proper touch targets (44px minimum) for mobile interaction
   - Fix any icon overflow or wrapping issues on smaller screens
-  - _Requirements: PostCard toolbar should display consistently with proper icon alignment on all devices_
+  - _Requirements: PostCard toolbar should display consistently with only three main interaction buttons centered_
 
-- [ ] **14.11 Implement RTL Language Support** - Add Hebrew and RTL language support with proper text alignment
+- [x] **14.11 Implement RTL Language Support** - Add Hebrew and RTL language support with proper text alignment
   - **14.11.1 Text Direction Detection and Layout**
     - Implement automatic text direction detection for Hebrew, Arabic, and other RTL languages
     - Add `dir="rtl"` attribute to content containers when RTL text is detected
@@ -692,53 +693,163 @@ The implementation maintains consistency with the reference implementation's pur
   - **Test Execution:** Run frontend tests (`npm test`) to verify RTL support doesn't break existing functionality. Test Hebrew text input in post creation, mentions, and user profiles. Verify proper text alignment and layout across all components.
   - _Requirements: Full support for Hebrew and RTL languages with proper text alignment, mixed content handling, and consistent UI behavior across all social features_
 
-- [ ] **14.12 Fix HTML Entity Display in Posts** - Remove unwanted HTML entities from post content
-  - **Problem Analysis:** Posts are displaying `&nbsp;` instead of proper spaces, likely due to HTML entity encoding during content processing
-  - **Root Cause Investigation:**
-    - Check RichTextEditor content serialization and HTML generation
-    - Investigate content sanitization in post creation pipeline
-    - Examine how contentEditable innerHTML is processed and stored
-    - Review mention insertion and HTML manipulation that might introduce entities
-  - **Content Processing Fixes:**
-    - Update post content sanitization to decode HTML entities before storage
-    - Ensure RichTextEditor properly handles spaces without converting to `&nbsp;`
-    - Fix mention insertion logic to avoid HTML entity creation
-    - Add content cleaning utility to remove unwanted HTML entities
-  - **Display and Rendering Fixes:**
-    - Update PostCard content rendering to handle HTML entities properly
-    - Ensure proper text display in all post contexts (feed, profile, individual post)
-    - Fix content preview generation to avoid HTML entity leakage
-    - Test content display with various special characters and spaces
-  - **Testing and Validation:**
-    - Test post creation with Hebrew text and mixed content
-    - Verify no HTML entities appear in published posts
-    - Test mention insertion doesn't introduce unwanted entities
-    - Validate content display across all post types and contexts
-  - **Test Execution:** Run frontend tests to verify content processing fixes. Create posts with Hebrew text, mentions, and special characters to ensure clean display without HTML entities.
-  - _Requirements: Post content should display clean text without visible HTML entities like &nbsp; in any context_
 
+### **TASK 15: Algorithm Enhancement and Optimization**
+**Module Reference:** Requirements 7 - Content Hierarchy Algorithm Enhancement (Advanced)
 
-### **TASK 15: MVP Production Readiness**
+## Brief Algorithm Review
+
+The current feed algorithm (implemented in `AlgorithmService`) ranks posts using the following approach:
+
+**Scoring Formula:**
+- **Base Score:** `(Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0)`
+- **Content Bonuses:** Photo posts (+2.5), Daily gratitude posts (+3.0)  
+- **Relationship Multiplier:** Posts from followed users (+2.0)
+- **Feed Mix:** 80% algorithm-scored posts, 20% recent posts
+
+**Current Strengths:**
+- Values shares highest (4.0x) as they indicate strong engagement
+- Prioritizes content from followed users (2.0x multiplier)
+- Gives bonus to meaningful content types (Daily gratitude gets highest bonus)
+- Maintains content freshness with 80/20 algorithm/recent split
+
+**Enhancement Opportunities:**
+- Time decay factor (newer posts should score higher than old highly-engaged posts)
+- Diversity injection (prevent feed domination by single users or content types)
+- User behavior learning (adapt to individual user preferences)
+- Performance optimization (reduce N+1 queries in scoring)
+
+- [ ] **15.1 Read Status Tracking Implementation**
+  - Implement read status tracking within AlgorithmService (no changes to Post/User models)
+  - Create in-memory or cache-based read tracking system per user session
+  - Add read status marking when posts are displayed in feed (viewport-based detection)
+  - Implement read status persistence across sessions using localStorage or user preferences
+  - Add read status consideration in feed scoring to deprioritize already-read posts
+  - Test read status tracking with various user interaction patterns
+- [ ] **15.2 Feed Refresh Mechanism with Unread Priority**
+  - Create refresh mechanism that prioritizes recent unread posts over older content
+  - Implement "pull-to-refresh" or refresh button that fetches new unread content first
+  - Add unread post detection: posts created after user's last feed view timestamp
+  - Modify feed algorithm to boost unread posts using configurable multiplier (default: +3.0)
+  - Add visual indicators for new/unread posts in feed display
+  - Test refresh mechanism with various timing scenarios and user behaviors
+- [ ] **15.3 Enhanced Time Factoring for Recent Posts**
+  - Strengthen time decay factor using configurable decay hours (default: 72 hours for 3-day decay)
+  - Add stronger recency boost for posts using configurable time bonuses from algorithm config
+  - Implement graduated time bonuses using TIME_FACTORS config (default: 0-1hr +4.0, 1-6hr +2.0, 6-24hr +1.0)
+  - Add time-based diversity to prevent feed staleness with old high-engagement posts
+  - Test time factoring ensures recent posts compete effectively with high-engagement older posts
+- [ ] **15.4 Immediate Post Visibility with Decay**
+  - Implement immediate top placement for user's own new posts using configurable visibility duration
+  - Add exponential decay for own posts that decays to a permanent base multiplier (not zero)
+  - Create decay function: `own_post_bonus = max(base_multiplier, max_bonus * decay_factor) + base_multiplier`
+  - Use OWN_POST_FACTORS config (default: max visibility 5 min, decay over 15 min, base multiplier +2.0)
+  - Ensure own posts maintain permanent advantage but don't dominate feed after initial decay
+  - Add visual feedback when user's new post appears at top of feed
+  - Test own-post visibility and decay with various posting frequencies
+- [ ] **15.5 Basic Diversity and Preference Control**
+  - Implement simple diversity system using configurable limits (default: max 3 posts per author in top 20)
+  - Add content type balancing using DIVERSITY_LIMITS config for post type distribution
+  - Create basic preference tracking: boost posts from users the current user frequently interacts with
+  - Implement interaction-based scoring using configurable thresholds and bonuses from PREFERENCE_FACTORS
+  - Add randomization factor using configurable percentage (default: ±15%) to prevent predictable feeds
+  - Plan for future user-controlled preference settings
+- [ ] **15.6 Enhanced Follow Relationship Multiplier**
+  - Increase follow relationship multiplier using FOLLOW_BONUSES config (default: base +5.0)
+  - Add graduated follow bonuses using configurable values (default: new +6.0, established +5.0, mutual +7.0)
+  - Implement follow recency factor using configurable duration and bonus from FOLLOW_BONUSES config
+  - Add follow engagement tracking: users with high interaction get additional configurable priority
+  - **Add second-tier follow multiplier**: posts by users followed by your followed users get small boost
+  - Create efficient second-tier follow detection using database query or shared utility:
+    ```sql
+    -- Efficient query to get second-tier follows
+    SELECT DISTINCT f2.followed_id as second_tier_user_id
+    FROM follows f1 
+    JOIN follows f2 ON f1.followed_id = f2.follower_id 
+    WHERE f1.follower_id = :current_user_id 
+    AND f2.followed_id != :current_user_id
+    AND f2.followed_id NOT IN (SELECT followed_id FROM follows WHERE follower_id = :current_user_id)
+    ```
+  - Add second-tier multiplier to FOLLOW_BONUSES config (default: +1.5 for second-tier users)
+  - Cache second-tier follow relationships for performance (refresh every 24 hours)
+  - Test follow multipliers ensure followed content appears prominently without overwhelming feed
+- [x] **15.7 Algorithm Configuration System**
+  - Create `apps/api/app/config/algorithm_config.py` with all multipliers and factors
+  - Define configuration sections: scoring_weights, time_factors, diversity_limits, follow_bonuses
+  - Example config structure:
+    ```python
+    SCORING_WEIGHTS = {
+        'hearts': 1.0,
+        'reactions': 1.5, 
+        'shares': 4.0,
+        'photo_bonus': 2.5,
+        'daily_gratitude_bonus': 3.0,
+        'unread_boost': 3.0
+    }
+    TIME_FACTORS = {
+        'decay_hours': 72,  # 3-day decay
+        'recent_boost_1hr': 4.0,
+        'recent_boost_6hr': 2.0,
+        'recent_boost_24hr': 1.0
+    }
+    FOLLOW_BONUSES = {
+        'base_multiplier': 5.0,
+        'new_follow_bonus': 6.0,
+        'established_follow_bonus': 5.0,
+        'mutual_follow_bonus': 7.0,
+        'second_tier_multiplier': 1.5,  # Users followed by your follows
+        'recent_follow_days': 7,
+        'recent_follow_boost': 1.0
+    }
+    OWN_POST_FACTORS = {
+        'max_visibility_minutes': 5,
+        'decay_duration_minutes': 15,
+        'max_bonus_multiplier': 10.0,
+        'base_multiplier': 2.0  # Permanent advantage for own posts
+    }
+    DIVERSITY_LIMITS = {
+        'max_posts_per_author': 3,
+        'randomization_factor': 0.15  # ±15%
+    }
+    PREFERENCE_FACTORS = {
+        'interaction_threshold': 5,
+        'frequent_user_boost': 1.0
+    }
+    ```
+  - Add environment-based config overrides (dev/staging/prod)
+  - Update AlgorithmService to use config values instead of hardcoded numbers
+  - Add config validation and fallback to defaults if config is invalid
+- [ ] **15.8 Performance Optimization for Enhanced Algorithm**
+  - Optimize read status queries and caching to minimize performance impact
+  - Implement efficient time-based scoring with pre-calculated time buckets
+  - Add batch processing for preference learning and diversity calculations
+  - Create database indexes optimized for new algorithm factors (user_id, created_at, engagement)
+  - Monitor algorithm performance with enhanced factors and maintain <300ms feed loading
+- [ ] **Test Execution:** Run algorithm service tests (`pytest tests/unit/test_algorithm_service.py -v`) and integration tests (`pytest tests/integration/test_feed_algorithm.py -v`) to verify enhancements. Test feed performance with 1000+ posts and various user scenarios. Validate algorithm behavior with edge cases (no engagement, very old posts, single-author feeds).
+- [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with enhanced algorithm details. Add algorithm configuration guide to docs/ARCHITECTURE_AND_SETUP.md. Document performance optimization strategies and caching configuration.
+**Acceptance Criteria:** Algorithm tracks read status without modifying core models, refresh mechanism prioritizes unread recent posts, time factoring gives recent posts strong visibility advantage, user's own posts appear immediately at top with proper decay, basic diversity prevents feed domination, follow relationships have much higher multiplier (+5.0), and enhanced algorithm maintains <300ms performance while significantly improving content freshness and personalization.
+
+### **TASK 16: MVP Production Readiness**
 **Module Reference:** Final MVP polish and production deployment preparation
-- [ ] **15.1 Performance Optimization and Monitoring**
+- [ ] **16.1 Performance Optimization and Monitoring**
   - Add database connection pooling configuration for production workloads
   - Implement query result caching for frequently accessed data (user profiles, follower counts)
   - Add database query performance monitoring and slow query logging
   - Optimize image loading with lazy loading and proper image sizing/compression
   - Add performance metrics collection for feed loading and API response times
-- [ ] **15.2 Security Hardening**
+- [ ] **16.2 Security Hardening**
   - Implement rate limiting on all API endpoints (100 requests/minute per user)
   - Add CSRF protection for all state-changing operations (POST, PUT, DELETE)
   - Implement input sanitization for all user-generated content (posts, bios, usernames)
   - Configure secure headers for production (CORS, CSP, HSTS, X-Frame-Options)
   - Add API key validation and request signing for sensitive operations
-- [ ] **15.3 Error Monitoring and Logging**
+- [ ] **16.3 Error Monitoring and Logging**
   - Add structured logging for all API endpoints with request IDs and user context
   - Implement frontend error tracking for JavaScript errors and API failures
   - Create health check endpoints for monitoring (`/api/health`, `/api/ready`, `/api/metrics`)
   - Add error alerting system for critical failures (database connection, API errors)
   - Implement log aggregation and monitoring dashboard setup
-- [ ] **15.4 Final Testing and Quality Assurance**
+- [ ] **16.4 Final Testing and Quality Assurance**
   - Run complete end-to-end test suite covering all user workflows
   - Perform load testing on feed algorithm with 1000+ posts and 100+ concurrent users
   - Validate all social interactions work correctly under concurrent usage scenarios
@@ -750,41 +861,41 @@ The implementation maintains consistency with the reference implementation's pur
 
 ## Phase 2: Enhanced Social Features (Post-MVP)
 
-### **TASK 16: Privacy Controls System** (Post-MVP)
+### **TASK 17: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 17: Advanced Social Features** (Post-MVP)
+### **TASK 18: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 18: Fast Login Page for Development** (Post-MVP)
+### **TASK 19: Fast Login Page for Development** (Post-MVP)
 **Module Reference:** Development Tools - Fast Login Interface for Testing
-- [ ] **18.1 Create Fast Login Page Route**
+- [ ] **19.1 Create Fast Login Page Route**
   - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
   - Copy existing login page layout and styling from `/auth/login/page.tsx`
   - Replace email/password form with user selection dropdown
   - Add development environment detection to prevent production access
   - Implement purple theme consistency matching regular login page
-- [ ] **18.2 User Selection Interface**
+- [ ] **19.2 User Selection Interface**
   - Create dropdown showing all existing users (username, email, profile picture)
   - Implement one-click login functionality that generates development token
   - Add user search/filter functionality for large user lists
   - Display user information clearly (username, email, join date)
   - Add "Login as [Username]" button for each user selection
-- [ ] **18.3 Development Environment Protection**
+- [ ] **19.3 Development Environment Protection**
   - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
   - Implement build-time exclusion using Next.js conditional compilation
   - Add clear development warning banner on fast login page
   - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
   - Add rate limiting and IP restrictions for development endpoints
-- [ ] **18.4 Fast Login UX and Navigation**
+- [ ] **19.4 Fast Login UX and Navigation**
   - Style page identical to regular login with "Fast Login (Dev Mode)" title
   - Add "Back to Regular Login" link for normal authentication flow
   - Implement responsive design matching existing login page
@@ -793,9 +904,9 @@ The implementation maintains consistency with the reference implementation's pur
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
 **Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
-### **TASK 19: Follow Notification Batching System** (Post-MVP)
+### **TASK 20: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **19.1 Follow Notification Batching Analysis and Design**
+- [ ] **20.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -806,7 +917,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **19.2 Follow Notification Batching Implementation**
+- [ ] **20.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope
@@ -814,7 +925,7 @@ The implementation maintains consistency with the reference implementation's pur
   - Implement proper batch summary generation for follow notifications
   - Add batch expansion to show individual follower notifications with profile pictures
   - Test follow notification batching with multiple followers and time windows
-- [ ] **19.3 Cross-Notification Type Batching Strategy (Future)**
+- [ ] **20.3 Cross-Notification Type Batching Strategy (Future)**
   - **Advanced Feature:** Consider batching different notification types for the same user
   - Research feasibility of "activity digest" notifications combining multiple types
   - Design user preference system for notification batching granularity

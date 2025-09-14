@@ -3,8 +3,8 @@ Unit tests for AlgorithmService.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.algorithm_service import AlgorithmService
@@ -14,6 +14,7 @@ from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
+from app.config.algorithm_config import AlgorithmConfigManager
 
 
 class TestAlgorithmService:
@@ -27,7 +28,12 @@ class TestAlgorithmService:
     @pytest.fixture
     def algorithm_service(self, mock_db_session):
         """Create AlgorithmService instance with mock session."""
-        return AlgorithmService(mock_db_session)
+        # Use production config for consistent test results
+        with patch.dict('os.environ', {'ENVIRONMENT': 'production'}):
+            # Clear the global config manager to force reload
+            import app.config.algorithm_config as config_module
+            config_module._config_manager = None
+            return AlgorithmService(mock_db_session)
 
     @pytest.fixture
     def sample_post(self):
@@ -40,7 +46,7 @@ class TestAlgorithmService:
             post_type=PostType.daily,
             image_url=None,
             is_public=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         return post
 
@@ -121,8 +127,8 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * 2.0 = 20.5 * 2.0 = 41.0
-        expected_score = 41.0
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * 5.0 = 20.5 * 5.0 = 102.5
+        expected_score = 102.5
         assert score == expected_score
 
     async def test_calculate_post_score_no_relationship_multiplier(self, algorithm_service, sample_post, mock_db_session):
@@ -281,7 +287,7 @@ class TestAlgorithmService:
         mock_row.shares_count = 3
         
         sample_post.author = sample_user
-        sample_post.created_at = datetime.utcnow() - timedelta(hours=2)  # 2 hours old
+        sample_post.created_at = datetime.now(timezone.utc) - timedelta(hours=2)  # 2 hours old
         
         mock_result = MagicMock()
         mock_result.all.return_value = [mock_row]
@@ -311,7 +317,7 @@ class TestAlgorithmService:
         mock_row.reactions_count = 0
         mock_row.shares_count = 0
         
-        sample_post.created_at = datetime.utcnow()
+        sample_post.created_at = datetime.now(timezone.utc)
         
         mock_result = MagicMock()
         mock_result.all.return_value = [mock_row]
@@ -377,3 +383,120 @@ class TestAlgorithmService:
         assert photo_score == 2.5
         assert spontaneous_score == 0.0
         assert daily_score > photo_score > spontaneous_score
+
+    async def test_algorithm_service_uses_configuration(self, algorithm_service, sample_post, mock_db_session):
+        """Test that AlgorithmService uses configuration values instead of hardcoded ones."""
+        # Verify that the service has loaded configuration
+        assert algorithm_service.config is not None
+        assert hasattr(algorithm_service.config, 'scoring_weights')
+        assert hasattr(algorithm_service.config, 'time_factors')
+        assert hasattr(algorithm_service.config, 'follow_bonuses')
+        
+        # Test that scoring uses config values
+        config = algorithm_service.config
+        score = await algorithm_service.calculate_post_score(
+            sample_post,
+            user_id=None,
+            hearts_count=1,
+            reactions_count=1,
+            shares_count=1
+        )
+        
+        # Expected score should use config values
+        expected_base = (
+            1 * config.scoring_weights.hearts +
+            1 * config.scoring_weights.reactions +
+            1 * config.scoring_weights.shares
+        )
+        expected_total = expected_base + config.scoring_weights.daily_gratitude_bonus
+        
+        assert score == expected_total
+
+    async def test_algorithm_service_config_reload(self, algorithm_service, mock_db_session):
+        """Test that AlgorithmService can reload configuration."""
+        original_config = algorithm_service.config
+        
+        # Reload configuration
+        algorithm_service.reload_config()
+        
+        # Should have reloaded (same values since environment didn't change)
+        new_config = algorithm_service.config
+        assert new_config.scoring_weights.hearts == original_config.scoring_weights.hearts
+
+    async def test_get_config_summary(self, algorithm_service, mock_db_session):
+        """Test that AlgorithmService can provide config summary."""
+        summary = algorithm_service.get_config_summary()
+        
+        assert 'environment' in summary
+        assert 'config' in summary
+        assert isinstance(summary['config'], dict)
+
+    async def test_apply_diversity_and_own_post_factors(self, algorithm_service, mock_db_session):
+        """Test diversity limits and own post factors application."""
+        # Create test posts
+        current_time = datetime.now(timezone.utc)
+        posts = [
+            {
+                'id': 'post-1',
+                'author_id': 1,  # User's own post
+                'algorithm_score': 10.0,
+                'created_at': current_time.isoformat()
+            },
+            {
+                'id': 'post-2',
+                'author_id': 2,  # Other user's post
+                'algorithm_score': 15.0,
+                'created_at': (current_time - timedelta(hours=1)).isoformat()
+            },
+            {
+                'id': 'post-3',
+                'author_id': 1,  # Another own post (older)
+                'algorithm_score': 8.0,
+                'created_at': (current_time - timedelta(hours=2)).isoformat()
+            }
+        ]
+        
+        # Apply diversity and own post factors
+        result_posts = algorithm_service._apply_diversity_and_own_post_factors(posts, user_id=1)
+        
+        # Should have applied own post multipliers
+        own_posts = [p for p in result_posts if p['author_id'] == 1]
+        other_posts = [p for p in result_posts if p['author_id'] != 1]
+        
+        # Own posts should have higher scores due to multipliers
+        for own_post in own_posts:
+            assert own_post['algorithm_score'] > 10.0  # Should be boosted
+        
+        # Other posts should have randomization applied but no own post boost
+        for other_post in other_posts:
+            # Score should be close to original (within randomization range)
+            assert 12.0 <= other_post['algorithm_score'] <= 18.0  # 15.0 ± 15%
+
+    async def test_relationship_multiplier_uses_config(self, algorithm_service, sample_post, mock_db_session):
+        """Test that relationship multiplier uses configuration value."""
+        sample_post.author_id = 2  # Different from user_id
+        
+        # Mock follow relationship exists
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = "follow-id"
+        mock_db_session.execute.return_value = mock_result
+        
+        score = await algorithm_service.calculate_post_score(
+            sample_post,
+            user_id=1,
+            hearts_count=1,
+            reactions_count=1,
+            shares_count=1
+        )
+        
+        # Should use config follow bonus instead of hardcoded 2.0
+        config = algorithm_service.config
+        expected_base = (
+            1 * config.scoring_weights.hearts +
+            1 * config.scoring_weights.reactions +
+            1 * config.scoring_weights.shares +
+            config.scoring_weights.daily_gratitude_bonus
+        )
+        expected_total = expected_base * config.follow_bonuses.base_multiplier
+        
+        assert score == expected_total

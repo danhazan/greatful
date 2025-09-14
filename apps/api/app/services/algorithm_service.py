@@ -4,6 +4,7 @@ Algorithm service for calculating post engagement scores and feed ranking.
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -16,6 +17,7 @@ from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
 from app.models.user import User
+from app.config.algorithm_config import get_algorithm_config
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +26,20 @@ class AlgorithmService(BaseService):
     """
     Service for calculating post engagement scores and generating personalized feeds.
     
-    Scoring Formula:
-    Base Score = (Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0)
-    Content Bonuses: Photo posts (+2.5), Daily gratitude posts (+3.0)
-    Relationship Multiplier: Posts from followed users (+2.0)
+    Uses configurable scoring weights and factors from algorithm_config.py.
+    Configuration can be environment-specific (dev/staging/prod).
     """
 
     def __init__(self, db: AsyncSession):
         super().__init__(db)
+        self.config = get_algorithm_config()
+    
+    def reload_config(self) -> None:
+        """Reload algorithm configuration (useful for testing or config updates)."""
+        from app.config.algorithm_config import reload_algorithm_config
+        reload_algorithm_config()
+        self.config = get_algorithm_config()
+        logger.info("Algorithm configuration reloaded")
 
     async def calculate_post_score(
         self, 
@@ -73,17 +81,22 @@ class AlgorithmService(BaseService):
             )
             shares_count = shares_result.scalar() or 0
 
-        # Base engagement score
-        base_score = (hearts_count * 1.0) + (reactions_count * 1.5) + (shares_count * 4.0)
+        # Base engagement score using configurable weights
+        scoring_weights = self.config.scoring_weights
+        base_score = (
+            (hearts_count * scoring_weights.hearts) + 
+            (reactions_count * scoring_weights.reactions) + 
+            (shares_count * scoring_weights.shares)
+        )
         
-        # Content type bonuses
+        # Content type bonuses using configurable values
         content_bonus = 0.0
         if post.post_type == PostType.photo:
-            content_bonus += 2.5
+            content_bonus += scoring_weights.photo_bonus
         elif post.post_type == PostType.daily:
-            content_bonus += 3.0
+            content_bonus += scoring_weights.daily_gratitude_bonus
         
-        # Relationship multiplier
+        # Relationship multiplier using configurable follow bonuses
         relationship_multiplier = 1.0
         if user_id and post.author_id != user_id:
             # Check if user follows the post author
@@ -97,7 +110,7 @@ class AlgorithmService(BaseService):
                 )
             )
             if follow_result.scalar_one_or_none():
-                relationship_multiplier = 2.0
+                relationship_multiplier = self.config.follow_bonuses.base_multiplier
 
         # Calculate final score
         final_score = (base_score + content_bonus) * relationship_multiplier
@@ -232,6 +245,9 @@ class AlgorithmService(BaseService):
                 'algorithm_score': score
             })
 
+        # Apply diversity limits and own post factors
+        scored_posts = self._apply_diversity_and_own_post_factors(scored_posts, user_id)
+        
         # Sort by score (descending) and apply pagination
         scored_posts.sort(key=lambda x: x['algorithm_score'], reverse=True)
         return scored_posts[offset:offset + limit]
@@ -358,9 +374,8 @@ class AlgorithmService(BaseService):
         Returns:
             List[Dict[str, Any]]: Trending posts with scores
         """
-        from datetime import datetime, timedelta
         
-        cutoff_time = datetime.utcnow() - timedelta(hours=time_window_hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=time_window_hours)
         
         # Query posts created within the time window with engagement
         from sqlalchemy.orm import outerjoin
@@ -398,14 +413,35 @@ class AlgorithmService(BaseService):
             reactions_count = row.reactions_count or 0
             shares_count = row.shares_count or 0
 
-            # Calculate trending score (higher weight for recent engagement)
-            base_engagement = (hearts_count * 2.0) + (reactions_count * 3.0) + (shares_count * 8.0)
+            # Calculate trending score using configurable weights (doubled for trending)
+            scoring_weights = self.config.scoring_weights
+            base_engagement = (
+                (hearts_count * scoring_weights.hearts * 2.0) + 
+                (reactions_count * scoring_weights.reactions * 2.0) + 
+                (shares_count * scoring_weights.shares * 2.0)
+            )
             
             # Only include posts with actual engagement
             if base_engagement > 0:
-                # Add recency bonus (newer posts get higher scores)
-                hours_old = (datetime.utcnow() - post.created_at).total_seconds() / 3600
-                recency_bonus = max(0, (time_window_hours - hours_old) / time_window_hours * 5.0)
+                # Add recency bonus using configurable time factors
+                post_created_at = post.created_at
+                if post_created_at.tzinfo is None:
+                    # Handle timezone-naive datetime by assuming UTC
+                    post_created_at = post_created_at.replace(tzinfo=timezone.utc)
+                
+                hours_old = (datetime.now(timezone.utc) - post_created_at).total_seconds() / 3600
+                time_factors = self.config.time_factors
+                
+                # Apply time-based boosts
+                if hours_old <= 1:
+                    recency_bonus = time_factors.recent_boost_1hr
+                elif hours_old <= 6:
+                    recency_bonus = time_factors.recent_boost_6hr
+                elif hours_old <= 24:
+                    recency_bonus = time_factors.recent_boost_24hr
+                else:
+                    recency_bonus = max(0, (time_window_hours - hours_old) / time_window_hours * 2.0)
+                
                 trending_score = base_engagement + recency_bonus
                 trending_posts.append({
                     'id': post.id,
@@ -437,3 +473,83 @@ class AlgorithmService(BaseService):
         
         logger.info(f"Found {len(trending_posts)} trending posts in last {time_window_hours} hours")
         return trending_posts[:limit]
+    
+    def _apply_diversity_and_own_post_factors(
+        self, 
+        posts: List[Dict[str, Any]], 
+        user_id: Optional[int]
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply diversity limits and own post factors to the post list.
+        
+        Args:
+            posts: List of posts with scores
+            user_id: Current user ID for own post detection
+            
+        Returns:
+            List[Dict[str, Any]]: Posts with updated scores and diversity applied
+        """
+        import random
+        
+        diversity_config = self.config.diversity_limits
+        own_post_config = self.config.own_post_factors
+        
+        # Apply own post factors
+        current_time = datetime.now(timezone.utc)
+        for post in posts:
+            if user_id and post['author_id'] == user_id:
+                # Calculate time since post creation
+                post_time_str = post['created_at']
+                if post_time_str.endswith('Z'):
+                    post_time = datetime.fromisoformat(post_time_str.replace('Z', '+00:00'))
+                elif '+' in post_time_str or post_time_str.endswith('00:00'):
+                    post_time = datetime.fromisoformat(post_time_str)
+                else:
+                    # Handle timezone-naive datetime by assuming UTC
+                    post_time = datetime.fromisoformat(post_time_str).replace(tzinfo=timezone.utc)
+                
+                minutes_old = (current_time - post_time).total_seconds() / 60
+                
+                # Apply own post multiplier
+                if minutes_old <= own_post_config.max_visibility_minutes:
+                    # Maximum boost for very recent own posts
+                    multiplier = own_post_config.max_bonus_multiplier
+                elif minutes_old <= own_post_config.decay_duration_minutes:
+                    # Decaying boost
+                    decay_factor = (own_post_config.decay_duration_minutes - minutes_old) / own_post_config.decay_duration_minutes
+                    multiplier = own_post_config.base_multiplier + (own_post_config.max_bonus_multiplier - own_post_config.base_multiplier) * decay_factor
+                else:
+                    # Base multiplier for older own posts
+                    multiplier = own_post_config.base_multiplier
+                
+                post['algorithm_score'] *= multiplier
+                logger.debug(f"Applied own post multiplier {multiplier:.2f} to post {post['id']}")
+        
+        # Apply randomization factor for diversity
+        randomization_factor = diversity_config.randomization_factor
+        for post in posts:
+            # Add random variation to scores (±randomization_factor%)
+            variation = random.uniform(-randomization_factor, randomization_factor)
+            post['algorithm_score'] *= (1 + variation)
+        
+        # Apply author diversity limits
+        author_post_counts = {}
+        filtered_posts = []
+        
+        for post in sorted(posts, key=lambda x: x['algorithm_score'], reverse=True):
+            author_id = post['author_id']
+            current_count = author_post_counts.get(author_id, 0)
+            
+            if current_count < diversity_config.max_posts_per_author:
+                filtered_posts.append(post)
+                author_post_counts[author_id] = current_count + 1
+            else:
+                logger.debug(f"Filtered out post {post['id']} due to author diversity limit")
+        
+        logger.debug(f"Applied diversity filters: {len(posts)} -> {len(filtered_posts)} posts")
+        return filtered_posts
+    
+    def get_config_summary(self) -> Dict[str, Any]:
+        """Get current algorithm configuration summary for debugging."""
+        from app.config.algorithm_config import get_config_manager
+        return get_config_manager().get_config_summary()
