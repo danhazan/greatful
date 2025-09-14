@@ -2,7 +2,9 @@
 
 import { PostStyle } from "./PostStyleSelector"
 import DOMPurify from 'dompurify'
+import { useMemo } from 'react'
 import "../styles/rich-content.css"
+import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, getTextDirectionFromPlainText } from "@/utils/rtlUtils"
 
 interface RichContentRendererProps {
   content: string
@@ -12,6 +14,8 @@ interface RichContentRendererProps {
   onMentionClick?: (username: string) => void
   validUsernames?: string[]
 }
+
+
 
 export default function RichContentRenderer({
   content,
@@ -35,54 +39,22 @@ export default function RichContentRenderer({
     margin: '8px 0'
   } : {}
 
-  // Use content field directly - it contains the rich text
-  const contentToRender = content
+  // Process HTML with simplified container-level direction handling
+  const processedHtml = useMemo(() => {
+    if (!content) return "";
 
-  // Check if content contains HTML tags
-  const hasHtmlTags = /<[^>]+>/.test(contentToRender)
-
-  // DEBUG: Log what we're rendering (commented out for production)
-  // console.log("🎨 RichContentRenderer Debug:", {
-  //   content,
-  //   richContent,
-  //   rich_content,
-  //   activeRichContent,
-  //   hasRichContent,
-  //   contentToRender,
-  //   hasHtmlTags
-  // })
-
-  // Process content into HTML (either existing HTML or convert markdown to HTML)
-  let processedContent = contentToRender
-
-  if (hasHtmlTags) {
-    // Content already has HTML, just handle mentions
-    if (onMentionClick) {
-      processedContent = processedContent.replace(
-        /@([a-zA-Z0-9_\-\.]+)/g,
-        (match, username) => {
-          const isValid = validUsernames.includes(username)
-          if (isValid) {
-            return `<span class="mention text-purple-600" data-username="${username}">@${username}</span>`
-          } else {
-            // Invalid usernames get no special styling, just plain text
-            return `@${username}`
-          }
-        }
-      )
-    }
-  } else {
-    // Convert markdown-style formatting to HTML
+    // 1) Convert markdown to HTML if needed
+    let html = content;
+    
     // Handle mentions first
     if (onMentionClick) {
-      processedContent = processedContent.replace(
+      html = html.replace(
         /@([a-zA-Z0-9_\-\.]+)/g,
         (match, username) => {
           const isValid = validUsernames.includes(username)
           if (isValid) {
             return `<span class="mention text-purple-600" data-username="${username}">@${username}</span>`
           } else {
-            // Invalid usernames get no special styling, just plain text
             return `@${username}`
           }
         }
@@ -90,61 +62,51 @@ export default function RichContentRenderer({
     }
 
     // Convert markdown to HTML
-    processedContent = processedContent
+    html = html
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
       .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
       .replace(/__(.*?)__/g, '<u>$1</u>') // Underline
-      .replace(/\n/g, '<br>') // Line breaks
-  }
+      .replace(/\n/g, '<br>'); // Line breaks
 
-  // Check if we have any HTML to render (either original HTML or converted markdown)
-  const hasProcessedHtml = /<[^>]+>/.test(processedContent)
-
-  if (hasProcessedHtml) {
-    // Sanitize HTML for security
-    const sanitizedHTML = DOMPurify.sanitize(processedContent, {
-      ALLOWED_TAGS: ['strong', 'em', 'u', 'span', 'br', 'p'],
+    // 2) Sanitize HTML - let browser handle direction naturally
+    const sanitized = DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['strong', 'em', 'u', 'span', 'br', 'p', 'div'],
       ALLOWED_ATTR: ['style', 'class', 'data-username']
-    })
+    });
 
-    return (
+    // No DOM manipulation - let container-level direction handle everything
+    return sanitized;
+  }, [content, onMentionClick, validUsernames]);
+
+  // Container direction from plain content (remove markdown formatting for detection)
+  const containerDir = getTextDirectionFromPlainText((content || '').replace(/[*_~`]/g, ''));
+
+  return (
+    <div 
+      className="rich-content" 
+      style={containerStyle}
+    >
       <div
-        className="rich-content"
-        style={containerStyle}
-      >
-        <div
-          className={`rich-content-rendered ${className}`.trim()}
-          dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
-          onClick={(e) => {
-            // Handle mention clicks
-            const target = e.target as HTMLElement
-            if (target.classList.contains('mention') && onMentionClick) {
-              const username = target.getAttribute('data-username')
-              if (username) {
-                onMentionClick(username)
-              }
+        className={`rich-content-rendered ${className}`.trim()}
+        dir={containerDir}
+        dangerouslySetInnerHTML={{ __html: processedHtml }}
+        onClick={(e) => {
+          // Handle mention clicks
+          const target = e.target as HTMLElement
+          if (target.classList.contains('mention') && onMentionClick) {
+            const username = target.getAttribute('data-username')
+            if (username) {
+              onMentionClick(username)
             }
-          }}
-          style={{
-            '--mention-color': '#7C3AED',
-            '--mention-hover-color': '#5B21B6'
-          } as React.CSSProperties}
-        />
-      </div>
-    )
-  } else {
-    // Plain text content, render with mention support
-    return (
-      <div
-        className="rich-content"
-        style={containerStyle}
-      >
-        <div className={`rich-content-rendered ${className}`.trim()}>
-          {renderMentions(contentToRender, onMentionClick, validUsernames)}
-        </div>
-      </div>
-    )
-  }
+          }
+        }}
+        style={{
+          '--mention-color': '#7C3AED',
+          '--mention-hover-color': '#5B21B6'
+        } as React.CSSProperties}
+      />
+    </div>
+  )
 }
 
 // Helper function to render mentions in plain text

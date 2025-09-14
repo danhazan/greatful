@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* RTL Support */
+@import '../styles/rtl.css';
+
 /* Rich Content Styles */
 .rich-content-rendered .mention {
   color: #7C3AED;

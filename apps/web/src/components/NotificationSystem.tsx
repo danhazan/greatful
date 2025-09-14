@@ -7,6 +7,7 @@ import { handleNotificationClick } from "@/utils/notificationLinks"
 import { parseNotificationMessage, formatNotificationWithClickableUser, formatNotificationWithEnhancedData } from "@/utils/notificationMessageParser"
 import ClickableProfilePicture from "@/components/ClickableProfilePicture"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
 
 interface Notification {
   id: string
@@ -400,8 +401,11 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                           </div>
 
                           {/* Notification Content */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-900">
+                          <div 
+                            className="flex-1 min-w-0"
+                            dir={getDirectionAttribute(notification.message)}
+                          >
+                            <p className={`text-sm text-gray-900 ${getTextAlignmentClass(notification.message)}`}>
                               {formatNotificationWithEnhancedData(notification)}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
@@ -469,8 +473,11 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                 </div>
 
                                 {/* Child Content */}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-gray-700">
+                                <div 
+                                  className="flex-1 min-w-0"
+                                  dir={getDirectionAttribute(child.message)}
+                                >
+                                  <p className={`text-sm text-gray-700 ${getTextAlignmentClass(child.message)}`}>
                                     {formatNotificationWithEnhancedData(child)}
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">

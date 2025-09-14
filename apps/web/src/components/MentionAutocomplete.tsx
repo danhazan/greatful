@@ -5,6 +5,7 @@ import { createTouchHandlers } from '@/utils/hapticFeedback'
 import { getImageUrl } from '@/utils/imageUtils'
 import ProfilePhotoDisplay from './ProfilePhotoDisplay'
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from '@/utils/rtlUtils'
 // UserInfo type defined locally
 interface UserInfo {
   id: number
@@ -190,7 +191,8 @@ export default function MentionAutocomplete({
       role="listbox"
       aria-label="User search results"
       aria-live="polite"
-      className={`absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-w-xs w-64 sm:w-80 max-h-60 sm:max-h-72 overflow-y-auto custom-scrollbar touch-manipulation ${className}`}
+      dir={getDirectionAttribute(searchQuery)}
+      className={`absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-w-xs w-64 sm:w-80 max-h-60 sm:max-h-72 overflow-y-auto custom-scrollbar touch-manipulation ${className} ${getTextAlignmentClass(searchQuery)}`}
       style={{
         left: position.x,
         top: position.y,

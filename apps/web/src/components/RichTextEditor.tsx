@@ -6,6 +6,7 @@ import { Bold, Italic, Underline, Type, Palette, Smile, MoreHorizontal } from "l
 import { sanitizeHtml } from "@/utils/htmlUtils"
 import { wrapMentions, mentionsToPlainText } from "@/utils/mentions"
 import EnhancedEmojiPicker from "./EnhancedEmojiPicker"
+import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
 
 export interface RichTextEditorRef {
   getHtml: () => string
@@ -437,10 +438,20 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       typingRef.current = false;
     }, 500);
     
-    // Always enforce LTR direction to prevent backwards text
-    editableRef.current.dir = 'ltr'
-    editableRef.current.style.direction = 'ltr'
-    editableRef.current.style.textAlign = 'left'
+    // Detect text direction and apply appropriate styling
+    const currentText = editableRef.current.textContent || '';
+    const direction = getDirectionAttribute(currentText);
+    const alignmentClass = getTextAlignmentClass(currentText);
+    
+    editableRef.current.dir = direction;
+    editableRef.current.style.direction = direction;
+    editableRef.current.style.textAlign = direction === 'rtl' ? 'right' : 'left';
+    
+    // Update CSS classes for text alignment
+    editableRef.current.className = editableRef.current.className
+      .replace(/text-(left|right|center)/g, '')
+      .trim() + ` ${alignmentClass}`;
+    
     
     // Update format state
     updateFormatState()
@@ -511,11 +522,20 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       document.execCommand(command, false, value)
     }
     
-    // Ensure LTR direction is maintained after formatting
+    // Maintain proper text direction after formatting
     if (editableRef.current) {
-      editableRef.current.dir = 'ltr'
-      editableRef.current.style.direction = 'ltr'
-      editableRef.current.style.textAlign = 'left'
+      const currentText = editableRef.current.textContent || '';
+      const direction = getDirectionAttribute(currentText);
+      const alignmentClass = getTextAlignmentClass(currentText);
+      
+      editableRef.current.dir = direction;
+      editableRef.current.style.direction = direction;
+      editableRef.current.style.textAlign = direction === 'rtl' ? 'right' : 'left';
+      
+      // Update CSS classes for text alignment
+      editableRef.current.className = editableRef.current.className
+        .replace(/text-(left|right|center)/g, '')
+        .trim() + ` ${alignmentClass}`;
     }
     
     // Update format state after command execution
@@ -731,13 +751,13 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         onCompositionEnd={handleCompositionEnd}
         className="min-h-[120px] p-3 border rounded-b-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
         data-placeholder={placeholder}
-        dir="ltr"
+        dir={getDirectionAttribute(value || htmlValue || '')}
         style={{
           minHeight: '120px',
           maxHeight: '300px',
           overflowY: 'auto',
-          direction: 'ltr',
-          textAlign: 'left'
+          direction: getDirectionAttribute(value || htmlValue || ''),
+          textAlign: getDirectionAttribute(value || htmlValue || '') === 'rtl' ? 'right' : 'left'
         } as React.CSSProperties}
       />
 

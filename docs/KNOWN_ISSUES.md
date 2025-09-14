@@ -3,6 +3,7 @@
 ## 📋 Executive Summary
 
 ### ⚠️ Active Issues
+- **🔤 RTL Text Reversal**: Hebrew and Arabic text displaying in reversed character order
 - **📱 Mobile Search Bar Expansion**: Mobile search bar not expanding when search icon is clicked
 - **🔤 Notification Username Instead of Display Name**: Notifications show username instead of display name
 - **📊 Engagement Summary Auto-Popup**: Metrics popup automatically appears when posts reach 6+ total reactions
@@ -30,6 +31,7 @@
 - ✅ **Heart Counter**: Working perfectly with real-time updates
 - ✅ **Reaction Counter**: Working perfectly with real-time updates  
 - ✅ **Core APIs**: All functional endpoints working
+- ⚠️ **RTL Text Support**: Critical character reversal issue with formatted text
 - ⚠️ **Emoji Picker**: 8/10 emojis working (2 have click handler issues)
 - ✅ **Tests**: 144+ tests passing (with known isolation issue)
 
@@ -226,6 +228,66 @@ The navbar was using the same data normalization issue that was previously fixed
 ---
 
 ## ⚠️ Active Issues
+
+### RTL Text Reversal Issue
+**Issue**: Hebrew and Arabic text displaying in reversed character order after implementing RTL support  
+**Status**: ⚠️ Active Issue  
+**Priority**: High  
+**Impact**: Critical User Experience for RTL Language Users  
+**Discovered**: January 9, 2025  
+
+**Description**:
+Hebrew and Arabic text are displaying in **reversed character order** when rich text formatting is applied. For example:
+- **Expected**: "עלי" (Hebrew for "on me")  
+- **Actual**: "ילע" (meaningless reversed characters)
+
+This occurs in both post display and input fields when rich text formatting (bold, italic) is applied. Plain text without formatting displays correctly.
+
+**Technical Details**:
+- Backend: Text storage and retrieval working correctly ✅
+- Database: Text data stored correctly ✅
+- Frontend: RTL text rendering with formatting broken ❌
+- Issue: Character reversal when HTML formatting is applied to RTL text
+
+**Current Behavior**:
+- Plain Hebrew text: Displays correctly ✅
+- Bold Hebrew text (`**עלי**`): Displays as "ילע" (reversed) ❌
+- Mixed content: Hebrew + English text alignment issues ❌
+- English text: Works correctly ✅
+
+**Expected Behavior**:
+- Hebrew text like "עלי" should display correctly right-to-left without character reversal
+- Bold/italic formatting should preserve RTL text direction
+- Mixed content (Hebrew + English) should render naturally
+- Text should be properly aligned to the right for RTL languages
+
+**Reproduction Steps**:
+1. Create a post with Hebrew text and formatting (e.g., "זה **עלי** בעברית")
+2. Observe that the formatted Hebrew text displays in reverse
+3. Compare with plain Hebrew text which displays correctly
+4. Note that the issue affects both post display and input fields
+
+**Root Cause Hypothesis**:
+The issue appears to be related to how HTML formatting interacts with RTL text direction. The current RTL implementation may be:
+1. Using problematic CSS properties like `unicode-bidi: isolate-override`
+2. Applying direction settings at the wrong DOM level (inline vs block)
+3. Interfering with the browser's natural bidirectional text algorithm
+
+**Attempted Solutions**:
+- Implemented container-level direction handling
+- Updated CSS to use logical properties (`text-align: start`)
+- Modified RTL detection threshold for mixed content
+- All tests pass but visual rendering still shows character reversal
+
+**Workaround**: Currently no workaround available for formatted RTL text.
+
+**Priority**: High - Critical accessibility issue affecting Hebrew and Arabic users.
+
+**Files Affected**:
+- `apps/web/src/components/RichContentRenderer.tsx` - Main RTL rendering logic
+- `apps/web/src/styles/rtl.css` - RTL-specific CSS rules
+- `apps/web/src/utils/rtlUtils.ts` - RTL text detection utilities
+- Test files for RTL functionality
 
 ### Mobile Search Bar Expansion Issue
 **Issue**: Mobile search bar in navbar is not expanding when the search icon is clicked  

@@ -1,0 +1,267 @@
+/* RTL-aware CSS utilities */
+
+/* RTL-aware margin utilities */
+.ms-1 { margin-inline-start: 0.25rem; }
+.ms-2 { margin-inline-start: 0.5rem; }
+.ms-3 { margin-inline-start: 0.75rem; }
+.ms-4 { margin-inline-start: 1rem; }
+.ms-5 { margin-inline-start: 1.25rem; }
+.ms-6 { margin-inline-start: 1.5rem; }
+
+.me-1 { margin-inline-end: 0.25rem; }
+.me-2 { margin-inline-end: 0.5rem; }
+.me-3 { margin-inline-end: 0.75rem; }
+.me-4 { margin-inline-end: 1rem; }
+.me-5 { margin-inline-end: 1.25rem; }
+.me-6 { margin-inline-end: 1.5rem; }
+
+/* RTL-aware padding utilities */
+.ps-1 { padding-inline-start: 0.25rem; }
+.ps-2 { padding-inline-start: 0.5rem; }
+.ps-3 { padding-inline-start: 0.75rem; }
+.ps-4 { padding-inline-start: 1rem; }
+.ps-5 { padding-inline-start: 1.25rem; }
+.ps-6 { padding-inline-start: 1.5rem; }
+
+.pe-1 { padding-inline-end: 0.25rem; }
+.pe-2 { padding-inline-end: 0.5rem; }
+.pe-3 { padding-inline-end: 0.75rem; }
+.pe-4 { padding-inline-end: 1rem; }
+.pe-5 { padding-inline-end: 1.25rem; }
+.pe-6 { padding-inline-end: 1.5rem; }
+
+/* RTL-aware text alignment */
+.text-start { text-align: start; }
+.text-end { text-align: end; }
+
+/* Force RTL text alignment */
+[dir="rtl"] .text-right,
+.text-right[dir="rtl"] {
+  text-align: right !important;
+}
+
+[dir="ltr"] .text-left,
+.text-left[dir="ltr"] {
+  text-align: left !important;
+}
+
+/* RTL content styling - use logical properties */
+.rich-content[dir="rtl"] .rich-content-rendered {
+  text-align: start;
+  direction: rtl;
+}
+
+.rich-content[dir="ltr"] .rich-content-rendered {
+  text-align: start;
+  direction: ltr;
+}
+
+/* PostCard RTL content */
+.post-content[dir="rtl"] {
+  text-align: right !important;
+  direction: rtl;
+}
+
+.post-content[dir="ltr"] {
+  text-align: left !important;
+  direction: ltr;
+}
+
+/* Specific overrides for rich content - use logical properties */
+[dir="rtl"] .rich-content-rendered {
+  text-align: start;
+}
+
+[dir="ltr"] .rich-content-rendered {
+  text-align: start;
+}
+
+/* PostCard content area RTL support */
+[dir="rtl"] .post-content-area {
+  text-align: right !important;
+}
+
+[dir="ltr"] .post-content-area {
+  text-align: left !important;
+}
+
+/* More specific RTL overrides */
+.post-content-area[dir="rtl"] .rich-content .rich-content-rendered {
+  text-align: right !important;
+  direction: rtl !important;
+}
+
+.post-content-area[dir="ltr"] .rich-content .rich-content-rendered {
+  text-align: left !important;
+  direction: ltr !important;
+}
+
+/* Let inline elements inherit direction naturally - no forced overrides */
+[dir="rtl"] .rich-content-rendered strong,
+[dir="rtl"] .rich-content-rendered em,
+[dir="rtl"] .rich-content-rendered u,
+[dir="rtl"] .rich-content-rendered span {
+  /* Inherit direction from container - no forced direction */
+}
+
+[dir="ltr"] .rich-content-rendered strong,
+[dir="ltr"] .rich-content-rendered em,
+[dir="ltr"] .rich-content-rendered u,
+[dir="ltr"] .rich-content-rendered span {
+  /* Inherit direction from container - no forced direction */
+}
+
+/* Container-level RTL direction - SAFE APPROACH */
+.rich-content-rendered[dir="rtl"] {
+  direction: rtl;
+  text-align: start;
+  unicode-bidi: isolate;
+}
+
+.rich-content-rendered[dir="ltr"] {
+  direction: ltr;
+  text-align: start;
+  unicode-bidi: isolate;
+}
+
+/* Hebrew and Arabic text specific styling */
+.rich-content-rendered:lang(he),
+.rich-content-rendered:lang(ar) {
+  text-align: right !important;
+  direction: rtl !important;
+}
+
+/* RTL-aware border utilities */
+.border-s { border-inline-start-width: 1px; }
+.border-e { border-inline-end-width: 1px; }
+.border-s-2 { border-inline-start-width: 2px; }
+.border-e-2 { border-inline-end-width: 2px; }
+
+/* RTL-aware positioning */
+.start-0 { inset-inline-start: 0; }
+.start-1 { inset-inline-start: 0.25rem; }
+.start-2 { inset-inline-start: 0.5rem; }
+.start-3 { inset-inline-start: 0.75rem; }
+.start-4 { inset-inline-start: 1rem; }
+
+.end-0 { inset-inline-end: 0; }
+.end-1 { inset-inline-end: 0.25rem; }
+.end-2 { inset-inline-end: 0.5rem; }
+.end-3 { inset-inline-end: 0.75rem; }
+.end-4 { inset-inline-end: 1rem; }
+
+/* RTL-aware flexbox utilities */
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+
+/* RTL text direction utilities */
+.dir-ltr { direction: ltr; }
+.dir-rtl { direction: rtl; }
+
+/* Mixed content handling */
+.mixed-content {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
+/* RTL-aware icon positioning */
+[dir="rtl"] .icon-start {
+  margin-inline-end: 0.5rem;
+  margin-inline-start: 0;
+}
+
+[dir="ltr"] .icon-start {
+  margin-inline-start: 0.5rem;
+  margin-inline-end: 0;
+}
+
+[dir="rtl"] .icon-end {
+  margin-inline-start: 0.5rem;
+  margin-inline-end: 0;
+}
+
+[dir="ltr"] .icon-end {
+  margin-inline-end: 0.5rem;
+  margin-inline-start: 0;
+}
+
+/* RTL-aware dropdown positioning */
+[dir="rtl"] .dropdown-menu {
+  left: auto;
+  right: 0;
+}
+
+[dir="ltr"] .dropdown-menu {
+  right: auto;
+  left: 0;
+}
+
+/* RTL-aware mention styling */
+.mention {
+  unicode-bidi: embed;
+  direction: ltr;
+  display: inline;
+}
+
+/* RTL-aware form inputs */
+input[dir="rtl"], textarea[dir="rtl"] {
+  text-align: right;
+}
+
+input[dir="ltr"], textarea[dir="ltr"] {
+  text-align: left;
+}
+
+/* RTL-aware button layouts */
+[dir="rtl"] .button-with-icon {
+  flex-direction: row-reverse;
+}
+
+[dir="ltr"] .button-with-icon {
+  flex-direction: row;
+}
+
+/* RTL-aware notification layouts */
+[dir="rtl"] .notification-content {
+  text-align: right;
+}
+
+[dir="ltr"] .notification-content {
+  text-align: left;
+}
+
+/* RTL-aware post content */
+.post-content[dir="rtl"] {
+  text-align: right;
+}
+
+.post-content[dir="ltr"] {
+  text-align: left;
+}
+
+/* RTL-aware modal positioning */
+[dir="rtl"] .modal-content {
+  text-align: right;
+}
+
+[dir="ltr"] .modal-content {
+  text-align: left;
+}
+
+/* Ensure proper cursor positioning in RTL text */
+[dir="rtl"] [contenteditable] {
+  text-align: right;
+}
+
+[dir="ltr"] [contenteditable] {
+  text-align: left;
+}
+
+/* RTL-aware scrollbar positioning */
+[dir="rtl"] .scrollbar-container {
+  direction: rtl;
+}
+
+[dir="rtl"] .scrollbar-content {
+  direction: ltr;
+}

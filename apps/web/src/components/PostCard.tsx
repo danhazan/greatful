@@ -21,6 +21,7 @@ import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
+import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, hasMixedDirectionContent } from "@/utils/rtlUtils"
 
 interface Post {
   id: string
@@ -716,20 +717,20 @@ export default function PostCard({
               photoUrl={currentPost.author.image}
               username={currentPost.author.username || currentPost.author.name}
               size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
-              className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all"
+              className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all flex-shrink-0"
               onClick={() => onUserClick?.(currentPost.author.id)}
             />
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2">
                 <div 
-                  className="cursor-pointer hover:text-purple-700 transition-colors"
+                  className="cursor-pointer hover:text-purple-700 transition-colors flex-shrink-0"
                   onClick={() => onUserClick?.(currentPost.author.id)}
                 >
                   <h3 className={`${styling.name} text-gray-900 font-bold`}>
                     {currentPost.author.display_name || currentPost.author.name}
                   </h3>
                 </div>
-                {/* Follow button positioned on the right side */}
+                {/* Follow button positioned next to the user display name */}
                 {currentUserId && 
                  currentUserId !== currentPost.author.id && 
                  !isNaN(parseInt(currentPost.author.id)) &&
@@ -756,15 +757,41 @@ export default function PostCard({
                 </a>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-shrink-0 max-w-[40%]">
+              {/* Location button positioned in top-right corner - flexible width */}
+              {(currentPost.location_data || currentPost.location) && (
+                <button
+                  ref={locationButtonRef}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    
+                    if (locationButtonRef.current) {
+                      const rect = locationButtonRef.current.getBoundingClientRect()
+                      setLocationModalPosition({
+                        x: rect.left + rect.width / 2,
+                        y: rect.top
+                      })
+                    }
+                    
+                    setShowLocationModal(true)
+                  }}
+                  className="flex items-center gap-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-1 transition-all duration-200 min-w-[44px] min-h-[44px] max-w-full"
+                  title="View location details"
+                >
+                  <MapPin className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-xs truncate">
+                    {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
+                  </span>
+                </button>
+              )}
               
               {/* Options Menu for Post Author */}
               {isPostAuthor && (
-                <div className="relative">
+                <div className="relative flex-shrink-0">
                   <button
                     ref={optionsButtonRef}
                     onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-1 hover:bg-gray-100 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                     title="Post options"
                   >
                     <MoreHorizontal className="h-4 w-4 text-gray-500" />
@@ -802,14 +829,16 @@ export default function PostCard({
         </div>
 
         {/* Post Content */}
-        <div className={styling.content}>
+        <div 
+          className={`${styling.content} post-content-area`}
+          dir={getDirectionAttribute(currentPost.content)}
+        >
           {/* Always use RichContentRenderer for consistency */}
-
           <RichContentRenderer
             content={currentPost.content}
             postStyle={currentPost.postStyle}
             post_style={currentPost.post_style}
-            className={`${styling.text} text-gray-900`}
+            className={`${styling.text} text-gray-900 ${getTextAlignmentClass(currentPost.content)}`}
             onMentionClick={handleMentionClick}
             validUsernames={validUsernames}
           />
@@ -877,89 +906,69 @@ export default function PostCard({
             </div>
           )}
           
-          {/* Post Actions Toolbar - Fixed alignment and mobile optimization */}
-          <div className="flex items-center justify-between gap-2">
-            {/* Left side: Main interaction buttons */}
-            <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
-              {/* Heart Button */}
-              <button 
-                onClick={async () => {
-                  if (!isUserAuthenticated) {
-                    // Call the onHeart handler which will handle the redirect
-                    onHeart?.(post.id, currentPost.isHearted || false)
-                    return
-                  }
+          {/* Post Actions Toolbar - Three main buttons in single horizontal line */}
+          <div className="flex items-center justify-center gap-6 sm:gap-12">
+            {/* Heart Button */}
+            <button 
+              onClick={async () => {
+                if (!isUserAuthenticated) {
+                  // Call the onHeart handler which will handle the redirect
+                  onHeart?.(post.id, currentPost.isHearted || false)
+                  return
+                }
 
-                  if (isHeartLoading) return
+                if (isHeartLoading) return
 
-                  const isCurrentlyHearted = currentPost.isHearted || false
-                  setIsHeartLoading(true)
+                const isCurrentlyHearted = currentPost.isHearted || false
+                setIsHeartLoading(true)
+                
+                // Track analytics event
+                if (currentUserId) {
+                  analyticsService.trackHeartEvent(post.id, currentUserId, !isCurrentlyHearted)
+                }
+                
+                // Note: Removed loading toast for hearts to reduce visual noise
+                // The heart UI provides sufficient visual feedback
+                const loadingToastId = '' // Placeholder for error handling
+                
+                try {
+                  const token = getAccessToken()
+                  const method = isCurrentlyHearted ? 'DELETE' : 'POST'
                   
-                  // Track analytics event
-                  if (currentUserId) {
-                    analyticsService.trackHeartEvent(post.id, currentUserId, !isCurrentlyHearted)
-                  }
+                  const response = await fetch(`/api/posts/${post.id}/heart`, {
+                    method,
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                  })
                   
-                  // Note: Removed loading toast for hearts to reduce visual noise
-                  // The heart UI provides sufficient visual feedback
-                  const loadingToastId = '' // Placeholder for error handling
-                  
-                  try {
-                    const token = getAccessToken()
-                    const method = isCurrentlyHearted ? 'DELETE' : 'POST'
-                    
-                    const response = await fetch(`/api/posts/${post.id}/heart`, {
-                      method,
+                  if (response.ok) {
+                    // Get updated heart info from server
+                    const heartInfoResponse = await fetch(`/api/posts/${post.id}/hearts`, {
                       headers: {
                         'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
                       },
                     })
                     
-                    if (response.ok) {
-                      // Get updated heart info from server
-                      const heartInfoResponse = await fetch(`/api/posts/${post.id}/hearts`, {
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                        },
-                      })
+                    if (heartInfoResponse.ok) {
+                      const heartInfo = await heartInfoResponse.json()
+                      // Call handler with updated server data
+                      onHeart?.(post.id, isCurrentlyHearted, heartInfo)
                       
-                      if (heartInfoResponse.ok) {
-                        const heartInfo = await heartInfoResponse.json()
-                        // Call handler with updated server data
-                        onHeart?.(post.id, isCurrentlyHearted, heartInfo)
-                        
-                        // Note: No loading toast to hide for hearts
-                      } else {
-                        // Fallback to original handler if heart info fetch fails
-                        onHeart?.(post.id, isCurrentlyHearted)
-                        // Note: No loading toast to hide for hearts
-                        // Heart action completed successfully
-                      }
-                    } else {
-                      const errorData = await response.json().catch(() => ({}))
                       // Note: No loading toast to hide for hearts
-                      showError(
-                        'Heart Failed',
-                        errorData.message || 'Unable to update heart. Please try again.',
-                        {
-                          label: 'Retry',
-                          onClick: () => {
-                            // Retry the heart action
-                            setTimeout(() => {
-                              const button = document.querySelector(`[data-post-id="${post.id}"] .heart-button`) as HTMLButtonElement
-                              button?.click()
-                            }, 100)
-                          }
-                        }
-                      )
+                    } else {
+                      // Fallback to original handler if heart info fetch fails
+                      onHeart?.(post.id, isCurrentlyHearted)
+                      // Note: No loading toast to hide for hearts
+                      // Heart action completed successfully
                     }
-                  } catch (error) {
-                    console.error('Error updating heart:', error)
+                  } else {
+                    const errorData = await response.json().catch(() => ({}))
                     // Note: No loading toast to hide for hearts
                     showError(
-                      'Network Error',
-                      'Please check your connection and try again.',
+                      'Heart Failed',
+                      errorData.message || 'Unable to update heart. Please try again.',
                       {
                         label: 'Retry',
                         onClick: () => {
@@ -971,136 +980,126 @@ export default function PostCard({
                         }
                       }
                     )
-                  } finally {
-                    setIsHeartLoading(false)
                   }
-                }}
-                disabled={isHeartLoading}
-                className={`heart-button flex items-center gap-1.5 px-2 py-2 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
-                  !isUserAuthenticated
-                    ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
-                    : currentPost.isHearted 
-                      ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100' 
-                      : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
-                }`}
-                title={!isUserAuthenticated ? 'Login to like posts' : undefined}
-              >
-                {isHeartLoading ? (
-                  <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
-                ) : (
-                  <Heart 
-                    className={`${styling.iconSize} flex-shrink-0 ${currentPost.isHearted ? 'fill-purple-500 text-purple-500' : 'text-current'}`}
-                  />
-                )}
-                <span 
-                  className={`${styling.textSize} font-medium ${isUserAuthenticated && !isHeartsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'} hidden xs:inline`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (isUserAuthenticated && !isHeartsViewerLoading) {
-                      handleHeartsCountClick()
+                } catch (error) {
+                  console.error('Error updating heart:', error)
+                  // Note: No loading toast to hide for hearts
+                  showError(
+                    'Network Error',
+                    'Please check your connection and try again.',
+                    {
+                      label: 'Retry',
+                      onClick: () => {
+                        // Retry the heart action
+                        setTimeout(() => {
+                          const button = document.querySelector(`[data-post-id="${post.id}"] .heart-button`) as HTMLButtonElement
+                          button?.click()
+                        }, 100)
+                      }
                     }
-                  }}
-                >
-                  {isHeartsViewerLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin inline" />
-                  ) : (
-                    post.heartsCount || 0
-                  )}
-                </span>
-              </button>
-
-              {/* Emoji Reaction Button */}
-              <button
-                ref={reactionButtonRef}
-                onClick={handleReactionButtonClick}
-                disabled={isReactionLoading}
-                className={`flex items-center gap-1.5 px-2 py-2 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
-                  !isUserAuthenticated
-                    ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
-                    : post.currentUserReaction
-                      ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
-                      : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
-                } ${(post.reactionsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
-                title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
+                  )
+                } finally {
+                  setIsHeartLoading(false)
+                }
+              }}
+              disabled={isHeartLoading}
+              className={`heart-button flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
+                !isUserAuthenticated
+                  ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
+                  : currentPost.isHearted 
+                    ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100' 
+                    : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
+              }`}
+              title={!isUserAuthenticated ? 'Login to like posts' : undefined}
+            >
+              {isHeartLoading ? (
+                <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
+              ) : (
+                <Heart 
+                  className={`${styling.iconSize} flex-shrink-0 ${currentPost.isHearted ? 'fill-purple-500 text-purple-500' : 'text-current'}`}
+                />
+              )}
+              <span 
+                className={`${styling.textSize} font-medium ${isUserAuthenticated && !isHeartsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (isUserAuthenticated && !isHeartsViewerLoading) {
+                    handleHeartsCountClick()
+                  }
+                }}
               >
-                {isReactionLoading ? (
-                  <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
-                ) : post.currentUserReaction ? (
-                  <span className={`flex-shrink-0 ${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
-                    {getEmojiFromCode(post.currentUserReaction)}
-                  </span>
+                {isHeartsViewerLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin inline" />
                 ) : (
-                  <div className={`${styling.iconSize} rounded-full border-2 border-current flex items-center justify-center flex-shrink-0`}>
-                    <Plus className="h-3 w-3" />
-                  </div>
+                  post.heartsCount || 0
                 )}
-                <span 
-                  className={`${styling.textSize} font-medium ${!isReactionsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'} hidden xs:inline`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (!isReactionsViewerLoading) {
-                      handleReactionCountClick()
-                    }
-                  }}
-                >
-                  {isReactionsViewerLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin inline" />
-                  ) : (
-                    post.reactionsCount || 0
-                  )}
-                </span>
-              </button>
+              </span>
+            </button>
 
-              {/* Share Button */}
-              <button 
-                ref={shareButtonRef}
-                onClick={(event) => {
-                  event.preventDefault()
-                  
-                  if (shareButtonRef.current) {
-                    const rect = shareButtonRef.current.getBoundingClientRect()
-                    setShareModalPosition({
-                      x: rect.left + rect.width / 2,
-                      y: rect.top
-                    })
-                  }
-                  
-                  setShowShareModal(true)
-                }}
-                className={`flex items-center gap-1.5 px-2 py-2 rounded-full text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 min-w-[44px] min-h-[44px] ${styling.textSize}`}
-                title="Share this post"
-              >
-                <Share className={`${styling.iconSize} flex-shrink-0`} />
-                <span className="font-medium hidden sm:inline">Share</span>
-              </button>
-            </div>
-
-            {/* Right side: Location button (when present) */}
-            {(currentPost.location_data || currentPost.location) && (
-              <button
-                ref={locationButtonRef}
-                onClick={(event) => {
-                  event.preventDefault()
-                  
-                  if (locationButtonRef.current) {
-                    const rect = locationButtonRef.current.getBoundingClientRect()
-                    setLocationModalPosition({
-                      x: rect.left + rect.width / 2,
-                      y: rect.top
-                    })
-                  }
-                  
-                  setShowLocationModal(true)
-                }}
-                className="flex items-center gap-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-2 transition-all duration-200 flex-shrink-0 min-w-[44px] min-h-[44px] max-w-[120px] sm:max-w-[160px]"
-                title="View location details"
-              >
-                <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span className={`${styling.textSize} truncate`}>
-                  {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
+            {/* Emoji Reaction Button */}
+            <button
+              ref={reactionButtonRef}
+              onClick={handleReactionButtonClick}
+              disabled={isReactionLoading}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
+                !isUserAuthenticated
+                  ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
+                  : post.currentUserReaction
+                    ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
+                    : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
+              } ${(post.reactionsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
+              title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
+            >
+              {isReactionLoading ? (
+                <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
+              ) : post.currentUserReaction ? (
+                <span className={`flex-shrink-0 ${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
+                  {getEmojiFromCode(post.currentUserReaction)}
                 </span>
-              </button>
-            )}
+              ) : (
+                <div className={`${styling.iconSize} rounded-full border-2 border-current flex items-center justify-center flex-shrink-0`}>
+                  <Plus className="h-3 w-3" />
+                </div>
+              )}
+              <span 
+                className={`${styling.textSize} font-medium ${!isReactionsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!isReactionsViewerLoading) {
+                    handleReactionCountClick()
+                  }
+                }}
+              >
+                {isReactionsViewerLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin inline" />
+                ) : (
+                  post.reactionsCount || 0
+                )}
+              </span>
+            </button>
+
+            {/* Share Button */}
+            <button 
+              ref={shareButtonRef}
+              onClick={(event) => {
+                event.preventDefault()
+                
+                if (shareButtonRef.current) {
+                  const rect = shareButtonRef.current.getBoundingClientRect()
+                  setShareModalPosition({
+                    x: rect.left + rect.width / 2,
+                    y: rect.top
+                  })
+                }
+                
+                setShowShareModal(true)
+              }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 min-w-[44px] min-h-[44px] ${styling.textSize}`}
+              title="Share this post"
+            >
+              <Share className={`${styling.iconSize} flex-shrink-0`} />
+              <span className="font-medium">Share</span>
+            </button>
           </div>
         </div>
       </article>
