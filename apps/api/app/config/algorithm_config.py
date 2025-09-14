@@ -20,8 +20,8 @@ class ScoringWeights:
     hearts: float = 1.0
     reactions: float = 1.5
     shares: float = 4.0
-    photo_bonus: float = 2.5
-    daily_gratitude_bonus: float = 3.0
+    photo_bonus: float = 1.5  # Reduced from 2.5 to 1.5
+    daily_gratitude_bonus: float = 2.0  # Reduced from 3.0 to 2.0
     unread_boost: float = 3.0  # Multiplier for unread posts (read posts get 1/unread_boost penalty)
 
 
@@ -51,8 +51,8 @@ class OwnPostFactors:
     """Factors for user's own posts visibility."""
     max_visibility_minutes: int = 5
     decay_duration_minutes: int = 15
-    max_bonus_multiplier: float = 10.0
-    base_multiplier: float = 2.0  # Permanent advantage for own posts
+    max_bonus_multiplier: float = 50.0  # Increased from 10.0 to 50.0 for stronger visibility
+    base_multiplier: float = 3.0  # Increased from 2.0 to 3.0 for permanent advantage
 
 
 @dataclass
@@ -97,10 +97,16 @@ ENVIRONMENT_OVERRIDES = {
             'hearts': 1.2,  # Slightly higher for testing
             'reactions': 1.8,
             'shares': 5.0,
+            'photo_bonus': 1.5,  # Reduced impact
+            'daily_gratitude_bonus': 2.0,  # Reduced impact
         },
         'time_factors': {
             'decay_hours': 48,  # Faster decay for dev testing
             'recent_boost_1hr': 5.0,
+        },
+        'own_post_factors': {
+            'max_bonus_multiplier': 75.0,  # Even higher for development testing
+            'base_multiplier': 4.0,  # Higher permanent advantage for dev
         },
         'diversity_limits': {
             'randomization_factor': 0.25,  # More randomization for testing
@@ -117,7 +123,14 @@ ENVIRONMENT_OVERRIDES = {
         }
     },
     'production': {
-        # Production uses default values
+        'scoring_weights': {
+            'photo_bonus': 1.5,  # Updated production values
+            'daily_gratitude_bonus': 2.0,
+        },
+        'own_post_factors': {
+            'max_bonus_multiplier': 50.0,  # Strong visibility for production
+            'base_multiplier': 3.0,
+        }
     }
 }
 

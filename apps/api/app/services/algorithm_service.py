@@ -253,6 +253,7 @@ class AlgorithmService(BaseService):
 
         # Apply own post bonus if this is the user's own post
         own_post_multiplier = 1.0
+        own_post_base_score = 0.0
         if user_id and post.author_id == user_id:
             # Calculate time since post creation
             current_time = datetime.now(timezone.utc)
@@ -262,14 +263,19 @@ class AlgorithmService(BaseService):
             
             minutes_old = (current_time - post_created_at).total_seconds() / 60
             own_post_multiplier = self._calculate_own_post_bonus(minutes_old)
+            
+            # Add minimum base score for own posts to ensure they always get visibility
+            # even with zero engagement
+            own_post_base_score = 1.0
         
         # Calculate final score with enhanced time factoring and own post bonus
-        final_score = (base_score + content_bonus) * relationship_multiplier * unread_multiplier * time_multiplier * own_post_multiplier
+        final_score = (base_score + content_bonus + own_post_base_score) * relationship_multiplier * unread_multiplier * time_multiplier * own_post_multiplier
         
         logger.debug(
             f"Post {post.id} score calculation: "
             f"base={base_score:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}), "
-            f"content_bonus={content_bonus:.2f}, relationship_multiplier={relationship_multiplier:.2f}, "
+            f"content_bonus={content_bonus:.2f}, own_post_base={own_post_base_score:.2f}, "
+            f"relationship_multiplier={relationship_multiplier:.2f}, "
             f"unread_multiplier={unread_multiplier:.2f}, time_multiplier={time_multiplier:.2f}, "
             f"own_post_multiplier={own_post_multiplier:.2f}, final={final_score:.2f}"
         )

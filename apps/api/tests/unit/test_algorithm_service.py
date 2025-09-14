@@ -74,10 +74,10 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor
-        # Base: 5 + 4.5 + 8 + 3 = 20.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0) * time_factor
+        # Base: 5 + 4.5 + 8 + 2 = 19.5 (daily_gratitude_bonus changed from 3.0 to 2.0)
         # Time factor for recent post (default created_at is now): 1.0 + 4.0 = 5.0
-        expected_base = 20.5
+        expected_base = 19.5
         time_factor = algorithm_service._calculate_time_factor(sample_post)
         expected_score = expected_base * time_factor
         assert score == expected_score
@@ -94,9 +94,9 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.5) * time_factor
-        # Base: 5 + 4.5 + 8 + 2.5 = 20.0
-        expected_base = 20.0
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 1.5) * time_factor
+        # Base: 5 + 4.5 + 8 + 1.5 = 19.0 (photo_bonus changed from 2.5 to 1.5)
+        expected_base = 19.0
         time_factor = algorithm_service._calculate_time_factor(sample_post)
         expected_score = expected_base * time_factor
         assert score == expected_score
@@ -137,9 +137,9 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * 5.0 * time_factor
-        # Base: 20.5 * 5.0 = 102.5
-        expected_base = 102.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0) * 5.0 * time_factor
+        # Base: 19.5 * 5.0 = 97.5 (daily_gratitude_bonus changed from 3.0 to 2.0)
+        expected_base = 97.5
         time_factor = algorithm_service._calculate_time_factor(sample_post)
         expected_score = expected_base * time_factor
         assert score == expected_score
@@ -161,9 +161,9 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor
-        # Base: 20.5 (no relationship multiplier)
-        expected_base = 20.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0) * time_factor
+        # Base: 19.5 (no relationship multiplier, daily_gratitude_bonus changed from 3.0 to 2.0)
+        expected_base = 19.5
         time_factor = algorithm_service._calculate_time_factor(sample_post)
         expected_score = expected_base * time_factor
         assert score == expected_score
@@ -212,9 +212,9 @@ class TestAlgorithmService:
         # Should have made 3 queries for engagement counts
         assert mock_db_session.execute.call_count == 3
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 3.0) * time_factor
-        # Base: 20.5
-        expected_base = 20.5
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0) * time_factor
+        # Base: 19.5 (daily_gratitude_bonus changed from 3.0 to 2.0)
+        expected_base = 19.5
         time_factor = algorithm_service._calculate_time_factor(sample_post)
         expected_score = expected_base * time_factor
         assert score == expected_score
@@ -229,9 +229,9 @@ class TestAlgorithmService:
             shares_count=0
         )
         
-        # Expected: ((0 * 1.0) + (0 * 1.5) + (0 * 4.0) + 3.0) * time_factor
-        # Base: 3.0 (only daily bonus)
-        expected_base = 3.0
+        # Expected: ((0 * 1.0) + (0 * 1.5) + (0 * 4.0) + 2.0) * time_factor
+        # Base: 2.0 (only daily bonus, changed from 3.0 to 2.0)
+        expected_base = 2.0
         time_factor = algorithm_service._calculate_time_factor(sample_post)
         expected_score = expected_base * time_factor
         assert score == expected_score
@@ -399,9 +399,9 @@ class TestAlgorithmService:
         
         # Remove daily bonus and time factor for comparison
         # Formula: (base + daily_bonus) * time_factor
-        shares_base = (shares_score / time_factor) - 3.0  # Should be 4.0
-        reactions_base = (reactions_score / time_factor) - 3.0  # Should be 1.5
-        hearts_base = (hearts_score / time_factor) - 3.0  # Should be 1.0
+        shares_base = (shares_score / time_factor) - 2.0  # Should be 4.0 (daily_bonus changed to 2.0)
+        reactions_base = (reactions_score / time_factor) - 2.0  # Should be 1.5
+        hearts_base = (hearts_score / time_factor) - 2.0  # Should be 1.0
         
         assert abs(shares_base - 4.0) < 0.001
         assert abs(reactions_base - 1.5) < 0.001
@@ -432,8 +432,8 @@ class TestAlgorithmService:
         )
         
         # Account for time factor: score = bonus * time_factor
-        expected_daily = 3.0 * time_factor
-        expected_photo = 2.5 * time_factor
+        expected_daily = 2.0 * time_factor  # Changed from 3.0 to 2.0
+        expected_photo = 1.5 * time_factor  # Changed from 2.5 to 1.5
         expected_spontaneous = 0.0 * time_factor
         
         assert abs(daily_score - expected_daily) < 0.001
