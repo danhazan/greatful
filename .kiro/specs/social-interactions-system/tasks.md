@@ -780,6 +780,20 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
   - Add second-tier multiplier to FOLLOW_BONUSES config (default: +1.5 for second-tier users)
   - Cache second-tier follow relationships for performance (refresh every 24 hours)
   - Test follow multipliers ensure followed content appears prominently without overwhelming feed
+- [ ] **15.6.2 Feed Spacing Rules**
+  - Enforce spacing rules in feed to prevent consecutive posts by the same user
+  - Add configurable spacing parameters to DIVERSITY_LIMITS config:
+    - `max_consecutive_posts_per_user`: Maximum consecutive posts by same user (default: 1)
+    - `spacing_window_size`: Window size for spacing calculation (default: 5 posts)
+    - `spacing_violation_penalty`: Negative multiplier for violating posts (default: 0.3)
+  - Implement spacing rule validation in feed generation:
+    - Track author distribution within sliding window of recent posts
+    - Apply penalty multiplier to posts that violate spacing rules
+    - Example: If user has >1 post in last 5 posts, apply 0.3x penalty to subsequent posts
+  - Add spacing rule logic to `_apply_diversity_and_preference_control()` method
+  - Create efficient spacing detection using post author tracking in feed ranking
+  - Add comprehensive tests for spacing rule enforcement and penalty application
+  - Ensure spacing rules maintain feed quality while preventing author dominance
 - [x] **15.7 Algorithm Configuration System**
   - Create `apps/api/app/config/algorithm_config.py` with all multipliers and factors
   - Define configuration sections: scoring_weights, time_factors, diversity_limits, follow_bonuses

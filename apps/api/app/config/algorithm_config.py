@@ -70,6 +70,10 @@ class DiversityLimits:
     max_photo_posts_percentage: float = 0.4  # Max 40% photo posts
     max_daily_posts_percentage: float = 0.5  # Max 50% daily gratitude posts
     max_spontaneous_posts_percentage: float = 0.6  # Max 60% spontaneous posts
+    # Feed spacing rules to prevent consecutive posts by same user
+    max_consecutive_posts_per_user: int = 1  # Maximum consecutive posts by same user
+    spacing_window_size: int = 5  # Window size for spacing calculation (posts)
+    spacing_violation_penalty: float = 0.3  # Penalty multiplier for violating posts
 
 
 @dataclass
@@ -127,6 +131,9 @@ ENVIRONMENT_OVERRIDES = {
         },
         'diversity_limits': {
             'randomization_factor': 0.25,  # More randomization for testing
+            'max_consecutive_posts_per_user': 2,  # Allow more consecutive posts for testing
+            'spacing_window_size': 4,  # Smaller window for development testing
+            'spacing_violation_penalty': 0.2,  # Lighter penalty for development
         },
         'preference_factors': {
             'interaction_threshold': 1,  # Lower threshold for development
