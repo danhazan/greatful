@@ -124,10 +124,38 @@ class TestAlgorithmService:
         """Test post score calculation with relationship multiplier."""
         sample_post.author_id = 2  # Different from user_id
         
-        # Mock follow relationship exists
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = "follow-id"
-        mock_db_session.execute.return_value = mock_result
+        # Mock follow relationship exists - create a proper Follow object
+        from app.models.follow import Follow
+        from datetime import datetime, timezone, timedelta
+        
+        mock_follow = Follow(
+            id="follow-id",
+            follower_id=1,
+            followed_id=2,
+            status="active",
+            created_at=datetime.now(timezone.utc) - timedelta(days=15)  # Established follow
+        )
+        
+        # Mock the database calls
+        mock_results = []
+        
+        # First call: get follow relationship
+        mock_follow_result = MagicMock()
+        mock_follow_result.scalar_one_or_none.return_value = mock_follow
+        mock_results.append(mock_follow_result)
+        
+        # Second call: check mutual follow (return None for simplicity)
+        mock_mutual_result = MagicMock()
+        mock_mutual_result.scalar_one_or_none.return_value = None
+        mock_results.append(mock_mutual_result)
+        
+        # Third call: count user interactions (return 0 for simplicity)
+        mock_interaction_result = MagicMock()
+        mock_interaction_result.scalar.return_value = 0
+        mock_results.append(mock_interaction_result)
+        
+        # Set up the mock to return different results for different calls
+        mock_db_session.execute.side_effect = mock_results
         
         score = await algorithm_service.calculate_post_score(
             sample_post,
@@ -137,8 +165,8 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0) * 5.0 * time_factor
-        # Base: 19.5 * 5.0 = 97.5 (daily_gratitude_bonus changed from 3.0 to 2.0)
+        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0) * established_follow_bonus * time_factor
+        # Base: 19.5, established_follow_bonus: 5.0, so 19.5 * 5.0 = 97.5
         expected_base = 97.5
         time_factor = algorithm_service._calculate_time_factor(sample_post)
         expected_score = expected_base * time_factor
@@ -535,10 +563,38 @@ class TestAlgorithmService:
         """Test that relationship multiplier uses configuration value."""
         sample_post.author_id = 2  # Different from user_id
         
-        # Mock follow relationship exists
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = "follow-id"
-        mock_db_session.execute.return_value = mock_result
+        # Mock follow relationship exists - create a proper Follow object
+        from app.models.follow import Follow
+        from datetime import datetime, timezone, timedelta
+        
+        mock_follow = Follow(
+            id="follow-id",
+            follower_id=1,
+            followed_id=2,
+            status="active",
+            created_at=datetime.now(timezone.utc) - timedelta(days=15)  # Established follow
+        )
+        
+        # Mock the database calls
+        mock_results = []
+        
+        # First call: get follow relationship
+        mock_follow_result = MagicMock()
+        mock_follow_result.scalar_one_or_none.return_value = mock_follow
+        mock_results.append(mock_follow_result)
+        
+        # Second call: check mutual follow (return None for simplicity)
+        mock_mutual_result = MagicMock()
+        mock_mutual_result.scalar_one_or_none.return_value = None
+        mock_results.append(mock_mutual_result)
+        
+        # Third call: count user interactions (return 0 for simplicity)
+        mock_interaction_result = MagicMock()
+        mock_interaction_result.scalar.return_value = 0
+        mock_results.append(mock_interaction_result)
+        
+        # Set up the mock to return different results for different calls
+        mock_db_session.execute.side_effect = mock_results
         
         score = await algorithm_service.calculate_post_score(
             sample_post,
@@ -548,7 +604,7 @@ class TestAlgorithmService:
             shares_count=1
         )
         
-        # Should use config follow bonus instead of hardcoded 2.0
+        # Should use config established follow bonus (15 days old follow)
         config = algorithm_service.config
         expected_base = (
             1 * config.scoring_weights.hearts +
@@ -558,7 +614,7 @@ class TestAlgorithmService:
         )
         # Include time factor in calculation
         time_factor = algorithm_service._calculate_time_factor(sample_post)
-        expected_total = expected_base * config.follow_bonuses.base_multiplier * time_factor
+        expected_total = expected_base * config.follow_bonuses.established_follow_bonus * time_factor
         
         assert score == expected_total
 

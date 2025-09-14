@@ -44,6 +44,12 @@ class FollowBonuses:
     second_tier_multiplier: float = 1.5  # Users followed by your follows
     recent_follow_days: int = 7
     recent_follow_boost: float = 1.0
+    # Enhanced follow engagement tracking
+    high_engagement_threshold: int = 5  # Minimum interactions to be considered high engagement
+    high_engagement_bonus: float = 2.0  # Additional bonus for high engagement follows
+    # Follow recency factors
+    new_follow_threshold_days: int = 7  # Days to consider a follow "new"
+    established_follow_threshold_days: int = 30  # Days to consider a follow "established"
 
 
 @dataclass
@@ -125,6 +131,10 @@ ENVIRONMENT_OVERRIDES = {
         'preference_factors': {
             'interaction_threshold': 1,  # Lower threshold for development
             'frequent_user_boost': 4.0,  # Higher boost for testing
+        },
+        'follow_bonuses': {
+            'high_engagement_threshold': 3,  # Lower threshold for development
+            'high_engagement_bonus': 3.0,  # Higher bonus for testing
         }
     },
     'staging': {

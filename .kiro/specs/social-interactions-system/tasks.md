@@ -754,7 +754,7 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
   - Implement interaction-based scoring using configurable thresholds and bonuses from PREFERENCE_FACTORS
   - Add randomization factor using configurable percentage (default: ±15%) to prevent predictable feeds
   - Plan for future user-controlled preference settings
-- [ ] **15.6 Enhanced Follow Relationship Multiplier**
+- [x] **15.6 Enhanced Follow Relationship Multiplier**
   - Increase follow relationship multiplier using FOLLOW_BONUSES config (default: base +5.0)
   - Add graduated follow bonuses using configurable values (default: new +6.0, established +5.0, mutual +7.0)
   - Implement follow recency factor using configurable duration and bonus from FOLLOW_BONUSES config

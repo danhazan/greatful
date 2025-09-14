@@ -207,21 +207,10 @@ class AlgorithmService(BaseService):
         # Enhanced time factoring for recent posts
         time_multiplier = self._calculate_time_factor(post)
         
-        # Relationship multiplier using configurable follow bonuses
+        # Enhanced relationship multiplier using configurable follow bonuses
         relationship_multiplier = 1.0
         if user_id and post.author_id != user_id:
-            # Check if user follows the post author
-            follow_result = await self.db.execute(
-                select(Follow.id).where(
-                    and_(
-                        Follow.follower_id == user_id,
-                        Follow.followed_id == post.author_id,
-                        Follow.status == "active"
-                    )
-                )
-            )
-            if follow_result.scalar_one_or_none():
-                relationship_multiplier = self.config.follow_bonuses.base_multiplier
+            relationship_multiplier = await self._calculate_follow_relationship_multiplier(user_id, post.author_id)
 
         # Apply unread boost or read status penalty
         unread_multiplier = 1.0
@@ -347,6 +336,194 @@ class AlgorithmService(BaseService):
         )
         
         return time_multiplier
+
+    async def _calculate_follow_relationship_multiplier(self, user_id: int, post_author_id: int) -> float:
+        """
+        Calculate enhanced follow relationship multiplier with graduated bonuses,
+        recency factors, engagement tracking, and second-tier follow detection.
+        
+        Args:
+            user_id: ID of the user viewing the feed
+            post_author_id: ID of the post author
+            
+        Returns:
+            float: Relationship multiplier (1.0 = no relationship, >1.0 = follow bonus)
+        """
+        # Check direct follow relationship
+        follow_result = await self.db.execute(
+            select(Follow).where(
+                and_(
+                    Follow.follower_id == user_id,
+                    Follow.followed_id == post_author_id,
+                    Follow.status == "active"
+                )
+            )
+        )
+        direct_follow = follow_result.scalar_one_or_none()
+        
+        if direct_follow:
+            # Calculate graduated follow bonus based on follow age and engagement
+            return await self._calculate_direct_follow_bonus(user_id, post_author_id, direct_follow)
+        
+        # Check for second-tier follow relationship (users followed by your follows)
+        second_tier_multiplier = await self._calculate_second_tier_follow_bonus(user_id, post_author_id)
+        if second_tier_multiplier > 1.0:
+            return second_tier_multiplier
+        
+        return 1.0  # No relationship bonus
+
+    async def _calculate_direct_follow_bonus(self, user_id: int, post_author_id: int, follow: Follow) -> float:
+        """
+        Calculate direct follow bonus with graduated bonuses, recency, and engagement factors.
+        
+        Args:
+            user_id: ID of the follower
+            post_author_id: ID of the followed user
+            follow: Follow relationship object
+            
+        Returns:
+            float: Direct follow multiplier
+        """
+        follow_bonuses = self.config.follow_bonuses
+        current_time = datetime.now(timezone.utc)
+        
+        # Handle timezone-aware comparison
+        follow_created_at = follow.created_at
+        if follow_created_at.tzinfo is None:
+            follow_created_at = follow_created_at.replace(tzinfo=timezone.utc)
+        
+        days_following = (current_time - follow_created_at).days
+        
+        # Determine follow age category and base bonus
+        base_multiplier = follow_bonuses.base_multiplier
+        if days_following <= follow_bonuses.new_follow_threshold_days:
+            # New follow bonus
+            base_multiplier = follow_bonuses.new_follow_bonus
+        elif days_following <= follow_bonuses.established_follow_threshold_days:
+            # Established follow bonus
+            base_multiplier = follow_bonuses.established_follow_bonus
+        
+        # Check for mutual follow relationship
+        mutual_follow_result = await self.db.execute(
+            select(Follow.id).where(
+                and_(
+                    Follow.follower_id == post_author_id,
+                    Follow.followed_id == user_id,
+                    Follow.status == "active"
+                )
+            )
+        )
+        if mutual_follow_result.scalar_one_or_none():
+            # Apply mutual follow bonus (highest priority)
+            base_multiplier = follow_bonuses.mutual_follow_bonus
+        
+        # Apply recent follow boost if within recent follow days
+        recency_multiplier = 1.0
+        if days_following <= follow_bonuses.recent_follow_days:
+            recency_multiplier = 1.0 + follow_bonuses.recent_follow_boost
+        
+        # Calculate engagement bonus based on user interactions
+        engagement_multiplier = await self._calculate_follow_engagement_bonus(user_id, post_author_id)
+        
+        # Combine all factors
+        final_multiplier = base_multiplier * recency_multiplier * engagement_multiplier
+        
+        logger.debug(
+            f"Direct follow bonus for user {user_id} -> {post_author_id}: "
+            f"days_following={days_following}, base={base_multiplier:.2f}, "
+            f"recency={recency_multiplier:.2f}, engagement={engagement_multiplier:.2f}, "
+            f"final={final_multiplier:.2f}"
+        )
+        
+        return final_multiplier
+
+    async def _calculate_follow_engagement_bonus(self, user_id: int, target_user_id: int) -> float:
+        """
+        Calculate engagement bonus based on user interaction history.
+        
+        Args:
+            user_id: ID of the user
+            target_user_id: ID of the target user
+            
+        Returns:
+            float: Engagement multiplier (1.0 = no bonus, >1.0 = high engagement bonus)
+        """
+        from app.models.user_interaction import UserInteraction
+        
+        follow_bonuses = self.config.follow_bonuses
+        
+        # Count interactions between users in the last 30 days
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        
+        interaction_result = await self.db.execute(
+            select(func.count(UserInteraction.id)).where(
+                and_(
+                    UserInteraction.user_id == user_id,
+                    UserInteraction.target_user_id == target_user_id,
+                    UserInteraction.created_at >= thirty_days_ago
+                )
+            )
+        )
+        interaction_count = interaction_result.scalar() or 0
+        
+        # Apply high engagement bonus if above threshold
+        if interaction_count >= follow_bonuses.high_engagement_threshold:
+            engagement_multiplier = 1.0 + follow_bonuses.high_engagement_bonus
+            logger.debug(
+                f"High engagement bonus applied for user {user_id} -> {target_user_id}: "
+                f"interactions={interaction_count}, multiplier={engagement_multiplier:.2f}"
+            )
+            return engagement_multiplier
+        
+        return 1.0
+
+    async def _calculate_second_tier_follow_bonus(self, user_id: int, post_author_id: int) -> float:
+        """
+        Calculate second-tier follow bonus for users followed by your follows.
+        
+        Uses efficient database query to detect second-tier relationships:
+        SELECT DISTINCT f2.followed_id as second_tier_user_id
+        FROM follows f1 
+        JOIN follows f2 ON f1.followed_id = f2.follower_id 
+        WHERE f1.follower_id = :current_user_id 
+        AND f2.followed_id != :current_user_id
+        
+        Args:
+            user_id: ID of the current user
+            post_author_id: ID of the post author to check
+            
+        Returns:
+            float: Second-tier follow multiplier
+        """
+        follow_bonuses = self.config.follow_bonuses
+        
+        # Create aliases for the two Follow tables in the join
+        f1 = Follow.__table__.alias('f1')
+        f2 = Follow.__table__.alias('f2')
+        
+        # Efficient query to check if post_author_id is followed by any of user's follows
+        second_tier_result = await self.db.execute(
+            select(f2.c.id).select_from(
+                f1.join(f2, f1.c.followed_id == f2.c.follower_id)
+            ).where(
+                and_(
+                    f1.c.follower_id == user_id,
+                    f2.c.followed_id == post_author_id,
+                    f2.c.followed_id != user_id,  # Exclude self
+                    f1.c.status == "active",
+                    f2.c.status == "active"
+                )
+            ).limit(1)
+        )
+        
+        if second_tier_result.scalar_one_or_none():
+            logger.debug(
+                f"Second-tier follow bonus applied for user {user_id} -> {post_author_id}: "
+                f"multiplier={follow_bonuses.second_tier_multiplier:.2f}"
+            )
+            return follow_bonuses.second_tier_multiplier
+        
+        return 1.0
 
     async def get_personalized_feed(
         self, 
