@@ -82,6 +82,7 @@ class PostResponse(BaseModel):
     reactions_count: int = 0
     current_user_reaction: Optional[str] = None
     is_hearted: Optional[bool] = False
+    is_read: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -166,6 +167,28 @@ class DeleteResponse(BaseModel):
     """Delete response model."""
     success: bool
     message: str
+
+
+class ReadStatusRequest(BaseModel):
+    """Read status tracking request model."""
+    post_ids: List[str] = Field(..., description="List of post IDs that were read")
+
+    @field_validator('post_ids')
+    @classmethod
+    def validate_post_ids(cls, v):
+        if not v:
+            raise ValueError('post_ids cannot be empty')
+        if len(v) > 50:
+            raise ValueError('Maximum 50 post IDs allowed per request')
+        return v
+
+
+class ReadStatusResponse(BaseModel):
+    """Read status response model."""
+    success: bool
+    message: str
+    read_count: int
+    post_ids: List[str]
 
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
@@ -520,13 +543,16 @@ async def get_feed(
     db: AsyncSession = Depends(get_db),
     limit: int = 20,
     offset: int = 0,
-    algorithm: bool = True
+    algorithm: bool = True,
+    consider_read_status: bool = True
 ):
     """
     Get user's personalized feed with algorithm-based ranking.
     
     - **algorithm=true** (default): Uses 80/20 split between algorithm-scored and recent posts
     - **algorithm=false**: Returns posts in chronological order (backward compatibility)
+    - **consider_read_status=true** (default): Deprioritizes already-read posts in algorithm scoring
+    - **consider_read_status=false**: Ignores read status in algorithm calculations
     """
     try:
         from app.services.algorithm_service import AlgorithmService
@@ -548,7 +574,8 @@ async def get_feed(
                 user_id=current_user_id,
                 limit=limit,
                 offset=offset,
-                algorithm_enabled=True
+                algorithm_enabled=True,
+                consider_read_status=consider_read_status
             )
             
             # Get current user's reactions and hearts for each post
@@ -604,7 +631,8 @@ async def get_feed(
                     hearts_count=post_data['hearts_count'],
                     reactions_count=post_data['reactions_count'],
                     current_user_reaction=current_user_reaction,
-                    is_hearted=is_hearted
+                    is_hearted=is_hearted,
+                    is_read=post_data.get('is_read', False)
                 ))
             
             logger.debug(f"Retrieved {len(posts_with_user_data)} algorithm-ranked posts for user {current_user_id}")
@@ -701,8 +729,15 @@ async def get_feed(
             
             rows = result.fetchall()
 
+            # Get read status for chronological posts if enabled
+            algorithm_service = AlgorithmService(db) if consider_read_status else None
+            
             posts_with_counts = []
             for row in rows:
+                is_read = False
+                if algorithm_service and consider_read_status:
+                    is_read = algorithm_service.is_post_read(current_user_id, row.id)
+                
                 posts_with_counts.append(PostResponse(
                     id=row.id,
                     author_id=row.author_id,
@@ -725,7 +760,8 @@ async def get_feed(
                     hearts_count=int(row.hearts_count) if row.hearts_count else 0,
                     reactions_count=int(row.reactions_count) if row.reactions_count else 0,
                     current_user_reaction=row.current_user_reaction,
-                    is_hearted=bool(getattr(row, 'is_hearted', False))
+                    is_hearted=bool(getattr(row, 'is_hearted', False)),
+                    is_read=is_read
                 ))
 
             logger.debug(f"Retrieved {len(posts_with_counts)} chronological posts")
@@ -736,6 +772,115 @@ async def get_feed(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get feed"
+        )
+
+
+@router.post("/read-status", response_model=ReadStatusResponse)
+async def mark_posts_as_read(
+    read_request: ReadStatusRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Mark posts as read for the current user.
+    
+    This endpoint is used to track which posts the user has viewed,
+    allowing the algorithm to deprioritize already-read content in future feeds.
+    """
+    try:
+        algorithm_service = AlgorithmService(db)
+        
+        # Validate that all post IDs exist and are public
+        from sqlalchemy import select
+        if read_request.post_ids:
+            # Use SQLAlchemy ORM query for better compatibility
+            query = select(Post.id).where(
+                Post.id.in_(read_request.post_ids),
+                Post.is_public == True
+            )
+            result = await db.execute(query)
+            valid_post_ids = [row.id for row in result.fetchall()]
+        else:
+            valid_post_ids = []
+        
+        if len(valid_post_ids) != len(read_request.post_ids):
+            invalid_ids = set(read_request.post_ids) - set(valid_post_ids)
+            logger.warning(f"Invalid post IDs provided: {invalid_ids}")
+            # Continue with valid IDs only
+        
+        # Mark valid posts as read
+        if valid_post_ids:
+            algorithm_service.mark_posts_as_read(current_user_id, valid_post_ids)
+        
+        return ReadStatusResponse(
+            success=True,
+            message=f"Marked {len(valid_post_ids)} posts as read",
+            read_count=len(valid_post_ids),
+            post_ids=valid_post_ids
+        )
+
+    except Exception as e:
+        logger.error(f"Error marking posts as read: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to mark posts as read"
+        )
+
+
+@router.get("/read-status/summary")
+async def get_read_status_summary(
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get summary of read status for the current user.
+    
+    Returns information about how many posts have been read and recent activity.
+    Useful for debugging and analytics.
+    """
+    try:
+        algorithm_service = AlgorithmService(db)
+        summary = algorithm_service.get_read_status_summary(current_user_id)
+        
+        return {
+            "success": True,
+            "user_id": current_user_id,
+            **summary
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting read status summary: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get read status summary"
+        )
+
+
+@router.delete("/read-status")
+async def clear_read_status(
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Clear all read status for the current user.
+    
+    This resets the read tracking, causing all posts to be treated as unread
+    in future feed algorithm calculations. Useful for testing or user preference.
+    """
+    try:
+        algorithm_service = AlgorithmService(db)
+        algorithm_service.clear_read_status(current_user_id)
+        
+        return {
+            "success": True,
+            "message": "Read status cleared successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Error clearing read status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to clear read status"
         )
 
 
@@ -1241,3 +1386,5 @@ async def delete_post(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete post"
         )
+
+

@@ -22,7 +22,7 @@ class ScoringWeights:
     shares: float = 4.0
     photo_bonus: float = 2.5
     daily_gratitude_bonus: float = 3.0
-    unread_boost: float = 3.0
+    unread_boost: float = 3.0  # Multiplier for unread posts (read posts get 1/unread_boost penalty)
 
 
 @dataclass
