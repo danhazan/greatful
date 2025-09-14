@@ -851,3 +851,210 @@ class TestAlgorithmService:
         assert recent_factor > old_factor
         assert recent_factor > 4.0  # Should get significant boost
         assert old_factor == 0.1  # Should reach minimum decay
+
+    def test_apply_spacing_rules_no_violations(self, algorithm_service):
+        """Test spacing rules with no violations."""
+        posts = [
+            {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0},
+            {'id': 'post-2', 'author_id': 2, 'algorithm_score': 9.0},
+            {'id': 'post-3', 'author_id': 3, 'algorithm_score': 8.0},
+            {'id': 'post-4', 'author_id': 4, 'algorithm_score': 7.0},
+        ]
+        
+        diversity_config = algorithm_service.config.diversity_limits
+        result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+        
+        # No penalties should be applied
+        for i, post in enumerate(result):
+            assert post['algorithm_score'] == posts[i]['algorithm_score']
+            assert not post.get('spacing_penalty_applied', False)
+
+    def test_apply_spacing_rules_consecutive_violation(self, algorithm_service):
+        """Test spacing rules with consecutive posts violation."""
+        posts = [
+            {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0},
+            {'id': 'post-2', 'author_id': 1, 'algorithm_score': 9.0},  # Consecutive post
+            {'id': 'post-3', 'author_id': 2, 'algorithm_score': 8.0},
+        ]
+        
+        diversity_config = algorithm_service.config.diversity_limits
+        result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+        
+        # First post should not have penalty
+        assert result[0]['algorithm_score'] == 10.0
+        assert not result[0].get('spacing_penalty_applied', False)
+        
+        # Find the second post by same author (should have penalty)
+        second_author_post = next(p for p in result if p['id'] == 'post-2')
+        expected_score = 9.0 * diversity_config.spacing_violation_penalty
+        assert abs(second_author_post['algorithm_score'] - expected_score) < 0.001
+        assert second_author_post.get('spacing_penalty_applied', False)
+        assert 'consecutive=' in second_author_post.get('spacing_penalty_reason', '')
+
+    def test_apply_spacing_rules_window_violation(self, algorithm_service):
+        """Test spacing rules with window-based violations."""
+        # Create posts where same author appears multiple times in window
+        posts = [
+            {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0},
+            {'id': 'post-2', 'author_id': 2, 'algorithm_score': 9.0},
+            {'id': 'post-3', 'author_id': 3, 'algorithm_score': 8.0},
+            {'id': 'post-4', 'author_id': 1, 'algorithm_score': 7.0},  # Same author in window
+            {'id': 'post-5', 'author_id': 4, 'algorithm_score': 6.0},
+        ]
+        
+        diversity_config = algorithm_service.config.diversity_limits
+        # Ensure window size allows for window-based penalty
+        if diversity_config.spacing_window_size > diversity_config.max_consecutive_posts_per_user:
+            result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+            
+            # Find the second post by author 1 (should have window penalty)
+            second_author_post = next(p for p in result if p['id'] == 'post-4')
+            # Window penalty is lighter than consecutive penalty
+            window_penalty = diversity_config.spacing_violation_penalty + (1.0 - diversity_config.spacing_violation_penalty) * 0.5
+            expected_score = 7.0 * window_penalty
+            assert abs(second_author_post['algorithm_score'] - expected_score) < 0.001
+            assert second_author_post.get('spacing_penalty_applied', False)
+            assert 'window=' in second_author_post.get('spacing_penalty_reason', '')
+
+    def test_apply_spacing_rules_multiple_consecutive(self, algorithm_service):
+        """Test spacing rules with multiple consecutive posts."""
+        posts = [
+            {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0},
+            {'id': 'post-2', 'author_id': 1, 'algorithm_score': 9.0},  # 1st consecutive
+            {'id': 'post-3', 'author_id': 1, 'algorithm_score': 8.0},  # 2nd consecutive
+            {'id': 'post-4', 'author_id': 2, 'algorithm_score': 7.0},
+        ]
+        
+        diversity_config = algorithm_service.config.diversity_limits
+        result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+        
+        # First post should not have penalty
+        first_post = next(p for p in result if p['id'] == 'post-1')
+        assert first_post['algorithm_score'] == 10.0
+        assert not first_post.get('spacing_penalty_applied', False)
+        
+        # Second and third posts should have penalties
+        penalty_posts = [p for p in result if p['id'] in ['post-2', 'post-3']]
+        for post in penalty_posts:
+            expected_score = (9.0 if post['id'] == 'post-2' else 8.0) * diversity_config.spacing_violation_penalty
+            assert abs(post['algorithm_score'] - expected_score) < 0.001
+            assert post.get('spacing_penalty_applied', False)
+
+    def test_apply_spacing_rules_resorting(self, algorithm_service):
+        """Test that spacing rules re-sort posts after applying penalties."""
+        posts = [
+            {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0},
+            {'id': 'post-2', 'author_id': 1, 'algorithm_score': 9.0},  # Will get penalty
+            {'id': 'post-3', 'author_id': 2, 'algorithm_score': 5.0},  # Lower score, no penalty
+        ]
+        
+        diversity_config = algorithm_service.config.diversity_limits
+        result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+        
+        # After penalty, post-2 might have lower score than post-3
+        penalized_score = 9.0 * diversity_config.spacing_violation_penalty
+        
+        # Verify posts are sorted by final score
+        for i in range(len(result) - 1):
+            assert result[i]['algorithm_score'] >= result[i + 1]['algorithm_score']
+        
+        # If penalty is significant enough, post-3 should come before post-2
+        if penalized_score < 5.0:
+            post_3_index = next(i for i, p in enumerate(result) if p['id'] == 'post-3')
+            post_2_index = next(i for i, p in enumerate(result) if p['id'] == 'post-2')
+            assert post_3_index < post_2_index
+
+    def test_apply_spacing_rules_empty_posts(self, algorithm_service):
+        """Test spacing rules with empty post list."""
+        posts = []
+        diversity_config = algorithm_service.config.diversity_limits
+        result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+        assert result == []
+
+    def test_apply_spacing_rules_single_post(self, algorithm_service):
+        """Test spacing rules with single post."""
+        posts = [{'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0}]
+        diversity_config = algorithm_service.config.diversity_limits
+        result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+        
+        assert len(result) == 1
+        assert result[0]['algorithm_score'] == 10.0
+        assert not result[0].get('spacing_penalty_applied', False)
+
+    def test_apply_spacing_rules_configuration_usage(self, algorithm_service):
+        """Test that spacing rules use configuration parameters."""
+        posts = [
+            {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0},
+            {'id': 'post-2', 'author_id': 1, 'algorithm_score': 9.0},
+        ]
+        
+        diversity_config = algorithm_service.config.diversity_limits
+        result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+        
+        # Verify penalty uses configured value
+        penalized_post = next(p for p in result if p['id'] == 'post-2')
+        expected_score = 9.0 * diversity_config.spacing_violation_penalty
+        assert abs(penalized_post['algorithm_score'] - expected_score) < 0.001
+
+    async def test_get_diversity_stats_includes_spacing_statistics(self, algorithm_service):
+        """Test that diversity stats include spacing rule statistics."""
+        posts = [
+            {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0, 'post_type': 'daily'},
+            {'id': 'post-2', 'author_id': 1, 'algorithm_score': 9.0, 'post_type': 'daily', 'spacing_penalty_applied': True},
+            {'id': 'post-3', 'author_id': 2, 'algorithm_score': 8.0, 'post_type': 'photo'},
+            {'id': 'post-4', 'author_id': 3, 'algorithm_score': 7.0, 'post_type': 'spontaneous', 'spacing_penalty_applied': True},
+        ]
+        
+        stats = await algorithm_service.get_diversity_stats(posts)
+        
+        # Check spacing statistics
+        assert 'spacing_statistics' in stats
+        spacing_stats = stats['spacing_statistics']
+        assert spacing_stats['spacing_penalties_applied'] == 2
+        assert spacing_stats['consecutive_violations_detected'] == 1  # post-1 and post-2
+        assert len(spacing_stats['consecutive_violations']) <= 5  # Limited to 5 for debugging
+
+    async def test_spacing_rules_integration_with_diversity_control(self, algorithm_service, mock_db_session):
+        """Test that spacing rules are integrated into diversity and preference control."""
+        # Mock UserPreferenceService
+        with patch('app.services.user_preference_service.UserPreferenceService') as mock_preference_service:
+            mock_service_instance = AsyncMock()
+            mock_service_instance.calculate_preference_boost.return_value = 1.0
+            mock_preference_service.return_value = mock_service_instance
+            
+            posts = [
+                {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0, 'author_id': 1, 'post_type': 'daily'},
+                {'id': 'post-2', 'author_id': 1, 'algorithm_score': 9.0, 'author_id': 1, 'post_type': 'daily'},
+                {'id': 'post-3', 'author_id': 2, 'algorithm_score': 8.0, 'author_id': 2, 'post_type': 'photo'},
+            ]
+            
+            result = await algorithm_service._apply_diversity_and_preference_control(posts, user_id=3)
+            
+            # Should have applied spacing rules
+            penalized_posts = [p for p in result if p.get('spacing_penalty_applied', False)]
+            assert len(penalized_posts) > 0
+            
+            # Posts should be re-sorted after spacing penalties
+            for i in range(len(result) - 1):
+                assert result[i]['algorithm_score'] >= result[i + 1]['algorithm_score']
+
+    def test_spacing_rules_with_different_window_sizes(self, algorithm_service):
+        """Test spacing rules behavior with different window sizes."""
+        posts = [
+            {'id': f'post-{i}', 'author_id': 1 if i % 3 == 0 else i, 'algorithm_score': 10.0 - i}
+            for i in range(10)
+        ]
+        
+        # Test with current config
+        diversity_config = algorithm_service.config.diversity_limits
+        result = algorithm_service._apply_spacing_rules(posts, diversity_config)
+        
+        # Count penalties applied
+        penalties = sum(1 for p in result if p.get('spacing_penalty_applied', False))
+        
+        # Should have some penalties for author 1 (appears at positions 0, 3, 6, 9)
+        assert penalties > 0
+        
+        # Verify that posts are still sorted by score after penalties
+        for i in range(len(result) - 1):
+            assert result[i]['algorithm_score'] >= result[i + 1]['algorithm_score']

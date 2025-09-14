@@ -1357,7 +1357,10 @@ class AlgorithmService(BaseService):
             diversified_posts = self._apply_author_diversity_limits(scored_posts, diversity_config)
             diversified_posts = self._apply_content_type_balancing(diversified_posts, diversity_config)
             
-            return diversified_posts
+            # Apply spacing rules to prevent consecutive posts by same user
+            spaced_posts = self._apply_spacing_rules(diversified_posts, diversity_config)
+            
+            return spaced_posts
             
         except Exception as e:
             logger.error(f"Error in diversity and preference control: {e}")
@@ -1463,6 +1466,102 @@ class AlgorithmService(BaseService):
         
         return balanced_posts
 
+    def _apply_spacing_rules(
+        self, 
+        posts: List[Dict[str, Any]], 
+        diversity_config
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply spacing rules to prevent consecutive posts by the same user.
+        
+        Uses a sliding window approach to detect spacing violations and applies
+        penalty multipliers to posts that violate spacing rules.
+        
+        Args:
+            posts: List of posts sorted by score (descending)
+            diversity_config: Diversity configuration with spacing parameters
+            
+        Returns:
+            List[Dict[str, Any]]: Posts with spacing rule penalties applied and re-sorted
+        """
+        if not posts or len(posts) <= 1:
+            return posts
+        
+        max_consecutive = diversity_config.max_consecutive_posts_per_user
+        window_size = diversity_config.spacing_window_size
+        penalty_multiplier = diversity_config.spacing_violation_penalty
+        
+        # Track author distribution within sliding window
+        spaced_posts = []
+        
+        for i, post in enumerate(posts):
+            author_id = post['author_id']
+            
+            # Calculate sliding window start position
+            window_start = max(0, len(spaced_posts) - window_size + 1)
+            window_posts = spaced_posts[window_start:]
+            
+            # Count posts by this author in the current window
+            author_count_in_window = sum(1 for p in window_posts if p['author_id'] == author_id)
+            
+            # Check for consecutive posts violation
+            consecutive_count = 0
+            for j in range(len(spaced_posts) - 1, -1, -1):
+                if spaced_posts[j]['author_id'] == author_id:
+                    consecutive_count += 1
+                else:
+                    break
+            
+            # Apply penalty if spacing rules are violated
+            post_copy = post.copy()
+            spacing_penalty_applied = False
+            
+            # Violation 1: Too many consecutive posts
+            if consecutive_count >= max_consecutive:
+                post_copy['algorithm_score'] *= penalty_multiplier
+                spacing_penalty_applied = True
+                logger.debug(
+                    f"Applied consecutive posts penalty to post {post['id']} "
+                    f"(author {author_id}): {consecutive_count} consecutive posts, "
+                    f"penalty={penalty_multiplier:.2f}"
+                )
+            
+            # Violation 2: Too many posts in sliding window (additional check)
+            elif author_count_in_window >= max_consecutive and window_size > max_consecutive:
+                # Apply lighter penalty for window-based violations
+                window_penalty = penalty_multiplier + (1.0 - penalty_multiplier) * 0.5  # 50% lighter
+                post_copy['algorithm_score'] *= window_penalty
+                spacing_penalty_applied = True
+                logger.debug(
+                    f"Applied window spacing penalty to post {post['id']} "
+                    f"(author {author_id}): {author_count_in_window} posts in window of {window_size}, "
+                    f"penalty={window_penalty:.2f}"
+                )
+            
+            # Mark if spacing penalty was applied for debugging
+            if spacing_penalty_applied:
+                post_copy['spacing_penalty_applied'] = True
+                post_copy['spacing_penalty_reason'] = (
+                    f"consecutive={consecutive_count}" if consecutive_count >= max_consecutive
+                    else f"window={author_count_in_window}/{window_size}"
+                )
+            
+            spaced_posts.append(post_copy)
+        
+        # Re-sort posts after applying spacing penalties
+        spaced_posts.sort(key=lambda x: x['algorithm_score'], reverse=True)
+        
+        # Log spacing rule statistics
+        penalty_count = sum(1 for p in spaced_posts if p.get('spacing_penalty_applied', False))
+        if penalty_count > 0:
+            logger.debug(
+                f"Applied spacing rule penalties to {penalty_count}/{len(spaced_posts)} posts "
+                f"(max_consecutive={max_consecutive}, window_size={window_size}, "
+                f"penalty={penalty_multiplier:.2f})"
+            )
+        
+        return spaced_posts
+
     async def get_diversity_stats(self, posts: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Get diversity statistics for a list of posts.
@@ -1503,6 +1602,19 @@ class AlgorithmService(BaseService):
             for post_type, count in content_type_counts.items()
         }
         
+        # Check for spacing rule violations and penalties
+        spacing_penalties = sum(1 for post in posts if post.get('spacing_penalty_applied', False))
+        consecutive_violations = []
+        
+        # Analyze consecutive post patterns
+        for i in range(1, len(posts)):
+            if posts[i]['author_id'] == posts[i-1]['author_id']:
+                consecutive_violations.append({
+                    'position': i,
+                    'author_id': posts[i]['author_id'],
+                    'post_id': posts[i]['id']
+                })
+        
         return {
             'total_posts': total_posts,
             'unique_authors': unique_authors,
@@ -1510,7 +1622,12 @@ class AlgorithmService(BaseService):
             'content_type_distribution': content_type_percentages,
             'content_type_counts': content_type_counts,
             'author_distribution': dict(sorted(author_counts.items(), key=lambda x: x[1], reverse=True)[:10]),
-            'max_posts_per_author': max(author_counts.values()) if author_counts else 0
+            'max_posts_per_author': max(author_counts.values()) if author_counts else 0,
+            'spacing_statistics': {
+                'spacing_penalties_applied': spacing_penalties,
+                'consecutive_violations_detected': len(consecutive_violations),
+                'consecutive_violations': consecutive_violations[:5]  # Show first 5 for debugging
+            }
         }
 
     def get_config_summary(self) -> Dict[str, Any]:

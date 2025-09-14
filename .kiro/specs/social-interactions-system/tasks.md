@@ -780,7 +780,7 @@ The current feed algorithm (implemented in `AlgorithmService`) ranks posts using
   - Add second-tier multiplier to FOLLOW_BONUSES config (default: +1.5 for second-tier users)
   - Cache second-tier follow relationships for performance (refresh every 24 hours)
   - Test follow multipliers ensure followed content appears prominently without overwhelming feed
-- [ ] **15.6.2 Feed Spacing Rules**
+- [x] **15.6.2 Feed Spacing Rules**
   - Enforce spacing rules in feed to prevent consecutive posts by the same user
   - Add configurable spacing parameters to DIVERSITY_LIMITS config:
     - `max_consecutive_posts_per_user`: Maximum consecutive posts by same user (default: 1)

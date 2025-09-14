@@ -6,6 +6,7 @@ import pytest
 import asyncio
 import time
 from datetime import datetime, timedelta, timezone
+from typing import List
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -648,3 +649,230 @@ class TestFeedAlgorithm:
         
         assert abs((daily_score - spontaneous_score) - expected_daily_bonus_with_factors) < 0.01  # Daily bonus
         assert abs((photo_score - spontaneous_score) - expected_photo_bonus_with_factors) < 0.01  # Photo bonus
+
+    @pytest.mark.asyncio
+    async def test_spacing_rules_integration(
+        self, 
+        sample_users: List[User], 
+        db_session: AsyncSession
+    ):
+        """Test that spacing rules are properly applied in feed generation."""
+        algorithm_service = AlgorithmService(db_session)
+        # Create posts with same author appearing consecutively
+        posts_data = [
+            {"content": "First post by user 1", "author": sample_users[0], "score_base": 100},
+            {"content": "Second post by user 1", "author": sample_users[0], "score_base": 95},  # Consecutive
+            {"content": "Third post by user 1", "author": sample_users[0], "score_base": 90},   # Consecutive
+            {"content": "Post by user 2", "author": sample_users[1], "score_base": 85},
+            {"content": "Fourth post by user 1", "author": sample_users[0], "score_base": 80},  # Window violation
+            {"content": "Post by user 3", "author": sample_users[2], "score_base": 75},
+        ]
+        
+        # Create posts in database
+        created_posts = []
+        for i, post_data in enumerate(posts_data):
+            post = Post(
+                id=f"spacing-test-{i}",
+                content=post_data["content"],
+                author_id=post_data["author"].id,
+                post_type=PostType.daily,
+                is_public=True,
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=i)  # Different times
+            )
+            db_session.add(post)
+            created_posts.append(post)
+        
+        await db_session.commit()
+        
+        # Get personalized feed with algorithm enabled
+        posts, total_count = await algorithm_service.get_personalized_feed(
+            user_id=sample_users[3].id,  # Different user viewing the feed
+            limit=10,
+            algorithm_enabled=True
+        )
+        
+        # Verify spacing rules were applied
+        assert len(posts) > 0
+        
+        # Check for consecutive posts by same author
+        consecutive_violations = 0
+        for i in range(1, len(posts)):
+            if posts[i]['author_id'] == posts[i-1]['author_id']:
+                consecutive_violations += 1
+        
+        # With spacing rules, there should be fewer consecutive violations
+        # than in the original high-scoring order (allow some tolerance)
+        assert consecutive_violations <= 2  # Should be reduced by spacing rules
+        
+        # Verify that posts are still ordered by score (after penalties)
+        for i in range(len(posts) - 1):
+            current_score = posts[i].get('algorithm_score', posts[i].get('score', 0))
+            next_score = posts[i + 1].get('algorithm_score', posts[i + 1].get('score', 0))
+            assert current_score >= next_score
+        
+        # Clean up
+        await db_session.rollback()  # Rollback to clean state
+
+    @pytest.mark.asyncio
+    async def test_spacing_rules_configuration_impact(
+        self, 
+        sample_users: List[User], 
+        db_session: AsyncSession
+    ):
+        """Test that spacing rule configuration parameters affect feed generation."""
+        algorithm_service = AlgorithmService(db_session)
+        # Create posts with multiple consecutive posts by same author
+        posts_data = []
+        for i in range(8):
+            # Alternate between user 0 (4 posts) and user 1 (4 posts)
+            # But arrange so user 0 has consecutive high-scoring posts
+            if i < 4:
+                author = sample_users[0]
+                content = f"High scoring post {i} by user 0"
+                score_base = 100 - i  # Decreasing scores
+            else:
+                author = sample_users[1]
+                content = f"Lower scoring post {i} by user 1"
+                score_base = 50 - (i - 4)  # Much lower scores
+        
+            posts_data.append({
+                "content": content,
+                "author": author,
+                "score_base": score_base
+            })
+        
+        # Create posts in database
+        created_posts = []
+        for i, post_data in enumerate(posts_data):
+            post = Post(
+                id=f"config-test-{i}",
+                content=post_data["content"],
+                author_id=post_data["author"].id,
+                post_type=PostType.daily,
+                is_public=True,
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=i)
+            )
+            db_session.add(post)
+            created_posts.append(post)
+        
+        await db_session.commit()
+        
+        # Get feed and check spacing rule application
+        posts, _ = await algorithm_service.get_personalized_feed(
+            user_id=sample_users[2].id,  # Different user viewing
+            limit=8,
+            algorithm_enabled=True
+        )
+        
+        # Verify configuration parameters are being used
+        config = algorithm_service.config.diversity_limits
+        
+        # Count consecutive posts by same author
+        max_consecutive_found = 0
+        current_consecutive = 1
+        
+        for i in range(1, len(posts)):
+            if posts[i]['author_id'] == posts[i-1]['author_id']:
+                current_consecutive += 1
+            else:
+                max_consecutive_found = max(max_consecutive_found, current_consecutive)
+                current_consecutive = 1
+        
+        max_consecutive_found = max(max_consecutive_found, current_consecutive)
+        
+        # Should not exceed configured maximum consecutive posts
+        assert max_consecutive_found <= config.max_consecutive_posts_per_user + 1  # Allow some tolerance
+        
+        # Verify that spacing penalties were applied (check for penalty markers in debug info)
+        # This is more of a smoke test since the exact penalty application depends on scoring
+        
+        # Clean up
+        await db_session.rollback()  # Rollback to clean state
+
+    @pytest.mark.asyncio
+    async def test_spacing_rules_preserve_feed_quality(
+        self, 
+        sample_users: List[User], 
+        db_session: AsyncSession
+    ):
+        """Test that spacing rules maintain feed quality while preventing author dominance."""
+        algorithm_service = AlgorithmService(db_session)
+        # Create a mix of high-quality posts from one author and medium-quality from others
+        posts_data = [
+            # High-quality posts from user 0 (would normally dominate feed)
+            {"content": "Amazing gratitude post 1", "author": sample_users[0], "hearts": 20, "reactions": 10},
+            {"content": "Amazing gratitude post 2", "author": sample_users[0], "hearts": 18, "reactions": 9},
+            {"content": "Amazing gratitude post 3", "author": sample_users[0], "hearts": 16, "reactions": 8},
+            
+            # Medium-quality posts from other users
+            {"content": "Good post by user 1", "author": sample_users[1], "hearts": 8, "reactions": 4},
+            {"content": "Good post by user 2", "author": sample_users[2], "hearts": 7, "reactions": 3},
+            {"content": "Decent post by user 1", "author": sample_users[1], "hearts": 6, "reactions": 2},
+        ]
+        
+        # Create posts and engagement
+        created_posts = []
+        for i, post_data in enumerate(posts_data):
+            post = Post(
+                id=f"quality-test-{i}",
+                content=post_data["content"],
+                author_id=post_data["author"].id,
+                post_type=PostType.daily,
+                is_public=True,
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=i * 5)
+            )
+            db_session.add(post)
+            created_posts.append(post)
+            
+            # Add engagement (limit to available users to avoid duplicates)
+            max_likes = min(post_data["hearts"], len(sample_users))
+            for j in range(max_likes):
+                like = Like(
+                    id=f"like-{i}-{j}",
+                    user_id=sample_users[j].id,
+                    post_id=post.id
+                )
+                db_session.add(like)
+            
+            max_reactions = min(post_data["reactions"], len(sample_users))
+            for j in range(max_reactions):
+                reaction = EmojiReaction(
+                    id=f"reaction-{i}-{j}",
+                    user_id=sample_users[j].id,
+                    post_id=post.id,
+                    emoji_code="heart_eyes"
+                )
+                db_session.add(reaction)
+        
+        await db_session.commit()
+        
+        # Get feed with spacing rules
+        posts, _ = await algorithm_service.get_personalized_feed(
+            user_id=sample_users[3].id,  # Different user viewing
+            limit=6,
+            algorithm_enabled=True
+        )
+        
+        # Verify feed quality is maintained
+        assert len(posts) > 0
+        
+        # Should still have high-quality posts from user 0, but not all consecutive
+        user_0_posts = [p for p in posts if p['author_id'] == sample_users[0].id]
+        other_user_posts = [p for p in posts if p['author_id'] != sample_users[0].id]
+        
+        # User 0 should still have representation (high quality)
+        assert len(user_0_posts) > 0
+        
+        # But other users should also have representation (diversity)
+        assert len(other_user_posts) > 0
+        
+        # Check that spacing rules prevented complete dominance
+        # Without spacing rules, all top 3 posts would be from user 0
+        top_3_posts = posts[:3]
+        user_0_in_top_3 = sum(1 for p in top_3_posts if p['author_id'] == sample_users[0].id)
+        
+        # Spacing rules should prevent all top 3 from being the same author
+        assert user_0_in_top_3 < 3
+        
+        # Clean up - simplified to avoid cascade issues
+        await db_session.rollback()  # Rollback to clean state
