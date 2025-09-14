@@ -77,19 +77,35 @@ UPLOAD_RATE_LIMIT=20
 
 ## Input Sanitization
 
+### Implementation Strategy
+
+The API uses a two-layer approach for input sanitization:
+
+1. **Middleware Layer**: Prepares sanitization mappings without consuming request body
+2. **Endpoint Layer**: Applies sanitization using utility functions
+
+This approach avoids request body consumption issues while maintaining security.
+
 ### Sanitization Rules
 
-The API automatically sanitizes all user input based on field types:
+The API automatically sanitizes user input based on field types:
 
 #### Field-Specific Sanitization
 
-| Field Type | Rules |
-|-----------|-------|
-| `username` | Alphanumeric + `_.-`, max 50 chars |
-| `email` | Lowercase, valid email format, max 254 chars |
-| `post_content` | HTML escaped, line breaks normalized, max 2000 chars |
-| `bio` | HTML escaped, max 500 chars |
-| `url` | Auto-add HTTPS scheme, max 500 chars |
+| Field Type | Rules | Applied To |
+|-----------|-------|------------|
+| `username` | Alphanumeric + `_.-`, max 50 chars | Registration, profile updates |
+| `email` | Lowercase, valid email format, max 254 chars | Registration (not login) |
+| `post_content` | HTML escaped, line breaks normalized, max 2000 chars | Post creation |
+| `bio` | HTML escaped, max 500 chars | Profile updates |
+| `url` | Auto-add HTTPS scheme, max 500 chars | Profile websites |
+| `password` | No sanitization (preserved for authentication) | Login/registration |
+
+#### Authentication-Specific Rules
+
+- **Login**: Email and password are NOT sanitized to preserve exact values for authentication
+- **Registration**: Email is sanitized for storage, password is preserved
+- **Case Sensitivity**: Database lookups are case-sensitive, sanitization accounts for this
 
 #### File Upload Validation
 
@@ -113,6 +129,21 @@ All user-generated content is HTML-escaped:
 ```python
 # Input: <script>alert('xss')</script>
 # Output: &lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;
+```
+
+### Usage in Endpoints
+
+```python
+from app.core.input_sanitization import sanitize_request_data
+
+# In endpoint handlers
+@router.post("/posts")
+async def create_post(post: PostCreate, request: Request):
+    # Sanitize input data using middleware mappings
+    sanitized_data = sanitize_request_data(request, post.model_dump())
+    
+    # Use sanitized data for storage
+    result = await post_service.create_post(**sanitized_data)
 ```
 
 ## Authentication & Authorization
@@ -408,7 +439,9 @@ alerts:
 - [ ] Verify rate limiting works: Test with multiple requests
 - [ ] Check security headers: Use online security scanner
 - [ ] Validate CORS configuration: Test from allowed/blocked origins
-- [ ] Test input sanitization: Submit malicious payloads
+- [ ] Test input sanitization: Submit malicious payloads to endpoints
+- [ ] Verify authentication works: Test login/signup flows
+- [ ] Check middleware functionality: Ensure no request body consumption issues
 - [ ] Verify audit logging: Check log output format
 
 ### Performance Testing
@@ -494,11 +527,31 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 #### Authentication Issues
 ```bash
+# Test login endpoint
+curl -X POST "http://localhost:8000/api/v1/auth/login" \
+     -H "Content-Type: application/json" \
+     -d '{"email": "user@example.com", "password": "password"}'
+
 # Verify token format
 echo $TOKEN | base64 -d | jq .
 
 # Check token expiration
 # Look for 'exp' claim in decoded token
+
+# Test with case-sensitive emails
+# Database lookups are case-sensitive, ensure exact email match
+```
+
+#### Input Sanitization Issues
+```bash
+# Test endpoint-level sanitization
+curl -X POST "http://localhost:8000/api/v1/posts" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"content": "<script>alert(\"xss\")</script>"}'
+
+# Verify XSS content is escaped in response
+# Check that malicious content is sanitized but functionality preserved
 ```
 
 #### Security Header Issues

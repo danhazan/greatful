@@ -12,6 +12,7 @@ from app.services.auth_service import AuthService
 from app.core.responses import success_response
 from app.core.security_audit import log_login_success, log_login_failure, SecurityAuditor, SecurityEventType
 from app.core.exceptions import AuthenticationError
+from app.core.input_sanitization import sanitize_request_data
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -60,11 +61,14 @@ async def signup(
     """Create new user with security audit logging."""
     auth_service = AuthService(db)
     
+    # Sanitize input data for storage (but not password)
+    user_data = sanitize_request_data(request, user.model_dump())
+    
     try:
         result = await auth_service.signup(
-            username=user.username,
-            email=user.email,
-            password=user.password
+            username=user_data.get('username', user.username),
+            email=user_data.get('email', user.email),
+            password=user.password  # Don't sanitize password
         )
         
         # Log successful registration
@@ -107,6 +111,8 @@ async def login(
     """Login user with security audit logging."""
     auth_service = AuthService(db)
     
+    # For login, we don't sanitize email/password as they're used for lookup/verification
+    # Sanitization is more important for data storage (signup) than authentication
     try:
         result = await auth_service.login(
             email=user.email,

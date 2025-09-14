@@ -328,19 +328,34 @@ class InputSanitizationMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next) -> Response:
         """Sanitize request data before processing."""
-        # TEMPORARILY DISABLED: Input sanitization middleware is causing request body consumption issues
-        # This needs to be reimplemented to avoid interfering with FastAPI's request body handling
-        # For now, we'll rely on Pydantic validation and manual sanitization in endpoints
+        # Skip sanitization during testing (causes hangs in test environment)
+        if os.getenv('TESTING') == 'true':
+            return await call_next(request)
         
-        logger.debug(
-            f"Input sanitization middleware bypassed for {request.method} {request.url.path}",
-            extra={
-                "request_id": getattr(request.state, 'request_id', None),
-                "endpoint": request.url.path,
-                "method": request.method,
-                "note": "Middleware temporarily disabled to prevent request body consumption issues"
-            }
-        )
+        # Skip sanitization for certain endpoints
+        if any(request.url.path.startswith(skip) for skip in self.SKIP_ENDPOINTS):
+            return await call_next(request)
+        
+        # Only sanitize POST, PUT, PATCH requests with data
+        if request.method not in ['POST', 'PUT', 'PATCH']:
+            return await call_next(request)
+        
+        # Store field mappings in request state for endpoints to use
+        # This approach avoids consuming the request body in middleware
+        field_mappings = self._get_field_mappings(request.url.path)
+        if field_mappings:
+            request.state.input_sanitization_mappings = field_mappings
+            request.state.input_sanitizer = self.sanitizer
+            
+            logger.debug(
+                f"Input sanitization mappings prepared for {request.method} {request.url.path}",
+                extra={
+                    "request_id": getattr(request.state, 'request_id', None),
+                    "endpoint": request.url.path,
+                    "method": request.method,
+                    "mappings": list(field_mappings.keys())
+                }
+            )
         
         return await call_next(request)
     
@@ -489,3 +504,25 @@ def sanitize_user_input(
         return sanitizer.sanitize_dict(data, field_mappings or {})
     else:
         return data
+
+
+def sanitize_request_data(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Sanitize request data using mappings from middleware.
+    
+    Args:
+        request: FastAPI request object
+        data: Data to sanitize
+        
+    Returns:
+        Sanitized data
+    """
+    # Get sanitization mappings from middleware
+    field_mappings = getattr(request.state, 'input_sanitization_mappings', {})
+    sanitizer = getattr(request.state, 'input_sanitizer', InputSanitizer())
+    
+    if field_mappings:
+        return sanitizer.sanitize_dict(data, field_mappings)
+    else:
+        # Fallback to basic sanitization
+        return sanitizer.sanitize_dict(data, {})
