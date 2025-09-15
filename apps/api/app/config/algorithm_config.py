@@ -23,6 +23,7 @@ class ScoringWeights:
     photo_bonus: float = 1.5  # Reduced from 2.5 to 1.5
     daily_gratitude_bonus: float = 2.0  # Reduced from 3.0 to 2.0
     unread_boost: float = 3.0  # Multiplier for unread posts (read posts get 1/unread_boost penalty)
+    max_engagement_multiplier: float = 25.0  # Cap engagement multiplier to prevent explosive growth
 
 
 @dataclass
@@ -128,6 +129,7 @@ ENVIRONMENT_OVERRIDES = {
             'shares': 5.0,
             'photo_bonus': 1.5,  # Reduced impact
             'daily_gratitude_bonus': 2.0,  # Reduced impact
+            'max_engagement_multiplier': 30.0,  # Higher cap for development testing
         },
         'time_factors': {
             'decay_hours': 48,  # Faster decay for dev testing
@@ -184,6 +186,7 @@ ENVIRONMENT_OVERRIDES = {
             'photo_bonus': 1.5,
             'daily_gratitude_bonus': 2.0,
             'unread_boost': 3.0,
+            'max_engagement_multiplier': 20.0,  # Conservative cap for production
         },
         'time_factors': {
             'decay_hours': 72,  # 3-day decay for production

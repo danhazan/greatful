@@ -42,21 +42,41 @@ export default function LoginPage() {
         // Handle structured error responses from backend
         let errorMessage = "Login failed. Please try again."
         
-        if (data.detail) {
-          if (Array.isArray(data.detail)) {
-            // Handle validation errors (array of error objects)
-            errorMessage = data.detail.map((err: any) => err.msg || err.message || String(err)).join(', ')
-          } else if (typeof data.detail === 'string') {
-            // Handle simple string errors
-            errorMessage = data.detail
-          } else if (typeof data.detail === 'object' && data.detail.message) {
-            // Handle error objects with message property
-            errorMessage = data.detail.message
+        try {
+          if (data.detail) {
+            if (Array.isArray(data.detail)) {
+              // Handle validation errors (array of error objects)
+              errorMessage = data.detail.map((err: any) => {
+                if (typeof err === 'string') return err
+                if (typeof err === 'object' && err !== null) {
+                  return err.msg || err.message || JSON.stringify(err)
+                }
+                return String(err)
+              }).join(', ')
+            } else if (typeof data.detail === 'string') {
+              // Handle simple string errors
+              errorMessage = data.detail
+            } else if (typeof data.detail === 'object' && data.detail !== null) {
+              // Handle error objects with message property
+              errorMessage = data.detail.message || JSON.stringify(data.detail)
+            } else {
+              errorMessage = String(data.detail)
+            }
+          } else if (data.message && typeof data.message === 'string') {
+            errorMessage = data.message
+          } else if (data.error && typeof data.error === 'string') {
+            errorMessage = data.error
+          } else if (data.error && typeof data.error === 'object' && data.error !== null) {
+            errorMessage = data.error.message || JSON.stringify(data.error)
           }
-        } else if (data.message) {
-          errorMessage = data.message
-        } else if (data.error) {
-          errorMessage = data.error
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+          errorMessage = "Login failed. Please try again."
+        }
+        
+        // Ensure errorMessage is always a string
+        if (typeof errorMessage !== 'string') {
+          errorMessage = "Login failed. Please try again."
         }
         
         setError(errorMessage)

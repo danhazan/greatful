@@ -192,13 +192,14 @@ class AlgorithmService(BaseService):
         # Base score starts at 1.0 for proper multiplicative scaling
         base_score = 1.0
         
-        # Engagement multiplier using configurable weights
+        # Engagement multiplier using configurable weights with cap to prevent explosive growth
         scoring_weights = self.config.scoring_weights
-        engagement_multiplier = 1.0 + (
+        engagement_points = (
             (hearts_count * scoring_weights.hearts) + 
             (reactions_count * scoring_weights.reactions) + 
             (shares_count * scoring_weights.shares)
         )
+        engagement_multiplier = min(1.0 + engagement_points, scoring_weights.max_engagement_multiplier)
         
         # Content type multipliers using configurable values
         content_multiplier = 1.0
@@ -275,9 +276,14 @@ class AlgorithmService(BaseService):
             own_post_multiplier
         )
         
+        # Check if engagement cap was applied
+        uncapped_engagement = 1.0 + engagement_points
+        engagement_capped = engagement_multiplier < uncapped_engagement
+        
         logger.debug(
             f"Post {post.id} score calculation: "
-            f"base={base_score:.2f}, engagement={engagement_multiplier:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}), "
+            f"base={base_score:.2f}, engagement={engagement_multiplier:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}"
+            f"{', CAPPED' if engagement_capped else ''}), "
             f"content={content_multiplier:.2f}, mention={mention_multiplier:.2f}, "
             f"relationship={relationship_multiplier:.2f}, unread={unread_multiplier:.2f}, "
             f"time={time_multiplier:.2f}, own_post={own_post_multiplier:.2f}, final={final_score:.2f}"
