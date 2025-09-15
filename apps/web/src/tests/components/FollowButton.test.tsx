@@ -53,7 +53,7 @@ describe('FollowButton', () => {
 
     it('renders different sizes correctly', () => {
       const { rerender } = render(<FollowButton userId={123} size="xxs" />)
-      expect(screen.getByRole('button')).toHaveClass('px-1', 'py-0.5', 'text-xs')
+      expect(screen.getByRole('button')).toHaveClass('px-2', 'py-0.5', 'text-xs')
 
       rerender(<FollowButton userId={123} size="xs" />)
       expect(screen.getByRole('button')).toHaveClass('px-2', 'py-1', 'text-xs')

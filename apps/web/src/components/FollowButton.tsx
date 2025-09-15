@@ -37,7 +37,7 @@ export default function FollowButton({
 
   // Size classes with minimum touch targets and fixed widths for heart-shaped button
   const sizeClasses = {
-    xxs: 'px-1 py-0.5 text-xs min-w-[22px] min-h-[22px] w-[80px]',
+    xxs: 'px-2 py-0.5 text-xs min-w-[22px] min-h-[20px] w-[90px]',
     xs: 'px-2 py-1 text-xs min-w-[22px] min-h-[22px] w-[90px]',
     sm: 'px-2 py-1 text-xs min-w-[22px] min-h-[22px] w-[100px]',
     md: 'px-3 py-1.5 text-sm min-w-[22px] min-h-[22px] w-[110px]',
@@ -46,7 +46,7 @@ export default function FollowButton({
 
   // Heart icon sizes for different button sizes - consistent sizing
   const heartSizes = {
-    xxs: 'w-3.5 h-3.5',
+    xxs: 'w-3 h-3',
     xs: 'w-4 h-4',
     sm: 'w-4 h-4',
     md: 'w-4.5 h-4.5',

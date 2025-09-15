@@ -717,7 +717,7 @@ export default function PostCard({
       <article className={styling.container} data-post-id={post.id}>
         {/* Post Header */}
         <div className={styling.header}>
-          <div className="flex items-start space-x-3">
+          <div className="flex items-start space-x-6">
             <ProfilePhotoDisplay
               photoUrl={currentPost.author.image}
               username={currentPost.author.username || currentPost.author.name}
@@ -726,7 +726,7 @@ export default function PostCard({
               onClick={() => onUserClick?.(currentPost.author.id)}
             />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-4">
                 <div 
                   className="cursor-pointer hover:text-purple-700 transition-colors flex-shrink-0"
                   onClick={() => onUserClick?.(currentPost.author.id)}
@@ -742,34 +742,56 @@ export default function PostCard({
                  !hideFollowButton && (
                   <FollowButton 
                     userId={parseInt(currentPost.author.id)} 
-                    size="xs"
+                    size="xxs"
                     variant="outline"
                   />
                 )}
               </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <Calendar className="h-4 w-4" />
-                <a 
-                  href={`/post/${post.id}`}
-                  className="hover:text-purple-600 hover:underline transition-colors cursor-pointer"
-                  title="View post details"
-                >
-                  {(() => {
-                    const { dateString, wasEdited } = getDisplayDate()
-                    const formattedDate = formatDate(dateString)
-                    return wasEdited ? `${formattedDate} (edited)` : formattedDate
-                  })()}
-                </a>
-                {/* Unread indicator */}
-                {currentPost.isUnread && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                    NEW
-                  </span>
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-sm text-gray-500">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4" />
+                  <a 
+                    href={`/post/${post.id}`}
+                    className="hover:text-purple-600 hover:underline transition-colors cursor-pointer"
+                    title="View post details"
+                  >
+                    {(() => {
+                      const { dateString, wasEdited } = getDisplayDate()
+                      const formattedDate = formatDate(dateString)
+                      return wasEdited ? `${formattedDate} (edited)` : formattedDate
+                    })()}
+                  </a>
+                </div>
+                {/* Location on mobile - separate line to avoid collision with follow button */}
+                {(currentPost.location_data || currentPost.location) && (
+                  <div className="flex items-center space-x-1 sm:hidden">
+                    <MapPin className="h-4 w-4 flex-shrink-0" />
+                    <button
+                      ref={locationButtonRef}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        
+                        if (locationButtonRef.current) {
+                          const rect = locationButtonRef.current.getBoundingClientRect()
+                          setLocationModalPosition({
+                            x: rect.left + rect.width / 2,
+                            y: rect.top
+                          })
+                        }
+                        
+                        setShowLocationModal(true)
+                      }}
+                      className="text-gray-500 hover:text-purple-600 hover:underline transition-colors text-xs truncate max-w-[200px]"
+                      title="View location details"
+                    >
+                      {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
             <div className="flex items-center space-x-2 flex-shrink-0 max-w-[40%]">
-              {/* Location button positioned in top-right corner - flexible width */}
+              {/* Location on desktop - positioned in top-right corner */}
               {(currentPost.location_data || currentPost.location) && (
                 <button
                   ref={locationButtonRef}
@@ -786,7 +808,7 @@ export default function PostCard({
                     
                     setShowLocationModal(true)
                   }}
-                  className="flex items-center gap-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-1 transition-all duration-200 min-w-[44px] min-h-[44px] max-w-full"
+                  className="hidden sm:flex items-center gap-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-1 transition-all duration-200 min-w-[44px] min-h-[44px] max-w-full"
                   title="View location details"
                 >
                   <MapPin className="h-4 w-4 flex-shrink-0" />
@@ -795,7 +817,6 @@ export default function PostCard({
                   </span>
                 </button>
               )}
-              
               {/* Options Menu for Post Author */}
               {isPostAuthor && (
                 <div className="relative flex-shrink-0">
