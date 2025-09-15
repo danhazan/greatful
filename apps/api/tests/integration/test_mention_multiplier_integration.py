@@ -104,13 +104,14 @@ class TestMentionMultiplierIntegration:
             shares_count=0
         )
         
-        # The score should include the mention bonus (8.0)
-        # Base score: 0 + 0 + 0 = 0
-        # Mention bonus: 8.0
-        # Time factor: varies but should be > 1 for recent posts
+        # Expected with multiplicative approach:
+        # base_score = 1.0
+        # engagement_multiplier = 1.0 + (0 * 1.0) + (0 * 1.5) + (0 * 4.0) = 1.0
+        # content_multiplier = 1.0 (spontaneous post, no bonus)
+        # mention_multiplier = 1.0 + 8.0 = 9.0 (mention bonus)
+        # Final: 1.0 * 1.0 * 1.0 * 9.0 * time_factor = 9.0 * time_factor
         time_factor = algorithm_service._calculate_time_factor(post_with_mention)
-        expected_base_with_mention = 8.0
-        expected_score = expected_base_with_mention * time_factor
+        expected_score = 1.0 * 1.0 * 1.0 * 9.0 * time_factor
         
         assert score == expected_score
 
@@ -133,13 +134,14 @@ class TestMentionMultiplierIntegration:
             shares_count=0
         )
         
-        # The score should not include mention bonus
-        # Base score: 0 + 0 + 0 = 0
-        # No mention bonus: 0
-        # Time factor: varies but should be > 1 for recent posts
+        # Expected with multiplicative approach:
+        # base_score = 1.0
+        # engagement_multiplier = 1.0 + (0 * 1.0) + (0 * 1.5) + (0 * 4.0) = 1.0
+        # content_multiplier = 1.0 (spontaneous post, no bonus)
+        # mention_multiplier = 1.0 (no mention)
+        # Final: 1.0 * 1.0 * 1.0 * 1.0 * time_factor = 1.0 * time_factor
         time_factor = algorithm_service._calculate_time_factor(post_without_mention)
-        expected_base_without_mention = 0.0
-        expected_score = expected_base_without_mention * time_factor
+        expected_score = 1.0 * 1.0 * 1.0 * 1.0 * time_factor
         
         assert score == expected_score
 
