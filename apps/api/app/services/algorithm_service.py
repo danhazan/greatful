@@ -1346,6 +1346,9 @@ class AlgorithmService(BaseService):
             # Apply randomization factor to prevent predictable feeds
             randomization_factor = diversity_config.randomization_factor
             for post in scored_posts:
+                # Skip randomization for own posts to ensure they always rank correctly
+                if post['author_id'] == user_id:
+                    continue
                 # Apply ±15% randomization (or configured percentage)
                 random_multiplier = 1.0 + random.uniform(-randomization_factor, randomization_factor)
                 post['algorithm_score'] *= random_multiplier
@@ -1516,6 +1519,7 @@ class AlgorithmService(BaseService):
             post_copy = post.copy()
             spacing_penalty_applied = False
             
+            # Apply penalty if spacing rules are violated
             # Violation 1: Too many consecutive posts
             if consecutive_count >= max_consecutive:
                 post_copy['algorithm_score'] *= penalty_multiplier

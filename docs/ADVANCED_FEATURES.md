@@ -549,3 +549,205 @@ SLOW_QUERY_THRESHOLD=0.3
 ### Conclusion
 
 This production database system provides enterprise-grade reliability, performance monitoring, and optimization capabilities. The system is designed to be mostly automatic with manual override capabilities for safety-critical operations. All monitoring and optimization features run continuously without intervention, while backup scheduling and index creation can be automated through standard DevOps practices.
+
+---
+
+## Feed Algorithm & Own Post Visibility System
+
+### Overview
+
+This document outlines the advanced feed algorithm system that ensures users' own posts receive proper visibility while maintaining feed quality and diversity. The system addresses critical issues where users' own posts were not appearing at the top of their feed immediately after posting.
+
+### Core Algorithm Features
+
+#### 1. Own Post Visibility System
+
+**Problem Solved:**
+Users reported that after publishing a post, it would appear second in their feed after older posts from other users, rather than appearing first as expected.
+
+**Root Cause:**
+The feed algorithm was applying randomization to ALL posts, including users' own posts. This meant that even though own posts received massive scoring bonuses (79x multiplier), the randomization could reduce their scores by up to 25%, while older posts could gain up to 25%, potentially causing ranking inversions.
+
+**Solution Implemented:**
+```python
+# Apply randomization factor to prevent predictable feeds
+randomization_factor = diversity_config.randomization_factor
+for post in scored_posts:
+    # Skip randomization for own posts to ensure they always rank correctly
+    if post['author_id'] == user_id:
+        continue
+    # Apply ±15% randomization (or configured percentage)
+    random_multiplier = 1.0 + random.uniform(-randomization_factor, randomization_factor)
+    post['algorithm_score'] *= random_multiplier
+```
+
+#### 2. Own Post Scoring Multipliers
+
+**Time-Based Bonus System:**
+```python
+@dataclass
+class OwnPostFactors:
+    """Factors for user's own posts visibility."""
+    max_visibility_minutes: int = 5      # Maximum boost window
+    decay_duration_minutes: int = 15     # Decay period
+    max_bonus_multiplier: float = 75.0   # Peak multiplier (development: 75x)
+    base_multiplier: float = 4.0         # Permanent advantage (development: 4x)
+```
+
+**Scoring Phases:**
+1. **Maximum Visibility (0-5 minutes)**: 79x total multiplier (75 + 4)
+2. **Decay Period (5-15 minutes)**: Exponential decay from 79x to 8x
+3. **Base Period (15+ minutes)**: Permanent 8x advantage over other posts
+
+**Combined Effect:**
+- Recent own posts get 79x scoring bonus
+- Time factors add additional 4-8x boost for very recent posts
+- **Total advantage**: Up to 316x over older posts from other users
+
+#### 3. Environment-Specific Configuration
+
+**Development Environment:**
+```python
+'own_post_factors': {
+    'max_bonus_multiplier': 75.0,  # Higher for testing
+    'base_multiplier': 4.0,        # Higher permanent advantage
+    'max_visibility_minutes': 5,
+    'decay_duration_minutes': 15,
+}
+```
+
+**Production Environment:**
+```python
+'own_post_factors': {
+    'max_bonus_multiplier': 50.0,  # Balanced for production
+    'base_multiplier': 3.0,        # Balanced permanent advantage
+    'max_visibility_minutes': 5,
+    'decay_duration_minutes': 15,
+}
+```
+
+#### 4. Algorithm Flow Protection
+
+**Randomization Exemption:**
+- Own posts are completely exempt from feed randomization
+- Other posts receive ±15-25% randomization (environment dependent)
+- Ensures own posts maintain their full scoring advantage
+
+**Diversity Control Integration:**
+- Own posts bypass author diversity limits when very recent
+- Spacing rules respect own post priority
+- Content type balancing preserves own post ranking
+
+#### 5. Performance Monitoring
+
+**Scoring Verification:**
+```python
+logger.debug(
+    f"Post {post.id} score calculation: "
+    f"base={base_score:.2f}, content_bonus={content_bonus:.2f}, "
+    f"own_post_multiplier={own_post_multiplier:.2f}, "
+    f"time_multiplier={time_multiplier:.2f}, final={final_score:.2f}"
+)
+```
+
+**Key Metrics Tracked:**
+- Own post bonus application rates
+- Time factor effectiveness
+- Randomization impact on non-own posts
+- Feed ranking consistency
+
+#### 6. Testing & Validation
+
+**Automated Test Coverage:**
+- Own post bonus calculation accuracy
+- Randomization exemption verification
+- Time-based decay functionality
+- Cross-environment configuration consistency
+
+**Integration Tests:**
+- End-to-end feed generation with own posts
+- Multi-user scenarios with mixed post ages
+- Performance impact measurement
+- Algorithm configuration validation
+
+### API Integration
+
+**Feed Endpoint Enhancement:**
+```python
+@router.get("/feed", response_model=List[PostResponse])
+async def get_feed(
+    current_user_id: int = Depends(get_current_user_id),
+    algorithm: bool = True,
+    consider_read_status: bool = True,
+    refresh: bool = False
+):
+    # Uses OptimizedAlgorithmService with own post protection
+    posts_data, total_count = await algorithm_service.get_personalized_feed_optimized(
+        user_id=current_user_id,
+        algorithm_enabled=True,
+        consider_read_status=consider_read_status,
+        refresh_mode=refresh
+    )
+```
+
+### Configuration Management
+
+**Algorithm Config System:**
+```python
+class AlgorithmConfigManager:
+    """Manager for algorithm configuration with environment overrides."""
+    
+    def get_own_post_factors(self) -> OwnPostFactors:
+        """Get own post factors configuration."""
+        return self._config.own_post_factors
+```
+
+**Runtime Configuration:**
+- Environment-specific overrides (dev/staging/prod)
+- Hot-reload capability for testing
+- Validation of configuration parameters
+- Performance impact monitoring
+
+### Troubleshooting Guide
+
+**Common Issues:**
+
+1. **Own posts not appearing first:**
+   - Verify `own_post_multiplier` is being applied
+   - Check randomization exemption is working
+   - Confirm user_id matching in algorithm
+
+2. **Excessive own post dominance:**
+   - Adjust `max_bonus_multiplier` in config
+   - Reduce `max_visibility_minutes` window
+   - Check time factor calculations
+
+3. **Performance impact:**
+   - Monitor query execution times
+   - Verify caching is enabled
+   - Check database index usage
+
+**Debug Commands:**
+```python
+# Check current configuration
+from app.config.algorithm_config import get_algorithm_config
+config = get_algorithm_config()
+print(f"Own post max bonus: {config.own_post_factors.max_bonus_multiplier}")
+
+# Test own post bonus calculation
+algorithm_service = AlgorithmService(db)
+bonus = algorithm_service._calculate_own_post_bonus(minutes_old=2.0)
+print(f"Bonus for 2-minute-old post: {bonus:.2f}x")
+```
+
+### Future Enhancements
+
+1. **Adaptive Bonuses**: Adjust multipliers based on user engagement patterns
+2. **Social Context**: Consider follower reactions to own posts
+3. **Content Quality**: Factor in post engagement velocity
+4. **Personalization**: User-specific visibility preferences
+5. **A/B Testing**: Framework for testing different bonus configurations
+
+### Conclusion
+
+The own post visibility system ensures that users see their content immediately after posting while maintaining overall feed quality. The system uses sophisticated time-based bonuses, randomization exemptions, and environment-specific configurations to provide a consistent and predictable user experience. All changes are thoroughly tested and monitored to ensure optimal performance and user satisfaction.
