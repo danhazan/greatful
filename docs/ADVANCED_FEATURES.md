@@ -401,6 +401,247 @@ The own post visibility system ensures that users see their content immediately 
 
 ---
 
+## Feed Algorithm: Complete Guide
+
+### Overview
+
+The Grateful feed algorithm uses a **multiplicative scoring system** to rank posts in users' feeds. Every post receives a final score calculated by multiplying eight different factors together, ensuring users see their own content first while maintaining high-quality, engaging feeds.
+
+### Basic Mechanism
+
+```
+Final Score = Base × Engagement × Content × Mention × Relationship × Unread × Time × Own Post
+```
+
+**Key Principles:**
+- Every factor starts at 1.0 (neutral)
+- Bonuses are added on top of the base
+- No zero multiplication issues
+- Linear scaling (2x engagement = 2x score)
+- Predictable, debuggable behavior
+
+### The 8 Scoring Factors
+
+#### 1. Base Score: Always 1.0
+Every post starts with a base score of 1.0 to prevent zero multiplication problems.
+
+#### 2. Engagement Multiplier
+**Formula**: `1.0 + (hearts × 1.2) + (reactions × 1.8) + (shares × 5.0)`
+
+**Examples:**
+- No engagement: 1.0
+- 1 heart: 2.2
+- 5 hearts + 2 reactions + 1 share: 15.6
+
+#### 3. Content Multiplier
+- **Daily gratitude post**: 3.0 (1.0 + 2.0 bonus)
+- **Photo post**: 2.5 (1.0 + 1.5 bonus)
+- **Regular post**: 1.0 (no bonus)
+
+#### 4. Mention Multiplier
+- **User is mentioned**: 9.0 (1.0 + 8.0 bonus)
+- **Not mentioned**: 1.0
+
+#### 5. Relationship Multiplier
+- **Following with high engagement**: 7.5x
+- **New follow**: 2.5x
+- **Stranger**: 1.0x
+
+#### 6. Unread Multiplier
+- **Unread post**: 3.0x boost
+- **Already read**: 0.33x penalty
+
+#### 7. Time Multiplier
+- **Very recent (0-1 hour)**: 5.0x
+- **Recent (1-6 hours)**: 2.0x
+- **Older posts**: Gradual decay over 48 hours
+
+#### 8. Own Post Multiplier (Highest Priority)
+- **Very recent (0-5 minutes)**: 79.0x
+- **Decay period (5-15 minutes)**: 22.8x (exponential decay)
+- **Older (15+ minutes)**: 8.0x permanent advantage
+
+### Real-World Examples
+
+#### Example 1: Your Own Post (Just Posted)
+**Scenario**: You just posted "Grateful for morning coffee ☕"
+
+```
+Final Score = 1.0 × 1.0 × 1.0 × 1.0 × 1.0 × 1.0 × 6.0 × 79.0 = 474 points
+```
+
+**Result**: 🥇 **Highest priority** - appears first in your feed
+
+#### Example 2: Friend's Engaging Post
+**Scenario**: Friend posted daily gratitude with photo, got 3 hearts, 2 reactions, 1 share
+
+```
+Final Score = 1.0 × 12.4 × 3.0 × 1.0 × 7.5 × 3.0 × 2.0 × 1.0 = 1,674 points
+```
+
+**Result**: 🥈 **High visibility** - appears after your recent posts
+
+#### Example 3: Stranger's Viral Post
+**Scenario**: Viral post with 20 hearts, 15 reactions, 5 shares
+
+```
+Final Score = 1.0 × 76.0 × 2.5 × 1.0 × 1.0 × 3.0 × 1.5 × 1.0 = 855 points
+```
+
+**Result**: 🥉 **Moderate visibility** - quality content gets discovered
+
+### Extreme Cases & Edge Scenarios
+
+#### Case 1: Super Viral vs Your Recent Post
+```
+Viral Post (100 hearts, 50 reactions, 20 shares): 3,499 points
+Your Recent Post: 474 points
+```
+**Result**: Viral post wins (this is rare but acceptable for truly exceptional content)
+
+#### Case 2: Spam Prevention
+Multiple posts from same user:
+- Post 1 (newest): 474 points
+- Post 2 (4 min old): 474 points  
+- Post 3 (8 min old): 136 points
+- Posts 4-10: 48 points each
+
+**Result**: Only 2 most recent posts dominate, preventing spam
+
+#### Case 3: Mention Priority
+```
+Post mentioning you: 270 points
+Your old post: 67 points
+```
+**Result**: Mentions get priority (you should see when people mention you)
+
+### Feed Ranking Hierarchy
+
+1. **Your very recent posts (0-5 min)**: Highest priority
+2. **Engaging posts from friends**: High visibility
+3. **Posts mentioning you**: Good visibility
+4. **Quality viral content**: Moderate visibility
+5. **Your older posts (15+ min)**: Permanent advantage
+6. **Regular posts from strangers**: Base visibility
+
+### Key Benefits
+
+#### 1. User-Centric Design
+- Your recent posts always appear first
+- Content from friends gets boosted visibility
+- Quality content from anyone can surface
+
+#### 2. Predictable Behavior
+- Linear scaling: 2x engagement = 2x score
+- No zero multiplication issues
+- Easy to understand and debug
+
+#### 3. Spam Resistant
+- Own post advantage decays over time
+- Multiple factors prevent gaming
+- Quality content eventually wins
+
+#### 4. Balanced Feed Quality
+- Prevents stale content domination
+- Rewards engagement and relationships
+- Maintains content diversity
+
+### Configuration
+
+The algorithm uses environment-specific configurations:
+
+**Development Environment:**
+- Higher own post bonuses for testing (79x max)
+- Lower follow relationship bonuses (7.5x max)
+- More aggressive time decay (48 hours)
+
+**Production Environment:**
+- Balanced bonuses for real-world usage
+- Optimized for performance and user experience
+- Longer content lifecycle (72 hours)
+
+### The Magic Numbers
+
+- **79x**: Maximum own post boost (0-5 minutes)
+- **8x**: Permanent own post advantage (15+ minutes)  
+- **7.5x**: Maximum follow relationship boost
+- **5x**: Share value (highest engagement weight)
+- **3x**: Unread post boost
+- **6x**: Very recent time boost
+
+These carefully tuned multipliers create the perfect balance between personal visibility and feed quality, ensuring users see their content immediately while discovering engaging posts from their network.
+
+### Detailed Scoring Breakdown
+
+#### Current Configuration (Development Environment)
+
+**Base Scoring Weights:**
+- Hearts: 1.2 points each
+- Reactions: 1.8 points each  
+- Shares: 5.0 points each
+- Photo bonus: +1.5 points
+- Daily gratitude bonus: +2.0 points
+
+**Time Multipliers:**
+- Very recent (0-1 hour): 5.0x
+- Recent (1-6 hours): 2.0x
+- Older posts: Gradual decay over 48 hours
+
+**Own Post Multipliers:**
+- Very recent (0-5 minutes): 79.0x (75 + 4)
+- Decay period (5-15 minutes): 22.75x (exponential decay)
+- Older own posts (15+ minutes): 8.0x (4 + 4)
+
+**Follow Relationship Multipliers (After Fix):**
+- Base multiplier: 2.0x
+- New follow bonus: 2.5x
+- Established follow bonus: 2.0x
+- Mutual follow bonus: 3.0x
+- Recent follow boost: +0.5x (so 1.5x total)
+- High engagement bonus: +1.0x (so 2.0x total)
+
+#### Multiplier Impact Comparison
+
+**Before Fix (Problematic):**
+- Follow relationship: **48.0x** (6.0 × 2.0 × 4.0)
+- Own post (old): **8.0x**
+- **Result**: Follow posts overpowered own posts
+
+**After Fix (Balanced):**
+- Follow relationship: **7.5x** (2.5 × 1.5 × 2.0)
+- Own post (recent): **79.0x**
+- Own post (old): **8.0x**
+- **Result**: Own posts get proper priority, follow posts reasonably boosted
+
+#### Edge Cases Analysis
+
+**Very Active User:**
+If someone has 100 hearts, 50 reactions, 10 shares:
+- Engagement multiplier: 261.0 (1.0 + 120 + 90 + 50)
+- Even with no relationship bonus, this could score very high
+- This would outrank older own posts but not recent own posts
+- **This is reasonable** - truly viral content should be visible
+
+**Mutual Follow with High Engagement:**
+- Base multiplier: 3.0x (mutual follow)
+- Recency boost: 1.5x
+- Engagement bonus: 2.0x
+- **Total**: 3.0 × 1.5 × 2.0 = **9.0x**
+- Still much lower than recent own posts (79x) ✅
+
+#### Scoring Hierarchy
+
+The current multipliers create a balanced hierarchy:
+1. **Recent own posts (0-15 min)**: 79x → 22x (highest priority)
+2. **Mutual follows with engagement**: ~9x (good visibility)
+3. **Regular follows**: ~5-7.5x (moderate boost)
+4. **Older own posts**: 8x (permanent advantage)
+5. **No relationship**: 1x (base visibility)
+
+This ensures users see their content first while maintaining feed quality.
+
+---
+
 ## Production Database & Performance System
 
 ### Overview
