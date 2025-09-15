@@ -148,8 +148,13 @@ ENVIRONMENT_OVERRIDES = {
             'frequent_user_boost': 4.0,  # Higher boost for testing
         },
         'follow_bonuses': {
+            'base_multiplier': 2.0,  # Reduced from 5.0 to prevent excessive bonuses
+            'new_follow_bonus': 2.5,  # Reduced from 6.0 to prevent excessive bonuses
+            'established_follow_bonus': 2.0,  # Reduced from 5.0
+            'mutual_follow_bonus': 3.0,  # Reduced from 7.0
+            'recent_follow_boost': 0.5,  # Reduced from 1.0 to prevent excessive recency bonus
             'high_engagement_threshold': 3,  # Lower threshold for development
-            'high_engagement_bonus': 3.0,  # Higher bonus for testing
+            'high_engagement_bonus': 1.0,  # Reduced from 3.0 to prevent excessive engagement bonus
         }
     },
     'staging': {
