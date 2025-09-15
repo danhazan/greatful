@@ -74,12 +74,19 @@ class TestAlgorithmService:
             shares_count=2
         )
         
-        # Expected: ((5 * 1.0) + (3 * 1.5) + (2 * 4.0) + 2.0) * time_factor
-        # Base: 5 + 4.5 + 8 + 2 = 19.5 (daily_gratitude_bonus changed from 3.0 to 2.0)
-        # Time factor for recent post (default created_at is now): 1.0 + 4.0 = 5.0
-        expected_base = 19.5
+        # Expected with new multiplicative approach:
+        # base_score = 1.0
+        # engagement_multiplier = 1.0 + (5 * 1.0) + (3 * 1.5) + (2 * 4.0) = 1.0 + 5 + 4.5 + 8 = 18.5
+        # content_multiplier = 1.0 + 2.0 = 3.0 (daily_gratitude_bonus)
+        # mention_multiplier = 1.0 (no mention)
+        # relationship_multiplier = 1.0 (no user_id)
+        # unread_multiplier = 1.0 (no user_id)
+        # time_multiplier = algorithm_service._calculate_time_factor(sample_post)
+        # own_post_multiplier = 1.0 (not own post)
+        # Final: 1.0 * 18.5 * 3.0 * 1.0 * 1.0 * 1.0 * time_factor * 1.0
+        
         time_factor = algorithm_service._calculate_time_factor(sample_post)
-        expected_score = expected_base * time_factor
+        expected_score = 1.0 * 18.5 * 3.0 * 1.0 * 1.0 * 1.0 * time_factor * 1.0
         assert score == expected_score
 
     async def test_calculate_post_score_photo_bonus(self, algorithm_service, sample_post, mock_db_session):

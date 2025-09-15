@@ -189,20 +189,23 @@ class AlgorithmService(BaseService):
             )
             shares_count = shares_result.scalar() or 0
 
-        # Base engagement score using configurable weights
+        # Base score starts at 1.0 for proper multiplicative scaling
+        base_score = 1.0
+        
+        # Engagement multiplier using configurable weights
         scoring_weights = self.config.scoring_weights
-        base_score = (
+        engagement_multiplier = 1.0 + (
             (hearts_count * scoring_weights.hearts) + 
             (reactions_count * scoring_weights.reactions) + 
             (shares_count * scoring_weights.shares)
         )
         
-        # Content type bonuses using configurable values
-        content_bonus = 0.0
+        # Content type multipliers using configurable values
+        content_multiplier = 1.0
         if post.post_type == PostType.photo:
-            content_bonus += scoring_weights.photo_bonus
+            content_multiplier += scoring_weights.photo_bonus
         elif post.post_type == PostType.daily:
-            content_bonus += scoring_weights.daily_gratitude_bonus
+            content_multiplier += scoring_weights.daily_gratitude_bonus
         
         # Enhanced time factoring for recent posts
         time_multiplier = self._calculate_time_factor(post)
@@ -241,14 +244,15 @@ class AlgorithmService(BaseService):
                 unread_multiplier = 1.0 / self.config.scoring_weights.unread_boost
                 logger.debug(f"Applied read status penalty to post {post.id}: {unread_multiplier:.2f}")
 
-        # Apply mention bonus if current user is mentioned in the post
-        mention_bonus = 0.0
+        # Apply mention multiplier if current user is mentioned in the post
+        mention_multiplier = 1.0
         if user_id and post.author_id != user_id:
             mention_bonus = await self._calculate_mention_bonus(user_id, post.id)
+            if mention_bonus > 0:
+                mention_multiplier = 1.0 + mention_bonus  # Convert bonus to multiplier
 
-        # Apply own post bonus if this is the user's own post
+        # Apply own post multiplier if this is the user's own post
         own_post_multiplier = 1.0
-        own_post_base_score = 0.0
         if user_id and post.author_id == user_id:
             # Calculate time since post creation
             current_time = datetime.now(timezone.utc)
@@ -258,21 +262,25 @@ class AlgorithmService(BaseService):
             
             minutes_old = (current_time - post_created_at).total_seconds() / 60
             own_post_multiplier = self._calculate_own_post_bonus(minutes_old)
-            
-            # Add minimum base score for own posts to ensure they always get visibility
-            # even with zero engagement
-            own_post_base_score = 1.0
         
-        # Calculate final score with enhanced time factoring, mention bonus, and own post bonus
-        final_score = (base_score + content_bonus + mention_bonus + own_post_base_score) * relationship_multiplier * unread_multiplier * time_multiplier * own_post_multiplier
+        # Calculate final score using pure multiplicative approach
+        final_score = (
+            base_score * 
+            engagement_multiplier * 
+            content_multiplier * 
+            mention_multiplier * 
+            relationship_multiplier * 
+            unread_multiplier * 
+            time_multiplier * 
+            own_post_multiplier
+        )
         
         logger.debug(
             f"Post {post.id} score calculation: "
-            f"base={base_score:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}), "
-            f"content_bonus={content_bonus:.2f}, mention_bonus={mention_bonus:.2f}, own_post_base={own_post_base_score:.2f}, "
-            f"relationship_multiplier={relationship_multiplier:.2f}, "
-            f"unread_multiplier={unread_multiplier:.2f}, time_multiplier={time_multiplier:.2f}, "
-            f"own_post_multiplier={own_post_multiplier:.2f}, final={final_score:.2f}"
+            f"base={base_score:.2f}, engagement={engagement_multiplier:.2f} (hearts={hearts_count}, reactions={reactions_count}, shares={shares_count}), "
+            f"content={content_multiplier:.2f}, mention={mention_multiplier:.2f}, "
+            f"relationship={relationship_multiplier:.2f}, unread={unread_multiplier:.2f}, "
+            f"time={time_multiplier:.2f}, own_post={own_post_multiplier:.2f}, final={final_score:.2f}"
         )
         
         return final_score
@@ -1329,16 +1337,26 @@ class AlgorithmService(BaseService):
             preference_service = UserPreferenceService(self.db)
             diversity_config = self.config.diversity_limits
             
-            # Apply preference boosts first
+            # Apply preference boosts first (but only for non-followed users to avoid double-boosting)
             for post in scored_posts:
                 if post['author_id'] != user_id:  # Don't boost own posts
                     try:
-                        preference_boost = await preference_service.calculate_preference_boost(
+                        # Check if this post already received a follow relationship multiplier
+                        # If so, skip preference boost to avoid double-boosting
+                        follow_multiplier = await self._calculate_follow_relationship_multiplier(
                             user_id, post['author_id']
                         )
-                        post['algorithm_score'] *= preference_boost
-                        if preference_boost > 1.0:
-                            post['preference_boosted'] = True
+                        
+                        # Only apply preference boost if there's no significant follow relationship
+                        if follow_multiplier <= 1.1:  # Allow small boosts but not major follow bonuses
+                            preference_boost = await preference_service.calculate_preference_boost(
+                                user_id, post['author_id']
+                            )
+                            post['algorithm_score'] *= preference_boost
+                            if preference_boost > 1.0:
+                                post['preference_boosted'] = True
+                        else:
+                            logger.debug(f"Skipping preference boost for post {post['id']} - already has follow multiplier {follow_multiplier:.2f}")
                     except Exception as e:
                         logger.warning(f"Failed to calculate preference boost: {e}")
                         # Continue without preference boost
