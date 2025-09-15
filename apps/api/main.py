@@ -16,6 +16,9 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.follows import router as follows_router
 from app.api.v1.algorithm_performance import router as algorithm_performance_router
 from app.api.v1.database import router as database_router
+from app.api.v1.health import router as health_router
+from app.api.v1.error_reporting import router as error_reporting_router
+from app.api.v1.monitoring import router as monitoring_router
 from app.core.database import init_db
 from app.core.middleware import ErrorHandlingMiddleware, RequestValidationMiddleware
 from app.core.validation_middleware import (
@@ -26,16 +29,23 @@ from app.core.validation_middleware import (
 from app.core.rate_limiting import RateLimitingMiddleware, SecurityHeadersMiddleware, get_rate_limiter
 from app.core.input_sanitization import InputSanitizationMiddleware
 from app.core.request_size_middleware import RequestSizeLimitMiddleware
+from app.core.request_id_middleware import RequestIDMiddleware
 from app.core.security_config import security_config
 from app.core.openapi_validator import create_openapi_validator
 from app.core.exceptions import BaseAPIException
 from app.core.responses import error_response
+from app.core.structured_logging import setup_structured_logging
+from app.core.uptime_monitoring import uptime_monitor
 from fastapi.responses import JSONResponse
 import logging
 import os
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Setup structured logging
+setup_structured_logging(
+    service_name="grateful-api",
+    log_level=os.getenv("LOG_LEVEL", "INFO"),
+    enable_json_format=os.getenv("ENVIRONMENT", "development") == "production"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -45,9 +55,17 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up Grateful API...")
     await init_db()
     logger.info("Database initialized successfully")
+    
+    # Start uptime monitoring
+    await uptime_monitor.start_monitoring()
+    logger.info("Uptime monitoring started")
+    
     yield
+    
     # on shutdown
     logger.info("Shutting down Grateful API...")
+    await uptime_monitor.stop_monitoring()
+    logger.info("Uptime monitoring stopped")
 
 # Create FastAPI app with security configurations
 app = FastAPI(
@@ -88,6 +106,7 @@ app.add_middleware(RateLimitingMiddleware, limiter=get_rate_limiter())
 app.add_middleware(InputSanitizationMiddleware)  # Re-enabled with bypass
 # app.add_middleware(APIContractValidationMiddleware, enable_response_validation=False)  # Disabled - causes request body consumption issue
 app.add_middleware(RequestValidationMiddleware)
+app.add_middleware(RequestIDMiddleware)  # Add request ID tracking
 
 # Add CORS middleware with centralized configuration
 cors_config = security_config.get_cors_config()
@@ -98,7 +117,13 @@ uploads_dir = Path("uploads")
 uploads_dir.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Include routers
+# Include routers with security considerations
+# Health checks - basic health for load balancers, detailed health requires auth
+app.include_router(health_router, tags=["health"])
+# Error reporting - public for frontend error tracking (with rate limiting)
+app.include_router(error_reporting_router, prefix="/api", tags=["error-reporting"])
+# Monitoring - requires authentication and admin privileges
+app.include_router(monitoring_router, prefix="/api/v1", tags=["monitoring"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(posts_router, prefix="/api/v1/posts", tags=["posts"])
@@ -115,10 +140,7 @@ async def root():
     """Root endpoint."""
     return {"message": "Grateful API is running"}
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "grateful-api"}
+# Remove the basic health check as it's now handled by the health router
 
 
 def custom_openapi():

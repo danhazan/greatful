@@ -714,16 +714,124 @@ ALERT_THRESHOLDS = {
 
 ## Monitoring & Alerting
 
-### Health Checks
+### Comprehensive Health Check System
 
+The system provides multiple health check endpoints for different monitoring needs:
+
+#### Basic Health Checks
 ```bash
-# Application health
+# Basic application health (for load balancers)
 GET /health
-Response: {"status": "healthy", "service": "grateful-api"}
+Response: {"status": "healthy", "service": "grateful-api", "timestamp": "2025-01-08T10:00:00Z", "version": "1.0.0"}
 
-# Database health
-GET /health/db
-Response: {"status": "healthy", "database": "connected"}
+# Readiness check (for Kubernetes)
+GET /ready
+Response: {
+  "status": "ready",
+  "timestamp": "2025-01-08T10:00:00Z",
+  "response_time_ms": 45.2,
+  "checks": {
+    "database": {"status": "healthy", "details": {...}},
+    "algorithm": {"status": "healthy", "target_time_ms": 300},
+    "filesystem": {"status": "healthy", "uploads_writable": true}
+  }
+}
+
+# Comprehensive metrics (for monitoring systems)
+GET /metrics
+Response: {
+  "timestamp": "2025-01-08T10:00:00Z",
+  "service": "grateful-api",
+  "database": {"status": "healthy", "connection_pool": {...}},
+  "algorithm": {"status": "healthy", "operations": {...}},
+  "system": {"cpu_percent": 25.5, "memory_percent": 45.2}
+}
+```
+
+#### Detailed Health Checks
+```bash
+# Database-specific health
+GET /health/database?include_stats=true
+Response: {
+  "status": "healthy",
+  "database": "connected",
+  "pool": {"size": 20, "checked_out": 2, "utilization": 10},
+  "statistics": {"database_size": "2.5 GB", "connections": {...}}
+}
+
+# Algorithm performance health
+GET /health/algorithm
+Response: {
+  "status": "healthy",
+  "target_time_ms": 300,
+  "summary": {"total_operations": 1250, "slow_operations_percentage": 5.2},
+  "feed_performance": {"optimized_feed_generation": {"avg_time_ms": 245.3}},
+  "recommendations": ["Consider caching for high-frequency operations"]
+}
+
+# Complete system health overview
+GET /health/detailed
+Response: {
+  "status": "healthy",
+  "timestamp": "2025-01-08T10:00:00Z",
+  "response_time_ms": 125.4,
+  "issues": [],
+  "components": {
+    "database": {"status": "healthy", "connection_pool": {...}},
+    "algorithm": {"status": "healthy", "cache_hit_rate": 85.2},
+    "system": {"cpu_percent": 25.5, "memory_percent": 45.2}
+  }
+}
+```
+
+### Comprehensive Monitoring Dashboard
+
+The system includes a comprehensive monitoring dashboard accessible via API endpoints:
+
+#### Monitoring Dashboard API
+```bash
+# Get complete monitoring dashboard
+GET /api/v1/monitoring/dashboard?time_range_minutes=60
+Response: {
+  "overall_status": "healthy",
+  "current_metrics": {...},
+  "uptime_stats": {...},
+  "service_statuses": {"database": "healthy", "algorithm": "healthy"},
+  "active_incidents": [],
+  "alert_stats": {...},
+  "summary": {
+    "services_monitored": 4,
+    "healthy_services": 4,
+    "active_incidents": 0,
+    "critical_alerts_24h": 0
+  }
+}
+
+# Get alert history and statistics
+GET /api/v1/monitoring/alerts?hours=24&severity=critical
+Response: {
+  "active_alerts": [],
+  "alert_history": [...],
+  "statistics": {...},
+  "summary": {"active_count": 0, "critical_alerts_24h": 0}
+}
+
+# Get incident information
+GET /api/v1/monitoring/incidents
+Response: {
+  "active_incidents": [],
+  "uptime_stats": {...},
+  "summary": {"active_incidents": 0, "services_healthy": 4}
+}
+
+# Get detailed performance metrics
+GET /api/v1/monitoring/performance?time_range_minutes=60
+Response: {
+  "algorithm_performance": {...},
+  "database_performance": {...},
+  "system_performance": {...},
+  "metrics_trends": {...}
+}
 ```
 
 ### Metrics to Monitor
@@ -733,26 +841,47 @@ Response: {"status": "healthy", "database": "connected"}
 - Failed authentication attempts
 - Invalid token usage
 - Suspicious activity events
+- Frontend JavaScript errors and API failures
+- Security incident alerts
 
 #### Performance Metrics
-- Response times by endpoint
+- Response times by endpoint (target: <1000ms)
+- Feed algorithm performance (target: <300ms)
 - Database query performance
 - Memory and CPU usage
 - Active connections
+- Cache hit rates
+- Frontend error rates
 
 #### Database Performance Metrics
-- Connection pool utilization
-- Slow query count and rate
-- Query failure rate
+- Connection pool utilization (alert: >80%)
+- Slow query count and rate (alert: >10%)
+- Query failure rate (alert: >5%)
 - Index usage statistics
 - Database size and growth
 - Backup success/failure rates
 - Migration execution times
 
+#### Algorithm Performance Metrics
+- Feed generation time (target: <300ms)
+- Cache hit rates (target: >70%)
+- Algorithm operation counts
+- Performance degradation alerts
+- User preference calculation times
+
 #### Business Metrics
 - User registrations
 - Post creation rate
 - API usage patterns
+- User engagement metrics
+- Error rates by feature
+
+#### System Resource Metrics
+- CPU usage (alert: >90%)
+- Memory usage (alert: >90%)
+- Disk usage (alert: >90%)
+- Network I/O
+- Process health
 
 ### Database Performance Monitoring
 
@@ -818,53 +947,703 @@ print(result)
 "
 ```
 
-### Alerting Rules
+### Advanced Error Alerting System
 
+The system includes a comprehensive error alerting system with multiple channels:
+
+#### Alert Channels
+- **Log Alerts**: Structured logging with severity levels
+- **Email Alerts**: HTML email notifications with detailed information
+- **Slack Alerts**: Real-time Slack notifications with color coding
+- **Webhook Alerts**: Custom webhook integration for external systems
+
+#### Alert Configuration
+```python
+# Setup email alerts
+from app.core.error_alerting import setup_email_alerts
+setup_email_alerts(
+    smtp_host="smtp.gmail.com",
+    smtp_port=587,
+    smtp_user="alerts@yourdomain.com",
+    smtp_password="your-app-password",
+    from_email="alerts@yourdomain.com",
+    to_emails=["admin@yourdomain.com", "devops@yourdomain.com"]
+)
+
+# Setup Slack alerts
+from app.core.error_alerting import setup_slack_alerts
+setup_slack_alerts("https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK")
+
+# Setup webhook alerts
+from app.core.error_alerting import setup_webhook_alerts
+setup_webhook_alerts("https://your-monitoring-system.com/webhook")
+```
+
+### Alerting Rules and Thresholds
+
+#### Critical Alerts (Immediate Response Required)
 ```yaml
-# Example alerting configuration
-alerts:
-  # Security alerts
-  - name: "High Rate Limit Violations"
-    condition: "rate_limit_violations > 100/hour"
-    severity: "warning"
+# Database alerts
+- name: "Database Connection Failure"
+  condition: "database_status != healthy"
+  severity: "critical"
+  rate_limit: "5 minutes"
+  
+- name: "Very Slow Query Detected"
+  condition: "individual_query_time > 5s"
+  severity: "critical"
+  rate_limit: "5 minutes"
+
+# Algorithm performance alerts  
+- name: "Algorithm Performance Critical"
+  condition: "feed_algorithm_time > 500ms"
+  severity: "critical"
+  rate_limit: "5 minutes"
+
+# System resource alerts
+- name: "Critical System Resource Usage"
+  condition: "cpu_usage > 90% OR memory_usage > 90% OR disk_usage > 90%"
+  severity: "critical"
+  rate_limit: "15 minutes"
+
+# Security alerts
+- name: "Security Incident Detected"
+  condition: "suspicious_activity_detected"
+  severity: "emergency"
+  rate_limit: "1 minute"
+
+# Frontend critical errors
+- name: "Frontend Critical Error"
+  condition: "frontend_critical_errors > 0"
+  severity: "critical"
+  rate_limit: "5 minutes"
+```
+
+#### Warning Alerts (Monitor and Investigate)
+```yaml
+# Performance alerts
+- name: "High API Response Time"
+  condition: "avg_response_time > 1000ms"
+  severity: "warning"
+  rate_limit: "10 minutes"
+  
+- name: "Algorithm Performance Degraded"
+  condition: "feed_algorithm_time > 300ms"
+  severity: "warning"
+  rate_limit: "10 minutes"
+
+# Database performance alerts
+- name: "High Connection Pool Usage"
+  condition: "connection_pool_utilization > 80%"
+  severity: "warning"
+  rate_limit: "15 minutes"
+  
+- name: "Slow Query Rate High"
+  condition: "slow_query_rate > 10%"
+  severity: "warning"
+  rate_limit: "10 minutes"
+
+# System alerts
+- name: "High System Resource Usage"
+  condition: "cpu_usage > 80% OR memory_usage > 80%"
+  severity: "warning"
+  rate_limit: "15 minutes"
+
+# Cache performance
+- name: "Low Cache Hit Rate"
+  condition: "cache_hit_rate < 70%"
+  severity: "warning"
+  rate_limit: "15 minutes"
+```
+
+#### Info Alerts (Informational)
+```yaml
+# Recovery alerts
+- name: "Service Recovered"
+  condition: "service_status_changed_to_healthy"
+  severity: "info"
+  rate_limit: "5 minutes"
+
+# Maintenance alerts
+- name: "Database Backup Completed"
+  condition: "backup_completed_successfully"
+  severity: "info"
+  rate_limit: "24 hours"
+```
+
+### Uptime Monitoring and Incident Response
+
+The system includes automated uptime monitoring with incident management:
+
+#### Uptime Monitoring Features
+- **Automated Health Checks**: Continuous monitoring of critical services
+- **Incident Detection**: Automatic incident creation for service failures
+- **Incident Escalation**: Severity escalation based on failure duration
+- **Recovery Detection**: Automatic incident resolution when services recover
+- **Status Page Integration**: Real-time service status information
+
+#### Monitored Services
+- **Database**: Connection health, query performance, pool utilization
+- **Algorithm Performance**: Feed generation times, cache performance
+- **API Endpoints**: Response times, error rates, availability
+- **System Resources**: CPU, memory, disk usage
+
+#### Incident Response Procedures
+
+##### Automatic Response (Immediate)
+1. **Detection**: Health check failure triggers incident creation
+2. **Alerting**: Immediate alerts sent via configured channels
+3. **Escalation**: Severity increases with failure duration
+4. **Documentation**: All incidents logged with timestamps and details
+
+##### Manual Response (Human Intervention)
+1. **Investigation**: Review incident details and system metrics
+2. **Diagnosis**: Identify root cause using monitoring data
+3. **Mitigation**: Apply fixes or workarounds
+4. **Resolution**: Mark incident as resolved when service recovers
+5. **Post-Mortem**: Document lessons learned and improvements
+
+#### Incident Management API
+```bash
+# Get active incidents
+GET /api/v1/monitoring/incidents
+Response: {
+  "active_incidents": [
+    {
+      "id": "incident-1704715200-database",
+      "title": "Database Service Issues",
+      "severity": "critical",
+      "status": "investigating",
+      "affected_services": ["database"],
+      "started_at": "2025-01-08T10:00:00Z",
+      "updates": [...]
+    }
+  ]
+}
+
+# Resolve incident manually
+POST /api/v1/monitoring/alerts/{alert_id}/resolve
+Response: {
+  "status": "success",
+  "message": "Alert resolved successfully",
+  "resolved_by": 123,
+  "timestamp": "2025-01-08T10:30:00Z"
+}
+```
+
+### Frontend Error Tracking and Reporting
+
+The system includes comprehensive frontend error tracking for JavaScript errors and API failures:
+
+#### Frontend Error Types Tracked
+- **JavaScript Errors**: Runtime errors, syntax errors, unhandled promise rejections
+- **API Errors**: Failed API requests, network errors, timeout errors
+- **Component Errors**: React component errors caught by error boundaries
+- **Network Errors**: Connection failures, DNS resolution errors
+
+#### Error Tracking Features
+- **Automatic Error Detection**: Global error handlers capture all unhandled errors
+- **Rate Limiting**: Prevents error spam with configurable rate limits
+- **Error Deduplication**: Groups similar errors to reduce noise
+- **Session Tracking**: Associates errors with user sessions for debugging
+- **User Context**: Links errors to authenticated users when available
+- **Batch Reporting**: Efficient error reporting with periodic batching
+
+#### Error Reporting Configuration
+```typescript
+// Frontend error tracking configuration
+const errorTrackingConfig = {
+  maxQueueSize: 50,
+  reportingInterval: 30000, // 30 seconds
+  rateLimitWindow: 60000, // 1 minute
+  maxErrorsPerWindow: 10,
+  enabledInProduction: true,
+  enabledInDevelopment: false
+};
+```
+
+#### Error Severity Classification
+- **Critical**: ChunkLoadError, Script errors, major component failures
+- **High**: TypeError, ReferenceError, API 5xx errors
+- **Medium**: Component warnings, API 4xx errors
+- **Low**: Minor warnings, deprecated API usage
+
+#### Error Reporting API
+```bash
+# Frontend error reporting endpoint
+POST /api/v1/errors/report
+Request: {
+  "errors": [
+    {
+      "id": "error-1704715200-abc123",
+      "timestamp": "2025-01-08T10:00:00Z",
+      "type": "javascript",
+      "severity": "high",
+      "message": "TypeError: Cannot read property 'map' of undefined",
+      "stack": "TypeError: Cannot read property...",
+      "url": "https://app.grateful.com/feed",
+      "userAgent": "Mozilla/5.0...",
+      "userId": "123",
+      "sessionId": "session-abc123",
+      "metadata": {
+        "filename": "feed.js",
+        "lineno": 45,
+        "colno": 12,
+        "pathname": "/feed"
+      }
+    }
+  ],
+  "sessionId": "session-abc123",
+  "userId": "123",
+  "timestamp": "2025-01-08T10:00:00Z",
+  "userAgent": "Mozilla/5.0...",
+  "url": "https://app.grateful.com/feed"
+}
+
+Response: {
+  "status": "success",
+  "processed_count": 1,
+  "critical_count": 0,
+  "errors": [
+    {
+      "id": "error-1704715200-abc123",
+      "processed": true,
+      "severity": "high"
+    }
+  ]
+}
+
+# Get error statistics
+GET /api/v1/errors/stats
+Response: {
+  "timestamp": "2025-01-08T10:00:00Z",
+  "stats": {
+    "total_errors_24h": 45,
+    "critical_errors_24h": 2,
+    "error_rate_per_hour": 1.9,
+    "top_error_types": ["javascript", "api", "component"],
+    "affected_users": 12,
+    "error_trends": {
+      "javascript": 25,
+      "api": 15,
+      "network": 3,
+      "component": 2
+    }
+  }
+}
+```
+
+#### Error Boundary Implementation
+```typescript
+// React Error Boundary for component error tracking
+import { ErrorBoundary, withErrorBoundary } from '@/components/ErrorBoundary';
+
+// Wrap components with error boundary
+const SafeComponent = withErrorBoundary(MyComponent, 
+  <div>Something went wrong</div>,
+  (error, errorInfo) => {
+    console.error('Component error:', error, errorInfo);
+  }
+);
+
+// Use error boundary in app layout
+<ErrorBoundary fallback={<ErrorFallback />}>
+  <App />
+</ErrorBoundary>
+```
+
+#### Enhanced Fetch with Error Tracking
+```typescript
+// Automatic API error tracking
+import { trackedFetch } from '@/utils/errorTracking';
+
+// Use trackedFetch instead of regular fetch
+const response = await trackedFetch('/api/v1/posts', {
+  method: 'POST',
+  body: JSON.stringify(postData)
+});
+// Automatically reports API errors for non-2xx responses
+```
+
+### Production Monitoring Setup
+
+#### Required Monitoring Infrastructure
+
+##### 1. Application Performance Monitoring (APM)
+```bash
+# Install monitoring dependencies
+pip install prometheus-client
+pip install sentry-sdk[fastapi]
+npm install @sentry/react @sentry/tracing
+```
+
+##### 2. Log Aggregation
+```bash
+# Configure structured logging
+export LOG_FORMAT=json
+export LOG_LEVEL=INFO
+export ENABLE_REQUEST_LOGGING=true
+export ENABLE_PERFORMANCE_LOGGING=true
+```
+
+##### 3. Metrics Collection
+```bash
+# Prometheus metrics endpoint
+GET /metrics
+# Returns Prometheus-formatted metrics for:
+# - HTTP request duration and count
+# - Database connection pool metrics
+# - Algorithm performance metrics
+# - System resource usage
+# - Custom business metrics
+```
+
+##### 4. Health Check Integration
+```bash
+# Kubernetes liveness probe
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+# Kubernetes readiness probe  
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8000
+  initialDelaySeconds: 5
+  periodSeconds: 5
+```
+
+##### 5. Load Balancer Health Checks
+```bash
+# Configure load balancer to use health endpoint
+# AWS ALB Target Group Health Check:
+# - Protocol: HTTP
+# - Path: /health
+# - Healthy threshold: 2
+# - Unhealthy threshold: 3
+# - Timeout: 5 seconds
+# - Interval: 30 seconds
+```
+
+#### Monitoring Dashboard Setup
+
+##### 1. Grafana Dashboard Configuration
+```json
+{
+  "dashboard": {
+    "title": "Grateful API Monitoring",
+    "panels": [
+      {
+        "title": "API Response Times",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          }
+        ]
+      },
+      {
+        "title": "Algorithm Performance",
+        "type": "graph", 
+        "targets": [
+          {
+            "expr": "rate(algorithm_operation_duration_seconds_sum[5m]) / rate(algorithm_operation_duration_seconds_count[5m])",
+            "legendFormat": "Average feed generation time"
+          }
+        ]
+      },
+      {
+        "title": "Database Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "database_connection_pool_utilization",
+            "legendFormat": "Connection pool utilization"
+          }
+        ]
+      },
+      {
+        "title": "Error Rates",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[5m])",
+            "legendFormat": "5xx error rate"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+##### 2. Alert Manager Configuration
+```yaml
+# alertmanager.yml
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@yourdomain.com'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+
+receivers:
+- name: 'web.hook'
+  email_configs:
+  - to: 'admin@yourdomain.com'
+    subject: 'Grateful API Alert: {{ .GroupLabels.alertname }}'
+    body: |
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      {{ end }}
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#alerts'
+    title: 'Grateful API Alert'
+    text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+```
+
+##### 3. Prometheus Rules
+```yaml
+# prometheus-rules.yml
+groups:
+- name: grateful-api
+  rules:
+  - alert: HighResponseTime
+    expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High API response time"
+      description: "95th percentile response time is {{ $value }}s"
+
+  - alert: AlgorithmPerformanceDegraded
+    expr: rate(algorithm_operation_duration_seconds_sum[5m]) / rate(algorithm_operation_duration_seconds_count[5m]) > 0.3
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Algorithm performance degraded"
+      description: "Feed algorithm taking {{ $value }}s on average"
+
+  - alert: DatabaseConnectionPoolHigh
+    expr: database_connection_pool_utilization > 0.8
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High database connection pool usage"
+      description: "Connection pool utilization is {{ $value }}%"
+
+  - alert: HighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High error rate"
+      description: "Error rate is {{ $value }} requests/second"
+```
+
+#### Incident Response Procedures
+
+##### 1. Incident Classification
+```yaml
+# Incident severity levels and response times
+Severity Levels:
+  P0 - Critical:
+    - Service completely down
+    - Data loss or corruption
+    - Security breach
+    - Response time: Immediate (< 15 minutes)
     
-  - name: "Failed Login Attempts"
-    condition: "failed_logins > 50/hour"
-    severity: "critical"
+  P1 - High:
+    - Major feature unavailable
+    - Performance severely degraded (>5s response times)
+    - Database connection issues
+    - Response time: 1 hour
     
-  # Performance alerts
-  - name: "High Response Time"
-    condition: "avg_response_time > 2000ms"
-    severity: "warning"
+  P2 - Medium:
+    - Minor feature issues
+    - Performance degraded (1-5s response times)
+    - Non-critical errors
+    - Response time: 4 hours
     
-  # Database performance alerts
-  - name: "High Connection Pool Usage"
-    condition: "connection_pool_utilization > 80%"
-    severity: "warning"
-    
-  - name: "Slow Query Rate High"
-    condition: "slow_query_rate > 10%"
-    severity: "warning"
-    
-  - name: "Very Slow Query Detected"
-    condition: "individual_query_time > 5s"
-    severity: "critical"
-    
-  - name: "Query Failure Rate High"
-    condition: "query_failure_rate > 5%"
-    severity: "critical"
-    
-  - name: "Database Backup Failed"
-    condition: "backup_age > 25_hours"
-    severity: "critical"
-    
-  - name: "Database Size Growth"
-    condition: "database_growth > 20%_per_week"
-    severity: "warning"
-    
-  - name: "Unused Index Space"
-    condition: "unused_index_size > 1GB"
-    severity: "info"
+  P3 - Low:
+    - Cosmetic issues
+    - Minor performance issues
+    - Enhancement requests
+    - Response time: Next business day
+```
+
+##### 2. Incident Response Workflow
+```mermaid
+graph TD
+    A[Alert Triggered] --> B[Incident Created]
+    B --> C[Assess Severity]
+    C --> D{Severity Level}
+    D -->|P0/P1| E[Immediate Response]
+    D -->|P2/P3| F[Schedule Response]
+    E --> G[Investigate & Diagnose]
+    F --> G
+    G --> H[Implement Fix]
+    H --> I[Verify Resolution]
+    I --> J{Fixed?}
+    J -->|No| G
+    J -->|Yes| K[Close Incident]
+    K --> L[Post-Mortem]
+```
+
+##### 3. Automated Incident Response
+```python
+# Automated response procedures
+AUTOMATED_RESPONSES = {
+    "database_connection_failure": [
+        "restart_connection_pool",
+        "check_database_health", 
+        "escalate_if_not_resolved"
+    ],
+    "high_memory_usage": [
+        "trigger_garbage_collection",
+        "restart_worker_processes",
+        "scale_horizontally"
+    ],
+    "algorithm_performance_degraded": [
+        "clear_algorithm_cache",
+        "restart_algorithm_service",
+        "fallback_to_simple_algorithm"
+    ]
+}
+```
+
+##### 4. Communication Templates
+```markdown
+# Incident Communication Templates
+
+## Initial Incident Report
+Subject: [P{severity}] {service} - {brief_description}
+
+We are currently investigating an issue with {service_name}.
+
+**Impact**: {impact_description}
+**Started**: {start_time}
+**Status**: Investigating
+**ETA**: {estimated_resolution_time}
+
+We will provide updates every {update_interval} minutes.
+
+## Incident Update
+Subject: [UPDATE] [P{severity}] {service} - {brief_description}
+
+**Update**: {update_description}
+**Current Status**: {current_status}
+**Next Update**: {next_update_time}
+
+## Incident Resolution
+Subject: [RESOLVED] [P{severity}] {service} - {brief_description}
+
+The incident has been resolved.
+
+**Resolution**: {resolution_description}
+**Root Cause**: {root_cause}
+**Duration**: {total_duration}
+**Preventive Measures**: {prevention_measures}
+```
+
+### Monitoring Best Practices
+
+#### 1. Metric Collection Strategy
+- **Golden Signals**: Latency, Traffic, Errors, Saturation
+- **Business Metrics**: User registrations, post creation, engagement
+- **Infrastructure Metrics**: CPU, memory, disk, network
+- **Application Metrics**: Response times, error rates, throughput
+
+#### 2. Alert Fatigue Prevention
+- **Meaningful Alerts**: Only alert on actionable issues
+- **Alert Grouping**: Group related alerts to reduce noise
+- **Rate Limiting**: Prevent alert spam with rate limiting
+- **Escalation Policies**: Escalate unacknowledged alerts
+
+#### 3. Dashboard Design
+- **Executive Dashboard**: High-level business and health metrics
+- **Operations Dashboard**: Detailed system and performance metrics
+- **Developer Dashboard**: Application-specific metrics and errors
+- **Mobile-Friendly**: Ensure dashboards work on mobile devices
+
+#### 4. Monitoring Coverage
+- **End-to-End Monitoring**: Monitor complete user journeys
+- **Dependency Monitoring**: Monitor external dependencies
+- **Synthetic Monitoring**: Proactive monitoring with synthetic tests
+- **Real User Monitoring**: Track actual user experienceve alert manually
+POST /api/v1/monitoring/alerts/{alert_id}/resolve
+Response: {
+  "status": "success",
+  "message": "Alert resolved successfully",
+  "resolved_by": 123
+}
+```
+
+### Frontend Error Tracking
+
+The system includes comprehensive frontend error tracking:
+
+#### Error Types Tracked
+- **JavaScript Errors**: Runtime errors, syntax errors, reference errors
+- **API Errors**: Failed API calls, network errors, timeout errors
+- **Component Errors**: React component crashes, rendering errors
+- **Network Errors**: Connection failures, DNS resolution errors
+
+#### Error Reporting Features
+- **Automatic Detection**: Global error handlers capture all errors
+- **Rate Limiting**: Prevents error spam (max 10 errors per minute per type)
+- **Batching**: Errors sent in batches every 30 seconds
+- **Session Tracking**: Errors linked to user sessions
+- **User Context**: User ID and session information included
+- **Stack Traces**: Full error stack traces for debugging
+
+#### Frontend Error API
+```bash
+# Report frontend errors (automatic)
+POST /api/errors/report
+Request: {
+  "errors": [
+    {
+      "id": "error-1704715200-abc123",
+      "type": "javascript",
+      "severity": "critical",
+      "message": "ChunkLoadError: Loading chunk 2 failed",
+      "stack": "Error: Loading chunk 2 failed...",
+      "url": "https://app.yourdomain.com/feed",
+      "userAgent": "Mozilla/5.0...",
+      "sessionId": "session-1704715200-xyz789",
+      "userId": "123",
+      "metadata": {...}
+    }
+  ]
+}
+
+# Get error statistics
+GET /api/errors/stats
+Response: {
+  "stats": {
+    "total_errors_24h": 45,
+    "critical_errors_24h": 3,
+    "error_rate_per_hour": 1.8,
+    "top_error_types": ["javascript", "api", "network"],
+    "affected_users": 12
+  }
+}
 ```
 
 #### Alert Integration
@@ -873,14 +1652,22 @@ The system includes built-in alert callbacks that can be integrated with monitor
 
 ```python
 # Add custom alert callback
-from app.core.query_monitor import query_monitor
+from app.core.error_alerting import alert_manager
 
-def send_to_monitoring_system(alert_data):
-    """Send alert to external monitoring system."""
-    # Integration with Datadog, New Relic, etc.
-    pass
+# Setup multiple alert channels
+setup_email_alerts(...)  # Email notifications
+setup_slack_alerts(...)  # Slack integration
+setup_webhook_alerts(...)  # Custom webhook
 
-query_monitor.add_alert_callback(send_to_monitoring_system)
+# Custom alert rules
+alert_manager.add_custom_rule(
+    rule_name="custom_performance_alert",
+    alert_type=AlertType.ALGORITHM_PERFORMANCE,
+    severity=AlertSeverity.WARNING,
+    title="Custom Performance Alert",
+    message_template="Custom condition met: {details}",
+    rate_limit_minutes=10
+)
 ```
 
 ## Deployment Checklist
