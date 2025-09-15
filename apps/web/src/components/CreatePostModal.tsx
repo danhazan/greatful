@@ -10,6 +10,32 @@ import LocationModal from "./LocationModal"
 import RichTextEditor, { RichTextEditorRef } from "./RichTextEditor"
 import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
 
+// Gratitude prompts for inspiring users
+const GRATITUDE_PROMPTS = [
+  "What are you grateful for?",
+  "Who helped you today?",
+  "What beauty got revealed to you?",
+  "What small moment brought you joy?",
+  "Who made you smile recently?",
+  "Which challenge taught you something valuable?",
+  "Whose act of kindness touched your heart?",
+  "What simple pleasure did you enjoy?",
+  "What progress are you celebrating?",
+  "Which relationship are you thankful for?",
+  "Which opportunity came your way?",
+  "What made you feel peaceful today?",
+  "What strength did you discover in yourself?",
+  "What unexpected gift did life give you?",
+  "Who made you laugh out loud?",
+  "Any skill or ability are you appreciating?",
+  "What memory brought you warmth?",
+  "What hope are you holding onto?"
+]
+
+// Function to get a random gratitude prompt
+const getRandomGratitudePrompt = () => {
+  return GRATITUDE_PROMPTS[Math.floor(Math.random() * GRATITUDE_PROMPTS.length)]
+}
 
 // UserInfo type defined locally
 interface UserInfo {
@@ -64,7 +90,7 @@ const POST_TYPE_INFO = {
     prominence: '3x larger display'
   },
   photo: {
-    name: 'Photo Gratitude', 
+    name: 'Photo Gratitude',
     description: 'Image with caption',
     prominence: '2x boost display'
   },
@@ -90,6 +116,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [gratitudePrompt, setGratitudePrompt] = useState('')
   const modalRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const richTextEditorRef = useRef<RichTextEditorRef>(null)
@@ -114,22 +141,22 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const analyzeContent = (content: string, hasImage: boolean) => {
     const trimmed = content.trim()
     const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
-    
+
     if (hasImage && wordCount === 0) {
       return { type: 'photo' as const } // image only
     }
-    
+
     // Predicted spontaneous if very short; this is only a UI hint
     if (!hasImage && wordCount < 20) {
       return { type: 'spontaneous' as const }
     }
-    
+
     // Otherwise predicted as daily (longer text)
     return { type: 'daily' as const }
   }
 
   const hasImage = Boolean(postData.imageUrl)
-  
+
   // Always use rich content for analysis
   const contentForAnalysis = richContent || postData.content
   const trimmed = contentForAnalysis.trim()
@@ -138,18 +165,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   // Helper function to determine if there's an active draft
   const hasActiveDraft = () => {
     return Boolean(
-      postData.content.trim() || 
-      postData.imageUrl || 
-      postData.location || 
+      postData.content.trim() ||
+      postData.imageUrl ||
+      postData.location ||
       postData.location_data ||
       richContent?.trim() ||
       imageFile
     )
   }
-  
+
   // predicted type only for display
   const predicted = analyzeContent(contentForAnalysis, hasImage)
-  
+
   // Input max: photo-only -> 0, else text -> 5000
   const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
   const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
@@ -159,12 +186,12 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         const target = event.target as Element
-        
+
         // ✅ Ignore clicks inside LocationModal if open
         if (showLocationModal && target.closest('[data-location-modal]')) {
           return
         }
-        
+
         // ✅ Ignore clicks inside mention autocomplete dropdown
         if (target.closest('[data-mention-autocomplete]')) {
           return
@@ -179,7 +206,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         if (target.closest('.rich-text-toolbar') || target.closest('[data-rich-text-modal]')) {
           return
         }
-        
+
         // Otherwise close post modal
         onClose()
       }
@@ -198,7 +225,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       if (showMentionAutocomplete && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
         return // Let MentionAutocomplete handle these
       }
-      
+
       if (event.key === 'Escape') {
         if (showMentionAutocomplete) {
           handleMentionClose()
@@ -229,9 +256,12 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
   }, [isOpen])
 
-  // Load draft from localStorage
+  // Load draft from localStorage and set random prompt
   useEffect(() => {
     if (isOpen) {
+      // Set a random gratitude prompt each time the modal opens
+      setGratitudePrompt(getRandomGratitudePrompt())
+      
       const draft = localStorage.getItem('grateful_post_draft')
       if (draft) {
         try {
@@ -310,7 +340,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         // Include rich content only if it's different from plain text (i.e., contains HTML formatting)
         ...(richContent && richContent.trim() && richContent !== contentToSubmit.trim() ? { rich_content: richContent } : {}),
         // Always include styling if not default
-        ...(selectedStyle.id !== 'default' ? { 
+        ...(selectedStyle.id !== 'default' ? {
           post_style: {
             id: selectedStyle.id,
             name: selectedStyle.name,
@@ -446,14 +476,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     setDragCounter(0)
 
     const files = Array.from(e.dataTransfer.files)
-    
+
     if (files.length === 0) {
       setError('No files were dropped')
       return
     }
 
     const imageFiles = files.filter(file => file.type.startsWith('image/'))
-    
+
     if (imageFiles.length === 0) {
       const fileTypes = files.map(f => f.type).join(', ')
       setError(`Please drop an image file. Received: ${fileTypes || 'unknown file types'}`)
@@ -506,28 +536,28 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value
     const cursorPosition = e.target.selectionStart || 0
-    
+
     // Allow all changes - mention protection removed for better UX
     setPostData({ ...postData, content: newContent })
 
     // Check for @ mention at cursor position
     const textBeforeCursor = newContent.slice(0, cursorPosition)
     const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
-    
+
     if (mentionMatch) {
       const mentionStart = cursorPosition - mentionMatch[0].length
       const query = mentionMatch[1] || '' // Ensure query is never undefined
-      
+
       // Calculate position below the textarea to avoid blocking content
       const rect = textareaRef.current?.getBoundingClientRect()
       if (rect) {
         // Position the autocomplete below the textarea
         const x = rect.left + 16
         const y = rect.bottom + 8 // 8px gap below textarea
-        
+
         setMentionPosition({ x, y })
       }
-      
+
       setCurrentMentionStart(mentionStart)
       setMentionQuery(query)
       setShowMentionAutocomplete(true)
@@ -544,18 +574,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     if (currentMentionStart >= 0 && richTextEditorRef.current) {
       // Get the current plain text from the editor to ensure accuracy
       const currentContent = richTextEditorRef.current.getPlainText()
-      
+
       // Find the end of the current partial mention
       let mentionEnd = currentMentionStart + 1 // Start after the @
-      while (mentionEnd < currentContent.length && 
-             /[a-zA-Z0-9_\-\.]/.test(currentContent[mentionEnd])) {
+      while (mentionEnd < currentContent.length &&
+        /[a-zA-Z0-9_\-\.]/.test(currentContent[mentionEnd])) {
         mentionEnd++
       }
-      
+
       // Use the RichTextEditor's insertMention method to handle the insertion properly
       richTextEditorRef.current.insertMention(user.username, currentMentionStart, mentionEnd)
     }
-    
+
     setShowMentionAutocomplete(false)
     setMentionQuery('')
     setCurrentMentionStart(-1)
@@ -577,7 +607,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     setMentionQuery(query)
     setMentionPosition(position)
     setShowMentionAutocomplete(true)
-    
+
     // Use the provided cursor position to find mention start
     if (cursorPosition !== undefined) {
       // Get the current plain text from the editor (not from postData.content which might be stale)
@@ -611,8 +641,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   return (
     <>
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-40" 
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 z-40"
         onClick={(e) => {
           // Don't close if location modal is open
           if (e.target === e.currentTarget && !showLocationModal) {
@@ -628,19 +658,20 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           role="dialog"
           aria-labelledby="modal-title"
           aria-modal="true"
-          className={`bg-white rounded-xl shadow-xl border w-full max-w-2xl max-h-[90vh] flex flex-col transition-colors ${
-            isDragOver ? 'border-purple-400 shadow-purple-200' : 'border-gray-200'
-          }`}
+          className={`bg-white rounded-xl shadow-xl border w-full max-w-2xl max-h-[90vh] flex flex-col transition-colors ${isDragOver ? 'border-purple-400 shadow-purple-200' : 'border-gray-200'
+            }`}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
           {/* Header */}
-          <div className={`flex items-center justify-between p-6 border-b transition-colors ${
-            isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
-          }`}>
-            <h2 id="modal-title" className="text-xl font-semibold text-gray-900">Share Your Gratitude</h2>
+          <div className={`flex items-center justify-between p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
+            }`}>
+            <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center">
+              Share Your Gratitude
+              <span className="text-xl ml-2" aria-hidden="true">💜</span>
+            </h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors p-1"
@@ -657,10 +688,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
 
               {/* Content Input */}
-              <div className="flex-1 p-6">
-                <div className="mb-4">
+              <div className="flex-1 p-2">
+                <div className="mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    What are you grateful for?
+                    {gratitudePrompt}
                   </label>
                 </div>
 
@@ -685,7 +716,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                       onStyleChange={setSelectedStyle}
                     />
                   </div>
-                  
+
                   {/* Drag Overlay */}
                   {isDragOver && (
                     <div className="absolute inset-0 bg-purple-100 bg-opacity-90 border-2 border-dashed border-purple-400 rounded-lg flex items-center justify-center z-10">
@@ -699,7 +730,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 </div>
 
                 {/* Toolbar - Style and Location buttons under textbox */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-4">
+                <div className="flex items-center justify-between pt-0 mt-0">
                   <div className="flex items-center space-x-3">
                     {/* Style Button */}
                     <button
@@ -715,11 +746,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     <button
                       type="button"
                       onClick={handleAddLocation}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                        postData.location_data 
-                          ? 'text-purple-600 bg-purple-50' 
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${postData.location_data
+                          ? 'text-purple-600 bg-purple-50'
                           : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
-                      }`}
+                        }`}
                     >
                       <MapPin className="h-4 w-4" />
                       <span className="text-sm font-medium">
@@ -727,7 +757,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                       </span>
                     </button>
                   </div>
-                  
+
                   {/* Character Count */}
                   <div className={`text-sm ${contentForAnalysis.length > maxChars * 0.9
                     ? 'text-red-500'
@@ -784,15 +814,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
               </div>
 
               {/* Additional Options */}
-              <div className="px-6 pb-8">
+              <div className="px-4 pb-6 pt-0">
                 {/* Drag and Drop Zone (when no image) */}
                 {!postData.imageUrl && (
                   <div
-                    className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      isDragOver
+                    className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isDragOver
                         ? 'border-purple-400 bg-purple-50'
                         : 'border-gray-300 hover:border-purple-300 hover:bg-purple-50'
-                    }`}
+                      }`}
                     onDragEnter={handleDragEnter}
                     onDragLeave={handleDragLeave}
                     onDragOver={handleDragOver}
@@ -803,12 +832,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     role="button"
                     aria-label="Upload image by dragging and dropping or clicking to browse"
                   >
-                    <ImageIcon className={`h-8 w-8 mx-auto mb-2 ${
-                      isDragOver ? 'text-purple-600' : 'text-gray-400'
-                    }`} />
-                    <p className={`text-sm font-medium mb-1 ${
-                      isDragOver ? 'text-purple-700' : 'text-gray-600'
-                    }`}>
+                    <ImageIcon className={`h-8 w-8 mx-auto mb-2 ${isDragOver ? 'text-purple-600' : 'text-gray-400'
+                      }`} />
+                    <p className={`text-sm font-medium mb-1 ${isDragOver ? 'text-purple-700' : 'text-gray-600'
+                      }`}>
                       {isDragOver ? 'Drop your image here' : 'Drag and drop an image, or click to browse'}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -834,7 +861,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
             {/* Footer */}
             <div className="p-6 border-t border-gray-200">
-              <div className="flex flex-col space-y-3">
+              <div className="flex flex-col space-y-2">
                 {/* Centered buttons */}
                 <div className="flex justify-center space-x-3">
                   <button
