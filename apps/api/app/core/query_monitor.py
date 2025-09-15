@@ -1,37 +1,63 @@
 """
-Query performance monitoring and optimization utilities.
+Query performance monitoring and optimization utilities with production alerting.
 """
 
 import time
 import logging
-from typing import Dict, Any, Optional, List
+import os
+import json
+from typing import Dict, Any, Optional, List, Callable
 from functools import wraps
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, event
 from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
 
+# Production monitoring configuration
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+SLOW_QUERY_THRESHOLDS = {
+    "development": 1.0,  # 1 second
+    "staging": 0.5,      # 500ms
+    "production": 0.3    # 300ms
+}
+
+ALERT_THRESHOLDS = {
+    "slow_query_rate": 0.1,      # 10% of queries are slow
+    "very_slow_query": 5.0,      # Individual query > 5 seconds
+    "query_failure_rate": 0.05,  # 5% of queries fail
+    "connection_pool_usage": 0.8  # 80% pool utilization
+}
+
 
 class QueryPerformanceMonitor:
-    """Monitor and log query performance metrics."""
+    """Monitor and log query performance metrics with production alerting."""
     
     def __init__(self):
         self.query_stats: Dict[str, Dict[str, Any]] = {}
-        self.slow_query_threshold = 1.0  # seconds
+        self.slow_query_threshold = SLOW_QUERY_THRESHOLDS.get(ENVIRONMENT, 1.0)
         self.enabled = True
+        self.alert_callbacks: List[Callable] = []
+        self.recent_queries: List[Dict[str, Any]] = []
+        self.max_recent_queries = 1000
+        self.alert_cooldown: Dict[str, datetime] = {}
+        self.alert_cooldown_minutes = 5
     
     def record_query(
         self, 
         query_name: str, 
         execution_time: float, 
-        row_count: Optional[int] = None
+        row_count: Optional[int] = None,
+        success: bool = True,
+        error: Optional[str] = None
     ):
-        """Record query execution statistics."""
+        """Record query execution statistics with enhanced monitoring."""
         if not self.enabled:
             return
         
+        # Initialize stats if needed
         if query_name not in self.query_stats:
             self.query_stats[query_name] = {
                 "count": 0,
@@ -40,25 +66,146 @@ class QueryPerformanceMonitor:
                 "max_time": 0.0,
                 "avg_time": 0.0,
                 "slow_queries": 0,
-                "total_rows": 0
+                "failed_queries": 0,
+                "total_rows": 0,
+                "last_executed": None
             }
         
         stats = self.query_stats[query_name]
         stats["count"] += 1
-        stats["total_time"] += execution_time
-        stats["min_time"] = min(stats["min_time"], execution_time)
-        stats["max_time"] = max(stats["max_time"], execution_time)
-        stats["avg_time"] = stats["total_time"] / stats["count"]
+        stats["last_executed"] = datetime.utcnow()
         
-        if execution_time > self.slow_query_threshold:
-            stats["slow_queries"] += 1
-            logger.warning(
-                f"Slow query detected: {query_name} took {execution_time:.3f}s "
-                f"(threshold: {self.slow_query_threshold}s)"
-            )
+        if success:
+            stats["total_time"] += execution_time
+            stats["min_time"] = min(stats["min_time"], execution_time)
+            stats["max_time"] = max(stats["max_time"], execution_time)
+            stats["avg_time"] = stats["total_time"] / (stats["count"] - stats["failed_queries"])
+            
+            if row_count is not None:
+                stats["total_rows"] += row_count
+        else:
+            stats["failed_queries"] += 1
         
-        if row_count is not None:
-            stats["total_rows"] += row_count
+        # Record recent query for trend analysis
+        recent_query = {
+            "query_name": query_name,
+            "execution_time": execution_time,
+            "timestamp": datetime.utcnow(),
+            "success": success,
+            "error": error,
+            "row_count": row_count
+        }
+        self.recent_queries.append(recent_query)
+        
+        # Maintain recent queries limit
+        if len(self.recent_queries) > self.max_recent_queries:
+            self.recent_queries = self.recent_queries[-self.max_recent_queries:]
+        
+        # Check for alerts
+        self._check_alerts(query_name, execution_time, success)
+    
+    def _check_alerts(self, query_name: str, execution_time: float, success: bool):
+        """Check if any alert conditions are met."""
+        current_time = datetime.utcnow()
+        
+        # Very slow query alert
+        if execution_time > ALERT_THRESHOLDS["very_slow_query"]:
+            alert_key = f"very_slow_query_{query_name}"
+            if self._should_alert(alert_key, current_time):
+                self._trigger_alert("very_slow_query", {
+                    "query_name": query_name,
+                    "execution_time": execution_time,
+                    "threshold": ALERT_THRESHOLDS["very_slow_query"]
+                })
+        
+        # Slow query rate alert
+        stats = self.query_stats[query_name]
+        if stats["count"] >= 10:  # Only check after sufficient samples
+            slow_rate = stats["slow_queries"] / stats["count"]
+            if slow_rate > ALERT_THRESHOLDS["slow_query_rate"]:
+                alert_key = f"slow_query_rate_{query_name}"
+                if self._should_alert(alert_key, current_time):
+                    self._trigger_alert("slow_query_rate", {
+                        "query_name": query_name,
+                        "slow_rate": slow_rate,
+                        "threshold": ALERT_THRESHOLDS["slow_query_rate"],
+                        "total_queries": stats["count"],
+                        "slow_queries": stats["slow_queries"]
+                    })
+        
+        # Query failure rate alert
+        if not success and stats["count"] >= 10:
+            failure_rate = stats["failed_queries"] / stats["count"]
+            if failure_rate > ALERT_THRESHOLDS["query_failure_rate"]:
+                alert_key = f"query_failure_rate_{query_name}"
+                if self._should_alert(alert_key, current_time):
+                    self._trigger_alert("query_failure_rate", {
+                        "query_name": query_name,
+                        "failure_rate": failure_rate,
+                        "threshold": ALERT_THRESHOLDS["query_failure_rate"],
+                        "total_queries": stats["count"],
+                        "failed_queries": stats["failed_queries"]
+                    })
+    
+    def _should_alert(self, alert_key: str, current_time: datetime) -> bool:
+        """Check if enough time has passed since last alert."""
+        if alert_key in self.alert_cooldown:
+            time_since_last = current_time - self.alert_cooldown[alert_key]
+            if time_since_last.total_seconds() < (self.alert_cooldown_minutes * 60):
+                return False
+        
+        self.alert_cooldown[alert_key] = current_time
+        return True
+    
+    def _trigger_alert(self, alert_type: str, data: Dict[str, Any]):
+        """Trigger alert callbacks and log alert."""
+        alert_data = {
+            "alert_type": alert_type,
+            "timestamp": datetime.utcnow().isoformat(),
+            "environment": ENVIRONMENT,
+            "data": data
+        }
+        
+        # Log alert
+        logger.error(f"PERFORMANCE ALERT: {alert_type} - {json.dumps(data)}")
+        
+        # Call registered alert callbacks
+        for callback in self.alert_callbacks:
+            try:
+                callback(alert_data)
+            except Exception as e:
+                logger.error(f"Alert callback failed: {e}")
+    
+    def add_alert_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Add a callback function to be called when alerts are triggered."""
+        self.alert_callbacks.append(callback)
+    
+    def get_recent_performance_trends(self, minutes: int = 60) -> Dict[str, Any]:
+        """Get performance trends for the last N minutes."""
+        cutoff_time = datetime.utcnow() - timedelta(minutes=minutes)
+        recent = [q for q in self.recent_queries if q["timestamp"] > cutoff_time]
+        
+        if not recent:
+            return {"period_minutes": minutes, "queries": 0}
+        
+        total_queries = len(recent)
+        successful_queries = [q for q in recent if q["success"]]
+        failed_queries = [q for q in recent if not q["success"]]
+        slow_queries = [q for q in successful_queries if q["execution_time"] > self.slow_query_threshold]
+        
+        avg_time = sum(q["execution_time"] for q in successful_queries) / len(successful_queries) if successful_queries else 0
+        
+        return {
+            "period_minutes": minutes,
+            "total_queries": total_queries,
+            "successful_queries": len(successful_queries),
+            "failed_queries": len(failed_queries),
+            "slow_queries": len(slow_queries),
+            "success_rate": len(successful_queries) / total_queries if total_queries > 0 else 0,
+            "slow_query_rate": len(slow_queries) / len(successful_queries) if successful_queries else 0,
+            "average_execution_time": avg_time,
+            "queries_per_minute": total_queries / minutes if minutes > 0 else 0
+        }
     
     def get_stats(self) -> Dict[str, Dict[str, Any]]:
         """Get all query statistics."""

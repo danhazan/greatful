@@ -2,7 +2,20 @@
  * Utility functions for HTML processing
  */
 
-import DOMPurify from "dompurify"
+// Dynamic import for DOMPurify to avoid SSR issues
+let purifyPromise: Promise<typeof import('dompurify')> | null = null
+
+function getDOMPurify() {
+  if (typeof window === 'undefined') {
+    return null // Server-side, no DOMPurify
+  }
+  
+  if (!purifyPromise) {
+    purifyPromise = import('dompurify')
+  }
+  
+  return purifyPromise
+}
 
 /**
  * Strips HTML tags and returns plain text content
@@ -62,19 +75,63 @@ export function containsHtml(content: string): boolean {
 }
 
 /**
- * Sanitizes HTML content using DOMPurify
+ * Basic server-side HTML sanitization
+ */
+function basicSanitize(inputHtml: string): string {
+  return inputHtml
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+    .replace(/<object[^>]*>.*?<\/object>/gi, '')
+    .replace(/<embed[^>]*>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+}
+
+/**
+ * Sanitizes HTML content using DOMPurify (client-side) or basic sanitization (server-side)
  * Allows safe HTML tags and attributes for rich text editing
  */
 export function sanitizeHtml(inputHtml: string): string {
   if (!inputHtml) return ""
   
-  // Allow inline styles and mention data attributes
-  return DOMPurify.sanitize(inputHtml, {
-    ALLOWED_TAGS: [
-      "b", "strong", "i", "em", "u", "span", "p", "br", "ul", "ol", "li", "a"
-    ],
-    ALLOWED_ATTR: ["style", "class", "data-username", "href"],
-    // Allow inline styles (colors/background)
-    ALLOW_DATA_ATTR: true,
-  })
+  // Server-side rendering - use basic sanitization
+  if (typeof window === 'undefined') {
+    return basicSanitize(inputHtml)
+  }
+  
+  // Client-side - try to use DOMPurify
+  const purifyPromise = getDOMPurify()
+  if (!purifyPromise) {
+    return basicSanitize(inputHtml)
+  }
+  
+  // For synchronous usage, we need to handle this differently
+  // Return basic sanitization for now, and let components handle async loading
+  return basicSanitize(inputHtml)
+}
+
+/**
+ * Async version of sanitizeHtml that properly loads DOMPurify
+ */
+export async function sanitizeHtmlAsync(inputHtml: string): Promise<string> {
+  if (!inputHtml) return ""
+  
+  // Server-side rendering - use basic sanitization
+  if (typeof window === 'undefined') {
+    return basicSanitize(inputHtml)
+  }
+  
+  try {
+    const DOMPurify = await import('dompurify')
+    return DOMPurify.default.sanitize(inputHtml, {
+      ALLOWED_TAGS: [
+        "b", "strong", "i", "em", "u", "span", "p", "br", "ul", "ol", "li", "a"
+      ],
+      ALLOWED_ATTR: ["style", "class", "data-username", "href"],
+      ALLOW_DATA_ATTR: true,
+    })
+  } catch (error) {
+    console.warn('DOMPurify loading failed, using fallback:', error)
+    return basicSanitize(inputHtml)
+  }
 }

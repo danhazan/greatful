@@ -15,6 +15,7 @@ from app.api.v1.likes import router as likes_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.follows import router as follows_router
 from app.api.v1.algorithm_performance import router as algorithm_performance_router
+from app.api.v1.database import router as database_router
 from app.core.database import init_db
 from app.core.middleware import ErrorHandlingMiddleware, RequestValidationMiddleware
 from app.core.validation_middleware import (
@@ -106,6 +107,7 @@ app.include_router(likes_router, prefix="/api/v1", tags=["likes"])
 app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])
 app.include_router(follows_router, prefix="/api/v1", tags=["follows"])
 app.include_router(algorithm_performance_router, prefix="/api/v1/algorithm", tags=["algorithm-performance"])
+app.include_router(database_router, prefix="/api/v1/database", tags=["database"])
 
 
 @app.get("/")

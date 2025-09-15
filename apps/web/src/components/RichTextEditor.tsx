@@ -272,7 +272,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
   // Initialize contentEditable with incoming HTML (if present) else plain text
   useEffect(() => {
-    if (!editableRef.current) return
+    if (!editableRef.current || typeof window === 'undefined') return
 
     // CRITICAL FIX: Don't overwrite content while user is typing
     // This prevents the backwards text bug caused by controlled component race conditions
@@ -307,7 +307,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   }, [htmlValue, value])
 
   const emitChange = () => {
-    if (!editableRef.current || isComposing) return
+    if (!editableRef.current || isComposing || typeof window === 'undefined') return
     
     const rawHtml = editableRef.current.innerHTML
     const clean = sanitizeHtml(rawHtml)
@@ -319,6 +319,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   // Expose ref methods
   useImperativeHandle(ref, () => ({
     getHtml: () => {
+      if (typeof window === 'undefined') return ""
       const raw = editableRef.current?.innerHTML ?? ""
       return sanitizeHtml(raw)
     },

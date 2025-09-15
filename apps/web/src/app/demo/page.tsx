@@ -1,10 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Heart } from "lucide-react"
 import PostCard from "@/components/PostCard"
-import RichTextEditor from "@/components/RichTextEditor"
+import dynamic from "next/dynamic"
+
+// Dynamically import RichTextEditor to avoid SSR issues
+const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
+  ssr: false,
+  loading: () => <div className="min-h-[120px] p-3 border rounded-b-lg bg-gray-50 animate-pulse" />
+})
 
 // Mock data for demo
 const mockPosts = [
@@ -63,6 +69,11 @@ export default function DemoPage() {
   const router = useRouter()
   const [posts, setPosts] = useState(mockPosts)
   const [editorContent, setEditorContent] = useState("")
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
     setPosts(posts.map(post => {
@@ -155,12 +166,16 @@ export default function DemoPage() {
             </div>
             
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <RichTextEditor
-                value={editorContent}
-                onChange={(plainText, html) => setEditorContent(plainText)}
-                placeholder="Try typing here and test the responsive toolbar..."
-                className="w-full"
-              />
+              {isClient ? (
+                <RichTextEditor
+                  value={editorContent}
+                  onChange={(plainText, html) => setEditorContent(plainText)}
+                  placeholder="Try typing here and test the responsive toolbar..."
+                  className="w-full"
+                />
+              ) : (
+                <div className="min-h-[120px] p-3 border rounded-b-lg bg-gray-50 animate-pulse" />
+              )}
             </div>
             
             <div className="mt-4 text-sm text-blue-700">

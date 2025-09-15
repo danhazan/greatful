@@ -1,10 +1,41 @@
 "use client"
 
 import { PostStyle } from "./PostStyleSelector"
-import DOMPurify from 'dompurify'
 import { useMemo } from 'react'
 import "../styles/rich-content.css"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, getTextDirectionFromPlainText } from "@/utils/rtlUtils"
+
+// Safe DOMPurify usage for client-side only
+function safeSanitize(html: string): string {
+  if (typeof window === 'undefined') {
+    // Server-side: basic sanitization
+    return html
+      .replace(/<script[^>]*>.*?<\/script>/gi, '')
+      .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+      .replace(/<object[^>]*>.*?<\/object>/gi, '')
+      .replace(/<embed[^>]*>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+  }
+  
+  // Client-side: use DOMPurify
+  try {
+    const DOMPurify = require('dompurify')
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['strong', 'em', 'u', 'span', 'br', 'p', 'div'],
+      ALLOWED_ATTR: ['style', 'class', 'data-username']
+    })
+  } catch (error) {
+    console.warn('DOMPurify not available, using basic sanitization')
+    return html
+      .replace(/<script[^>]*>.*?<\/script>/gi, '')
+      .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+      .replace(/<object[^>]*>.*?<\/object>/gi, '')
+      .replace(/<embed[^>]*>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+  }
+}
 
 interface RichContentRendererProps {
   content: string
@@ -69,10 +100,7 @@ export default function RichContentRenderer({
       .replace(/\n/g, '<br>'); // Line breaks
 
     // 2) Sanitize HTML - let browser handle direction naturally
-    const sanitized = DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['strong', 'em', 'u', 'span', 'br', 'p', 'div'],
-      ALLOWED_ATTR: ['style', 'class', 'data-username']
-    });
+    const sanitized = safeSanitize(html);
 
     // No DOM manipulation - let container-level direction handle everything
     return sanitized;

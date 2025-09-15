@@ -160,17 +160,97 @@ ENVIRONMENT_OVERRIDES = {
         },
         'time_factors': {
             'decay_hours': 60,  # 2.5 days
+        },
+        'diversity_limits': {
+            'randomization_factor': 0.20,  # Moderate randomization for staging
+            'max_consecutive_posts_per_user': 1,
+            'spacing_window_size': 5,
+        },
+        'preference_factors': {
+            'interaction_threshold': 2,  # Staging threshold
+            'frequent_user_boost': 3.5,
         }
     },
     'production': {
         'scoring_weights': {
-            'photo_bonus': 1.5,  # Updated production values
+            'hearts': 1.0,  # Production-optimized values
+            'reactions': 1.5,
+            'shares': 4.0,
+            'photo_bonus': 1.5,
             'daily_gratitude_bonus': 2.0,
+            'unread_boost': 3.0,
+        },
+        'time_factors': {
+            'decay_hours': 72,  # 3-day decay for production
+            'recent_boost_1hr': 4.0,
+            'recent_boost_6hr': 2.0,
+            'recent_boost_24hr': 1.0,
+        },
+        'follow_bonuses': {
+            'base_multiplier': 5.0,  # Production-optimized follow bonuses
+            'new_follow_bonus': 6.0,
+            'established_follow_bonus': 5.0,
+            'mutual_follow_bonus': 7.0,
+            'second_tier_multiplier': 1.5,
+            'high_engagement_threshold': 5,
+            'high_engagement_bonus': 2.0,
         },
         'own_post_factors': {
-            'max_bonus_multiplier': 50.0,  # Strong visibility for production
+            'max_visibility_minutes': 5,
+            'decay_duration_minutes': 15,
+            'max_bonus_multiplier': 50.0,
             'base_multiplier': 3.0,
+        },
+        'diversity_limits': {
+            'max_posts_per_author': 3,
+            'randomization_factor': 0.15,  # Balanced randomization for production
+            'max_photo_posts_percentage': 0.4,
+            'max_daily_posts_percentage': 0.5,
+            'max_spontaneous_posts_percentage': 0.6,
+            'max_consecutive_posts_per_user': 1,
+            'spacing_window_size': 5,
+            'spacing_violation_penalty': 0.3,
+        },
+        'preference_factors': {
+            'interaction_threshold': 2,  # Production threshold
+            'frequent_user_boost': 3.0,
+            'heart_interaction_weight': 1.0,
+            'reaction_interaction_weight': 1.5,
+            'share_interaction_weight': 2.0,
+            'mention_interaction_weight': 1.5,
+            'preference_decay_days': 30,
+        },
+        'mention_bonuses': {
+            'direct_mention': 8.0,
         }
+    }
+}
+
+# Production performance configuration
+PRODUCTION_PERFORMANCE_CONFIG = {
+    'cache_settings': {
+        'feed_cache_ttl': 300,  # 5 minutes
+        'user_preference_cache_ttl': 1800,  # 30 minutes
+        'algorithm_config_cache_ttl': 3600,  # 1 hour
+        'post_score_cache_ttl': 600,  # 10 minutes
+    },
+    'query_optimization': {
+        'batch_size': 100,  # Posts to process in batches
+        'max_feed_size': 50,  # Maximum posts in feed
+        'prefetch_relationships': ['user', 'reactions', 'shares'],
+        'use_query_hints': True,
+    },
+    'algorithm_tuning': {
+        'score_calculation_timeout': 30,  # seconds
+        'max_concurrent_calculations': 10,
+        'enable_score_caching': True,
+        'recalculate_scores_interval': 3600,  # 1 hour
+    },
+    'monitoring': {
+        'track_algorithm_performance': True,
+        'log_slow_calculations': True,
+        'slow_calculation_threshold': 1.0,  # seconds
+        'enable_metrics_collection': True,
     }
 }
 
@@ -187,6 +267,7 @@ class AlgorithmConfigManager:
         """
         self.environment = environment or os.getenv('ENVIRONMENT', 'development')
         self._config = None
+        self._performance_config = None
         self._load_config()
     
     def _load_config(self) -> None:
@@ -214,12 +295,19 @@ class AlgorithmConfigManager:
                 mention_bonuses=MentionBonuses(**config_dict['mention_bonuses'])
             )
             
+            # Load performance configuration for production
+            if self.environment == 'production':
+                self._performance_config = PRODUCTION_PERFORMANCE_CONFIG
+            else:
+                self._performance_config = {}
+            
             logger.info(f"Algorithm configuration loaded for environment: {self.environment}")
             
         except Exception as e:
             logger.error(f"Failed to load algorithm configuration: {e}")
             logger.warning("Falling back to default configuration")
             self._config = DEFAULT_CONFIG
+            self._performance_config = {}
     
     def _deep_merge(self, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
         """Deep merge two dictionaries."""
@@ -300,11 +388,32 @@ class AlgorithmConfigManager:
         """Reload configuration (useful for testing or config updates)."""
         self._load_config()
     
+    def get_performance_config(self) -> Dict[str, Any]:
+        """Get performance configuration for the current environment."""
+        return self._performance_config.copy()
+    
+    def get_cache_settings(self) -> Dict[str, Any]:
+        """Get cache settings for the current environment."""
+        return self._performance_config.get('cache_settings', {})
+    
+    def get_query_optimization_settings(self) -> Dict[str, Any]:
+        """Get query optimization settings."""
+        return self._performance_config.get('query_optimization', {})
+    
+    def get_algorithm_tuning_settings(self) -> Dict[str, Any]:
+        """Get algorithm tuning settings."""
+        return self._performance_config.get('algorithm_tuning', {})
+    
+    def get_monitoring_settings(self) -> Dict[str, Any]:
+        """Get monitoring settings."""
+        return self._performance_config.get('monitoring', {})
+    
     def get_config_summary(self) -> Dict[str, Any]:
         """Get a summary of current configuration for debugging."""
         return {
             'environment': self.environment,
-            'config': asdict(self._config)
+            'config': asdict(self._config),
+            'performance_config': self._performance_config
         }
 
 

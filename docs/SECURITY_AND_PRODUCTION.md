@@ -310,55 +310,397 @@ The system validates production configuration on startup:
 ### Connection Security
 
 ```bash
-# Use SSL connections
+# Use SSL connections with production-optimized pooling
 DATABASE_URL=postgresql+asyncpg://user:pass@host:port/db?ssl=require
 
-# Connection pooling
+# Environment-specific connection pooling
+# Development
+DB_POOL_SIZE=5
+DB_MAX_OVERFLOW=10
+DB_POOL_TIMEOUT=30
+DB_POOL_RECYCLE=3600
+
+# Production
 DB_POOL_SIZE=20
 DB_MAX_OVERFLOW=30
 DB_POOL_TIMEOUT=30
+DB_POOL_RECYCLE=1800
+DB_SSL_MODE=require
 ```
 
-### Query Security
+### Production Database Configuration
+
+The system automatically configures database connections based on environment:
+
+#### Connection Pool Settings
+
+| Environment | Pool Size | Max Overflow | Recycle Time | SSL Required |
+|-------------|-----------|--------------|--------------|--------------|
+| Development | 5 | 10 | 1 hour | No |
+| Staging | 10 | 20 | 1 hour | Yes |
+| Production | 20 | 30 | 30 minutes | Yes |
+
+#### Connection Monitoring
+
+The system includes comprehensive connection pool monitoring:
+
+```python
+# Health check endpoint includes pool status
+GET /health/db
+{
+  "status": "healthy",
+  "database": "connected",
+  "pool": {
+    "size": 20,
+    "checked_in": 18,
+    "checked_out": 2,
+    "overflow": 0,
+    "invalid": 0
+  }
+}
+```
+
+### Query Security and Performance
 
 - **Parameterized Queries**: All database queries use SQLAlchemy ORM
 - **Input Validation**: All inputs validated before database operations
-- **Connection Limits**: Configured connection pooling prevents exhaustion
+- **Connection Limits**: Environment-specific connection pooling prevents exhaustion
+- **Query Monitoring**: Automatic slow query detection and alerting
+- **Connection Optimization**: Production-specific connection parameters
 
-### Backup Strategy
+#### Query Performance Monitoring
+
+```python
+# Automatic slow query detection
+SLOW_QUERY_THRESHOLDS = {
+    "development": 1.0,  # 1 second
+    "staging": 0.5,      # 500ms
+    "production": 0.3    # 300ms
+}
+
+# Performance alerts triggered for:
+# - Individual queries > 5 seconds
+# - > 10% of queries are slow
+# - > 5% query failure rate
+# - > 80% connection pool utilization
+```
+
+### Database Backup and Recovery
+
+#### Automated Backup System
+
+The system includes a comprehensive backup management system:
+
+```python
+# Backup configuration
+BACKUP_CONFIG = {
+    "backup_dir": "/var/backups/grateful",
+    "retention_days": 30,
+    "compress": True,
+    "max_backup_size_gb": 10,
+    "backup_timeout_minutes": 60
+}
+```
+
+#### Backup Types
+
+1. **Daily Automated Backups**
+   - Full database backup with compression
+   - Automatic cleanup of old backups
+   - Integrity verification
+   - Size and duration monitoring
+
+2. **Pre-Migration Backups**
+   - Automatic backup before any migration
+   - Named with migration context
+   - Quick rollback capability
+
+3. **On-Demand Backups**
+   - Manual backup creation
+   - Custom naming and options
+   - Schema-only or full data options
+
+#### Backup Commands
 
 ```bash
-# Daily automated backups
-pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME | gzip > backup_$(date +%Y%m%d).sql.gz
+# Create daily backup (automated)
+python -c "
+import asyncio
+from app.core.database_backup import create_daily_backup
+asyncio.run(create_daily_backup())
+"
 
-# Retention policy: 30 days
-find /backups -name "backup_*.sql.gz" -mtime +30 -delete
+# Manual backup creation
+python -c "
+import asyncio
+from app.core.database_backup import backup_manager
+asyncio.run(backup_manager.create_backup('manual_backup_name'))
+"
+
+# List available backups
+python -c "
+import asyncio
+from app.core.database_backup import backup_manager
+result = asyncio.run(backup_manager.list_backups())
+print(result)
+"
+
+# Cleanup old backups
+python -c "
+import asyncio
+from app.core.database_backup import cleanup_old_backups
+asyncio.run(cleanup_old_backups())
+"
+```
+
+#### Recovery Procedures
+
+```bash
+# Restore from backup
+python -c "
+import asyncio
+from app.core.database_backup import backup_manager
+asyncio.run(backup_manager.restore_backup('/path/to/backup.sql.gz'))
+"
+
+# Test restore to different database
+python -c "
+import asyncio
+from app.core.database_backup import backup_manager
+asyncio.run(backup_manager.restore_backup(
+    '/path/to/backup.sql.gz',
+    target_database='grateful_test',
+    drop_existing=True
+))
+"
+```
+
+### Migration Management and Rollback
+
+#### Safe Migration Procedures
+
+The system includes comprehensive migration management:
+
+```python
+# Safe upgrade with automatic backup
+from app.core.migration_manager import safe_upgrade
+result = await safe_upgrade()  # Upgrades to head with backup
+
+# Safe rollback with backup
+from app.core.migration_manager import safe_rollback
+result = await safe_rollback(steps=1)  # Rollback 1 step with backup
+```
+
+#### Migration Testing
+
+```python
+# Test migration rollback capability
+from app.core.migration_manager import test_rollback_capability
+result = await test_rollback_capability()
+```
+
+#### Migration Commands
+
+```bash
+# Check migration status
+python -c "
+import asyncio
+from app.core.migration_manager import migration_manager
+result = asyncio.run(migration_manager.get_migration_status())
+print(result)
+"
+
+# Safe upgrade with backup
+python -c "
+import asyncio
+from app.core.migration_manager import safe_upgrade
+result = asyncio.run(safe_upgrade())
+print(result)
+"
+
+# Safe rollback
+python -c "
+import asyncio
+from app.core.migration_manager import safe_rollback
+result = asyncio.run(safe_rollback(steps=1))
+print(result)
+"
 ```
 
 ## Performance Optimization
+
+### Algorithm Performance Configuration
+
+The system includes production-optimized algorithm settings:
+
+```python
+# Production algorithm configuration
+PRODUCTION_PERFORMANCE_CONFIG = {
+    'cache_settings': {
+        'feed_cache_ttl': 300,  # 5 minutes
+        'user_preference_cache_ttl': 1800,  # 30 minutes
+        'algorithm_config_cache_ttl': 3600,  # 1 hour
+        'post_score_cache_ttl': 600,  # 10 minutes
+    },
+    'query_optimization': {
+        'batch_size': 100,
+        'max_feed_size': 50,
+        'prefetch_relationships': ['user', 'reactions', 'shares'],
+        'use_query_hints': True,
+    },
+    'algorithm_tuning': {
+        'score_calculation_timeout': 30,
+        'max_concurrent_calculations': 10,
+        'enable_score_caching': True,
+        'recalculate_scores_interval': 3600,
+    }
+}
+```
+
+### Database Index Monitoring
+
+The system includes comprehensive index monitoring and optimization:
+
+#### Index Analysis Commands
+
+```bash
+# Generate comprehensive index report
+python -c "
+import asyncio
+from app.core.index_monitor import analyze_database_indexes
+result = asyncio.run(analyze_database_indexes())
+print(result)
+"
+
+# Get index recommendations
+python -c "
+import asyncio
+from app.core.index_monitor import get_index_recommendations
+result = asyncio.run(get_index_recommendations())
+for rec in result:
+    print(f'{rec.table_name}: {rec.reason} - {rec.sql_command}')
+"
+```
+
+#### Automated Index Recommendations
+
+The system analyzes query patterns and suggests indexes for:
+
+1. **High Sequential Scan Tables**
+   - Tables with > 30% sequential scan ratio
+   - Recommendations for WHERE clause columns
+
+2. **Application-Specific Patterns**
+   - Feed queries: `posts(created_at DESC)`
+   - User profiles: `posts(user_id, created_at DESC)`
+   - Notifications: `notifications(user_id, created_at DESC)`
+   - Unread notifications: Partial index on `is_read = false`
+
+3. **Relationship Queries**
+   - Follow relationships: `follows(follower_id)`, `follows(followed_id)`
+   - Engagement queries: Composite indexes on interaction tables
+
+### Database Optimization
+
+#### Essential Production Indexes
+
+```sql
+-- Feed optimization
+CREATE INDEX CONCURRENTLY idx_posts_created_at_desc ON posts (created_at DESC);
+CREATE INDEX CONCURRENTLY idx_posts_user_created ON posts (user_id, created_at DESC);
+
+-- Notification optimization
+CREATE INDEX CONCURRENTLY idx_notifications_user_created ON notifications (user_id, created_at DESC);
+CREATE INDEX CONCURRENTLY idx_notifications_unread ON notifications (user_id, created_at DESC) WHERE is_read = false;
+
+-- Relationship optimization
+CREATE INDEX CONCURRENTLY idx_follows_follower_id ON follows (follower_id);
+CREATE INDEX CONCURRENTLY idx_follows_followed_id ON follows (followed_id);
+
+-- Engagement optimization
+CREATE INDEX CONCURRENTLY idx_emoji_reactions_post_id ON emoji_reactions (post_id);
+CREATE INDEX CONCURRENTLY idx_likes_post_id ON likes (post_id);
+CREATE INDEX CONCURRENTLY idx_shares_post_id ON shares (post_id);
+```
+
+#### Index Maintenance
+
+```bash
+# Check for unused indexes
+python -c "
+import asyncio
+from app.core.index_monitor import index_monitor
+from app.core.database import get_db
+
+async def check_unused():
+    async with get_db().__anext__() as db:
+        unused = await index_monitor.get_unused_indexes(db)
+        for idx in unused:
+            print(f'Unused: {idx[\"table\"]}.{idx[\"index\"]} ({idx[\"size\"]})')
+
+asyncio.run(check_unused())
+"
+
+# Find duplicate indexes
+python -c "
+import asyncio
+from app.core.index_monitor import index_monitor
+from app.core.database import get_db
+
+async def check_duplicates():
+    async with get_db().__anext__() as db:
+        duplicates = await index_monitor.get_duplicate_indexes(db)
+        for dup in duplicates:
+            print(f'Duplicate on {dup[\"table\"]}.{dup[\"columns\"]}: {dup[\"index_names\"]}')
+
+asyncio.run(check_duplicates())
+"
+```
 
 ### Caching Strategy
 
 ```python
 # Redis configuration for production
 REDIS_URL=redis://localhost:6379/0
-CACHE_TTL=3600  # 1 hour default
 
-# Cached endpoints
-- User profiles: 15 minutes
-- Post feeds: 5 minutes  
-- Notification counts: 1 minute
+# Environment-specific cache TTL
+CACHE_SETTINGS = {
+    'development': {
+        'feed_cache_ttl': 60,  # 1 minute for testing
+        'user_preference_cache_ttl': 300,  # 5 minutes
+    },
+    'production': {
+        'feed_cache_ttl': 300,  # 5 minutes
+        'user_preference_cache_ttl': 1800,  # 30 minutes
+        'algorithm_config_cache_ttl': 3600,  # 1 hour
+        'post_score_cache_ttl': 600,  # 10 minutes
+    }
+}
 ```
 
-### Database Optimization
+### Query Performance Monitoring
 
-```sql
--- Essential indexes
-CREATE INDEX idx_posts_created_at ON posts(created_at DESC);
-CREATE INDEX idx_posts_author_id ON posts(author_id);
-CREATE INDEX idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX idx_follows_follower_id ON follows(follower_id);
-CREATE INDEX idx_follows_followed_id ON follows(followed_id);
+The system includes comprehensive query monitoring:
+
+```python
+# Performance monitoring features
+- Automatic slow query detection
+- Query failure rate tracking
+- Connection pool utilization monitoring
+- Performance trend analysis
+- Alert system for performance degradation
+```
+
+#### Performance Alerts
+
+```python
+# Alert thresholds
+ALERT_THRESHOLDS = {
+    "slow_query_rate": 0.1,      # 10% of queries are slow
+    "very_slow_query": 5.0,      # Individual query > 5 seconds
+    "query_failure_rate": 0.05,  # 5% of queries fail
+    "connection_pool_usage": 0.8  # 80% pool utilization
+}
 ```
 
 ### Request Size Limits
@@ -398,16 +740,90 @@ Response: {"status": "healthy", "database": "connected"}
 - Memory and CPU usage
 - Active connections
 
+#### Database Performance Metrics
+- Connection pool utilization
+- Slow query count and rate
+- Query failure rate
+- Index usage statistics
+- Database size and growth
+- Backup success/failure rates
+- Migration execution times
+
 #### Business Metrics
 - User registrations
 - Post creation rate
 - API usage patterns
+
+### Database Performance Monitoring
+
+#### Key Database Metrics
+
+```python
+# Monitor these database metrics
+{
+    "connection_pool": {
+        "size": 20,
+        "checked_in": 18,
+        "checked_out": 2,
+        "overflow": 0,
+        "utilization_percentage": 10
+    },
+    "query_performance": {
+        "slow_queries_per_hour": 5,
+        "average_query_time": 0.15,
+        "query_failure_rate": 0.01,
+        "slowest_query_time": 2.3
+    },
+    "backup_status": {
+        "last_backup_age_hours": 12,
+        "backup_success_rate": 1.0,
+        "total_backup_size_gb": 2.5
+    },
+    "index_health": {
+        "unused_indexes": 2,
+        "duplicate_indexes": 0,
+        "total_index_size_gb": 0.8
+    }
+}
+```
+
+#### Performance Monitoring Commands
+
+```bash
+# Get database health status
+curl http://localhost:8000/health/db
+
+# Get comprehensive database stats
+python -c "
+import asyncio
+from app.core.database import get_db_stats
+result = asyncio.run(get_db_stats())
+print(result)
+"
+
+# Get query performance report
+python -c "
+import asyncio
+from app.core.query_monitor import get_query_performance_report
+result = get_query_performance_report()
+print(result)
+"
+
+# Get backup status
+python -c "
+import asyncio
+from app.core.database_backup import backup_manager
+result = asyncio.run(backup_manager.get_backup_status())
+print(result)
+"
+```
 
 ### Alerting Rules
 
 ```yaml
 # Example alerting configuration
 alerts:
+  # Security alerts
   - name: "High Rate Limit Violations"
     condition: "rate_limit_violations > 100/hour"
     severity: "warning"
@@ -416,9 +832,55 @@ alerts:
     condition: "failed_logins > 50/hour"
     severity: "critical"
     
+  # Performance alerts
   - name: "High Response Time"
     condition: "avg_response_time > 2000ms"
     severity: "warning"
+    
+  # Database performance alerts
+  - name: "High Connection Pool Usage"
+    condition: "connection_pool_utilization > 80%"
+    severity: "warning"
+    
+  - name: "Slow Query Rate High"
+    condition: "slow_query_rate > 10%"
+    severity: "warning"
+    
+  - name: "Very Slow Query Detected"
+    condition: "individual_query_time > 5s"
+    severity: "critical"
+    
+  - name: "Query Failure Rate High"
+    condition: "query_failure_rate > 5%"
+    severity: "critical"
+    
+  - name: "Database Backup Failed"
+    condition: "backup_age > 25_hours"
+    severity: "critical"
+    
+  - name: "Database Size Growth"
+    condition: "database_growth > 20%_per_week"
+    severity: "warning"
+    
+  - name: "Unused Index Space"
+    condition: "unused_index_size > 1GB"
+    severity: "info"
+```
+
+#### Alert Integration
+
+The system includes built-in alert callbacks that can be integrated with monitoring systems:
+
+```python
+# Add custom alert callback
+from app.core.query_monitor import query_monitor
+
+def send_to_monitoring_system(alert_data):
+    """Send alert to external monitoring system."""
+    # Integration with Datadog, New Relic, etc.
+    pass
+
+query_monitor.add_alert_callback(send_to_monitoring_system)
 ```
 
 ## Deployment Checklist
@@ -429,8 +891,12 @@ alerts:
 - [ ] Verify SECRET_KEY is not default value
 - [ ] Configure ALLOWED_ORIGINS for production domains
 - [ ] Set up SSL/TLS certificates
-- [ ] Configure database with SSL
-- [ ] Set up backup strategy
+- [ ] Configure database with SSL and connection pooling
+- [ ] Set up automated backup strategy with retention policy
+- [ ] Configure database performance monitoring
+- [ ] Set up index monitoring and optimization
+- [ ] Configure migration rollback procedures
+- [ ] Set up performance alerting thresholds
 - [ ] Configure monitoring and alerting
 
 ### Security Validation
@@ -448,18 +914,29 @@ alerts:
 
 - [ ] Load test critical endpoints
 - [ ] Verify database performance under load
+- [ ] Test connection pool behavior under high concurrency
+- [ ] Validate query performance with production data volumes
+- [ ] Test backup and restore procedures
+- [ ] Verify migration rollback capabilities
 - [ ] Test rate limiting under high traffic
 - [ ] Monitor memory usage during peak load
 - [ ] Validate caching effectiveness
+- [ ] Test index recommendations and optimizations
 
 ### Post-Deployment
 
 - [ ] Monitor security logs for anomalies
-- [ ] Verify all health checks pass
+- [ ] Verify all health checks pass (including database health)
 - [ ] Test user registration and authentication
 - [ ] Validate file upload functionality
-- [ ] Monitor performance metrics
+- [ ] Monitor performance metrics and database performance
+- [ ] Verify backup system is running and successful
+- [ ] Check database connection pool utilization
+- [ ] Monitor query performance and slow query rates
+- [ ] Validate index usage and optimization recommendations
 - [ ] Set up log aggregation and analysis
+- [ ] Test migration procedures in staging environment
+- [ ] Verify alert system is functioning correctly
 
 ## Security Incident Response
 
