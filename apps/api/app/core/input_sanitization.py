@@ -39,7 +39,7 @@ class InputSanitizer:
         'username': 50,
         'email': 254,
         'bio': 500,
-        'post_content': 2000,
+        'post_content': 5000,
         'display_name': 100,
         'city': 100,
         'institution': 200,
