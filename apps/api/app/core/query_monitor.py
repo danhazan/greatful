@@ -9,7 +9,7 @@ import json
 from typing import Dict, Any, Optional, List, Callable
 from functools import wraps
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, event
 from sqlalchemy.engine import Engine
@@ -73,7 +73,7 @@ class QueryPerformanceMonitor:
         
         stats = self.query_stats[query_name]
         stats["count"] += 1
-        stats["last_executed"] = datetime.utcnow()
+        stats["last_executed"] = datetime.now(UTC)
         
         if success:
             stats["total_time"] += execution_time
@@ -90,7 +90,7 @@ class QueryPerformanceMonitor:
         recent_query = {
             "query_name": query_name,
             "execution_time": execution_time,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(UTC),
             "success": success,
             "error": error,
             "row_count": row_count
@@ -106,7 +106,7 @@ class QueryPerformanceMonitor:
     
     def _check_alerts(self, query_name: str, execution_time: float, success: bool):
         """Check if any alert conditions are met."""
-        current_time = datetime.utcnow()
+        current_time = datetime.now(UTC)
         
         # Very slow query alert
         if execution_time > ALERT_THRESHOLDS["very_slow_query"]:
@@ -161,7 +161,7 @@ class QueryPerformanceMonitor:
         """Trigger alert callbacks and log alert."""
         alert_data = {
             "alert_type": alert_type,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "environment": ENVIRONMENT,
             "data": data
         }
@@ -182,7 +182,7 @@ class QueryPerformanceMonitor:
     
     def get_recent_performance_trends(self, minutes: int = 60) -> Dict[str, Any]:
         """Get performance trends for the last N minutes."""
-        cutoff_time = datetime.utcnow() - timedelta(minutes=minutes)
+        cutoff_time = datetime.now(UTC) - timedelta(minutes=minutes)
         recent = [q for q in self.recent_queries if q["timestamp"] > cutoff_time]
         
         if not recent:

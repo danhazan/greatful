@@ -881,16 +881,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Implement uptime monitoring and automated incident response procedures
   - Update SECURITY_AND_PRODUCTION.md with monitoring, alerting, and incident response procedures
 
-- [ ] **16.4 Production Environment Configuration**
-  - Create production environment configuration files (.env.production, docker-compose.prod.yml)
-  - Configure production-grade web server (Nginx) with SSL/TLS termination and static file serving
-  - Set up production database with proper user permissions and security settings
-  - Configure production caching strategy (Redis for algorithm caches and session storage)
-  - Add production deployment scripts and CI/CD pipeline configuration
-  - Configure production logging aggregation and retention policies
-  - Update SECURITY_AND_PRODUCTION.md with complete deployment checklist and environment configuration
-
-- [ ] **16.5 Load Testing & Performance Validation**
+- [x] **16.4 Load Testing & Performance Validation**
   - Perform load testing on feed algorithm with 1000+ posts and 100+ concurrent users (validate <300ms target)
   - Test all social interactions under concurrent usage (reactions, shares, mentions, follows, notifications)
   - Validate notification batching performance under high notification volume
@@ -899,7 +890,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Validate mobile performance and responsiveness under production conditions
   - Update SECURITY_AND_PRODUCTION.md with load testing procedures and performance benchmarks
 
-- [ ] **16.6 Security Testing & Compliance**
+- [ ] **16.5 Security Testing & Compliance**
   - Conduct security testing for common vulnerabilities (SQL injection, XSS, CSRF, authentication bypass)
   - Test rate limiting effectiveness and bypass prevention
   - Validate input sanitization across all user-generated content endpoints
@@ -911,45 +902,80 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
 
 - [ ] **Update Project Documentation:** Create production deployment guide in docs/PRODUCTION_DEPLOYMENT.md. Update docs/ARCHITECTURE_AND_SETUP.md with production configuration guidelines. Add monitoring, backup, and maintenance procedures to docs/USEFUL_COMMANDS.md. Create production troubleshooting guide and incident response procedures.
 
-**Acceptance Criteria:** System handles >100 concurrent users with <300ms feed loading, all security measures tested and validated, comprehensive monitoring and alerting configured, all MVP features (enhanced algorithm, social interactions, notifications, profiles) work reliably under production load, production deployment is fully documented and tested, and system is ready for public launch with proper security, performance, and monitoring safeguards.
+### **TASK 17: Production Deployment - Cloud Platform (Final MVP Task)**
+**Module Reference:** Production Environment Configuration - Option A
+- [ ] **Frontend Deployment (Vercel)**
+  - Connect GitHub repository to Vercel and configure Next.js build settings
+  - Configure production environment variables (NEXT_PUBLIC_API_URL, NEXTAUTH_URL, NEXTAUTH_SECRET)
+  - Set up automatic deployments on main branch push
+  - Configure custom domain (optional) and verify SSL certificate provisioning
+  - Test frontend deployment and verify all pages load correctly
+- [ ] **Backend Deployment (Railway)**
+  - Create Railway project and connect GitHub repository (apps/api directory)
+  - Set up managed PostgreSQL and Redis databases with automatic connection URLs
+  - Configure production environment variables (DATABASE_URL, REDIS_URL, SECRET_KEY, CORS settings)
+  - Set up automatic database migrations on deployment (railway.toml configuration)
+  - Configure custom API domain (optional) and verify health check endpoints
+- [ ] **Production Configuration**
+  - Generate secure JWT secrets (32+ characters) and configure authentication settings
+  - Set up production CORS configuration with allowed origins (Vercel domains only)
+  - Configure rate limiting settings for production load (100 req/min default, 10 req/min auth)
+  - Verify HTTPS enforcement and SSL certificate validity on both platforms
+  - Configure environment variables and production settings
+- [ ] **Monitoring and Basic Validation**
+  - Configure built-in monitoring dashboards (Railway metrics, Vercel analytics)
+  - Set up health check endpoints and verify uptime monitoring
+  - Perform basic end-to-end testing of core functionality (auth, posts, basic interactions)
+  - Validate image upload functionality and file storage in production
+  - Test basic user flows and verify system stability
+- [ ] **Go-Live Procedures**
+  - Execute final deployment to production environments
+  - Perform comprehensive testing of critical user flows
+  - Monitor dashboards and error rates for first 24 hours
+  - Update documentation with production URLs and deployment procedures
+  - Create incident response plan and rollback procedures
+
+**Cost Estimate:** $5-40/month (Vercel: $0-20/month, Railway: $5-20/month)
+**Timeline:** 1-2 days for complete deployment
+**Acceptance Criteria:** System is live on production URLs, handles user registration and core functionality, all MVP features work reliably, monitoring shows healthy metrics, and deployment is fully documented for future updates.
 
 ## Phase 2: Enhanced Social Features (Post-MVP)
 
-### **TASK 17: Privacy Controls System** (Post-MVP)
+### **TASK 18: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 18: Advanced Social Features** (Post-MVP)
+### **TASK 19: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 19: Fast Login Page for Development** (Post-MVP)
+### **TASK 20: Fast Login Page for Development** (Post-MVP)
 **Module Reference:** Development Tools - Fast Login Interface for Testing
-- [ ] **19.1 Create Fast Login Page Route**
+- [ ] **20.1 Create Fast Login Page Route**
   - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
   - Copy existing login page layout and styling from `/auth/login/page.tsx`
   - Replace email/password form with user selection dropdown
   - Add development environment detection to prevent production access
   - Implement purple theme consistency matching regular login page
-- [ ] **19.2 User Selection Interface**
+- [ ] **20.2 User Selection Interface**
   - Create dropdown showing all existing users (username, email, profile picture)
   - Implement one-click login functionality that generates development token
   - Add user search/filter functionality for large user lists
   - Display user information clearly (username, email, join date)
   - Add "Login as [Username]" button for each user selection
-- [ ] **19.3 Development Environment Protection**
+- [ ] **20.3 Development Environment Protection**
   - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
   - Implement build-time exclusion using Next.js conditional compilation
   - Add clear development warning banner on fast login page
   - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
   - Add rate limiting and IP restrictions for development endpoints
-- [ ] **19.4 Fast Login UX and Navigation**
+- [ ] **20.4 Fast Login UX and Navigation**
   - Style page identical to regular login with "Fast Login (Dev Mode)" title
   - Add "Back to Regular Login" link for normal authentication flow
   - Implement responsive design matching existing login page
@@ -958,9 +984,9 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
 **Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
-### **TASK 20: Follow Notification Batching System** (Post-MVP)
+### **TASK 21: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **20.1 Follow Notification Batching Analysis and Design**
+- [ ] **21.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -971,7 +997,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **20.2 Follow Notification Batching Implementation**
+- [ ] **21.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope

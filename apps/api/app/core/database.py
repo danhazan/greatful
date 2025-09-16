@@ -25,12 +25,12 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 # Connection pool settings based on environment
 POOL_SETTINGS = {
     "development": {
-        "pool_size": 5,
-        "max_overflow": 10,
+        "pool_size": 10,  # Increased for load testing
+        "max_overflow": 20,  # Increased for load testing
         "pool_timeout": 30,
         "pool_recycle": 3600,  # 1 hour
         "pool_pre_ping": True,
-        "echo": True,
+        "echo": False,  # Disable SQL logging for better performance
     },
     "staging": {
         "pool_size": 10,

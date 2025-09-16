@@ -37,6 +37,8 @@ from app.core.responses import error_response
 from app.core.structured_logging import setup_structured_logging
 from app.core.uptime_monitoring import uptime_monitor
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 import logging
 import os
 
@@ -98,6 +100,44 @@ async def base_api_exception_handler(request, exc: BaseAPIException):
         )
     )
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    """Handle validation errors with proper binary data handling."""
+    request_id = getattr(request.state, 'request_id', None)
+    
+    # Safely encode validation errors, handling binary data
+    safe_errors = []
+    for error in exc.errors():
+        safe_error = {}
+        for key, value in error.items():
+            if key == 'input' and isinstance(value, bytes):
+                # Handle binary data in input field
+                safe_error[key] = f"<binary data: {len(value)} bytes>"
+            elif isinstance(value, bytes):
+                # Handle any other binary fields
+                safe_error[key] = f"<binary data: {len(value)} bytes>"
+            else:
+                try:
+                    # Try to encode normally - test if it's JSON serializable
+                    import json
+                    json.dumps(value)
+                    safe_error[key] = value
+                except (UnicodeDecodeError, TypeError, ValueError):
+                    # Fallback for any encoding issues
+                    safe_error[key] = str(value)
+        safe_errors.append(safe_error)
+    
+    logger.warning(
+        f"Validation error: {len(safe_errors)} validation errors",
+        extra={"request_id": request_id, "errors": safe_errors}
+    )
+    
+    # Return in FastAPI's expected format for validation errors
+    return JSONResponse(
+        status_code=422,
+        content={"detail": safe_errors}
+    )
+
 # Add middleware (order matters - first added is outermost)
 app.add_middleware(ErrorHandlingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -133,6 +173,12 @@ app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"
 app.include_router(follows_router, prefix="/api/v1", tags=["follows"])
 app.include_router(algorithm_performance_router, prefix="/api/v1/algorithm", tags=["algorithm-performance"])
 app.include_router(database_router, prefix="/api/v1/database", tags=["database"])
+
+# Include test auth router only when load testing is enabled
+if os.getenv("LOAD_TESTING", "").lower() == "true":
+    from app.api.v1.test_auth import router as test_auth_router
+    app.include_router(test_auth_router, prefix="/api/v1", tags=["test-auth"])
+    logger.info("Test authentication endpoints enabled for load testing")
 
 
 @app.get("/")

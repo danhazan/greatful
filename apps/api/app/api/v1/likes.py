@@ -35,6 +35,14 @@ class LikeResponse(BaseModel):
 
 async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
     """Extract user ID from JWT token."""
+    # Check for test authentication bypass
+    from app.core.test_auth import get_test_user_id_from_token, is_test_environment
+    
+    if is_test_environment():
+        test_user_id = get_test_user_id_from_token(auth)
+        if test_user_id is not None:
+            return test_user_id
+    
     try:
         payload = decode_token(auth.credentials)
         user_id = int(payload.get("sub"))
