@@ -145,6 +145,9 @@ temp/
 .coverage
 .pytest_cache/
 
+# Security test reports
+security_test_report_*.json
+
 # Redis dump
 dump.rdb
 

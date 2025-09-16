@@ -477,6 +477,12 @@ def setup_structured_logging(
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
     
+    # Reduce verbosity for production-like environments
+    if log_level.upper() in ["INFO", "WARNING", "ERROR"]:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("asyncio").setLevel(logging.WARNING)
+        logging.getLogger("fastapi").setLevel(logging.INFO)
+    
     # Create specialized loggers
     request_logger = logging.getLogger("grateful-api.requests")
     security_logger = logging.getLogger("grateful-api.security")

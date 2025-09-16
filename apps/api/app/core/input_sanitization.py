@@ -88,9 +88,53 @@ class InputSanitizer:
         if len(text) > max_len:
             text = text[:max_len]
         
-        # HTML sanitization
+        # Always escape HTML entities first for security
+        text = html.escape(text)
+        
+        # Additional XSS prevention - remove dangerous patterns
+        dangerous_patterns = [
+            r'javascript:',
+            r'vbscript:',
+            r'data:',
+            r'on\w+\s*=',  # Event handlers like onclick, onerror, etc.
+            r'<script[^>]*>.*?</script>',
+            r'<iframe[^>]*>.*?</iframe>',
+            r'<object[^>]*>.*?</object>',
+            r'<embed[^>]*>.*?</embed>',
+            r'<link[^>]*>',
+            r'<style[^>]*>.*?</style>',
+            r'<meta[^>]*>',
+            r'expression\s*\(',
+            r'@import',
+            r'url\s*\(',
+        ]
+        
+        # SQL injection prevention - remove dangerous SQL patterns
+        sql_injection_patterns = [
+            r';\s*drop\s+table',
+            r';\s*delete\s+from',
+            r';\s*insert\s+into',
+            r';\s*update\s+\w+\s+set',
+            r';\s*create\s+table',
+            r';\s*alter\s+table',
+            r'union\s+select',
+            r'or\s+1\s*=\s*1',
+            r'and\s+1\s*=\s*1',
+            r'--\s*$',  # SQL comments
+            r'/\*.*?\*/',  # SQL block comments
+            r'xp_cmdshell',
+            r'sp_executesql',
+        ]
+        
+        # Combine all dangerous patterns
+        all_patterns = dangerous_patterns + sql_injection_patterns
+        
+        for pattern in all_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        # HTML sanitization for allowed content
         if allow_html:
-            # Use bleach for HTML sanitization
+            # Use bleach for HTML sanitization after escaping
             text = bleach.clean(
                 text,
                 tags=cls.ALLOWED_TAGS,
@@ -98,9 +142,6 @@ class InputSanitizer:
                 protocols=cls.ALLOWED_PROTOCOLS,
                 strip=True
             )
-        else:
-            # Escape HTML entities
-            text = html.escape(text)
         
         # Field-specific sanitization
         if field_type == 'username':
@@ -110,9 +151,12 @@ class InputSanitizer:
             # Basic email format validation
             text = text.lower().strip()
         elif field_type == 'url':
-            # Ensure URL has proper scheme
+            # Ensure URL has proper scheme and validate
             if text and not text.startswith(('http://', 'https://')):
                 text = 'https://' + text
+            # Additional URL validation
+            if text and not cls.PATTERNS['url'].match(text):
+                text = ''  # Invalid URL, clear it
         elif field_type == 'post_content':
             # Preserve line breaks but sanitize content
             text = cls._sanitize_post_content(text)

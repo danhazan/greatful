@@ -147,7 +147,10 @@ class UserService(BaseService):
         # Validate and update bio if provided
         if bio is not None:
             self.validate_field_length(bio, "bio", 500, 0)
-            update_data["bio"] = bio
+            # Sanitize bio content to prevent XSS
+            from app.core.input_sanitization import InputSanitizer
+            sanitizer = InputSanitizer()
+            update_data["bio"] = sanitizer.sanitize_text(bio, "bio")
 
         # Update profile image URL if provided
         if profile_image_url is not None:
@@ -156,12 +159,18 @@ class UserService(BaseService):
         # Validate and update display name if provided
         if display_name is not None:
             self.validate_field_length(display_name, "display_name", 100, 1)
-            update_data["display_name"] = display_name
+            # Sanitize display name to prevent XSS
+            from app.core.input_sanitization import InputSanitizer
+            sanitizer = InputSanitizer()
+            update_data["display_name"] = sanitizer.sanitize_text(display_name, "display_name")
 
         # Validate and update city if provided
         if city is not None:
             self.validate_field_length(city, "city", 100, 0)
-            update_data["city"] = city
+            # Sanitize city to prevent XSS
+            from app.core.input_sanitization import InputSanitizer
+            sanitizer = InputSanitizer()
+            update_data["city"] = sanitizer.sanitize_text(city, "city")
 
         # Validate and update location data if provided
         if location_data is not None:

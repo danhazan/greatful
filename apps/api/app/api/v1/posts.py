@@ -300,11 +300,16 @@ async def create_post_json(
                     detail="Invalid location data format"
                 )
 
+        # Sanitize content to prevent XSS attacks
+        from app.core.input_sanitization import InputSanitizer
+        sanitizer = InputSanitizer()
+        sanitized_content = sanitizer.sanitize_text(post_data.content, "post_content")
+        
         # Create post with automatically determined type and rich content support
         db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
-            content=post_data.content,
+            content=sanitized_content,
             rich_content=sanitize_html(post_data.rich_content),
             post_style=post_data.post_style,
             post_type=final_post_type,
@@ -483,11 +488,16 @@ async def create_post_with_file(
                     detail="Invalid location data format"
                 )
 
+        # Sanitize content to prevent XSS attacks
+        from app.core.input_sanitization import InputSanitizer
+        sanitizer = InputSanitizer()
+        sanitized_content = sanitizer.sanitize_text(post_data.content, "post_content")
+        
         # Create post with automatically determined type and rich content support
         db_post = Post(
             id=str(uuid.uuid4()),
             author_id=current_user_id,
-            content=post_data.content,
+            content=sanitized_content,
             rich_content=sanitize_html(post_data.rich_content),
             post_style=post_data.post_style,
             post_type=final_post_type,

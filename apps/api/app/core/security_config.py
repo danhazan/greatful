@@ -180,6 +180,10 @@ class SecurityConfig:
             "POST:/api/v1/posts/*/reactions": 60,
             "POST:/api/v1/posts/*/share": 20,
             "POST:/api/v1/follows/*": 30,
+            "GET:/api/v1/follows/*/status": 200,  # Higher limit for status checks
+            "GET:/api/v1/users/*/followers": 100,
+            "GET:/api/v1/users/*/following": 100,
+            "GET:/api/v1/users/*/follow-stats": 150,
             "POST:/api/v1/users/search": 60,
             "GET:/api/v1/notifications": 120,
         }

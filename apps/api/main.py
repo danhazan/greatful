@@ -102,40 +102,55 @@ async def base_api_exception_handler(request, exc: BaseAPIException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc: RequestValidationError):
-    """Handle validation errors with proper binary data handling."""
+    """Handle validation errors with security-focused sanitization."""
     request_id = getattr(request.state, 'request_id', None)
     
-    # Safely encode validation errors, handling binary data
+    # Safely encode validation errors, preventing information disclosure
     safe_errors = []
     for error in exc.errors():
         safe_error = {}
         for key, value in error.items():
-            if key == 'input' and isinstance(value, bytes):
-                # Handle binary data in input field
-                safe_error[key] = f"<binary data: {len(value)} bytes>"
-            elif isinstance(value, bytes):
-                # Handle any other binary fields
-                safe_error[key] = f"<binary data: {len(value)} bytes>"
-            else:
-                try:
-                    # Try to encode normally - test if it's JSON serializable
-                    import json
-                    json.dumps(value)
-                    safe_error[key] = value
-                except (UnicodeDecodeError, TypeError, ValueError):
-                    # Fallback for any encoding issues
-                    safe_error[key] = str(value)
+            if key == 'input':
+                # Never expose user input in error messages for security
+                safe_error[key] = "<input data hidden for security>"
+            elif key in ['loc', 'type', 'msg', 'url']:
+                # Only include safe fields
+                if isinstance(value, bytes):
+                    safe_error[key] = f"<binary data: {len(value)} bytes>"
+                else:
+                    try:
+                        # Sanitize the value to prevent XSS/injection
+                        import json
+                        import html
+                        if isinstance(value, str):
+                            # Escape HTML and remove dangerous patterns
+                            sanitized_value = html.escape(value)
+                            # Remove SQL keywords and patterns
+                            sql_patterns = ['table', 'drop', 'select', 'insert', 'update', 'delete', 'union', 'script']
+                            for pattern in sql_patterns:
+                                if pattern.lower() in sanitized_value.lower():
+                                    sanitized_value = sanitized_value.replace(pattern, '[FILTERED]')
+                            safe_error[key] = sanitized_value
+                        else:
+                            json.dumps(value)  # Test if serializable
+                            safe_error[key] = value
+                    except (UnicodeDecodeError, TypeError, ValueError):
+                        safe_error[key] = "<data hidden for security>"
+            # Skip any other fields that might contain sensitive data
         safe_errors.append(safe_error)
     
     logger.warning(
         f"Validation error: {len(safe_errors)} validation errors",
-        extra={"request_id": request_id, "errors": safe_errors}
+        extra={"request_id": request_id, "error_count": len(safe_errors)}
     )
     
-    # Return in FastAPI's expected format for validation errors
+    # Return generic validation error message
     return JSONResponse(
         status_code=422,
-        content={"detail": safe_errors}
+        content={
+            "detail": "Validation failed. Please check your input and try again.",
+            "errors": safe_errors
+        }
     )
 
 # Add middleware (order matters - first added is outermost)
