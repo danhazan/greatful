@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from app.core.security_config import SecurityConfig
 from app.core.security import SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.core.rate_limiting import InMemoryRateLimiter
+from app.core.security_audit import SecurityEventType
 
 
 class TestSecurityConfigurationValidation:

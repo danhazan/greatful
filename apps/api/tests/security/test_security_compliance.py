@@ -500,7 +500,7 @@ class TestInputSanitization:
             ("example.com", "https://example.com"),
             ("http://example.com", "http://example.com"),
             ("https://example.com", "https://example.com"),
-            ("javascript:alert(1)", "https://javascript:alert(1)"),  # Should be prefixed
+            ("javascript:alert(1)", "https://alert(1)"),  # Dangerous protocol removed
         ]
         
         for input_url, expected in test_cases:

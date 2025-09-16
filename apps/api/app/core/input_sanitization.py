@@ -88,8 +88,9 @@ class InputSanitizer:
         if len(text) > max_len:
             text = text[:max_len]
         
-        # Always escape HTML entities first for security
-        text = html.escape(text)
+        # HTML escape for security (but not for post content which is stored as plain text)
+        if field_type != 'post_content':
+            text = html.escape(text)
         
         # Additional XSS prevention - remove dangerous patterns
         dangerous_patterns = [
@@ -151,6 +152,16 @@ class InputSanitizer:
             # Basic email format validation
             text = text.lower().strip()
         elif field_type == 'url':
+            # Check for dangerous protocols first
+            dangerous_protocols = ['javascript:', 'data:', 'vbscript:', 'file:', 'ftp:']
+            text_lower = text.lower()
+            
+            # Remove dangerous protocols
+            for protocol in dangerous_protocols:
+                if text_lower.startswith(protocol):
+                    text = text[len(protocol):].lstrip(':/')
+                    break
+            
             # Ensure URL has proper scheme and validate
             if text and not text.startswith(('http://', 'https://')):
                 text = 'https://' + text
@@ -168,14 +179,28 @@ class InputSanitizer:
         """
         Sanitize post content while preserving mentions and formatting.
         
+        Note: We don't HTML-escape here as content is stored as plain text
+        and escaped only when rendering to HTML on the frontend.
+        
         Args:
             content: Post content to sanitize
             
         Returns:
             str: Sanitized content
         """
-        # Escape HTML but preserve line breaks
-        content = html.escape(content)
+        # Remove dangerous HTML tags and scripts but keep content as plain text
+        dangerous_patterns = [
+            r'<script[^>]*>.*?</script>',
+            r'<iframe[^>]*>.*?</iframe>',
+            r'<object[^>]*>.*?</object>',
+            r'<embed[^>]*>.*?</embed>',
+            r'<link[^>]*>',
+            r'<style[^>]*>.*?</style>',
+            r'<meta[^>]*>',
+        ]
+        
+        for pattern in dangerous_patterns:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE | re.DOTALL)
         
         # Normalize line breaks
         content = re.sub(r'\r\n|\r', '\n', content)

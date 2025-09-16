@@ -133,7 +133,7 @@ async def login(
         log_login_failure(
             request=request,
             username=user.email,
-            reason=str(e)
+            failure_reason=str(e)
         )
         raise
     except Exception as e:
