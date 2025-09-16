@@ -36,6 +36,7 @@ class SecurityEventType(Enum):
     LOGIN_SUCCESS = "login_success"
     LOGIN_FAILURE = "login_failure"
     LOGOUT = "logout"
+    REGISTRATION = "registration"
     TOKEN_REFRESH = "token_refresh"
     TOKEN_EXPIRED = "token_expired"
     TOKEN_INVALID = "token_invalid"

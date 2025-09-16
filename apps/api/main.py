@@ -144,12 +144,11 @@ async def validation_exception_handler(request, exc: RequestValidationError):
         extra={"request_id": request_id, "error_count": len(safe_errors)}
     )
     
-    # Return generic validation error message
+    # Return validation error in FastAPI format for contract compliance
     return JSONResponse(
         status_code=422,
         content={
-            "detail": "Validation failed. Please check your input and try again.",
-            "errors": safe_errors
+            "detail": safe_errors  # FastAPI expects detail to be a list of errors
         }
     )
 
