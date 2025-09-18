@@ -76,17 +76,23 @@ async def setup_test_database(test_engine):
     with patch('app.core.database.init_db') as mock_init_db:
         mock_init_db.return_value = None
         
-        # Clear any existing overrides first
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_db] = get_test_db
-        
-        yield TestSessionLocal
-        
-        # Cleanup
-        app.dependency_overrides.clear()
-        # Clean up testing environment variable
-        if 'TESTING' in os.environ:
-            del os.environ['TESTING']
+        # Also mock the uptime monitor to prevent startup issues
+        with patch('app.core.uptime_monitoring.uptime_monitor.start_monitoring') as mock_uptime_start:
+            with patch('app.core.uptime_monitoring.uptime_monitor.stop_monitoring') as mock_uptime_stop:
+                mock_uptime_start.return_value = None
+                mock_uptime_stop.return_value = None
+                
+                # Clear any existing overrides first
+                app.dependency_overrides.clear()
+                app.dependency_overrides[get_db] = get_test_db
+                
+                yield TestSessionLocal
+                
+                # Cleanup
+                app.dependency_overrides.clear()
+                # Clean up testing environment variable
+                if 'TESTING' in os.environ:
+                    del os.environ['TESTING']
 
 
 @pytest_asyncio.fixture
@@ -190,8 +196,8 @@ async def test_post(db_session, test_user):
 
 
 @pytest_asyncio.fixture
-async def client():
-    """Create test client."""
+async def client(setup_test_database):
+    """Create test client with proper database setup."""
     with TestClient(app) as test_client:
         yield test_client
 
