@@ -143,7 +143,7 @@ ENVIRONMENT_OVERRIDES = {
             'randomization_factor': 0.25,  # More randomization for testing
             'max_consecutive_posts_per_user': 1,  # Strict spacing rules for development
             'spacing_window_size': 4,  # Smaller window for development testing
-            'spacing_violation_penalty': 0.5,  # Stronger penalty for development
+            'spacing_violation_penalty': 0.3,  # Strong penalty for development
         },
         'preference_factors': {
             'interaction_threshold': 1,  # Lower threshold for development

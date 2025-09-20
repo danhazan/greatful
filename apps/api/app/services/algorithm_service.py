@@ -153,7 +153,7 @@ class AlgorithmService(BaseService):
         consider_read_status: bool = True,
         user_last_feed_view: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
-        """Calculate scores for multiple posts efficiently."""
+        """Calculate scores for multiple posts efficiently with batch optimizations."""
         scored_posts = []
         
         # Get read status for all posts in batch if needed
@@ -162,13 +162,25 @@ class AlgorithmService(BaseService):
             post_ids = [post.id for post in posts]
             read_statuses = await self._get_read_status_batch(user_id, post_ids)
         
+        # Pre-fetch follow relationships in batch to avoid N+1 queries
+        author_ids = [post.author_id for post in posts if post.author_id != user_id]
+        follow_relationships = {}
+        second_tier_follows = {}
+        
+        if author_ids:
+            # Get direct follow relationships
+            follow_relationships = await self._get_follow_relationships_batch(user_id, author_ids)
+            # Get second-tier follow relationships  
+            second_tier_follows = await self._get_second_tier_follows_batch(user_id, author_ids)
+        
         for post in posts:
             counts = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
             
-            # Calculate score using the optimized method
-            score = await self.calculate_post_score(
+            # Calculate score using pre-fetched relationship data
+            score = await self._calculate_post_score_with_cached_relationships(
                 post, user_id, counts['hearts'], counts['reactions'], counts['shares'], 
-                consider_read_status, user_last_feed_view
+                consider_read_status, user_last_feed_view,
+                follow_relationships, second_tier_follows
             )
             
             is_read = read_statuses.get(post.id, False) if consider_read_status else False
@@ -625,16 +637,80 @@ class AlgorithmService(BaseService):
         
         return 1.0
 
+    async def _get_follow_relationships_batch(self, user_id: int, author_ids: List[int]) -> Dict[int, Optional[Follow]]:
+        """
+        Get direct follow relationships for multiple authors in batch.
+        
+        Args:
+            user_id: ID of the current user
+            author_ids: List of author IDs to check
+            
+        Returns:
+            Dict mapping author_id to Follow object (or None if no relationship)
+        """
+        if not author_ids:
+            return {}
+            
+        # Query for direct follow relationships
+        follow_result = await self.db.execute(
+            select(Follow).where(
+                and_(
+                    Follow.follower_id == user_id,
+                    Follow.followed_id.in_(author_ids),
+                    Follow.status == "active"
+                )
+            )
+        )
+        
+        follows = follow_result.scalars().all()
+        follow_map = {follow.followed_id: follow for follow in follows}
+        
+        # Return mapping for all author_ids (None for no relationship)
+        return {author_id: follow_map.get(author_id) for author_id in author_ids}
+
+    async def _get_second_tier_follows_batch(self, user_id: int, author_ids: List[int]) -> Dict[int, bool]:
+        """
+        Get second-tier follow relationships for multiple authors in batch.
+        
+        Args:
+            user_id: ID of the current user
+            author_ids: List of author IDs to check
+            
+        Returns:
+            Dict mapping author_id to whether they have second-tier follow relationship
+        """
+        if not author_ids:
+            return {}
+            
+        # Create aliases for the two Follow tables in the join
+        f1 = Follow.__table__.alias('f1')
+        f2 = Follow.__table__.alias('f2')
+        
+        # Batch query to get all second-tier follows for the given authors
+        second_tier_result = await self.db.execute(
+            select(f2.c.followed_id).select_from(
+                f1.join(f2, f1.c.followed_id == f2.c.follower_id)
+            ).where(
+                and_(
+                    f1.c.follower_id == user_id,
+                    f2.c.followed_id.in_(author_ids),
+                    f2.c.followed_id != user_id,  # Exclude self
+                    f1.c.status == "active",
+                    f2.c.status == "active"
+                )
+            ).distinct()
+        )
+        
+        second_tier_authors = {row[0] for row in second_tier_result}
+        
+        # Return mapping of all author_ids to their second-tier status
+        return {author_id: author_id in second_tier_authors for author_id in author_ids}
+
     async def _calculate_second_tier_follow_bonus(self, user_id: int, post_author_id: int) -> float:
         """
         Calculate second-tier follow bonus for users followed by your follows.
         
-        Uses efficient database query to detect second-tier relationships:
-        SELECT DISTINCT f2.followed_id as second_tier_user_id
-        FROM follows f1 
-        JOIN follows f2 ON f1.followed_id = f2.follower_id 
-        WHERE f1.follower_id = :current_user_id 
-        AND f2.followed_id != :current_user_id
+        This method is kept for backward compatibility but should use batch processing when possible.
         
         Args:
             user_id: ID of the current user
@@ -645,26 +721,10 @@ class AlgorithmService(BaseService):
         """
         follow_bonuses = self.config.follow_bonuses
         
-        # Create aliases for the two Follow tables in the join
-        f1 = Follow.__table__.alias('f1')
-        f2 = Follow.__table__.alias('f2')
+        # Use batch method for single author
+        second_tier_map = await self._get_second_tier_follows_batch(user_id, [post_author_id])
         
-        # Efficient query to check if post_author_id is followed by any of user's follows
-        second_tier_result = await self.db.execute(
-            select(f2.c.id).select_from(
-                f1.join(f2, f1.c.followed_id == f2.c.follower_id)
-            ).where(
-                and_(
-                    f1.c.follower_id == user_id,
-                    f2.c.followed_id == post_author_id,
-                    f2.c.followed_id != user_id,  # Exclude self
-                    f1.c.status == "active",
-                    f2.c.status == "active"
-                )
-            ).limit(1)
-        )
-        
-        if second_tier_result.scalar_one_or_none():
+        if second_tier_map.get(post_author_id, False):
             logger.debug(
                 f"Second-tier follow bonus applied for user {user_id} -> {post_author_id}: "
                 f"multiplier={follow_bonuses.second_tier_multiplier:.2f}"
@@ -672,6 +732,92 @@ class AlgorithmService(BaseService):
             return follow_bonuses.second_tier_multiplier
         
         return 1.0
+
+    async def _calculate_post_score_with_cached_relationships(
+        self,
+        post: Post,
+        user_id: int,
+        hearts_count: int = None,
+        reactions_count: int = None,
+        shares_count: int = None,
+        consider_read_status: bool = True,
+        user_last_feed_view: Optional[datetime] = None,
+        follow_relationships: Dict[int, Optional[Follow]] = None,
+        second_tier_follows: Dict[int, bool] = None
+    ) -> float:
+        """
+        Calculate post score using pre-fetched relationship data to avoid N+1 queries.
+        
+        This is an optimized version of calculate_post_score that uses cached relationship data.
+        """
+        # Use the regular method if no cached data provided
+        if follow_relationships is None or second_tier_follows is None:
+            return await self.calculate_post_score(
+                post, user_id, hearts_count, reactions_count, shares_count,
+                consider_read_status, user_last_feed_view
+            )
+        
+        # Get engagement counts if not provided
+        if hearts_count is None or reactions_count is None or shares_count is None:
+            hearts_count = await self._get_hearts_count(post.id)
+            reactions_count = await self._get_reactions_count(post.id)
+            shares_count = await self._get_shares_count(post.id)
+
+        # Base engagement score using configurable weights
+        scoring_weights = self.config.scoring_weights
+        base_score = (
+            (hearts_count * scoring_weights.hearts) +
+            (reactions_count * scoring_weights.reactions) +
+            (shares_count * scoring_weights.shares)
+        )
+
+        # Content type bonuses
+        scoring_weights = self.config.scoring_weights
+        if post.post_type == PostType.daily:
+            base_score *= scoring_weights.daily_gratitude_bonus
+        elif post.image_url:
+            base_score *= scoring_weights.photo_bonus
+
+        # Time factor
+        time_factor = self._calculate_time_factor(post)
+        base_score *= time_factor
+
+        # Follow relationship multiplier using cached data
+        follow_multiplier = 1.0
+        direct_follow = follow_relationships.get(post.author_id)
+        
+        if direct_follow:
+            follow_multiplier = await self._calculate_direct_follow_bonus(user_id, post.author_id, direct_follow)
+        elif second_tier_follows.get(post.author_id, False):
+            follow_bonuses = self.config.follow_bonuses
+            follow_multiplier = follow_bonuses.second_tier_multiplier
+
+        base_score *= follow_multiplier
+
+        # Mention bonus
+        mention_bonus = await self._calculate_mention_bonus(user_id, post.id)
+        mention_multiplier = 1.0
+        if mention_bonus > 0:
+            mention_multiplier = 1.0 + mention_bonus  # Convert bonus to multiplier
+        base_score *= mention_multiplier
+
+        # Own post bonus
+        if post.author_id == user_id:
+            current_time = datetime.now(timezone.utc)
+            post_created_at = post.created_at
+            if post_created_at.tzinfo is None:
+                post_created_at = post_created_at.replace(tzinfo=timezone.utc)
+            
+            minutes_old = (current_time - post_created_at).total_seconds() / 60
+            own_post_bonus = self._calculate_own_post_bonus(minutes_old)
+            base_score *= own_post_bonus
+
+        # Unread boost
+        if consider_read_status and user_last_feed_view:
+            unread_boost = self._calculate_unread_boost(post.created_at, user_last_feed_view)
+            base_score *= unread_boost
+
+        return max(0.0, base_score)
 
     async def _calculate_mention_bonus(self, user_id: int, post_id: str) -> float:
         """
@@ -1175,6 +1321,31 @@ class AlgorithmService(BaseService):
             # Permanent base multiplier for older own posts
             return own_post_config.base_multiplier + own_post_config.base_multiplier
 
+    def _calculate_unread_boost(self, post_created_at: datetime, user_last_feed_view: datetime) -> float:
+        """
+        Calculate unread boost multiplier based on whether post was created after user's last feed view.
+        
+        Args:
+            post_created_at: When the post was created
+            user_last_feed_view: When the user last viewed their feed
+            
+        Returns:
+            float: Unread boost multiplier (unread_boost for unread posts, 1/unread_boost for read posts)
+        """
+        unread_boost = self.config.scoring_weights.unread_boost
+        
+        # Ensure both timestamps have timezone info
+        if post_created_at.tzinfo is None:
+            post_created_at = post_created_at.replace(tzinfo=timezone.utc)
+        if user_last_feed_view.tzinfo is None:
+            user_last_feed_view = user_last_feed_view.replace(tzinfo=timezone.utc)
+        
+        # If post was created after user's last feed view, it's unread
+        if post_created_at > user_last_feed_view:
+            return unread_boost  # Boost unread posts
+        else:
+            return 1.0 / unread_boost  # Penalize read posts
+
     def _apply_diversity_and_own_post_factors(
         self, 
         posts: List[Dict[str, Any]], 
@@ -1600,7 +1771,7 @@ class AlgorithmService(BaseService):
             author_count_in_window = sum(1 for p in window_posts if p['author_id'] == author_id)
             
             # Check for consecutive posts violation
-            consecutive_count = 0
+            consecutive_count = 1  # Count the current post
             for j in range(len(spaced_posts) - 1, -1, -1):
                 if spaced_posts[j]['author_id'] == author_id:
                     consecutive_count += 1
@@ -1613,7 +1784,8 @@ class AlgorithmService(BaseService):
             
             # Apply penalty if spacing rules are violated
             # Violation 1: Too many consecutive posts
-            if consecutive_count >= max_consecutive:
+            if consecutive_count > max_consecutive:
+                # Apply very aggressive penalty to prevent consecutive posts beyond limit
                 post_copy['algorithm_score'] *= penalty_multiplier
                 spacing_penalty_applied = True
                 logger.debug(
@@ -1638,7 +1810,7 @@ class AlgorithmService(BaseService):
             if spacing_penalty_applied:
                 post_copy['spacing_penalty_applied'] = True
                 post_copy['spacing_penalty_reason'] = (
-                    f"consecutive={consecutive_count}" if consecutive_count >= max_consecutive
+                    f"consecutive={consecutive_count}" if consecutive_count > max_consecutive
                     else f"window={author_count_in_window}/{window_size}"
                 )
             

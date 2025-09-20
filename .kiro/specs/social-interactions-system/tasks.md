@@ -895,7 +895,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Test JWT token security and session management
   - Conduct penetration testing on authentication and authorization systems
   - Validate data privacy compliance and user data protection measures
-  - [ ] **16.5.1 Fix backend tests**
+  - [x] **16.5.1 Fix backend tests**
     - Fix all bugs that lead to failing backend tests, according to the requirements and expected behaviour.
     - Do not change the test unless there is a technical problem, or the requirements/code changed
     - see docs/TEST_GUIDELINES.md for guidence
