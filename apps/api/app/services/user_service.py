@@ -23,7 +23,6 @@ class UserService(BaseService):
         self.user_repo = UserRepository(db)
         self.post_repo = PostRepository(db)
 
-    @monitor_query("get_user_profile")
     async def get_user_profile(self, user_id: int) -> Dict[str, any]:
         """
         Get user profile with stats.
@@ -37,8 +36,16 @@ class UserService(BaseService):
         Raises:
             NotFoundError: If user is not found
         """
-        user = await self.user_repo.get_by_id_or_404(user_id)
-        stats = await self.user_repo.get_user_stats(user_id)
+        try:
+            user = await self.user_repo.get_by_id_or_404(user_id)
+            logger.debug(f"User object type: {type(user)}, user: {user}")
+            if hasattr(user, '__await__'):
+                logger.error(f"User is a coroutine! This should not happen.")
+                user = await user  # Try to await it
+            stats = await self.user_repo.get_user_stats(user_id)
+        except Exception as e:
+            logger.error(f"Error in get_user_profile: {e}")
+            raise
         
         return {
             "id": user.id,
@@ -129,7 +136,7 @@ class UserService(BaseService):
             ConflictError: If username is already taken
             ValidationException: If validation fails
         """
-        user = await self.user_repo.get_by_id_or_404(user_id)
+        user = await self.get_by_id_or_404(User, user_id, "User")
         
         # Prepare update data
         update_data = {}
@@ -275,7 +282,7 @@ class UserService(BaseService):
             NotFoundError: If user is not found
         """
         # Verify the user exists
-        await self.user_repo.get_by_id_or_404(user_id)
+        await self.get_by_id_or_404(User, user_id, "User")
         
         # Use repository method for posts with engagement data
         posts = await self.post_repo.get_posts_with_engagement(

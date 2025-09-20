@@ -151,14 +151,13 @@ class TestInputSanitizer:
         """Test post content sanitization."""
         sanitizer = InputSanitizer()
         
-        # Test dangerous tag removal
+        # Test dangerous tag removal - script tags should be completely removed for security
         content = "Hello <script>alert('xss')</script> world!"
         result = sanitizer.sanitize_text(content, "post_content")
         assert "<script>" not in result
-        # Script tags are removed but content is preserved, and "script" text is added
-        assert "script" in result
-        # The result should be: "Hello script'xss') world!" (alert( is removed by dangerous patterns)
-        assert "xss" in result  # Content inside script tags is preserved (minus dangerous patterns)
+        assert "alert" not in result  # Dangerous functions should be removed
+        assert "xss" not in result    # Malicious content should be removed
+        assert result == "Hello world!"  # Only safe content should remain
         
         # Test line break normalization
         content = "Line 1\r\nLine 2\rLine 3\nLine 4"

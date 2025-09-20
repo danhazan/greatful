@@ -141,7 +141,7 @@ async def login(
         log_login_failure(
             request=request,
             username=user.email,
-            reason=f"Unexpected error: {str(e)}"
+            failure_reason=f"Unexpected error: {str(e)}"
         )
         raise
 

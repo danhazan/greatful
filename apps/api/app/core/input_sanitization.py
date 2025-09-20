@@ -93,9 +93,11 @@ class InputSanitizer:
             # Handle URL-specific sanitization before general patterns
             text = cls._sanitize_url(text)
         elif field_type == 'post_content':
-            # Handle post content with special sanitization but don't HTML escape
-            # Post content is stored as plain text and escaped only when rendering
+            # Handle post content with special sanitization AND HTML escape for security
+            # Post content should be sanitized and escaped to prevent XSS
             text = cls._sanitize_post_content(text)
+            # HTML escape after sanitization to prevent any remaining XSS
+            text = html.escape(text)
         else:
             # For other field types, HTML escape first
             text = html.escape(text)
@@ -190,7 +192,10 @@ class InputSanitizer:
         elif field_type == 'email':
             # Basic email format validation
             text = text.lower().strip()
-
+        elif field_type == 'bio':
+            # Bio fields need HTML escaping for XSS prevention
+            # This is already done above, but ensure no additional processing undoes it
+            pass
         elif field_type == 'post_content':
             # Preserve line breaks but sanitize content
             text = cls._sanitize_post_content(text)
@@ -245,18 +250,17 @@ class InputSanitizer:
         Returns:
             str: Sanitized content
         """
-        # Remove dangerous HTML tags but preserve the inner content
-        # This removes the tags but keeps the text content inside, plus adds "script" text for the test
+        # Remove dangerous HTML tags completely
         dangerous_tag_patterns = [
-            (r'<script[^>]*>(.*?)</script>', r'script\1'),  # Keep content and add "script" text
-            (r'<iframe[^>]*>(.*?)</iframe>', r'\1'),
-            (r'<object[^>]*>(.*?)</object>', r'\1'),
-            (r'<embed[^>]*>(.*?)</embed>', r'\1'),
-            (r'<style[^>]*>(.*?)</style>', r'\1'),
+            r'<script[^>]*>.*?</script>',
+            r'<iframe[^>]*>.*?</iframe>',
+            r'<object[^>]*>.*?</object>',
+            r'<embed[^>]*>.*?</embed>',
+            r'<style[^>]*>.*?</style>',
         ]
         
-        for pattern, replacement in dangerous_tag_patterns:
-            content = re.sub(pattern, replacement, content, flags=re.IGNORECASE | re.DOTALL)
+        for pattern in dangerous_tag_patterns:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE | re.DOTALL)
         
         # Remove self-closing dangerous tags completely
         dangerous_self_closing = [
@@ -500,8 +504,11 @@ class InputSanitizationMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next) -> Response:
         """Sanitize request data before processing."""
-        # Skip sanitization during testing (causes hangs in test environment)
-        if os.getenv('TESTING') == 'true':
+        # Skip sanitization during regular testing but NOT during security tests
+        # Security tests need sanitization to be active to test it properly
+        if (os.getenv('TESTING') == 'true' and 
+            os.getenv('SECURITY_TESTING') != 'true' and
+            os.getenv('PYTEST_CURRENT_TEST') is not None):
             return await call_next(request)
         
         # Skip sanitization for certain endpoints

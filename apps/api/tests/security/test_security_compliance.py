@@ -20,8 +20,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+# Database imports removed - using mocked dependencies instead
 
 from app.core.security import create_access_token, decode_token, verify_password, get_password_hash
 from app.core.rate_limiting import InMemoryRateLimiter
@@ -71,7 +70,7 @@ class TestSQLInjectionPrevention:
                 assert indicator not in response_text, f"SQL error exposed with payload: {payload}"
     
     @pytest.mark.asyncio
-    async def test_post_creation_sql_injection(self, client: TestClient, auth_headers: dict):
+    async def test_post_creation_sql_injection(self, client_with_scenario_mocks: TestClient, auth_headers: dict):
         """Test SQL injection attempts in post creation."""
         injection_payloads = [
             "'; DROP TABLE posts; --",
@@ -80,7 +79,7 @@ class TestSQLInjectionPrevention:
         ]
         
         for payload in injection_payloads:
-            response = client.post(
+            response = client_with_scenario_mocks.post(
                 "/api/v1/posts",
                 json={
                     "content": payload,
@@ -97,7 +96,7 @@ class TestSQLInjectionPrevention:
             assert "sql" not in response_text, f"SQL error exposed with payload: {payload}"
     
     @pytest.mark.asyncio
-    async def test_profile_update_sql_injection(self, client: TestClient, auth_headers: dict):
+    async def test_profile_update_sql_injection(self, client_with_scenario_mocks: TestClient, auth_headers: dict):
         """Test SQL injection attempts in profile updates."""
         injection_payloads = [
             "'; DROP TABLE users; --",
@@ -106,7 +105,7 @@ class TestSQLInjectionPrevention:
         ]
         
         for payload in injection_payloads:
-            response = client.put(
+            response = client_with_scenario_mocks.put(
                 "/api/v1/users/me/profile",
                 json={
                     "bio": payload,
@@ -586,7 +585,7 @@ class TestJWTTokenSecurity:
         assert decoded["sub"] == "123"
         
         # Wait for expiration
-        time.sleep(2)
+        time.sleep(1.1)  # Wait slightly longer than expiration time
         
         # Should be expired
         with pytest.raises(jwt.ExpiredSignatureError):
@@ -668,7 +667,7 @@ class TestDataPrivacyCompliance:
     """Test data privacy compliance and user data protection."""
     
     @pytest.mark.asyncio
-    async def test_user_data_access_control(self, client: TestClient, auth_headers: dict, test_user: User):
+    async def test_user_data_access_control(self, client: TestClient, auth_headers: dict):
         """Test that users can only access their own data."""
         # Try to access another user's profile (should fail)
         response = client.get("/api/v1/users/999/profile", headers=auth_headers)

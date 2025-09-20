@@ -45,6 +45,10 @@ def get_test_user_id_from_token(credentials: HTTPAuthorizationCredentials) -> Op
 
 def is_test_environment() -> bool:
     """Check if we're in a test environment."""
+    # Don't bypass security for security tests
+    if os.getenv('SECURITY_TESTING') == 'true':
+        return False
+        
     return (os.getenv('TESTING') == 'true' or 
             os.getenv('LOAD_TESTING') == 'true' or
             os.getenv('PYTEST_CURRENT_TEST') is not None or

@@ -145,6 +145,135 @@ class AlgorithmService(BaseService):
             "recent_reads": recent_reads
         }
 
+    async def _calculate_batch_post_scores(
+        self, 
+        posts: List[Post], 
+        user_id: int, 
+        engagement_counts: Dict[str, Dict[str, int]],
+        consider_read_status: bool = True,
+        user_last_feed_view: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """Calculate scores for multiple posts efficiently."""
+        scored_posts = []
+        
+        # Get read status for all posts in batch if needed
+        read_statuses = {}
+        if consider_read_status:
+            post_ids = [post.id for post in posts]
+            read_statuses = await self._get_read_status_batch(user_id, post_ids)
+        
+        for post in posts:
+            counts = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
+            
+            # Calculate score using the optimized method
+            score = await self.calculate_post_score(
+                post, user_id, counts['hearts'], counts['reactions'], counts['shares'], 
+                consider_read_status, user_last_feed_view
+            )
+            
+            is_read = read_statuses.get(post.id, False) if consider_read_status else False
+
+            scored_posts.append({
+                'id': post.id,
+                'author_id': post.author_id,
+                'content': post.content,
+                'post_style': post.post_style,
+                'post_type': post.post_type.value,
+                'image_url': post.image_url,
+                'location': post.location,
+                'location_data': post.location_data,
+                'is_public': post.is_public,
+                'created_at': post.created_at.isoformat() if post.created_at else None,
+                'updated_at': post.updated_at.isoformat() if post.updated_at else None,
+                'author': {
+                    'id': post.author.id,
+                    'username': post.author.username,
+                    'display_name': post.author.display_name,
+                    'name': post.author.display_name or post.author.username,
+                    'email': post.author.email,
+                    'profile_image_url': post.author.profile_image_url
+                } if post.author else None,
+                'hearts_count': counts['hearts'],
+                'reactions_count': counts['reactions'],
+                'shares_count': counts['shares'],
+                'algorithm_score': score,
+                'is_read': is_read
+            })
+        
+        return scored_posts
+
+    async def _get_read_status_batch(self, user_id: int, post_ids: List[str]) -> Dict[str, bool]:
+        """Get read status for multiple posts in batch."""
+        if not post_ids:
+            return {}
+            
+        # Use the existing read status service if available
+        if hasattr(self, 'read_status_service'):
+            return await self.read_status_service.get_read_status_for_posts(user_id, post_ids)
+        
+        # Fallback to individual checks (less efficient but functional)
+        read_statuses = {}
+        for post_id in post_ids:
+            read_statuses[post_id] = self.is_post_read(user_id, post_id)
+        return read_statuses
+
+    async def _get_engagement_counts_batch(self, post_ids: List[str]) -> Dict[str, Dict[str, int]]:
+        """
+        Get engagement counts for multiple posts in batch to avoid N+1 queries.
+        
+        Args:
+            post_ids: List of post IDs to get engagement counts for
+            
+        Returns:
+            Dict mapping post_id to engagement counts dict with keys: hearts, reactions, shares
+        """
+        if not post_ids:
+            return {}
+            
+        # Get hearts counts
+        hearts_query = select(
+            Like.post_id,
+            func.count(Like.id).label('count')
+        ).where(
+            Like.post_id.in_(post_ids)
+        ).group_by(Like.post_id)
+        
+        hearts_result = await self.db.execute(hearts_query)
+        hearts_counts = {row.post_id: row.count for row in hearts_result}
+        
+        # Get reactions counts
+        reactions_query = select(
+            EmojiReaction.post_id,
+            func.count(EmojiReaction.id).label('count')
+        ).where(
+            EmojiReaction.post_id.in_(post_ids)
+        ).group_by(EmojiReaction.post_id)
+        
+        reactions_result = await self.db.execute(reactions_query)
+        reactions_counts = {row.post_id: row.count for row in reactions_result}
+        
+        # Get shares counts
+        shares_query = select(
+            Share.post_id,
+            func.count(Share.id).label('count')
+        ).where(
+            Share.post_id.in_(post_ids)
+        ).group_by(Share.post_id)
+        
+        shares_result = await self.db.execute(shares_query)
+        shares_counts = {row.post_id: row.count for row in shares_result}
+        
+        # Combine all counts
+        engagement_counts = {}
+        for post_id in post_ids:
+            engagement_counts[post_id] = {
+                'hearts': hearts_counts.get(post_id, 0),
+                'reactions': reactions_counts.get(post_id, 0),
+                'shares': shares_counts.get(post_id, 0)
+            }
+            
+        return engagement_counts
+
     async def calculate_post_score(
         self, 
         post: Post, 
@@ -693,55 +822,14 @@ class AlgorithmService(BaseService):
         result = await self.db.execute(query)
         posts = result.scalars().all()
 
-        # Calculate scores for each post
-        scored_posts = []
-        for post in posts:
-            # Get engagement counts separately to avoid JOIN multiplication issues
-            hearts_result = await self.db.execute(
-                select(func.count(Like.id)).where(Like.post_id == post.id)
-            )
-            hearts_count = hearts_result.scalar() or 0
-
-            reactions_result = await self.db.execute(
-                select(func.count(EmojiReaction.id)).where(EmojiReaction.post_id == post.id)
-            )
-            reactions_count = reactions_result.scalar() or 0
-
-            shares_result = await self.db.execute(
-                select(func.count(Share.id)).where(Share.post_id == post.id)
-            )
-            shares_count = shares_result.scalar() or 0
-
-            score = await self.calculate_post_score(
-                post, user_id, hearts_count, reactions_count, shares_count, consider_read_status, user_last_feed_view
-            )
-
-            scored_posts.append({
-                'id': post.id,
-                'author_id': post.author_id,
-                'content': post.content,
-                'post_style': post.post_style,
-                'post_type': post.post_type.value,
-                'image_url': post.image_url,
-                'location': post.location,
-                'location_data': post.location_data,
-                'is_public': post.is_public,
-                'created_at': post.created_at.isoformat() if post.created_at else None,
-                'updated_at': post.updated_at.isoformat() if post.updated_at else None,
-                'author': {
-                    'id': post.author.id,
-                    'username': post.author.username,
-                    'display_name': post.author.display_name,
-                    'name': post.author.display_name or post.author.username,
-                    'email': post.author.email,
-                    'profile_image_url': post.author.profile_image_url
-                } if post.author else None,
-                'hearts_count': hearts_count,
-                'reactions_count': reactions_count,
-                'shares_count': shares_count,
-                'algorithm_score': score,
-                'is_read': self.is_post_read(user_id, post.id) if consider_read_status else False
-            })
+        # Get engagement counts for all posts in batch to avoid N+1 queries
+        post_ids = [post.id for post in posts]
+        engagement_counts = await self._get_engagement_counts_batch(post_ids)
+        
+        # Calculate scores for all posts in batch for better performance
+        scored_posts = await self._calculate_batch_post_scores(
+            posts, user_id, engagement_counts, consider_read_status, user_last_feed_view
+        )
 
         # Apply diversity limits and preference control
         scored_posts = await self._apply_diversity_and_preference_control(scored_posts, user_id)
@@ -772,24 +860,14 @@ class AlgorithmService(BaseService):
         result = await self.db.execute(query)
         posts = result.scalars().all()
 
+        # Get engagement counts for all posts in batch to avoid N+1 queries
+        post_ids = [post.id for post in posts]
+        engagement_counts = await self._get_engagement_counts_batch(post_ids)
+        
         # Convert to dict format with engagement counts
         recent_posts = []
         for post in posts:
-            # Get engagement counts
-            hearts_result = await self.db.execute(
-                select(func.count(Like.id)).where(Like.post_id == post.id)
-            )
-            hearts_count = hearts_result.scalar() or 0
-
-            reactions_result = await self.db.execute(
-                select(func.count(EmojiReaction.id)).where(EmojiReaction.post_id == post.id)
-            )
-            reactions_count = reactions_result.scalar() or 0
-
-            shares_result = await self.db.execute(
-                select(func.count(Share.id)).where(Share.post_id == post.id)
-            )
-            shares_count = shares_result.scalar() or 0
+            counts = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
 
             recent_posts.append({
                 'id': post.id,
@@ -811,9 +889,9 @@ class AlgorithmService(BaseService):
                     'email': post.author.email,
                     'profile_image_url': post.author.profile_image_url
                 } if post.author else None,
-                'hearts_count': hearts_count,
-                'reactions_count': reactions_count,
-                'shares_count': shares_count,
+                'hearts_count': counts['hearts'],
+                'reactions_count': counts['reactions'],
+                'shares_count': counts['shares'],
                 'algorithm_score': 0.0,  # Recent posts don't get algorithm scoring
                 'is_read': self.is_post_read(user_id, post.id) if consider_read_status else False
             })
@@ -865,28 +943,18 @@ class AlgorithmService(BaseService):
         result = await self.db.execute(query)
         posts = result.scalars().all()
 
+        # Get engagement counts for all posts in batch to avoid N+1 queries
+        post_ids = [post.id for post in posts]
+        engagement_counts = await self._get_engagement_counts_batch(post_ids)
+        
         # Convert to dict format with engagement counts and unread boost
         unread_posts = []
         for post in posts:
-            # Get engagement counts
-            hearts_result = await self.db.execute(
-                select(func.count(Like.id)).where(Like.post_id == post.id)
-            )
-            hearts_count = hearts_result.scalar() or 0
-
-            reactions_result = await self.db.execute(
-                select(func.count(EmojiReaction.id)).where(EmojiReaction.post_id == post.id)
-            )
-            reactions_count = reactions_result.scalar() or 0
-
-            shares_result = await self.db.execute(
-                select(func.count(Share.id)).where(Share.post_id == post.id)
-            )
-            shares_count = shares_result.scalar() or 0
+            counts = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
 
             # Calculate score with unread boost
             score = await self.calculate_post_score(
-                post, user_id, hearts_count, reactions_count, shares_count, consider_read_status, user_last_feed_view
+                post, user_id, counts['hearts'], counts['reactions'], counts['shares'], consider_read_status, user_last_feed_view
             )
 
             unread_posts.append({
@@ -909,9 +977,9 @@ class AlgorithmService(BaseService):
                     'email': post.author.email,
                     'profile_image_url': post.author.profile_image_url
                 } if post.author else None,
-                'hearts_count': hearts_count,
-                'reactions_count': reactions_count,
-                'shares_count': shares_count,
+                'hearts_count': counts['hearts'],
+                'reactions_count': counts['reactions'],
+                'shares_count': counts['shares'],
                 'algorithm_score': score,
                 'is_read': False,  # These are unread by definition
                 'is_unread': True  # Mark as unread for frontend
