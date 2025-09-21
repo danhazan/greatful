@@ -153,7 +153,8 @@ class SecurityConfig:
             "Referrer-Policy": "strict-origin-when-cross-origin",
             "Cross-Origin-Embedder-Policy": "require-corp",
             "Cross-Origin-Opener-Policy": "same-origin",
-            "Cross-Origin-Resource-Policy": "same-origin",
+            # Allow cross-origin access to static files in development
+            "Cross-Origin-Resource-Policy": "same-origin" if self.is_production else "cross-origin",
             "Permissions-Policy": ", ".join([
                 "camera=()",
                 "microphone=()",

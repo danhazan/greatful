@@ -147,6 +147,7 @@ temp/
 
 # Security test reports
 security_test_report_*.json
+security_validation_report.json
 
 # Redis dump
 dump.rdb
