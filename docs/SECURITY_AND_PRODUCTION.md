@@ -20,6 +20,173 @@ This document provides comprehensive guidance for deploying and maintaining the 
 
 The Grateful API implements multiple layers of security to protect against common web application vulnerabilities and achieves **92.9% security test success rate** with **STRONG** security status.
 
+## HTTPS & SSL/TLS Security
+
+### SSL/TLS Configuration
+
+The API implements comprehensive SSL/TLS security features for production deployment:
+
+#### HTTPS Redirect Enforcement
+- **Automatic HTTPS Redirect**: All HTTP traffic is automatically redirected to HTTPS in production
+- **Load Balancer Support**: Handles X-Forwarded-Proto and X-Forwarded-SSL headers
+- **Development Exemptions**: Localhost traffic exempted in development environments
+- **Health Check Exemptions**: Health check endpoints exempted from redirects
+
+#### HSTS (HTTP Strict Transport Security)
+- **Enhanced HSTS Headers**: Comprehensive HSTS implementation with configurable options
+- **Long Max-Age**: Default 2-year max-age for enhanced security (configurable)
+- **Subdomain Protection**: includeSubDomains directive enabled by default
+- **Preload Support**: HSTS preload directive for browser preload lists
+
+#### Secure Cookie Configuration
+- **Automatic Cookie Security**: All cookies automatically secured with appropriate attributes
+- **Secure Attribute**: Added to all cookies in production HTTPS environments
+- **HttpOnly Protection**: Sensitive cookies protected from JavaScript access
+- **SameSite Protection**: Configurable SameSite attribute (Lax by default)
+
+### SSL Certificate Management
+
+#### Certificate Validation
+- **Automated Certificate Checking**: Built-in SSL certificate validation utilities
+- **Expiration Monitoring**: Automatic detection of certificates expiring within 30 days
+- **Multi-Domain Support**: Simultaneous checking of multiple domain certificates
+- **Detailed Certificate Information**: Subject, issuer, validity period, and SAN extraction
+
+#### Certificate Monitoring API
+```bash
+# Check configured domain certificates
+GET /api/v1/ssl/certificates
+
+# Check specific domain certificates
+POST /api/v1/ssl/certificates/check
+{
+  "domains": ["example.com", "api.example.com"]
+}
+
+# Get SSL configuration status
+GET /api/v1/ssl/status
+
+# Public SSL health check
+GET /api/v1/ssl/health
+```
+
+#### Auto-Renewal Testing
+```bash
+# Test SSL certificate auto-renewal readiness
+python scripts/ssl_certificate_monitor.py --test-renewal
+
+# Check configured domain certificates
+python scripts/ssl_certificate_monitor.py --check-configured
+
+# Generate comprehensive SSL report
+python scripts/ssl_certificate_monitor.py --generate-report --output ssl_report.json
+```
+
+### Production SSL/TLS Configuration
+
+#### Environment Variables
+```bash
+# HTTPS Enforcement
+SSL_REDIRECT=true
+
+# HSTS Configuration
+HSTS_MAX_AGE=63072000  # 2 years for enhanced security
+HSTS_PRELOAD=true
+HSTS_INCLUDE_SUBDOMAINS=true
+
+# Secure Cookie Configuration
+SECURE_COOKIES=true
+COOKIE_SAMESITE=Lax
+COOKIE_HTTPONLY=true
+
+# CORS with HTTPS Origins
+ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+```
+
+#### SSL Security Validation
+The system automatically validates SSL/TLS configuration on startup:
+
+- **HTTPS Redirect**: Ensures SSL redirect is enabled in production
+- **HSTS Configuration**: Validates HSTS max-age and directives
+- **Secure Origins**: Ensures all production origins use HTTPS
+- **Certificate Status**: Monitors certificate validity and expiration
+
+#### Certificate Expiration Alerts
+```bash
+# Configure certificate monitoring alerts
+ENABLE_EMAIL_ALERTS=true
+SECURITY_ALERT_EMAIL=security@yourdomain.com
+
+# Certificate expiration thresholds
+# - Critical: 7 days until expiration
+# - Warning: 30 days until expiration
+# - Info: 90 days until expiration
+```
+
+### SSL/TLS Security Headers
+
+The system automatically adds comprehensive SSL/TLS security headers:
+
+```http
+# HSTS Header (HTTPS requests only)
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+# Content Security Policy with HTTPS enforcement
+Content-Security-Policy: default-src 'self'; upgrade-insecure-requests
+
+# Additional Security Headers
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Opener-Policy: same-origin
+```
+
+### SSL/TLS Monitoring and Alerting
+
+#### Health Checks
+```bash
+# Basic SSL health check (public)
+curl https://yourdomain.com/api/v1/ssl/health
+
+# Detailed SSL status (authenticated)
+curl -H "Authorization: Bearer $TOKEN" https://yourdomain.com/api/v1/ssl/status
+```
+
+#### Certificate Monitoring Script
+```bash
+# Daily certificate check (add to cron)
+0 2 * * * /path/to/python /path/to/scripts/ssl_certificate_monitor.py --check-configured
+
+# Weekly comprehensive report
+0 2 * * 0 /path/to/python /path/to/scripts/ssl_certificate_monitor.py --generate-report --output /var/log/ssl_report.json
+```
+
+#### Alert Thresholds
+- **Critical**: Certificate expires within 7 days
+- **Warning**: Certificate expires within 30 days
+- **Info**: Certificate expires within 90 days
+- **Error**: Certificate validation failed or invalid
+
+### SSL/TLS Best Practices
+
+#### Certificate Management
+1. **Use Automated Certificate Management**: Implement Let's Encrypt or similar automated CA
+2. **Monitor Certificate Expiration**: Set up automated monitoring and alerting
+3. **Test Certificate Renewal**: Regularly test auto-renewal processes
+4. **Backup Certificates**: Maintain secure backups of certificates and private keys
+
+#### Security Configuration
+1. **Enable HSTS Preload**: Submit domains to HSTS preload list
+2. **Use Long HSTS Max-Age**: Configure 2+ year max-age for enhanced security
+3. **Secure All Subdomains**: Enable includeSubDomains directive
+4. **Force HTTPS Everywhere**: Redirect all HTTP traffic to HTTPS
+
+#### Monitoring and Maintenance
+1. **Regular Certificate Audits**: Monthly certificate status reviews
+2. **Automated Health Checks**: Continuous SSL endpoint monitoring
+3. **Security Header Validation**: Regular security header compliance checks
+4. **Certificate Chain Validation**: Ensure complete certificate chain validity
+
 ### Current Security Status: 🟢 STRONG (92.9% Success Rate)
 
 **Security Assessment Summary:**

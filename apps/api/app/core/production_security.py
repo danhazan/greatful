@@ -196,9 +196,24 @@ class ProductionSecurityManager:
                 if indicator in database_url.lower():
                     warnings.append(f"Database URL contains development indicator: {indicator}")
         
-        # Check SSL configuration
+        # Check SSL/TLS configuration
         if security_config.is_production and not security_config.ssl_redirect:
-            warnings.append("SSL_REDIRECT should be enabled in production")
+            issues.append("SSL_REDIRECT must be enabled in production")
+        
+        # Check HSTS configuration
+        if security_config.is_production:
+            if security_config.hsts_max_age < 31536000:  # 1 year minimum
+                warnings.append("HSTS_MAX_AGE should be at least 1 year (31536000 seconds)")
+            
+            if not security_config.hsts_preload:
+                recommendations.append("Consider enabling HSTS preload for enhanced security")
+            
+            if not security_config.hsts_include_subdomains:
+                recommendations.append("Consider enabling HSTS includeSubDomains for comprehensive protection")
+        
+        # Check secure cookie configuration
+        if security_config.is_production and not security_config.secure_cookies:
+            warnings.append("SECURE_COOKIES should be enabled in production")
         
         return issues, warnings, recommendations
     

@@ -20,6 +20,7 @@ from app.api.v1.health import router as health_router
 from app.api.v1.error_reporting import router as error_reporting_router
 from app.api.v1.monitoring import router as monitoring_router
 from app.api.v1.security import router as security_router
+from app.api.v1.ssl import router as ssl_router
 from app.core.database import init_db
 from app.core.middleware import ErrorHandlingMiddleware, RequestValidationMiddleware
 from app.core.validation_middleware import (
@@ -31,6 +32,7 @@ from app.core.rate_limiting import RateLimitingMiddleware, SecurityHeadersMiddle
 from app.core.input_sanitization import InputSanitizationMiddleware
 from app.core.request_size_middleware import RequestSizeLimitMiddleware
 from app.core.request_id_middleware import RequestIDMiddleware
+from app.core.ssl_middleware import HTTPSRedirectMiddleware
 from app.core.security_config import security_config
 from app.core.openapi_validator import create_openapi_validator
 from app.core.exceptions import BaseAPIException
@@ -155,6 +157,7 @@ async def validation_exception_handler(request, exc: RequestValidationError):
 
 # Add middleware (order matters - first added is outermost)
 app.add_middleware(ErrorHandlingMiddleware)
+app.add_middleware(HTTPSRedirectMiddleware)  # HTTPS redirect should be first for security
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(RateLimitingMiddleware, limiter=get_rate_limiter())
@@ -181,6 +184,8 @@ app.include_router(error_reporting_router, prefix="/api", tags=["error-reporting
 app.include_router(monitoring_router, prefix="/api/v1", tags=["monitoring"])
 # Security - requires authentication for security monitoring and configuration
 app.include_router(security_router, prefix="/api/v1/security", tags=["security"])
+# SSL/TLS - requires authentication for SSL certificate monitoring and configuration
+app.include_router(ssl_router, prefix="/api/v1/ssl", tags=["ssl"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(posts_router, prefix="/api/v1/posts", tags=["posts"])

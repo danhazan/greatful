@@ -34,9 +34,16 @@ class SecurityConfig:
     # CSP Domains
     csp_domains: List[str] = None
     
-    # SSL/TLS
-    ssl_redirect: bool = os.getenv("SSL_REDIRECT", "false").lower() == "true"
+    # SSL/TLS Configuration
+    ssl_redirect: bool = os.getenv("SSL_REDIRECT", "true" if os.getenv("ENVIRONMENT", "development") == "production" else "false").lower() == "true"
     hsts_max_age: int = int(os.getenv("HSTS_MAX_AGE", "31536000"))  # 1 year
+    hsts_preload: bool = os.getenv("HSTS_PRELOAD", "true").lower() == "true"
+    hsts_include_subdomains: bool = os.getenv("HSTS_INCLUDE_SUBDOMAINS", "true").lower() == "true"
+    
+    # Secure Cookie Configuration
+    secure_cookies: bool = os.getenv("SECURE_COOKIES", "true").lower() == "true"
+    cookie_samesite: str = os.getenv("COOKIE_SAMESITE", "Lax")  # Lax, Strict, or None
+    cookie_httponly: bool = os.getenv("COOKIE_HTTPONLY", "true").lower() == "true"
     
     # Logging
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
@@ -179,7 +186,12 @@ class SecurityConfig:
         
         # Add HSTS header for production with enhanced security
         if self.is_production:
-            headers["Strict-Transport-Security"] = f"max-age={self.hsts_max_age}; includeSubDomains; preload"
+            hsts_value = f"max-age={self.hsts_max_age}"
+            if self.hsts_include_subdomains:
+                hsts_value += "; includeSubDomains"
+            if self.hsts_preload:
+                hsts_value += "; preload"
+            headers["Strict-Transport-Security"] = hsts_value
         
         return headers
     
@@ -213,6 +225,30 @@ class SecurityConfig:
             "/api/v1/auth/login": 1024,  # 1KB
             "/api/v1/auth/signup": 2048,  # 2KB
             "/api/v1/auth/refresh": 1024,  # 1KB
+        }
+    
+    def get_ssl_config(self) -> Dict[str, Any]:
+        """Get SSL/TLS configuration."""
+        return {
+            "ssl_redirect": self.ssl_redirect,
+            "hsts_max_age": self.hsts_max_age,
+            "hsts_preload": self.hsts_preload,
+            "hsts_include_subdomains": self.hsts_include_subdomains,
+            "secure_cookies": self.secure_cookies,
+            "cookie_samesite": self.cookie_samesite,
+            "cookie_httponly": self.cookie_httponly,
+            "force_https_in_production": self.is_production
+        }
+    
+    def get_cookie_security_config(self) -> Dict[str, Any]:
+        """Get secure cookie configuration."""
+        return {
+            "secure": self.secure_cookies and self.is_production,
+            "httponly": self.cookie_httponly,
+            "samesite": self.cookie_samesite,
+            "domain": None,  # Let browser determine
+            "path": "/",
+            "max_age": None  # Session cookies by default
         }
 
 
