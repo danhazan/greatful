@@ -3,6 +3,7 @@
 ## 📋 Executive Summary
 
 ### ⚠️ Active Issues
+- **✏️ Edit Post Functionality Broken**: Edit post feature fails with "Update Failed" error
 - **🔤 RTL Text Reversal**: Hebrew and Arabic text displaying in reversed character order
 - **📱 Mobile Search Bar Expansion**: Mobile search bar not expanding when search icon is clicked
 - **🔤 Notification Username Instead of Display Name**: Notifications show username instead of display name
@@ -230,6 +231,73 @@ The navbar was using the same data normalization issue that was previously fixed
 ---
 
 ## ⚠️ Active Issues
+
+### Edit Post Functionality Broken
+**Issue**: Edit post feature fails with "Update Failed" error when attempting to save changes  
+**Status**: ⚠️ Active Issue  
+**Priority**: High  
+**Impact**: Core Functionality - Users cannot edit their posts  
+**Discovered**: September 21, 2025  
+
+**Description**:
+The edit post functionality is completely broken. When users attempt to edit a post and click "Update Post", the system displays an "Update Failed" error message with "Failed to edit post". This affects all post editing attempts regardless of the type of changes being made.
+
+**Technical Details**:
+- Backend: PUT /api/v1/posts/{id} endpoint may have issues ❌
+- Database: Post updates may not be processing correctly ❌
+- Frontend: EditPostModal shows error message consistently ❌
+- Issue: Complete failure of post editing functionality
+
+**Current Behavior**:
+- User clicks edit button on their post ✅
+- EditPostModal opens with current post content ✅
+- User makes changes to content, style, etc. ✅
+- User clicks "Update Post" button ❌
+- System displays "Update Failed - Failed to edit post" error ❌
+- Post changes are not saved ❌
+
+**Expected Behavior**:
+- User should be able to edit post content successfully
+- Changes should be saved to the database
+- Post should update in the UI immediately
+- Success message should be displayed
+
+**Reproduction Steps**:
+1. Navigate to a post you created
+2. Click the edit button (pencil icon)
+3. Make any changes to the post content
+4. Click "Update Post" button
+5. Observe "Update Failed" error message
+6. Note that changes are not saved
+
+**Root Cause**: 
+- Likely API endpoint issue with PUT /api/v1/posts/{id}
+- Possible authentication/authorization problems
+- May be related to request format or validation errors
+- Could be database constraint or model validation issues
+
+**Impact**: 
+- Users cannot edit their posts at all
+- Core content management functionality is broken
+- Affects user experience significantly
+- May lead to user frustration and content management issues
+
+**Workaround**: Currently no workaround available - users must delete and recreate posts to make changes.
+
+**Priority**: High - Core functionality is completely broken, affecting basic user content management.
+
+**Investigation Required**:
+- Check backend API logs for PUT /api/v1/posts/{id} endpoint errors
+- Verify request format and payload structure
+- Test authentication and authorization for post editing
+- Check database constraints and model validation
+- Review frontend error handling and API call implementation
+
+**Files Likely Affected**:
+- `apps/web/src/components/EditPostModal.tsx` - Frontend edit interface
+- `apps/api/app/api/v1/posts.py` - Backend PUT endpoint
+- `apps/api/app/models/post.py` - Post model validation
+- `apps/web/src/app/api/posts/[id]/route.ts` - Frontend API route
 
 ### RTL Text Reversal Issue
 **Issue**: Hebrew and Arabic text displaying in reversed character order after implementing RTL support  
