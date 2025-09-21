@@ -961,20 +961,22 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
     - Portal-based rendering, animation timing, and `requestAnimationFrame` behavior create excessive test complexity
     - Remove references to deleted tests from test configuration and documentation
     - _Requirements: Test suite efficiency and maintainability_
-  - **16.8.3 Prepare Follow Button Tests for Re-enabling (After Task 13)**
-    - Document current state of strategically skipped follow button tests (50 tests total)
-    - Create checklist for re-enabling after Task 13 navbar changes complete:
-      - Follow Interactions Integration Tests (29 tests) - HIGH priority
-      - FollowButton Advanced Tests (19 tests) - HIGH priority  
-      - PostCard Follow Button Tests (2 tests) - MEDIUM priority
-    - Add TODO comments in test files with specific re-enabling instructions
-    - _Requirements: Test maintenance planning and documentation_
-  - **16.8.4 Document Navigation and Authentication Test Issues**
-    - Add detailed comments to UserSearchBar Navigation Tests (2 tests) explaining router mock issues
-    - Add detailed comments to PostPage Authentication Test (1 test) explaining authentication state mocking issues
-    - Create improvement plan for navigation system and authentication mocking when convenient
-    - Document that these tests should be fixed when navigation/auth systems are refactored
-    - _Requirements: Technical debt documentation and future improvement planning_
+  - **16.8.3 Fix Follow Button Tests (2-3 hours)**
+    - Re-enable and fix Follow Interactions Integration Tests (29 tests) - Update button text expectations and integration complexity
+    - Re-enable and fix FollowButton Advanced Tests (19 tests) - Fix toast system integration, complex mock setup, and state management
+    - Re-enable and fix PostCard Follow Button Tests (2 tests) - Update button size class expectations for current implementation
+    - Fix toast system interference between tests by implementing proper test isolation and cleanup
+    - Update complex mock setup for optimistic UI updates to match current component behavior
+    - Resolve state leakage between test cases with proper test environment reset
+    - _Requirements: Follow system integration testing and user experience validation_
+  - **16.8.4 Fix Navigation and Authentication Tests (1-2 hours)**
+    - Fix UserSearchBar Navigation Tests (2 tests) - Resolve router mock issues where router.push not triggered by user interactions
+    - Fix timing issues between user events and navigation calls with proper async handling
+    - Fix complex user interaction simulation with dropdown selection using improved test utilities
+    - Fix PostPage Authentication Test (1 test) - Resolve authentication state mocking not properly affecting component rendering
+    - Fix complex integration between authentication context and UI state with proper mock setup
+    - Fix mock token validation not working as expected in test environment
+    - _Requirements: Navigation functionality and authentication flow validation_
   - **16.8.5 Validate Strategic Test Skipping**
     - Confirm production security tests (16 tests) remain strategically skipped - this is correct by design
     - Confirm load tests (31 tests) remain strategically skipped for development - this is correct by design
