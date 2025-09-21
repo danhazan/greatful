@@ -1,0 +1,110 @@
+{
+  "timestamp": "2025-09-21T23:10:10.557687",
+  "validation_type": "production_security",
+  "environment": "production",
+  "tests": {
+    "secret_key_strength": {
+      "test_name": "Secret Key Strength",
+      "passed": true,
+      "details": {
+        "length": 86,
+        "length_check": "PASS",
+        "complexity_score": "4/4",
+        "is_default_key": false
+      }
+    },
+    "https_configuration": {
+      "test_name": "HTTPS Configuration",
+      "passed": true,
+      "details": {
+        "ssl_redirect_enabled": true,
+        "hsts_max_age": 63072000,
+        "hsts_min_requirement": 31536000,
+        "https_origins": 2,
+        "insecure_origins": 0
+      }
+    },
+    "security_headers": {
+      "test_name": "Security Headers",
+      "passed": true,
+      "details": {
+        "present_headers": [
+          "Content-Security-Policy",
+          "X-Frame-Options",
+          "X-Content-Type-Options",
+          "X-XSS-Protection",
+          "Referrer-Policy"
+        ],
+        "missing_headers": [],
+        "total_required": 5,
+        "total_present": 5,
+        "header_checks": {
+          "x_frame_options": true,
+          "x_content_type_options": true,
+          "csp_default_src_self": true,
+          "csp_object_src_none": true
+        }
+      }
+    },
+    "cors_configuration": {
+      "test_name": "CORS Configuration",
+      "passed": true,
+      "details": {
+        "allowed_origins": [
+          "https://example.com",
+          "https://www.example.com"
+        ],
+        "has_wildcard_origin": false,
+        "insecure_origins": [],
+        "allow_credentials": true
+      }
+    },
+    "rate_limiting": {
+      "test_name": "Rate Limiting",
+      "passed": true,
+      "details": {
+        "rate_limits": {
+          "default": 100,
+          "auth": 10,
+          "upload": 20,
+          "public": 200,
+          "POST:/api/v1/posts": 30,
+          "POST:/api/v1/posts/*/reactions": 60,
+          "POST:/api/v1/posts/*/share": 20,
+          "POST:/api/v1/follows/*": 30,
+          "GET:/api/v1/follows/*/status": 200,
+          "GET:/api/v1/users/*/followers": 100,
+          "GET:/api/v1/users/*/following": 100,
+          "GET:/api/v1/users/*/follow-stats": 150,
+          "POST:/api/v1/users/search": 60,
+          "GET:/api/v1/notifications": 120
+        },
+        "default_limit": 100,
+        "auth_limit": 10,
+        "reasonable_limits": true
+      }
+    },
+    "security_test_suite": {
+      "test_name": "Security Test Suite",
+      "passed": true,
+      "details": {
+        "exit_code": 0,
+        "stdout": "d 40 items\n\ntests/security/test_security_compliance.py ............................. [ 72%]\n...........                                                              [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.12/site-packages/passlib/utils/__init__.py:854\n  /home/danha/Projects/Kiro/greatful/apps/api/venv/lib/python3.12/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13\n    from crypt import crypt as _crypt\n\nvenv/lib/python3.12/site-packages/_pytest/config/__init__.py:1373\n  /home/danha/Projects/Kiro/greatful/apps/api/venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1373: PytestConfigWarning: Unknown config option: env\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 40 passed, 2 warnings in 4.58s ========================\n",
+        "stderr": "",
+        "tests_passed": 40,
+        "tests_failed": 0
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 6,
+    "passed_tests": 6,
+    "failed_tests": 0,
+    "success_rate": 100.0,
+    "production_ready": true,
+    "critical_issues": 0,
+    "recommendations_count": 0,
+    "security_status": "EXCELLENT"
+  },
+  "recommendations": []
+}
