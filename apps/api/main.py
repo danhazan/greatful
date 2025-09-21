@@ -19,6 +19,7 @@ from app.api.v1.database import router as database_router
 from app.api.v1.health import router as health_router
 from app.api.v1.error_reporting import router as error_reporting_router
 from app.api.v1.monitoring import router as monitoring_router
+from app.api.v1.security import router as security_router
 from app.core.database import init_db
 from app.core.middleware import ErrorHandlingMiddleware, RequestValidationMiddleware
 from app.core.validation_middleware import (
@@ -178,6 +179,8 @@ app.include_router(health_router, tags=["health"])
 app.include_router(error_reporting_router, prefix="/api", tags=["error-reporting"])
 # Monitoring - requires authentication and admin privileges
 app.include_router(monitoring_router, prefix="/api/v1", tags=["monitoring"])
+# Security - requires authentication for security monitoring and configuration
+app.include_router(security_router, prefix="/api/v1/security", tags=["security"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(posts_router, prefix="/api/v1/posts", tags=["posts"])

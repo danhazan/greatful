@@ -121,8 +121,8 @@ class SecurityConfig:
         }
     
     def get_security_headers(self) -> Dict[str, str]:
-        """Get security headers configuration."""
-        # Content Security Policy
+        """Get production-grade security headers configuration."""
+        # Enhanced Content Security Policy for production
         csp_directives = [
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Allow inline scripts for Next.js
@@ -135,6 +135,7 @@ class SecurityConfig:
             "base-uri 'self'",
             "form-action 'self'",
             "frame-ancestors 'none'",
+            "upgrade-insecure-requests",  # Force HTTPS in production
         ]
         
         # Add CSP domains if specified
@@ -143,12 +144,16 @@ class SecurityConfig:
             csp_directives[0] = f"default-src 'self' {domains}"
             csp_directives[5] = f"connect-src 'self' ws: wss: {domains}"
         
+        # Production-grade security headers
         headers = {
             "Content-Security-Policy": "; ".join(csp_directives),
             "X-Frame-Options": "DENY",
             "X-Content-Type-Options": "nosniff",
             "X-XSS-Protection": "1; mode=block",
             "Referrer-Policy": "strict-origin-when-cross-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp",
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Permissions-Policy": ", ".join([
                 "camera=()",
                 "microphone=()",
@@ -157,11 +162,21 @@ class SecurityConfig:
                 "usb=()",
                 "magnetometer=()",
                 "gyroscope=()",
-                "accelerometer=()"
-            ])
+                "accelerometer=()",
+                "fullscreen=(self)",
+                "display-capture=()",
+                "web-share=(self)"
+            ]),
+            # Security headers for API responses
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            # Server information hiding
+            "Server": "Grateful-API",
+            "X-Powered-By": "",  # Remove server technology disclosure
         }
         
-        # Add HSTS header for production
+        # Add HSTS header for production with enhanced security
         if self.is_production:
             headers["Strict-Transport-Security"] = f"max-age={self.hsts_max_age}; includeSubDomains; preload"
         

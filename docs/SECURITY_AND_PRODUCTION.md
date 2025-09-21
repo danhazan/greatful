@@ -1744,21 +1744,144 @@ alert_manager.add_custom_rule(
 - **PCI DSS Compliance**: ✅ Basic requirements met (no payment data)
 - **HIPAA Compliance**: ✅ Basic requirements met (no health data)
 
-## Deployment Checklist
+## Critical Production Security Configuration
+The Grateful API now includes comprehensive production-grade security configuration and monitoring:
 
-### Pre-Deployment
+#### 1. Production-Grade Security Headers ✅ IMPLEMENTED
+- **Enhanced Content Security Policy (CSP)**: Comprehensive CSP with upgrade-insecure-requests
+- **HTTP Strict Transport Security (HSTS)**: Full HSTS with preload and includeSubDomains
+- **Cross-Origin Policies**: COEP, COOP, and CORP headers for enhanced isolation
+- **Security Headers**: X-Frame-Options, X-Content-Type-Options, X-XSS-Protection
+- **Permissions Policy**: Restrictive permissions for sensitive browser APIs
+- **Cache Control**: Secure cache headers preventing sensitive data caching
 
-- [ ] Update `.env.production` with secure values
-- [ ] Verify SECRET_KEY is not default value
-- [ ] Configure ALLOWED_ORIGINS for production domains
-- [ ] Set up SSL/TLS certificates
-- [ ] Configure database with SSL and connection pooling
-- [ ] Set up automated backup strategy with retention policy
-- [ ] Configure database performance monitoring
-- [ ] Set up index monitoring and optimization
-- [ ] Configure migration rollback procedures
-- [ ] Set up performance alerting thresholds
-- [ ] Configure monitoring and alerting
+#### 2. Comprehensive Audit Logging ✅ IMPLEMENTED
+- **Security Event Types**: 20+ security event types including authentication, authorization, and attack attempts
+- **Structured Logging**: JSON-formatted security logs with full context
+- **Event Correlation**: Request ID tracking across all security events
+- **Threat Pattern Detection**: Automated detection of brute force, injection attempts, and suspicious activity
+- **Security Metrics**: Real-time security metrics collection and analysis
+
+#### 3. Production CORS Policies ✅ IMPLEMENTED
+- **HTTPS-Only Origins**: Production validation ensures HTTPS-only origins
+- **Restricted Origins**: No wildcard origins allowed in production
+- **Credential Handling**: Secure credential handling with proper headers
+- **Origin Validation**: Automated validation of CORS configuration
+
+#### 4. Secure JWT Token Configuration ✅ IMPLEMENTED
+- **Enhanced JWT Claims**: nbf, iss, aud claims with security context
+- **Token Validation**: Comprehensive token validation with security checks
+- **Secure Token Generation**: Cryptographically secure JTI generation
+- **Production Validation**: Automatic validation of JWT configuration
+- **Token Expiration**: Configurable expiration with security recommendations
+
+#### 5. Automated Security Monitoring ✅ IMPLEMENTED
+- **Real-Time Threat Detection**: 6 threat detection rules with configurable thresholds
+- **Security Alerts**: Multi-level alert system (LOW, MEDIUM, HIGH, CRITICAL)
+- **Alert Handlers**: Email, Slack, and webhook alert integration
+- **Security Dashboard**: Comprehensive security monitoring dashboard
+- **Incident Response**: Automated incident detection and response recommendations
+
+#### 6. Environment Variable Validation ✅ IMPLEMENTED
+- **Startup Validation**: Comprehensive security configuration validation on startup
+- **Production Checks**: Specific validation for production environment
+- **Security Scoring**: Automated security score calculation (0-100)
+- **Configuration Recommendations**: Automated security recommendations
+
+#### 7. Security API Endpoints ✅ IMPLEMENTED
+- **GET /api/v1/security/config/validate**: Validate security configuration
+- **GET /api/v1/security/status**: Comprehensive security status report
+- **GET /api/v1/security/alerts**: Security alerts with filtering
+- **GET /api/v1/security/metrics**: Security metrics and analytics
+- **GET /api/v1/security/monitoring/config**: Monitoring configuration
+- **POST /api/v1/security/test-alert**: Test alert system
+
+### Security Configuration Files Updated:
+- `apps/api/app/core/security_config.py`: Enhanced security configuration
+- `apps/api/app/core/production_security.py`: Production security management
+- `apps/api/app/core/security_monitoring.py`: Advanced security monitoring
+- `apps/api/app/core/security_audit.py`: Comprehensive audit logging
+- `apps/api/app/core/security.py`: Enhanced JWT token security
+- `apps/api/.env.production.example`: Complete production configuration template
+- `apps/api/scripts/validate_production_security.py`: Production security validation script
+
+### Security API Endpoints:
+- `GET /api/v1/security/config/validate`: Validate security configuration
+- `GET /api/v1/security/status`: Comprehensive security status report  
+- `GET /api/v1/security/alerts`: Security alerts with filtering
+- `GET /api/v1/security/metrics`: Security metrics and analytics
+- `GET /api/v1/security/monitoring/config`: Monitoring configuration
+- `POST /api/v1/security/test-alert`: Test alert system
+
+### Security Validation Results:
+- **Configuration Validation**: Automated validation on startup with security scoring (0-100)
+- **JWT Security**: Enhanced token security with comprehensive validation and secure generation
+- **CORS Security**: Production-grade CORS policies with HTTPS-only validation
+- **Header Security**: Complete security headers implementation (CSP, HSTS, COEP, COOP, etc.)
+- **Monitoring**: Real-time security monitoring and alerting with 6 threat detection rules
+- **Audit Logging**: 20+ security event types with structured JSON logging
+
+## Production Deployment Checklist
+
+### Critical Security Configuration (MUST COMPLETE BEFORE DEPLOYMENT)
+
+#### 1. Environment Variables Configuration ✅ REQUIRED
+- [ ] **SECRET_KEY**: Generate secure 64+ character key using `python -c "import secrets; print(secrets.token_urlsafe(64))"`
+- [ ] **DATABASE_URL**: Configure with SSL (`?ssl=require`)
+- [ ] **ALLOWED_ORIGINS**: Set to HTTPS-only production domains (no wildcards)
+- [ ] **ENVIRONMENT**: Set to `production`
+- [ ] **SSL_REDIRECT**: Set to `true`
+- [ ] **ENABLE_DOCS**: Set to `false` (disable API docs in production)
+- [ ] **HSTS_MAX_AGE**: Set to `31536000` (1 year)
+- [ ] **VALIDATE_SECURITY_ON_STARTUP**: Set to `true`
+- [ ] **FAIL_ON_SECURITY_ISSUES**: Set to `true`
+
+#### 2. Security Headers Validation ✅ AUTOMATED
+- [ ] **HSTS**: Verify `Strict-Transport-Security` header with preload and includeSubDomains
+- [ ] **CSP**: Validate Content Security Policy with upgrade-insecure-requests
+- [ ] **CORS**: Confirm HTTPS-only origins in production (no HTTP except localhost)
+- [ ] **Cross-Origin Policies**: Verify COEP, COOP, and CORP headers
+- [ ] **Permissions Policy**: Restrictive permissions for sensitive browser APIs
+- [ ] **Cache Control**: Secure cache headers preventing sensitive data caching
+
+#### 3. JWT Token Security ✅ AUTOMATED
+- [ ] **Secret Key Validation**: Minimum 32 characters (recommended 64+), not default value
+- [ ] **Token Expiration**: Access tokens ≤ 60 minutes, Refresh tokens ≤ 90 days
+- [ ] **Enhanced Claims**: nbf, iss, aud claims with security context
+- [ ] **Token Validation**: Comprehensive JWT validation with all required claims
+- [ ] **Algorithm Security**: Using secure HS256 algorithm with proper validation
+
+#### 4. Database Security ✅ REQUIRED
+- [ ] **SSL Connection**: Database connection uses SSL/TLS (`ssl=require`)
+- [ ] **Connection Pooling**: Production-optimized pool settings (20 connections, 30 overflow)
+- [ ] **Backup System**: Automated backup system configured with 30-day retention
+- [ ] **Migration Safety**: Safe migration procedures with automatic backups
+- [ ] **Performance Monitoring**: Database performance monitoring enabled
+
+#### 5. Security Monitoring ✅ AUTOMATED
+- [ ] **Threat Detection**: 6 threat detection rules active (brute force, injection, etc.)
+- [ ] **Alert System**: Security alerts configured (email/Slack/webhook)
+- [ ] **Audit Logging**: Comprehensive security event logging (20+ event types)
+- [ ] **Monitoring Dashboard**: Security monitoring API endpoints active
+- [ ] **Real-time Monitoring**: Security monitoring enabled with threat pattern detection
+
+### Pre-Deployment Security Validation
+
+#### Automated Security Validation ✅ IMPLEMENTED
+```bash
+# Run comprehensive security validation
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+     http://localhost:8000/api/v1/security/config/validate
+
+# Expected response: {"is_valid": true, "issues": [], "warnings": []}
+```
+
+#### Security Configuration Tests
+- [ ] **Configuration Validation**: Run security configuration validation endpoint
+- [ ] **JWT Token Security**: Verify enhanced JWT token validation
+- [ ] **Security Headers**: Test all security headers are present and correct
+- [ ] **CORS Validation**: Verify CORS policies work correctly
+- [ ] **Threat Detection**: Test security monitoring and alert system
 
 ### Security Validation
 
@@ -1848,18 +1971,314 @@ Monitor for these indicators:
 - **Input Validation**: Prevent injection attacks
 - **Authentication**: Secure token management
 
-## Troubleshooting
+## Manual Security Verification
 
-### Common Issues
+### How to Manually Verify Security Improvements
+
+#### 1. Security Headers Verification
+
+**Using Brow
 
 #### Rate Limiting False Positives
 ```bash
 # Check rate limit status
 curl -H "Authorization: Bearer $TOKEN" \
      -I https://api.yourdomain.com/api/v1/posts
+ser Developer Tools:**
+```bash
+# Open browser developer tools (F12)
+# Navigate to Network tab
+# Make a request to 
+# Look for headers:your API
+# Check Response Headers for:
 
-# Look for headers:
-# X-RateLimit-Remaining: 95
+# Required Security Headers:
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; upgrade-insecure-requests
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+Cross-Origin-Embedder-Policy: require-corp
+# X-RateLimit-Remaining: 95n
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+```
+
+**Using curl:**
+```bash
+# Test security headers
+curl -I https://your-api-domain.com/health
+
+# Expected headers should include all security headers listed above
+```
+
+**Using Online Security Scanners:**
+```bash
+# Test with SecurityHeaders.com
+https://securityheaders.com/?q=https://your-api-domain.com
+
+# Test with Mozilla Observatory
+https://observatory.mozilla.org/analyze/your-api-domain.com
+```
+
+#### 2. JWT Token Security Verification
+
+**Test Token Validation:**
+```bash
+# 1. Get a valid token
+curl -X POST "https://your-api-domain.com/api/v1/auth/login" \
+     -H "Content-Type: application/json" \
+     -d '{"email": "user@example.com", "password": "password"}'
+
+# 2. Test with invalid token
+curl -H "Authorization: Bearer invalid-token" \
+     https://your-api-domain.com/api/v1/posts/feed
+# Expected: 401 Unauthorized
+
+# 3. Test with expired token (wait for expiration or modify token)
+curl -H "Authorization: Bearer expired-token" \
+     https://your-api-domain.com/api/v1/posts/feed
+# Expected: 401 Unauthorized
+
+# 4. Test token structure (decode JWT)
+echo "your-jwt-token" | cut -d. -f2 | base64 -d | jq .
+# Should contain: sub, iat, exp, jti, nbf, iss, aud claims
+```
+
+#### 3. CORS Policy Verification
+
+**Test CORS from Browser Console:**
+```javascript
+// Open browser console on a different domain
+// Try to make a request to your API
+fetch('https://your-api-domain.com/api/v1/posts/feed', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer your-token'
+  }
+})
+.then(response => console.log('Response:', response))
+.catch(error => console.log('CORS Error:', error));
+
+// From unauthorized domain: Should see CORS error
+// From authorized domain: Should work normally
+```
+
+**Test CORS with curl:**
+```bash
+# Test preflight request
+curl -X OPTIONS "https://your-api-domain.com/api/v1/posts" \
+     -H "Origin: https://unauthorized-domain.com" \
+     -H "Access-Control-Request-Method: POST" \
+     -H "Access-Control-Request-Headers: Authorization,Content-Type" \
+     -v
+
+# Should NOT include Access-Control-Allow-Origin for unauthorized domains
+```
+
+#### 4. Rate Limiting Verification
+
+**Test Rate Limits:**
+```bash
+# Test authentication rate limit (10 requests per minute)
+for i in {1..15}; do
+  echo "Request $i:"
+  curl -X POST "https://your-api-domain.com/api/v1/auth/login" \
+       -H "Content-Type: application/json" \
+       -d '{"email": "test@example.com", "password": "wrong"}' \
+       -w "Status: %{http_code}\n" -s -o /dev/null
+  sleep 1
+done
+# After 10 requests: Should return 429 Too Many Requests
+
+# Check rate limit headers
+curl -I -X POST "https://your-api-domain.com/api/v1/auth/login" \
+     -H "Content-Type: application/json" \
+     -d '{"email": "test@example.com", "password": "wrong"}'
+# Should include: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
+```
+
+#### 5. Input Sanitization Verification
+
+**Test XSS Prevention:**
+```bash
+# Test XSS in post content
+curl -X POST "https://your-api-domain.com/api/v1/posts" \
+     -H "Authorization: Bearer your-token" \
+     -H "Content-Type: application/json" \
+     -d '{"content": "<script>alert(\"XSS\")</script>", "type": "spontaneous"}'
+
+# Response should contain escaped HTML: &lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;
+```
+
+**Test SQL Injection Prevention:**
+```bash
+# Test SQL injection in search
+curl -X POST "https://your-api-domain.com/api/v1/users/search" \
+     -H "Authorization: Bearer your-token" \
+     -H "Content-Type: application/json" \
+     -d '{"query": "'; DROP TABLE users; --"}'
+
+# Should return 200/400/422, NOT 500 (no database error)
+```
+
+#### 6. Security Monitoring Verification
+
+**Test Security API Endpoints:**
+```bash
+# Test security status endpoint
+curl -H "Authorization: Bearer your-admin-token" \
+     https://your-api-domain.com/api/v1/security/status
+
+# Expected response with security metrics and status
+
+# Test security validation
+curl -H "Authorization: Bearer your-admin-token" \
+     https://your-api-domain.com/api/v1/security/config/validate
+
+# Expected response with validation results
+
+# Test security alerts
+curl -H "Authorization: Bearer your-admin-token" \
+     https://your-api-domain.com/api/v1/security/alerts
+
+# Expected response with alert information
+```
+
+**Test Threat Detection:**
+```bash
+# Trigger brute force detection (make many failed login attempts)
+for i in {1..20}; do
+  curl -X POST "https://your-api-domain.com/api/v1/auth/login" \
+       -H "Content-Type: application/json" \
+       -d '{"email": "test@example.com", "password": "wrong"}' \
+       -s -o /dev/null
+done
+
+# Check security logs for brute force detection
+# Check security alerts endpoint for new alerts
+```
+
+#### 7. Production Configuration Verification
+
+**Run Security Validation Script:**
+```bash
+cd apps/api
+python scripts/validate_production_security.py
+
+# Should show comprehensive security validation results
+# In production: All checks should pass
+# In development: Expected to show SECRET_KEY warning
+```
+
+**Verify Environment Variables:**
+```bash
+# Check critical environment variables are set
+echo "SECRET_KEY length: ${#SECRET_KEY}"  # Should be 32+ characters
+echo "DATABASE_URL: ${DATABASE_URL}"      # Should use SSL
+echo "ENVIRONMENT: ${ENVIRONMENT}"        # Should be 'production'
+echo "ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}" # Should be HTTPS-only
+```
+
+#### 8. SSL/TLS Verification
+
+**Test SSL Configuration:**
+```bash
+# Test SSL certificate
+openssl s_client -connect your-api-domain.com:443 -servername your-api-domain.com
+
+# Test SSL Labs rating
+# Visit: https://www.ssllabs.com/ssltest/analyze.html?d=your-api-domain.com
+# Should achieve A+ rating
+
+# Test HSTS
+curl -I https://your-api-domain.com/health | grep -i strict-transport-security
+# Should include: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+```
+
+#### 9. Authentication Security Verification
+
+**Test Authentication Flows:**
+```bash
+# Test password requirements (if implemented)
+curl -X POST "https://your-api-domain.com/api/v1/auth/signup" \
+     -H "Content-Type: application/json" \
+     -d '{"username": "test", "email": "test@example.com", "password": "weak"}'
+# Should enforce password requirements
+
+# Test account lockout (if implemented)
+# Make multiple failed login attempts and verify account protection
+
+# Test session security
+# Verify tokens expire correctly
+# Verify refresh token rotation
+```
+
+#### 10. Audit Logging Verification
+
+**Check Security Logs:**
+```bash
+# Check application logs for security events
+tail -f /var/log/grateful-api.log | grep "SECURITY"
+
+# Look for structured security events:
+# - LOGIN_SUCCESS, LOGIN_FAILURE
+# - RATE_LIMIT_EXCEEDED
+# - INVALID_TOKEN
+# - SUSPICIOUS_ACTIVITY
+
+# Verify log format is structured JSON with required fields:
+# - timestamp, event_type, user_id, severity, details, request_id
+```
+
+### Security Verification Checklist
+
+#### Pre-Production Verification ✅
+- [ ] **Security Headers**: All required headers present and correctly configured
+- [ ] **JWT Security**: Token validation, expiration, and claims working correctly
+- [ ] **CORS Policy**: Only authorized origins allowed, proper preflight handling
+- [ ] **Rate Limiting**: Limits enforced correctly with proper headers
+- [ ] **Input Sanitization**: XSS and injection prevention working
+- [ ] **SSL/TLS**: A+ SSL Labs rating, HSTS working
+- [ ] **Authentication**: Login/signup flows secure, proper error handling
+- [ ] **Security Monitoring**: All endpoints responding, threat detection active
+- [ ] **Audit Logging**: Security events logged with proper structure
+- [ ] **Environment Config**: Production variables set correctly
+
+#### Ongoing Security Monitoring ✅
+- [ ] **Daily**: Check security alerts and logs
+- [ ] **Weekly**: Review security metrics and trends
+- [ ] **Monthly**: Run full security validation script
+- [ ] **Quarterly**: Conduct security assessment and penetration testing
+
+### Security Testing Tools
+
+#### Automated Security Scanners
+```bash
+# OWASP ZAP (Zed Attack Proxy)
+# Download and run against your API endpoints
+
+# Nmap for port scanning
+nmap -sS -O your-api-domain.com
+
+# Nikto web vulnerability scanner
+nikto -h https://your-api-domain.com
+```
+
+#### Manual Testing Tools
+```bash
+# Burp Suite Community Edition
+# For manual security testing and vulnerability assessment
+
+# Postman/Insomnia
+# For API endpoint security testing
+
+# Browser Developer Tools
+# For client-side security verification
+```
+
+## Troubleshooting
+
+### Common Issues
 # X-RateLimit-Reset: 1694728800
 ```
 

@@ -84,7 +84,6 @@ def _create_security_test_app():
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.requests import Request
     from starlette.responses import Response
-    import jwt
     from app.core.security import SECRET_KEY, ALGORITHM
     
     test_app = FastAPI()
@@ -110,15 +109,16 @@ def _create_security_test_app():
         
         token = authorization.replace("Bearer ", "")
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            # Use the enhanced decode_token function for consistency
+            from app.core.security import decode_token
+            payload = decode_token(token, token_type="access")
             user_id = payload.get("sub")
             if not user_id:
                 raise HTTPException(status_code=401, detail="Invalid token")
             return {"id": int(user_id), "username": f"user{user_id}"}
-        except jwt.ExpiredSignatureError:
-            raise HTTPException(status_code=401, detail="Token expired")
-        except jwt.InvalidTokenError:
-            raise HTTPException(status_code=401, detail="Invalid token")
+        except Exception as e:
+            # Convert any token validation error to 401
+            raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
     
     # Optional authentication (for some endpoints)
     def get_current_user_optional(authorization: str = Header(None)):
