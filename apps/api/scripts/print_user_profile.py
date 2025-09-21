@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """
 Usage:
-  python print_user_profile.py --email user@example.com
+  cd apps/api
+  python scripts/print_user_profile.py --email user@example.com
 
 Description:
   Prints the user profile for the given email from the database using the app's async SQLAlchemy setup.
-  Must be run from the backend (apps/api) virtualenv.
+  Must be run from the backend (apps/api) directory with virtualenv activated.
 """
 import argparse
 import asyncio
 import sys
+import os
+from pathlib import Path
+
+# Add the app directory to Python path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.core.database import get_async_sessionmaker
 from app.models.user import User
