@@ -988,23 +988,26 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
 
 - [x] **Test Execution:** Run complete test suite (`pytest -v` and `npm test`) with production configuration. Note: 16 production security validation tests are strategically skipped in development mode (designed to fail without proper production environment variables like 64+ char SECRET_KEY, SSL_REDIRECT=true, HTTPS origins). Execute load tests using `ab` or `wrk` to verify >100 concurrent user capacity. Test all MVP features (algorithm, reactions, shares, mentions, follows, notifications, profiles) in production-like environment with realistic data volumes and user behavior patterns.
 
-- [ ] **Update Project Documentation:** Create production deployment guide in docs/PRODUCTION_DEPLOYMENT.md. Update docs/ARCHITECTURE_AND_SETUP.md with production configuration guidelines. Add monitoring, backup, and maintenance procedures to docs/USEFUL_COMMANDS.md. Create production troubleshooting guide and incident response procedures.
+- [x] **Update Project Documentation:** Create production deployment guide in docs/PRODUCTION_DEPLOYMENT.md. Update docs/ARCHITECTURE_AND_SETUP.md with production configuration guidelines. Add monitoring, backup, and maintenance procedures to docs/USEFUL_COMMANDS.md. Create production troubleshooting guide and incident response procedures.
 
 ### **TASK 17: Production Deployment - Cloud Platform (Final MVP Task)**
 **Module Reference:** Production Environment Configuration - Option A
 - [ ] **Frontend Deployment (Vercel)**
+  - **Documentation:** Consult docs/PRODUCTION_DEPLOYMENT.md, docs/CONFIGURATION_FILES.md, docs/USEFUL_COMMANDS.md before implementation; update with Vercel-specific steps after deployment
   - Connect GitHub repository to Vercel and configure Next.js build settings
   - Configure production environment variables (NEXT_PUBLIC_API_URL, NEXTAUTH_URL, NEXTAUTH_SECRET)
   - Set up automatic deployments on main branch push
   - Configure custom domain (optional) and verify SSL certificate provisioning
   - Test frontend deployment and verify all pages load correctly
 - [ ] **Backend Deployment (Railway)**
+  - **Documentation:** Consult docs/PRODUCTION_DEPLOYMENT.md, docs/DATABASE_STRUCTURE.md, docs/SECURITY_AND_PRODUCTION.md before implementation; update with Railway-specific configurations after deployment
   - Create Railway project and connect GitHub repository (apps/api directory)
   - Set up managed PostgreSQL and Redis databases with automatic connection URLs
   - Configure production environment variables (DATABASE_URL, REDIS_URL, SECRET_KEY, CORS settings)
   - Set up automatic database migrations on deployment (railway.toml configuration)
   - Configure custom API domain (optional) and verify health check endpoints
 - [ ] **Production Configuration**
+  - **Documentation:** Consult docs/SECURITY_AND_PRODUCTION.md, docs/AUTHENTICATION_FLOW.md, docs/CONFIGURATION_FILES.md before implementation; update with cloud platform-specific security configurations after setup
   - Generate secure JWT secrets (64+ characters) and configure authentication settings with key rotation procedures
   - Set up production CORS configuration with HTTPS-only allowed origins (Vercel domains only)
   - Configure rate limiting settings for production load (100 req/min default, 10 req/min auth)
@@ -1012,12 +1015,14 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Configure secure environment variables (.env.production) with production database SSL requirements
   - Validate all production security standards and environment variable compliance
 - [ ] **Monitoring and Basic Validation**
+  - **Documentation:** Consult docs/MONITORING_ACCESS_GUIDE.md, docs/TEST_GUIDELINES.md, docs/USEFUL_COMMANDS.md before implementation; update with cloud platform monitoring procedures after setup
   - Configure built-in monitoring dashboards (Railway metrics, Vercel analytics)
   - Set up health check endpoints and verify uptime monitoring
   - Perform basic end-to-end testing of core functionality (auth, posts, basic interactions)
   - Validate image upload functionality and file storage in production
   - Test basic user flows and verify system stability
 - [ ] **Go-Live Procedures**
+  - **Documentation:** Consult docs/PRODUCTION_DEPLOYMENT.md (Incident Response), docs/COMMON_FIXES.md before implementation; update with production URLs and platform-specific troubleshooting after go-live
   - Execute final deployment to production environments
   - Perform comprehensive testing of critical user flows
   - Monitor dashboards and error rates for first 24 hours

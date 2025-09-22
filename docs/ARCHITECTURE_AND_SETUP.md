@@ -207,10 +207,20 @@ The Grateful platform includes a comprehensive social interaction system with th
 
 ## Prerequisites
 
+### Development Environment
 - Python 3.10+
 - Node.js 18+
 - npm 9+
 - PostgreSQL 14+
+
+### Production Environment
+- Ubuntu 20.04 LTS or newer (recommended)
+- Docker 20.10+ with Docker Compose
+- Minimum 4 CPU cores, 8GB RAM, 100GB SSD
+- SSL certificate and domain name
+- Load balancer (for high availability)
+
+For detailed production setup, see [Production Deployment Guide](PRODUCTION_DEPLOYMENT.md).
 
 ---
 
@@ -354,6 +364,8 @@ npm run dev
 
 ### Database & Infrastructure
 
+#### Development Environment
+
 - **Run Postgres locally (WSL2):**
   - Start PostgreSQL cluster:
     ```sh
@@ -390,6 +402,19 @@ npm run dev
   docker-compose up -d
   docker-compose down
   ```
+
+#### Production Environment Configuration
+
+For production deployments, additional configuration is required:
+
+- **Database Connection Pooling**: Environment-specific pool sizes and SSL requirements
+- **Load Balancing**: HAProxy or Nginx for high availability
+- **SSL/TLS Configuration**: Let's Encrypt certificates with automatic renewal
+- **Monitoring**: Prometheus, Grafana, and comprehensive health checks
+- **Backup Systems**: Automated daily backups with cloud storage integration
+- **Security Hardening**: Fail2Ban, SSH hardening, and security monitoring
+
+See [Production Deployment Guide](PRODUCTION_DEPLOYMENT.md) for complete production setup instructions.
 
 ### Algorithm Configuration & Testing
 

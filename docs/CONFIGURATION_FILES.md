@@ -38,8 +38,8 @@ SECRET_KEY=your-super-secret-key-change-this-in-production
 - **Search Path**: PostgreSQL schema configuration
 
 ### Frontend Environment
-**File**: `apps/web/.env.local`
-**Purpose**: Next.js frontend configuration
+**File**: `apps/web/.env.local` (Development)
+**Purpose**: Next.js frontend configuration for local development
 **Content**:
 ```env
 NEXTAUTH_SECRET=your-super-secret-key-change-this-in-production
@@ -47,6 +47,57 @@ DATABASE_URL=postgresql://postgres:iamgrateful@localhost:5432/grateful
 NEXTAUTH_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXTAUTH_JWT_ENCRYPTION=false
+```
+
+### Cloud Platform Environment Files
+
+#### Vercel Production Environment
+**Platform**: Vercel Dashboard → Environment Variables
+**Purpose**: Next.js frontend production configuration
+**Required Variables**:
+```env
+# Core Configuration
+NODE_ENV=production
+NEXT_PUBLIC_API_URL=https://your-api.railway.app/api/v1
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+
+# Optional Features
+NEXT_PUBLIC_ENABLE_ANALYTICS=true
+NEXT_PUBLIC_ENABLE_ERROR_REPORTING=true
+NEXT_PUBLIC_ENABLE_SW=true
+NEXT_TELEMETRY_DISABLED=1
+```
+
+#### Railway Production Environment
+**Platform**: Railway Dashboard → Variables
+**Purpose**: FastAPI backend production configuration
+**Required Variables**:
+```env
+# Database (Auto-provided by Railway)
+DATABASE_URL=postgresql://user:pass@host:port/db
+REDIS_URL=redis://user:pass@host:port
+
+# Security
+SECRET_KEY=your-super-secure-secret-key-at-least-64-characters-long
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# CORS Configuration
+ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-custom-domain.com
+
+# Application Settings
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+ENABLE_DOCS=false
+
+# Rate Limiting
+DEFAULT_RATE_LIMIT=100
+AUTH_RATE_LIMIT=10
+UPLOAD_RATE_LIMIT=20
+
+# Feature Flags
+ENABLE_REGISTRATION=true
+ENABLE_FILE_UPLOADS=true
 ```
 **Key Settings**:
 - **NextAuth Secret**: Authentication encryption
@@ -59,6 +110,60 @@ NEXTAUTH_JWT_ENCRYPTION=false
 **Files**: 
 - `apps/web/.env.example` - Template for new developers
 - `apps/web/.env.local` - Local development overrides
+
+## ☁️ Cloud Platform Configuration
+
+### Railway Configuration
+**File**: `apps/api/railway.toml`
+**Purpose**: Railway deployment configuration for backend
+**Content**:
+```toml
+[build]
+builder = "nixpacks"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+
+[[services]]
+name = "api"
+source = "."
+
+[services.api.build]
+buildCommand = "pip install -r requirements.txt"
+
+[services.api.deploy]
+startCommand = "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
+```
+**Key Settings**:
+- **Builder**: Nixpacks for automatic dependency detection
+- **Health Check**: Endpoint for Railway health monitoring
+- **Start Command**: Database migration + server startup
+- **Restart Policy**: Automatic restart on failure
+
+### Vercel Configuration
+**File**: `apps/web/vercel.json` (Optional)
+**Purpose**: Vercel deployment configuration for frontend
+**Content**:
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "regions": ["iad1"],
+  "functions": {
+    "apps/web/src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
+}
+```
+**Key Settings**:
+- **Framework**: Next.js automatic detection
+- **Regions**: Deployment regions (iad1 = US East)
+- **Functions**: API route timeout configuration
 
 ## 🐍 Python Configuration
 

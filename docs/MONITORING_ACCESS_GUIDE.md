@@ -7,6 +7,7 @@ This comprehensive guide explains how to access logs, monitoring dashboards, and
 - [Quick Start](#quick-start)
 - [Security Overview](#security-overview)
 - [Health Check Endpoints](#health-check-endpoints)
+- [Cloud Platform Monitoring](#cloud-platform-monitoring)
 - [Accessing Logs](#accessing-logs)
 - [Monitoring Dashboard](#monitoring-dashboard)
 - [Error Tracking](#error-tracking)
@@ -215,6 +216,104 @@ curl http://localhost:8000/ready
   }
 }
 ```
+
+## Cloud Platform Monitoring
+
+### Vercel Monitoring
+
+#### Built-in Analytics
+```bash
+# Access Vercel Analytics (requires Pro plan)
+# Dashboard: https://vercel.com/[team]/[project]/analytics
+
+# View deployment logs
+vercel logs --follow
+
+# Check deployment status
+vercel ls
+
+# Monitor build performance
+vercel inspect [deployment-url]
+```
+
+#### Custom Health Checks
+```bash
+# Frontend health check
+curl https://your-app.vercel.app/api/health
+
+# Check API connectivity from frontend
+curl https://your-app.vercel.app/api/test-connection
+
+# Monitor response times
+curl -w "Total time: %{time_total}s\n" https://your-app.vercel.app
+```
+
+### Railway Monitoring
+
+#### Built-in Metrics
+```bash
+# Access Railway Dashboard
+# URL: https://railway.app/project/[project-id]
+
+# View service logs
+railway logs --follow
+
+# Check service status
+railway status
+
+# Monitor resource usage
+railway metrics
+```
+
+#### Database Monitoring
+```bash
+# Connect to PostgreSQL for monitoring
+railway connect postgres
+
+# Check database performance
+railway run psql $DATABASE_URL -c "
+SELECT 
+  schemaname,
+  tablename,
+  n_tup_ins as inserts,
+  n_tup_upd as updates,
+  n_tup_del as deletes
+FROM pg_stat_user_tables 
+ORDER BY n_tup_ins DESC;"
+
+# Monitor active connections
+railway run psql $DATABASE_URL -c "
+SELECT count(*) as active_connections 
+FROM pg_stat_activity 
+WHERE state = 'active';"
+```
+
+#### API Health Monitoring
+```bash
+# Backend health check
+curl https://your-api.railway.app/health
+
+# Database connectivity check
+curl https://your-api.railway.app/health/database
+
+# Algorithm performance check
+curl https://your-api.railway.app/health/algorithm
+
+# Comprehensive metrics (if enabled)
+curl https://your-api.railway.app/metrics
+```
+
+### Cloud Platform Alerting
+
+#### Vercel Alerts
+- **Build Failures**: Automatic email notifications
+- **Domain Issues**: SSL certificate problems
+- **Performance**: Slow page loads (Pro plan)
+
+#### Railway Alerts
+- **Service Down**: Automatic notifications
+- **Resource Limits**: CPU/Memory usage alerts
+- **Database Issues**: Connection failures
 
 ### **Comprehensive Metrics** (Secured)
 ```bash
