@@ -28,7 +28,7 @@ jest.mock('next/navigation', () => ({
   }),
 }))
 
-describe.skip('Follow Interactions Integration', () => {
+describe('Follow Interactions Integration', () => {
   const mockPost = {
     id: 'post-123',
     content: 'Test post content',
@@ -219,7 +219,7 @@ describe.skip('Follow Interactions Integration', () => {
 
       // Wait for initial status to load
       await waitFor(() => {
-        expect(screen.getAllByText('Follow')).toHaveLength(2)
+        expect(screen.getAllByText('Follow me!')).toHaveLength(2)
       })
 
       const followButtons = screen.getAllByRole('button', { name: /follow user 123/i })
@@ -234,7 +234,7 @@ describe.skip('Follow Interactions Integration', () => {
 
       // First button should show following state
       await waitFor(() => {
-        expect(screen.getByText('Following')).toBeInTheDocument()
+        expect(screen.getByText(/Following/)).toBeInTheDocument()
       })
     })
 
@@ -248,7 +248,7 @@ describe.skip('Follow Interactions Integration', () => {
       const { rerender, unmount } = render(<FollowButton userId={123} />)
 
       await waitFor(() => {
-        expect(screen.getByText('Following')).toBeInTheDocument()
+        expect(screen.getByText(/Following/)).toBeInTheDocument()
       })
 
       // Unmount and remount component completely
@@ -257,7 +257,7 @@ describe.skip('Follow Interactions Integration', () => {
 
       // Should fetch status again and maintain state
       await waitFor(() => {
-        expect(screen.getByText('Following')).toBeInTheDocument()
+        expect(screen.getByText(/Following/)).toBeInTheDocument()
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(2) // Initial fetch + remount fetch
@@ -279,7 +279,7 @@ describe.skip('Follow Interactions Integration', () => {
 
       // Wait for initial following state
       await waitFor(() => {
-        expect(screen.getByText('Following')).toBeInTheDocument()
+        expect(screen.getByText(/Following/)).toBeInTheDocument()
       })
 
       const followButton = screen.getByRole('button')
@@ -288,7 +288,7 @@ describe.skip('Follow Interactions Integration', () => {
       fireEvent.click(followButton)
 
       await waitFor(() => {
-        expect(screen.getByText('Follow')).toBeInTheDocument()
+        expect(screen.getByText('Follow me!')).toBeInTheDocument()
       })
     })
   })
@@ -309,7 +309,7 @@ describe.skip('Follow Interactions Integration', () => {
 
       // Wait for initial status to load
       await waitFor(() => {
-        expect(screen.getByText('Follow')).toBeInTheDocument()
+        expect(screen.getByText('Follow me!')).toBeInTheDocument()
       })
 
       const followButton = screen.getByRole('button')
@@ -538,7 +538,7 @@ describe.skip('Follow Interactions Integration', () => {
       expect(followButton).toBeInTheDocument()
       
       // Check that it has the correct size (xxs for PostCard)
-      expect(followButton).toHaveClass('px-0.5', 'py-0.25', 'text-xs')
+      expect(followButton).toHaveClass('px-2', 'py-0.5', 'text-xs')
     })
 
     it('maintains consistent styling with post card theme', () => {

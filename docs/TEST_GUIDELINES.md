@@ -978,8 +978,8 @@ def auth_headers():
     
     payload = {
         "sub": "123",
-        "exp": datetime.utcnow() + timedelta(hours=1),
-        "iat": datetime.utcnow()
+        "exp": datetime.now(datetime.UTC) + timedelta(hours=1),
+        "iat": datetime.now(datetime.UTC)
     }
     
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -1107,8 +1107,8 @@ class TestJWTSecurity:
         # Create expired token
         payload = {
             "sub": "123",
-            "exp": datetime.utcnow() - timedelta(hours=1),  # Expired
-            "iat": datetime.utcnow() - timedelta(hours=2)
+            "exp": datetime.now(datetime.UTC) - timedelta(hours=1),  # Expired
+            "iat": datetime.now(datetime.UTC) - timedelta(hours=2)
         }
         
         expired_token = jwt.encode(payload, "test-secret-key-for-security-tests", algorithm="HS256")

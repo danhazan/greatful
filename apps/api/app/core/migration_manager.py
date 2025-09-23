@@ -124,7 +124,7 @@ class MigrationManager:
             return None
         
         try:
-            backup_name = f"pre_migration_{migration_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            backup_name = f"pre_migration_{migration_name}_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}"
             backup_result = await backup_manager.create_backup(
                 backup_name=backup_name,
                 include_data=True,
@@ -175,14 +175,14 @@ class MigrationManager:
                     }
             
             # Run migration
-            start_time = datetime.utcnow()
+            start_time = datetime.now(datetime.UTC)
             result = subprocess.run(
                 ["alembic", "upgrade", target],
                 capture_output=True,
                 text=True,
                 cwd=self.alembic_dir.parent
             )
-            end_time = datetime.utcnow()
+            end_time = datetime.now(datetime.UTC)
             
             duration = (end_time - start_time).total_seconds()
             
@@ -275,14 +275,14 @@ class MigrationManager:
                     }
             
             # Run rollback
-            start_time = datetime.utcnow()
+            start_time = datetime.now(datetime.UTC)
             result = subprocess.run(
                 ["alembic", "downgrade", target],
                 capture_output=True,
                 text=True,
                 cwd=self.alembic_dir.parent
             )
-            end_time = datetime.utcnow()
+            end_time = datetime.now(datetime.UTC)
             
             duration = (end_time - start_time).total_seconds()
             
@@ -344,7 +344,7 @@ class MigrationManager:
                 "error": "Migration rollback testing is disabled"
             }
         
-        test_db_name = f"grateful_migration_test_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        test_db_name = f"grateful_migration_test_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}"
         
         try:
             logger.info(f"Starting migration rollback test with database: {test_db_name}")
@@ -379,7 +379,7 @@ class MigrationManager:
                 "upgrade_result": upgrade_result,
                 "rollback_result": rollback_result,
                 "verification": verification_result,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(datetime.UTC).isoformat()
             }
             
             logger.info(f"Migration rollback test completed successfully")

@@ -73,7 +73,7 @@ class DatabaseBackupManager:
         try:
             # Generate backup name
             if not backup_name:
-                timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+                timestamp = datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
                 backup_name = f"grateful_backup_{timestamp}"
             
             # Determine compression
@@ -104,7 +104,7 @@ class DatabaseBackupManager:
             env["PGPASSWORD"] = DB_CONFIG["password"]
             
             logger.info(f"Starting database backup: {backup_name}")
-            start_time = datetime.utcnow()
+            start_time = datetime.now(datetime.UTC)
             
             # Execute backup
             if compress and backup_file.suffix == ".gz":
@@ -130,7 +130,7 @@ class DatabaseBackupManager:
                         text=True
                     )
             
-            end_time = datetime.utcnow()
+            end_time = datetime.now(datetime.UTC)
             duration = (end_time - start_time).total_seconds()
             
             if process.returncode != 0:
@@ -250,7 +250,7 @@ class DatabaseBackupManager:
             target_db = target_database or DB_CONFIG["database"]
             
             logger.info(f"Starting database restore from: {backup_file}")
-            start_time = datetime.utcnow()
+            start_time = datetime.now(datetime.UTC)
             
             # Drop existing database if requested
             if drop_existing:
@@ -310,7 +310,7 @@ class DatabaseBackupManager:
                     text=True
                 )
             
-            end_time = datetime.utcnow()
+            end_time = datetime.now(datetime.UTC)
             duration = (end_time - start_time).total_seconds()
             
             if restore_process.returncode != 0:
@@ -434,7 +434,7 @@ class DatabaseBackupManager:
     async def cleanup_old_backups(self) -> Dict[str, Any]:
         """Remove backups older than retention period."""
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=BACKUP_CONFIG["retention_days"])
+            cutoff_date = datetime.now(datetime.UTC) - timedelta(days=BACKUP_CONFIG["retention_days"])
             removed_backups = []
             total_size_freed = 0
             
@@ -487,7 +487,7 @@ class DatabaseBackupManager:
             
             # Check if latest backup is recent (within 25 hours for daily backups)
             latest_time = datetime.fromisoformat(latest_backup["created"])
-            hours_since_last = (datetime.utcnow() - latest_time).total_seconds() / 3600
+            hours_since_last = (datetime.now(datetime.UTC) - latest_time).total_seconds() / 3600
             
             status = "healthy" if hours_since_last < 25 else "stale"
             
@@ -515,7 +515,7 @@ backup_manager = DatabaseBackupManager()
 async def create_daily_backup() -> Dict[str, Any]:
     """Create daily automated backup."""
     return await backup_manager.create_backup(
-        backup_name=f"daily_{datetime.utcnow().strftime('%Y%m%d')}",
+        backup_name=f"daily_{datetime.now(datetime.UTC).strftime('%Y%m%d')}",
         include_data=True,
         compress=True
     )

@@ -436,7 +436,7 @@ class DatabaseIndexMonitor:
             low_priority = [r for r in recommendations if r.priority == "low"]
             
             report = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(datetime.UTC).isoformat(),
                 "summary": {
                     "total_indexes": total_indexes,
                     "unused_indexes": unused_count,
@@ -496,7 +496,7 @@ class DatabaseIndexMonitor:
             logger.error(f"Failed to generate comprehensive report: {e}")
             return {
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(datetime.UTC).isoformat()
             }
 
 

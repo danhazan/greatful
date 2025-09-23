@@ -4,6 +4,7 @@ Notification model for handling user notifications.
 
 import datetime
 import uuid
+from datetime import timezone
 
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, JSON, Integer, Boolean
 from sqlalchemy.orm import relationship
@@ -23,7 +24,7 @@ class Notification(Base):
     message = Column(Text, nullable=False)
     data = Column(JSON, nullable=True)  # Additional data like post_id, emoji_code, etc.
     read = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC).replace(tzinfo=None), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
     read_at = Column(DateTime, nullable=True)
     
     # Batching fields
@@ -31,7 +32,7 @@ class Notification(Base):
     is_batch = Column(Boolean, default=False, nullable=False)
     batch_count = Column(Integer, default=1, nullable=False)
     batch_key = Column(String, nullable=True, index=True)  # For grouping similar notifications
-    last_updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC).replace(tzinfo=None), nullable=False)  # Track when notification was last updated
+    last_updated_at = Column(DateTime, default=lambda: datetime.datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)  # Track when notification was last updated
 
     # Relationships (using string references to avoid circular imports)
     user = relationship("User", back_populates="notifications")
@@ -44,7 +45,7 @@ class Notification(Base):
     def mark_as_read(self):
         """Mark notification as read."""
         self.read = True
-        self.read_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        self.read_at = datetime.datetime.now(timezone.utc).replace(tzinfo=None)
 
     def generate_batch_key(self) -> str:
         """Generate a key for grouping similar notifications using new generic format."""

@@ -390,7 +390,7 @@ def create_api_success_response(data: Any, request_id: Optional[str] = None) -> 
     return ApiSuccessResponse(
         success=True,
         data=data,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         request_id=request_id
     )
 
@@ -408,7 +408,7 @@ def create_api_error_response(
             message=message,
             details=details
         ),
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         request_id=request_id
     )
 

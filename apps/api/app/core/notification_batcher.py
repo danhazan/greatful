@@ -7,6 +7,7 @@ various notification types and scopes (post-based and user-based).
 
 import datetime
 import logging
+from datetime import timezone
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -185,7 +186,7 @@ class NotificationBatcher:
         batch_notification.message = message
         
         # Update last_updated_at to show latest activity
-        batch_notification.last_updated_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        batch_notification.last_updated_at = datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         
         # Mark batch as unread when new notifications are added
         batch_notification.read = False
@@ -235,7 +236,7 @@ class NotificationBatcher:
             batch_key=existing_notification.batch_key,
             is_batch=True,
             batch_count=2,
-            last_updated_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+            last_updated_at=datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         )
         
         # Update the existing notification to be a child of the batch
@@ -424,7 +425,7 @@ class PostInteractionBatcher(NotificationBatcher):
         batch_notification.message = message
         
         # Update last_updated_at and mark as unread
-        batch_notification.last_updated_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        batch_notification.last_updated_at = datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         batch_notification.read = False
         batch_notification.read_at = None
         
@@ -468,7 +469,7 @@ class PostInteractionBatcher(NotificationBatcher):
             batch_key=self.generate_batch_key("post_interaction", existing_notification.data.get("post_id"), "post"),
             is_batch=True,
             batch_count=2,
-            last_updated_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+            last_updated_at=datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         )
         
         # Update the existing notification to be a child of the batch

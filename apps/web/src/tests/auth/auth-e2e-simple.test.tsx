@@ -68,10 +68,12 @@ describe('Authentication E2E Tests', () => {
       render(<SignupPage />)
       
       // Fill out form
-      await user.type(screen.getByLabelText(/username/i), 'testuser')
-      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-      await user.type(screen.getByLabelText(/^password$/i), 'password123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123')
+      await act(async () => {
+        await user.type(screen.getByLabelText(/username/i), 'testuser')
+        await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+        await user.type(screen.getByLabelText(/^password$/i), 'password123')
+        await user.type(screen.getByLabelText(/confirm password/i), 'password123')
+      })
       
       // Submit form
       await act(async () => {
@@ -103,10 +105,12 @@ describe('Authentication E2E Tests', () => {
       
       render(<SignupPage />)
       
-      await user.type(screen.getByLabelText(/username/i), 'testuser')
-      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-      await user.type(screen.getByLabelText(/^password$/i), 'password123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'differentpassword')
+      await act(async () => {
+        await user.type(screen.getByLabelText(/username/i), 'testuser')
+        await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+        await user.type(screen.getByLabelText(/^password$/i), 'password123')
+        await user.type(screen.getByLabelText(/confirm password/i), 'differentpassword')
+      })
       
       await act(async () => {
         await user.click(screen.getByRole('button', { name: /create account/i }))
@@ -125,10 +129,12 @@ describe('Authentication E2E Tests', () => {
       
       render(<SignupPage />)
       
-      await user.type(screen.getByLabelText(/username/i), 'testuser')
-      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-      await user.type(screen.getByLabelText(/^password$/i), '123')
-      await user.type(screen.getByLabelText(/confirm password/i), '123')
+      await act(async () => {
+        await user.type(screen.getByLabelText(/username/i), 'testuser')
+        await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+        await user.type(screen.getByLabelText(/^password$/i), '123')
+        await user.type(screen.getByLabelText(/confirm password/i), '123')
+      })
       
       await act(async () => {
         await user.click(screen.getByRole('button', { name: /create account/i }))
@@ -154,10 +160,12 @@ describe('Authentication E2E Tests', () => {
       
       render(<SignupPage />)
       
-      await user.type(screen.getByLabelText(/username/i), 'existinguser')
-      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-      await user.type(screen.getByLabelText(/^password$/i), 'password123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123')
+      await act(async () => {
+        await user.type(screen.getByLabelText(/username/i), 'existinguser')
+        await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+        await user.type(screen.getByLabelText(/^password$/i), 'password123')
+        await user.type(screen.getByLabelText(/confirm password/i), 'password123')
+      })
       
       await act(async () => {
         await user.click(screen.getByRole('button', { name: /create account/i }))
@@ -175,10 +183,12 @@ describe('Authentication E2E Tests', () => {
       
       render(<SignupPage />)
       
-      await user.type(screen.getByLabelText(/username/i), 'testuser')
-      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-      await user.type(screen.getByLabelText(/^password$/i), 'password123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123')
+      await act(async () => {
+        await user.type(screen.getByLabelText(/username/i), 'testuser')
+        await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+        await user.type(screen.getByLabelText(/^password$/i), 'password123')
+        await user.type(screen.getByLabelText(/confirm password/i), 'password123')
+      })
       
       await act(async () => {
         await user.click(screen.getByRole('button', { name: /create account/i }))
@@ -219,8 +229,10 @@ describe('Authentication E2E Tests', () => {
       render(<LoginPage />)
       
       // Fill out form
-      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-      await user.type(screen.getByLabelText(/password/i), 'password123')
+      await act(async () => {
+        await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+      })
       
       // Submit form
       await act(async () => {
@@ -258,8 +270,10 @@ describe('Authentication E2E Tests', () => {
       
       render(<LoginPage />)
       
-      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-      await user.type(screen.getByLabelText(/password/i), 'wrongpassword')
+      await act(async () => {
+        await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'wrongpassword')
+      })
       
       await act(async () => {
         await user.click(screen.getByRole('button', { name: /sign in/i }))
@@ -281,8 +295,10 @@ describe('Authentication E2E Tests', () => {
       
       render(<LoginPage />)
       
-      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-      await user.type(screen.getByLabelText(/password/i), 'password123')
+      await act(async () => {
+        await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+      })
       
       await act(async () => {
         await user.click(screen.getByRole('button', { name: /sign in/i }))
@@ -377,10 +393,12 @@ describe('Authentication E2E Tests', () => {
       const { unmount: unmountSignup } = render(<SignupPage />)
       
       // Fill signup form
-      await user.type(screen.getByLabelText(/username/i), testCredentials.username)
-      await user.type(screen.getByLabelText(/email/i), testCredentials.email)
-      await user.type(screen.getByLabelText(/^password$/i), testCredentials.password)
-      await user.type(screen.getByLabelText(/confirm password/i), testCredentials.password)
+      await act(async () => {
+        await user.type(screen.getByLabelText(/username/i), testCredentials.username)
+        await user.type(screen.getByLabelText(/email/i), testCredentials.email)
+        await user.type(screen.getByLabelText(/^password$/i), testCredentials.password)
+        await user.type(screen.getByLabelText(/confirm password/i), testCredentials.password)
+      })
       
       await act(async () => {
         await user.click(screen.getByRole('button', { name: /create account/i }))
@@ -415,8 +433,10 @@ describe('Authentication E2E Tests', () => {
       render(<LoginPage />)
       
       // Fill login form
-      await user.type(screen.getByLabelText(/email/i), testCredentials.email)
-      await user.type(screen.getByLabelText(/password/i), testCredentials.password)
+      await act(async () => {
+        await user.type(screen.getByLabelText(/email/i), testCredentials.email)
+        await user.type(screen.getByLabelText(/password/i), testCredentials.password)
+      })
       
       await act(async () => {
         await user.click(screen.getByRole('button', { name: /sign in/i }))

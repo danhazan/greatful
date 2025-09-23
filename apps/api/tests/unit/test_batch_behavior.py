@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.notification_service import NotificationService
 from app.models.notification import Notification
 import datetime
+from datetime import timezone
 
 
 @pytest.fixture
@@ -27,8 +28,8 @@ class TestBatchBehavior:
             is_batch=True,
             batch_count=2,
             read=True,
-            read_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
-            last_updated_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+            read_at=datetime.datetime.now(timezone.utc).replace(tzinfo=None),
+            last_updated_at=datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         )
         
         # Create new notification to add
@@ -74,8 +75,8 @@ class TestBatchBehavior:
             is_batch=False,
             batch_count=1,
             read=True,
-            read_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
-            last_updated_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+            read_at=datetime.datetime.now(timezone.utc).replace(tzinfo=None),
+            last_updated_at=datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         )
         
         # Create new notification

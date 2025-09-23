@@ -3,6 +3,7 @@ Notification repository with specialized query methods.
 """
 
 import datetime
+from datetime import timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -112,7 +113,7 @@ class NotificationRepository(BaseRepository):
         Returns:
             Optional[Notification]: Existing batch notification or None
         """
-        cutoff_time = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=max_age_hours)
+        cutoff_time = datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=max_age_hours)
         cutoff_time = cutoff_time.replace(tzinfo=None)
         
         builder = self.query().filter(
@@ -145,7 +146,7 @@ class NotificationRepository(BaseRepository):
         Returns:
             Optional[Notification]: Existing single notification or None
         """
-        cutoff_time = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=max_age_hours)
+        cutoff_time = datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=max_age_hours)
         cutoff_time = cutoff_time.replace(tzinfo=None)
         
         builder = self.query().filter(
@@ -251,7 +252,7 @@ class NotificationRepository(BaseRepository):
         base_where = " AND ".join(where_conditions)
         
         # Count in last hour
-        one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
+        one_hour_ago = datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=1)
         one_hour_ago = one_hour_ago.replace(tzinfo=None)
         
         hour_query = text(f"""
@@ -264,7 +265,7 @@ class NotificationRepository(BaseRepository):
         hour_count = hour_result.scalar() or 0
         
         # Count in last day
-        one_day_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
+        one_day_ago = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=1)
         one_day_ago = one_day_ago.replace(tzinfo=None)
         
         day_query = text(f"""
@@ -312,7 +313,7 @@ class NotificationRepository(BaseRepository):
         Returns:
             bool: True if under rate limit, False if exceeded
         """
-        one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
+        one_hour_ago = datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=1)
         one_hour_ago = one_hour_ago.replace(tzinfo=None)
         
         # For rate limiting, we need to check within the last hour
@@ -381,7 +382,7 @@ class NotificationRepository(BaseRepository):
         Returns:
             int: Number of notifications deleted
         """
-        cutoff_date = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=days_old)
+        cutoff_date = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=days_old)
         cutoff_date = cutoff_date.replace(tzinfo=None)
         
         query = text("""

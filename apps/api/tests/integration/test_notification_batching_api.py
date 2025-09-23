@@ -12,6 +12,7 @@ from app.models.emoji_reaction import EmojiReaction
 from app.services.notification_service import NotificationService
 from app.core.notification_factory import NotificationFactory
 import datetime
+from datetime import timezone
 
 
 @pytest.mark.asyncio
@@ -355,7 +356,7 @@ async def test_notification_batching_time_window(
     """Test that old notifications don't get batched together."""
     
     # Create old notification (more than 1 hour ago)
-    old_time = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=2)
+    old_time = datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=2)
     old_time = old_time.replace(tzinfo=None)
     
     old_notification = Notification(

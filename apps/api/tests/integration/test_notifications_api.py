@@ -9,6 +9,8 @@ from app.models.user import User
 from app.models.post import Post
 from app.models.notification import Notification
 from app.services.notification_service import NotificationService
+import datetime
+from datetime import timezone
 
 
 class TestNotificationsAPI:
@@ -237,7 +239,7 @@ class TestNotificationsAPI:
             pytest.fail(f"Timestamp '{created_at_str}' is not in valid ISO format")
         
         # Check that the timestamp is recent (within last minute)
-        now = datetime.datetime.now(datetime.UTC)
+        now = datetime.datetime.now(timezone.utc)
         # Ensure both timestamps are timezone-aware for comparison
         if parsed_time.tzinfo is None:
             parsed_time = parsed_time.replace(tzinfo=datetime.timezone.utc)
@@ -307,7 +309,7 @@ class TestNotificationsAPI:
                 pytest.fail(f"Child timestamp '{created_at_str}' is not in valid ISO format")
             
             # Check that the timestamp is recent (within last minute)
-            now = datetime.datetime.now(datetime.UTC)
+            now = datetime.datetime.now(timezone.utc)
             # Ensure both timestamps are timezone-aware for comparison
             if parsed_time.tzinfo is None:
                 parsed_time = parsed_time.replace(tzinfo=datetime.timezone.utc)

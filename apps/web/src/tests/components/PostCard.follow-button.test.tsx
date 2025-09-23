@@ -81,7 +81,7 @@ const mockPost = {
   currentUserReaction: undefined,
 }
 
-describe.skip('PostCard Follow Button Tests', () => {
+describe('PostCard Follow Button Tests', () => {
   beforeEach(() => {
     // Reset NODE_ENV to development for these tests
     process.env.NODE_ENV = 'development'

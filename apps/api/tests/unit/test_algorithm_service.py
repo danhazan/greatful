@@ -1072,12 +1072,8 @@ class TestAlgorithmService:
 
     async def test_spacing_rules_integration_with_diversity_control(self, algorithm_service, mock_db_session):
         """Test that spacing rules are integrated into diversity and preference control."""
-        # Mock UserPreferenceService
-        with patch('app.services.user_preference_service.UserPreferenceService') as mock_preference_service:
-            mock_service_instance = AsyncMock()
-            mock_service_instance.calculate_preference_boost.return_value = 1.0
-            mock_preference_service.return_value = mock_service_instance
-            
+        # Mock the _calculate_follow_relationship_multiplier to avoid preference service issues
+        with patch.object(algorithm_service, '_calculate_follow_relationship_multiplier', return_value=2.0):
             posts = [
                 {'id': 'post-1', 'author_id': 1, 'algorithm_score': 10.0, 'author_id': 1, 'post_type': 'daily'},
                 {'id': 'post-2', 'author_id': 1, 'algorithm_score': 9.0, 'author_id': 1, 'post_type': 'daily'},

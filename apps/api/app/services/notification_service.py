@@ -9,6 +9,7 @@ This service handles notification retrieval, batching, and management operations
 
 import datetime
 import logging
+from datetime import timezone
 from typing import List, Optional, Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -155,7 +156,7 @@ class NotificationService(BaseService):
         existing_notification.message = message
         
         # Update last_updated_at to show latest activity (moves to top of list)
-        existing_notification.last_updated_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        existing_notification.last_updated_at = datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         
         # Mark batch as unread when converting to batch
         existing_notification.read = False
@@ -200,7 +201,7 @@ class NotificationService(BaseService):
         batch_notification.message = message
         
         # Update last_updated_at to show latest activity (this moves it to top of list)
-        batch_notification.last_updated_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        batch_notification.last_updated_at = datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         
         # Mark batch as unread when new notifications are added
         batch_notification.read = False
@@ -339,14 +340,14 @@ class NotificationService(BaseService):
             base_query = base_query.where(Notification.type == notification_type)
         
         # Count in last hour
-        one_hour_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
+        one_hour_ago = datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=1)
         one_hour_ago = one_hour_ago.replace(tzinfo=None)  # Convert to naive datetime
         hour_query = base_query.where(Notification.created_at >= one_hour_ago)
         hour_result = await db.execute(select(func.count()).select_from(hour_query.subquery()))
         hour_count = hour_result.scalar() or 0
         
         # Count in last day
-        one_day_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
+        one_day_ago = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=1)
         one_day_ago = one_day_ago.replace(tzinfo=None)  # Convert to naive datetime
         day_query = base_query.where(Notification.created_at >= one_day_ago)
         day_result = await db.execute(select(func.count()).select_from(day_query.subquery()))
