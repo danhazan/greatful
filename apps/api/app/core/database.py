@@ -19,6 +19,10 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://postgres:iamgreatful@localhost:5432/grateful"
 )
 
+# Convert postgresql:// to postgresql+asyncpg:// for Railway compatibility
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 # Production database configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
