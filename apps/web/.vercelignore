@@ -1,0 +1,12 @@
+# Ignore files that might cause build conflicts
+node_modules
+.next
+.env.local
+.env.production
+.env.development
+*.log
+.DS_Store
+
+# Ignore parent directories that might interfere
+../../shared/types/node_modules
+../../shared/types/package-lock.json

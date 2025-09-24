@@ -13,7 +13,13 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname, 'src'),
+      '@/lib': path.resolve(__dirname, 'src/lib'),
+      '@/utils': path.resolve(__dirname, 'src/utils'),
+      '@/components': path.resolve(__dirname, 'src/components'),
     }
+    
+    // Ensure proper module resolution
+    config.resolve.extensions = ['.ts', '.tsx', '.js', '.jsx', '.json', ...config.resolve.extensions]
     
     return config
   },

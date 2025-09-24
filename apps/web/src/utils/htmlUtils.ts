@@ -3,7 +3,7 @@
  */
 
 // Dynamic import for DOMPurify to avoid SSR issues
-let purifyPromise: Promise<typeof import('dompurify')> | null = null
+let purifyPromise: Promise<any> | null = null
 
 function getDOMPurify() {
   if (typeof window === 'undefined') {
