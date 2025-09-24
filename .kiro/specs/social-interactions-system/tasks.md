@@ -991,6 +991,12 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
     - Update `docs/TESTS_STATUS.md` with cleanup results and current strategic skipping rationale
     - Document that 47 backend tests and 53 frontend tests are strategically skipped (down from 65)
     - _Requirements: Test strategy validation and documentation_
+  - [ ] **16.8.7 Re-enable Priority Frontend Tests**
+    - Fix toast system test isolation for FollowButton Advanced tests (~20 tests)
+    - Update navbar structure expectations for accessibility tests (~3 tests)  
+    - Improve authentication state mocking for integration tests (~1 test)
+    - Fix cursor positioning API issues for CreatePostModal tests (~2 tests)
+    - _Requirements: Test system improvements and component updates_
   - **Test Execution:** Run backend tests (`pytest -v`) and frontend tests (`npm test`) to verify cleanup doesn't break existing functionality. Confirm test counts: Backend should show 722 passing + 47 skipped, Frontend should show 907 passing + 53 skipped (12 fewer due to deletion).
   - **Update Project Documentation:** Update `docs/TESTS_STATUS.md` with cleanup results, deleted test rationale, and updated skipped test counts. Add test maintenance procedures to `docs/TEST_GUIDELINES.md`.
 

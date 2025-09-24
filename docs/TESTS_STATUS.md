@@ -118,80 +118,48 @@ npm test -- --testPathPattern=auth-e2e-simple
 - ✅ Updated test expectations to match actual implementation behavior
 - ✅ All active frontend tests now passing with 100% success rate
 
-#### Current Skipped Tests:
+#### Current Skipped Tests (26 total across 2 test suites):
 
-**1. FollowButton Advanced Tests** - 19 tests skipped
+**Test Suite 1: FollowButton Advanced Tests** - ~20 tests skipped
 - **Location**: `src/tests/components/FollowButton-advanced.test.tsx`
 - **Complexity**: High - Complex toast system integration and state management
-- **Priority**: Low - Advanced edge cases, core functionality works
-- **Reason**: Strategically skipped due to upcoming navbar changes in Task 13
+- **Priority**: Medium - Advanced edge cases, but important for user experience
+- **Reason**: Toast system interference causing DOM node removal errors
 - **Technical Challenges**:
-  - Toast system interference between tests
+  - Toast system interference between tests ("NotFoundError: The node to be removed is not a child of this node")
   - Complex mock setup for optimistic UI updates
   - State leakage between test cases
-- **Re-enable When**: After Task 13 navbar changes are complete
+  - Toast notification text matching issues in test environment
+- **Re-enable When**: After fixing toast system test isolation
 
-**2. PostCard Follow Button Tests** - 2 tests skipped  
-- **Location**: `src/tests/components/PostCard.follow-button.test.tsx`
-- **Complexity**: Medium - Button size class expectations
-- **Priority**: Low - Styling tests, functionality works
-- **Reason**: Button size changes unrelated to mobile menu removal
-- **Re-enable When**: After navbar integration work is complete
-
-**3. Follow Interactions Integration Tests** - 29 tests skipped
-- **Location**: `src/tests/integration/follow-interactions.test.tsx`  
-- **Complexity**: High - Multi-component integration testing
-- **Priority**: Medium - Integration scenarios
-- **Reason**: Button text changes and integration complexity
-- **Re-enable When**: After follow button standardization
-
-**4. LoadingStates and Toasts Tests** - 12 tests skipped
-- **Location**: `src/tests/components/LoadingStatesAndToasts.test.tsx`
-- **Complexity**: High - Complex toast notification system testing
-- **Priority**: Low - Non-critical UI polish feature
-- **Reason**: Complex toast notification system testing with timing and state management
+**Test Suite 2: Mixed Component Tests** - ~6 tests skipped
+- **Locations**: 
+  - `src/tests/components/CreatePostModal.cursor-positioning.test.tsx` (~2 tests)
+  - `src/tests/accessibility/accessibility.test.tsx` (~3 tests)
+  - `src/tests/integration/post-page-authentication.test.tsx` (~1 test)
+- **Complexity**: Medium - Various component and integration issues
+- **Priority**: Medium - Accessibility and authentication are important
+- **Reasons**: 
+  - Cursor positioning API issues in test environment
+  - Navbar structure changes needed for accessibility tests
+  - Authentication state mocking not properly affecting UI components
 - **Technical Challenges**:
-  - Portal-based rendering makes DOM queries complex in JSDOM
-  - Animation timing and `requestAnimationFrame` behavior in test environment
-  - Toast lifecycle management (show → auto-hide → cleanup)
-  - Multiple toast interaction and stacking behavior
-  - Error state and retry mechanism testing
+  - Cursor/selection API behavior in JSDOM environment
+  - Authentication context not properly reflected in component rendering
+  - Navbar structure expectations outdated after mobile menu removal
+- **Re-enable When**: After navbar updates and authentication system improvements
 
-**5. UserSearchBar Navigation Tests** - 2 tests skipped
-- **Location**: `src/tests/components/UserSearchBar.test.tsx`
-- **Complexity**: Medium - Navigation functionality testing
-- **Priority**: Medium - User navigation functionality
-- **Reason**: Navigation mock issues with router.push not being called properly
-- **Technical Challenges**:
-  - Mock router.push not being triggered by user interactions
-  - Timing issues between user events and navigation calls
-  - Complex user interaction simulation with dropdown selection
-- **Re-enable When**: After navigation system refactoring or mock improvements
-
-**6. PostPage Authentication Test** - 1 test skipped
-- **Location**: `src/tests/integration/post-page-authentication.test.tsx`
-- **Complexity**: Medium - Authentication state integration testing
-- **Priority**: Medium - Authentication flow validation
-- **Reason**: Authentication state not properly reflected in UI components
-- **Technical Challenges**:
-  - Authentication state mocking not properly affecting component rendering
-  - Complex integration between authentication context and UI state
-  - Mock token validation not working as expected in test environment
-- **Re-enable When**: After authentication system refactoring or improved mocking
+**Note**: The previous documentation showed 65 individual test counts, but the actual current status is 26 tests across 2 test suites. The LoadingStatesAndToasts test file was removed during cleanup, significantly reducing the skipped test count.
 
 #### Skipped Test Analysis by Priority:
 
-**High Priority (Should be re-enabled after Task 13):**
-- **Follow Interactions Integration Tests** (29 tests) - Integration scenarios are important for user experience
+**High Priority (Should be re-enabled soon):**
+- **FollowButton Advanced Tests** (~20 tests) - Important user interaction scenarios, but blocked by toast system issues
 
-**Medium Priority (Re-enable after navbar work):**
-- **PostCard Follow Button Tests** (2 tests) - Component integration testing
-- **FollowButton Advanced Tests** (19 tests) - Advanced edge cases and error handling
-- **UserSearchBar Navigation Tests** (2 tests) - User navigation functionality
-- **PostPage Authentication Test** (1 test) - Authentication flow validation
-
-**Low Priority (Polish features):**
-- **LoadingStates and Toasts Tests** (12 tests) - UI polish, not core functionality
+**Medium Priority (Re-enable after system improvements):**
+- **Accessibility Tests** (~3 tests) - Important for compliance, need navbar structure updates
+- **Authentication Test** (~1 test) - Authentication flow validation, needs improved mocking
+- **CreatePostModal Cursor Tests** (~2 tests) - Editor functionality, needs cursor API fixes
 
 #### Strategic Skipping Rationale:
 
@@ -278,10 +246,8 @@ npm test -- --testPathPattern=auth-e2e-simple
 **Reduced from 65 to 26 skipped tests** - 39 tests successfully re-enabled ✅
 
 **Current Skipped Tests Analysis**:
-1. **LoadingStates and Toasts** - 12 tests (UI polish, low business impact)
-2. **FollowButton Advanced** - 8 tests (complex integration, awaiting navbar changes)
-3. **Follow Interactions** - 4 tests (integration scenarios, awaiting standardization)
-4. **UserSearchBar Navigation** - 2 tests (navigation mock issues)
+1. **FollowButton Advanced** - ~20 tests (toast system interference, DOM node removal errors)
+2. **Mixed Component Tests** - ~6 tests (cursor positioning, accessibility, authentication mocking issues)
 
 **Strategic Skipping Rationale Confirmed**:
 - ✅ **Production Security Tests**: Correctly designed to fail in development
