@@ -359,24 +359,34 @@ asyncio.run(create_admin())
 - Environment variables prepared
 
 **Deployment Steps:**
-```bash
-# 1. Connect repository to Vercel
-# - Go to Vercel dashboard
-# - Import project from GitHub
-# - Select apps/web directory as root
 
-# 2. Configure build settings
-# Framework Preset: Next.js
-# Build Command: npm run build
-# Output Directory: .next
-# Install Command: npm install
+1. **Create Vercel Project**
+   - Go to Vercel dashboard (https://vercel.com/dashboard)
+   - Click "New Project"
+   - Import from GitHub and select your repository
+   - **CRITICAL**: Set Root Directory to `apps/web` during setup
 
-# 3. Configure environment variables in Vercel dashboard:
-NEXT_PUBLIC_API_URL=https://your-api-domain.railway.app/api/v1
-NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
-NODE_ENV=production
-NEXT_TELEMETRY_DISABLED=1
-```
+2. **Configure Build Settings**
+   - Framework Preset: Next.js (auto-detected)
+   - Root Directory: `apps/web` (MUST be set correctly)
+   - Build Command: `npm run build`
+   - Output Directory: `.next`
+   - Install Command: `npm install`
+
+3. **Configure Environment Variables**
+   Go to Project Settings → Environment Variables and add:
+   ```env
+   NODE_ENV=production
+   NEXT_PUBLIC_API_URL=https://your-api-domain.railway.app/api/v1
+   NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+   NEXT_TELEMETRY_DISABLED=1
+   NEXT_PUBLIC_ENABLE_ANALYTICS=true
+   NEXT_PUBLIC_ENABLE_ERROR_REPORTING=true
+   ```
+
+4. **Deploy**
+   - Vercel will automatically deploy on git push to main branch
+   - Monitor deployment in Vercel dashboard
 
 **Production Environment Variables for Vercel:**
 ```bash
