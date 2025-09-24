@@ -30,4 +30,4 @@ COPY alembic/ ./alembic/
 EXPOSE 8000
 
 # Start application with migrations
-CMD ["sh", "-c", "echo 'Starting deployment...' && echo 'DATABASE_URL:' ${DATABASE_URL:0:50} && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD ["sh", "-c", "echo 'Starting deployment...' && echo 'DATABASE_URL:' ${DATABASE_URL:0:50} && echo 'PORT:' ${PORT:-8000} && echo 'Running migrations...' && alembic upgrade head && echo 'Starting server...' && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
