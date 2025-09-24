@@ -131,6 +131,70 @@ className="sticky top-0 z-40"
 
 ---
 
+## Database Connection Issues
+
+### PostgreSQL Database Reset for Authentication Problems
+
+**Problem**: PostgreSQL database shows "password authentication failed" errors even when environment variables are correctly set. This happens when the database was initialized with different credentials than the current environment variables.
+
+**Root Cause**: PostgreSQL skips initialization when it finds an existing database directory, using the original credentials from when it was first created.
+
+#### Symptoms:
+- Logs show: `PostgreSQL Database directory appears to contain a database; Skipping initialization`
+- Continuous `FATAL: password authentication failed for user "postgres"` errors
+- Even Railway CLI `railway connect` fails with authentication errors
+
+#### Solution: Reset Database Volume
+
+The database needs to be reset with a fresh volume to reinitialize with current environment variables.
+
+#### Implementation Steps:
+
+1. **Detach the corrupted volume:**
+```bash
+railway volume detach --volume old-volume-name
+```
+
+2. **Create and attach a new volume:**
+```bash
+railway volume add --name postgres-volume --mount-path /var/lib/postgresql/data
+```
+
+3. **Redeploy the database service:**
+```bash
+railway redeploy
+```
+
+4. **Verify initialization in logs:**
+```bash
+railway logs
+# Should show: "PostgreSQL init process complete; ready for start up"
+# Should NOT show: "Skipping initialization"
+```
+
+#### Benefits:
+- ✅ Fresh database initialization with current credentials
+- ✅ Resolves authentication failures permanently
+- ✅ Maintains data integrity for new deployments
+- ✅ Prevents recurring credential mismatches
+
+#### Applied To:
+- **Railway PostgreSQL services** - Database authentication issues
+- **Docker PostgreSQL containers** - Similar volume reset approach
+
+#### Usage Guidelines:
+1. **⚠️ WARNING**: This will delete all existing data in the database
+2. Only use for development/staging environments or when data loss is acceptable
+3. Always backup important data before resetting volumes
+4. Verify environment variables are correct before redeploying
+5. Monitor logs to confirm successful initialization
+
+#### Alternative Solutions:
+- **For production**: Use `ALTER USER` commands to change passwords instead of volume reset
+- **For data preservation**: Export data, reset volume, reimport data
+
+---
+
 ## Contributing
 
 When adding new fixes to this document:

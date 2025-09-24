@@ -663,6 +663,182 @@ done
 
 ## ☁️ Cloud Platform Commands
 
+### Railway CLI Commands
+
+#### Installation and Setup
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login to Railway
+railway login
+
+# Link to existing project
+railway link
+
+# Initialize new project
+railway init
+```
+
+#### Deployment Commands
+```bash
+# Deploy current directory
+railway up
+
+# Deploy with detached mode (non-blocking)
+railway up --detach
+
+# Redeploy latest deployment
+railway redeploy
+
+# Check deployment status
+railway status
+
+# Open service in browser
+railway open
+```
+
+#### Service Management
+```bash
+# List all services
+railway service list
+
+# Link to specific service
+railway service link [service-name]
+
+# Create new service
+railway service create
+
+# Delete service
+railway service delete [service-name]
+```
+
+#### Environment Variables
+```bash
+# List all environment variables
+railway variables
+
+# Set environment variable
+railway variables set KEY=value
+
+# Set multiple variables
+railway variables set KEY1=value1 KEY2=value2
+
+# Delete environment variable
+railway variables delete KEY
+
+# Load variables from .env file
+railway variables set --from-file .env
+```
+
+#### Volume Management
+```bash
+# List all volumes
+railway volume list
+
+# Create new volume
+railway volume add --name volume-name --mount-path /path/to/mount
+
+# Delete volume
+railway volume delete --volume volume-name
+
+# Detach volume from service
+railway volume detach --volume volume-name
+
+# Attach volume to service
+railway volume attach --volume volume-name
+```
+
+#### Database Commands
+```bash
+# Connect to database
+railway connect
+
+# Connect to specific database service
+railway connect postgres
+
+# Run database migrations
+railway run alembic upgrade head
+
+# Execute SQL command
+railway run psql $DATABASE_URL -c "SELECT * FROM users LIMIT 5;"
+
+# Create database backup
+railway run pg_dump $DATABASE_URL > backup.sql
+
+# Restore database
+railway run psql $DATABASE_URL < backup.sql
+```
+
+#### Logging and Monitoring
+```bash
+# View recent logs
+railway logs
+
+# Follow logs in real-time
+railway logs --tail 100
+
+# View logs for specific deployment
+railway logs --deployment [deployment-id]
+
+# View service metrics
+railway metrics
+```
+
+#### Project Management
+```bash
+# List all projects
+railway list
+
+# Switch between projects
+railway link [project-id]
+
+# Create new project
+railway init
+
+# Get project information
+railway status
+
+# Open project dashboard
+railway open
+```
+
+#### Domain Management
+```bash
+# List domains
+railway domain
+
+# Add custom domain
+railway domain add yourdomain.com
+
+# Remove domain
+railway domain remove yourdomain.com
+
+# Generate Railway domain
+railway domain generate
+```
+
+#### Advanced Commands
+```bash
+# Run command in Railway environment
+railway run [command]
+
+# Shell into service environment
+railway shell
+
+# Port forward to local machine
+railway connect --port 5432
+
+# View build logs
+railway logs --build
+
+# Cancel deployment
+railway cancel
+
+# Scale service
+railway scale --replicas 3
+```
+
 ### Vercel Frontend Management ✅ **DEPLOYED**
 
 **Current Deployment:**
