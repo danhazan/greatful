@@ -15,16 +15,16 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
+COPY apps/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy configuration files
-COPY config/alembic.ini .
+COPY apps/api/config/alembic.ini .
 
 # Copy application code
-COPY main.py .
-COPY app/ ./app/
-COPY alembic/ ./alembic/
+COPY apps/api/main.py .
+COPY apps/api/app/ ./app/
+COPY apps/api/alembic/ ./alembic/
 
 # Expose port
 EXPOSE 8000
