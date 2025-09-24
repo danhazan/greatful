@@ -8,7 +8,9 @@ inclusion: always
 
 ### Git and File Management
 - **Never commit to git** without explicit user request
-- **Never create documentation files** (.md) without explicit request
+- **Never create documentation files** (.md) without explicit user request
+- **CRITICAL**: This includes README files, deployment guides, API documentation, or any .md files
+- **Exception**: Only create documentation when the user explicitly asks for it or when it's part of a specific task requirement
 
 ### Command Execution - CRITICAL RULES
 - **NEVER use command chaining** (`&&`, `||`, `;`) - these operators are NOT supported and will cause failures

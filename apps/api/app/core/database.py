@@ -19,9 +19,14 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://postgres:iamgreatful@localhost:5432/grateful"
 )
 
+print(f"[DATABASE] Raw DATABASE_URL: {DATABASE_URL[:50] if DATABASE_URL else 'None'}...")
+
 # Convert postgresql:// to postgresql+asyncpg:// for Railway compatibility
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+    print(f"[DATABASE] Converted DATABASE_URL: {DATABASE_URL[:50]}...")
+else:
+    print(f"[DATABASE] Using DATABASE_URL as-is: {DATABASE_URL[:50] if DATABASE_URL else 'None'}...")
 
 # Production database configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")

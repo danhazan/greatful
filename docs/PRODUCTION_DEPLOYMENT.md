@@ -408,29 +408,91 @@ NEXT_PUBLIC_ENABLE_ERROR_REPORTING=true
 NEXT_PUBLIC_ENABLE_SW=true
 ```
 
-#### Railway Backend Deployment
+#### Railway Backend Deployment (Recommended)
 
 **Prerequisites:**
-- GitHub repository connected to Railway
-- PostgreSQL and Redis add-ons configured
-- Environment variables prepared
+- GitHub repository with the Grateful project
+- Railway account (https://railway.app)
+- Domain name (optional, for custom API domain)
 
-**Deployment Steps:**
+**Step 1: Create Railway Project**
+1. **Sign up/Login to Railway**
+   - Go to https://railway.app
+   - Sign up with GitHub account
+   - Verify email if required
+
+2. **Create New Project**
+   - Click "New Project" in Railway dashboard
+   - Select "Deploy from GitHub repo"
+   - Choose your Grateful repository
+   - **IMPORTANT**: Set the root directory to `apps/api` during setup
+
+3. **Configure Service Settings**
+   - Service name: `grateful-api`
+   - Root directory: `apps/api`
+   - Build command: `pip install -r requirements.txt`
+   - Start command: `alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+**Step 2: Add Database Services**
+- **PostgreSQL**: Click "New Service" → "Database" → "PostgreSQL"
+- **Redis (Optional)**: Click "New Service" → "Database" → "Redis"
+- Railway automatically provides `DATABASE_URL` and `REDIS_URL` environment variables
+
+**Step 3: Configure Environment Variables**
+In your Railway project settings, add these environment variables:
+
 ```bash
-# 1. Create Railway project
-# - Go to Railway dashboard
-# - Create new project from GitHub
-# - Select apps/api directory
+# Environment
+ENVIRONMENT=production
 
-# 2. Add PostgreSQL database
-# - Add PostgreSQL plugin
-# - Note the DATABASE_URL provided
+# Database (automatically provided by Railway PostgreSQL service)
+DATABASE_URL=${{Postgres.DATABASE_URL}}
 
-# 3. Add Redis cache
-# - Add Redis plugin  
-# - Note the REDIS_URL provided
+# Security (CRITICAL - Generate secure values)
+SECRET_KEY=your-super-secure-secret-key-at-least-64-characters-long
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# 4. Configure railway.toml in apps/api/
+# CORS (Update with your frontend domain)
+ALLOWED_ORIGINS=https://your-frontend-domain.vercel.app,https://your-custom-domain.com
+
+# Rate Limiting
+DEFAULT_RATE_LIMIT=100
+AUTH_RATE_LIMIT=10
+UPLOAD_RATE_LIMIT=20
+
+# Request Limits
+MAX_REQUEST_SIZE=10485760
+MAX_UPLOAD_SIZE=10485760
+
+# SSL/TLS Configuration
+SSL_REDIRECT=true
+HSTS_MAX_AGE=63072000
+HSTS_PRELOAD=true
+HSTS_INCLUDE_SUBDOMAINS=true
+SECURE_COOKIES=true
+
+# Features
+ENABLE_REGISTRATION=true
+ENABLE_FILE_UPLOADS=true
+ENABLE_DOCS=false
+
+# Logging
+LOG_LEVEL=INFO
+SECURITY_LOG_LEVEL=INFO
+
+# Optional - Redis (if Redis service is added)
+REDIS_URL=${{Redis.REDIS_URL}}
+
+# Optional - Monitoring
+ENABLE_PERFORMANCE_MONITORING=true
+SLOW_QUERY_THRESHOLD_MS=300
+```
+
+**Step 4: Railway Configuration (railway.toml)**
+The `railway.toml` file should be configured as follows:
+
+```toml
 [build]
 builder = "nixpacks"
 
@@ -450,34 +512,75 @@ buildCommand = "pip install -r requirements.txt"
 startCommand = "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
 ```
 
-**Production Environment Variables for Railway:**
+**Step 5: Deploy and Verify**
+1. **Automatic Deployment**: Railway automatically deploys when you push to your main branch
+2. **Manual Deployment**: Click "Deploy" in Railway dashboard
+3. **Verify Deployment**: Check health endpoint at `https://your-app.railway.app/health`
+
+**Step 6: Configure Custom Domain (Optional)**
+1. Go to service settings in Railway → "Domains" tab
+2. Add your custom domain (e.g., `api.yourdomain.com`)
+3. Update DNS with CNAME record pointing to Railway's domain
+4. Update `ALLOWED_ORIGINS` to include your custom domain
+
+**Railway Deployment Verification**
+Test these endpoints after deployment:
+
 ```bash
-# Database (automatically provided by Railway)
-DATABASE_URL=postgresql://user:pass@host:port/db
-REDIS_URL=redis://user:pass@host:port
+# Basic health check
+curl https://your-app.railway.app/health
 
-# Security
-SECRET_KEY=your-super-secure-secret-key-at-least-64-characters-long
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# CORS (update with your Vercel domain)
-ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-custom-domain.com
-
-# Application
-ENVIRONMENT=production
-LOG_LEVEL=INFO
-ENABLE_DOCS=false
-
-# Rate limiting
-DEFAULT_RATE_LIMIT=100
-AUTH_RATE_LIMIT=10
-UPLOAD_RATE_LIMIT=20
-
-# Features
-ENABLE_REGISTRATION=true
-ENABLE_FILE_UPLOADS=true
+# Expected response
+{
+  "status": "healthy",
+  "service": "grateful-api",
+  "timestamp": "2025-01-08T10:00:00Z",
+  "version": "1.0.0"
+}
 ```
+
+**Railway Security Checklist**
+- [ ] Generate secure 64+ character secret key using: `python -c "import secrets; print(secrets.token_urlsafe(64))"`
+- [ ] Only include trusted frontend domains in CORS origins
+- [ ] Enable HTTPS redirect and HSTS headers
+- [ ] Configure appropriate rate limits
+- [ ] Disable API documentation in production (`ENABLE_DOCS=false`)
+- [ ] Never commit secrets to git
+
+**Railway Troubleshooting**
+Common issues and solutions:
+
+1. **Database Connection Issues**
+   - Verify `DATABASE_URL` environment variable is set correctly
+   - Check Railway PostgreSQL service is running
+
+2. **Migration Failures**
+   - Check database permissions and connection
+   - View Railway deployment logs for specific error messages
+
+3. **Health Check Failures**
+   - Verify `/health` endpoint returns 200 status
+   - Check application starts successfully and binds to `$PORT`
+
+4. **CORS Issues**
+   - Update `ALLOWED_ORIGINS` with correct frontend domain
+   - Include both Railway domain and custom domain if used
+
+**Railway Monitoring and Maintenance**
+Railway provides built-in monitoring for:
+- CPU and memory usage
+- Request metrics
+- Error rates
+- Response times
+
+Access monitoring in Railway dashboard under "Metrics" tab.
+
+**Railway Cost Optimization**
+- **Starter Plan**: $5/month per service
+- **Database**: Additional cost for PostgreSQL/Redis
+- Monitor resource usage to right-size instances
+- Optimize database queries to reduce load
+- Use Redis for caching frequently accessed data
 
 ### Docker Deployment (Self-Hosted Alternative)
 
