@@ -16,38 +16,32 @@ async def reset_and_migrate():
         sys.exit(1)
     
     print(f"🔧 Starting migration reset and setup...")
+    print(f"Database URL: {database_url[:50]}...")
     
-    # Create async engine
-    engine = create_async_engine(database_url)
+    # Create async engine with better error handling
+    engine = create_async_engine(database_url, echo=True)
     
     try:
+        # Test connection first
+        print("🔌 Testing database connection...")
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+            print("✅ Database connection successful")
+        
         async with engine.begin() as conn:
-            # 1. Check if alembic_version table exists
-            print("📊 Checking alembic_version table...")
-            result = await conn.execute(text("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'alembic_version'
+            # 1. Drop and recreate alembic_version table to ensure clean state
+            print("🧹 Ensuring clean alembic_version table...")
+            await conn.execute(text("DROP TABLE IF EXISTS alembic_version CASCADE"))
+            await conn.execute(text("""
+                CREATE TABLE alembic_version (
+                    version_num VARCHAR(32) NOT NULL, 
+                    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
                 )
             """))
-            has_alembic_table = result.scalar()
+            print("✅ Clean alembic_version table created")
             
-            if has_alembic_table:
-                # Clear any existing version
-                print("🧹 Clearing existing alembic version...")
-                await conn.execute(text("DELETE FROM alembic_version"))
-            else:
-                print("⚠️  Creating alembic_version table...")
-                await conn.execute(text("""
-                    CREATE TABLE alembic_version (
-                        version_num VARCHAR(32) NOT NULL, 
-                        CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
-                    )
-                """))
-            
-            # 2. Check if we have any existing tables
-            print("📋 Checking existing tables...")
+            # 2. Check if we have any existing application tables
+            print("📋 Checking existing application tables...")
             result = await conn.execute(text("""
                 SELECT table_name FROM information_schema.tables 
                 WHERE table_schema = 'public' 
@@ -60,8 +54,7 @@ async def reset_and_migrate():
             expected_tables = ['users', 'posts', 'emoji_reactions', 'likes', 'follows', 'shares', 'mentions', 'notifications', 'user_interactions']
             
             if len(existing_tables) == 0:
-                print("✅ Database is empty - will run migration normally")
-                # Leave alembic_version empty so migration will run
+                print("✅ Database is empty - migration will create all tables")
             elif set(existing_tables) >= set(expected_tables):
                 print("✅ All expected tables exist - marking as migrated")
                 # Set the migration as already applied
@@ -71,12 +64,16 @@ async def reset_and_migrate():
                 print("✅ Database marked as up-to-date with consolidated migration")
             else:
                 print(f"⚠️  Partial tables found: {existing_tables}")
-                print("🔄 Will let migration handle the setup")
+                print("🔄 Dropping partial tables for clean migration")
+                # Drop existing tables to ensure clean migration
+                for table in existing_tables:
+                    await conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
+                print("✅ Partial tables dropped - migration will create all tables")
             
             print("🎉 Migration setup completed successfully!")
             
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Error during migration setup: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
