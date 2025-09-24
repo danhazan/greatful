@@ -31,4 +31,4 @@ COPY apps/api/alembic/ ./alembic/
 EXPOSE 8000
 
 # Start application with migration reset and setup
-CMD ["sh", "-c", "echo 'Starting deployment...' && echo 'DATABASE_URL:' $DATABASE_URL && echo 'PORT:' $PORT && echo 'Resetting migration state...' && python reset_and_migrate.py && echo 'Running migrations...' && alembic upgrade head && echo 'Starting server...' && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD ["sh", "-c", "echo 'Starting deployment...' && echo 'DATABASE_URL:' $DATABASE_URL && echo 'PORT:' $PORT && echo 'Resetting migration state...' && python reset_and_migrate.py && echo 'Running migrations...' && alembic upgrade head && echo 'Migration completed successfully!' && echo 'Starting server...' && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
