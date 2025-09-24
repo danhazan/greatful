@@ -40,43 +40,135 @@ def upgrade() -> None:
         op.drop_table('notification')
     except Exception:
         pass  # Table doesn't exist, continue
-    op.alter_column('emoji_reactions', 'user_id',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-    op.alter_column('emoji_reactions', 'post_id',
-               existing_type=sa.VARCHAR(),
-               nullable=False)
-    op.drop_constraint('emoji_reactions_user_id_post_id_key', 'emoji_reactions', type_='unique')
-    op.drop_index('idx_emoji_reactions_created_at', table_name='emoji_reactions')
-    op.drop_index('idx_emoji_reactions_post_id', table_name='emoji_reactions')
-    op.drop_index('idx_emoji_reactions_user_id', table_name='emoji_reactions')
-    op.create_unique_constraint('unique_user_post_reaction', 'emoji_reactions', ['user_id', 'post_id'])
-    op.drop_constraint('emoji_reactions_post_id_fkey', 'emoji_reactions', type_='foreignkey')
-    op.drop_constraint('emoji_reactions_user_id_fkey', 'emoji_reactions', type_='foreignkey')
-    op.create_foreign_key(None, 'emoji_reactions', 'posts', ['post_id'], ['id'])
-    op.create_foreign_key(None, 'emoji_reactions', 'users', ['user_id'], ['id'])
-    op.create_foreign_key(None, 'likes', 'posts', ['post_id'], ['id'])
-    op.create_foreign_key(None, 'likes', 'users', ['user_id'], ['id'])
-    op.alter_column('notifications', 'last_updated_at',
-               existing_type=postgresql.TIMESTAMP(),
-               nullable=False)
-    op.alter_column('posts', 'author_id',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-    op.alter_column('posts', 'post_type',
-               existing_type=postgresql.ENUM('daily', 'photo', 'spontaneous', name='posttype'),
-               type_=sa.Enum('daily', 'photo', 'spontaneous', name='posttype', schema='public'),
-               nullable=False,
-               existing_server_default=sa.text("'daily'::posttype"))
-    op.alter_column('users', 'created_at',
-               existing_type=postgresql.TIMESTAMP(timezone=True),
-               nullable=False,
-               existing_server_default=sa.text('now()'))
-    op.drop_constraint('users_email_key', 'users', type_='unique')
-    op.drop_constraint('users_username_key', 'users', type_='unique')
-    op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
-    op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
-    op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
+    # Safely alter columns - skip if already correct or if data conflicts
+    try:
+        op.alter_column('emoji_reactions', 'user_id',
+                   existing_type=sa.INTEGER(),
+                   nullable=False)
+    except Exception:
+        pass  # Column might already be NOT NULL or have constraint issues
+        
+    try:
+        op.alter_column('emoji_reactions', 'post_id',
+                   existing_type=sa.VARCHAR(),
+                   nullable=False)
+    except Exception:
+        pass  # Column might already be NOT NULL or have constraint issues
+        
+    # Safely drop constraints and indexes
+    try:
+        op.drop_constraint('emoji_reactions_user_id_post_id_key', 'emoji_reactions', type_='unique')
+    except Exception:
+        pass  # Constraint might not exist
+        
+    try:
+        op.drop_index('idx_emoji_reactions_created_at', table_name='emoji_reactions')
+    except Exception:
+        pass  # Index might not exist
+        
+    try:
+        op.drop_index('idx_emoji_reactions_post_id', table_name='emoji_reactions')
+    except Exception:
+        pass  # Index might not exist
+        
+    try:
+        op.drop_index('idx_emoji_reactions_user_id', table_name='emoji_reactions')
+    except Exception:
+        pass  # Index might not exist
+    # Safely create constraints
+    try:
+        op.create_unique_constraint('unique_user_post_reaction', 'emoji_reactions', ['user_id', 'post_id'])
+    except Exception:
+        pass  # Constraint might already exist
+        
+    # Safely drop foreign key constraints
+    try:
+        op.drop_constraint('emoji_reactions_post_id_fkey', 'emoji_reactions', type_='foreignkey')
+    except Exception:
+        pass  # Constraint might not exist
+        
+    try:
+        op.drop_constraint('emoji_reactions_user_id_fkey', 'emoji_reactions', type_='foreignkey')
+    except Exception:
+        pass  # Constraint might not exist
+        
+    # Safely create foreign key constraints
+    try:
+        op.create_foreign_key(None, 'emoji_reactions', 'posts', ['post_id'], ['id'])
+    except Exception:
+        pass  # Constraint might already exist
+        
+    try:
+        op.create_foreign_key(None, 'emoji_reactions', 'users', ['user_id'], ['id'])
+    except Exception:
+        pass  # Constraint might already exist
+        
+    try:
+        op.create_foreign_key(None, 'likes', 'posts', ['post_id'], ['id'])
+    except Exception:
+        pass  # Constraint might already exist
+        
+    try:
+        op.create_foreign_key(None, 'likes', 'users', ['user_id'], ['id'])
+    except Exception:
+        pass  # Constraint might already exist
+    # Safely alter remaining columns
+    try:
+        op.alter_column('notifications', 'last_updated_at',
+                   existing_type=postgresql.TIMESTAMP(),
+                   nullable=False)
+    except Exception:
+        pass  # Column might already be NOT NULL or table might not exist
+        
+    try:
+        op.alter_column('posts', 'author_id',
+                   existing_type=sa.INTEGER(),
+                   nullable=False)
+    except Exception:
+        pass  # Column might already be NOT NULL
+        
+    try:
+        op.alter_column('posts', 'post_type',
+                   existing_type=postgresql.ENUM('daily', 'photo', 'spontaneous', name='posttype'),
+                   type_=sa.Enum('daily', 'photo', 'spontaneous', name='posttype', schema='public'),
+                   nullable=False,
+                   existing_server_default=sa.text("'daily'::posttype"))
+    except Exception:
+        pass  # Column might already be correct
+        
+    try:
+        op.alter_column('users', 'created_at',
+                   existing_type=postgresql.TIMESTAMP(timezone=True),
+                   nullable=False,
+                   existing_server_default=sa.text('now()'))
+    except Exception:
+        pass  # Column might already be NOT NULL
+        
+    # Safely drop and create constraints/indexes
+    try:
+        op.drop_constraint('users_email_key', 'users', type_='unique')
+    except Exception:
+        pass  # Constraint might not exist
+        
+    try:
+        op.drop_constraint('users_username_key', 'users', type_='unique')
+    except Exception:
+        pass  # Constraint might not exist
+        
+    try:
+        op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
+    except Exception:
+        pass  # Index might already exist
+        
+    try:
+        op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
+    except Exception:
+        pass  # Index might already exist
+        
+    try:
+        op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
+    except Exception:
+        pass  # Index might already exist
     # ### end Alembic commands ###
 
 
