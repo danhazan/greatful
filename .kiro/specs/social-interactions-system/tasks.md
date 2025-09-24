@@ -1020,6 +1020,27 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Configure production environment variables (DATABASE_URL, REDIS_URL, SECRET_KEY, CORS settings)
   - Set up automatic database migrations on deployment (railway.toml configuration)
   - Configure custom API domain (optional) and verify health check endpoints
+- [ ] **Consolidate Alembic Migrations into Single Initial Migration**
+  - Back up current state: Document the current migration head and database schema
+  - Remove existing migrations: Delete all files in alembic/versions/ directory (preserve the directory itself)
+  - Generate fresh initial migration: Create a single migration that represents the complete current schema using `alembic revision --autogenerate -m "initial_schema"`
+  - pdate migration state: Use `alembic stamp head` to mark the new migration as applied without executing it
+  - Verify: Test that the new migration creates the correct schema on a fresh database
+  - Important notes:
+    - Development data loss is acceptable - no production data exists yet
+    - The goal is to have a single, clean initial migration that represents the current complete schema
+  - Expected outcome:
+    - Single migration file in alembic/versions/ that creates the full current database schema
+    - Clean migration history suitable for production deployment
+    - Verified that `alembic upgrade head` on fresh database produces correct schema
+  - Commands to use:
+    ```bash
+    alembic current  # Document current state
+    rm alembic/versions/*.py  # Clear existing migrations
+    alembic revision --autogenerate -m "initial_schema"  # Generate new migration
+    alembic stamp head  # Mark as applied
+    ```
+
 - [ ] **Production Configuration**
   - **Documentation:** Consult docs/SECURITY_AND_PRODUCTION.md, docs/AUTHENTICATION_FLOW.md, docs/CONFIGURATION_FILES.md before implementation; update with cloud platform-specific security configurations after setup
   - Generate secure JWT secrets (64+ characters) and configure authentication settings with key rotation procedures
