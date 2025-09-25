@@ -6,6 +6,7 @@ import { Search, X } from 'lucide-react'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
 import ProfilePhotoDisplay from './ProfilePhotoDisplay'
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 interface UserSearchResult {
   id: number
@@ -276,7 +277,8 @@ export default function UserSearchBar({
                   onFocus={handleInputFocus}
                   onBlur={handleInputBlur}
                   placeholder="Search users..."
-                  className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation shadow-lg"
+                  className={`block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation shadow-lg ${getCompleteInputStyling().className}`}
+                  style={getCompleteInputStyling().style}
                   aria-label="Search for users"
                   aria-expanded={isDropdownOpen}
                   aria-haspopup="listbox"
@@ -313,7 +315,8 @@ export default function UserSearchBar({
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
               placeholder={placeholder}
-              className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors h-9 touch-manipulation"
+              className={`block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors h-9 touch-manipulation ${getCompleteInputStyling().className}`}
+              style={getCompleteInputStyling().style}
               aria-label="Search for users"
               aria-expanded={isDropdownOpen}
               aria-haspopup="listbox"

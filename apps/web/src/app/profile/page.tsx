@@ -10,6 +10,7 @@ import ProfileImageSection from "@/components/ProfileImageSection"
 import LocationAutocomplete from "@/components/LocationAutocomplete"
 import { transformUserPosts } from "@/lib/transformers"
 import { normalizeUserData } from "@/utils/userDataMapping"
+import { getCompleteInputStyling } from "@/utils/inputStyles"
 
 interface UserProfile {
   id: number
@@ -571,7 +572,8 @@ export default function ProfilePage() {
                           type="text"
                           value={editForm.displayName}
                           onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
+                          style={getCompleteInputStyling().style}
                           maxLength={100}
                           placeholder="How you want to be displayed"
                         />
@@ -586,7 +588,8 @@ export default function ProfilePage() {
                           type="text"
                           value={editForm.username}
                           onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
+                          style={getCompleteInputStyling().style}
                           maxLength={50}
                         />
                       </div>
@@ -599,7 +602,8 @@ export default function ProfilePage() {
                         <textarea
                           value={editForm.bio}
                           onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
+                          style={getCompleteInputStyling().style}
                           rows={3}
                           maxLength={500}
                           placeholder="Tell us about yourself..."
@@ -668,7 +672,8 @@ export default function ProfilePage() {
                                       addInstitution()
                                     }
                                   }}
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
+                                  style={getCompleteInputStyling().style}
                                   maxLength={100}
                                   placeholder="Institution name"
                                 />
@@ -733,7 +738,8 @@ export default function ProfilePage() {
                                       addWebsite()
                                     }
                                   }}
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
+                                  style={getCompleteInputStyling().style}
                                   placeholder="https://example.com"
                                 />
                                 <button

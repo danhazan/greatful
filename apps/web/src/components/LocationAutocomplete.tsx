@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { MapPin, X, Loader2 } from "lucide-react"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 interface LocationResult {
   display_name: string
@@ -246,7 +247,9 @@ export default function LocationAutocomplete({
             focus:ring-2 focus:ring-purple-500 focus:border-transparent
             disabled:bg-gray-100 disabled:cursor-not-allowed
             ${error ? 'border-red-300 focus:ring-red-500' : ''}
+            ${getCompleteInputStyling().className}
           `}
+          style={getCompleteInputStyling().style}
         />
 
         {/* Loading Spinner */}

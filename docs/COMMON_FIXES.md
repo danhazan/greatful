@@ -4,9 +4,137 @@ This document contains common fixes and solutions that can be applied to similar
 
 ## 📋 Table of Contents
 
+- [Text Input Visibility Fixes](#text-input-visibility-fixes)
 - [Dropdown Positioning Fixes](#dropdown-positioning-fixes)
 - [Responsive Design Patterns](#responsive-design-patterns)
 - [Mobile Optimization Techniques](#mobile-optimization-techniques)
+
+---
+
+## Text Input Visibility Fixes
+
+### Transparent Text Input Fix
+
+**Problem**: Text inputs on mobile devices sometimes display transparent or invisible text, making it impossible for users to see what they're typing. This commonly occurs due to browser autofill styling conflicts and mobile-specific CSS rendering issues.
+
+**Root Cause**: Mobile browsers apply autofill styling that can override text colors, and certain CSS properties like `-webkit-text-fill-color` can make text transparent.
+
+#### Symptoms:
+- Text appears invisible or transparent when typing in input fields
+- Placeholder text is visible but typed text is not
+- Issue primarily occurs on mobile devices (iOS Safari, Chrome mobile)
+- Affects login, signup, search, and profile edit forms
+
+#### Solution: Shared Input Styling Utility
+
+Create a shared utility that applies consistent styling to ensure text visibility across all input types.
+
+#### Implementation:
+
+**1. Create shared utility (`apps/web/src/utils/inputStyles.ts`):**
+```typescript
+import { CSSProperties } from 'react'
+
+/**
+ * Base input styles that ensure text visibility on all devices
+ * Fixes the transparent text issue that occurs on mobile browsers
+ */
+export const getVisibleTextInputStyles = (): CSSProperties => ({
+  // Ensure text is always visible
+  color: '#374151', // gray-700
+  backgroundColor: 'transparent',
+  
+  // Fix mobile text positioning issues
+  WebkitUserSelect: 'text',
+  userSelect: 'text',
+  WebkitTouchCallout: 'default',
+  WebkitTapHighlightColor: 'transparent',
+  
+  // Ensure proper text positioning on mobile
+  lineHeight: '1.5',
+  wordWrap: 'break-word',
+  overflowWrap: 'break-word',
+  
+  // Fix iOS Safari text positioning and autofill issues
+  WebkitTextSizeAdjust: '100%',
+  WebkitTextFillColor: '#374151', // Prevents autofill from making text transparent
+  
+  // Ensure caret is visible
+  caretColor: '#374151'
+})
+
+/**
+ * Tailwind classes that complement the inline styles
+ */
+export const VISIBLE_TEXT_INPUT_CLASSES = 'text-gray-700 placeholder-gray-400'
+
+/**
+ * Complete input styling solution
+ */
+export const getCompleteInputStyling = () => ({
+  style: getVisibleTextInputStyles(),
+  className: VISIBLE_TEXT_INPUT_CLASSES
+})
+```
+
+**2. Apply to input elements:**
+```tsx
+import { getCompleteInputStyling } from '@/utils/inputStyles'
+
+// For regular inputs
+<input
+  type="text"
+  className={`your-existing-classes ${getCompleteInputStyling().className}`}
+  style={getCompleteInputStyling().style}
+  // ... other props
+/>
+
+// For textareas
+<textarea
+  className={`your-existing-classes ${getCompleteInputStyling().className}`}
+  style={getCompleteInputStyling().style}
+  // ... other props
+/>
+```
+
+#### Key CSS Properties:
+
+- `color: '#374151'` - Ensures text color is always visible
+- `WebkitTextFillColor: '#374151'` - **Critical**: Prevents autofill from making text transparent
+- `caretColor: '#374151'` - Ensures cursor is visible
+- `WebkitTextSizeAdjust: '100%'` - Prevents iOS Safari text scaling issues
+- `backgroundColor: 'transparent'` - Maintains input background styling
+
+#### Benefits:
+- ✅ Fixes transparent text on all mobile browsers
+- ✅ Consistent text visibility across all input types
+- ✅ Shared code prevents duplication
+- ✅ Easy to apply to new inputs
+- ✅ Maintains existing styling while fixing visibility
+- ✅ Works with autofill and manual input
+
+#### Applied To:
+- **Signup form** - Username, email, password, confirm password inputs
+- **Login form** - Email and password inputs
+- **UserSearchBar** - Search input (mobile and desktop)
+- **LocationAutocomplete** - Location search input
+- **Profile edit form** - Display name, username, bio textarea, institution, website inputs
+- **RichTextEditor** - ContentEditable text area
+
+#### Usage Guidelines:
+1. **Always apply to new text inputs** - Use `getCompleteInputStyling()` for all new input elements
+2. **Import once per component** - Add the import at the top of components with text inputs
+3. **Combine with existing classes** - The utility complements existing Tailwind classes
+4. **Test on mobile devices** - Always verify text visibility on iOS Safari and Chrome mobile
+5. **Apply to textareas too** - The fix works for both `<input>` and `<textarea>` elements
+
+#### Testing Checklist:
+- [ ] Text is visible when typing on iOS Safari
+- [ ] Text is visible when typing on Chrome mobile
+- [ ] Autofill doesn't make text transparent
+- [ ] Placeholder text is visible
+- [ ] Cursor/caret is visible
+- [ ] Existing styling is preserved
 
 ---
 
