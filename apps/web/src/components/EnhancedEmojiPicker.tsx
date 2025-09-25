@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Search, Heart, Smile, Sun, Star, Sparkles } from "lucide-react"
+import { getCompleteInputStyling } from "@/utils/inputStyles"
 
 interface EnhancedEmojiPickerProps {
   isOpen: boolean
@@ -128,7 +129,8 @@ export default function EnhancedEmojiPicker({
               placeholder="Search emojis..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+              className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm ${getCompleteInputStyling().className}`}
+              style={getCompleteInputStyling().style}
             />
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react'
 import MentionAutocomplete from './MentionAutocomplete'
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 // UserInfo type defined locally
 interface UserInfo {
   id: number
@@ -95,7 +96,8 @@ export default function MentionAutocompleteDemo() {
           value={text}
           onChange={handleTextChange}
           placeholder="Try typing @test to see the autocomplete..."
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+          className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none ${getCompleteInputStyling().className}`}
+          style={getCompleteInputStyling().style}
           rows={4}
         />
       </div>

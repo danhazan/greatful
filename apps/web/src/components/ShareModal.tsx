@@ -6,6 +6,7 @@ import { X, Copy, Check, Link, MessageCircle, Send, Loader2 } from "lucide-react
 import MentionAutocomplete from "./MentionAutocomplete"
 import { useToast } from "@/contexts/ToastContext"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
+import { getCompleteInputStyling } from "@/utils/inputStyles"
 
 interface Post {
   id: string
@@ -460,7 +461,8 @@ export default function ShareModal({
                   onChange={handleSearchChange}
                   placeholder="Search users to send to..."
                   dir={getDirectionAttribute(searchQuery)}
-                  className={`w-full px-3 py-3 sm:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] touch-manipulation ${getTextAlignmentClass(searchQuery)}`}
+                  className={`w-full px-3 py-3 sm:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] touch-manipulation ${getTextAlignmentClass(searchQuery)} ${getCompleteInputStyling().className}`}
+                  style={getCompleteInputStyling().style}
                   onFocus={() => setShowAutocomplete(searchQuery.length > 0)}
                   aria-label="Search users to send post to"
                   aria-describedby="user-search-help"

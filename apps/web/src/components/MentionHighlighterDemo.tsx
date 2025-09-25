@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import MentionHighlighter from './MentionHighlighter'
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 /**
  * Demo component to showcase the MentionHighlighter functionality
@@ -44,7 +45,8 @@ export default function MentionHighlighterDemo() {
             id="content-input"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${getCompleteInputStyling().className}`}
+            style={getCompleteInputStyling().style}
             rows={3}
             placeholder="Type some text with @username mentions..."
           />
