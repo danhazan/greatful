@@ -100,7 +100,7 @@ export default function EmojiPicker({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-25 z-40" />
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-20 z-40" />
       
       {/* Modal */}
       <div 

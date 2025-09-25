@@ -116,7 +116,7 @@ describe('LocationDisplayModal', () => {
     )
 
     // Click on the backdrop
-    const backdrop = document.querySelector('.fixed.inset-0.bg-black')
+    const backdrop = document.querySelector('.fixed.inset-0.bg-gray-900')
     if (backdrop) {
       fireEvent.mouseDown(backdrop)
     }

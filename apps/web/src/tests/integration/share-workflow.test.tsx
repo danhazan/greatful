@@ -405,7 +405,7 @@ describe('Share Workflow Integration Tests', () => {
       )
 
       // Click on backdrop (outside modal)
-      const backdrop = document.querySelector('.fixed.inset-0.bg-black')
+      const backdrop = document.querySelector('.fixed.inset-0.bg-gray-900')
       expect(backdrop).toBeInTheDocument()
       
       fireEvent.mouseDown(backdrop!)

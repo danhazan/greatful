@@ -642,7 +642,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
+        className="fixed inset-0 bg-gray-900 bg-opacity-30 z-40"
         onClick={(e) => {
           // Don't close if location modal is open
           if (e.target === e.currentTarget && !showLocationModal) {
