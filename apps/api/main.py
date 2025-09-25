@@ -6,15 +6,22 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load environment variables - development first, then production if exists
+# Load environment variables based on context
+test_env_path = Path(__file__).parent / ".env.test"
 dev_env_path = Path(__file__).parent / ".env"
 prod_env_path = Path(__file__).parent / "config" / ".env"
 
-# Load development .env first
-if dev_env_path.exists():
+# Check if we're running tests
+is_testing = "pytest" in os.getenv("_", "") or os.getenv("TESTING", "false").lower() == "true"
+
+if is_testing and test_env_path.exists():
+    # Load test environment
+    load_dotenv(test_env_path)
+elif dev_env_path.exists():
+    # Load development .env first
     load_dotenv(dev_env_path)
 
-# Load production .env if it exists (will override development settings)
+# Load production .env if it exists and environment is production
 if prod_env_path.exists() and os.getenv("ENVIRONMENT") == "production":
     load_dotenv(prod_env_path)
 
@@ -191,39 +198,7 @@ uploads_dir = Path("uploads")
 uploads_dir.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Add custom image serving endpoint for development with permissive CORS
-if security_config.is_development:
-    from fastapi.responses import FileResponse
-    import mimetypes
-    
-    @app.get("/dev-uploads/{file_path:path}")
-    async def serve_dev_uploads(file_path: str):
-        """Serve uploaded files in development with permissive CORS headers."""
-        file_location = uploads_dir / file_path
-        
-        if not file_location.exists() or not file_location.is_file():
-            from fastapi import HTTPException
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        # Determine content type
-        content_type, _ = mimetypes.guess_type(str(file_location))
-        if content_type is None:
-            content_type = "application/octet-stream"
-        
-        # Create response with permissive headers
-        response = FileResponse(
-            path=file_location,
-            media_type=content_type,
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Cross-Origin-Resource-Policy": "cross-origin",
-                "Cache-Control": "public, max-age=3600",  # Cache for 1 hour in dev
-            }
-        )
-        
-        return response
+
 
 # Include routers with security considerations
 # Health checks - basic health for load balancers, detailed health requires auth

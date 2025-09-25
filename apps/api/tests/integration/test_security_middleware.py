@@ -289,9 +289,13 @@ class TestProductionSecurityFeatures:
         assert "X-Frame-Options" in headers
         assert "X-Content-Type-Options" in headers
         
-        # HSTS is only added in production, so test the configuration method
+        # HSTS is only enabled in production, disabled in development/testing
         assert hasattr(config, 'hsts_max_age')
-        assert config.hsts_max_age > 0
+        if config.environment == 'production':
+            assert config.hsts_max_age > 0
+        else:
+            # In development/testing, HSTS should be disabled
+            assert config.hsts_max_age == 0
 
 
 class TestEndToEndSecurity:

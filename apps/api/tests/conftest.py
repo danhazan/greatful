@@ -3,8 +3,24 @@ Shared test fixtures and configuration for backend tests.
 This file provides common setup for all tests following the Test Guidelines.
 """
 
+import os
 import pytest
 import pytest_asyncio
+
+# Set up test environment variables
+os.environ.update({
+    'TESTING': 'true',
+    'LOAD_TESTING': 'true',
+    'ENVIRONMENT': 'development',
+    'DEFAULT_RATE_LIMIT': '100',
+    'AUTH_RATE_LIMIT': '10',
+    'UPLOAD_RATE_LIMIT': '20',
+    'ALLOWED_ORIGINS': 'http://localhost:3000',
+    'SECRET_KEY': 'test-secret-key-for-testing-only-not-secure',
+    'SSL_REDIRECT': 'false',
+    'SECURE_COOKIES': 'false',
+    'LOG_LEVEL': 'WARNING'
+})
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
