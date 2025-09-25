@@ -688,9 +688,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
 
               {/* Content Input */}
-              <div className="flex-1 p-2">
-                <div className="mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
+              <div className="flex-1 p-4 sm:p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     {gratitudePrompt}
                   </label>
                 </div>
@@ -730,7 +730,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 </div>
 
                 {/* Toolbar - Style and Location buttons under textbox */}
-                <div className="flex items-center justify-between pt-0 mt-0">
+                <div className="flex items-center justify-between pt-3 mt-3">
                   <div className="flex items-center space-x-3">
                     {/* Style Button */}
                     <button

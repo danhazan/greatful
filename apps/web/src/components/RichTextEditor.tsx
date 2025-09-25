@@ -750,7 +750,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         onInput={handleInput}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
-        className="min-h-[120px] p-3 border rounded-b-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+        className="min-h-[120px] border rounded-b-lg focus:ring-2 focus:ring-purple-500 focus:outline-none relative"
         data-placeholder={placeholder}
         dir={getDirectionAttribute(value || htmlValue || '')}
         style={{
@@ -758,7 +758,20 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           maxHeight: '300px',
           overflowY: 'auto',
           direction: getDirectionAttribute(value || htmlValue || ''),
-          textAlign: getDirectionAttribute(value || htmlValue || '') === 'rtl' ? 'right' : 'left'
+          textAlign: getDirectionAttribute(value || htmlValue || '') === 'rtl' ? 'right' : 'left',
+          // Fix mobile text positioning issues
+          WebkitUserSelect: 'text',
+          userSelect: 'text',
+          WebkitTouchCallout: 'default',
+          WebkitTapHighlightColor: 'transparent',
+          // Ensure proper text positioning on mobile
+          lineHeight: '1.5',
+          wordWrap: 'break-word',
+          overflowWrap: 'break-word',
+          // Fix iOS Safari text positioning
+          WebkitTextSizeAdjust: '100%',
+          // Ensure caret is visible
+          caretColor: 'auto'
         } as React.CSSProperties}
       />
 
@@ -1022,6 +1035,33 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           content: attr(data-placeholder);
           color: #9ca3af;
           pointer-events: none;
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          right: 12px;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+        }
+        [contenteditable] {
+          position: relative;
+          /* Fix mobile text positioning */
+          -webkit-user-select: text;
+          user-select: text;
+          -webkit-touch-callout: default;
+          -webkit-tap-highlight-color: transparent;
+          /* Ensure proper text flow on mobile */
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          /* Fix iOS Safari issues */
+          -webkit-text-size-adjust: 100%;
+          /* Ensure text starts at proper position */
+          text-indent: 0;
+          padding-top: 12px;
+          padding-bottom: 12px;
+          padding-left: 12px;
+          padding-right: 12px;
         }
         .mention {
           background-color: #e0e7ff;
@@ -1029,6 +1069,19 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           padding: 2px 4px;
           border-radius: 4px;
           font-weight: 500;
+          display: inline;
+          white-space: nowrap;
+        }
+        /* Mobile-specific fixes */
+        @media (max-width: 768px) {
+          [contenteditable] {
+            font-size: 16px; /* Prevent zoom on iOS */
+            line-height: 1.5;
+            min-height: 120px;
+          }
+          [contenteditable]:empty:before {
+            font-size: 16px; /* Match contenteditable font size */
+          }
         }
       `}</style>
     </div>
