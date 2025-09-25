@@ -99,6 +99,7 @@ class RailwayDeploymentHelper:
             'UPLOAD_RATE_LIMIT': '20',
             'MAX_REQUEST_SIZE': '10485760',
             'MAX_UPLOAD_SIZE': '10485760',
+            'UPLOAD_PATH': '/app/uploads',
             'ACCESS_TOKEN_EXPIRE_MINUTES': '60',
             'REFRESH_TOKEN_EXPIRE_DAYS': '7'
         }

@@ -1,0 +1,4 @@
+Sentinel file created at 2025-09-25T22:40:15.074779
+Process PID: 500771
+Working directory: /home/danha/Projects/Kiro/greatful/apps/api
+Upload path: /home/danha/Projects/Kiro/greatful/apps/api/uploads

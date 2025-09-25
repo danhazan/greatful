@@ -193,10 +193,22 @@ app.add_middleware(RequestIDMiddleware)  # Add request ID tracking
 cors_config = security_config.get_cors_config()
 app.add_middleware(CORSMiddleware, **cors_config)
 
-# Mount static files for uploads
+# Mount static files for uploads with proper path handling
 uploads_path = os.getenv("UPLOAD_PATH", "uploads")
+# Ensure we use absolute path for Railway volume mounting
+if not os.path.isabs(uploads_path):
+    uploads_path = os.path.abspath(uploads_path)
+
 uploads_dir = Path(uploads_path)
-uploads_dir.mkdir(exist_ok=True)
+uploads_dir.mkdir(parents=True, exist_ok=True)
+
+# Set proper permissions for Railway volume
+try:
+    os.chmod(uploads_path, 0o755)
+    logger.info(f"Upload directory configured at: {uploads_path}")
+except Exception as e:
+    logger.warning(f"Could not set permissions on upload directory: {e}")
+
 app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 
@@ -227,6 +239,11 @@ if os.getenv("LOAD_TESTING", "").lower() == "true":
     from app.api.v1.test_auth import router as test_auth_router
     app.include_router(test_auth_router, prefix="/api/v1", tags=["test-auth"])
     logger.info("Test authentication endpoints enabled for load testing")
+
+# Include debug router for Railway volume debugging (temporary - remove in production)
+if os.getenv("ENVIRONMENT", "development") != "production":
+    from debug_uploads import router as debug_router
+    app.include_router(debug_router, tags=["debug"])
 
 
 @app.get("/")

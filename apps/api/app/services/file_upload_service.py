@@ -30,8 +30,20 @@ class FileUploadService(BaseService):
         super().__init__(db)
         # Use environment variable for upload path, default to relative path for development
         upload_path = os.getenv("UPLOAD_PATH", "uploads")
+        
+        # Ensure we use absolute path for Railway volume mounting
+        if not os.path.isabs(upload_path):
+            upload_path = os.path.abspath(upload_path)
+            
         self.base_upload_dir = Path(upload_path)
         self.base_upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Set proper permissions for Railway volume
+        try:
+            os.chmod(self.base_upload_dir, 0o755)
+            logger.info(f"FileUploadService initialized with upload directory: {self.base_upload_dir}")
+        except Exception as e:
+            logger.warning(f"Could not set permissions on upload directory: {e}")
 
     def validate_image_file(self, file: UploadFile, max_size_mb: int = 5) -> None:
         """
