@@ -48,8 +48,13 @@ out/
 .DS_Store
 *.pem
 
-# Uploaded Files
-uploads/
+# Uploaded Files - ignore contents but keep directory structure
+uploads/*
+!uploads/.gitkeep
+!uploads/posts/
+!uploads/posts/.gitkeep
+!uploads/profile_photos/
+!uploads/profile_photos/.gitkeep
 
 # Debug
 npm-debug.log*
