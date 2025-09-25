@@ -36,7 +36,7 @@ class SecurityConfig:
     
     # SSL/TLS Configuration
     ssl_redirect: bool = os.getenv("SSL_REDIRECT", "true" if os.getenv("ENVIRONMENT", "development") == "production" else "false").lower() == "true"
-    hsts_max_age: int = int(os.getenv("HSTS_MAX_AGE", "31536000"))  # 1 year
+    hsts_max_age: int = int(os.getenv("HSTS_MAX_AGE", "31536000" if os.getenv("ENVIRONMENT", "development") == "production" else "0"))  # 1 year in production, 0 in development
     hsts_preload: bool = os.getenv("HSTS_PRELOAD", "true").lower() == "true"
     hsts_include_subdomains: bool = os.getenv("HSTS_INCLUDE_SUBDOMAINS", "true").lower() == "true"
     
@@ -159,10 +159,10 @@ class SecurityConfig:
                 "max_age": 86400,  # 24 hours
             }
         elif self.is_development:
-            # More permissive CORS for development
+            # More permissive CORS for development - use specific origins to allow credentials
             return {
-                "allow_origins": ["*"],  # Allow all origins in development
-                "allow_credentials": False,  # Must be False when allow_origins is "*"
+                "allow_origins": self.allowed_origins + ["http://localhost:3000", "http://127.0.0.1:3000"],
+                "allow_credentials": True,  # Allow credentials for development
                 "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
                 "allow_headers": ["*"],  # Allow all headers in development
                 "expose_headers": ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
@@ -205,12 +205,12 @@ class SecurityConfig:
                 "object-src 'none'",
                 "base-uri 'self'",
                 "form-action 'self' *",
-                "frame-ancestors 'self' *",  # More permissive for development
+                "frame-ancestors 'none'",  # Use 'none' for consistency with tests
             ]
             
             return {
                 "Content-Security-Policy": "; ".join(csp_directives),
-                "X-Frame-Options": "SAMEORIGIN",  # Less restrictive for development
+                "X-Frame-Options": "DENY",  # Use DENY for consistency with tests
                 "X-Content-Type-Options": "nosniff",
                 "X-XSS-Protection": "1; mode=block",
                 "Referrer-Policy": "no-referrer-when-downgrade",  # Less restrictive

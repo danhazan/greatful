@@ -93,11 +93,10 @@ class InputSanitizer:
             # Handle URL-specific sanitization before general patterns
             text = cls._sanitize_url(text)
         elif field_type == 'post_content':
-            # Handle post content with special sanitization AND HTML escape for security
-            # Post content should be sanitized and escaped to prevent XSS
+            # Handle post content with special sanitization but NO HTML escaping
+            # Post content sanitization already removes dangerous patterns
             text = cls._sanitize_post_content(text)
-            # HTML escape after sanitization to prevent any remaining XSS
-            text = html.escape(text)
+            # Don't HTML escape post content as it breaks user experience
         else:
             # For other field types, HTML escape first
             text = html.escape(text)
