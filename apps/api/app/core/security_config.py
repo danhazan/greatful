@@ -253,7 +253,7 @@ class SecurityConfig:
                 "Referrer-Policy": "strict-origin-when-cross-origin",
                 "Cross-Origin-Embedder-Policy": "require-corp",
                 "Cross-Origin-Opener-Policy": "same-origin",
-                "Cross-Origin-Resource-Policy": "same-origin",
+                "Cross-Origin-Resource-Policy": "cross-origin",  # Allow cross-origin for Vercel frontend
                 "Permissions-Policy": ", ".join([
                     "camera=()",
                     "microphone=()",
