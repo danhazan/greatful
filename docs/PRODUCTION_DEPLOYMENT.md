@@ -494,22 +494,14 @@ The `railway.toml` file should be configured as follows:
 
 ```toml
 [build]
-builder = "nixpacks"
+builder = "NIXPACKS"
 
 [deploy]
-healthcheckPath = "/health"
-healthcheckTimeout = 300
-restartPolicyType = "on_failure"
+startCommand = "alembic -c alembic.ini upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
 
-[[services]]
-name = "api"
-source = "."
-
-[services.api.build]
-buildCommand = "pip install -r requirements.txt"
-
-[services.api.deploy]
-startCommand = "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
+[[deploy.volumes]]
+mountPath = "/app/uploads"
+name = "grateful-volume"
 ```
 
 **Step 5: Deploy and Verify**

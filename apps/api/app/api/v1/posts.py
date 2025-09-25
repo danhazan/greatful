@@ -1453,7 +1453,10 @@ async def delete_post(
                 
                 # Extract filename from URL (assuming format like /uploads/posts/filename.jpg)
                 if post.image_url.startswith('/uploads/'):
-                    file_path = Path("apps/api") / post.image_url.lstrip('/')
+                    # Use the same upload path as the file service
+                    upload_base = os.getenv("UPLOAD_PATH", "uploads")
+                    relative_path = post.image_url.lstrip('/uploads/')
+                    file_path = Path(upload_base) / relative_path
                     if file_path.exists():
                         os.remove(file_path)
                         logger.info(f"Deleted image file: {file_path}")

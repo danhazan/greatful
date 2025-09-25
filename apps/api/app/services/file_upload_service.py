@@ -28,7 +28,9 @@ class FileUploadService(BaseService):
 
     def __init__(self, db: AsyncSession):
         super().__init__(db)
-        self.base_upload_dir = Path("uploads")
+        # Use environment variable for upload path, default to relative path for development
+        upload_path = os.getenv("UPLOAD_PATH", "uploads")
+        self.base_upload_dir = Path(upload_path)
         self.base_upload_dir.mkdir(parents=True, exist_ok=True)
 
     def validate_image_file(self, file: UploadFile, max_size_mb: int = 5) -> None:

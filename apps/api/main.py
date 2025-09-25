@@ -194,9 +194,10 @@ cors_config = security_config.get_cors_config()
 app.add_middleware(CORSMiddleware, **cors_config)
 
 # Mount static files for uploads
-uploads_dir = Path("uploads")
+uploads_path = os.getenv("UPLOAD_PATH", "uploads")
+uploads_dir = Path(uploads_path)
 uploads_dir.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 
 

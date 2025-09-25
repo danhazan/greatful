@@ -50,11 +50,11 @@ out/
 
 # Uploaded Files - ignore contents but keep directory structure
 uploads/*
-!uploads/.gitkeep
+!uploads/.gitignore
 !uploads/posts/
-!uploads/posts/.gitkeep
+!uploads/posts/.gitignore
 !uploads/profile_photos/
-!uploads/profile_photos/.gitkeep
+!uploads/profile_photos/.gitignore
 
 # Debug
 npm-debug.log*

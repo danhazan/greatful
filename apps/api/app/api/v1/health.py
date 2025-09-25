@@ -100,7 +100,7 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
     # File system check (uploads directory)
     try:
         import os
-        uploads_dir = "uploads"
+        uploads_dir = os.getenv("UPLOAD_PATH", "uploads")
         if os.path.exists(uploads_dir) and os.access(uploads_dir, os.W_OK):
             checks["filesystem"] = {
                 "status": "healthy",
