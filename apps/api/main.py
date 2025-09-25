@@ -244,7 +244,7 @@ if os.getenv("LOAD_TESTING", "").lower() == "true":
 try:
     from debug_uploads import router as debug_router
     app.include_router(debug_router, tags=["debug"])
-    logger.info("Debug endpoints enabled for volume testing")
+    logger.info("Debug endpoints enabled for volume testing - persistence test")
 except ImportError:
     logger.warning("Debug endpoints not available")
 
