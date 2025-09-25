@@ -240,6 +240,14 @@ if os.getenv("LOAD_TESTING", "").lower() == "true":
     app.include_router(test_auth_router, prefix="/api/v1", tags=["test-auth"])
     logger.info("Test authentication endpoints enabled for load testing")
 
+# Include debug router for Railway volume testing (temporary)
+try:
+    from debug_uploads import router as debug_router
+    app.include_router(debug_router, tags=["debug"])
+    logger.info("Debug endpoints enabled for volume testing")
+except ImportError:
+    logger.warning("Debug endpoints not available")
+
 # Include debug router for Railway volume debugging (temporary - remove in production)
 if os.getenv("ENVIRONMENT", "development") != "production":
     from debug_uploads import router as debug_router
