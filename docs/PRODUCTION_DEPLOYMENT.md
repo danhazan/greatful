@@ -574,6 +574,96 @@ Access monitoring in Railway dashboard under "Metrics" tab.
 - Optimize database queries to reduce load
 - Use Redis for caching frequently accessed data
 
+### Railway Volume Persistence Fix
+
+**Problem**: File uploads disappearing after Railway redeploys due to ephemeral container storage.
+
+**Root Cause**: Application was writing to relative path `./uploads` instead of the mounted volume at `/app/uploads`.
+
+**Solution Applied**:
+
+1. **Environment Configuration**:
+   ```bash
+   # Add to Railway environment variables
+   UPLOAD_PATH=/app/uploads
+   ```
+
+2. **Volume Configuration** (railway.toml):
+   ```toml
+   [[deploy.volumes]]
+   mountPath = "/app/uploads"
+   name = "grateful-volume"
+   ```
+
+3. **Code Fixes**:
+   - Updated `FileUploadService` to handle absolute paths
+   - Modified `main.py` startup to ensure proper volume usage
+   - Added path resolution for development vs production environments
+
+**Verification Process**:
+
+The fix was verified using a "sentinel file" test:
+
+1. **Create Test File**: Deploy debug endpoints to create a timestamped test file
+   ```bash
+   curl -X POST https://your-app.railway.app/_debug/create-sentinel
+   ```
+
+2. **Check Volume Status**: Verify volume is properly mounted
+   ```bash
+   curl https://your-app.railway.app/_debug/uploads-status
+   ```
+
+3. **Test Persistence**: Trigger redeploy and verify test file survives
+
+**Expected Success Indicators**:
+- `UPLOAD_PATH_env`: `/app/uploads`
+- `abs_path`: `/app/uploads`
+- Volume mount visible in `/proc/mounts`: `/dev/zd3248 /app/uploads ext4`
+- Test files persist across redeploys
+
+**Railway Dashboard Configuration**:
+1. Go to Service → Volumes
+2. Ensure volume is attached with:
+   - **Mount Path**: `/app/uploads`
+   - **Environment**: `production`
+   - **Volume Name**: `grateful-volume`
+
+**Troubleshooting**:
+- If files still disappear: Check volume attachment in Railway Dashboard
+- If permission errors: Verify volume permissions (should be `755`)
+- For multi-instance issues: Consider migrating to S3 for better reliability
+
+**Alternative: Free Cloud Storage Migration**
+For production reliability without cost, consider using free cloud storage services:
+
+**Free Options (15-50GB free storage)**:
+- **MEGA**: 20GB free, API available, end-to-end encryption
+- **pCloud**: 10GB free (up to 20GB with referrals), WebDAV support
+- **Proton Drive**: 15GB free, privacy-focused, API in development
+- **Google Drive**: 15GB free, mature API, good integration options
+- **Dropbox**: 2GB free, reliable API, easy integration
+
+**Implementation Example (MEGA)**:
+```bash
+# Environment variables for MEGA
+MEGA_EMAIL=your-email@example.com
+MEGA_PASSWORD=your-password
+MEGA_FOLDER=/uploads
+
+# Python integration with mega.py library
+pip install mega.py
+```
+
+**Benefits of Cloud Storage Migration**:
+- Files persist regardless of Railway infrastructure changes
+- Better scalability and reliability
+- Built-in CDN capabilities (varies by provider)
+- Automatic backups and versioning
+- Cost-effective for MVP and small applications
+
+This approach is especially recommended for MVP deployments where minimizing costs is important.
+
 ### Docker Deployment (Self-Hosted Alternative)
 
 #### Create Production Docker Compose Configuration
