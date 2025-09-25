@@ -568,7 +568,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
   return (
     <div className={`rich-editor ${className || ""}`}>
-      <div ref={toolbarRef} className="toolbar mb-2 flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <div ref={toolbarRef} className="toolbar mb-2 flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg" style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}>
         <div ref={primaryToolbarRef} className="flex items-center gap-1 flex-nowrap min-w-0">
           {/* Emoji button - moved to beginning */}
           {!overflowItems.includes('emoji') && (
@@ -583,6 +583,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   setShowEmojiPicker(!showEmojiPicker)
                 }}
                 className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+                style={{ color: '#4b5563' }}
                 title="Add Emoji"
               >
                 <Smile className="h-4 w-4" />
@@ -605,6 +606,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                 ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
                 : 'text-gray-600 hover:bg-gray-200'
             }`}
+            style={{ color: formatState.bold ? '#7c3aed' : '#4b5563' }}
             title="Bold"
           >
             <Bold className="h-4 w-4" />
@@ -621,6 +623,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
                   : 'text-gray-600 hover:bg-gray-200'
               }`}
+              style={{ color: formatState.italic ? '#7c3aed' : '#4b5563' }}
               title="Italic"
             >
               <Italic className="h-4 w-4" />
@@ -637,6 +640,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
                   : 'text-gray-600 hover:bg-gray-200'
               }`}
+              style={{ color: formatState.underline ? '#7c3aed' : '#4b5563' }}
               title="Underline"
             >
               <Underline className="h-4 w-4" />
@@ -759,6 +763,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           overflowY: 'auto',
           direction: getDirectionAttribute(value || htmlValue || ''),
           textAlign: getDirectionAttribute(value || htmlValue || '') === 'rtl' ? 'right' : 'left',
+          // CRITICAL: Ensure text is visible
+          color: '#374151',
+          backgroundColor: 'transparent',
           // Fix mobile text positioning issues
           WebkitUserSelect: 'text',
           userSelect: 'text',
@@ -771,7 +778,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           // Fix iOS Safari text positioning
           WebkitTextSizeAdjust: '100%',
           // Ensure caret is visible
-          caretColor: 'auto'
+          caretColor: '#374151'
         } as React.CSSProperties}
       />
 
@@ -1031,9 +1038,25 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       />
 
       <style jsx>{`
+        .rich-editor {
+          /* Ensure all text elements are visible */
+          color: #374151;
+        }
+        .rich-editor .toolbar {
+          /* Ensure toolbar is visible */
+          background-color: #f9fafb !important;
+          border-color: #e5e7eb !important;
+        }
+        .rich-editor .toolbar button {
+          /* Ensure toolbar buttons are visible */
+          color: #4b5563 !important;
+        }
+        .rich-editor .toolbar button:hover {
+          background-color: #e5e7eb !important;
+        }
         [contenteditable]:empty:before {
           content: attr(data-placeholder);
-          color: #9ca3af;
+          color: #9ca3af !important;
           pointer-events: none;
           position: absolute;
           top: 12px;
@@ -1045,6 +1068,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         }
         [contenteditable] {
           position: relative;
+          /* CRITICAL: Ensure text is visible */
+          color: #374151 !important;
+          background-color: transparent !important;
           /* Fix mobile text positioning */
           -webkit-user-select: text;
           user-select: text;
@@ -1075,12 +1101,15 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         /* Mobile-specific fixes */
         @media (max-width: 768px) {
           [contenteditable] {
-            font-size: 16px; /* Prevent zoom on iOS */
-            line-height: 1.5;
-            min-height: 120px;
+            font-size: 16px !important; /* Prevent zoom on iOS */
+            line-height: 1.5 !important;
+            min-height: 120px !important;
+            color: #374151 !important; /* Ensure text is visible on mobile */
+            background-color: transparent !important;
           }
           [contenteditable]:empty:before {
-            font-size: 16px; /* Match contenteditable font size */
+            font-size: 16px !important; /* Match contenteditable font size */
+            color: #9ca3af !important; /* Ensure placeholder is visible */
           }
         }
       `}</style>
