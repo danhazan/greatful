@@ -1,0 +1,122 @@
+{
+  "timestamp": "2025-09-25T00:01:58.709792+00:00",
+  "operation": "validate",
+  "validations": {
+    "Environment Variables": {
+      "test_name": "Environment Variables",
+      "passed": true,
+      "details": {
+        "SECRET_KEY_length": 86,
+        "DATABASE_URL_configured": true,
+        "ALLOWED_ORIGINS": "https://grateful-app.vercel.app,https://www.grateful-app.vercel.app,https://grateful-api.railway.app",
+        "ENVIRONMENT": "production",
+        "present_vars": [
+          "SECRET_KEY",
+          "DATABASE_URL",
+          "ALLOWED_ORIGINS",
+          "ENVIRONMENT"
+        ],
+        "missing_vars": [],
+        "environment": "production",
+        "is_production": true
+      }
+    },
+    "JWT Configuration": {
+      "test_name": "JWT Configuration",
+      "passed": true,
+      "details": {
+        "secret_key_length": 86,
+        "is_default_key": false,
+        "complexity_score": "3/4",
+        "access_token_expire_minutes": 60,
+        "refresh_token_expire_days": 7,
+        "reasonable_access_expiration": true,
+        "reasonable_refresh_expiration": true
+      }
+    },
+    "HTTPS Configuration": {
+      "test_name": "HTTPS Configuration",
+      "passed": true,
+      "details": {
+        "ssl_redirect_enabled": true,
+        "hsts_max_age": 63072000,
+        "hsts_preload": true,
+        "hsts_include_subdomains": true,
+        "hsts_sufficient": true,
+        "total_origins": 3,
+        "https_origins": 3,
+        "insecure_origins": 0,
+        "origins_list": [
+          "https://grateful-app.vercel.app",
+          "https://www.grateful-app.vercel.app",
+          "https://grateful-api.railway.app"
+        ]
+      }
+    },
+    "CORS Configuration": {
+      "test_name": "CORS Configuration",
+      "passed": true,
+      "details": {
+        "allowed_origins": [
+          "https://grateful-app.vercel.app",
+          "https://www.grateful-app.vercel.app",
+          "https://grateful-api.railway.app"
+        ],
+        "allow_credentials": true,
+        "has_wildcard": false,
+        "has_insecure_origins": false,
+        "allowed_methods": [
+          "GET",
+          "POST",
+          "PUT",
+          "DELETE",
+          "PATCH",
+          "OPTIONS"
+        ],
+        "allowed_headers": [
+          "Accept",
+          "Accept-Language",
+          "Content-Language",
+          "Content-Type",
+          "Authorization",
+          "X-Requested-With",
+          "X-Request-ID"
+        ],
+        "secure_methods": true,
+        "has_auth_header": true
+      }
+    },
+    "Rate Limiting": {
+      "test_name": "Rate Limiting Configuration",
+      "passed": true,
+      "details": {
+        "rate_limits": {
+          "default": 100,
+          "auth": 10,
+          "upload": 20,
+          "public": 200,
+          "POST:/api/v1/posts": 30,
+          "POST:/api/v1/posts/*/reactions": 60,
+          "POST:/api/v1/posts/*/share": 20,
+          "POST:/api/v1/follows/*": 30,
+          "GET:/api/v1/follows/*/status": 200,
+          "GET:/api/v1/users/*/followers": 100,
+          "GET:/api/v1/users/*/following": 100,
+          "GET:/api/v1/users/*/follow-stats": 150,
+          "POST:/api/v1/users/search": 60,
+          "GET:/api/v1/notifications": 120
+        },
+        "default_limit": 100,
+        "auth_limit": 10,
+        "upload_limit": 20,
+        "reasonable_default": true,
+        "reasonable_auth": true,
+        "reasonable_upload": true,
+        "auth_more_restrictive": true
+      }
+    }
+  },
+  "changes_made": [],
+  "recommendations": [],
+  "security_status": "EXCELLENT"
+}

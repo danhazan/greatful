@@ -49,24 +49,53 @@ class SecurityConfig:
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     security_log_level: str = os.getenv("SECURITY_LOG_LEVEL", "INFO")
     
-    # Feature Flags
-    enable_registration: bool = os.getenv("ENABLE_REGISTRATION", "true").lower() == "true"
-    enable_file_uploads: bool = os.getenv("ENABLE_FILE_UPLOADS", "true").lower() == "true"
-    enable_docs: bool = os.getenv("ENABLE_DOCS", "true").lower() == "true"
-    
     def __post_init__(self):
-        """Process configuration after initialization."""
-        # Parse allowed origins
-        origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-        self.allowed_origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
+        """Initialize computed fields after dataclass initialization."""
+        # Parse CORS allowed origins
+        if self.allowed_origins is None:
+            origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+            self.allowed_origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
         
         # Parse CSP domains
-        csp_str = os.getenv("CSP_DOMAINS", "")
-        self.csp_domains = [domain.strip() for domain in csp_str.split(",") if domain.strip()]
+        if self.csp_domains is None:
+            csp_str = os.getenv("CSP_DOMAINS", "")
+            self.csp_domains = [domain.strip() for domain in csp_str.split(",") if domain.strip()]
         
         # Validate security settings in production
         if self.environment == "production":
             self._validate_production_config()
+    
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return self.environment.lower() == "production"
+    
+    def is_secure_secret_key(self) -> bool:
+        """Check if SECRET_KEY is secure for production."""
+        default_keys = [
+            "your-super-secret-key-change-this-in-production",
+            "change-this-secret-key",
+            "secret-key",
+            "development-key"
+        ]
+        
+        return (
+            self.secret_key not in default_keys and
+            len(self.secret_key) >= 64 and
+            any(c.isupper() for c in self.secret_key) and
+            any(c.islower() for c in self.secret_key) and
+            any(c.isdigit() for c in self.secret_key)
+        )
+    
+    def has_https_origins(self) -> bool:
+        """Check if all CORS origins use HTTPS."""
+        return all(origin.startswith("https://") for origin in self.allowed_origins)
+    
+
+    
+    # Feature Flags
+    enable_registration: bool = os.getenv("ENABLE_REGISTRATION", "true").lower() == "true"
+    enable_file_uploads: bool = os.getenv("ENABLE_FILE_UPLOADS", "true").lower() == "true"
+    enable_docs: bool = os.getenv("ENABLE_DOCS", "true").lower() == "true"
     
     def _validate_production_config(self):
         """Validate security configuration for production."""
@@ -99,93 +128,127 @@ class SecurityConfig:
                 raise ValueError("Critical security configuration issues found. Please fix before deploying.")
     
     @property
-    def is_production(self) -> bool:
-        """Check if running in production environment."""
-        return self.environment == "production"
-    
-    @property
     def is_development(self) -> bool:
         """Check if running in development environment."""
         return self.environment == "development"
     
     def get_cors_config(self) -> Dict[str, Any]:
         """Get CORS configuration."""
-        return {
-            "allow_origins": self.allowed_origins,
-            "allow_credentials": True,
-            "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-            "allow_headers": [
-                "Accept",
-                "Accept-Language",
-                "Content-Language",
-                "Content-Type",
-                "Authorization",
-                "X-Requested-With",
-                "X-Request-ID"
-            ],
-            "expose_headers": ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
-            "max_age": 86400,  # 24 hours
-        }
+        if self.is_development:
+            # More permissive CORS for development
+            return {
+                "allow_origins": ["*"],  # Allow all origins in development
+                "allow_credentials": False,  # Must be False when allow_origins is "*"
+                "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+                "allow_headers": ["*"],  # Allow all headers in development
+                "expose_headers": ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+                "max_age": 86400,  # 24 hours
+            }
+        else:
+            # Strict CORS for production
+            return {
+                "allow_origins": self.allowed_origins,
+                "allow_credentials": True,
+                "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+                "allow_headers": [
+                    "Accept",
+                    "Accept-Language",
+                    "Content-Language",
+                    "Content-Type",
+                    "Authorization",
+                    "X-Requested-With",
+                    "X-Request-ID"
+                ],
+                "expose_headers": ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+                "max_age": 86400,  # 24 hours
+            }
     
     def get_security_headers(self) -> Dict[str, str]:
-        """Get production-grade security headers configuration."""
-        # Enhanced Content Security Policy for production
-        csp_directives = [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Allow inline scripts for Next.js
-            "style-src 'self' 'unsafe-inline'",  # Allow inline styles
-            "img-src 'self' data: blob: https:",  # Allow images from various sources
-            "font-src 'self' data:",
-            "connect-src 'self' ws: wss:",  # Allow WebSocket connections
-            "media-src 'self'",
-            "object-src 'none'",
-            "base-uri 'self'",
-            "form-action 'self'",
-            "frame-ancestors 'none'",
-            "upgrade-insecure-requests",  # Force HTTPS in production
-        ]
-        
-        # Add CSP domains if specified
-        if self.csp_domains:
-            domains = " ".join(self.csp_domains)
-            csp_directives[0] = f"default-src 'self' {domains}"
-            csp_directives[5] = f"connect-src 'self' ws: wss: {domains}"
-        
-        # Production-grade security headers
-        headers = {
-            "Content-Security-Policy": "; ".join(csp_directives),
-            "X-Frame-Options": "DENY",
-            "X-Content-Type-Options": "nosniff",
-            "X-XSS-Protection": "1; mode=block",
-            "Referrer-Policy": "strict-origin-when-cross-origin",
-            "Cross-Origin-Embedder-Policy": "require-corp",
-            "Cross-Origin-Opener-Policy": "same-origin",
-            # Allow cross-origin access to static files in development
-            "Cross-Origin-Resource-Policy": "same-origin" if self.is_production else "cross-origin",
-            "Permissions-Policy": ", ".join([
-                "camera=()",
-                "microphone=()",
-                "geolocation=()",
-                "payment=()",
-                "usb=()",
-                "magnetometer=()",
-                "gyroscope=()",
-                "accelerometer=()",
-                "fullscreen=(self)",
-                "display-capture=()",
-                "web-share=(self)"
-            ]),
-            # Security headers for API responses
-            "Cache-Control": "no-store, no-cache, must-revalidate, private",
-            "Pragma": "no-cache",
-            "Expires": "0",
-            # Server information hiding
-            "Server": "Grateful-API",
-            "X-Powered-By": "",  # Remove server technology disclosure
-        }
-        
-        # Add HSTS header for production with enhanced security
-        if self.is_production:
+        """Get security headers configuration."""
+        if self.is_development:
+            # More permissive headers for development
+            csp_directives = [
+                "default-src 'self' *",  # Allow all sources in development
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' *",  # Allow all scripts
+                "style-src 'self' 'unsafe-inline' *",  # Allow all styles
+                "img-src 'self' data: blob: http: https: *",  # Allow all image sources
+                "font-src 'self' data: *",  # Allow all font sources
+                "connect-src 'self' ws: wss: http: https: *",  # Allow all connections
+                "media-src 'self' *",  # Allow all media sources
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self' *",
+                "frame-ancestors 'self' *",  # More permissive for development
+            ]
+            
+            return {
+                "Content-Security-Policy": "; ".join(csp_directives),
+                "X-Frame-Options": "SAMEORIGIN",  # Less restrictive for development
+                "X-Content-Type-Options": "nosniff",
+                "X-XSS-Protection": "1; mode=block",
+                "Referrer-Policy": "no-referrer-when-downgrade",  # Less restrictive
+                "Cross-Origin-Resource-Policy": "cross-origin",  # Allow cross-origin access
+                # More permissive cache control for development
+                "Cache-Control": "no-cache",
+                "Server": "Grateful-API-Dev",
+                "X-Powered-By": "",
+            }
+        else:
+            # Enhanced Content Security Policy for production
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Allow inline scripts for Next.js
+                "style-src 'self' 'unsafe-inline'",  # Allow inline styles
+                "img-src 'self' data: blob: https:",  # Allow images from various sources
+                "font-src 'self' data:",
+                "connect-src 'self' ws: wss:",  # Allow WebSocket connections
+                "media-src 'self'",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'none'",
+                "upgrade-insecure-requests",  # Force HTTPS in production
+            ]
+            
+            # Add CSP domains if specified
+            if self.csp_domains:
+                domains = " ".join(self.csp_domains)
+                csp_directives[0] = f"default-src 'self' {domains}"
+                csp_directives[5] = f"connect-src 'self' ws: wss: {domains}"
+            
+            # Production-grade security headers
+            headers = {
+                "Content-Security-Policy": "; ".join(csp_directives),
+                "X-Frame-Options": "DENY",
+                "X-Content-Type-Options": "nosniff",
+                "X-XSS-Protection": "1; mode=block",
+                "Referrer-Policy": "strict-origin-when-cross-origin",
+                "Cross-Origin-Embedder-Policy": "require-corp",
+                "Cross-Origin-Opener-Policy": "same-origin",
+                "Cross-Origin-Resource-Policy": "same-origin",
+                "Permissions-Policy": ", ".join([
+                    "camera=()",
+                    "microphone=()",
+                    "geolocation=()",
+                    "payment=()",
+                    "usb=()",
+                    "magnetometer=()",
+                    "gyroscope=()",
+                    "accelerometer=()",
+                    "fullscreen=(self)",
+                    "display-capture=()",
+                    "web-share=(self)"
+                ]),
+                # Security headers for API responses
+                "Cache-Control": "no-store, no-cache, must-revalidate, private",
+                "Pragma": "no-cache",
+                "Expires": "0",
+                # Server information hiding
+                "Server": "Grateful-API",
+                "X-Powered-By": "",  # Remove server technology disclosure
+            }
+            
+            # Add HSTS header for production with enhanced security
             hsts_value = f"max-age={self.hsts_max_age}"
             if self.hsts_include_subdomains:
                 hsts_value += "; includeSubDomains"
