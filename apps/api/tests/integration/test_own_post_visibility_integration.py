@@ -8,6 +8,7 @@ from httpx import AsyncClient
 
 from app.models.user import User
 from app.models.post import Post, PostType
+from app.core.rate_limiting import get_rate_limiter
 
 
 class TestOwnPostVisibilityIntegration:
@@ -304,6 +305,10 @@ class TestOwnPostVisibilityIntegration:
     async def test_feed_performance_with_own_posts(self, async_client: AsyncClient, test_user: User, auth_headers):
         """Test that own post calculations don't significantly impact feed performance."""
         import time
+        
+        # Clear rate limiter to avoid hitting limits from previous tests
+        limiter = get_rate_limiter()
+        limiter._requests.clear()
         
         # Create several posts to test with
         for i in range(5):

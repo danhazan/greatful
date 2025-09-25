@@ -332,7 +332,7 @@ class TestSecurityConfig:
         
         assert config.environment == "development"
         assert config.access_token_expire_minutes == 60
-        assert config.default_rate_limit == 100
+        assert config.default_rate_limit == 1000  # Updated to match conftest.py environment
         assert config.is_development is True
         assert config.is_production is False
     
@@ -388,8 +388,9 @@ class TestSecurityConfig:
         
         assert "default" in rate_limits
         assert "auth" in rate_limits
-        assert rate_limits["default"] == 100
-        assert rate_limits["auth"] == 10
+        # In test environment, get_rate_limits() returns hardcoded test values
+        assert rate_limits["default"] == 100  # Hardcoded test value
+        assert rate_limits["auth"] == 10  # Hardcoded test value
     
     def test_request_size_limits(self):
         """Test request size limits configuration."""

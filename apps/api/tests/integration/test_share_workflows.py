@@ -12,6 +12,7 @@ from app.models.post import Post, PostType
 from app.models.share import Share
 from app.models.notification import Notification
 from app.services.notification_service import NotificationService
+from app.core.rate_limiting import get_rate_limiter
 
 
 class TestShareWorkflows:
@@ -434,6 +435,10 @@ class TestShareWorkflows:
         auth_headers: dict
     ):
         """Test that analytics are properly tracked during sharing."""
+        
+        # Clear rate limiter to avoid hitting limits from previous tests
+        limiter = get_rate_limiter()
+        limiter._requests.clear()
         
         # Create multiple shares to test analytics
         share_requests = [
