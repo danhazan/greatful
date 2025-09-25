@@ -599,7 +599,7 @@ Before submitting code, ensure:
 - [ ] No duplicate imports
 - [ ] Proper TypeScript types
 - [ ] Follows component naming conventions
-- [ ] Uses shared types from `shared/types/`
+- [ ] Uses proper TypeScript interfaces and types
 - [ ] Includes proper error handling
 - [ ] Has corresponding tests
 - [ ] Follows accessibility guidelines

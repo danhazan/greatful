@@ -8,5 +8,3 @@ node_modules
 .DS_Store
 
 # Ignore parent directories that might interfere
-../../shared/types/node_modules
-../../shared/types/package-lock.json

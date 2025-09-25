@@ -9,8 +9,6 @@ const customJestConfig = {
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@/shared/types$': '<rootDir>/../../shared/types',
-    '^@/shared/types/(.*)$': '<rootDir>/../../shared/types/$1',
   },
 }
 

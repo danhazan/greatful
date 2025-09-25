@@ -421,10 +421,9 @@ cd apps/web
 npm run type-check
 npm test
 
-# Shared types validation
-cd shared/types
+# Frontend type checking
+cd apps/web
 npm run type-check
-npm run build
 ```
 
 ### Contract Testing
