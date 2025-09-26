@@ -8,9 +8,21 @@ inclusion: always
 
 ### Git and File Management
 - **Never commit to git** without explicit user request
-- **Never create documentation files** (.md) without explicit user request
-- **CRITICAL**: This includes README files, deployment guides, API documentation, or any .md files
-- **Exception**: Only create documentation when the user explicitly asks for it or when it's part of a specific task requirement
+- **ABSOLUTELY NEVER create documentation files** (.md) without explicit user request
+- **CRITICAL**: This includes README files, deployment guides, API documentation, fix summaries, completion reports, or ANY .md files
+- **NO EXCEPTIONS**: Documentation creation is STRICTLY FORBIDDEN unless the user explicitly requests it
+- **If you need to document something**: Update existing documentation files or ask the user for permission first
+
+### Test File Management
+- **NEVER create test files in the root API directory** (`apps/api/`)
+- **ALL test files MUST go in the proper test directory structure**:
+  - Unit tests: `apps/api/tests/unit/`
+  - Integration tests: `apps/api/tests/integration/`
+  - Security tests: `apps/api/tests/security/`
+  - Load tests: `apps/api/tests/load/`
+  - Contract tests: `apps/api/tests/contract/`
+- **Test file naming**: Follow existing patterns (`test_*.py`)
+- **No standalone test scripts**: All tests must be proper pytest tests
 
 ### Command Execution - CRITICAL RULES
 - **NEVER use command chaining** (`&&`, `||`, `;`) - these operators are NOT supported and will cause failures

@@ -1070,41 +1070,85 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
 
 ## Phase 2: Enhanced Social Features (Post-MVP)
 
-### **TASK 18: Privacy Controls System** (Post-MVP)
+### **TASK 18: Post-MVP Critical Bugfixes** (Post-MVP)
+**Module Reference:** Bug Resolution and System Stability
+- [x] **18.1 Fix Post Sharing Mechanism**
+  - Investigate and resolve post sharing failure in production environment (works in development but fails with internal server error 500 in production)
+  - Debug production-specific configuration or environment differences causing share failures
+  - Test sharing functionality across different user scenarios and post types
+  - Verify share notifications and analytics tracking work correctly after fix
+  - **Test Execution:** Run backend integration tests (`pytest tests/integration/test_share_api.py -v`) to verify sharing functionality works correctly. Test sharing in production-like environment to ensure fix resolves production-specific issues.
+  - _Requirements: Share system reliability and production stability_
+
+- [ ] **18.2 Fix Post Editing Error 500**
+  - Investigate and resolve post editing failure with error 500 and database session error
+  - Debug database session management issues in post update operations
+  - Review post editing API endpoint for proper error handling and session cleanup
+  - Verify post editing works correctly for all post types and content scenarios
+  - **Test Execution:** Run backend unit tests (`pytest tests/unit/test_post_service.py -v`) and integration tests (`pytest tests/integration/test_posts_api.py -v`) to verify post editing functionality works correctly. Test post editing with various content types and lengths.
+  - _Requirements: Post management system reliability_
+
+- [ ] **18.3 Fix Mobile Search Bar Z-Index Issue**
+  - Fix mobile navbar search bar appearing below other navbar components instead of on top
+  - Adjust CSS z-index values to ensure expanded search bar has proper layering
+  - Test search bar expansion and interaction on various mobile devices and screen sizes
+  - Ensure search bar functionality remains intact while fixing visual layering
+  - **Test Execution:** Run frontend tests (`npm test`) to verify navbar component functionality. Test search bar expansion and interaction on mobile devices (iOS Safari, Android Chrome) to verify z-index fix works correctly.
+  - _Requirements: Mobile user interface consistency_
+
+- [ ] **18.4 Fix Post Creation Character Counter Bug (Empty Text)**
+  - Fix character counter showing "4/5000" instead of "0/5000" when all text is deleted from post creation modal
+  - Debug character counting logic to properly handle empty text states
+  - Ensure character counter accurately reflects actual text content length
+  - Test character counter with various text manipulation scenarios (delete all, paste, cut)
+  - **Test Execution:** Run frontend tests (`npm test`) focusing on post creation modal component tests. Test character counter functionality with various text input scenarios including empty states.
+  - _Requirements: Post creation user experience accuracy_
+
+- [ ] **18.5 Fix Post Creation Character Counter Bug (New Lines)**
+  - Fix character counter adding excessive characters when new lines are inserted in post creation modal
+  - Debug new line character handling in character counting logic
+  - Ensure new lines are counted consistently (typically as 1 or 2 characters depending on system)
+  - Test character counter with various text formatting including multiple new lines and mixed content
+  - **Test Execution:** Run frontend tests (`npm test`) focusing on post creation modal character counting logic. Test character counter with various text formatting scenarios including new lines, paragraphs, and mixed content.
+  - _Requirements: Post creation user experience accuracy_
+
+**Acceptance Criteria:** All identified production bugs are resolved and thoroughly tested, post sharing works reliably in production environment, post editing functions without database errors, mobile search bar displays correctly above other navbar elements, and post creation character counter accurately reflects text content length in all scenarios including empty states and new line handling.
+
+### **TASK 19: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 19: Advanced Social Features** (Post-MVP)
+### **TASK 20: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 20: Fast Login Page for Development** (Post-MVP)
+### **TASK 21: Fast Login Page for Development** (Post-MVP)
 **Module Reference:** Development Tools - Fast Login Interface for Testing
-- [ ] **20.1 Create Fast Login Page Route**
+- [ ] **21.1 Create Fast Login Page Route**
   - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
   - Copy existing login page layout and styling from `/auth/login/page.tsx`
   - Replace email/password form with user selection dropdown
   - Add development environment detection to prevent production access
   - Implement purple theme consistency matching regular login page
-- [ ] **20.2 User Selection Interface**
+- [ ] **21.2 User Selection Interface**
   - Create dropdown showing all existing users (username, email, profile picture)
   - Implement one-click login functionality that generates development token
   - Add user search/filter functionality for large user lists
   - Display user information clearly (username, email, join date)
   - Add "Login as [Username]" button for each user selection
-- [ ] **20.3 Development Environment Protection**
+- [ ] **21.3 Development Environment Protection**
   - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
   - Implement build-time exclusion using Next.js conditional compilation
   - Add clear development warning banner on fast login page
   - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
   - Add rate limiting and IP restrictions for development endpoints
-- [ ] **20.4 Fast Login UX and Navigation**
+- [ ] **21.4 Fast Login UX and Navigation**
   - Style page identical to regular login with "Fast Login (Dev Mode)" title
   - Add "Back to Regular Login" link for normal authentication flow
   - Implement responsive design matching existing login page
@@ -1113,9 +1157,9 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
 **Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
-### **TASK 21: Follow Notification Batching System** (Post-MVP)
+### **TASK 22: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **21.1 Follow Notification Batching Analysis and Design**
+- [ ] **22.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -1126,7 +1170,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **21.2 Follow Notification Batching Implementation**
+- [ ] **22.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope
@@ -1134,7 +1178,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Implement proper batch summary generation for follow notifications
   - Add batch expansion to show individual follower notifications with profile pictures
   - Test follow notification batching with multiple followers and time windows
-- [ ] **20.3 Cross-Notification Type Batching Strategy (Future)**
+- [ ] **22.3 Cross-Notification Type Batching Strategy (Future)**
   - **Advanced Feature:** Consider batching different notification types for the same user
   - Research feasibility of "activity digest" notifications combining multiple types
   - Design user preference system for notification batching granularity
