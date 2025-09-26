@@ -3,6 +3,7 @@
 ## 📋 Executive Summary
 
 ### ⚠️ Active Issues
+- **🚫 Share Post Production 500 Error**: POST /api/v1/posts/{post_id}/share returns 500 error in production only
 - **✏️ Edit Post Functionality Broken**: Edit post feature fails with "Update Failed" error
 - **🔤 RTL Text Reversal**: Hebrew and Arabic text displaying in reversed character order
 - **📱 Mobile Search Bar Expansion**: Mobile search bar not expanding when search icon is clicked
@@ -32,11 +33,12 @@
 ### 📊 System Health Status
 - ✅ **Heart Counter**: Working perfectly with real-time updates
 - ✅ **Reaction Counter**: Working perfectly with real-time updates  
-- ✅ **Core APIs**: All functional endpoints working
+- ❌ **Share Functionality**: Critical production failure - 500 errors on all share requests
+- ⚠️ **Core APIs**: Most endpoints working, share endpoint broken in production
 - ⚠️ **RTL Text Support**: Critical character reversal issue with formatted text
 - ⚠️ **Emoji Picker**: 8/10 emojis working (2 have click handler issues)
 - ⚠️ **Component Synchronization**: High-priority UI consistency issue affecting follow buttons and related components
-- ✅ **Tests**: 144+ tests passing (with known isolation issue)
+- ✅ **Tests**: 739+ tests passing (with known isolation issue)
 
 ---
 
@@ -231,6 +233,87 @@ The navbar was using the same data normalization issue that was previously fixed
 ---
 
 ## ⚠️ Active Issues
+
+### Share Post Production 500 Error
+**Issue**: POST /api/v1/posts/{post_id}/share endpoint returns 500 error in production only  
+**Status**: ⚠️ Active Issue  
+**Priority**: Critical  
+**Impact**: Core Functionality - Users cannot share posts in production  
+**Discovered**: September 26, 2025  
+
+**Description**:
+The share post functionality works perfectly in development and testing environments but consistently returns a 500 "Internal server error" in production on Railway. The endpoint accepts both URL sharing (copy link) and message sharing (send to users) but both methods fail in production with generic error responses.
+
+**Technical Details**:
+- **Development**: All share functionality works perfectly ✅
+- **Testing**: All 739 backend tests pass, including share API tests ✅
+- **Production**: POST /api/v1/posts/{post_id}/share returns 500 error ❌
+- **Railway Logs**: Standard logging doesn't capture application-level debug output ❌
+- **Error Response**: Generic `{"error":"Internal server error"}` with no details ❌
+
+**Current Behavior**:
+- **Local Development**: Share endpoint works flawlessly ✅
+- **Production Railway**: All share requests return 500 error ❌
+- **API Response**: Generic error message without stack trace ❌
+- **Railway Logs**: Only HTTP request logs visible, no application errors ❌
+
+**Expected Behavior**:
+- Users should be able to share posts via URL (copy link)
+- Users should be able to share posts via message to other users
+- Share operations should work identically in production and development
+- Proper error messages should be returned if issues occur
+
+**Reproduction Steps**:
+1. Navigate to any post in production
+2. Click the share button
+3. Select either "Copy Link" or "Send to Users"
+4. Observe 500 error response
+5. Note that same operation works perfectly in development
+
+**Root Cause Hypotheses**:
+Based on the debugging attempts, the most likely causes are:
+1. **Database Schema Differences**: Production DB might have different schema than development
+2. **Environment Variables**: Missing or different values in Railway vs local environment
+3. **External Service Dependencies**: Analytics, notifications, or user preference services failing in production
+4. **Response Serialization**: Pydantic model validation failing on response construction
+5. **Railway Platform Issues**: Application logs not being captured or visible in Railway dashboard
+
+**Debugging Attempts Made**:
+- ✅ Added comprehensive logging with `logger.exception()` and `print()` statements
+- ✅ Added step-by-step debugging in ShareService methods
+- ✅ Added startup logging to verify environment variables
+- ✅ Created header-protected debug mode for traceback exposure
+- ✅ Implemented debug dry-run endpoint for isolated testing
+- ❌ Railway logs still don't show application-level debug output
+- ❌ Standard logging approaches don't work on Railway platform
+
+**Impact**: 
+- **Critical**: Core sharing functionality completely broken in production
+- **User Experience**: Users cannot share posts, affecting viral growth and engagement
+- **Platform Reliability**: Undermines confidence in production stability
+- **Business Impact**: Sharing is a key feature for user acquisition and retention
+
+**Workaround**: Currently no workaround available - sharing is completely broken in production.
+
+**Priority**: Critical - Core functionality is completely broken in production environment.
+
+**Investigation Status**: 
+- Multiple debugging approaches attempted but Railway platform logging limitations prevent visibility into the actual exception
+- Need alternative debugging strategies that work specifically with Railway's logging infrastructure
+- Consider implementing external error tracking (Sentry) or database-based error logging for production debugging
+
+**Files Affected**:
+- `apps/api/app/api/v1/posts.py` - Share endpoint implementation
+- `apps/api/app/services/share_service.py` - Share business logic
+- `apps/api/app/repositories/share_repository.py` - Database operations
+- `apps/api/app/models/share.py` - Share data model
+
+**Next Steps Required**:
+1. Implement Sentry or external error tracking for production visibility
+2. Create database-based error logging as fallback for Railway logging issues
+3. Verify database schema consistency between development and production
+4. Check Railway environment variables and service configurations
+5. Consider alternative deployment platform if Railway logging continues to be problematic
 
 ### Edit Post Functionality Broken
 **Issue**: Edit post feature fails with "Update Failed" error when attempting to save changes  
