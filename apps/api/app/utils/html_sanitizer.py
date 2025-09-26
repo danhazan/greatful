@@ -38,11 +38,17 @@ def sanitize_html(html_content: Optional[str]) -> Optional[str]:
         return html_content
     
     # Use bleach to sanitize HTML
+    # Note: bleach 6.x doesn't support the 'styles' parameter directly
+    # We'll use a CSS sanitizer instead
+    from bleach.css_sanitizer import CSSSanitizer
+    
+    css_sanitizer = CSSSanitizer(allowed_css_properties=ALLOWED_STYLES)
+    
     sanitized = bleach.clean(
         html_content,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
-        styles=ALLOWED_STYLES,
+        css_sanitizer=css_sanitizer,
         strip=True,  # Strip disallowed tags instead of escaping
         strip_comments=True
     )

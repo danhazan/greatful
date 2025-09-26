@@ -1072,7 +1072,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
 
 ### **TASK 18: Post-MVP Critical Bugfixes** (Post-MVP)
 **Module Reference:** Bug Resolution and System Stability
-- [x] **18.1 Fix Post Sharing Mechanism**
+- [ ] **18.1 Fix Post Sharing Mechanism**
   - Investigate and resolve post sharing failure in production environment (works in development but fails with internal server error 500 in production)
   - Debug production-specific configuration or environment differences causing share failures
   - Test sharing functionality across different user scenarios and post types
@@ -1080,7 +1080,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - **Test Execution:** Run backend integration tests (`pytest tests/integration/test_share_api.py -v`) to verify sharing functionality works correctly. Test sharing in production-like environment to ensure fix resolves production-specific issues.
   - _Requirements: Share system reliability and production stability_
 
-- [ ] **18.2 Fix Post Editing Error 500**
+- [x] **18.2 Fix Post Editing Error 500**
   - Investigate and resolve post editing failure with error 500 and database session error
   - Debug database session management issues in post update operations
   - Review post editing API endpoint for proper error handling and session cleanup

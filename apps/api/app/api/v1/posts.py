@@ -1354,6 +1354,7 @@ async def edit_post(
                 # Don't fail post update if mention processing fails
         
         # Get user info for response using repository
+        from app.repositories.user_repository import UserRepository
         user_repo = UserRepository(db)
         user = await user_repo.get_by_id_or_404(current_user_id)
         
