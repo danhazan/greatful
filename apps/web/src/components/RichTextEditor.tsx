@@ -5,7 +5,7 @@ import { createPortal } from "react-dom"
 import { Bold, Italic, Underline, Type, Palette, Smile, MoreHorizontal } from "lucide-react"
 import { sanitizeHtml } from "@/utils/htmlUtils"
 import { wrapMentions, mentionsToPlainText } from "@/utils/mentions"
-import EnhancedEmojiPicker from "./EnhancedEmojiPicker"
+import MinimalEmojiPicker from "./MinimalEmojiPicker"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
 
 export interface RichTextEditorRef {
@@ -579,7 +579,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   e.preventDefault()
                   e.stopPropagation()
                   const rect = e.currentTarget.getBoundingClientRect()
-                  setEmojiPickerPosition({ x: rect.left, y: rect.bottom + 8 })
+                  setEmojiPickerPosition({ x: rect.left + rect.width / 2, y: rect.top })
                   setShowEmojiPicker(!showEmojiPicker)
                 }}
                 className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
@@ -1013,7 +1013,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   e.preventDefault()
                   e.stopPropagation()
                   const rect = e.currentTarget.getBoundingClientRect()
-                  setEmojiPickerPosition({ x: rect.left, y: rect.bottom + 8 })
+                  setEmojiPickerPosition({ x: rect.left + rect.width / 2, y: rect.top })
                   setShowOverflowMenu(false)
                   setShowEmojiPicker(true)
                 }}
@@ -1029,8 +1029,8 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         document.body
       )}
 
-      {/* Enhanced Emoji Picker */}
-      <EnhancedEmojiPicker
+      {/* Minimal Emoji Picker */}
+      <MinimalEmojiPicker
         isOpen={showEmojiPicker}
         onClose={() => setShowEmojiPicker(false)}
         onEmojiSelect={insertEmoji}
