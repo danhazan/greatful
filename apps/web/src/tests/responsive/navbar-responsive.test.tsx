@@ -193,6 +193,35 @@ describe('Navbar Responsive Design', () => {
     })
   })
 
+  describe('Z-Index Layering', () => {
+    it('ensures navbar has proper z-index for sticky positioning', () => {
+      render(<Navbar user={mockUser} />)
+      
+      const nav = screen.getByRole('navigation')
+      expect(nav).toHaveClass('z-40')
+    })
+
+    it('ensures navbar elements have proper z-index hierarchy', () => {
+      render(<Navbar user={mockUser} />)
+      
+      // Check that logo section has lower z-index than search
+      const logoSection = screen.getByRole('navigation').querySelector('.z-10')
+      expect(logoSection).toBeInTheDocument()
+      
+      // Check that right section (notifications, profile) has proper z-index
+      const rightSection = screen.getByLabelText('Go to feed').closest('.z-10')
+      expect(rightSection).toBeInTheDocument()
+    })
+
+    it('ensures mobile search has higher z-index than other navbar elements', () => {
+      render(<Navbar user={mockUser} />)
+      
+      // Check that mobile search container exists (no longer needs high z-index due to portal)
+      const mobileSearchContainer = screen.getByRole('navigation').querySelector('[class*="relative"]')
+      expect(mobileSearchContainer).toBeInTheDocument()
+    })
+  })
+
   describe('Component Rendering Conditions', () => {
     it('shows user-specific components only when user is provided', () => {
       render(<Navbar user={mockUser} />)

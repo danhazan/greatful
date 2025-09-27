@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
@@ -40,6 +41,31 @@ export default function UserSearchBar({
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
+  const portalContainerRef = useRef<HTMLElement | null>(null)
+
+  // Create portal container on mount for mobile search
+  useEffect(() => {
+    if (isMobile && !portalContainerRef.current) {
+      const el = document.createElement('div')
+      el.setAttribute('data-portal', 'mobile-search')
+      el.style.position = 'fixed'
+      el.style.top = '0'
+      el.style.left = '0'
+      el.style.width = '100%'
+      el.style.height = '0'
+      el.style.pointerEvents = 'none' // container itself doesn't capture pointer events
+      el.style.zIndex = '9999'
+      portalContainerRef.current = el
+      document.body.appendChild(el)
+    }
+    return () => {
+      if (portalContainerRef.current) {
+        portalContainerRef.current.remove()
+        portalContainerRef.current = null
+      }
+    }
+  }, [isMobile])
+
   // Debounced search function
   const debouncedSearch = useCallback(
     async (query: string) => {
@@ -139,7 +165,10 @@ export default function UserSearchBar({
   // Handle focus when expanded (better than setTimeout)
   useEffect(() => {
     if (isExpanded && inputRef.current) {
-      inputRef.current.focus()
+      // Small delay to allow portal to mount and styles to apply
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+      })
     }
   }, [isExpanded])
 
@@ -263,43 +292,137 @@ export default function UserSearchBar({
               </button>
             </div>
           ) : (
-            /* Expanded state: Full input that expands leftward to cover "Grateful" text */
-            <div className="fixed top-3 left-12 right-16 z-50 sm:hidden">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
-                </div>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={handleInputChange}
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
-                  placeholder="Search users..."
-                  className={`block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation shadow-lg ${getCompleteInputStyling().className}`}
-                  style={getCompleteInputStyling().style}
-                  aria-label="Search for users"
-                  aria-expanded={isDropdownOpen}
-                  aria-haspopup="listbox"
-                  aria-autocomplete="list"
-                  role="combobox"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery("")
-                    setIsExpanded(false)
-                  }}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 active:text-gray-700 transition-colors min-w-[44px] min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
-                  aria-label="Close search"
-                  title="Close search"
-                  {...createTouchHandlers(undefined, 'light')}
+            /* Expanded state: Render via portal to escape navbar stacking context */
+            portalContainerRef.current ? createPortal(
+              <div className="sm:hidden" style={{ pointerEvents: 'auto' }}>
+                <div
+                  className="fixed top-3 left-4 right-4 mx-auto"
+                  style={{ zIndex: 9999 }}
+                  role="search"
+                  aria-label="Mobile user search"
                 >
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                    </div>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={handleInputChange}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
+                      placeholder="Search users..."
+                      className={`block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation shadow-xl ${getCompleteInputStyling().className}`}
+                      style={getCompleteInputStyling().style}
+                      aria-label="Search for users"
+                      aria-expanded={isDropdownOpen}
+                      aria-haspopup="listbox"
+                      aria-autocomplete="list"
+                      role="combobox"
+                      aria-controls="mobile-search-results"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("")
+                        setIsExpanded(false)
+                      }}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 active:text-gray-700 transition-colors min-w-[44px] min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
+                      aria-label="Close search"
+                      title="Close search"
+                      {...createTouchHandlers(undefined, 'light')}
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  {/* Search Results Dropdown - also portal-level */}
+                  {isDropdownOpen && (
+                    <div
+                      id="mobile-search-results"
+                      ref={dropdownRef}
+                      className="mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-y-auto"
+                      style={{ zIndex: 9999 }}
+                      role="listbox"
+                      aria-label="User search results"
+                    >
+                      {loading && (
+                        <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
+                          <div className="animate-spin inline-block w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full mr-2" aria-hidden="true"></div>
+                          Searching...
+                        </div>
+                      )}
+
+                      {!loading && hasSearched && users.length === 0 && searchQuery && (
+                        <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
+                          No users found for "{searchQuery}"
+                        </div>
+                      )}
+
+                      {!loading && users.length > 0 && (
+                        <div className="py-1" role="group" aria-label="Search results">
+                          {users.map((user, index) => (
+                            <button
+                              key={user.id}
+                              ref={setItemRef(index)}
+                              type="button"
+                              role="option"
+                              aria-selected={index === selectedIndex}
+                              className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
+                                index === selectedIndex ? 'bg-purple-50' : ''
+                              }`}
+                              onMouseDown={(e) => {
+                                // Prevent blur from firing when clicking on result
+                                e.preventDefault()
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleUserSelect(user)
+                              }}
+                              onMouseEnter={() => setSelectedIndex(index)}
+                              aria-label={`Go to ${user.display_name || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`}
+                              {...createTouchHandlers(undefined, 'light')}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div className="flex-shrink-0">
+                                  <ProfilePhotoDisplay
+                                    photoUrl={user.profile_image_url}
+                                    username={user.username}
+                                    size="sm"
+                                    className="border-0 shadow-none"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-gray-900 truncate">
+                                    {user.display_name || user.username}
+                                  </div>
+                                  <div className="text-xs text-gray-500 truncate">
+                                    @{user.username}
+                                  </div>
+                                  {user.bio && (
+                                    <div className="text-xs text-gray-400 truncate mt-0.5">
+                                      {user.bio}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {!loading && hasSearched && !searchQuery && (
+                        <div className="p-3 text-center text-gray-500 text-sm" role="status">
+                          Type to search for users...
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>,
+              portalContainerRef.current
+            ) : null
           )
         ) : (
           /* Desktop mode: Full search bar */
@@ -339,11 +462,11 @@ export default function UserSearchBar({
         )}
       </div>
 
-      {/* Search Results Dropdown */}
-      {isDropdownOpen && (
+      {/* Search Results Dropdown - Desktop only (mobile handles its own in portal) */}
+      {!isMobile && isDropdownOpen && (
         <div
           ref={dropdownRef}
-          className="fixed top-16 left-1/2 transform -translate-x-1/2 w-80 sm:w-96 max-w-[calc(100vw-16px)] bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto sm:absolute sm:top-full sm:mt-1 sm:left-0 sm:right-auto sm:transform-none sm:w-full sm:max-w-sm"
+          className="absolute top-full mt-1 w-full max-w-sm bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto"
           role="listbox"
           aria-label="User search results"
         >

@@ -55,7 +55,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
     >
       <div className="max-w-4xl mx-auto flex items-center gap-2 sm:gap-4 relative">
         {/* Left section: Logo */}
-        <div className="flex items-center flex-shrink-0 relative z-20">
+        <div className="flex items-center flex-shrink-0 relative z-10">
           {user ? (
             <button
               onClick={() => handleNavigation("/feed")}
@@ -64,16 +64,16 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
               title="Go to Grateful home"
             >
               {/* Purple heart - always visible, higher z-index */}
-              <span className="text-xl sm:text-2xl relative z-30" aria-hidden="true">💜</span>
+              <span className="text-xl sm:text-2xl relative z-20" aria-hidden="true">💜</span>
               {/* Grateful text - can be covered by search on mobile */}
-              <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-10">Grateful</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-0">Grateful</h1>
             </button>
           ) : (
             <div className="flex items-center space-x-1 sm:space-x-2 min-h-[44px]">
               {/* Purple heart - always visible, higher z-index */}
-              <span className="text-xl sm:text-2xl relative z-30" aria-hidden="true">💜</span>
+              <span className="text-xl sm:text-2xl relative z-20" aria-hidden="true">💜</span>
               {/* Grateful text - can be covered by search on mobile */}
-              <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-10">Grateful</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-0">Grateful</h1>
             </div>
           )}
         </div>
@@ -83,7 +83,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
           <div className="flex-1 min-w-0 max-w-md mx-auto relative overflow-visible">
             {/* Mobile: Collapsible search - positioned to expand leftward over "Grateful" text */}
             <div className="flex sm:hidden justify-end relative overflow-visible">
-              <UserSearchBar isMobile={true} className="w-auto relative z-25" />
+              <UserSearchBar isMobile={true} className="w-auto relative" />
             </div>
             {/* Desktop: Fixed width centered search bar */}
             <div className="hidden sm:flex justify-center">
@@ -93,7 +93,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
         )}
         
         {/* Right section: Feed icon + Notifications + Profile */}
-        <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0 relative z-20">
+        <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0 relative z-10">
           {/* Purple Heart Feed Icon */}
           {user && (
             <button
