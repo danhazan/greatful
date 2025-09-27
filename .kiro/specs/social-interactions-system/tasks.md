@@ -1106,41 +1106,97 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
 
 **Acceptance Criteria:** All identified production bugs are resolved and thoroughly tested, post sharing works reliably in production environment, post editing functions without database errors, mobile search bar displays correctly above other navbar elements, and post creation character counter accurately reflects text content length in all scenarios including empty states and new line handling.
 
-### **TASK 19: Privacy Controls System** (Post-MVP)
+### **TASK 19: OAuth Authentication System** (High Priority)
+**Module Reference:** Section 4 - Authentication & User Management
+
+Implement OAuth 2.0 authentication with Google and Facebook to provide users with quick, secure signup and login options, reducing friction in the onboarding process and improving user acquisition rates.
+
+- [ ] **19.1 OAuth Provider Configuration and Backend Setup**
+  - Configure Google OAuth 2.0 client credentials in Google Cloud Console
+  - Configure Facebook OAuth client credentials in Facebook Developers Console
+  - Set up environment variables for OAuth client IDs and secrets (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FACEBOOK_CLIENT_ID, FACEBOOK_CLIENT_SECRET)
+  - Install and configure OAuth 2.0 Python library (authlib) in FastAPI backend
+  - Add OAuth provider initialization in app startup with proper error handling
+  - Ensure database indexes exist for `oauth_provider` and `oauth_id` fields in users table
+  - Add OAuth-specific fields to security audit logging system
+
+- [ ] **19.2 OAuth Authentication Endpoints**
+  - Create `POST /api/v1/auth/oauth/google` endpoint to initiate Google OAuth flow
+  - Create `POST /api/v1/auth/oauth/facebook` endpoint to initiate Facebook OAuth flow
+  - Create `GET /api/v1/auth/oauth/callback` endpoint to handle OAuth provider callbacks
+  - Implement OAuth token validation and user data extraction from provider responses
+  - Add PKCE (Proof Key for Code Exchange) support for enhanced security
+  - Implement state parameter validation to prevent CSRF attacks
+  - Add comprehensive error handling for OAuth failures and invalid tokens
+
+- [ ] **19.3 Account Management and Linking Logic**
+  - Implement logic to check for existing accounts by email address
+  - Create new OAuth user accounts with proper profile data extraction (name, email, profile picture)
+  - Implement account linking for existing users who want to add OAuth login
+  - Handle OAuth account conflicts (email already exists with different provider)
+  - Add account linking confirmation UI and user consent flows
+  - Implement proper unique constraints handling for OAuth accounts
+  - Add security audit logging for all OAuth authentication events
+
+- [ ] **19.4 Frontend OAuth Integration**
+  - Add Google and Facebook login buttons to `/auth/login` and `/auth/signup` pages
+  - Implement proper OAuth provider branding and accessibility (ARIA labels, keyboard navigation)
+  - Add loading states and visual feedback during OAuth authentication flow
+  - Implement OAuth redirect handling and token exchange on frontend
+  - Add error handling for OAuth failures with clear, actionable error messages
+  - Create account linking confirmation dialogs for existing users
+  - Ensure mobile responsiveness and touch-friendly OAuth buttons
+
+- [ ] **19.5 OAuth Security and Rate Limiting**
+  - Implement rate limiting on OAuth endpoints (10 attempts per minute per IP)
+  - Add comprehensive input validation for OAuth callback parameters
+  - Implement secure token storage and transmission practices
+  - Add OAuth-specific security headers and CORS configuration
+  - Implement proper session management for OAuth-authenticated users
+  - Add monitoring and alerting for OAuth security events
+  - Ensure OAuth tokens are properly validated and not stored unnecessarily
+
+- [ ] **Test Execution:** Run backend OAuth tests (`pytest tests/unit/test_oauth_service.py -v`) and integration tests (`pytest tests/integration/test_oauth_endpoints.py -v`) to verify OAuth flows. Test frontend OAuth functionality (`npm test`) focusing on login/signup page OAuth integration. Perform end-to-end testing of complete OAuth flows for both Google and Facebook on desktop and mobile devices.
+
+- [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with OAuth endpoint specifications and security considerations. Add OAuth setup guide to docs/ARCHITECTURE_AND_SETUP.md including provider configuration steps. Update docs/SECURITY_AND_PRODUCTION.md with OAuth security best practices and monitoring procedures.
+
+---
+
+### **TASK 21: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 20: Advanced Social Features** (Post-MVP)
+### **TASK 22: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 21: Fast Login Page for Development** (Post-MVP)
+### **TASK 23: Fast Login Page for Development** (Post-MVP)
 **Module Reference:** Development Tools - Fast Login Interface for Testing
-- [ ] **21.1 Create Fast Login Page Route**
+- [ ] **23.1 Create Fast Login Page Route**
   - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
   - Copy existing login page layout and styling from `/auth/login/page.tsx`
   - Replace email/password form with user selection dropdown
   - Add development environment detection to prevent production access
   - Implement purple theme consistency matching regular login page
-- [ ] **21.2 User Selection Interface**
+- [ ] **23.2 User Selection Interface**
   - Create dropdown showing all existing users (username, email, profile picture)
   - Implement one-click login functionality that generates development token
   - Add user search/filter functionality for large user lists
   - Display user information clearly (username, email, join date)
   - Add "Login as [Username]" button for each user selection
-- [ ] **21.3 Development Environment Protection**
+- [ ] **23.3 Development Environment Protection**
   - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
   - Implement build-time exclusion using Next.js conditional compilation
   - Add clear development warning banner on fast login page
   - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
   - Add rate limiting and IP restrictions for development endpoints
-- [ ] **21.4 Fast Login UX and Navigation**
+- [ ] **23.4 Fast Login UX and Navigation**
   - Style page identical to regular login with "Fast Login (Dev Mode)" title
   - Add "Back to Regular Login" link for normal authentication flow
   - Implement responsive design matching existing login page
@@ -1149,9 +1205,9 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
 **Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
-### **TASK 22: Follow Notification Batching System** (Post-MVP)
+### **TASK 24: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **22.1 Follow Notification Batching Analysis and Design**
+- [ ] **24.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -1162,7 +1218,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **22.2 Follow Notification Batching Implementation**
+- [ ] **24.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope
@@ -1170,7 +1226,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - Implement proper batch summary generation for follow notifications
   - Add batch expansion to show individual follower notifications with profile pictures
   - Test follow notification batching with multiple followers and time windows
-- [ ] **22.3 Cross-Notification Type Batching Strategy (Future)**
+- [ ] **24.3 Cross-Notification Type Batching Strategy (Future)**
   - **Advanced Feature:** Consider batching different notification types for the same user
   - Research feasibility of "activity digest" notifications combining multiple types
   - Design user preference system for notification batching granularity

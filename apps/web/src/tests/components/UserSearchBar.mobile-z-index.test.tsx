@@ -95,7 +95,7 @@ describe('UserSearchBar Mobile Z-Index Fix', () => {
       // Check that expanded search container is in the portal with proper z-index
       const expandedContainer = document.querySelector('[role="search"][aria-label="Mobile user search"]')
       expect(expandedContainer).toBeInTheDocument()
-      expect(expandedContainer).toHaveStyle('z-index: 9999')
+      expect(expandedContainer).toHaveClass('z-50')
     })
 
     it('expanded mobile search input has proper styling for visibility', async () => {
@@ -126,7 +126,7 @@ describe('UserSearchBar Mobile Z-Index Fix', () => {
       await waitFor(() => {
         const dropdown = document.querySelector('#mobile-search-results')
         expect(dropdown).toBeInTheDocument()
-        expect(dropdown).toHaveStyle('z-index: 9999')
+        expect(dropdown).toHaveClass('z-50')
       })
     })
 
@@ -219,7 +219,7 @@ describe('UserSearchBar Mobile Z-Index Fix', () => {
       
       // Portal content should have high z-index since it's outside stacking context
       const expandedContainer = document.querySelector('[role="search"][aria-label="Mobile user search"]')
-      expect(expandedContainer).toHaveStyle('z-index: 9999')
+      expect(expandedContainer).toHaveClass('z-50')
     })
 
     it('ensures search dropdown renders within portal with proper layering', async () => {
@@ -241,7 +241,7 @@ describe('UserSearchBar Mobile Z-Index Fix', () => {
         expect(portalContainer?.contains(dropdown)).toBe(true)
         
         // Both search input and dropdown are in same portal with high z-index
-        expect(dropdown).toHaveStyle('z-index: 9999')
+        expect(dropdown).toHaveClass('z-50')
       })
     })
   })

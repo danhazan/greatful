@@ -54,7 +54,7 @@ export default function UserSearchBar({
       el.style.width = '100%'
       el.style.height = '0'
       el.style.pointerEvents = 'none' // container itself doesn't capture pointer events
-      el.style.zIndex = '9999'
+      el.style.zIndex = '50'
       portalContainerRef.current = el
       document.body.appendChild(el)
     }
@@ -296,8 +296,7 @@ export default function UserSearchBar({
             portalContainerRef.current ? createPortal(
               <div className="sm:hidden" style={{ pointerEvents: 'auto' }}>
                 <div
-                  className="fixed top-3 left-4 right-4 mx-auto"
-                  style={{ zIndex: 9999 }}
+                  className="fixed top-[60px] left-4 right-4 mx-auto z-50"
                   role="search"
                   aria-label="Mobile user search"
                 >
@@ -342,8 +341,7 @@ export default function UserSearchBar({
                     <div
                       id="mobile-search-results"
                       ref={dropdownRef}
-                      className="mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-y-auto"
-                      style={{ zIndex: 9999 }}
+                      className="mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto"
                       role="listbox"
                       aria-label="User search results"
                     >

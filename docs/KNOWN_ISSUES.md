@@ -6,7 +6,7 @@
 - **🚫 Share Post Production 500 Error**: POST /api/v1/posts/{post_id}/share returns 500 error in production only
 - **✏️ Edit Post Functionality Broken**: Edit post feature fails with "Update Failed" error
 - **🔤 RTL Text Reversal**: Hebrew and Arabic text displaying in reversed character order
-- **📱 Mobile Search Bar Z-Index Issue**: Mobile search bar appears behind notification bell and profile dropdown despite portal implementation
+
 - **🔤 Notification Username Instead of Display Name**: Notifications show username instead of display name
 - **📊 Engagement Summary Auto-Popup**: Metrics popup automatically appears when posts reach 6+ total reactions
 - **🎭 Emoji Reactions 6 & 7**: Click handlers not working for emojis 6 (😂) and 7 (🤔)
@@ -27,6 +27,7 @@
 - **RichTextEditor Z-Index Dropdown Issue**: ✅ COMPLETED - Dropdowns now appear above modal content using React Portals
 - **Notification HTML Content Display**: ✅ COMPLETED - Notifications now display plain text instead of HTML formatting
 - **RichTextEditor Toolbar Improvements**: ✅ COMPLETED - Added pressed states, emoji repositioning, and dividers
+- **Mobile Search Bar Z-Index Issue**: ✅ COMPLETED - Mobile search bar now appears correctly positioned below navbar
 
 > 📚 **For detailed troubleshooting guides and historical fixes, see [`COMMON_FIXES.md`](./COMMON_FIXES.md)**
 
@@ -229,6 +230,35 @@ The navbar was using the same data normalization issue that was previously fixed
 - `apps/web/src/utils/notificationUserResolver.ts` - Enhanced compatibility
 - `apps/web/src/components/ClickableProfilePicture.tsx` - Better error handling
 - Test files for comprehensive coverage
+
+### Mobile Search Bar Z-Index Issue - COMPLETED ✅
+**Issue**: Mobile search bar appeared behind notification bell and profile dropdown despite portal implementation  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: January 9, 2025  
+**Impact**: High - Core mobile user experience feature  
+
+**What was Fixed**:
+- ✅ Repositioned mobile search to expand below navbar instead of overlaying on top
+- ✅ Changed positioning from `top-3` (12px) to `top-[60px]` (60px) to appear at bottom edge of navbar
+- ✅ Simplified z-index values from extreme `z-[9999]` to standard `z-50`
+- ✅ Eliminated z-index conflicts by positioning below navbar rather than above
+- ✅ Maintained portal implementation for proper DOM structure
+- ✅ All tests updated and passing (10/10 tests)
+
+**Technical Implementation**:
+- Updated mobile search positioning to `top-[60px]` to align with navbar bottom edge
+- Replaced extreme z-index values (`9999`) with standard high values (`z-50`)
+- Maintained React Portal implementation for proper DOM structure
+- Updated test expectations to match new CSS class-based z-index approach
+- Ensured consistent behavior across mobile and desktop
+
+**Root Cause**: 
+The original approach tried to overlay the search on top of navbar elements, creating z-index conflicts. The solution was to position the search below the navbar instead, eliminating the need for extreme z-index values and avoiding stacking context conflicts entirely.
+
+**Files Modified**:
+- `apps/web/src/components/UserSearchBar.tsx` - Updated positioning and z-index values
+- `apps/web/src/tests/components/UserSearchBar.mobile-z-index.test.tsx` - Updated test expectations
+- `docs/KNOWN_ISSUES.md` - Moved issue to resolved section
 
 ---
 
@@ -442,109 +472,6 @@ The issue appears to be related to how HTML formatting interacts with RTL text d
 - `apps/web/src/utils/rtlUtils.ts` - RTL text detection utilities
 - Test files for RTL functionality
 
-### Mobile Search Bar Z-Index Issue
-**Issue**: Mobile search bar appears behind notification bell and profile dropdown despite portal implementation  
-**Status**: ⚠️ Active Issue  
-**Priority**: High  
-**Impact**: Core Mobile User Experience  
-**Discovered**: January 9, 2025  
-
-**Description**:
-The mobile search bar in the navbar appears behind the notification bell and profile dropdown elements, making it unusable on mobile devices. This issue persists despite implementing a React Portal solution with high z-index values, suggesting a deeper browser-specific or CSS stacking context problem.
-
-**Technical Details**:
-- Backend: Not applicable ✅
-- Database: Not applicable ✅
-- Frontend: Z-index stacking context issue despite portal implementation ❌
-- Issue: Mobile search renders behind other navbar elements
-
-**Portal Implementation Attempted**:
-- ✅ **React Portal**: Mobile search renders via `createPortal` to `document.body`
-- ✅ **High Z-Index**: Portal container and content use `z-index: 9999`
-- ✅ **Fixed Positioning**: Search uses `position: fixed` outside navbar DOM
-- ✅ **Comprehensive Testing**: All portal functionality tests pass
-- ❌ **Visual Result**: Search still appears behind notification/profile elements
-
-**Current Z-Index Hierarchy**:
-- **Navbar container**: `z-40` (sticky positioning)
-- **NotificationSystem dropdown**: `z-50` (fixed/absolute)
-- **ProfileDropdown**: `z-50` (absolute)
-- **Mobile search portal**: `z-index: 9999` (should be highest)
-- **RichTextEditor dropdowns**: `z-[9999]` (competing elements)
-
-**Root Cause Analysis**:
-Despite the portal implementation escaping the navbar's stacking context, the issue persists, indicating:
-1. **Browser-specific stacking behavior**: Some browsers may handle very high z-index values differently
-2. **CSS isolation issues**: Other CSS properties may be creating unexpected stacking contexts
-3. **Platform-specific rendering**: Mobile browsers may have different stacking context rules
-4. **Competing high z-index elements**: Other components using similar z-index values
-
-**Debugging Attempts Made**:
-- ✅ Implemented React Portal to escape navbar stacking context
-- ✅ Used maximum z-index values (`2147483647`)
-- ✅ Added CSS isolation properties
-- ✅ Removed transform properties that could create stacking contexts
-- ✅ Verified portal renders correctly in DOM outside navbar
-- ❌ Issue persists across all attempted solutions
-
-**Current Behavior**:
-- Mobile collapsed: Shows search icon button ✅
-- Mobile expanded: Search input renders but appears behind other elements ❌
-- Desktop: Search functionality works correctly ✅
-- Portal: Creates correctly in `document.body` with high z-index ✅
-
-**Expected Behavior**:
-- Mobile search should appear above all navbar elements when expanded
-- Search input should be fully visible and interactive
-- No visual interference from notification bell or profile dropdown
-
-**Reproduction Steps**:
-1. Open the app on mobile device or mobile viewport
-2. Navigate to a page with the navbar (feed, profile, etc.)
-3. Click the search icon in the navbar
-4. Observe that the expanded search appears behind notification/profile elements
-5. Note that the search is functional but visually obscured
-
-**Workaround**: Use desktop view where search functionality works correctly.
-
-**Priority**: High - Core mobile functionality is visually broken, significantly affecting mobile user experience.
-
-**Technical Architecture**:
-```typescript
-// Portal implementation in UserSearchBar.tsx
-const portalContainer = document.createElement('div')
-portalContainer.style.zIndex = '9999'
-document.body.appendChild(portalContainer)
-
-// Search content rendered via portal
-createPortal(
-  <div style={{ zIndex: 9999 }}>
-    {/* Mobile search input and dropdown */}
-  </div>,
-  portalContainer
-)
-```
-
-**Files Affected**:
-- `apps/web/src/components/UserSearchBar.tsx` - Portal implementation and z-index management
-- `apps/web/src/components/Navbar.tsx` - Navbar container and element hierarchy
-- `apps/web/src/components/NotificationSystem.tsx` - Competing z-index element
-- `apps/web/src/components/ProfileDropdown.tsx` - Competing z-index element
-- `apps/web/src/tests/components/UserSearchBar.mobile-z-index.test.tsx` - Portal testing
-
-**Investigation Status**: 
-- Portal-based solution implemented but issue persists
-- May require alternative approaches such as:
-  - Different portal mounting strategy
-  - CSS-in-JS solutions for dynamic z-index management
-  - Browser-specific CSS workarounds
-  - Alternative UI patterns that avoid z-index conflicts
-
-**Next Steps Required**:
-1. Investigate browser-specific stacking context behavior
-2. Consider alternative UI patterns (slide-out search, overlay search)
-3. Test with different CSS isolation techniques
-4. Evaluate third-party z-index management libraries
 
 ### Engagement Summary Auto-Popup
 **Issue**: Metrics popup automatically appears when posts reach 6+ total reactions (hearts + emoji reactions)  
