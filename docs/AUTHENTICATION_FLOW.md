@@ -20,7 +20,13 @@ The Grateful project implements a complete authentication flow using JWT tokens 
 
 ## Authentication Flow
 
-### 1. User Signup
+The Grateful platform supports two authentication methods:
+1. **Traditional Email/Password Authentication** - Standard signup and login flow
+2. **OAuth 2.0 Social Authentication** - Login with Google (and Facebook support ready)
+
+### Traditional Authentication
+
+#### 1. User Signup
 ```
 Frontend → /api/auth/signup → FastAPI /api/v1/auth/signup
 ```
@@ -46,7 +52,7 @@ Frontend → /api/auth/signup → FastAPI /api/v1/auth/signup
 }
 ```
 
-### 2. User Login
+#### 2. User Login
 ```
 Frontend → /api/auth/login → FastAPI /api/v1/auth/login
 ```
@@ -69,6 +75,199 @@ Frontend → /api/auth/login → FastAPI /api/v1/auth/login
   "token_type": "bearer"
 }
 ```
+
+### OAuth 2.0 Social Authentication
+
+#### OAuth Flow Overview
+```
+Frontend → OAuth Provider → OAuth Callback → FastAPI /api/v1/oauth/callback → JWT Token
+```
+
+The OAuth flow provides secure authentication through trusted providers like Google and Facebook, eliminating the need for users to create and remember passwords.
+
+#### Supported OAuth Providers
+
+**Google OAuth 2.0**:
+- **Provider**: Google Identity Platform
+- **Scopes**: `openid email profile`
+- **Features**: PKCE (Proof Key for Code Exchange) for enhanced security
+- **Status**: ✅ Configured and Ready
+
+**Facebook OAuth 2.0**:
+- **Provider**: Facebook Login
+- **Scopes**: `email public_profile`
+- **Features**: PKCE support
+- **Status**: ⚠️ Ready for configuration (credentials needed)
+
+#### OAuth Endpoints
+
+**Initiate OAuth Login**:
+```http
+GET /api/v1/oauth/{provider}/login
+```
+
+**Parameters**:
+- `provider`: OAuth provider (`google` or `facebook`)
+- `redirect_uri`: Optional custom redirect URI
+
+**Response**: Redirects to OAuth provider authorization URL
+
+**OAuth Callback Handler**:
+```http
+GET /api/v1/oauth/{provider}/callback
+```
+
+**Parameters**:
+- `code`: Authorization code from OAuth provider
+- `state`: CSRF protection state parameter
+
+**Response**:
+```json
+{
+  "access_token": "jwt-token-here",
+  "token_type": "bearer",
+  "user": {
+    "id": "user123",
+    "username": "john_doe",
+    "email": "john@example.com",
+    "name": "John Doe",
+    "profile_image_url": "https://example.com/avatar.jpg",
+    "oauth_provider": "google"
+  }
+}
+```
+
+#### OAuth Configuration
+
+**Environment Variables**:
+```env
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Facebook OAuth Configuration  
+FACEBOOK_CLIENT_ID=your-facebook-client-id
+FACEBOOK_CLIENT_SECRET=your-facebook-client-secret
+
+# OAuth Redirect URIs
+OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback/google
+OAUTH_REDIRECT_URI_PRODUCTION=https://yourdomain.com/auth/callback/google
+```
+
+**OAuth Provider Configuration**:
+```python
+# apps/api/app/core/oauth_config.py
+
+class OAuthConfig:
+    def initialize_oauth(self) -> OAuth:
+        """Initialize OAuth providers with security features."""
+        
+        # Google OAuth with PKCE
+        self.oauth.register(
+            name='google',
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            server_metadata_url='https://accounts.google.com/.well-known/openid_configuration',
+            client_kwargs={
+                'scope': 'openid email profile',
+                'prompt': 'select_account',
+                'code_challenge_method': 'S256',  # PKCE with SHA256
+            }
+        )
+```
+
+#### OAuth Security Features
+
+**PKCE (Proof Key for Code Exchange)**:
+- Generates cryptographic code verifier and challenge
+- Prevents authorization code interception attacks
+- Required for all OAuth flows
+
+**State Parameter Validation**:
+- CSRF protection through state parameter
+- Validates state matches between request and callback
+- Prevents cross-site request forgery attacks
+
+**Token Security**:
+- OAuth tokens exchanged for internal JWT tokens
+- No OAuth tokens stored client-side
+- Standard JWT expiration and refresh patterns
+
+**User Data Handling**:
+- Minimal data collection (email, name, profile picture)
+- Automatic username generation from OAuth data
+- Profile data can be updated after OAuth login
+
+#### OAuth User Flow
+
+**1. User Clicks "Sign in with Google"**:
+```javascript
+// Frontend initiates OAuth flow
+window.location.href = '/api/v1/oauth/google/login'
+```
+
+**2. Redirect to Google Authorization**:
+```
+https://accounts.google.com/oauth/authorize?
+  client_id=your-client-id&
+  redirect_uri=http://localhost:3000/auth/callback/google&
+  response_type=code&
+  scope=openid+email+profile&
+  state=random-csrf-token&
+  code_challenge=pkce-challenge&
+  code_challenge_method=S256
+```
+
+**3. User Authorizes Application**:
+- User logs into Google account
+- User grants permissions to Grateful app
+- Google redirects back with authorization code
+
+**4. OAuth Callback Processing**:
+```python
+# Backend processes OAuth callback
+async def oauth_callback(provider: str, code: str, state: str):
+    # Validate state parameter (CSRF protection)
+    # Exchange code for access token using PKCE
+    # Get user info from OAuth provider
+    # Create or update user account
+    # Generate internal JWT token
+    # Return authentication response
+```
+
+**5. User Authenticated**:
+- User receives JWT token
+- Frontend stores token and redirects to feed
+- User is logged in and can use the application
+
+#### OAuth Error Handling
+
+**Common OAuth Errors**:
+```json
+// Invalid state parameter
+{
+  "error": "invalid_state",
+  "error_description": "State parameter validation failed"
+}
+
+// OAuth provider error
+{
+  "error": "access_denied", 
+  "error_description": "User denied authorization"
+}
+
+// Configuration error
+{
+  "error": "provider_not_configured",
+  "error_description": "OAuth provider is not properly configured"
+}
+```
+
+**Error Recovery**:
+- Graceful fallback to traditional login
+- Clear error messages for users
+- Comprehensive logging for debugging
+- Automatic retry mechanisms where appropriate
 
 ### 3. Session Validation
 ```

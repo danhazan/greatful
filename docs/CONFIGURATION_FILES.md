@@ -28,14 +28,34 @@ SECRET_KEY_GLOBAL=your-super-secret-key-change-this-in-production
 **Purpose**: FastAPI backend configuration
 **Content**:
 ```env
-?options=-csearch_path=public
-postgresql+asyncpg://postgres:iamgreatful@localhost:5432/grateful
+# Database Configuration
+DATABASE_URL=postgresql+asyncpg://postgres:iamgreatful@localhost:5432/grateful
+
+# Security Configuration
 SECRET_KEY=your-super-secret-key-change-this-in-production
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# OAuth Configuration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+FACEBOOK_CLIENT_ID=your-facebook-client-id
+FACEBOOK_CLIENT_SECRET=your-facebook-client-secret
+OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback/google
+OAUTH_REDIRECT_URI_PRODUCTION=https://yourdomain.com/auth/callback/google
+
+# CORS Configuration
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+# Environment
+ENVIRONMENT=development
 ```
 **Key Settings**:
 - **Database URL**: PostgreSQL connection with async driver
 - **Secret Key**: JWT token encryption
-- **Search Path**: PostgreSQL schema configuration
+- **OAuth Credentials**: Google and Facebook OAuth client credentials
+- **OAuth Redirect URIs**: Callback URLs for OAuth flow (development and production)
+- **CORS Origins**: Allowed frontend origins for API access
 
 ### Frontend Environment
 **File**: `apps/web/.env.local` (Development)
@@ -98,6 +118,13 @@ UPLOAD_RATE_LIMIT=20
 # Feature Flags
 ENABLE_REGISTRATION=true
 ENABLE_FILE_UPLOADS=true
+
+# OAuth Configuration (Production)
+GOOGLE_CLIENT_ID=your-production-google-client-id
+GOOGLE_CLIENT_SECRET=your-production-google-client-secret
+FACEBOOK_CLIENT_ID=your-production-facebook-client-id
+FACEBOOK_CLIENT_SECRET=your-production-facebook-client-secret
+OAUTH_REDIRECT_URI_PRODUCTION=https://your-app.vercel.app/auth/callback/google
 ```
 **Key Settings**:
 - **NextAuth Secret**: Authentication encryption

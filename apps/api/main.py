@@ -37,6 +37,7 @@ from app.api.v1.posts import router as posts_router
 from app.api.v1.likes import router as likes_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.follows import router as follows_router
+from app.api.v1.oauth import router as oauth_router
 from app.api.v1.algorithm_performance import router as algorithm_performance_router
 from app.api.v1.database import router as database_router
 from app.api.v1.health import router as health_router
@@ -62,6 +63,7 @@ from app.core.exceptions import BaseAPIException
 from app.core.responses import error_response
 from app.core.structured_logging import setup_structured_logging
 from app.core.uptime_monitoring import uptime_monitor
+from app.core.oauth_config import initialize_oauth_providers, get_oauth_config
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
@@ -83,6 +85,26 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up Grateful API...")
     await init_db()
     logger.info("Database initialized successfully")
+    
+    # Initialize OAuth providers with proper error handling
+    try:
+        oauth_instance = initialize_oauth_providers()
+        oauth_status = get_oauth_config().get_provider_status()
+        logger.info(f"OAuth providers initialized: {oauth_status}")
+        
+        # Store OAuth instance in app state for access in routes
+        app.state.oauth = oauth_instance
+        app.state.oauth_config = get_oauth_config()
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize OAuth providers: {e}")
+        # Don't fail startup if OAuth fails in development
+        if os.getenv("ENVIRONMENT") == "production":
+            raise
+        else:
+            logger.warning("OAuth providers disabled due to configuration issues")
+            app.state.oauth = None
+            app.state.oauth_config = None
     
     # Start uptime monitoring
     await uptime_monitor.start_monitoring()
@@ -225,6 +247,7 @@ app.include_router(security_router, prefix="/api/v1/security", tags=["security"]
 # SSL/TLS - requires authentication for SSL certificate monitoring and configuration
 app.include_router(ssl_router, prefix="/api/v1/ssl", tags=["ssl"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(oauth_router, prefix="/api/v1/oauth", tags=["oauth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(posts_router, prefix="/api/v1/posts", tags=["posts"])
 app.include_router(reactions_router, prefix="/api/v1", tags=["reactions"])

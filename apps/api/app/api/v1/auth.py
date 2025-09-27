@@ -13,6 +13,12 @@ from app.core.responses import success_response
 from app.core.security_audit import log_login_success, log_login_failure, SecurityAuditor, SecurityEventType
 from app.core.exceptions import AuthenticationError
 from app.core.input_sanitization import sanitize_request_data
+from app.core.oauth_config import get_oauth_config, get_oauth_redirect_uri, validate_oauth_state, log_oauth_security_event
+from app.services.oauth_service import OAuthService
+from fastapi.responses import RedirectResponse
+from typing import Optional
+from pydantic import field_validator, Field
+import re
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -50,6 +56,53 @@ class UserResponse(BaseModel):
 class RefreshTokenRequest(BaseModel):
     """Refresh token request model."""
     refresh_token: str
+
+
+class OAuthCallbackRequest(BaseModel):
+    """OAuth callback request model with validation."""
+    code: str = Field(..., min_length=1, max_length=2048, description="Authorization code from OAuth provider")
+    state: Optional[str] = Field(None, max_length=1024, description="State parameter for CSRF protection")
+    
+    @field_validator('code')
+    @classmethod
+    def validate_code(cls, v):
+        """Validate authorization code format."""
+        if not v or not v.strip():
+            raise ValueError('Authorization code cannot be empty')
+        # Basic validation - OAuth codes are typically alphanumeric with some special chars
+        if not re.match(r'^[A-Za-z0-9._~:/?#[\]@!$&\'()*+,;=-]+$', v):
+            raise ValueError('Invalid authorization code format')
+        return v.strip()
+    
+    @field_validator('state')
+    @classmethod
+    def validate_state(cls, v):
+        """Validate state parameter format."""
+        if v is not None:
+            if not re.match(r'^[A-Za-z0-9._~-]+$', v):
+                raise ValueError('Invalid state parameter format')
+        return v
+
+
+class OAuthLoginRequest(BaseModel):
+    """OAuth login request model with validation."""
+    redirect_uri: Optional[str] = Field(None, max_length=2048, description="Custom redirect URI after authentication")
+    
+    @field_validator('redirect_uri')
+    @classmethod
+    def validate_redirect_uri(cls, v):
+        """Validate redirect URI format."""
+        if v is not None:
+            if not re.match(r'^https?://[a-zA-Z0-9.-]+(?:\:[0-9]+)?(?:/[^\s]*)?$', v):
+                raise ValueError('Invalid redirect URI format')
+        return v
+
+
+class OAuthLoginResponse(BaseModel):
+    """OAuth login response model."""
+    user: dict
+    tokens: dict
+    is_new_user: bool
 
 
 @router.post("/signup", status_code=201)
@@ -226,3 +279,248 @@ async def refresh_token(
             severity="WARNING"
         )
         raise
+
+
+# OAuth Authentication Endpoints
+
+@router.post("/oauth/google")
+async def oauth_google_login(
+    oauth_request: OAuthLoginRequest,
+    request: Request
+):
+    """
+    Initiate Google OAuth login flow.
+    
+    Args:
+        request: FastAPI request object
+        redirect_uri: Optional custom redirect URI after authentication
+        
+    Returns:
+        Redirect to Google OAuth authorization URL
+    """
+    try:
+        oauth_config = getattr(request.app.state, 'oauth_config', None)
+        oauth_instance = getattr(request.app.state, 'oauth', None)
+        
+        if not oauth_config or not oauth_instance:
+            log_oauth_security_event('oauth_not_configured', 'google')
+            raise HTTPException(status_code=503, detail="OAuth service not available")
+        
+        if not oauth_config.is_provider_available('google'):
+            log_oauth_security_event('provider_not_available', 'google')
+            raise HTTPException(status_code=400, detail="Google OAuth provider is not available")
+        
+        # Get OAuth client for Google
+        oauth_client = oauth_config.get_oauth_client('google')
+        
+        # Generate redirect URI
+        callback_uri = get_oauth_redirect_uri('google')
+        
+        # Validate and store custom redirect URI in state if provided
+        state_data = {}
+        redirect_uri = oauth_request.redirect_uri
+        if redirect_uri:
+            # Additional security: only allow specific domains in production
+            from app.core.oauth_config import ENVIRONMENT
+            if ENVIRONMENT == 'production':
+                allowed_domains = ['yourdomain.com', 'www.yourdomain.com']  # Configure as needed
+                from urllib.parse import urlparse
+                parsed_uri = urlparse(redirect_uri)
+                if parsed_uri.hostname not in allowed_domains:
+                    log_oauth_security_event('unauthorized_redirect_uri', 'google', details={'redirect_uri': redirect_uri})
+                    raise HTTPException(status_code=400, detail="Unauthorized redirect URI")
+            
+            state_data['redirect_uri'] = redirect_uri
+        
+        # Generate authorization URL with PKCE
+        authorization_url, state = oauth_client.create_authorization_url(
+            callback_uri,
+            state=state_data
+        )
+        
+        # Add security monitoring for OAuth initiation
+        SecurityAuditor.log_oauth_event(
+            event_type=SecurityEventType.OAUTH_LOGIN_INITIATED,
+            provider='google',
+            request=request,
+            details={
+                'callback_uri': callback_uri,
+                'has_custom_redirect': bool(redirect_uri),
+                'user_agent': request.headers.get('user-agent', ''),
+                'referer': request.headers.get('referer', '')
+            }
+        )
+        
+        log_oauth_security_event('login_initiated', 'google')
+        logger.info("Google OAuth login initiated")
+        
+        return RedirectResponse(url=authorization_url)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error initiating Google OAuth login: {e}")
+        log_oauth_security_event('login_error', 'google', details={'error': str(e)})
+        raise HTTPException(status_code=500, detail="Failed to initiate Google OAuth login")
+
+
+@router.post("/oauth/facebook")
+async def oauth_facebook_login(
+    oauth_request: OAuthLoginRequest,
+    request: Request
+):
+    """
+    Initiate Facebook OAuth login flow.
+    
+    Args:
+        request: FastAPI request object
+        redirect_uri: Optional custom redirect URI after authentication
+        
+    Returns:
+        Redirect to Facebook OAuth authorization URL
+    """
+    try:
+        oauth_config = getattr(request.app.state, 'oauth_config', None)
+        oauth_instance = getattr(request.app.state, 'oauth', None)
+        
+        if not oauth_config or not oauth_instance:
+            log_oauth_security_event('oauth_not_configured', 'facebook')
+            raise HTTPException(status_code=503, detail="OAuth service not available")
+        
+        if not oauth_config.is_provider_available('facebook'):
+            log_oauth_security_event('provider_not_available', 'facebook')
+            raise HTTPException(status_code=400, detail="Facebook OAuth provider is not available")
+        
+        # Get OAuth client for Facebook
+        oauth_client = oauth_config.get_oauth_client('facebook')
+        
+        # Generate redirect URI
+        callback_uri = get_oauth_redirect_uri('facebook')
+        
+        # Validate and store custom redirect URI in state if provided
+        state_data = {}
+        redirect_uri = oauth_request.redirect_uri
+        if redirect_uri:
+            # Additional security: only allow specific domains in production
+            from app.core.oauth_config import ENVIRONMENT
+            if ENVIRONMENT == 'production':
+                allowed_domains = ['yourdomain.com', 'www.yourdomain.com']  # Configure as needed
+                from urllib.parse import urlparse
+                parsed_uri = urlparse(redirect_uri)
+                if parsed_uri.hostname not in allowed_domains:
+                    log_oauth_security_event('unauthorized_redirect_uri', 'facebook', details={'redirect_uri': redirect_uri})
+                    raise HTTPException(status_code=400, detail="Unauthorized redirect URI")
+            
+            state_data['redirect_uri'] = redirect_uri
+        
+        # Generate authorization URL with PKCE
+        authorization_url, state = oauth_client.create_authorization_url(
+            callback_uri,
+            state=state_data
+        )
+        
+        # Add security monitoring for OAuth initiation
+        SecurityAuditor.log_oauth_event(
+            event_type=SecurityEventType.OAUTH_LOGIN_INITIATED,
+            provider='facebook',
+            request=request,
+            details={
+                'callback_uri': callback_uri,
+                'has_custom_redirect': bool(redirect_uri),
+                'user_agent': request.headers.get('user-agent', ''),
+                'referer': request.headers.get('referer', '')
+            }
+        )
+        
+        log_oauth_security_event('login_initiated', 'facebook')
+        logger.info("Facebook OAuth login initiated")
+        
+        return RedirectResponse(url=authorization_url)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error initiating Facebook OAuth login: {e}")
+        log_oauth_security_event('login_error', 'facebook', details={'error': str(e)})
+        raise HTTPException(status_code=500, detail="Failed to initiate Facebook OAuth login")
+
+
+@router.get("/oauth/callback", response_model=OAuthLoginResponse)
+async def oauth_callback(
+    request: Request,
+    code: str,
+    state: Optional[str] = None,
+    provider: str = "google",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Handle OAuth callback and authenticate user.
+    
+    Args:
+        request: FastAPI request object
+        code: Authorization code from OAuth provider
+        state: State parameter for CSRF protection
+        provider: OAuth provider name ('google' or 'facebook')
+        db: Database session
+        
+    Returns:
+        User information and JWT tokens
+    """
+    try:
+        oauth_config = getattr(request.app.state, 'oauth_config', None)
+        oauth_instance = getattr(request.app.state, 'oauth', None)
+        
+        if not oauth_config or not oauth_instance:
+            log_oauth_security_event('oauth_not_configured', provider)
+            raise HTTPException(status_code=503, detail="OAuth service not available")
+        
+        if not oauth_config.is_provider_available(provider):
+            log_oauth_security_event('provider_not_available', provider)
+            raise HTTPException(status_code=400, detail=f"OAuth provider '{provider}' is not available")
+        
+        # Validate state parameter for CSRF protection
+        if state and not validate_oauth_state(state):
+            log_oauth_security_event('invalid_state', provider, details={'state': state})
+            raise HTTPException(status_code=400, detail="Invalid state parameter")
+        
+        # Get OAuth client for provider
+        oauth_client = oauth_config.get_oauth_client(provider)
+        
+        # Exchange authorization code for access token
+        callback_uri = get_oauth_redirect_uri(provider)
+        token = await oauth_client.authorize_access_token(
+            request,
+            code=code,
+            redirect_uri=callback_uri
+        )
+        
+        if not token:
+            log_oauth_security_event('token_exchange_failed', provider)
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code for token")
+        
+        # Authenticate user with OAuth service
+        oauth_service = OAuthService(db)
+        user_data, is_new_user = await oauth_service.authenticate_oauth_user(
+            provider, 
+            token, 
+            state,
+            request
+        )
+        
+        response_data = {
+            'user': user_data['user'],
+            'tokens': user_data['tokens'],
+            'is_new_user': is_new_user
+        }
+        
+        return success_response(response_data, getattr(request.state, 'request_id', None))
+        
+    except HTTPException:
+        raise
+    except AuthenticationError as e:
+        log_oauth_security_event('authentication_failed', provider, details={'error': str(e)})
+        raise HTTPException(status_code=401, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in OAuth callback for {provider}: {e}")
+        log_oauth_security_event('callback_error', provider, details={'error': str(e)})
+        raise HTTPException(status_code=500, detail="OAuth authentication failed")

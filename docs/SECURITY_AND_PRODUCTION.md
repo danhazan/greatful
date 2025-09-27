@@ -358,21 +358,25 @@ async def create_post(post: PostCreate, request: Request):
 
 ## Authentication & Authorization
 
-### JWT Token System
+The Grateful API supports multiple authentication methods with comprehensive security features:
+
+### Traditional JWT Authentication
+
+#### JWT Token System
 
 The API uses a dual-token system for enhanced security:
 
-#### Access Tokens
+**Access Tokens**:
 - **Purpose**: API authentication
 - **Expiration**: 1 hour (configurable)
 - **Claims**: `sub`, `iat`, `exp`, `jti`, `type`
 
-#### Refresh Tokens
+**Refresh Tokens**:
 - **Purpose**: Renew access tokens
 - **Expiration**: 30 days (configurable)
 - **Claims**: `sub`, `iat`, `exp`, `jti`, `type`
 
-### Token Configuration
+#### Token Configuration
 
 ```bash
 # Environment variables
@@ -381,11 +385,118 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=30
 ```
 
-### Security Features
+#### Security Features
 
 - **Token Type Validation**: Ensures correct token type for each endpoint
 - **JWT ID (jti)**: Unique identifier for token revocation
 - **Secure Secret Key**: Minimum 32 characters, validated in production
+
+### OAuth 2.0 Social Authentication
+
+#### OAuth Security Architecture
+
+The OAuth implementation follows industry best practices for secure social authentication:
+
+**PKCE (Proof Key for Code Exchange)**:
+- **Code Verifier**: Cryptographically random 128-character string
+- **Code Challenge**: SHA256 hash of code verifier
+- **Challenge Method**: S256 (SHA256) for maximum security
+- **Protection**: Prevents authorization code interception attacks
+
+**State Parameter Validation**:
+- **CSRF Protection**: Cryptographically secure random state parameter
+- **Session Binding**: State parameter tied to user session
+- **Validation**: Server validates state matches between request and callback
+- **Expiration**: State parameters expire after 10 minutes
+
+#### Supported OAuth Providers
+
+**Google OAuth 2.0**:
+```bash
+# Configuration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
+- **Scopes**: `openid email profile` (minimal data collection)
+- **Security**: PKCE enabled, account selection forced
+- **Validation**: Email verification status checked
+
+**Facebook OAuth 2.0**:
+```bash
+# Configuration  
+FACEBOOK_CLIENT_ID=your-facebook-client-id
+FACEBOOK_CLIENT_SECRET=your-facebook-client-secret
+```
+- **Scopes**: `email public_profile` (minimal data collection)
+- **Security**: PKCE enabled, secure API endpoints
+- **Validation**: Profile data validation and sanitization
+
+#### OAuth Security Features
+
+**Token Security**:
+- **No OAuth Token Storage**: OAuth tokens never stored client-side
+- **Token Exchange**: OAuth tokens immediately exchanged for internal JWT
+- **Secure Transport**: All OAuth communications over HTTPS
+- **Token Expiration**: Standard JWT expiration applies to OAuth-created sessions
+
+**User Data Protection**:
+- **Minimal Data Collection**: Only email, name, and profile picture
+- **Data Validation**: All OAuth user data validated and sanitized
+- **Username Generation**: Automatic secure username generation from OAuth data
+- **Profile Updates**: Users can modify OAuth-imported profile data
+
+**Security Audit Logging**:
+```python
+# OAuth security events logged
+log_oauth_security_event('login_attempt', 'google', user_id=None)
+log_oauth_security_event('login_success', 'google', user_id=123)
+log_oauth_security_event('login_failure', 'google', details={'error': 'invalid_state'})
+log_oauth_security_event('invalid_state', 'google', details={'state': 'invalid'})
+```
+
+#### OAuth Configuration Security
+
+**Environment Validation**:
+- **Production Checks**: OAuth credentials validated in production startup
+- **Development Warnings**: Missing credentials logged in development
+- **Provider Status**: Real-time provider availability checking
+- **Configuration Errors**: Comprehensive error handling and logging
+
+**Redirect URI Security**:
+```bash
+# Development
+OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback/google
+
+# Production
+OAUTH_REDIRECT_URI_PRODUCTION=https://yourdomain.com/auth/callback/google
+```
+- **Exact Match**: Redirect URIs must exactly match registered URIs
+- **HTTPS Required**: Production redirect URIs must use HTTPS
+- **Domain Validation**: Redirect domains validated against allowed origins
+
+#### OAuth Error Handling
+
+**Security Error Responses**:
+```json
+{
+  "error": "invalid_state",
+  "error_description": "State parameter validation failed",
+  "error_code": "OAUTH_INVALID_STATE"
+}
+```
+
+**Common Security Errors**:
+- `invalid_state`: CSRF protection triggered
+- `invalid_code`: Authorization code invalid or expired
+- `provider_error`: OAuth provider returned error
+- `token_exchange_failed`: Failed to exchange code for token
+- `user_info_failed`: Failed to retrieve user information
+
+**Error Security Features**:
+- **No Information Leakage**: Error messages don't expose sensitive data
+- **Rate Limiting**: OAuth endpoints protected by rate limiting
+- **Audit Logging**: All OAuth errors logged for security monitoring
+- **Graceful Degradation**: Fallback to traditional authentication on OAuth failure
 
 ## Security Headers
 

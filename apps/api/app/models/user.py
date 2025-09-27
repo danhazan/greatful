@@ -31,6 +31,11 @@ class User(Base):
     
     # Feed refresh mechanism
     last_feed_view = Column(DateTime(timezone=True), nullable=True, index=True)
+    
+    # OAuth fields
+    oauth_provider = Column(String(50), nullable=True, index=True)  # 'google', 'facebook', etc.
+    oauth_id = Column(String(255), nullable=True, index=True)  # Provider-specific user ID
+    oauth_data = Column(JSON, nullable=True)  # Additional OAuth data (profile info, etc.)
 
     @classmethod
     async def get_by_email(cls, db: AsyncSession, email: str):
@@ -48,7 +53,30 @@ class User(Base):
     async def get_by_username(cls, db: AsyncSession, username: str):
         """Get user by username."""
         result = await db.execute(select(cls).where(cls.username == username))
-        return result.scalar_one_or_none() 
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_by_oauth(cls, db: AsyncSession, provider: str, oauth_id: str):
+        """Get user by OAuth provider and ID."""
+        result = await db.execute(
+            select(cls).where(
+                cls.oauth_provider == provider,
+                cls.oauth_id == oauth_id
+            )
+        )
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_by_email_or_oauth(cls, db: AsyncSession, email: str, provider: str = None, oauth_id: str = None):
+        """Get user by email or OAuth credentials."""
+        if provider and oauth_id:
+            # Try OAuth first
+            user = await cls.get_by_oauth(db, provider, oauth_id)
+            if user:
+                return user
+        
+        # Fall back to email
+        return await cls.get_by_email(db, email) 
 
     # Relationships
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")

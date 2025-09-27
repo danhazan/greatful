@@ -575,6 +575,13 @@ GET    /api/v1/auth/session              # Get current user session info
 POST   /api/v1/auth/logout               # Logout user (placeholder for token blacklisting)
 ```
 
+### OAuth 2.0 Social Authentication
+```
+GET    /api/v1/oauth/{provider}/login    # Initiate OAuth login flow (Google, Facebook)
+GET    /api/v1/oauth/{provider}/callback # Handle OAuth callback and create session
+GET    /api/v1/oauth/providers           # Get available OAuth providers and status
+```
+
 ### Users
 ```
 GET    /api/v1/users/me/profile          # Get current user's profile

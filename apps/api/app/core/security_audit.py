@@ -43,6 +43,18 @@ class SecurityEventType(Enum):
     PASSWORD_CHANGE = "password_change"
     ACCOUNT_LOCKED = "account_locked"
     
+    # OAuth-specific Events
+    OAUTH_LOGIN_INITIATED = "oauth_login_initiated"
+    OAUTH_LOGIN_SUCCESS = "oauth_login_success"
+    OAUTH_LOGIN_FAILURE = "oauth_login_failure"
+    OAUTH_ACCOUNT_LINKED = "oauth_account_linked"
+    OAUTH_ACCOUNT_UNLINKED = "oauth_account_unlinked"
+    OAUTH_USER_CREATED = "oauth_user_created"
+    OAUTH_TOKEN_EXCHANGE_FAILED = "oauth_token_exchange_failed"
+    OAUTH_INVALID_STATE = "oauth_invalid_state"
+    OAUTH_PROVIDER_ERROR = "oauth_provider_error"
+    OAUTH_CONFIGURATION_ERROR = "oauth_configuration_error"
+    
     # Authorization Events
     ACCESS_DENIED = "access_denied"
     PRIVILEGE_ESCALATION_ATTEMPT = "privilege_escalation_attempt"
