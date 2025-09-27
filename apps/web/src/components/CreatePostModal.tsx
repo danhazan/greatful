@@ -157,8 +157,15 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   const hasImage = Boolean(postData.imageUrl)
 
-  // Always use rich content for analysis
-  const contentForAnalysis = richContent || postData.content
+  // Always use plain text for analysis to avoid HTML tag length issues
+  const getPlainTextContent = () => {
+    if (richTextEditorRef.current) {
+      return richTextEditorRef.current.getPlainText()
+    }
+    return postData.content
+  }
+  
+  const contentForAnalysis = getPlainTextContent()
   const trimmed = contentForAnalysis.trim()
   const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
 

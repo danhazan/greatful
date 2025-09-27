@@ -1088,7 +1088,7 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - **Test Execution:** Run backend unit tests (`pytest tests/unit/test_post_service.py -v`) and integration tests (`pytest tests/integration/test_posts_api.py -v`) to verify post editing functionality works correctly. Test post editing with various content types and lengths.
   - _Requirements: Post management system reliability_
 
-- [x] **18.3 Fix Mobile Search Bar Z-Index Issue**
+- [ ] **18.3 Fix Mobile Search Bar Z-Index Issue**
   - Fix mobile navbar search bar appearing below other navbar components instead of on top
   - Adjust CSS z-index values to ensure expanded search bar has proper layering
   - Test search bar expansion and interaction on various mobile devices and screen sizes
@@ -1096,20 +1096,12 @@ Our MVP includes: Enhanced algorithm with read status tracking, emoji reactions,
   - **Test Execution:** Run frontend tests (`npm test`) to verify navbar component functionality. Test search bar expansion and interaction on mobile devices (iOS Safari, Android Chrome) to verify z-index fix works correctly.
   - _Requirements: Mobile user interface consistency_
 
-- [ ] **18.4 Fix Post Creation Character Counter Bug (Empty Text)**
+- [x] **18.4 Fix Post Creation Character Counter Bug (Empty Text)**
   - Fix character counter showing "4/5000" instead of "0/5000" when all text is deleted from post creation modal
   - Debug character counting logic to properly handle empty text states
   - Ensure character counter accurately reflects actual text content length
   - Test character counter with various text manipulation scenarios (delete all, paste, cut)
   - **Test Execution:** Run frontend tests (`npm test`) focusing on post creation modal component tests. Test character counter functionality with various text input scenarios including empty states.
-  - _Requirements: Post creation user experience accuracy_
-
-- [ ] **18.5 Fix Post Creation Character Counter Bug (New Lines)**
-  - Fix character counter adding excessive characters when new lines are inserted in post creation modal
-  - Debug new line character handling in character counting logic
-  - Ensure new lines are counted consistently (typically as 1 or 2 characters depending on system)
-  - Test character counter with various text formatting including multiple new lines and mixed content
-  - **Test Execution:** Run frontend tests (`npm test`) focusing on post creation modal character counting logic. Test character counter with various text formatting scenarios including new lines, paragraphs, and mixed content.
   - _Requirements: Post creation user experience accuracy_
 
 **Acceptance Criteria:** All identified production bugs are resolved and thoroughly tested, post sharing works reliably in production environment, post editing functions without database errors, mobile search bar displays correctly above other navbar elements, and post creation character counter accurately reflects text content length in all scenarios including empty states and new line handling.
