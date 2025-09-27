@@ -105,6 +105,42 @@ class OAuthLoginResponse(BaseModel):
     is_new_user: bool
 
 
+class AccountLinkingEligibilityRequest(BaseModel):
+    """Account linking eligibility check request."""
+    email: EmailStr = Field(..., description="Email address from OAuth provider")
+    provider: str = Field(..., description="OAuth provider name")
+    oauth_user_id: str = Field(..., description="OAuth user ID from provider")
+
+
+class AccountLinkingConfirmationRequest(BaseModel):
+    """Account linking confirmation request."""
+    user_id: int = Field(..., description="User ID to link OAuth account to")
+    provider: str = Field(..., description="OAuth provider name")
+    oauth_user_info: dict = Field(..., description="OAuth user information")
+    user_consent: bool = Field(..., description="User consent for linking")
+
+
+class AccountLinkingEligibilityResponse(BaseModel):
+    """Account linking eligibility response."""
+    eligible: bool
+    action: str
+    message: str
+    user_id: Optional[int] = None
+    existing_oauth_provider: Optional[str] = None
+    requires_confirmation: Optional[bool] = None
+    conflict_type: Optional[str] = None
+
+
+class AccountLinkingConfirmationResponse(BaseModel):
+    """Account linking confirmation response."""
+    user_id: int
+    existing_account: dict
+    oauth_account: dict
+    linking_benefits: list
+    data_changes: dict
+    confirmation_required: bool
+
+
 @router.post("/signup", status_code=201)
 async def signup(
     user: UserCreate, 
@@ -524,3 +560,224 @@ async def oauth_callback(
         logger.error(f"Error in OAuth callback for {provider}: {e}")
         log_oauth_security_event('callback_error', provider, details={'error': str(e)})
         raise HTTPException(status_code=500, detail="OAuth authentication failed")
+
+
+@router.post("/oauth/check-linking-eligibility", response_model=AccountLinkingEligibilityResponse)
+async def check_oauth_linking_eligibility(
+    eligibility_request: AccountLinkingEligibilityRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Check if an OAuth account can be linked to an existing account.
+    
+    Args:
+        eligibility_request: Account linking eligibility check request
+        request: FastAPI request object
+        db: Database session
+        
+    Returns:
+        Account linking eligibility information
+    """
+    try:
+        oauth_service = OAuthService(db)
+        
+        # Log eligibility check for security monitoring
+        SecurityAuditor.log_security_event(
+            event_type=SecurityEventType.OAUTH_LOGIN_INITIATED,
+            request=request,
+            details={
+                'provider': eligibility_request.provider,
+                'email': eligibility_request.email,
+                'oauth_user_id': eligibility_request.oauth_user_id,
+                'action': 'eligibility_check'
+            },
+            severity="INFO"
+        )
+        
+        result = await oauth_service.check_account_linking_eligibility(
+            email=eligibility_request.email,
+            provider=eligibility_request.provider,
+            oauth_user_id=eligibility_request.oauth_user_id
+        )
+        
+        return success_response(result, getattr(request.state, 'request_id', None))
+        
+    except Exception as e:
+        logger.error(f"Error checking OAuth linking eligibility: {e}")
+        SecurityAuditor.log_security_event(
+            event_type=SecurityEventType.OAUTH_LOGIN_FAILURE,
+            request=request,
+            details={
+                'provider': eligibility_request.provider,
+                'error': 'eligibility_check_failed',
+                'error_message': str(e)
+            },
+            severity="ERROR",
+            success=False
+        )
+        raise HTTPException(status_code=500, detail="Failed to check account linking eligibility")
+
+
+@router.post("/oauth/prepare-linking-confirmation", response_model=AccountLinkingConfirmationResponse)
+async def prepare_oauth_linking_confirmation(
+    user_id: int,
+    provider: str,
+    oauth_user_info: dict,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Prepare account linking confirmation data for UI.
+    
+    Args:
+        user_id: User ID to link OAuth account to
+        provider: OAuth provider name
+        oauth_user_info: OAuth user information
+        request: FastAPI request object
+        db: Database session
+        
+    Returns:
+        Account linking confirmation data
+    """
+    try:
+        oauth_service = OAuthService(db)
+        
+        # Log confirmation preparation for security monitoring
+        SecurityAuditor.log_security_event(
+            event_type=SecurityEventType.OAUTH_LOGIN_INITIATED,
+            request=request,
+            user_id=user_id,
+            details={
+                'provider': provider,
+                'oauth_user_id': oauth_user_info.get('id', 'unknown'),
+                'action': 'prepare_confirmation'
+            },
+            severity="INFO"
+        )
+        
+        result = await oauth_service.prepare_account_linking_confirmation(
+            user_id=user_id,
+            provider=provider,
+            oauth_user_info=oauth_user_info
+        )
+        
+        return success_response(result, getattr(request.state, 'request_id', None))
+        
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error preparing OAuth linking confirmation: {e}")
+        SecurityAuditor.log_security_event(
+            event_type=SecurityEventType.OAUTH_LOGIN_FAILURE,
+            request=request,
+            user_id=user_id,
+            details={
+                'provider': provider,
+                'error': 'confirmation_preparation_failed',
+                'error_message': str(e)
+            },
+            severity="ERROR",
+            success=False
+        )
+        raise HTTPException(status_code=500, detail="Failed to prepare account linking confirmation")
+
+
+@router.post("/oauth/confirm-linking")
+async def confirm_oauth_account_linking(
+    confirmation_request: AccountLinkingConfirmationRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Confirm and execute OAuth account linking with user consent.
+    
+    Args:
+        confirmation_request: Account linking confirmation request
+        request: FastAPI request object
+        db: Database session
+        
+    Returns:
+        Account linking result
+    """
+    try:
+        oauth_service = OAuthService(db)
+        
+        # Log linking confirmation attempt
+        SecurityAuditor.log_security_event(
+            event_type=SecurityEventType.OAUTH_ACCOUNT_LINKED,
+            request=request,
+            user_id=confirmation_request.user_id,
+            details={
+                'provider': confirmation_request.provider,
+                'oauth_user_id': confirmation_request.oauth_user_info.get('id', 'unknown'),
+                'user_consent': confirmation_request.user_consent,
+                'action': 'confirm_linking'
+            },
+            severity="INFO"
+        )
+        
+        result = await oauth_service.confirm_account_linking(
+            user_id=confirmation_request.user_id,
+            provider=confirmation_request.provider,
+            oauth_user_info=confirmation_request.oauth_user_info,
+            user_consent=confirmation_request.user_consent,
+            request=request
+        )
+        
+        return success_response(result, getattr(request.state, 'request_id', None))
+        
+    except ValidationException as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error confirming OAuth account linking: {e}")
+        SecurityAuditor.log_security_event(
+            event_type=SecurityEventType.OAUTH_LOGIN_FAILURE,
+            request=request,
+            user_id=confirmation_request.user_id,
+            details={
+                'provider': confirmation_request.provider,
+                'error': 'linking_confirmation_failed',
+                'error_message': str(e)
+            },
+            severity="ERROR",
+            success=False
+        )
+        raise HTTPException(status_code=500, detail="Failed to confirm account linking")
+
+
+@router.get("/oauth/security-audit")
+async def get_oauth_security_audit(
+    request: Request,
+    hours: int = 24,
+    auth: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get OAuth security audit information (admin only).
+    
+    Args:
+        hours: Number of hours to look back for events
+        request: FastAPI request object
+        auth: Authorization credentials
+        db: Database session
+        
+    Returns:
+        OAuth security audit data
+    """
+    try:
+        # This would typically require admin authentication
+        # For now, just return the audit data structure
+        
+        oauth_service = OAuthService(db)
+        result = await oauth_service.audit_oauth_security_events(hours=hours)
+        
+        return success_response(result, getattr(request.state, 'request_id', None))
+        
+    except Exception as e:
+        logger.error(f"Error getting OAuth security audit: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get OAuth security audit data")

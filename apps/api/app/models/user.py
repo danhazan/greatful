@@ -2,6 +2,7 @@
 User model.
 """
 
+from typing import Dict, Any
 from sqlalchemy import Column, Integer, String, DateTime, func, Text, JSON
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -65,6 +66,53 @@ class User(Base):
             )
         )
         return result.scalar_one_or_none()
+    
+    @classmethod
+    async def check_oauth_conflicts(cls, db: AsyncSession, email: str, provider: str, oauth_id: str) -> Dict[str, Any]:
+        """
+        Check for OAuth account conflicts before linking.
+        
+        Args:
+            db: Database session
+            email: Email address from OAuth provider
+            provider: OAuth provider name
+            oauth_id: OAuth user ID from provider
+            
+        Returns:
+            Dictionary with conflict information
+        """
+        conflicts = {
+            'email_exists': False,
+            'oauth_exists': False,
+            'same_oauth_account': False,
+            'different_provider': False,
+            'existing_user_id': None,
+            'existing_provider': None
+        }
+        
+        # Check if email exists
+        email_user = await cls.get_by_email(db, email)
+        if email_user:
+            conflicts['email_exists'] = True
+            conflicts['existing_user_id'] = email_user.id
+            
+            # Check OAuth status of email user
+            if email_user.oauth_provider and email_user.oauth_id:
+                conflicts['oauth_exists'] = True
+                conflicts['existing_provider'] = email_user.oauth_provider
+                
+                if email_user.oauth_provider == provider and email_user.oauth_id == oauth_id:
+                    conflicts['same_oauth_account'] = True
+                else:
+                    conflicts['different_provider'] = True
+        
+        # Check if OAuth account exists with different email
+        oauth_user = await cls.get_by_oauth(db, provider, oauth_id)
+        if oauth_user and oauth_user.email != email:
+            conflicts['oauth_exists'] = True
+            conflicts['existing_user_id'] = oauth_user.id
+        
+        return conflicts
 
     @classmethod
     async def get_by_email_or_oauth(cls, db: AsyncSession, email: str, provider: str = None, oauth_id: str = None):
