@@ -358,9 +358,9 @@ async def oauth_google_login(
         redirect_uri = oauth_request.redirect_uri
         if redirect_uri:
             # Additional security: only allow specific domains in production
-            from app.core.oauth_config import ENVIRONMENT
+            from app.core.oauth_config import ENVIRONMENT, OAUTH_ALLOWED_DOMAINS
             if ENVIRONMENT == 'production':
-                allowed_domains = ['yourdomain.com', 'www.yourdomain.com']  # Configure as needed
+                allowed_domains = OAUTH_ALLOWED_DOMAINS
                 from urllib.parse import urlparse
                 parsed_uri = urlparse(redirect_uri)
                 if parsed_uri.hostname not in allowed_domains:
@@ -439,9 +439,9 @@ async def oauth_facebook_login(
         redirect_uri = oauth_request.redirect_uri
         if redirect_uri:
             # Additional security: only allow specific domains in production
-            from app.core.oauth_config import ENVIRONMENT
+            from app.core.oauth_config import ENVIRONMENT, OAUTH_ALLOWED_DOMAINS
             if ENVIRONMENT == 'production':
-                allowed_domains = ['yourdomain.com', 'www.yourdomain.com']  # Configure as needed
+                allowed_domains = OAUTH_ALLOWED_DOMAINS
                 from urllib.parse import urlparse
                 parsed_uri = urlparse(redirect_uri)
                 if parsed_uri.hostname not in allowed_domains:

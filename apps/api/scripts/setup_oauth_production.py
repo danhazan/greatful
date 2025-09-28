@@ -23,21 +23,26 @@ def generate_jwt_secret(length: int = 64) -> str:
     """Generate a secure JWT secret."""
     return secrets.token_urlsafe(length)
 
-def get_production_env_vars() -> Dict[str, str]:
+def get_production_env_vars(frontend_domain: str = None, backend_domain: str = None) -> Dict[str, str]:
     """Get all required production environment variables."""
+    # Use provided domains or defaults
+    frontend_domain = frontend_domain or os.getenv('FRONTEND_DOMAIN', 'grateful-net.vercel.app')
+    backend_domain = backend_domain or os.getenv('BACKEND_DOMAIN', 'grateful-production.up.railway.app')
+    
     return {
         # OAuth Configuration
         'GOOGLE_CLIENT_ID': '[YOUR_GOOGLE_CLIENT_ID]',
         'GOOGLE_CLIENT_SECRET': '[YOUR_GOOGLE_CLIENT_SECRET]',
-        'OAUTH_REDIRECT_URI': 'https://grateful-net.vercel.app/auth/callback/google',
+        'OAUTH_REDIRECT_URI': f'https://{frontend_domain}/auth/callback/google',
+        'OAUTH_ALLOWED_DOMAINS': f'{frontend_domain},www.{frontend_domain}',
         
         # Session & Security
         'SESSION_SECRET': generate_secure_secret(32),
         'SECRET_KEY': generate_jwt_secret(64),
         
         # CORS & Frontend
-        'ALLOWED_ORIGINS': 'https://grateful-net.vercel.app,https://www.grateful-net.vercel.app',
-        'FRONTEND_BASE_URL': 'https://grateful-net.vercel.app',
+        'ALLOWED_ORIGINS': f'https://{frontend_domain},https://www.{frontend_domain}',
+        'FRONTEND_BASE_URL': f'https://{frontend_domain}',
         
         # Security Settings
         'ENVIRONMENT': 'production',
@@ -49,7 +54,7 @@ def get_production_env_vars() -> Dict[str, str]:
         'DATABASE_URL': '${DATABASE_URL}',  # Railway will provide this
         
         # Content Security Policy
-        'CSP_DOMAINS': 'https://grateful-net.vercel.app https://www.grateful-net.vercel.app',
+        'CSP_DOMAINS': f'https://{frontend_domain} https://www.{frontend_domain}',
     }
 
 def generate_railway_commands(env_vars: Dict[str, str]) -> List[str]:
@@ -67,12 +72,15 @@ def generate_railway_commands(env_vars: Dict[str, str]) -> List[str]:
     
     return commands
 
-def generate_vercel_env_vars() -> Dict[str, str]:
+def generate_vercel_env_vars(frontend_domain: str = None, backend_domain: str = None) -> Dict[str, str]:
     """Get Vercel environment variables for frontend."""
+    frontend_domain = frontend_domain or os.getenv('FRONTEND_DOMAIN', 'grateful-net.vercel.app')
+    backend_domain = backend_domain or os.getenv('BACKEND_DOMAIN', 'grateful-production.up.railway.app')
+    
     return {
         'NODE_ENV': 'production',
-        'NEXT_PUBLIC_APP_URL': 'https://grateful-net.vercel.app',
-        'NEXT_PUBLIC_API_URL': 'https://grateful-production.up.railway.app',
+        'NEXT_PUBLIC_APP_URL': f'https://{frontend_domain}',
+        'NEXT_PUBLIC_API_URL': f'https://{backend_domain}',
         'NEXT_TELEMETRY_DISABLED': '1',
     }
 
@@ -81,10 +89,18 @@ def main():
     print("🚀 OAuth Production Setup for Railway & Vercel")
     print("=" * 50)
     
+    # Get domains from environment or use defaults
+    frontend_domain = os.getenv('FRONTEND_DOMAIN', 'grateful-net.vercel.app')
+    backend_domain = os.getenv('BACKEND_DOMAIN', 'grateful-production.up.railway.app')
+    
+    print(f"Frontend Domain: {frontend_domain}")
+    print(f"Backend Domain: {backend_domain}")
+    print("(Set FRONTEND_DOMAIN and BACKEND_DOMAIN environment variables to customize)")
+    
     # Generate environment variables
-    env_vars = get_production_env_vars()
+    env_vars = get_production_env_vars(frontend_domain, backend_domain)
     railway_commands = generate_railway_commands(env_vars)
-    vercel_env_vars = generate_vercel_env_vars()
+    vercel_env_vars = generate_vercel_env_vars(frontend_domain, backend_domain)
     
     print("\\n📋 STEP 1: Set Railway Environment Variables")
     print("-" * 40)
@@ -105,12 +121,12 @@ def main():
     print("\\n📋 STEP 3: Update Google OAuth Console")
     print("-" * 40)
     print("Add these redirect URIs in Google Cloud Console:")
-    print("  • https://grateful-net.vercel.app/auth/callback/google")
-    print("  • https://www.grateful-net.vercel.app/auth/callback/google")
+    print(f"  • https://{frontend_domain}/auth/callback/google")
+    print(f"  • https://www.{frontend_domain}/auth/callback/google")
     print()
     print("Add these JavaScript origins:")
-    print("  • https://grateful-net.vercel.app")
-    print("  • https://www.grateful-net.vercel.app")
+    print(f"  • https://{frontend_domain}")
+    print(f"  • https://www.{frontend_domain}")
     
     print("\\n📋 STEP 4: Deploy & Test")
     print("-" * 40)

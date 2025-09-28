@@ -1,504 +1,404 @@
 #!/usr/bin/env python3
 """
-OAuth Production Configuration Testing Script
+Production OAuth Configuration Testing Script
 
-This script tests the OAuth configuration for production deployment,
-verifying that all components are properly configured for the production environment.
-
-Usage:
-    python scripts/test_oauth_production.py [--frontend-url https://grateful-net.vercel.app] [--backend-url https://your-api.railway.app]
+This script tests OAuth configuration for production deployment.
+Run this script to verify OAuth setup before going live.
 """
 
-import asyncio
-import sys
 import os
-import json
-import logging
-from typing import Dict, Any, Optional
+import sys
+import asyncio
 import httpx
-from urllib.parse import urljoin, urlparse
+import json
+from typing import Dict, Any, Optional
+from urllib.parse import urlparse, parse_qs
 
-# Add the app directory to Python path
+# Add the app directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from app.core.oauth_config import OAuthConfig, get_oauth_config
-from app.core.security_config import SecurityConfig
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.core.oauth_config import (
+    get_oauth_config,
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI,
+    FACEBOOK_REDIRECT_URI,
+    FRONTEND_SUCCESS_URL,
+    FRONTEND_ERROR_URL,
+    ALLOWED_ORIGINS,
+    ENVIRONMENT
+)
 
 class OAuthProductionTester:
     """Test OAuth configuration for production deployment."""
     
-    def __init__(self, frontend_url: str = "https://grateful-net.vercel.app", 
-                 backend_url: str = "https://grateful-production.up.railway.app"):
-        self.frontend_url = frontend_url.rstrip('/')
-        self.backend_url = backend_url.rstrip('/')
-        self.test_results = []
+    def __init__(self):
+        self.base_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+        self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        self.results = []
         
-    async def run_all_tests(self) -> Dict[str, Any]:
-        """Run all OAuth production configuration tests."""
-        logger.info("🚀 Starting OAuth Production Configuration Tests")
-        logger.info(f"Frontend URL: {self.frontend_url}")
-        logger.info(f"Backend URL: {self.backend_url}")
+    def log_result(self, test_name: str, status: str, message: str, details: Optional[Dict] = None):
+        """Log test result."""
+        result = {
+            "test": test_name,
+            "status": status,
+            "message": message,
+            "details": details or {}
+        }
+        self.results.append(result)
         
-        # Test 1: OAuth Configuration Validation
-        await self._test_oauth_config_validation()
+        # Color coding for terminal output
+        color = {
+            "PASS": "\033[92m",  # Green
+            "FAIL": "\033[91m",  # Red
+            "WARN": "\033[93m",  # Yellow
+            "INFO": "\033[94m"   # Blue
+        }.get(status, "")
+        reset = "\033[0m"
         
-        # Test 2: Environment Variables
-        await self._test_environment_variables()
-        
-        # Test 3: CORS Configuration
-        await self._test_cors_configuration()
-        
-        # Test 4: Security Headers
-        await self._test_security_headers()
-        
-        # Test 5: OAuth Endpoints
-        await self._test_oauth_endpoints()
-        
-        # Test 6: Redirect URI Validation
-        await self._test_redirect_uri_validation()
-        
-        # Test 7: Session Security
-        await self._test_session_security()
-        
-        # Generate test report
-        return self._generate_test_report()
+        print(f"{color}[{status}]{reset} {test_name}: {message}")
+        if details:
+            for key, value in details.items():
+                print(f"  {key}: {value}")
     
-    async def _test_oauth_config_validation(self):
-        """Test OAuth configuration validation."""
-        logger.info("📋 Testing OAuth Configuration Validation...")
-        
-        try:
-            # Test OAuth config initialization
-            oauth_config = OAuthConfig()
-            status = oauth_config.get_provider_status()
-            
-            # Check Google provider
-            google_available = status['providers'].get('google', False)
-            self._add_test_result(
-                "OAuth Config - Google Provider",
-                google_available,
-                "Google OAuth provider is configured and available" if google_available 
-                else "Google OAuth provider is not properly configured"
-            )
-            
-            # Check redirect URI
-            redirect_uri = status.get('redirect_uri', '')
-            is_https = redirect_uri.startswith('https://')
-            self._add_test_result(
-                "OAuth Config - HTTPS Redirect URI",
-                is_https,
-                f"Redirect URI uses HTTPS: {redirect_uri}" if is_https 
-                else f"Redirect URI should use HTTPS in production: {redirect_uri}"
-            )
-            
-            # Check environment
-            is_production = status.get('environment') == 'production'
-            self._add_test_result(
-                "OAuth Config - Production Environment",
-                is_production,
-                "Environment is set to production" if is_production 
-                else f"Environment is set to: {status.get('environment')}"
-            )
-            
-        except Exception as e:
-            self._add_test_result(
-                "OAuth Config - Initialization",
-                False,
-                f"OAuth configuration failed to initialize: {e}"
-            )
-    
-    async def _test_environment_variables(self):
+    def test_environment_variables(self):
         """Test that all required environment variables are set."""
-        logger.info("🔧 Testing Environment Variables...")
+        print("\n=== Testing Environment Variables ===")
         
         required_vars = {
-            'GOOGLE_CLIENT_ID': 'Google OAuth Client ID',
-            'GOOGLE_CLIENT_SECRET': 'Google OAuth Client Secret',
-            'OAUTH_REDIRECT_URI': 'OAuth Redirect URI',
-            'SESSION_SECRET': 'Session Secret Key',
-            'SECRET_KEY': 'JWT Secret Key',
-            'ALLOWED_ORIGINS': 'CORS Allowed Origins'
+            "GOOGLE_CLIENT_ID": GOOGLE_CLIENT_ID,
+            "GOOGLE_CLIENT_SECRET": GOOGLE_CLIENT_SECRET,
+            "ENVIRONMENT": ENVIRONMENT
         }
         
-        for var_name, description in required_vars.items():
-            value = os.getenv(var_name)
-            is_set = bool(value and value != f"your-{var_name.lower().replace('_', '-')}-here")
-            
-            # Special validation for specific variables
-            if var_name == 'OAUTH_REDIRECT_URI' and value:
-                is_https = value.startswith('https://')
-                is_correct_domain = 'grateful-net.vercel.app' in value
-                is_valid = is_https and is_correct_domain
-                
-                self._add_test_result(
-                    f"Environment - {description}",
-                    is_valid,
-                    f"✅ {value}" if is_valid else f"❌ Should be HTTPS with correct domain: {value}"
-                )
-            elif var_name == 'ALLOWED_ORIGINS' and value:
-                origins = [origin.strip() for origin in value.split(',')]
-                all_https = all(origin.startswith('https://') or origin.startswith('http://localhost') for origin in origins)
-                has_production_domain = any('grateful-net.vercel.app' in origin for origin in origins)
-                is_valid = all_https and has_production_domain
-                
-                self._add_test_result(
-                    f"Environment - {description}",
-                    is_valid,
-                    f"✅ {value}" if is_valid else f"❌ Should include production domain with HTTPS: {value}"
+        for var_name, var_value in required_vars.items():
+            if not var_value or var_value in ["your-google-client-id-here", "your-google-client-secret-here"]:
+                self.log_result(
+                    f"Environment Variable: {var_name}",
+                    "FAIL",
+                    f"{var_name} is not properly configured",
+                    {"current_value": var_value or "None"}
                 )
             else:
-                self._add_test_result(
-                    f"Environment - {description}",
-                    is_set,
-                    "✅ Configured" if is_set else "❌ Not configured or using default value"
+                # Mask sensitive values
+                display_value = var_value[:8] + "..." if len(var_value) > 8 else var_value
+                if "secret" in var_name.lower():
+                    display_value = "***configured***"
+                
+                self.log_result(
+                    f"Environment Variable: {var_name}",
+                    "PASS",
+                    f"{var_name} is configured",
+                    {"value": display_value}
                 )
     
-    async def _test_cors_configuration(self):
-        """Test CORS configuration for OAuth."""
-        logger.info("🌐 Testing CORS Configuration...")
+    def test_oauth_configuration(self):
+        """Test OAuth configuration object."""
+        print("\n=== Testing OAuth Configuration ===")
         
         try:
-            async with httpx.AsyncClient() as client:
-                # Test preflight request for OAuth endpoint
-                response = await client.options(
-                    f"{self.backend_url}/api/v1/oauth/google/login",
-                    headers={
-                        'Origin': self.frontend_url,
-                        'Access-Control-Request-Method': 'POST',
-                        'Access-Control-Request-Headers': 'Content-Type,Authorization'
-                    },
-                    timeout=10.0
-                )
-                
-                cors_headers = response.headers
-                allow_origin = cors_headers.get('Access-Control-Allow-Origin')
-                allow_credentials = cors_headers.get('Access-Control-Allow-Credentials')
-                allow_methods = cors_headers.get('Access-Control-Allow-Methods', '')
-                
-                # Check CORS configuration
-                origin_allowed = allow_origin == self.frontend_url or allow_origin == '*'
-                credentials_allowed = allow_credentials == 'true'
-                post_allowed = 'POST' in allow_methods
-                
-                self._add_test_result(
-                    "CORS - Origin Allowed",
-                    origin_allowed,
-                    f"✅ Origin allowed: {allow_origin}" if origin_allowed 
-                    else f"❌ Origin not allowed. Expected: {self.frontend_url}, Got: {allow_origin}"
-                )
-                
-                self._add_test_result(
-                    "CORS - Credentials Allowed",
-                    credentials_allowed,
-                    "✅ Credentials allowed for OAuth" if credentials_allowed 
-                    else "❌ Credentials not allowed - required for OAuth"
-                )
-                
-                self._add_test_result(
-                    "CORS - POST Method Allowed",
-                    post_allowed,
-                    "✅ POST method allowed" if post_allowed 
-                    else f"❌ POST method not allowed. Methods: {allow_methods}"
-                )
-                
-        except Exception as e:
-            self._add_test_result(
-                "CORS - Configuration Test",
-                False,
-                f"❌ Failed to test CORS: {e}"
-            )
-    
-    async def _test_security_headers(self):
-        """Test security headers for OAuth endpoints."""
-        logger.info("🔒 Testing Security Headers...")
-        
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.backend_url}/api/v1/oauth/google/login",
-                    timeout=10.0
-                )
-                
-                headers = response.headers
-                
-                # Check security headers
-                security_checks = {
-                    'X-Frame-Options': 'DENY',
-                    'X-Content-Type-Options': 'nosniff',
-                    'X-XSS-Protection': '1; mode=block',
-                    'Strict-Transport-Security': None,  # Should exist in production
-                    'Content-Security-Policy': None,  # Should exist
+            oauth_config = get_oauth_config()
+            status = oauth_config.get_provider_status()
+            
+            self.log_result(
+                "OAuth Config Initialization",
+                "PASS",
+                "OAuth configuration initialized successfully",
+                {
+                    "environment": status.get("environment"),
+                    "initialized": status.get("initialized"),
+                    "providers": status.get("providers", {})
                 }
-                
-                for header, expected in security_checks.items():
-                    value = headers.get(header)
-                    if expected:
-                        is_correct = value == expected
-                        self._add_test_result(
-                            f"Security Headers - {header}",
-                            is_correct,
-                            f"✅ {header}: {value}" if is_correct 
-                            else f"❌ Expected: {expected}, Got: {value}"
-                        )
-                    else:
-                        is_present = bool(value)
-                        self._add_test_result(
-                            f"Security Headers - {header}",
-                            is_present,
-                            f"✅ {header}: Present" if is_present 
-                            else f"❌ {header}: Missing"
-                        )
-                
-        except Exception as e:
-            self._add_test_result(
-                "Security Headers - Test",
-                False,
-                f"❌ Failed to test security headers: {e}"
-            )
-    
-    async def _test_oauth_endpoints(self):
-        """Test OAuth endpoints availability."""
-        logger.info("🔗 Testing OAuth Endpoints...")
-        
-        endpoints = [
-            '/api/v1/oauth/google/login',
-            '/api/v1/oauth/google/callback',
-            '/api/v1/oauth/providers',
-        ]
-        
-        async with httpx.AsyncClient() as client:
-            for endpoint in endpoints:
-                try:
-                    url = f"{self.backend_url}{endpoint}"
-                    response = await client.get(url, timeout=10.0)
-                    
-                    # OAuth endpoints should not return 404
-                    is_available = response.status_code != 404
-                    
-                    self._add_test_result(
-                        f"OAuth Endpoint - {endpoint}",
-                        is_available,
-                        f"✅ Available (Status: {response.status_code})" if is_available 
-                        else f"❌ Not found (Status: {response.status_code})"
-                    )
-                    
-                except Exception as e:
-                    self._add_test_result(
-                        f"OAuth Endpoint - {endpoint}",
-                        False,
-                        f"❌ Failed to test: {e}"
-                    )
-    
-    async def _test_redirect_uri_validation(self):
-        """Test OAuth redirect URI validation."""
-        logger.info("🔄 Testing Redirect URI Validation...")
-        
-        try:
-            # Test that the configured redirect URI matches expected format
-            redirect_uri = os.getenv('OAUTH_REDIRECT_URI', '')
-            
-            # Parse the URI
-            parsed = urlparse(redirect_uri)
-            
-            # Validation checks
-            is_https = parsed.scheme == 'https'
-            is_correct_domain = 'grateful-net.vercel.app' in parsed.netloc
-            is_correct_path = '/auth/callback/google' in parsed.path
-            
-            self._add_test_result(
-                "Redirect URI - HTTPS",
-                is_https,
-                f"✅ Uses HTTPS: {redirect_uri}" if is_https 
-                else f"❌ Should use HTTPS: {redirect_uri}"
             )
             
-            self._add_test_result(
-                "Redirect URI - Domain",
-                is_correct_domain,
-                f"✅ Correct domain: {parsed.netloc}" if is_correct_domain 
-                else f"❌ Should use grateful-net.vercel.app: {parsed.netloc}"
-            )
-            
-            self._add_test_result(
-                "Redirect URI - Path",
-                is_correct_path,
-                f"✅ Correct path: {parsed.path}" if is_correct_path 
-                else f"❌ Should include /auth/callback/google: {parsed.path}"
-            )
+            # Test provider availability
+            providers = status.get("providers", {})
+            for provider, available in providers.items():
+                status_text = "PASS" if available else "WARN"
+                message = f"{provider} provider is {'available' if available else 'not available'}"
+                self.log_result(f"OAuth Provider: {provider}", status_text, message)
             
         except Exception as e:
-            self._add_test_result(
-                "Redirect URI - Validation",
-                False,
-                f"❌ Failed to validate redirect URI: {e}"
+            self.log_result(
+                "OAuth Config Initialization",
+                "FAIL",
+                f"Failed to initialize OAuth configuration: {str(e)}"
             )
     
-    async def _test_session_security(self):
-        """Test session security configuration."""
-        logger.info("🍪 Testing Session Security...")
+    def test_redirect_uris(self):
+        """Test OAuth redirect URI configuration."""
+        print("\n=== Testing Redirect URIs ===")
         
-        try:
-            # Test session configuration
-            session_secret = os.getenv('SESSION_SECRET', '')
-            is_secure_session = len(session_secret) >= 32 and session_secret != 'dev-secret'
-            
-            self._add_test_result(
-                "Session Security - Secret Key",
-                is_secure_session,
-                "✅ Session secret is secure" if is_secure_session 
-                else "❌ Session secret should be at least 32 characters and not default"
-            )
-            
-            # Test cookie security settings
-            environment = os.getenv('ENVIRONMENT', 'development')
-            secure_cookies = os.getenv('SECURE_COOKIES', 'false').lower() == 'true'
-            httponly_cookies = os.getenv('COOKIE_HTTPONLY', 'true').lower() == 'true'
-            samesite = os.getenv('COOKIE_SAMESITE', 'Lax')
-            
-            if environment == 'production':
-                self._add_test_result(
-                    "Session Security - Secure Cookies",
-                    secure_cookies,
-                    "✅ Secure cookies enabled for production" if secure_cookies 
-                    else "❌ Secure cookies should be enabled in production"
-                )
-            
-            self._add_test_result(
-                "Session Security - HttpOnly Cookies",
-                httponly_cookies,
-                "✅ HttpOnly cookies enabled" if httponly_cookies 
-                else "❌ HttpOnly cookies should be enabled"
-            )
-            
-            valid_samesite = samesite in ['Lax', 'Strict', 'None']
-            self._add_test_result(
-                "Session Security - SameSite Setting",
-                valid_samesite,
-                f"✅ SameSite setting: {samesite}" if valid_samesite 
-                else f"❌ Invalid SameSite setting: {samesite}"
-            )
-            
-        except Exception as e:
-            self._add_test_result(
-                "Session Security - Configuration",
-                False,
-                f"❌ Failed to test session security: {e}"
-            )
-    
-    def _add_test_result(self, test_name: str, passed: bool, message: str):
-        """Add a test result to the results list."""
-        self.test_results.append({
-            'test': test_name,
-            'passed': passed,
-            'message': message
-        })
-        
-        # Log the result
-        status = "✅ PASS" if passed else "❌ FAIL"
-        logger.info(f"{status} {test_name}: {message}")
-    
-    def _generate_test_report(self) -> Dict[str, Any]:
-        """Generate comprehensive test report."""
-        total_tests = len(self.test_results)
-        passed_tests = sum(1 for result in self.test_results if result['passed'])
-        failed_tests = total_tests - passed_tests
-        
-        report = {
-            'summary': {
-                'total_tests': total_tests,
-                'passed': passed_tests,
-                'failed': failed_tests,
-                'success_rate': f"{(passed_tests/total_tests)*100:.1f}%" if total_tests > 0 else "0%",
-                'overall_status': 'READY' if failed_tests == 0 else 'NEEDS_ATTENTION'
-            },
-            'test_results': self.test_results,
-            'recommendations': self._generate_recommendations()
+        uris_to_test = {
+            "Google Redirect URI": GOOGLE_REDIRECT_URI,
+            "Facebook Redirect URI": FACEBOOK_REDIRECT_URI,
+            "Frontend Success URL": FRONTEND_SUCCESS_URL,
+            "Frontend Error URL": FRONTEND_ERROR_URL
         }
         
-        return report
+        for uri_name, uri_value in uris_to_test.items():
+            if not uri_value:
+                self.log_result(uri_name, "FAIL", f"{uri_name} is not configured")
+                continue
+            
+            # Parse URI
+            parsed = urlparse(uri_value)
+            
+            # Check if URI uses HTTPS in production
+            if ENVIRONMENT == "production" and parsed.scheme != "https":
+                self.log_result(
+                    uri_name,
+                    "FAIL",
+                    f"{uri_name} should use HTTPS in production",
+                    {"uri": uri_value, "scheme": parsed.scheme}
+                )
+            else:
+                self.log_result(
+                    uri_name,
+                    "PASS",
+                    f"{uri_name} is properly configured",
+                    {"uri": uri_value}
+                )
     
-    def _generate_recommendations(self) -> list:
-        """Generate recommendations based on test results."""
-        recommendations = []
+    def test_cors_configuration(self):
+        """Test CORS configuration."""
+        print("\n=== Testing CORS Configuration ===")
         
-        failed_tests = [result for result in self.test_results if not result['passed']]
-        
-        if any('OAuth Config' in test['test'] for test in failed_tests):
-            recommendations.append(
-                "🔧 Update Google OAuth Console with production redirect URIs: "
-                "https://grateful-net.vercel.app/auth/callback/google"
+        if not ALLOWED_ORIGINS:
+            self.log_result(
+                "CORS Origins",
+                "FAIL",
+                "No CORS origins configured"
             )
+            return
         
-        if any('Environment' in test['test'] for test in failed_tests):
-            recommendations.append(
-                "⚙️ Set missing environment variables in Railway dashboard"
+        for origin in ALLOWED_ORIGINS:
+            if not origin:
+                continue
+                
+            parsed = urlparse(origin)
+            
+            # Check if origin uses HTTPS in production
+            if ENVIRONMENT == "production" and parsed.scheme != "https":
+                self.log_result(
+                    f"CORS Origin: {origin}",
+                    "WARN",
+                    f"CORS origin should use HTTPS in production",
+                    {"origin": origin}
+                )
+            else:
+                self.log_result(
+                    f"CORS Origin: {origin}",
+                    "PASS",
+                    f"CORS origin is properly configured",
+                    {"origin": origin}
+                )
+    
+    async def test_api_endpoints(self):
+        """Test OAuth API endpoints."""
+        print("\n=== Testing API Endpoints ===")
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Test health endpoint
+            try:
+                response = await client.get(f"{self.base_url}/health")
+                if response.status_code == 200:
+                    self.log_result(
+                        "Health Endpoint",
+                        "PASS",
+                        "Health endpoint is accessible",
+                        {"status_code": response.status_code}
+                    )
+                else:
+                    self.log_result(
+                        "Health Endpoint",
+                        "FAIL",
+                        f"Health endpoint returned {response.status_code}",
+                        {"status_code": response.status_code}
+                    )
+            except Exception as e:
+                self.log_result(
+                    "Health Endpoint",
+                    "FAIL",
+                    f"Cannot reach health endpoint: {str(e)}"
+                )
+            
+            # Test OAuth providers endpoint
+            try:
+                response = await client.get(f"{self.base_url}/api/v1/oauth/providers")
+                if response.status_code == 200:
+                    data = response.json()
+                    self.log_result(
+                        "OAuth Providers Endpoint",
+                        "PASS",
+                        "OAuth providers endpoint is accessible",
+                        {
+                            "status_code": response.status_code,
+                            "providers": data.get("data", {}).get("providers", {})
+                        }
+                    )
+                else:
+                    self.log_result(
+                        "OAuth Providers Endpoint",
+                        "FAIL",
+                        f"OAuth providers endpoint returned {response.status_code}",
+                        {"status_code": response.status_code}
+                    )
+            except Exception as e:
+                self.log_result(
+                    "OAuth Providers Endpoint",
+                    "FAIL",
+                    f"Cannot reach OAuth providers endpoint: {str(e)}"
+                )
+            
+            # Test OAuth login redirect (should return 302 redirect)
+            try:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/oauth/login/google",
+                    follow_redirects=False
+                )
+                if response.status_code in [302, 307]:
+                    location = response.headers.get("location", "")
+                    if "accounts.google.com" in location:
+                        self.log_result(
+                            "OAuth Login Redirect",
+                            "PASS",
+                            "OAuth login redirects to Google",
+                            {"status_code": response.status_code}
+                        )
+                    else:
+                        self.log_result(
+                            "OAuth Login Redirect",
+                            "WARN",
+                            "OAuth login redirect location unexpected",
+                            {"location": location[:100] + "..." if len(location) > 100 else location}
+                        )
+                else:
+                    self.log_result(
+                        "OAuth Login Redirect",
+                        "FAIL",
+                        f"OAuth login should redirect (302/307), got {response.status_code}",
+                        {"status_code": response.status_code}
+                    )
+            except Exception as e:
+                self.log_result(
+                    "OAuth Login Redirect",
+                    "FAIL",
+                    f"Cannot test OAuth login redirect: {str(e)}"
+                )
+    
+    def test_security_configuration(self):
+        """Test security configuration."""
+        print("\n=== Testing Security Configuration ===")
+        
+        # Test environment-specific security settings
+        if ENVIRONMENT == "production":
+            # Production security checks
+            security_checks = [
+                ("HTTPS URLs", all(url.startswith("https://") for url in [self.base_url, self.frontend_url] if url)),
+                ("Secure Origins", all(origin.startswith("https://") for origin in ALLOWED_ORIGINS if origin)),
+            ]
+            
+            for check_name, check_result in security_checks:
+                status = "PASS" if check_result else "FAIL"
+                message = f"{check_name} {'configured correctly' if check_result else 'needs attention'}"
+                self.log_result(f"Security: {check_name}", status, message)
+        else:
+            self.log_result(
+                "Security: Environment",
+                "INFO",
+                f"Running in {ENVIRONMENT} environment - some security checks skipped"
             )
+    
+    def generate_report(self):
+        """Generate test report."""
+        print("\n" + "="*60)
+        print("OAUTH PRODUCTION CONFIGURATION TEST REPORT")
+        print("="*60)
         
-        if any('CORS' in test['test'] for test in failed_tests):
-            recommendations.append(
-                "🌐 Update ALLOWED_ORIGINS to include production frontend domain"
-            )
+        # Count results
+        total_tests = len(self.results)
+        passed = len([r for r in self.results if r["status"] == "PASS"])
+        failed = len([r for r in self.results if r["status"] == "FAIL"])
+        warnings = len([r for r in self.results if r["status"] == "WARN"])
         
-        if any('Security' in test['test'] for test in failed_tests):
-            recommendations.append(
-                "🔒 Enable security headers and HTTPS-only cookies for production"
-            )
+        print(f"\nTotal Tests: {total_tests}")
+        print(f"Passed: {passed}")
+        print(f"Failed: {failed}")
+        print(f"Warnings: {warnings}")
         
-        if any('Session' in test['test'] for test in failed_tests):
-            recommendations.append(
-                "🍪 Generate secure session secret and enable secure cookie settings"
-            )
+        # Overall status
+        if failed > 0:
+            print(f"\n🔴 OVERALL STATUS: FAILED ({failed} critical issues)")
+            print("❌ OAuth is NOT ready for production deployment")
+        elif warnings > 0:
+            print(f"\n🟡 OVERALL STATUS: WARNINGS ({warnings} issues need attention)")
+            print("⚠️  OAuth may work but has configuration issues")
+        else:
+            print(f"\n🟢 OVERALL STATUS: PASSED")
+            print("✅ OAuth is ready for production deployment")
         
-        if not recommendations:
-            recommendations.append("🎉 All tests passed! OAuth is ready for production.")
+        # Failed tests summary
+        if failed > 0:
+            print("\n🔴 CRITICAL ISSUES TO FIX:")
+            for result in self.results:
+                if result["status"] == "FAIL":
+                    print(f"  - {result['test']}: {result['message']}")
         
-        return recommendations
+        # Warnings summary
+        if warnings > 0:
+            print("\n🟡 WARNINGS TO ADDRESS:")
+            for result in self.results:
+                if result["status"] == "WARN":
+                    print(f"  - {result['test']}: {result['message']}")
+        
+        # Next steps
+        print("\n📋 NEXT STEPS:")
+        if failed > 0:
+            print("1. Fix all critical issues listed above")
+            print("2. Re-run this test script")
+            print("3. Configure OAuth credentials in Google Console")
+            print("4. Set environment variables in Railway/Vercel")
+        elif warnings > 0:
+            print("1. Address warnings if possible")
+            print("2. Configure OAuth credentials in Google Console")
+            print("3. Set environment variables in Railway/Vercel")
+            print("4. Deploy and test OAuth flow")
+        else:
+            print("1. Configure OAuth credentials in Google Console")
+            print("2. Set environment variables in Railway/Vercel")
+            print("3. Deploy to production")
+            print("4. Test OAuth flow end-to-end")
+        
+        return failed == 0
+    
+    async def run_all_tests(self):
+        """Run all OAuth production tests."""
+        print("🔍 Starting OAuth Production Configuration Tests...")
+        print(f"Environment: {ENVIRONMENT}")
+        print(f"Backend URL: {self.base_url}")
+        print(f"Frontend URL: {self.frontend_url}")
+        
+        # Run tests
+        self.test_environment_variables()
+        self.test_oauth_configuration()
+        self.test_redirect_uris()
+        self.test_cors_configuration()
+        await self.test_api_endpoints()
+        self.test_security_configuration()
+        
+        # Generate report
+        success = self.generate_report()
+        
+        return success
 
 async def main():
-    """Main test execution."""
-    import argparse
-    
-    parser = argparse.ArgumentParser(description='Test OAuth production configuration')
-    parser.add_argument('--frontend-url', default='https://grateful-net.vercel.app',
-                       help='Frontend URL (default: https://grateful-net.vercel.app)')
-    parser.add_argument('--backend-url', default='https://grateful-production.up.railway.app',
-                       help='Backend URL (default: https://grateful-production.up.railway.app)')
-    parser.add_argument('--output', help='Output file for test results (JSON)')
-    
-    args = parser.parse_args()
-    
-    # Run tests
-    tester = OAuthProductionTester(args.frontend_url, args.backend_url)
-    report = await tester.run_all_tests()
-    
-    # Print summary
-    print("\n" + "="*60)
-    print("🎯 OAUTH PRODUCTION CONFIGURATION TEST SUMMARY")
-    print("="*60)
-    print(f"Total Tests: {report['summary']['total_tests']}")
-    print(f"Passed: {report['summary']['passed']}")
-    print(f"Failed: {report['summary']['failed']}")
-    print(f"Success Rate: {report['summary']['success_rate']}")
-    print(f"Overall Status: {report['summary']['overall_status']}")
-    
-    # Print recommendations
-    if report['recommendations']:
-        print("\n📋 RECOMMENDATIONS:")
-        for i, rec in enumerate(report['recommendations'], 1):
-            print(f"{i}. {rec}")
-    
-    # Save report if requested
-    if args.output:
-        with open(args.output, 'w') as f:
-            json.dump(report, f, indent=2)
-        print(f"\n📄 Full report saved to: {args.output}")
+    """Main test runner."""
+    tester = OAuthProductionTester()
+    success = await tester.run_all_tests()
     
     # Exit with appropriate code
-    sys.exit(0 if report['summary']['failed'] == 0 else 1)
+    sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -24,6 +24,45 @@ The Grateful platform supports two authentication methods:
 1. **Traditional Email/Password Authentication** - Standard signup and login flow
 2. **OAuth 2.0 Social Authentication** - Login with Google (and Facebook support ready)
 
+### OAuth 2.0 Social Authentication
+
+#### OAuth Flow Architecture
+
+```
+User → Frontend → Backend → Google OAuth → Backend → Frontend → User
+```
+
+1. **User clicks "Sign in with Google"** on frontend
+2. **Frontend redirects** to `/api/v1/oauth/google`
+3. **Backend generates** OAuth authorization URL
+4. **User authenticates** with Google
+5. **Google redirects** to `/api/v1/oauth/callback/google`
+6. **Backend exchanges** authorization code for tokens
+7. **Backend creates/updates** user account
+8. **Backend returns** JWT tokens to frontend
+9. **Frontend stores** tokens and redirects to app
+
+#### OAuth Endpoints
+
+**Backend OAuth Endpoints**:
+- `GET /api/v1/oauth/providers` - Get available OAuth providers
+- `POST /api/v1/oauth/google` - Initiate Google OAuth flow
+- `POST /api/v1/oauth/facebook` - Initiate Facebook OAuth flow
+- `POST /api/v1/oauth/callback/{provider}` - Handle OAuth callback
+
+**Frontend OAuth Pages**:
+- `/auth/callback/google` - Google OAuth callback handler
+- `/auth/callback` - Generic OAuth callback handler
+
+#### OAuth Security Features
+
+- **CSRF Protection**: State parameter validation
+- **Secure Sessions**: HttpOnly, Secure, SameSite cookies
+- **HTTPS Enforcement**: Production-only secure connections
+- **CORS Restrictions**: Limited to production domains
+- **Input Validation**: Pydantic models for all requests
+- **Error Handling**: Comprehensive logging without exposing secrets
+
 ### Traditional Authentication
 
 #### 1. User Signup

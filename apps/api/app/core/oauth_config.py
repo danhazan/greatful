@@ -17,10 +17,88 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 FACEBOOK_CLIENT_ID = os.getenv("FACEBOOK_CLIENT_ID")
 FACEBOOK_CLIENT_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET")
-OAUTH_REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:3000/auth/callback/google")
 
-# Environment validation
+# OAuth allowed domains configuration
+OAUTH_ALLOWED_DOMAINS = os.getenv(
+    "OAUTH_ALLOWED_DOMAINS", 
+    "grateful-net.vercel.app,www.grateful-net.vercel.app,grateful-production.vercel.app"
+).split(",") if os.getenv("OAUTH_ALLOWED_DOMAINS") else [
+    "grateful-net.vercel.app", 
+    "www.grateful-net.vercel.app",
+    "grateful-production.vercel.app"
+]
+# Production-aware OAuth redirect URI configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# Production OAuth configuration
+if ENVIRONMENT == "production":
+    # Production URLs - Railway backend, Vercel frontend
+    FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://grateful-web.vercel.app")
+    BACKEND_BASE_URL = os.getenv("BACKEND_URL", "https://grateful-production.up.railway.app")
+    
+    # OAuth redirect URIs (where OAuth providers redirect back to frontend)
+    GOOGLE_REDIRECT_URI = f"{FRONTEND_BASE_URL}/auth/callback/google"
+    FACEBOOK_REDIRECT_URI = f"{FRONTEND_BASE_URL}/auth/callback/facebook"
+    
+    # Frontend callback URLs (where users are redirected after OAuth processing)
+    FRONTEND_SUCCESS_URL = f"{FRONTEND_BASE_URL}/auth/callback/success"
+    FRONTEND_ERROR_URL = f"{FRONTEND_BASE_URL}/auth/callback/error"
+    
+    # Production CORS origins
+    ALLOWED_ORIGINS = [
+        "https://grateful-web.vercel.app",
+        "https://grateful-production.up.railway.app",
+        os.getenv("CUSTOM_DOMAIN", "").strip()
+    ]
+    
+elif ENVIRONMENT == "staging":
+    # Staging URLs
+    FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://grateful-staging.vercel.app")
+    BACKEND_BASE_URL = os.getenv("BACKEND_URL", "https://grateful-staging.up.railway.app")
+    
+    GOOGLE_REDIRECT_URI = f"{FRONTEND_BASE_URL}/auth/callback/google"
+    FACEBOOK_REDIRECT_URI = f"{FRONTEND_BASE_URL}/auth/callback/facebook"
+    
+    FRONTEND_SUCCESS_URL = f"{FRONTEND_BASE_URL}/auth/callback/success"
+    FRONTEND_ERROR_URL = f"{FRONTEND_BASE_URL}/auth/callback/error"
+    
+    ALLOWED_ORIGINS = [
+        "https://grateful-staging.vercel.app",
+        "https://grateful-staging.up.railway.app"
+    ]
+    
+else:
+    # Development URLs
+    FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    BACKEND_BASE_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+    
+    # OAuth redirect URIs should point to frontend for proper flow
+    GOOGLE_REDIRECT_URI = f"{FRONTEND_BASE_URL}/auth/callback/google"
+    FACEBOOK_REDIRECT_URI = f"{FRONTEND_BASE_URL}/auth/callback/facebook"
+    
+    FRONTEND_SUCCESS_URL = f"{FRONTEND_BASE_URL}/auth/callback/success"
+    FRONTEND_ERROR_URL = f"{FRONTEND_BASE_URL}/auth/callback/error"
+    
+    ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000"
+    ]
+
+# Remove empty strings from allowed origins
+ALLOWED_ORIGINS = [origin for origin in ALLOWED_ORIGINS if origin]
+
+# Legacy support for existing OAUTH_REDIRECT_URI
+OAUTH_REDIRECT_URI = GOOGLE_REDIRECT_URI
+
+# Production security settings
+OAUTH_SESSION_TIMEOUT = int(os.getenv("OAUTH_SESSION_TIMEOUT", "600"))  # 10 minutes
+OAUTH_STATE_EXPIRY = int(os.getenv("OAUTH_STATE_EXPIRY", "300"))  # 5 minutes
+SECURE_COOKIES = ENVIRONMENT == "production"
+SAME_SITE_COOKIES = "none" if ENVIRONMENT == "production" else "lax"
+
+# Environment is already defined above for redirect URI configuration
 
 class OAuthConfig:
     """OAuth configuration and provider management."""
@@ -153,8 +231,15 @@ class OAuthConfig:
         return {
             'providers': self.providers.copy(),
             'redirect_uri': OAUTH_REDIRECT_URI,
+            'google_redirect_uri': GOOGLE_REDIRECT_URI,
+            'facebook_redirect_uri': FACEBOOK_REDIRECT_URI,
+            'frontend_success_url': FRONTEND_SUCCESS_URL,
+            'frontend_error_url': FRONTEND_ERROR_URL,
+            'allowed_origins': ALLOWED_ORIGINS,
             'environment': ENVIRONMENT,
-            'initialized': self.oauth is not None
+            'initialized': self.oauth is not None,
+            'secure_cookies': SECURE_COOKIES,
+            'session_timeout': OAUTH_SESSION_TIMEOUT
         }
     
     def is_provider_available(self, provider_name: str) -> bool:
@@ -386,9 +471,34 @@ def log_oauth_production_error(error_type: str, provider: str, error_details: st
         'error_details': sanitized_error,
         'environment': ENVIRONMENT,
         'production_safe': True,
+        'timestamp': None,  # Will be added by structured logging
     }
     
     if sanitized_context:
         log_data['user_context'] = sanitized_context
     
+    # Enhanced production error monitoring
+    if ENVIRONMENT == "production":
+        # Add additional production monitoring context
+        log_data.update({
+            'severity': 'HIGH' if error_type in ['config_error', 'token_error', 'provider_error'] else 'MEDIUM',
+            'requires_attention': error_type in ['config_error', 'provider_unavailable', 'token_exchange_failed'],
+            'user_impact': 'OAuth login functionality affected',
+            'recommended_action': get_oauth_error_recommendation(error_type)
+        })
+    
     logger.error(f"OAuth production error: {error_type}", extra=log_data)
+
+def get_oauth_error_recommendation(error_type: str) -> str:
+    """Get recommended action for OAuth error types."""
+    recommendations = {
+        'config_error': 'Check OAuth provider configuration and credentials',
+        'provider_error': 'Verify OAuth provider service status and API limits',
+        'token_error': 'Check OAuth token exchange configuration and network connectivity',
+        'authentication_failure': 'Review OAuth flow implementation and user permissions',
+        'provider_unavailable': 'Check OAuth provider service status and configuration',
+        'token_exchange_failed': 'Verify OAuth redirect URIs and client configuration',
+        'user_creation_failure': 'Check database connectivity and user model constraints',
+        'linking_validation_failed': 'Review account linking logic and conflict resolution'
+    }
+    return recommendations.get(error_type, 'Review OAuth configuration and logs for details')

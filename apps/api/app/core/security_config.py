@@ -53,8 +53,25 @@ class SecurityConfig:
         """Initialize computed fields after dataclass initialization."""
         # Parse CORS allowed origins
         if self.allowed_origins is None:
-            origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-            self.allowed_origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
+            # Import OAuth CORS origins
+            try:
+                from app.core.oauth_config import ALLOWED_ORIGINS as OAUTH_ORIGINS
+                oauth_origins = OAUTH_ORIGINS
+            except ImportError:
+                oauth_origins = []
+            
+            # Get additional origins from environment
+            origins_str = os.getenv("ALLOWED_ORIGINS", "")
+            env_origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
+            
+            # Combine OAuth origins with environment origins
+            all_origins = list(set(oauth_origins + env_origins))
+            
+            # Add default development origins if none specified
+            if not all_origins:
+                all_origins = ["http://localhost:3000"]
+            
+            self.allowed_origins = all_origins
         
         # Parse CSP domains
         if self.csp_domains is None:

@@ -213,12 +213,19 @@ app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(RequestIDMiddleware)  # Add request ID tracking
 
 # Add SessionMiddleware for OAuth state management (must be before CORS)
+# Enhanced security configuration for production OAuth
+session_secret = os.getenv("SESSION_SECRET", "dev-secret")
+if os.getenv("ENVIRONMENT") == "production" and session_secret == "dev-secret":
+    logger.error("CRITICAL: SESSION_SECRET must be set to a secure value in production")
+    raise ValueError("SESSION_SECRET must be configured for production OAuth")
+
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "dev-secret"),
+    secret_key=session_secret,
     session_cookie="grateful_session",
     max_age=60*60*24*7,  # 7 days
-    https_only=(os.getenv("ENVIRONMENT") == "production")
+    https_only=(os.getenv("ENVIRONMENT") == "production"),
+    same_site="lax"  # Required for OAuth redirects
 )
 
 # Add CORS middleware with centralized configuration

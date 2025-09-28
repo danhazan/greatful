@@ -429,10 +429,16 @@ class TestSecurityConfig:
             from app.core.security_config import SecurityConfig
             config = SecurityConfig()
             
-            assert len(config.allowed_origins) == 3
+            # Should include both environment origins and OAuth origins
+            assert len(config.allowed_origins) >= 3
             assert "https://example.com" in config.allowed_origins
             assert "https://www.example.com" in config.allowed_origins
             assert "https://api.example.com" in config.allowed_origins
+            
+            # Should also include OAuth origins (development defaults)
+            oauth_origins = ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000", "http://127.0.0.1:8000"]
+            for origin in oauth_origins:
+                assert origin in config.allowed_origins
     
     def test_csp_domains_parsing(self):
         """Test CSP domains parsing from environment."""

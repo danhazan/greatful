@@ -6,6 +6,7 @@
 - [Prerequisites](#prerequisites)
 - [Infrastructure Setup](#infrastructure-setup)
 - [Environment Configuration](#environment-configuration)
+- [OAuth Configuration](#oauth-configuration)
 - [Database Setup](#database-setup)
 - [Application Deployment](#application-deployment)
 - [SSL/TLS Configuration](#ssltls-configuration)
@@ -225,6 +226,168 @@ NEXT_PUBLIC_ENABLE_ERROR_REPORTING=true
 NEXT_PUBLIC_ENABLE_SW=true
 NEXT_PUBLIC_CACHE_STATIC_ASSETS=true
 ```
+
+## OAuth Configuration
+
+### Overview
+
+OAuth authentication allows users to sign in using their Google accounts. This section covers the complete setup process for OAuth in production.
+
+### Google OAuth Console Setup
+
+#### Step 1: Create OAuth 2.0 Client ID
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Select your project or create a new one
+3. Click "Create Credentials" → "OAuth 2.0 Client ID"
+4. Choose "Web application" as the application type
+5. Set the name: "Grateful Production OAuth"
+
+#### Step 2: Configure Authorized Redirect URIs
+
+Add these exact URIs to your OAuth client (replace with your actual domains):
+
+```
+https://your-frontend-domain.com/auth/callback/google
+https://your-frontend-domain.com/auth/callback
+https://www.your-frontend-domain.com/auth/callback/google
+https://www.your-frontend-domain.com/auth/callback
+```
+
+#### Step 3: Configure Authorized JavaScript Origins
+
+Add these origins:
+
+```
+https://your-frontend-domain.com
+https://www.your-frontend-domain.com
+```
+
+### Backend OAuth Configuration
+
+#### Required Environment Variables
+
+Set these environment variables in your backend deployment:
+
+```bash
+# OAuth Configuration
+GOOGLE_CLIENT_ID=your-actual-google-client-id
+GOOGLE_CLIENT_SECRET=your-actual-google-client-secret
+OAUTH_REDIRECT_URI=https://your-frontend-domain.com/auth/callback/google
+OAUTH_ALLOWED_DOMAINS=your-frontend-domain.com,www.your-frontend-domain.com
+
+# Session Security
+SESSION_SECRET=your-secure-session-secret-64-characters-minimum
+
+# CORS Configuration
+ALLOWED_ORIGINS=https://your-frontend-domain.com,https://www.your-frontend-domain.com
+```
+
+#### OAuth Security Configuration
+
+The OAuth implementation includes several security features:
+
+- **CSRF Protection**: OAuth state parameter validates requests
+- **Domain Validation**: Redirect URIs are validated against allowed domains
+- **Secure Sessions**: HTTPS-only cookies with proper SameSite settings
+- **Secret Sanitization**: Sensitive data is masked in production logs
+- **Rate Limiting**: OAuth endpoints have appropriate rate limits
+
+### Frontend OAuth Configuration
+
+#### Required Environment Variables
+
+Set these in your frontend deployment:
+
+```bash
+# Production URLs
+NEXT_PUBLIC_APP_URL=https://your-frontend-domain.com
+NEXT_PUBLIC_API_URL=https://your-backend-domain.com
+
+# Environment
+NODE_ENV=production
+NEXT_TELEMETRY_DISABLED=1
+```
+
+### OAuth Testing and Verification
+
+#### Database Migration Verification
+
+Run the OAuth migration verification script:
+
+```bash
+cd apps/api
+python scripts/verify_oauth_migration.py
+```
+
+This script verifies:
+- OAuth columns exist in users table
+- Database connectivity
+- Environment variables are configured
+- OAuth model validation
+
+#### Production Testing
+
+Run the OAuth production test script:
+
+```bash
+cd apps/api
+python scripts/test_oauth_production.py
+```
+
+This tests:
+- OAuth providers endpoint
+- OAuth login initiation
+- CORS configuration
+- Security headers
+- Error handling
+- Rate limiting
+
+#### Manual OAuth Flow Test
+
+1. Navigate to your frontend URL
+2. Click "Sign in with Google"
+3. Complete OAuth flow:
+   - Redirected to Google OAuth
+   - Grant permissions
+   - Redirected back to app
+   - Successfully logged in
+4. Verify user data is saved correctly
+5. Test logout functionality
+
+### OAuth Troubleshooting
+
+#### Common Issues
+
+**"OAuth service not available"**
+- Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set
+- Verify environment variables in deployment
+- Check OAuth provider initialization logs
+
+**"Invalid redirect URI"**
+- Verify redirect URIs in Google OAuth Console
+- Check OAUTH_REDIRECT_URI environment variable
+- Ensure URLs match exactly (including https://)
+
+**"CORS error"**
+- Check ALLOWED_ORIGINS includes frontend domain
+- Verify frontend is using correct API URL
+- Check browser network tab for CORS headers
+
+**"Session/Cookie issues"**
+- Verify SESSION_SECRET is set and secure
+- Check SECURE_COOKIES=true for production
+- Ensure HTTPS is enabled
+
+### OAuth Security Checklist
+
+- [ ] HTTPS enforced on all endpoints
+- [ ] Secure session secrets (64+ characters)
+- [ ] CORS restricted to production domains only
+- [ ] Security headers enabled (CSP, HSTS, X-Frame-Options)
+- [ ] OAuth credentials secured and not exposed in logs
+- [ ] Production environment variables set correctly
+- [ ] Google Console configured with exact production URLs
 
 ## Database Setup
 

@@ -17,7 +17,18 @@ from app.core.exceptions import (
     BusinessLogicError
 )
 from app.models.user import User
-from app.core.oauth_config import get_oauth_user_info, log_oauth_security_event, log_oauth_production_error
+from app.core.oauth_config import (
+    get_oauth_user_info, 
+    log_oauth_security_event, 
+    log_oauth_production_error,
+    GOOGLE_REDIRECT_URI,
+    FACEBOOK_REDIRECT_URI,
+    FRONTEND_SUCCESS_URL,
+    FRONTEND_ERROR_URL,
+    ALLOWED_ORIGINS,
+    SECURE_COOKIES,
+    SAME_SITE_COOKIES
+)
 from app.core.security import create_access_token, create_refresh_token
 from app.core.security_audit import SecurityAuditor, SecurityEventType
 from app.services.user_service import UserService
