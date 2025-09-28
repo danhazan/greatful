@@ -45,14 +45,11 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Demo Link */}
+          {/* Features */}
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => router.push("/demo")}
-              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              View Demo →
-            </button>
+            <p className="text-gray-500 text-sm">
+              Express gratitude • Connect with others • Build positive habits
+            </p>
           </div>
         </div>
       </div>

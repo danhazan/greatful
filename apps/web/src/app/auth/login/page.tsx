@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Heart } from "lucide-react"
 import Link from "next/link"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
+import OAuthIconButton from "@/components/OAuthIconButton"
+import AccountLinkingDialog from "@/components/AccountLinkingDialog"
+import { useOAuth } from "@/hooks/useOAuth"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,6 +18,17 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showLinkingDialog, setShowLinkingDialog] = useState(false)
+  const [linkingData, setLinkingData] = useState<any>(null)
+  
+  const { 
+    providers, 
+    isLoading: oauthLoading, 
+    error: oauthError, 
+    isAvailable: oauthAvailable,
+    handleOAuthLogin,
+    clearError: clearOAuthError
+  } = useOAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -96,6 +110,38 @@ export default function LoginPage() {
     })
   }
 
+  const handleOAuthLoginClick = async (provider: 'google' | 'facebook') => {
+    try {
+      setError("")
+      clearOAuthError()
+      await handleOAuthLogin(provider)
+    } catch (error: any) {
+      // Check if this is an account linking scenario
+      if (error?.details?.existing_user) {
+        setLinkingData({
+          provider,
+          existingUser: error.details.existing_user
+        })
+        setShowLinkingDialog(true)
+      } else {
+        setError(error?.message || `Failed to sign in with ${provider}`)
+      }
+    }
+  }
+
+  const handleAccountLinking = async () => {
+    // This would typically make an API call to link accounts
+    // For now, we'll just close the dialog and show success
+    setShowLinkingDialog(false)
+    setLinkingData(null)
+    // In a real implementation, you would call an account linking API here
+  }
+
+  const handleLinkingCancel = () => {
+    setShowLinkingDialog(false)
+    setLinkingData(null)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center">
       <div className="max-w-md w-full mx-4">
@@ -110,11 +156,13 @@ export default function LoginPage() {
           </div>
 
           {/* Error Message */}
-          {error && (
+          {(error || oauthError) && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm">{error}</p>
+              <p className="text-red-600 text-sm">{error || oauthError}</p>
             </div>
           )}
+
+
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -180,13 +228,41 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Demo Link */}
-          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-            <Link href="/demo" className="text-purple-600 hover:text-purple-700 text-sm font-medium">
-              View Demo →
-            </Link>
-          </div>
+          {/* OAuth Icon Buttons */}
+          {oauthAvailable && providers && (providers.providers.google || providers.providers.facebook) && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-center text-sm text-gray-600 mb-3">Or continue with</p>
+              <div className="flex justify-center gap-3">
+                {providers.providers.google && (
+                  <OAuthIconButton
+                    provider="google"
+                    onOAuthLogin={handleOAuthLoginClick}
+                    disabled={isLoading || oauthLoading}
+                  />
+                )}
+                {/* Facebook - Always show but disabled */}
+                <OAuthIconButton
+                  provider="facebook"
+                  onOAuthLogin={handleOAuthLoginClick}
+                  disabled={true}
+                />
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Account Linking Dialog */}
+        {showLinkingDialog && linkingData && (
+          <AccountLinkingDialog
+            isOpen={showLinkingDialog}
+            onClose={handleLinkingCancel}
+            onConfirm={handleAccountLinking}
+            onCancel={handleLinkingCancel}
+            existingUser={linkingData.existingUser}
+            oauthProvider={linkingData.provider}
+            isLoading={false}
+          />
+        )}
       </div>
     </div>
   )

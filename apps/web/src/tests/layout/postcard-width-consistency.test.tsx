@@ -46,13 +46,14 @@ describe('PostCard Width Consistency', () => {
     expect(postPageContent).not.toContain('max-w-4xl mx-auto')
   })
 
-  it('should use max-w-2xl container width in demo page', () => {
-    const demoPagePath = path.join(pagesDir, 'demo/page.tsx')
-    const demoPageContent = fs.readFileSync(demoPagePath, 'utf-8')
+  it('should use appropriate container width in home page (landing page)', () => {
+    const homePagePath = path.join(pagesDir, 'page.tsx')
+    const homePageContent = fs.readFileSync(homePagePath, 'utf-8')
     
-    // Check that the demo page uses max-w-2xl instead of max-w-4xl
-    expect(demoPageContent).toContain('max-w-2xl mx-auto')
-    expect(demoPageContent).not.toContain('max-w-4xl mx-auto')
+    // Home page is a landing page with different layout requirements
+    // It should use max-w-md for the centered card layout
+    expect(homePageContent).toContain('max-w-md')
+    expect(homePageContent).not.toContain('max-w-4xl')
   })
 
   it('should maintain responsive behavior with consistent container classes', () => {
@@ -71,20 +72,19 @@ describe('PostCard Width Consistency', () => {
     })
   })
 
-  it('should verify all pages have consistent max-width configuration', () => {
+  it('should verify all content pages have consistent max-width configuration', () => {
     const pagesToCheck = [
       'feed/page.tsx',
       'profile/page.tsx', 
       'profile/[userId]/page.tsx',
-      'post/[id]/page.tsx',
-      'demo/page.tsx'
+      'post/[id]/page.tsx'
     ]
 
     pagesToCheck.forEach(pagePath => {
       const fullPath = path.join(pagesDir, pagePath)
       const pageContent = fs.readFileSync(fullPath, 'utf-8')
       
-      // Each page should have max-w-2xl and not max-w-4xl
+      // Each content page should have max-w-2xl and not max-w-4xl
       expect(pageContent).toContain('max-w-2xl')
       
       // Count occurrences to ensure we're not missing any max-w-4xl instances

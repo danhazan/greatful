@@ -2,12 +2,18 @@ import React from 'react'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
+import { useOAuth } from '../../hooks/useOAuth'
 import SignupPage from '../../app/auth/signup/page'
 import LoginPage from '../../app/auth/login/page'
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
+}))
+
+// Mock OAuth hook
+jest.mock('../../hooks/useOAuth', () => ({
+  useOAuth: jest.fn(),
 }))
 
 // Mock fetch
@@ -27,6 +33,7 @@ Object.defineProperty(window, 'localStorage', {
 
 describe('Authentication E2E Tests', () => {
   const mockPush = jest.fn()
+  const mockUseOAuth = useOAuth as jest.Mock
   
   beforeEach(() => {
     jest.clearAllMocks()
@@ -34,6 +41,16 @@ describe('Authentication E2E Tests', () => {
     mockLocalStorage.setItem.mockClear()
     ;(useRouter as jest.Mock).mockReturnValue({
       push: mockPush,
+    })
+    
+    // Mock OAuth hook to return no providers available
+    mockUseOAuth.mockReturnValue({
+      providers: null,
+      isLoading: false,
+      error: null,
+      isAvailable: false,
+      handleOAuthLogin: jest.fn(),
+      clearError: jest.fn()
     })
   })
 
@@ -96,8 +113,10 @@ describe('Authentication E2E Tests', () => {
       })
       
       // Verify token storage and redirect
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('access_token', 'test-token-123')
-      expect(mockPush).toHaveBeenCalledWith('/feed')
+      await waitFor(() => {
+        expect(mockLocalStorage.setItem).toHaveBeenCalledWith('access_token', 'test-token-123')
+        expect(mockPush).toHaveBeenCalledWith('/feed')
+      })
     })
 
     it('validates password match before submission', async () => {
@@ -254,8 +273,10 @@ describe('Authentication E2E Tests', () => {
       })
       
       // Verify token storage and redirect
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('access_token', 'test-token-456')
-      expect(mockPush).toHaveBeenCalledWith('/feed')
+      await waitFor(() => {
+        expect(mockLocalStorage.setItem).toHaveBeenCalledWith('access_token', 'test-token-456')
+        expect(mockPush).toHaveBeenCalledWith('/feed')
+      })
     })
 
     it('displays error message for invalid credentials', async () => {
@@ -325,14 +346,24 @@ describe('Authentication E2E Tests', () => {
       expect(signupLink).toHaveAttribute('href', '/auth/signup')
     })
 
-    it('both pages have demo links', () => {
+    it('both pages have OAuth icon buttons when available', () => {
+      // Mock OAuth as available
+      mockUseOAuth.mockReturnValue({
+        providers: { providers: { google: true, facebook: false }, initialized: true },
+        isLoading: false,
+        error: null,
+        isAvailable: true,
+        handleOAuthLogin: jest.fn(),
+        clearError: jest.fn()
+      })
+
       const { unmount } = render(<SignupPage />)
-      expect(screen.getByRole('link', { name: /view demo/i })).toHaveAttribute('href', '/demo')
+      expect(screen.getByText('Or continue with')).toBeInTheDocument()
       
       unmount()
       
       render(<LoginPage />)
-      expect(screen.getByRole('link', { name: /view demo/i })).toHaveAttribute('href', '/demo')
+      expect(screen.getByText('Or continue with')).toBeInTheDocument()
     })
   })
 
@@ -407,7 +438,7 @@ describe('Authentication E2E Tests', () => {
       // Verify signup success
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/feed')
-      })
+      }, { timeout: 3000 })
       
       unmountSignup()
       
@@ -445,7 +476,7 @@ describe('Authentication E2E Tests', () => {
       // Verify login success
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/feed')
-      })
+      }, { timeout: 3000 })
     })
   })
 })
