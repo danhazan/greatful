@@ -54,8 +54,8 @@ class TestProductionConfigValidation:
         # Set corrected production environment variables
         corrected_env = {
             'ENVIRONMENT': 'production',
-            'FRONTEND_BASE_URL': 'https://grateful-web.vercel.app',
-            'ALLOWED_ORIGINS': 'https://grateful-web.vercel.app,https://www.grateful-web.vercel.app',
+            'FRONTEND_BASE_URL': 'https://grateful-net.vercel.app',
+            'ALLOWED_ORIGINS': 'https://grateful-net.vercel.app,https://www.grateful-net.vercel.app',
             'DATABASE_URL': 'postgresql+asyncpg://grateful_prod:secure_password@localhost:5432/grateful_prod?ssl=require',
             'SECRET_KEY': 'P8D0sqcFXLPH0ZKb9fVHAWfsjSdqZ-UUbdL__ku-ZNqAJR3kDGphIZqFT07mBTimw8ooyxUvh0k2IDhJi9kogA',
             'SSL_REDIRECT': 'true',
@@ -68,19 +68,19 @@ class TestProductionConfigValidation:
             # Test frontend URL is corrected
             frontend_url = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:3000')
             assert 'yourdomain.com' not in frontend_url, "Should not contain placeholder domain"
-            assert 'grateful-web.vercel.app' in frontend_url, "Should contain actual production domain"
+            assert 'grateful-net.vercel.app' in frontend_url, "Should contain actual production domain"
             
             # Test CORS origins are corrected
             allowed_origins = os.environ.get('ALLOWED_ORIGINS', '')
             assert 'yourdomain.com' not in allowed_origins, "Should not contain placeholder CORS origins"
-            assert 'grateful-web.vercel.app' in allowed_origins, "Should contain actual production domain"
+            assert 'grateful-net.vercel.app' in allowed_origins, "Should contain actual production domain"
 
     @pytest.mark.asyncio
     async def test_share_url_generation_with_production_config(self):
         """Test share URL generation with production configuration"""
         
         corrected_env = {
-            'FRONTEND_BASE_URL': 'https://grateful-web.vercel.app',
+            'FRONTEND_BASE_URL': 'https://grateful-net.vercel.app',
         }
         
         with patch.dict(os.environ, corrected_env):
@@ -93,8 +93,8 @@ class TestProductionConfigValidation:
                 expected_url = f"{base_url}/post/{test_post_id}"
                 
                 assert 'yourdomain.com' not in expected_url, "Share URLs should not use placeholder domain"
-                assert 'grateful-web.vercel.app' in expected_url, "Share URLs should use production domain"
-                assert expected_url == "https://grateful-web.vercel.app/post/test-post-123"
+                assert 'grateful-net.vercel.app' in expected_url, "Share URLs should use production domain"
+                assert expected_url == "https://grateful-net.vercel.app/post/test-post-123"
                 
             except ImportError as e:
                 pytest.skip(f"ShareService not available: {e}")
@@ -165,8 +165,8 @@ class TestProductionConfigValidation:
         
         # Test with corrected config
         corrected_config = {
-            'FRONTEND_BASE_URL': 'https://grateful-web.vercel.app',
-            'ALLOWED_ORIGINS': 'https://grateful-web.vercel.app,https://www.grateful-web.vercel.app',
+            'FRONTEND_BASE_URL': 'https://grateful-net.vercel.app',
+            'ALLOWED_ORIGINS': 'https://grateful-net.vercel.app,https://www.grateful-net.vercel.app',
             'DATABASE_URL': 'postgresql+asyncpg://user:secure_password@host:5432/db',
             'SECRET_KEY': 'P8D0sqcFXLPH0ZKb9fVHAWfsjSdqZ-UUbdL__ku-ZNqAJR3kDGphIZqFT07mBTimw8ooyxUvh0k2IDhJi9kogA'
         }

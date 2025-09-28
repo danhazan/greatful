@@ -65,7 +65,7 @@ class TestProductionShareDebug:
         try:
             # Set production-like environment variables
             os.environ["ENVIRONMENT"] = "production"
-            os.environ["FRONTEND_BASE_URL"] = "https://grateful-web.vercel.app"
+            os.environ["FRONTEND_BASE_URL"] = "https://grateful-net.vercel.app"
             
             logger.info("Testing share functionality with production environment variables")
             
@@ -88,7 +88,7 @@ class TestProductionShareDebug:
                 logger.info(f"URL share successful: {data}")
                 
                 # Verify the share URL contains the production frontend URL
-                if "share_url" in data and "grateful-web.vercel.app" in data["share_url"]:
+                if "share_url" in data and "grateful-net.vercel.app" in data["share_url"]:
                     logger.info("✓ Production frontend URL correctly used in share URL")
                 else:
                     logger.warning(f"⚠ Share URL may not use production frontend: {data.get('share_url')}")
@@ -97,7 +97,7 @@ class TestProductionShareDebug:
                 assert data["post_id"] == test_post.id
                 assert data["share_method"] == "url"
                 assert "share_url" in data
-                assert "grateful-web.vercel.app" in data["share_url"]
+                assert "grateful-net.vercel.app" in data["share_url"]
             else:
                 logger.error(f"✗ URL share failed with status {response.status_code}: {response.text}")
                 # Let's see what the actual error is
@@ -131,7 +131,7 @@ class TestProductionShareDebug:
         try:
             # Set production-like environment variables
             os.environ["ENVIRONMENT"] = "production"
-            os.environ["FRONTEND_BASE_URL"] = "https://grateful-web.vercel.app"
+            os.environ["FRONTEND_BASE_URL"] = "https://grateful-net.vercel.app"
             
             # Create recipient user
             recipient_user = User(

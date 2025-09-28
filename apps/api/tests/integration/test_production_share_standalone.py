@@ -27,7 +27,7 @@ class TestProductionShareStandalone:
         
         try:
             os.environ["ENVIRONMENT"] = "production"
-            os.environ["FRONTEND_BASE_URL"] = "https://grateful-web.vercel.app"
+            os.environ["FRONTEND_BASE_URL"] = "https://grateful-net.vercel.app"
             
             # Import test dependencies
             from app.models.user import User
@@ -82,7 +82,7 @@ class TestProductionShareStandalone:
             
             # Verify the share URL contains the production frontend URL
             assert "share_url" in data, "Response should contain share_url"
-            assert "grateful-web.vercel.app" in data["share_url"], f"Share URL should use production frontend: {data['share_url']}"
+            assert "grateful-net.vercel.app" in data["share_url"], f"Share URL should use production frontend: {data['share_url']}"
             
             # Test message sharing
             logger.info("Testing message sharing with production environment...")
@@ -139,8 +139,8 @@ class TestProductionShareStandalone:
         # Test with production-like environment
         production_env = {
             'ENVIRONMENT': 'production',
-            'FRONTEND_BASE_URL': 'https://grateful-web.vercel.app',
-            'ALLOWED_ORIGINS': 'https://grateful-web.vercel.app,https://www.grateful-web.vercel.app',
+            'FRONTEND_BASE_URL': 'https://grateful-net.vercel.app',
+            'ALLOWED_ORIGINS': 'https://grateful-net.vercel.app,https://www.grateful-net.vercel.app',
             'SSL_REDIRECT': 'true',
             'SECURE_COOKIES': 'true',
             'ENABLE_DOCS': 'false',
