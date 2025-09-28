@@ -33,7 +33,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 # Production OAuth configuration
 if ENVIRONMENT == "production":
     # Production URLs - Railway backend, Vercel frontend
-    FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://grateful-web.vercel.app")
+    FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://grateful-net.vercel.app")
     BACKEND_BASE_URL = os.getenv("BACKEND_URL", "https://grateful-production.up.railway.app")
     
     # OAuth redirect URIs (where OAuth providers redirect back to frontend)
@@ -46,7 +46,8 @@ if ENVIRONMENT == "production":
     
     # Production CORS origins
     ALLOWED_ORIGINS = [
-        "https://grateful-web.vercel.app",
+        "https://grateful-net.vercel.app",
+        "https://www.grateful-net.vercel.app",
         "https://grateful-production.up.railway.app",
         os.getenv("CUSTOM_DOMAIN", "").strip()
     ]
