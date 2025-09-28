@@ -40,7 +40,9 @@ class OAuthService {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = '/api/oauth'
+    // Use backend API URL for OAuth endpoints
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    this.baseUrl = `${backendUrl}/api/v1/oauth`
   }
 
   /**
