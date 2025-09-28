@@ -1,5 +1,119 @@
 # Advanced Features
 
+## Google OAuth Setup Guide
+
+### Overview
+
+This guide shows how to set up real Google OAuth for development and production. The system automatically detects whether to use demo mode or real OAuth based on environment configuration.
+
+### Quick Setup (5 Minutes)
+
+#### 1. Get Google OAuth Credentials
+
+1. **Go to Google Cloud Console**: https://console.cloud.google.com/
+2. **Create/Select Project**: 
+   - Click "Select a project" → "New Project"
+   - Name it "Grateful App" or similar
+3. **Enable Google+ API**:
+   - Go to "APIs & Services" → "Library"
+   - Search "Google+ API" → Click → Enable
+4. **Create OAuth Credentials**:
+   - Go to "APIs & Services" → "Credentials"
+   - Click "Create Credentials" → "OAuth 2.0 Client IDs"
+   - Choose "Web application"
+   - Name: "Grateful Development"
+   - **Authorized redirect URIs**: Add `http://localhost:3000/auth/callback/google`
+   - Click "Create"
+5. **Copy Credentials**: You'll get a Client ID and Client Secret
+
+#### 2. Update Your Environment
+
+Replace the values in `apps/api/.env`:
+
+```bash
+# Replace these with your real Google OAuth credentials:
+GOOGLE_CLIENT_ID=your_actual_google_client_id_here
+GOOGLE_CLIENT_SECRET=your_actual_google_client_secret_here
+
+# Keep these as they are:
+FACEBOOK_APP_ID=test-facebook-app-id
+OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback/google
+SESSION_SECRET=your-secret-key-here
+ENVIRONMENT=development
+```
+
+#### 3. Test It!
+
+1. **Restart your dev servers**:
+   ```bash
+   # Backend
+   cd apps/api
+   uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   
+   # Frontend  
+   cd apps/web
+   npm run dev
+   ```
+
+2. **Go to login page**: http://localhost:3000/auth/login
+
+3. **Click "Continue with Google"**: You should be redirected to real Google OAuth!
+
+### What Changes?
+
+#### Before (Demo Mode)
+- Fake Google login with demo data
+- No real Google interaction
+- Shows "Demo google login successful!" message
+
+#### After (Real Google OAuth)
+- Redirects to actual Google OAuth page
+- User sees real Google consent screen
+- Returns with real Google profile data
+- Shows actual Google name and email
+
+### Troubleshooting
+
+#### "OAuth not configured" error
+- Make sure you added the Client ID and Secret to `apps/api/.env`
+- Restart your backend server after changing environment variables
+
+#### "Redirect URI mismatch" error
+- In Google Cloud Console, make sure you added exactly: `http://localhost:3000/auth/callback/google`
+- No trailing slash, exact match required
+
+#### Still seeing demo mode?
+- Check that `GOOGLE_CLIENT_ID` is set in `apps/api/.env`
+- Make sure there are no spaces or quotes around the values
+- Restart your development servers
+
+### Benefits of Real OAuth
+
+1. **Authentic Testing**: Test the actual user experience
+2. **Real User Data**: Get actual Google profile information
+3. **Production Parity**: Same flow as production
+4. **Better UX**: Users see familiar Google interface
+
+### Demo Mode vs Real OAuth
+
+The app automatically detects which mode to use:
+
+- **Demo Mode**: When no `GOOGLE_CLIENT_ID` is set in backend
+- **Real OAuth**: When `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured
+
+Both modes work perfectly for development!
+
+### Production Setup
+
+For production deployment, you'll need to:
+
+1. **Update redirect URIs** in Google Cloud Console to your production domain
+2. **Set production environment variables** in your hosting platform
+3. **Enable HTTPS** for secure OAuth callbacks
+4. **Configure CORS** to allow your production frontend domain
+
+---
+
 ## Keyboard Navigation System
 
 ### Overview

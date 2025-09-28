@@ -60,9 +60,9 @@ A modern social platform for sharing daily gratitudes and building positive conn
    ```
    Frontend will run on http://localhost:3000
 
-## 🎉 Demo
+## 🎉 Getting Started
 
-Visit http://localhost:3000/demo to test the emoji reaction system without authentication!
+Visit http://localhost:3000 to start using the Grateful app!
 
 ## ✨ Features Implemented
 
