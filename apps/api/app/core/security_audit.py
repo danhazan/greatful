@@ -169,7 +169,8 @@ class SecurityAuditor:
         username: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         severity: str = "INFO",
-        success: bool = True
+        success: bool = True,
+        skip_analysis: bool = False
     ):
         """Log a security event."""
         
@@ -200,8 +201,9 @@ class SecurityAuditor:
         else:
             security_logger.info(log_message, extra=event.to_dict())
         
-        # Check for suspicious patterns
-        cls._analyze_security_event(event, request)
+        # Check for suspicious patterns (skip if this is already from analysis to prevent recursion)
+        if not skip_analysis:
+            cls._analyze_security_event(event, request)
     
     @classmethod
     def log_authentication_event(
@@ -335,7 +337,8 @@ class SecurityAuditor:
             user_id=user_id,
             details=details,
             severity=severity,
-            success=False
+            success=False,
+            skip_analysis=True  # Skip analysis to prevent recursion
         )
     
     @classmethod

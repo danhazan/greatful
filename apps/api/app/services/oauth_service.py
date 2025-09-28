@@ -17,7 +17,7 @@ from app.core.exceptions import (
     BusinessLogicError
 )
 from app.models.user import User
-from app.core.oauth_config import get_oauth_user_info, log_oauth_security_event
+from app.core.oauth_config import get_oauth_user_info, log_oauth_security_event, log_oauth_production_error
 from app.core.security import create_access_token, create_refresh_token
 from app.core.security_audit import SecurityAuditor, SecurityEventType
 from app.services.user_service import UserService
@@ -71,6 +71,17 @@ class OAuthService(BaseService):
             
             # Get user info from OAuth provider
             oauth_user_info = await get_oauth_user_info(provider, oauth_token)
+            
+            # Debug: Log what we received from get_oauth_user_info
+            logger.info(f"=== OAUTH SERVICE DEBUG ===")
+            logger.info(f"Received oauth_user_info: {oauth_user_info}")
+            logger.info(f"oauth_user_info type: {type(oauth_user_info)}")
+            if oauth_user_info:
+                logger.info(f"oauth_user_info keys: {list(oauth_user_info.keys())}")
+                logger.info(f"ID field: {oauth_user_info.get('id', 'NOT_FOUND')}")
+                logger.info(f"Email field: {oauth_user_info.get('email', 'NOT_FOUND')}")
+            else:
+                logger.error("oauth_user_info is None or empty!")
             
             # Enhanced validation with security logging
             validation_errors = []
@@ -169,6 +180,8 @@ class OAuthService(BaseService):
         except Exception as e:
             logger.error(f"OAuth authentication failed for {provider}: {e}")
             log_oauth_security_event('authentication_error', provider, details={'error': str(e)})
+            log_oauth_production_error('authentication_failure', provider, str(e), 
+                                     user_context={'provider': provider})
             raise AuthenticationError(f"OAuth authentication failed: {str(e)}")
     
     async def _create_oauth_user(self, provider: str, oauth_user_info: Dict[str, Any], request: Optional[Any] = None) -> User:
@@ -257,6 +270,7 @@ class OAuthService(BaseService):
             raise ConflictError("User account creation failed", "User")
         except Exception as e:
             logger.error(f"Error creating OAuth user: {e}")
+            log_oauth_production_error('user_creation_failure', 'oauth', str(e))
             raise BusinessLogicError(f"Failed to create user account: {str(e)}")
     
     def _extract_profile_data(self, oauth_user_info: Dict[str, Any], provider: str) -> Dict[str, Any]:

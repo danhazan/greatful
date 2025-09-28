@@ -29,6 +29,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 from app.api.v1.reactions import router as reactions_router
 from app.api.v1.auth import router as auth_router
@@ -210,6 +211,15 @@ app.add_middleware(InputSanitizationMiddleware)  # Re-enabled with bypass
 # app.add_middleware(APIContractValidationMiddleware, enable_response_validation=False)  # Disabled - causes request body consumption issue
 app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(RequestIDMiddleware)  # Add request ID tracking
+
+# Add SessionMiddleware for OAuth state management (must be before CORS)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "dev-secret"),
+    session_cookie="grateful_session",
+    max_age=60*60*24*7,  # 7 days
+    https_only=(os.getenv("ENVIRONMENT") == "production")
+)
 
 # Add CORS middleware with centralized configuration
 cors_config = security_config.get_cors_config()

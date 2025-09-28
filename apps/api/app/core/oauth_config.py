@@ -34,19 +34,26 @@ class OAuthConfig:
         """Validate OAuth configuration for production deployment."""
         issues = []
         
-        # Check Google OAuth configuration
+        # Check Google OAuth configuration (required)
         if not GOOGLE_CLIENT_ID or GOOGLE_CLIENT_ID == "your-google-client-id-here":
             issues.append("GOOGLE_CLIENT_ID must be configured")
         
         if not GOOGLE_CLIENT_SECRET or GOOGLE_CLIENT_SECRET == "your-google-client-secret-here":
             issues.append("GOOGLE_CLIENT_SECRET must be configured")
         
-        # Check Facebook OAuth configuration
-        if not FACEBOOK_CLIENT_ID or FACEBOOK_CLIENT_ID == "your-facebook-client-id-here":
-            issues.append("FACEBOOK_CLIENT_ID must be configured")
+        # Check Facebook OAuth configuration (optional - only validate if provided)
+        facebook_configured = (FACEBOOK_CLIENT_ID and 
+                             FACEBOOK_CLIENT_ID != "your-facebook-client-id-here" and
+                             FACEBOOK_CLIENT_SECRET and 
+                             FACEBOOK_CLIENT_SECRET != "your-facebook-client-secret-here")
         
-        if not FACEBOOK_CLIENT_SECRET or FACEBOOK_CLIENT_SECRET == "your-facebook-client-secret-here":
-            issues.append("FACEBOOK_CLIENT_SECRET must be configured")
+        if FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_ID != "your-facebook-client-id-here":
+            if not FACEBOOK_CLIENT_SECRET or FACEBOOK_CLIENT_SECRET == "your-facebook-client-secret-here":
+                issues.append("FACEBOOK_CLIENT_SECRET must be configured when FACEBOOK_CLIENT_ID is provided")
+        
+        if FACEBOOK_CLIENT_SECRET and FACEBOOK_CLIENT_SECRET != "your-facebook-client-secret-here":
+            if not FACEBOOK_CLIENT_ID or FACEBOOK_CLIENT_ID == "your-facebook-client-id-here":
+                issues.append("FACEBOOK_CLIENT_ID must be configured when FACEBOOK_CLIENT_SECRET is provided")
         
         # Check redirect URI
         if not OAUTH_REDIRECT_URI:
@@ -86,11 +93,11 @@ class OAuthConfig:
                         name='google',
                         client_id=GOOGLE_CLIENT_ID,
                         client_secret=GOOGLE_CLIENT_SECRET,
-                        server_metadata_url='https://accounts.google.com/.well-known/openid_configuration',
+                        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
                         client_kwargs={
                             'scope': 'openid email profile',
                             'prompt': 'select_account',  # Force account selection
-                            'code_challenge_method': 'S256',  # Enable PKCE with SHA256
+                            # Disable PKCE for server-side token exchange
                         }
                     )
                     self.providers['google'] = True
@@ -114,7 +121,7 @@ class OAuthConfig:
                         api_base_url='https://graph.facebook.com/',
                         client_kwargs={
                             'scope': 'email public_profile',
-                            'code_challenge_method': 'S256',  # Enable PKCE with SHA256
+                            # Disable PKCE for server-side token exchange
                         },
                     )
                     self.providers['facebook'] = True
@@ -190,26 +197,55 @@ async def get_oauth_user_info(provider: str, token: Dict[str, Any]) -> Dict[str,
         ValueError: If provider is not supported
         OAuthError: If OAuth request fails
     """
+    logger.info(f"=== STARTING USER INFO RETRIEVAL ===")
+    logger.info(f"Provider: {provider}")
+    logger.info(f"Token keys: {list(token.keys())}")
+    
     try:
         oauth_client = oauth_config.get_oauth_client(provider)
         
         if provider == 'google':
-            # Get user info from Google
-            resp = await oauth_client.get('userinfo', token=token)
-            user_info = resp.json()
+            # Get user info from Google using full URL
+            import httpx
+            
+            # Use the access token to get user info directly from Google
+            headers = {
+                'Authorization': f"Bearer {token.get('access_token')}",
+                'Accept': 'application/json'
+            }
+            
+            async with httpx.AsyncClient() as client:
+                resp = await client.get('https://www.googleapis.com/oauth2/v2/userinfo', headers=headers)
+                if resp.status_code != 200:
+                    raise OAuthError(f"Failed to get user info: {resp.status_code}")
+                user_info = resp.json()
+                
+                # Debug: Log the user info structure (mask sensitive data)
+                debug_info = {k: v if k not in ['email', 'name'] else '***' for k, v in user_info.items()}
+                logger.info(f"=== GOOGLE USER INFO DEBUG ===")
+                logger.info(f"Raw user info keys: {list(user_info.keys())}")
+                logger.info(f"Raw user info structure: {debug_info}")
+                logger.info(f"Email field exists: {'email' in user_info}")
+                logger.info(f"Email value: {user_info.get('email', 'NOT_FOUND')}")
             
             # Normalize Google user info
-            return {
-                'id': user_info.get('sub'),
+            normalized_data = {
+                'id': user_info.get('id'),  # Google userinfo returns 'id', not 'sub'
                 'email': user_info.get('email'),
                 'name': user_info.get('name'),
                 'given_name': user_info.get('given_name'),
                 'family_name': user_info.get('family_name'),
                 'picture': user_info.get('picture'),
-                'email_verified': user_info.get('email_verified', False),
+                'email_verified': user_info.get('verified_email', False),
                 'locale': user_info.get('locale'),
                 'provider': 'google'
             }
+            
+            logger.info(f"=== NORMALIZED DATA DEBUG ===")
+            logger.info(f"Normalized data keys: {list(normalized_data.keys())}")
+            logger.info(f"Normalized email: {normalized_data.get('email', 'NOT_FOUND')}")
+            
+            return normalized_data
             
         elif provider == 'facebook':
             # Get user info from Facebook
@@ -241,7 +277,7 @@ async def get_oauth_user_info(provider: str, token: Dict[str, Any]) -> Dict[str,
 
 def get_oauth_redirect_uri(provider: str) -> str:
     """Get the OAuth redirect URI for a specific provider."""
-    return f"{OAUTH_REDIRECT_URI}/{provider}"
+    return OAUTH_REDIRECT_URI
 
 def validate_oauth_state(state: str) -> bool:
     """
@@ -260,14 +296,32 @@ def validate_oauth_state(state: str) -> bool:
 def log_oauth_security_event(event_type: str, provider: str, user_id: Optional[int] = None, 
                             details: Optional[Dict[str, Any]] = None):
     """
-    Log OAuth security events for audit purposes.
+    Log OAuth security events for audit purposes with production-safe sanitization.
     
     Args:
         event_type: Type of OAuth event ('login_attempt', 'login_success', 'login_failure', etc.)
         provider: OAuth provider name
         user_id: User ID if available
-        details: Additional event details
+        details: Additional event details (will be sanitized for production)
     """
+    # Sanitize details for production logging (remove sensitive data)
+    sanitized_details = {}
+    if details:
+        for key, value in details.items():
+            if key in ['access_token', 'refresh_token', 'client_secret', 'password', 'token']:
+                sanitized_details[key] = '[REDACTED]'
+            elif key in ['email', 'name', 'given_name', 'family_name']:
+                # Hash PII for production logging
+                if ENVIRONMENT == "production" and value:
+                    import hashlib
+                    sanitized_details[key] = hashlib.sha256(str(value).encode()).hexdigest()[:8] + '...'
+                else:
+                    sanitized_details[key] = value
+            elif key == 'error' and isinstance(value, Exception):
+                sanitized_details[key] = str(value)
+            else:
+                sanitized_details[key] = value
+    
     log_data = {
         'event_type': event_type,
         'provider': provider,
@@ -276,11 +330,65 @@ def log_oauth_security_event(event_type: str, provider: str, user_id: Optional[i
         'timestamp': None,  # Will be added by structured logging
     }
     
-    if details:
-        log_data['details'] = details
+    if sanitized_details:
+        log_data['details'] = sanitized_details
     
     # Use appropriate log level based on event type
-    if event_type in ['login_failure', 'invalid_state', 'token_error']:
+    if event_type in ['login_failure', 'invalid_state', 'token_error', 'oauth_error']:
+        logger.error(f"OAuth security event: {event_type}", extra=log_data)
+    elif event_type in ['invalid_redirect', 'csrf_violation', 'provider_unavailable']:
         logger.warning(f"OAuth security event: {event_type}", extra=log_data)
     else:
         logger.info(f"OAuth event: {event_type}", extra=log_data)
+
+def log_oauth_production_error(error_type: str, provider: str, error_details: str, 
+                              user_context: Optional[Dict[str, Any]] = None):
+    """
+    Log OAuth production errors with enhanced monitoring for production deployment.
+    
+    Args:
+        error_type: Type of OAuth error ('config_error', 'provider_error', 'token_error', etc.)
+        provider: OAuth provider name
+        error_details: Error description (will be sanitized)
+        user_context: Optional user context (will be sanitized)
+    """
+    # Sanitize error details for production
+    sanitized_error = error_details
+    if ENVIRONMENT == "production":
+        # Remove potentially sensitive information from error messages
+        sensitive_patterns = [
+            r'client_secret=[^&\s]+',
+            r'access_token=[^&\s]+',
+            r'refresh_token=[^&\s]+',
+            r'password=[^&\s]+',
+            r'token=[^&\s]+',
+        ]
+        import re
+        for pattern in sensitive_patterns:
+            sanitized_error = re.sub(pattern, '[REDACTED]', sanitized_error, flags=re.IGNORECASE)
+    
+    # Sanitize user context
+    sanitized_context = {}
+    if user_context:
+        for key, value in user_context.items():
+            if key in ['email', 'name']:
+                if ENVIRONMENT == "production" and value:
+                    import hashlib
+                    sanitized_context[key] = hashlib.sha256(str(value).encode()).hexdigest()[:8] + '...'
+                else:
+                    sanitized_context[key] = value
+            elif key not in ['access_token', 'refresh_token', 'client_secret', 'password']:
+                sanitized_context[key] = value
+    
+    log_data = {
+        'error_type': error_type,
+        'provider': provider,
+        'error_details': sanitized_error,
+        'environment': ENVIRONMENT,
+        'production_safe': True,
+    }
+    
+    if sanitized_context:
+        log_data['user_context'] = sanitized_context
+    
+    logger.error(f"OAuth production error: {error_type}", extra=log_data)

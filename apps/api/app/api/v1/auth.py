@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.services.auth_service import AuthService
 from app.core.responses import success_response
 from app.core.security_audit import log_login_success, log_login_failure, SecurityAuditor, SecurityEventType
-from app.core.exceptions import AuthenticationError
+from app.core.exceptions import AuthenticationError, NotFoundError, ConflictError, ValidationException
 from app.core.input_sanitization import sanitize_request_data
 from app.core.oauth_config import get_oauth_config, get_oauth_redirect_uri, validate_oauth_state, log_oauth_security_event
 from app.services.oauth_service import OAuthService
@@ -79,7 +79,8 @@ class OAuthCallbackRequest(BaseModel):
     def validate_state(cls, v):
         """Validate state parameter format."""
         if v is not None:
-            if not re.match(r'^[A-Za-z0-9._~-]+$', v):
+            # Allow alphanumeric, dots, underscores, tildes, hyphens, and colons (for provider:state format)
+            if not re.match(r'^[A-Za-z0-9._~:-]+$', v):
                 raise ValueError('Invalid state parameter format')
         return v
 
@@ -489,6 +490,29 @@ async def oauth_callback(
     provider: str = "google",
     db: AsyncSession = Depends(get_db)
 ):
+    """Handle OAuth callback via GET (for provider redirects)."""
+    return await _handle_oauth_callback(request, code, state, provider, db)
+
+
+@router.post("/oauth/callback/{provider}", response_model=OAuthLoginResponse)
+async def oauth_callback_post(
+    provider: str,
+    body: OAuthCallbackRequest,
+    request: Request, 
+    db: AsyncSession = Depends(get_db)
+):
+    """Handle OAuth callback via POST (for SPA calls)."""
+    logger.info(f"OAuth callback POST received provider={provider} code_length={len(body.code) if body.code else 0} state={body.state} remote={request.client}")
+    return await _handle_oauth_callback(request, body.code, body.state, provider, db)
+
+
+async def _handle_oauth_callback(
+    request: Request,
+    code: str,
+    state: Optional[str],
+    provider: str,
+    db: AsyncSession
+) -> dict:
     """
     Handle OAuth callback and authenticate user.
     
@@ -502,6 +526,9 @@ async def oauth_callback(
     Returns:
         User information and JWT tokens
     """
+    logger.info(f"=== _handle_oauth_callback STARTED ===")
+    logger.info(f"Provider: {provider}, Code length: {len(code) if code else 0}")
+    
     try:
         oauth_config = getattr(request.app.state, 'oauth_config', None)
         oauth_instance = getattr(request.app.state, 'oauth', None)
@@ -549,7 +576,11 @@ async def oauth_callback(
             'is_new_user': is_new_user
         }
         
-        return success_response(response_data, getattr(request.state, 'request_id', None))
+        logger.info(f"OAuth callback success for {provider}: user_id={user_data['user'].get('id')}, is_new_user={is_new_user}")
+        logger.info(f"Response data structure: {list(response_data.keys())}")
+        
+        # Return raw data for Pydantic model validation (don't wrap in success_response)
+        return response_data
         
     except HTTPException:
         raise
@@ -748,6 +779,63 @@ async def confirm_oauth_account_linking(
             success=False
         )
         raise HTTPException(status_code=500, detail="Failed to confirm account linking")
+
+
+@router.get("/oauth/providers")
+async def get_oauth_providers(request: Request):
+    """
+    Get available OAuth providers and their configuration status.
+    
+    Returns:
+        OAuth providers configuration information
+    """
+    try:
+        oauth_config = getattr(request.app.state, 'oauth_config', None)
+        
+        if not oauth_config:
+            # Return default configuration when OAuth is not configured
+            return success_response({
+                'providers': {
+                    'google': False,
+                    'facebook': False
+                },
+                'redirect_uri': 'http://localhost:3000/auth/callback',
+                'environment': 'development',
+                'initialized': False
+            }, getattr(request.state, 'request_id', None))
+        
+        # Get provider availability from OAuth config
+        providers_status = {
+            'google': oauth_config.is_provider_available('google'),
+            'facebook': oauth_config.is_provider_available('facebook')
+        }
+        
+        # Get redirect URI and environment from OAuth config
+        from app.core.oauth_config import ENVIRONMENT, OAUTH_REDIRECT_URI
+        redirect_uri = OAUTH_REDIRECT_URI
+        
+        result = {
+            'providers': providers_status,
+            'redirect_uri': redirect_uri,
+            'environment': ENVIRONMENT,
+            'initialized': any(providers_status.values())
+        }
+        
+        logger.info(f"OAuth providers status: {result}")
+        return success_response(result, getattr(request.state, 'request_id', None))
+        
+    except Exception as e:
+        logger.error(f"Error getting OAuth providers: {e}")
+        # Return safe default on error
+        return success_response({
+            'providers': {
+                'google': False,
+                'facebook': False
+            },
+            'redirect_uri': 'http://localhost:3000/auth/callback',
+            'environment': 'development',
+            'initialized': False
+        }, getattr(request.state, 'request_id', None))
 
 
 @router.get("/oauth/security-audit")
