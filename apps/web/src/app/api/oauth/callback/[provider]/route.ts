@@ -4,8 +4,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { provider: string } }
 ) {
+  const { provider } = params
+  
   try {
-    const { provider } = params
     const body = await request.json()
 
     console.log(`OAuth callback proxy: ${provider}`, { 

@@ -67,8 +67,8 @@ export default function OAuthCallbackPage() {
         const result = await oauthService.handleCallback(provider, code, state || undefined)
         console.log('OAuth callback result', result)
 
-        // Defensive check: tokens may live under data or tokens
-        const tokens = result.tokens || result.data?.tokens || result.data?.token || result.access_token
+        // Get tokens from the response
+        const tokens = result.tokens
         console.log('resolved tokens', tokens)
         
         // Store access token

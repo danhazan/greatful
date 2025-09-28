@@ -25,6 +25,7 @@ export interface OAuthLoginResponse {
   tokens: {
     access_token: string
     token_type: string
+    refresh_token?: string
   }
   is_new_user: boolean
 }

@@ -50,8 +50,8 @@ export default function GoogleOAuthCallbackPage() {
         const result = await oauthService.handleCallback('google', code, state || undefined)
         console.log('Google OAuth callback result', result)
 
-        // Defensive check: tokens may live under data or tokens
-        const tokens = result.tokens || result.data?.tokens || result.data?.token || result.access_token
+        // Get tokens from the response
+        const tokens = result.tokens
         console.log('resolved tokens', tokens)
         
         // Store access token

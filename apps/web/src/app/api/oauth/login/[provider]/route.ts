@@ -4,8 +4,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { provider: string } }
 ) {
+  const { provider } = params
+  
   try {
-    const { provider } = params
     const { searchParams } = new URL(request.url)
     const redirectUri = searchParams.get('redirect_uri')
 
