@@ -372,15 +372,15 @@ class OAuthService(BaseService):
                 'oauth_data': oauth_data
             }
             
-            # Update display name with improved logic
-            if not user.display_name or (profile_data['display_name'] and len(profile_data['display_name']) > len(user.display_name or '')):
+            # FIXED: Only update display name if user doesn't have one set
+            # This prevents overriding user's custom display name on each OAuth login
+            if not user.display_name and profile_data['display_name']:
                 update_data['display_name'] = profile_data['display_name']
             
-            # Update profile image with provider preference
-            if profile_data['profile_image_url']:
-                # Always update if user doesn't have an image, or if it's from the same OAuth provider
-                if not user.profile_image_url or user.oauth_provider == user.oauth_provider:
-                    update_data['profile_image_url'] = profile_data['profile_image_url']
+            # FIXED: Only update profile image if user doesn't have one set
+            # This prevents overriding user's custom profile image on each OAuth login
+            if not user.profile_image_url and profile_data['profile_image_url']:
+                update_data['profile_image_url'] = profile_data['profile_image_url']
             
             # Update location data if available and not set
             if profile_data.get('location') and not user.location:

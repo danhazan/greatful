@@ -1313,6 +1313,13 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
     - Implement efficient emoji rendering with lazy loading for performance
     - Add keyboard navigation support (arrow keys, enter to select)
     - Ensure proper Unicode support and cross-platform compatibility
+  - Modal positioning and mobile responsiveness:
+    - **CRITICAL:** Modal must always open above the post text box, never below
+    - **Mobile optimization:** Ensure modal doesn't cover the post text area on mobile devices
+    - Implement responsive sizing that adjusts properly for mobile viewports
+    - Add proper viewport calculations to prevent modal from extending beyond screen boundaries
+    - Ensure touch targets are appropriately sized for mobile interaction (minimum 44px)
+    - Test modal positioning across different screen sizes (mobile, tablet, desktop)
   - User experience enhancements:
     - Allow multiple emoji selection for posts
     - Show emoji preview in post composer as user types
