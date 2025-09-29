@@ -134,6 +134,7 @@ class PostRepository(BaseRepository):
                            p.updated_at,
                            u.id as author_user_id,
                            u.username as author_username,
+                           u.display_name as author_display_name,
                            u.email as author_email,
                            u.profile_image_url as author_profile_image_url,
                            COALESCE(hearts.hearts_count, 0) as hearts_count,
@@ -175,6 +176,7 @@ class PostRepository(BaseRepository):
                            p.updated_at,
                            u.id as author_user_id,
                            u.username as author_username,
+                           u.display_name as author_display_name,
                            u.email as author_email,
                            u.profile_image_url as author_profile_image_url,
                            0 as hearts_count,
@@ -241,6 +243,7 @@ class PostRepository(BaseRepository):
                     "author": {
                         "id": row.author_user_id,
                         "username": row.author_username,
+                        "display_name": row.author_display_name,
                         "email": row.author_email,
                         "profile_image_url": row.author_profile_image_url
                     },

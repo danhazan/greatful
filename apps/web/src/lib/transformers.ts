@@ -280,6 +280,7 @@ export interface BackendUserPost {
   author: {
     id: string
     username: string
+    display_name?: string
     email: string
     profile_image_url?: string
   }
@@ -355,9 +356,9 @@ export function transformUserPost(post: BackendUserPost, userProfile?: any): Fro
     post_style: post.post_style,  // Keep backend field name for compatibility
     author: {
       id: post.author.id.toString(),
-      name: post.author.username || 'Unknown User',
+      name: post.author.display_name || post.author.username || 'Unknown User',
       username: post.author.username || 'unknown',
-      display_name: post.author.username,
+      display_name: post.author.display_name || post.author.username,
       image: post.author.profile_image_url
     },
     createdAt: ensureTimezoneIndicator(post.created_at),
