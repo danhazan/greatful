@@ -54,8 +54,23 @@ class TestShareModel:
         """Test share method validation."""
         assert Share.is_valid_share_method("url") is True
         assert Share.is_valid_share_method("message") is True
+        assert Share.is_valid_share_method("whatsapp") is True
         assert Share.is_valid_share_method("invalid") is False
         assert Share.is_valid_share_method("") is False
+
+    def test_share_model_whatsapp(self):
+        """Test Share model with WhatsApp sharing data."""
+        share = Share(
+            user_id=1,
+            post_id="test-post-id",
+            share_method=ShareMethod.whatsapp.value
+        )
+        
+        assert share.share_method == "whatsapp"
+        assert share.is_whatsapp_share is True
+        assert share.is_url_share is False
+        assert share.is_message_share is False
+        assert share.recipient_count == 0
 
 
 class TestShareRepository:
@@ -316,6 +331,26 @@ class TestShareService:
         assert result["share_method"] == "message"
         assert result["recipient_count"] == 1
         assert result["message_content"] is None  # Simplified design: no message content
+
+    async def test_share_via_whatsapp(
+        self, 
+        share_service: ShareService, 
+        test_user: User, 
+        test_post: Post
+    ):
+        """Test sharing via WhatsApp."""
+        result = await share_service.share_via_whatsapp(test_user.id, test_post.id)
+        
+        assert result["user_id"] == test_user.id
+        assert result["post_id"] == test_post.id
+        assert result["share_method"] == "whatsapp"
+        assert "share_url" in result
+        assert "whatsapp_url" in result
+        assert "whatsapp_text" in result
+        assert f"/post/{test_post.id}" in result["share_url"]
+        assert "https://wa.me/?text=" in result["whatsapp_url"]
+        assert "Check out this gratitude post:\n" in result["whatsapp_text"]
+        assert result["share_url"] in result["whatsapp_text"]  # URL should be included
 
     async def test_share_via_message_validation_errors(
         self, 

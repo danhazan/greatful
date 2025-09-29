@@ -117,7 +117,7 @@ class ShareRequest(BaseModel):
     @field_validator('share_method')
     @classmethod
     def validate_share_method(cls, v):
-        valid_methods = ['url', 'message']
+        valid_methods = ['url', 'message', 'whatsapp']
         if v not in valid_methods:
             raise ValueError(f'Invalid share method. Must be one of: {valid_methods}')
         return v
@@ -140,6 +140,8 @@ class ShareResponse(BaseModel):
     post_id: str
     share_method: str
     share_url: Optional[str] = None
+    whatsapp_url: Optional[str] = None
+    whatsapp_text: Optional[str] = None
     recipient_count: Optional[int] = None
     message_content: Optional[str] = None
     created_at: str
@@ -1142,10 +1144,11 @@ async def share_post(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Share a post via URL or message.
+    Share a post via URL, message, or WhatsApp.
     
     - **URL sharing**: Generates a shareable URL for the post (no rate limit)
     - **Message sharing**: Sends the post to specific users with optional message (rate limited: 20 per hour)
+    - **WhatsApp sharing**: Generates WhatsApp Web/app URL with formatted text (no rate limit)
     """
     try:
         # Use enhanced ShareService for better production error handling in production
@@ -1194,6 +1197,24 @@ async def share_post(
                 share_method=result["share_method"],
                 recipient_count=result["recipient_count"],
                 message_content=result["message_content"],
+                created_at=result["created_at"]
+            )
+            
+        elif share_data.share_method == "whatsapp":
+            # Share via WhatsApp
+            result = await share_service.share_via_whatsapp(
+                user_id=current_user_id,
+                post_id=post_id
+            )
+            
+            return ShareResponse(
+                id=result["id"],
+                user_id=result["user_id"],
+                post_id=result["post_id"],
+                share_method=result["share_method"],
+                share_url=result["share_url"],
+                whatsapp_url=result["whatsapp_url"],
+                whatsapp_text=result["whatsapp_text"],
                 created_at=result["created_at"]
             )
             

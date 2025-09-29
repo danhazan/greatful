@@ -89,6 +89,40 @@ class TestShareAPI:
         assert data["recipient_count"] is None
         assert data["message_content"] is None
 
+    async def test_share_post_via_whatsapp(
+        self, 
+        async_client: AsyncClient, 
+        test_user: User, 
+        test_post: Post, 
+        auth_headers: dict
+    ):
+        """Test sharing a post via WhatsApp."""
+        share_data = {
+            "share_method": "whatsapp"
+        }
+        
+        response = await async_client.post(
+            f"/api/v1/posts/{test_post.id}/share",
+            json=share_data,
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 201
+        data = response.json()
+        
+        assert data["user_id"] == test_user.id
+        assert data["post_id"] == test_post.id
+        assert data["share_method"] == "whatsapp"
+        assert "share_url" in data
+        assert "whatsapp_url" in data
+        assert "whatsapp_text" in data
+        assert f"/post/{test_post.id}" in data["share_url"]
+        assert "https://wa.me/?text=" in data["whatsapp_url"]
+        assert "Check out this gratitude post:\n" in data["whatsapp_text"]
+        assert f"/post/{test_post.id}" in data["whatsapp_text"]
+        assert data["recipient_count"] is None
+        assert data["message_content"] is None
+
     async def test_share_post_via_message(
         self, 
         async_client: AsyncClient, 

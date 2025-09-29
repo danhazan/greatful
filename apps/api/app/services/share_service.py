@@ -32,6 +32,9 @@ def _validate_share_payload(share_method: str, recipients: Optional[List[int]], 
             raise ValidationException("Message share requires at least one recipient")
         if len(recipients) > MAX_RECIPIENTS:
             raise ValidationException(f"Maximum {MAX_RECIPIENTS} recipients allowed")
+    elif share_method == "whatsapp":
+        if recipients is not None:
+            raise ValidationException("WhatsApp share must not include recipients")
     else:
         raise ValidationException("Invalid share method")
 
@@ -152,6 +155,105 @@ class ShareService(BaseService):
             "post_id": share.post_id,
             "share_method": share.share_method,
             "share_url": share_url,
+            "created_at": share.created_at.isoformat()
+        }
+
+    @monitor_query("share_via_whatsapp")
+    async def share_via_whatsapp(
+        self, 
+        user_id: int, 
+        post_id: str
+    ) -> Dict[str, Any]:
+        """
+        Record a WhatsApp share and generate the shareable URL with WhatsApp text.
+        
+        Args:
+            user_id: ID of the user sharing
+            post_id: ID of the post being shared
+            
+        Returns:
+            Dict: Share data with WhatsApp URL and text
+            
+        Raises:
+            NotFoundError: If user or post doesn't exist
+        """
+        # Verify user and post exist
+        user = await self.user_repo.get_by_id_or_404(user_id)
+        post = await self.post_repo.get_by_id_or_404(post_id)
+        
+        # Check if post allows sharing (privacy settings)
+        if not await self._can_share_post(user_id, post):
+            raise BusinessLogicError("This post cannot be shared due to privacy settings.")
+        
+        # Validate payload
+        _validate_share_payload("whatsapp", None, None)
+        
+        # Create share record
+        share = await self.share_repo.create(
+            user_id=user_id,
+            post_id=post_id,
+            share_method=ShareMethod.whatsapp.value
+        )
+        
+        # Generate share URL
+        share_url = await self.generate_share_url(post_id)
+        
+        # Create WhatsApp share text - strip HTML tags for clean text
+        import re
+        import html
+        # Remove HTML tags
+        clean_content = re.sub(r'<[^>]+>', '', post.content)
+        # Decode HTML entities
+        clean_content = html.unescape(clean_content)
+        # Clean up extra whitespace
+        clean_content = ' '.join(clean_content.split())
+        
+        whatsapp_text = f"Check out this gratitude post:\n{share_url}"
+        
+        # Generate WhatsApp URL
+        whatsapp_url = f"https://wa.me/?text={whatsapp_text}"
+        
+        # Create notification for post author (if not sharing own post) using factory
+        if post.author_id != user_id:
+            try:
+                notification_factory = NotificationFactory(self.db)
+                await notification_factory.create_share_notification(
+                    recipient_id=post.author_id,
+                    sharer_username=user.username,
+                    sharer_id=user_id,
+                    post_id=post_id,
+                    share_method="whatsapp"
+                )
+            except Exception as e:
+                logger.error(f"Failed to create share notification: {e}")
+                # Don't fail the share if notification fails
+            
+            # Track interaction for preference learning
+            try:
+                from app.services.user_preference_service import UserPreferenceService
+                preference_service = UserPreferenceService(self.db)
+                await preference_service.track_share_interaction(
+                    user_id=user_id,
+                    post_author_id=post.author_id,
+                    post_id=post_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to track share interaction: {e}")
+                # Don't fail the share if preference tracking fails
+        
+        # Track analytics
+        await self.track_share_analytics(user_id, post_id, "whatsapp")
+        
+        logger.info(f"User {user_id} shared post {post_id} via WhatsApp")
+        
+        return {
+            "id": share.id,
+            "user_id": share.user_id,
+            "post_id": share.post_id,
+            "share_method": share.share_method,
+            "share_url": share_url,
+            "whatsapp_url": whatsapp_url,
+            "whatsapp_text": whatsapp_text,
             "created_at": share.created_at.isoformat()
         }
 
@@ -350,6 +452,7 @@ class ShareService(BaseService):
             "total": total_count,
             "url_shares": counts_by_method.get("url", 0),
             "message_shares": counts_by_method.get("message", 0),
+            "whatsapp_shares": counts_by_method.get("whatsapp", 0),
             "by_method": counts_by_method
         }
 

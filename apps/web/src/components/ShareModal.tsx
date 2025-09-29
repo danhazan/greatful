@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect } from "react"
 import { flushSync } from "react-dom"
-import { X, Copy, Check, Link, MessageCircle, Send, Loader2 } from "lucide-react"
+import { X, Copy, Check, Link, MessageCircle, Send, Loader2, MessageSquare } from "lucide-react"
 import MentionAutocomplete from "./MentionAutocomplete"
 import { useToast } from "@/contexts/ToastContext"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
+import { generateWhatsAppURL, formatWhatsAppShareText } from "@/utils/mobileDetection"
+import { htmlToPlainText } from "@/utils/htmlUtils"
 
 interface Post {
   id: string
@@ -281,6 +283,74 @@ export default function ShareModal({
     setShowAutocomplete(value.length > 0)
   }
 
+  const handleWhatsAppShare = async () => {
+    try {
+      // Generate the share URL
+      const shareUrl = `${window.location.origin}/post/${post.id}`
+      
+      // Format the WhatsApp share text - strip HTML for clean text
+      const cleanContent = htmlToPlainText(post.content)
+      const whatsAppText = formatWhatsAppShareText(cleanContent, shareUrl)
+      
+      // Generate WhatsApp URL based on device
+      const whatsAppUrl = generateWhatsAppURL(whatsAppText)
+      
+      // Track analytics
+      const token = localStorage.getItem("access_token")
+      if (token) {
+        try {
+          const response = await fetch(`/api/posts/${post.id}/share`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              share_method: 'whatsapp' 
+            })
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            onShare?.('whatsapp', { 
+              whatsappUrl: whatsAppUrl,
+              whatsappText: whatsAppText,
+              shareId: result?.id || null 
+            })
+          }
+        } catch (error) {
+          console.warn('WhatsApp share analytics failed:', error)
+          onShare?.('whatsapp', { 
+            whatsappUrl: whatsAppUrl,
+            whatsappText: whatsAppText,
+            shareId: null 
+          })
+        }
+      }
+      
+      // Open WhatsApp
+      window.open(whatsAppUrl, '_blank')
+      
+      // Show success feedback
+      showSuccess(
+        'Opening WhatsApp...',
+        'Share your gratitude with friends!'
+      )
+      
+      // Close modal after a brief delay
+      setTimeout(() => {
+        onClose()
+      }, 1000)
+      
+    } catch (error) {
+      console.error('Failed to share via WhatsApp:', error)
+      showError(
+        'WhatsApp Share Failed',
+        'Unable to open WhatsApp. Please try again.'
+      )
+    }
+  }
+
   const handleSendMessage = async () => {
     if (selectedUsers.length === 0 || sendingMessage) return
 
@@ -542,6 +612,21 @@ export default function ShareModal({
               </div>
             </div>
           )}
+
+          {/* WhatsApp Share Option */}
+          <button
+            onClick={handleWhatsAppShare}
+            className="w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-green-200 hover:bg-green-50 text-gray-700 transition-all duration-200 min-h-[44px] touch-manipulation select-none active:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            aria-describedby="whatsapp-description"
+          >
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="h-4 w-4 text-green-600" />
+            </div>
+            <div className="text-left flex-1">
+              <p className="text-sm font-medium">Share on WhatsApp</p>
+              <p className="text-xs text-gray-500">Open in WhatsApp</p>
+            </div>
+          </button>
         </div>
 
         {/* Footer */}
@@ -552,6 +637,7 @@ export default function ShareModal({
           <div className="sr-only">
             <p id="copy-description">Copy link to share this post on other platforms</p>
             <p id="copy-success">Link copied to clipboard successfully</p>
+            <p id="whatsapp-description">Share this post on WhatsApp with friends and family</p>
             <p id="message-description">Send this post directly to other users</p>
             <p id="user-search-help">Type to search for users. Use arrow keys to navigate results.</p>
             <p id="send-button-help">Send the post to all selected users</p>

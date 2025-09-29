@@ -312,4 +312,124 @@ describe('ShareModal', () => {
     expect(screen.getByText('Back')).toBeInTheDocument()
     expect(screen.getByText('Send (0)')).toBeInTheDocument()
   })
+
+  it('displays WhatsApp share option', () => {
+    render(
+      <ShareModal
+        isOpen={true}
+        onClose={jest.fn()}
+        post={mockPost}
+        position={{ x: 100, y: 100 }}
+      />
+    )
+
+    expect(screen.getByText('Share on WhatsApp')).toBeInTheDocument()
+    expect(screen.getByText('Open in WhatsApp')).toBeInTheDocument()
+  })
+
+  it('handles WhatsApp share functionality', async () => {
+    // Mock window.open
+    const mockOpen = jest.fn()
+    Object.defineProperty(window, 'open', {
+      value: mockOpen,
+      writable: true,
+    })
+
+    // Mock successful API response
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        id: 'share-123',
+        share_method: 'whatsapp',
+        whatsapp_url: 'https://wa.me/?text=Check%20out%20this%20gratitude%20post%3A%20This%20is%20a%20test%20gratitude%20post%20about%20being%20thankful%20for%20testing.%20http%3A//localhost%3A3000/post/test-post-1',
+        whatsapp_text: 'Check out this gratitude post: This is a test gratitude post about being thankful for testing. http://localhost:3000/post/test-post-1'
+      })
+    })
+
+    const mockOnShare = jest.fn()
+
+    render(
+      <ShareModal
+        isOpen={true}
+        onClose={jest.fn()}
+        post={mockPost}
+        onShare={mockOnShare}
+        position={{ x: 100, y: 100 }}
+      />
+    )
+
+    const whatsappButton = screen.getByText('Share on WhatsApp').closest('button')
+    fireEvent.click(whatsappButton!)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/posts/test-post-1/share',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer mock-token',
+            'Content-Type': 'application/json',
+          }),
+          body: JSON.stringify({ share_method: 'whatsapp' })
+        })
+      )
+    })
+
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith(
+        expect.stringContaining('https://wa.me/?text='),
+        '_blank'
+      )
+    })
+
+    await waitFor(() => {
+      expect(mockOnShare).toHaveBeenCalledWith('whatsapp', expect.objectContaining({
+        whatsappUrl: expect.stringContaining('https://wa.me/?text='),
+        whatsappText: expect.stringContaining('Check out this gratitude post:\n'),
+        shareId: 'share-123'
+      }))
+    })
+  })
+
+  it('handles WhatsApp share API failure gracefully', async () => {
+    // Mock window.open
+    const mockOpen = jest.fn()
+    Object.defineProperty(window, 'open', {
+      value: mockOpen,
+      writable: true,
+    })
+
+    // Mock API failure
+    ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'))
+
+    const mockOnShare = jest.fn()
+
+    render(
+      <ShareModal
+        isOpen={true}
+        onClose={jest.fn()}
+        post={mockPost}
+        onShare={mockOnShare}
+        position={{ x: 100, y: 100 }}
+      />
+    )
+
+    const whatsappButton = screen.getByText('Share on WhatsApp').closest('button')
+    fireEvent.click(whatsappButton!)
+
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith(
+        expect.stringContaining('https://wa.me/?text='),
+        '_blank'
+      )
+    })
+
+    await waitFor(() => {
+      expect(mockOnShare).toHaveBeenCalledWith('whatsapp', expect.objectContaining({
+        whatsappUrl: expect.stringContaining('https://wa.me/?text='),
+        whatsappText: expect.stringContaining('Check out this gratitude post:\n'),
+        shareId: null
+      }))
+    })
+  })
 })

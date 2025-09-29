@@ -15,6 +15,7 @@ import os
 class ShareMethod(str, enum.Enum):
     url = "url"
     message = "message"
+    whatsapp = "whatsapp"
 
 class Share(Base):
     """
@@ -56,7 +57,7 @@ class Share(Base):
     @classmethod
     def is_valid_share_method(cls, method: str) -> bool:
         """Check if the share method is valid."""
-        return method in [ShareMethod.url.value, ShareMethod.message.value]
+        return method in [ShareMethod.url.value, ShareMethod.message.value, ShareMethod.whatsapp.value]
 
     @property
     def is_url_share(self) -> bool:
@@ -67,6 +68,11 @@ class Share(Base):
     def is_message_share(self) -> bool:
         """Check if this is a message share."""
         return self.share_method == ShareMethod.message.value
+
+    @property
+    def is_whatsapp_share(self) -> bool:
+        """Check if this is a WhatsApp share."""
+        return self.share_method == ShareMethod.whatsapp.value
 
     @property
     def recipient_ids_list(self) -> list:

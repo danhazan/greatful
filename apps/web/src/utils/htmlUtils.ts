@@ -55,16 +55,20 @@ export function htmlToPlainText(html: string): string {
     return html
   }
   
-  // Handle common HTML entities
-  let processed = html
+  // First strip HTML tags
+  let processed = stripHtmlTags(html)
+  
+  // Then handle common HTML entities
+  processed = processed
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
   
-  return stripHtmlTags(processed)
+  return processed
 }
 
 /**
