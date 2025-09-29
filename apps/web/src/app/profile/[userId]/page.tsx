@@ -80,6 +80,7 @@ export default function UserProfilePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
+  const [postsHighlighted, setPostsHighlighted] = useState(false)
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -307,6 +308,22 @@ export default function UserProfilePage() {
     setPosts(posts.filter(post => post.id !== postId))
   }
 
+  const handlePostsClick = () => {
+    const postsSection = document.getElementById('posts-section')
+    if (postsSection) {
+      postsSection.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      })
+      
+      // Add visual feedback with highlight animation
+      setPostsHighlighted(true)
+      setTimeout(() => {
+        setPostsHighlighted(false)
+      }, 2000) // Remove highlight after 2 seconds
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -403,14 +420,20 @@ export default function UserProfilePage() {
 
                 {/* Stats */}
                 <div className="flex items-center justify-center md:justify-start space-x-8">
-                  <div className="text-center">
+                  <button 
+                    className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
+                    onClick={handlePostsClick}
+                    aria-label={`View ${profile.username}'s ${profile.postsCount} posts`}
+                    title="Click to view posts"
+                  >
                     <div className="text-2xl font-bold text-gray-900">{profile.postsCount}</div>
                     <div className="text-sm text-gray-500">Posts</div>
-                  </div>
+                  </button>
                   {profile.followersCount !== undefined && (
                     <button 
-                      className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors"
+                      className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
                       onClick={() => setShowFollowersModal(true)}
+                      aria-label={`View ${profile.username}'s ${profile.followersCount} followers`}
                     >
                       <div className="text-2xl font-bold text-gray-900">{profile.followersCount}</div>
                       <div className="text-sm text-gray-500">Followers</div>
@@ -418,8 +441,9 @@ export default function UserProfilePage() {
                   )}
                   {profile.followingCount !== undefined && (
                     <button 
-                      className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors"
+                      className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
                       onClick={() => setShowFollowingModal(true)}
+                      aria-label={`View ${profile.followingCount} users ${profile.username} is following`}
                     >
                       <div className="text-2xl font-bold text-gray-900">{profile.followingCount}</div>
                       <div className="text-sm text-gray-500">Following</div>
@@ -431,7 +455,14 @@ export default function UserProfilePage() {
           </div>
 
           {/* Posts Section */}
-          <div className="space-y-6">
+          <div 
+            id="posts-section" 
+            className={`space-y-6 transition-all duration-500 ${
+              postsHighlighted 
+                ? 'bg-purple-50 border-2 border-purple-200 rounded-xl p-4 -m-4' 
+                : ''
+            }`}
+          >
             <h2 className="text-xl font-semibold text-gray-900">
               {profile.username}'s Gratitude Posts
             </h2>
