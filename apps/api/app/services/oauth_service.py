@@ -440,24 +440,13 @@ class OAuthService(BaseService):
                     raise ConflictError(
                         f"Account already linked to {conflict_details['existing_provider']}. "
                         f"Please unlink the existing OAuth account first or use {conflict_details['existing_provider']} to sign in.",
-                        "OAuth",
-                        details={
-                            'existing_provider': conflict_details['existing_provider'],
-                            'requested_provider': provider,
-                            'user_id': user.id
-                        }
+                        "OAuth"
                     )
                 elif conflict_details['conflict_type'] == 'same_provider_different_account':
                     raise ConflictError(
                         f"A different {provider} account is already linked to this user. "
                         f"Please unlink the existing account first.",
-                        "OAuth",
-                        details={
-                            'provider': provider,
-                            'existing_oauth_id': user.oauth_id,
-                            'requested_oauth_id': oauth_user_info['id'],
-                            'user_id': user.id
-                        }
+                        "OAuth"
                     )
             
             # Proceed with linking

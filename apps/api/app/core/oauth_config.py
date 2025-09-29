@@ -376,7 +376,7 @@ def validate_oauth_state(state: str) -> bool:
         bool: True if state is valid
     """
     # Basic state validation - in production, implement proper CSRF token validation
-    return state and len(state) >= 16
+    return bool(state and len(state) >= 16)
 
 # Security audit logging for OAuth operations
 def log_oauth_security_event(event_type: str, provider: str, user_id: Optional[int] = None, 

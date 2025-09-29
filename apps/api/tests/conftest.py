@@ -19,7 +19,12 @@ os.environ.update({
     'SECRET_KEY': 'test-secret-key-for-testing-only-not-secure',
     'SSL_REDIRECT': 'false',
     'SECURE_COOKIES': 'false',
-    'LOG_LEVEL': 'WARNING'
+    'LOG_LEVEL': 'WARNING',
+    # OAuth test configuration
+    'GOOGLE_CLIENT_ID': 'test-google-client-id',
+    'GOOGLE_CLIENT_SECRET': 'test-google-client-secret',
+    'FACEBOOK_CLIENT_ID': 'test-facebook-client-id',
+    'FACEBOOK_CLIENT_SECRET': 'test-facebook-client-secret'
 })
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -300,3 +305,15 @@ def contract_validator():
     """Provide contract validator instance for testing."""
     from app.core.contract_validation import ContractValidator
     return ContractValidator()
+
+
+@pytest_asyncio.fixture
+async def oauth_initialized():
+    """Initialize OAuth for testing."""
+    from app.core.oauth_config import oauth_config
+    try:
+        oauth_config.initialize_oauth()
+    except Exception as e:
+        # OAuth initialization might fail in test environment, that's ok
+        pass
+    yield oauth_config

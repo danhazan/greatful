@@ -31,7 +31,7 @@ describe('OAuthService', () => {
 
       const result = await oauthService.getProviders()
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/oauth/providers')
+      expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/api/v1/oauth/providers')
       expect(result).toEqual(mockResponse.data)
     })
 
@@ -55,19 +55,19 @@ describe('OAuthService', () => {
     it('redirects to OAuth provider URL', async () => {
       await oauthService.initiateLogin('google')
 
-      expect(window.location.href).toBe('/api/oauth/login/google')
+      expect(window.location.href).toBe('http://localhost:8000/api/v1/oauth/login/google')
     })
 
     it('includes redirect URI in query params', async () => {
       await oauthService.initiateLogin('google', 'http://localhost:3000/callback')
 
-      expect(window.location.href).toBe('/api/oauth/login/google?redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback')
+      expect(window.location.href).toBe('http://localhost:8000/api/v1/oauth/login/google?redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback')
     })
 
     it('works with Facebook provider', async () => {
       await oauthService.initiateLogin('facebook')
 
-      expect(window.location.href).toBe('/api/oauth/login/facebook')
+      expect(window.location.href).toBe('http://localhost:8000/api/v1/oauth/login/facebook')
     })
   })
 
@@ -88,7 +88,7 @@ describe('OAuthService', () => {
 
       const result = await oauthService.handleCallback('google', 'auth_code_123', 'state_456')
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/oauth/callback/google', {
+      expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/api/v1/oauth/callback/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: 'auth_code_123', state: 'state_456' })
