@@ -329,24 +329,54 @@ async def validate_usernames_batch(
     
     return success_response(result, getattr(request.state, 'request_id', None))
 
-@router.post("/me/profile/photo")
-async def upload_profile_photo(
+@router.post("/me/profile/photo/check-duplicate")
+async def check_profile_photo_duplicate(
     request: Request,
     file: UploadFile = File(...),
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Upload profile photo.
+    Check if a profile photo is a duplicate before uploading.
     
-    - **file**: Image file (JPEG, PNG, WebP, max 5MB)
+    - **file**: Image file to check for duplicates
     
-    Returns profile photo data with URLs for different sizes.
-    Automatically creates thumbnail, small, medium, and large variants.
+    Returns duplicate check results including exact matches and similar images.
     """
     try:
         photo_service = ProfilePhotoService(db)
-        result = await photo_service.upload_profile_photo(current_user_id, file)
+        result = await photo_service.check_profile_photo_duplicate(current_user_id, file)
+        
+        return success_response(result, getattr(request.state, 'request_id', None))
+        
+    except Exception as e:
+        logger.error(f"Error checking profile photo duplicate: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.post("/me/profile/photo")
+async def upload_profile_photo(
+    request: Request,
+    file: UploadFile = File(...),
+    force_upload: bool = False,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Upload profile photo with deduplication.
+    
+    - **file**: Image file (JPEG, PNG, WebP, max 5MB)
+    - **force_upload**: If true, upload even if duplicate exists
+    
+    Returns profile photo data with URLs for different sizes.
+    Automatically creates thumbnail, small, medium, and large variants.
+    Includes deduplication information if duplicates are detected.
+    """
+    try:
+        photo_service = ProfilePhotoService(db)
+        result = await photo_service.upload_profile_photo(current_user_id, file, force_upload)
         
         return success_response(result, getattr(request.state, 'request_id', None))
         

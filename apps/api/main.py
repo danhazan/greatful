@@ -46,6 +46,7 @@ from app.api.v1.error_reporting import router as error_reporting_router
 from app.api.v1.monitoring import router as monitoring_router
 from app.api.v1.security import router as security_router
 from app.api.v1.ssl import router as ssl_router
+# Admin endpoints removed for security
 from app.core.database import init_db
 from app.core.middleware import ErrorHandlingMiddleware, RequestValidationMiddleware
 from app.core.validation_middleware import (
@@ -273,6 +274,7 @@ app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"
 app.include_router(follows_router, prefix="/api/v1", tags=["follows"])
 app.include_router(algorithm_performance_router, prefix="/api/v1/algorithm", tags=["algorithm-performance"])
 app.include_router(database_router, prefix="/api/v1/database", tags=["database"])
+# Admin endpoints removed for security
 
 # Include test auth router only when load testing is enabled
 if os.getenv("LOAD_TESTING", "").lower() == "true":

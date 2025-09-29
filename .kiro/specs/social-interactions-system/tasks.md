@@ -1269,7 +1269,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Test image sizing with various image dimensions: very wide, very tall, square, tiny, huge
   - Ensure consistent PostCard heights regardless of image dimensions
 
-- [ ] **20.6 Image Deduplication System Implementation**
+- [x] **20.6 Image Deduplication System Implementation**
   - Implement robust image deduplication mechanism to prevent duplicate uploads
   - Use SHA-256 file hash as primary deduplication method:
     - Calculate hash on client-side before upload using Web Crypto API
@@ -1292,6 +1292,91 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
     - Implement hash caching to avoid recalculation
     - Add cleanup process for orphaned image files
   - Test deduplication with various scenarios: exact duplicates, similar images, different formats of same image
+
+- [ ] **20.7 Enhanced Emoji Picker for Post Creation/Edit**
+  - Expand emoji picker with comprehensive collection of positive emojis
+  - Emoji categories to include at least:
+    - Hearts and love: ❤️ 💕 💖 💗 💘 💝 💞 💟 ♥️ 💓 💔 💋 😍 🥰 😘 💌
+    - Smilies and happiness: 😊 😄 😃 😀 😁 😆 😂 🤣 😇 🙂 🙃 😉 😌 😋 😎 🤗 🤩 🥳 😸 😻
+    - Hand gestures: 👍 👏 🙌 👌 🤞 🤟 ✌️ 🤘 👊 ✊ 🙏 💪 👋 🤝 🫶 👐 🙋‍♀️ 🙋‍♂️
+    - Celebration and success: 🎉 🎊 🥳 🎈 🎁 🏆 🥇 ⭐ 🌟 ✨ 💫 🎯 🎪 🎭
+    - Nature and positivity: 🌞 🌈 🌸 🌺 🌻 🌷 🌹 🦋 🌿 🍀 🌱 🌳 🏔️ 🌊 ☀️
+    - Food and treats: 🍰 🧁 🍪 🍫 🍯 🍓 🍒 🍑 🥭 🍊 🍋 🥝 🍇 🍉 🫐
+  - Implementation features:
+    - Organize emojis in collapsible categories for easy navigation
+    - Add search functionality to quickly find specific emojis
+    - Include recently used emojis section at the top
+    - Support skin tone variations for applicable hand gesture emojis
+    - Add emoji descriptions/tooltips on hover for accessibility
+  - Technical implementation:
+    - Create comprehensive emoji data structure with categories and metadata
+    - Implement efficient emoji rendering with lazy loading for performance
+    - Add keyboard navigation support (arrow keys, enter to select)
+    - Ensure proper Unicode support and cross-platform compatibility
+  - User experience enhancements:
+    - Allow multiple emoji selection for posts
+    - Show emoji preview in post composer as user types
+    - Add "frequently used" tracking to personalize emoji suggestions
+    - Implement smooth animations for emoji picker open/close
+  - Test emoji picker across different devices and browsers for consistent experience
+  - _Requirements: 1.1, 1.2, 2.1, 2.2_
+
+- [ ] **20.8 Standardize Post Sizes and Enable Picture Posts**
+  - Unify post card dimensions across all post types for consistent visual hierarchy
+  - Current issue: Spontaneous text posts appear smaller than other post types
+  - Implementation requirements:
+    - Make all post cards the same base size regardless of content type
+    - Remove size differentiation between daily gratitude, photo, and spontaneous posts
+    - Maintain visual distinction through content styling rather than card size
+  - Enable picture posting functionality:
+    - Fix image upload and publishing workflow for picture posts
+    - Ensure uploaded images display properly in post cards
+    - Add image preview in post creation modal
+    - Implement proper image validation and error handling
+  - Technical changes needed:
+    - Update PostCard component styling to use consistent dimensions
+    - Fix image upload service integration in post creation flow
+    - Ensure image URLs are properly stored and retrieved from backend
+    - Add proper image loading states and error handling
+  - User experience improvements:
+    - Consistent visual scanning experience across all post types
+    - Reliable picture posting without publishing failures
+    - Clear feedback during image upload process
+    - Proper image display with appropriate aspect ratio handling
+  - Test all post types (text, image, daily gratitude) display consistently
+  - Verify image upload and publishing works end-to-end
+  - _Requirements: 1.1, 1.2, 2.1, 2.2_
+
+- [ ] **20.9 Fix Profile Picture Cropping System**
+  - Replace current side-cropping behavior with circular cropping for profile images
+  - Current issue: Profile pictures are cropped from the sides, losing important image content
+  - Implementation requirements:
+    - Remove horizontal side cropping that cuts off image content
+    - Implement circular crop overlay during profile image upload
+    - Allow user to control the size and position of the circular crop area
+    - Provide interactive crop selection interface before upload confirmation
+  - Technical changes needed:
+    - Update profile photo service to handle circular crop coordinates
+    - Implement frontend crop selection UI with draggable/resizable circle
+    - Modify image processing to apply circular mask instead of rectangular crop
+    - Store crop parameters (center point, radius) for consistent display
+  - User experience improvements:
+    - Interactive crop selection with real-time preview
+    - Ability to adjust crop area size and position before confirming
+    - Circular profile images that preserve user-selected focal point
+    - Clear visual feedback during crop selection process
+  - Backend updates:
+    - Modify profile_photo_service.py to accept crop parameters
+    - Update image processing to apply circular crop based on user selection
+    - Ensure proper aspect ratio handling for circular display
+  - Frontend updates:
+    - Add circular crop selection component to profile image upload flow
+    - Implement drag-and-resize functionality for crop area selection
+    - Show real-time preview of cropped result
+    - Update profile image display to show circular format consistently
+  - Test circular cropping works across different image sizes and aspect ratios
+  - Verify crop selection interface is intuitive and responsive
+  - _Requirements: 3.1, 3.2_
 
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify new modal components and navigation functionality. Test WhatsApp sharing on actual mobile devices and desktop browsers. Verify followers/following modals display correct data and follow buttons work properly. Test posts metric navigation with smooth scrolling behavior. Validate ultra-condensed UI maintains accessibility and usability across all screen sizes. Test image sizing with various image dimensions and formats. Verify image deduplication system prevents duplicate uploads and handles edge cases properly.
 

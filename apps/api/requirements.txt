@@ -34,6 +34,7 @@ multidict==6.6.4
 packaging==25.0
 passlib==1.7.4
 Pillow==10.1.0
+imagehash==4.3.2
 pluggy==1.6.0
 propcache==0.3.2
 psutil==7.0.0

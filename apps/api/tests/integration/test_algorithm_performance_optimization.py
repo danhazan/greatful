@@ -12,7 +12,10 @@ Tests the enhanced algorithm service performance improvements including:
 import pytest
 import asyncio
 import time
+import logging
 from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 from typing import List, Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession

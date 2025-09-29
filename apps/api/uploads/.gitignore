@@ -1,0 +1,8 @@
+# Ignore all files in uploads directory and subdirectories
+*
+
+# Keep .gitignore files
+!.gitignore
+
+# Keep directory structure
+!*/

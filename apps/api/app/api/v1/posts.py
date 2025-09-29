@@ -7,7 +7,7 @@ import uuid
 import os
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
@@ -26,6 +26,7 @@ from app.services.mention_service import MentionService
 from app.services.algorithm_service import AlgorithmService
 from app.services.content_analysis_service import ContentAnalysisService
 from app.utils.html_sanitizer import sanitize_html
+from app.core.responses import success_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -236,14 +237,33 @@ async def get_optional_user_id(request: Request) -> Optional[int]:
 # Removed old create_post function - replaced with create_post_with_file below
 
 
-async def _save_uploaded_file(file: UploadFile, db: AsyncSession) -> str:
-    """Save uploaded file and return the URL path."""
+async def _save_uploaded_file(file: UploadFile, db: AsyncSession, uploader_id: int, force_upload: bool = False) -> Dict[str, Any]:
+    """Save uploaded file with deduplication and return upload results."""
     from app.services.file_upload_service import FileUploadService
     
     try:
         file_service = FileUploadService(db)
-        file_service.validate_image_file(file, max_size_mb=5)
-        return await file_service.save_simple_file(file, "posts")
+        
+        # Reset file pointer in case it was read before
+        await file.seek(0)
+        
+        # Save with deduplication (same approach as profile photos)
+        upload_result = await file_service.save_with_deduplication(
+            file=file,
+            subdirectory="posts",
+            upload_context="post",
+            uploader_id=uploader_id,
+            force_upload=force_upload
+        )
+        
+        if not upload_result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to save uploaded file"
+            )
+        
+        return upload_result
+        
     except Exception as e:
         logger.error(f"Error saving uploaded file: {e}")
         raise HTTPException(
@@ -376,6 +396,52 @@ async def create_post_json(
         )
 
 
+@router.post("/check-image-duplicate")
+async def check_post_image_duplicate(
+    request: Request,
+    image: UploadFile = File(...),
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Check if a post image is a duplicate before uploading."""
+    try:
+        from app.services.file_upload_service import FileUploadService
+        
+        file_service = FileUploadService(db)
+        exact_duplicate, similar_images = await file_service.check_for_duplicate(
+            file=image,
+            upload_context="post"
+        )
+        
+        return success_response({
+            "has_exact_duplicate": exact_duplicate is not None,
+            "exact_duplicate": {
+                "id": exact_duplicate.id,
+                "file_path": exact_duplicate.file_path,
+                "original_filename": exact_duplicate.original_filename,
+                "reference_count": exact_duplicate.reference_count,
+                "created_at": exact_duplicate.created_at.isoformat()
+            } if exact_duplicate else None,
+            "similar_images": [
+                {
+                    "id": img_hash.id,
+                    "file_path": img_hash.file_path,
+                    "similarity_distance": distance,
+                    "original_filename": img_hash.original_filename,
+                    "created_at": img_hash.created_at.isoformat()
+                }
+                for img_hash, distance in similar_images[:5]  # Limit to top 5 similar
+            ],
+            "has_similar_images": len(similar_images) > 0
+        }, getattr(request.state, 'request_id', None))
+        
+    except Exception as e:
+        logger.error(f"Error checking post image duplicate: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check for duplicates"
+        )
+
 @router.post("/upload", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_with_file(
     current_user_id: int = Depends(get_current_user_id),
@@ -387,6 +453,7 @@ async def create_post_with_file(
     location: Optional[str] = Form(None),
     location_data: Optional[str] = Form(None),  # JSON string
     post_type_override: Optional[str] = Form(None),
+    force_upload: bool = Form(False),
     image: Optional[UploadFile] = File(None)
 ):
     """Create a new gratitude post with automatic type detection and optional file upload."""
@@ -453,7 +520,8 @@ async def create_post_with_file(
                     detail="File too large. Maximum size is 5MB"
                 )
             
-            image_url = await _save_uploaded_file(image, db)
+            upload_result = await _save_uploaded_file(image, db, current_user_id, force_upload)
+            image_url = upload_result["file_url"]
 
         # Analyze content to determine post type automatically
         content_analysis_service = ContentAnalysisService(db)
@@ -1479,23 +1547,18 @@ async def delete_post(
         await db.delete(post)
         await db.commit()
         
-        # Clean up image file if it exists
+        # Clean up image file with deduplication handling
         if post.image_url:
             try:
-                import os
-                from pathlib import Path
+                from app.services.file_upload_service import FileUploadService
+                file_service = FileUploadService(db)
                 
-                # Extract filename from URL (assuming format like /uploads/posts/filename.jpg)
-                if post.image_url.startswith('/uploads/'):
-                    # Use the same upload path as the file service
-                    upload_base = os.getenv("UPLOAD_PATH", "uploads")
-                    relative_path = post.image_url.lstrip('/uploads/')
-                    file_path = Path(upload_base) / relative_path
-                    if file_path.exists():
-                        os.remove(file_path)
-                        logger.info(f"Deleted image file: {file_path}")
+                # Use deduplication-aware deletion (decrements reference count)
+                await file_service.delete_with_deduplication(post.image_url)
+                logger.info(f"Processed image deletion with deduplication for post {post.id}: {post.image_url}")
+                
             except Exception as e:
-                logger.warning(f"Error deleting image file for post {post.id}: {e}")
+                logger.warning(f"Error processing image deletion for post {post.id}: {e}")
                 # Don't fail the deletion if file cleanup fails
         
         return DeleteResponse(

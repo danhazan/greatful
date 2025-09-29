@@ -12,5 +12,6 @@ from .share import Share
 from .mention import Mention
 from .follow import Follow
 from .user_interaction import UserInteraction
+from .image_hash import ImageHash
 
-__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification", "Share", "Mention", "Follow", "UserInteraction"]
+__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification", "Share", "Mention", "Follow", "UserInteraction", "ImageHash"]
