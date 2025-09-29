@@ -54,10 +54,24 @@ describe('mobileDetection', () => {
       expect(isMobileDevice()).toBe(true)
     })
 
-    it('returns true for small screen with touch support', () => {
-      mockWindow.innerWidth = 600
+    it('returns true for very small screen with touch support and no desktop indicators', () => {
+      mockWindow.innerWidth = 400 // Very small screen
       mockNavigator.maxTouchPoints = 1
+      mockNavigator.userAgent = 'Mozilla/5.0 (Mobile; rv:40.0) Gecko/40.0 Firefox/40.0' // No desktop indicators
       expect(isMobileDevice()).toBe(true)
+    })
+
+    it('returns false for small screen with desktop indicators', () => {
+      mockWindow.innerWidth = 400
+      mockNavigator.maxTouchPoints = 1
+      mockNavigator.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' // Has desktop indicators
+      expect(isMobileDevice()).toBe(false)
+    })
+
+    it('returns false for medium screen with touch support', () => {
+      mockWindow.innerWidth = 600 // Medium screen
+      mockNavigator.maxTouchPoints = 1
+      expect(isMobileDevice()).toBe(false)
     })
 
     it('returns false when window is undefined', () => {
@@ -113,23 +127,23 @@ describe('mobileDetection', () => {
   })
 
   describe('generateWhatsAppURL', () => {
-    it('generates WhatsApp Web URL for desktop', () => {
+    it('always generates WhatsApp Web URL for reliability', () => {
       const text = 'Hello World'
       const url = generateWhatsAppURL(text)
       expect(url).toBe('https://wa.me/?text=Hello%20World')
     })
 
-    it('generates WhatsApp app URL for mobile', () => {
+    it('generates WhatsApp Web URL even for mobile devices', () => {
       mockNavigator.userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)'
       const text = 'Hello World'
       const url = generateWhatsAppURL(text)
-      expect(url).toBe('whatsapp://send?text=Hello%20World')
+      expect(url).toBe('https://wa.me/?text=Hello%20World')
     })
 
     it('properly encodes special characters', () => {
       const text = 'Hello & Welcome! Check this: https://example.com'
       const url = generateWhatsAppURL(text)
-      expect(url).toContain(encodeURIComponent(text))
+      expect(url).toBe('https://wa.me/?text=Hello%20%26%20Welcome!%20Check%20this%3A%20https%3A%2F%2Fexample.com')
     })
   })
 

@@ -394,6 +394,12 @@ class TestShareWorkflows:
     ):
         """Test workflow when user shares their own post."""
         
+        # Clear rate limits to avoid interference from other tests
+        from app.core.rate_limiting import get_rate_limiter
+        rate_limiter = get_rate_limiter()
+        rate_limiter.clear_user_limits(f"user:{test_users['author'].id}")
+        rate_limiter.clear_user_limits("ip:127.0.0.1")  # Clear IP-based limits for test client
+        
         # Create auth headers for the post author
         from app.core.security import create_access_token
         token = create_access_token(data={"sub": str(test_users['author'].id)})

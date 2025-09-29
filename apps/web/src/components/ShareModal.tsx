@@ -31,7 +31,7 @@ interface ShareModalProps {
   isOpen: boolean
   onClose: () => void
   post: Post
-  onShare?: (method: 'url' | 'message', data: any) => void
+  onShare?: (method: 'url' | 'message' | 'whatsapp', data: any) => void
   position?: { x: number, y: number }
 }
 

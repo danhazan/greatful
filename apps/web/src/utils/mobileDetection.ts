@@ -2,6 +2,8 @@
  * Mobile detection utilities for WhatsApp sharing
  */
 
+import { buildWhatsAppURL, WHATSAPP_CONFIG } from '@/config/whatsapp'
+
 /**
  * Detect if the user is on a mobile device
  */
@@ -10,7 +12,7 @@ export function isMobileDevice(): boolean {
     return false
   }
 
-  // Check user agent for mobile indicators
+  // Check user agent for mobile indicators - this is the most reliable method
   const userAgent = navigator.userAgent.toLowerCase()
   const mobileKeywords = [
     'android',
@@ -27,14 +29,23 @@ export function isMobileDevice(): boolean {
     userAgent.includes(keyword)
   )
 
-  // Check for touch support
+  // If user agent clearly indicates mobile, return true
+  if (isMobileUserAgent) {
+    return true
+  }
+
+  // For edge cases, check if it's a small screen AND has touch support
+  // But be more conservative - only consider it mobile if screen is very small
   const hasTouchSupport = 'ontouchstart' in window || 
     navigator.maxTouchPoints > 0
+  const isVerySmallScreen = window.innerWidth <= 480 // More conservative threshold
 
-  // Check screen size (mobile-like dimensions)
-  const isMobileScreen = window.innerWidth <= 768
+  // Only consider it mobile if both conditions are met and no desktop indicators
+  const hasDesktopIndicators = userAgent.includes('windows') || 
+    userAgent.includes('macintosh') || 
+    userAgent.includes('linux') && !userAgent.includes('android')
 
-  return isMobileUserAgent || (hasTouchSupport && isMobileScreen)
+  return !hasDesktopIndicators && hasTouchSupport && isVerySmallScreen
 }
 
 /**
@@ -62,18 +73,11 @@ export function isAndroid(): boolean {
 }
 
 /**
- * Generate WhatsApp URL based on device type
+ * Generate WhatsApp URL - always use web URL for reliability
  */
 export function generateWhatsAppURL(text: string): string {
-  const encodedText = encodeURIComponent(text)
-  
-  if (isMobileDevice()) {
-    // Use WhatsApp app URL scheme for mobile devices
-    return `whatsapp://send?text=${encodedText}`
-  } else {
-    // Use WhatsApp Web for desktop
-    return `https://wa.me/?text=${encodedText}`
-  }
+  // Use centralized configuration to build WhatsApp URL
+  return buildWhatsAppURL(text)
 }
 
 /**
@@ -81,5 +85,6 @@ export function generateWhatsAppURL(text: string): string {
  */
 export function formatWhatsAppShareText(postContent: string, postUrl: string): string {
   // Don't include post content, just share the link
-  return `Check out this gratitude post:\n${postUrl}`
+  // postContent parameter kept for API compatibility but not used
+  return `${WHATSAPP_CONFIG.SHARE_MESSAGE_TEMPLATE}\n${postUrl}`
 }

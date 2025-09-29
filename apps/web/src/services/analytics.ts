@@ -93,7 +93,7 @@ class AnalyticsService {
   async trackShareEvent(
     postId: string, 
     userId: string, 
-    shareMethod: 'url' | 'message'
+    shareMethod: 'url' | 'message' | 'whatsapp'
   ): Promise<void> {
     const event: EngagementEvent = {
       type: 'share',

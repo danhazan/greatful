@@ -113,6 +113,15 @@ class InMemoryRateLimiter:
         """Record a request for rate limiting."""
         current_time = time.time()
         self._requests[user_id][endpoint].append(current_time)
+    
+    def clear_user_limits(self, user_id: str):
+        """Clear all rate limit records for a specific user (for testing)."""
+        if user_id in self._requests:
+            del self._requests[user_id]
+    
+    def clear_all_limits(self):
+        """Clear all rate limit records (for testing)."""
+        self._requests.clear()
 
 
 class RateLimitingMiddleware(BaseHTTPMiddleware):
