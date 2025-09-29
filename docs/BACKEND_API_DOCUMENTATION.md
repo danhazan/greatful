@@ -576,14 +576,174 @@ POST   /api/v1/auth/logout               # Logout user (placeholder for token bl
 ```
 
 ### OAuth 2.0 Social Authentication ✅ **PRODUCTION READY**
+
+The OAuth system provides secure social authentication with Google and Facebook, featuring comprehensive security measures, error handling, and production monitoring.
+
+#### OAuth Endpoints
+
 ```
-GET    /api/v1/oauth/{provider}/login    # Initiate OAuth login flow (Google, Facebook)
-GET    /api/v1/oauth/{provider}/callback # Handle OAuth callback and create session
-GET    /api/v1/oauth/providers           # Get available OAuth providers and status
-GET    /api/v1/oauth/health              # OAuth system health check and configuration status
+GET    /api/v1/oauth/providers           # Get available OAuth providers and configuration status
+GET    /api/v1/oauth/login/{provider}    # Initiate OAuth login flow (Google, Facebook)
+POST   /api/v1/oauth/callback/{provider} # Handle OAuth callback and create/authenticate user session
+GET    /api/v1/oauth/health              # OAuth system health check and configuration validation
 ```
 
-**OAuth Implementation Status:**
+#### OAuth Provider Status Endpoint
+
+**GET** `/api/v1/oauth/providers`
+
+Returns the current status and configuration of OAuth providers.
+
+**Response:**
+```json
+{
+  "providers": {
+    "google": true,
+    "facebook": true
+  },
+  "redirect_uri": "https://grateful-net.vercel.app/auth/callback/google",
+  "google_redirect_uri": "https://grateful-net.vercel.app/auth/callback/google",
+  "facebook_redirect_uri": "https://grateful-net.vercel.app/auth/callback/facebook",
+  "frontend_success_url": "https://grateful-net.vercel.app/auth/callback/success",
+  "frontend_error_url": "https://grateful-net.vercel.app/auth/callback/error",
+  "allowed_origins": [
+    "https://grateful-net.vercel.app",
+    "https://www.grateful-net.vercel.app"
+  ],
+  "environment": "production",
+  "initialized": true,
+  "secure_cookies": true,
+  "session_timeout": 600
+}
+```
+
+#### OAuth Login Initiation
+
+**GET** `/api/v1/oauth/login/{provider}`
+
+Initiates OAuth login flow by redirecting to the specified provider's authorization URL.
+
+**Parameters:**
+- `provider` (path): OAuth provider name (`google` or `facebook`)
+- `redirect_uri` (query, optional): Custom redirect URI (must be whitelisted)
+
+**Response:**
+- **302 Redirect**: Redirects to OAuth provider authorization URL
+- **400 Bad Request**: Invalid or unavailable provider
+- **503 Service Unavailable**: OAuth service not configured
+
+**Security Features:**
+- CSRF state parameter generation and validation
+- Redirect URI whitelist validation
+- Provider availability checking
+- Security event logging
+
+#### OAuth Callback Handling
+
+**POST** `/api/v1/oauth/callback/{provider}`
+
+Handles OAuth callback from provider, exchanges authorization code for access token, and creates or authenticates user session.
+
+**Request Body:**
+```json
+{
+  "code": "authorization_code_from_provider",
+  "state": "csrf_protection_state_parameter"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": 123,
+      "username": "john_doe",
+      "email": "john@example.com",
+      "display_name": "John Doe",
+      "profile_image_url": "https://example.com/profile.jpg",
+      "oauth_provider": "google",
+      "created_at": "2025-01-08T10:00:00Z"
+    },
+    "tokens": {
+      "access_token": "jwt_access_token",
+      "refresh_token": "jwt_refresh_token",
+      "token_type": "Bearer",
+      "expires_in": 3600
+    },
+    "is_new_user": false
+  },
+  "request_id": "req_123456789"
+}
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "OAUTH_AUTHENTICATION_FAILED",
+    "message": "OAuth authentication failed: Invalid authorization code",
+    "details": {
+      "provider": "google",
+      "error_type": "token_exchange_failed"
+    }
+  },
+  "request_id": "req_123456789"
+}
+```
+
+**Error Codes:**
+- `OAUTH_AUTHENTICATION_FAILED`: OAuth authentication process failed
+- `OAUTH_PROVIDER_UNAVAILABLE`: OAuth provider not configured or available
+- `OAUTH_INVALID_STATE`: CSRF state validation failed
+- `OAUTH_ACCOUNT_CONFLICT`: Account linking conflicts detected
+- `OAUTH_USER_DATA_INVALID`: Invalid user data from OAuth provider
+
+#### OAuth Health Check
+
+**GET** `/api/v1/oauth/health`
+
+Provides comprehensive health status of the OAuth system for monitoring and diagnostics.
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "providers": {
+    "google": {
+      "configured": true,
+      "client_id_set": true,
+      "client_secret_set": true,
+      "redirect_uri": "https://grateful-net.vercel.app/auth/callback/google",
+      "last_successful_auth": "2025-01-08T09:45:00Z"
+    },
+    "facebook": {
+      "configured": true,
+      "client_id_set": true,
+      "client_secret_set": true,
+      "redirect_uri": "https://grateful-net.vercel.app/auth/callback/facebook",
+      "last_successful_auth": "2025-01-08T09:30:00Z"
+    }
+  },
+  "configuration": {
+    "environment": "production",
+    "secure_cookies": true,
+    "session_timeout": 600,
+    "allowed_origins_count": 2
+  },
+  "security": {
+    "csrf_protection": true,
+    "redirect_validation": true,
+    "rate_limiting": true,
+    "audit_logging": true
+  }
+}
+```
+
+#### OAuth Implementation Status
+
 - ✅ **Google OAuth**: Fully implemented and tested (25/25 service tests passing)
 - ✅ **Facebook OAuth**: Fully implemented and tested (26/26 integration tests passing)
 - ✅ **Frontend Integration**: Complete OAuth flow with 43/43 tests passing
@@ -592,20 +752,81 @@ GET    /api/v1/oauth/health              # OAuth system health check and configu
 - ✅ **Health Monitoring**: OAuth system health checks and configuration validation
 - ✅ **Production Deployment**: Successfully deployed and operational
 
-**OAuth Flow Details:**
-1. **Initiate Login**: User clicks OAuth provider button → redirects to provider
-2. **Provider Authentication**: User authenticates with Google/Facebook
-3. **Callback Handling**: Provider redirects back with authorization code
-4. **Token Exchange**: Backend exchanges code for access token and user info
-5. **User Creation/Login**: Create new user or login existing user
-6. **Session Management**: Return JWT token for authenticated sessions
+#### OAuth Authentication Flow
 
-**Security Features:**
-- **CSRF Protection**: State parameter validation prevents cross-site request forgery
-- **Secure Redirects**: Whitelist-based redirect URI validation
-- **Token Security**: Secure JWT token generation and validation
-- **Error Handling**: Graceful error handling with detailed logging
-- **Rate Limiting**: Protection against OAuth abuse and spam attempts
+1. **Initiate Login**: User clicks OAuth provider button → GET `/api/v1/oauth/login/{provider}`
+2. **Provider Redirect**: Backend redirects to OAuth provider (Google/Facebook) with state parameter
+3. **User Authentication**: User authenticates with OAuth provider
+4. **Callback Handling**: Provider redirects to frontend callback URL with authorization code
+5. **Token Exchange**: Frontend sends code to POST `/api/v1/oauth/callback/{provider}`
+6. **User Processing**: Backend exchanges code for access token, retrieves user info, creates/updates user
+7. **Session Creation**: Backend returns JWT tokens for authenticated session
+8. **Frontend Redirect**: Frontend redirects to success page with authentication complete
+
+#### OAuth Security Features
+
+**CSRF Protection:**
+- State parameter generation with cryptographically secure random values
+- State validation on callback to prevent cross-site request forgery
+- Automatic state expiration (5 minutes default)
+
+**Secure Token Handling:**
+- OAuth access tokens never stored in database
+- JWT tokens generated with secure random secrets
+- Token expiration and refresh token rotation
+- Secure cookie configuration in production
+
+**Redirect URI Validation:**
+- Whitelist-based redirect URI validation
+- Environment-specific allowed origins
+- Protection against open redirect vulnerabilities
+
+**Rate Limiting:**
+- OAuth login attempts limited to prevent abuse
+- Provider-specific rate limiting
+- IP-based rate limiting for callback endpoints
+
+**Audit Logging:**
+- Comprehensive security event logging
+- OAuth authentication attempts and results
+- Failed authentication analysis
+- Production-safe PII sanitization
+
+**Account Security:**
+- Automatic account linking for existing email addresses
+- Conflict detection for multiple OAuth providers
+- Enhanced profile data extraction and validation
+- Secure user creation and updates
+
+#### OAuth Configuration Requirements
+
+**Environment Variables:**
+```bash
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Facebook OAuth Configuration (Optional)
+FACEBOOK_CLIENT_ID=your_facebook_client_id
+FACEBOOK_CLIENT_SECRET=your_facebook_client_secret
+
+# OAuth Security Configuration
+OAUTH_SESSION_TIMEOUT=600  # 10 minutes
+OAUTH_STATE_EXPIRY=300     # 5 minutes
+SECURE_COOKIES=true        # Production only
+SAME_SITE_COOKIES=none     # Production cross-origin
+
+# Environment and URL Configuration
+ENVIRONMENT=production
+FRONTEND_URL=https://grateful-net.vercel.app
+BACKEND_URL=https://grateful-production.up.railway.app
+```
+
+**OAuth Provider Setup:**
+- Google: Configure OAuth 2.0 credentials in Google Cloud Console
+- Facebook: Configure Facebook App with Facebook for Developers
+- Redirect URIs must be configured in provider settings
+- Scopes: `openid email profile` (Google), `email public_profile` (Facebook)
 
 ### Users
 ```

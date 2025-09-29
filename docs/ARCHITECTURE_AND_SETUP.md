@@ -260,6 +260,169 @@ uvicorn main:app --reload  # Start the backend
 
 - The backend will run on `http://localhost:8000` by default.
 
+### 3.1. OAuth Provider Configuration
+
+The Grateful platform supports OAuth authentication with Google and Facebook. Follow these steps to configure OAuth providers:
+
+#### Google OAuth Setup
+
+1. **Create Google Cloud Project:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select existing project
+   - Enable the Google+ API and Google OAuth2 API
+
+2. **Configure OAuth Consent Screen:**
+   - Navigate to "APIs & Services" → "OAuth consent screen"
+   - Choose "External" user type for public applications
+   - Fill in application information:
+     - App name: "Grateful"
+     - User support email: Your support email
+     - Developer contact information: Your email
+   - Add scopes: `openid`, `email`, `profile`
+   - Add test users if in development mode
+
+3. **Create OAuth Credentials:**
+   - Navigate to "APIs & Services" → "Credentials"
+   - Click "Create Credentials" → "OAuth 2.0 Client IDs"
+   - Application type: "Web application"
+   - Name: "Grateful Web Client"
+   - Authorized redirect URIs:
+     - Development: `http://localhost:3000/auth/callback/google`
+     - Production: `https://your-domain.com/auth/callback/google`
+
+4. **Configure Environment Variables:**
+   ```bash
+   # Add to apps/api/.env
+   GOOGLE_CLIENT_ID=your_google_client_id_here
+   GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+   ```
+
+#### Facebook OAuth Setup
+
+1. **Create Facebook App:**
+   - Go to [Facebook for Developers](https://developers.facebook.com/)
+   - Click "Create App" → "Consumer" → "Next"
+   - Enter app display name: "Grateful"
+   - Enter app contact email
+
+2. **Configure Facebook Login:**
+   - In your app dashboard, click "Add Product" → "Facebook Login"
+   - Choose "Web" platform
+   - Enter Site URL: `https://your-domain.com` (production) or `http://localhost:3000` (development)
+
+3. **Configure OAuth Redirect URIs:**
+   - Navigate to "Facebook Login" → "Settings"
+   - Add Valid OAuth Redirect URIs:
+     - Development: `http://localhost:3000/auth/callback/facebook`
+     - Production: `https://your-domain.com/auth/callback/facebook`
+
+4. **Configure Environment Variables:**
+   ```bash
+   # Add to apps/api/.env
+   FACEBOOK_CLIENT_ID=your_facebook_app_id_here
+   FACEBOOK_CLIENT_SECRET=your_facebook_app_secret_here
+   ```
+
+#### OAuth Environment Configuration
+
+Configure OAuth-specific environment variables in your `.env` file:
+
+```bash
+# OAuth Provider Configuration
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+FACEBOOK_CLIENT_ID=your_facebook_client_id  # Optional
+FACEBOOK_CLIENT_SECRET=your_facebook_client_secret  # Optional
+
+# OAuth Security Settings
+OAUTH_SESSION_TIMEOUT=600  # 10 minutes
+OAUTH_STATE_EXPIRY=300     # 5 minutes for CSRF protection
+SECURE_COOKIES=false       # Set to true in production
+SAME_SITE_COOKIES=lax      # Set to 'none' in production for cross-origin
+
+# Environment and URL Configuration
+ENVIRONMENT=development    # development, staging, or production
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8000
+
+# OAuth Allowed Domains (production only)
+OAUTH_ALLOWED_DOMAINS=your-domain.com,www.your-domain.com
+```
+
+#### OAuth Testing and Validation
+
+1. **Test OAuth Configuration:**
+   ```bash
+   cd apps/api
+   source venv/bin/activate
+   
+   # Check OAuth provider status
+   curl http://localhost:8000/api/v1/oauth/providers
+   
+   # Run OAuth health check
+   curl http://localhost:8000/api/v1/oauth/health
+   ```
+
+2. **Test OAuth Flow:**
+   - Start both backend and frontend servers
+   - Navigate to `http://localhost:3000`
+   - Click "Sign in with Google" or "Sign in with Facebook"
+   - Complete OAuth flow and verify user creation/login
+
+3. **Run OAuth Tests:**
+   ```bash
+   cd apps/api
+   source venv/bin/activate
+   
+   # Run OAuth-specific tests
+   pytest tests/unit/test_oauth_service.py -v
+   pytest tests/integration/test_oauth_endpoints.py -v
+   ```
+
+#### OAuth Troubleshooting
+
+**Common Issues:**
+
+1. **"OAuth provider not available":**
+   - Check that `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set
+   - Verify credentials are correct in Google Cloud Console
+   - Check OAuth provider status: `GET /api/v1/oauth/providers`
+
+2. **"Invalid redirect URI":**
+   - Ensure redirect URIs in provider settings match your configuration
+   - Development: `http://localhost:3000/auth/callback/{provider}`
+   - Production: `https://your-domain.com/auth/callback/{provider}`
+
+3. **"CSRF state validation failed":**
+   - Check that state parameter is being passed correctly
+   - Verify `OAUTH_STATE_EXPIRY` is not too short (minimum 300 seconds)
+   - Ensure frontend and backend are using the same domain
+
+4. **OAuth health check failures:**
+   ```bash
+   # Check OAuth configuration
+   curl http://localhost:8000/api/v1/oauth/health
+   
+   # Check provider availability
+   curl http://localhost:8000/api/v1/oauth/providers
+   ```
+
+**Debug OAuth Issues:**
+```bash
+# Enable OAuth debug logging
+export LOG_LEVEL=DEBUG
+
+# Check OAuth service logs
+tail -f apps/api/logs/server.log | grep -i oauth
+
+# Test OAuth configuration
+python -c "
+from app.core.oauth_config import get_oauth_config
+config = get_oauth_config()
+print('Providers:', config.get_provider_status())
+"
+```
+
 ### 4. Frontend (Next.js) Setup
 
 ```sh
