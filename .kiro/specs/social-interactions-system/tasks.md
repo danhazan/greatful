@@ -1207,7 +1207,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Add analytics tracking for WhatsApp shares in existing share analytics system
   - Test WhatsApp sharing functionality on desktop (WhatsApp Web) and mobile (WhatsApp app)
 
-- [ ] **20.2 Followers and Following List Modals**
+- [x] **20.2 Followers and Following List Modals**
   - Create FollowersModal component to display list of users who follow the profile user
   - Create FollowingModal component to display list of users the profile user follows
   - Make "Followers" and "Following" metrics in user profile clickable to open respective modals

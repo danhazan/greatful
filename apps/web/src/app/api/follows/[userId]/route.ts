@@ -1,42 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { 
+  handleApiError, 
+  createAuthHeaders, 
+  makeBackendRequest, 
+  createErrorResponse,
+  hasValidAuth
+} from '@/lib/api-utils'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    const token = request.headers.get('authorization')
+    // Check authorization
+    if (!hasValidAuth(request)) {
+      return createErrorResponse('Authorization header required', 401)
+    }
     
-    if (!token) {
+    const authHeaders = createAuthHeaders(request)
+    const { userId } = params
+
+    // Forward the request to the FastAPI backend
+    const response = await makeBackendRequest(`/api/v1/follows/${userId}`, {
+      method: 'POST',
+      authHeaders
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
       return NextResponse.json(
-        { error: 'Authorization required' },
-        { status: 401 }
+        { error: errorData.detail || 'Failed to follow user' },
+        { status: response.status }
       )
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/follows/${params.userId}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': token,
-        'Content-Type': 'application/json',
-      },
-    })
+    const result = await response.json()
+    return NextResponse.json(result)
 
-    const data = await response.json()
-
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status })
-    }
-
-    return NextResponse.json(data)
   } catch (error) {
-    console.error('Follow API error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'following user')
   }
 }
 
@@ -45,35 +47,32 @@ export async function DELETE(
   { params }: { params: { userId: string } }
 ) {
   try {
-    const token = request.headers.get('authorization')
+    // Check authorization
+    if (!hasValidAuth(request)) {
+      return createErrorResponse('Authorization header required', 401)
+    }
     
-    if (!token) {
+    const authHeaders = createAuthHeaders(request)
+    const { userId } = params
+
+    // Forward the request to the FastAPI backend
+    const response = await makeBackendRequest(`/api/v1/follows/${userId}`, {
+      method: 'DELETE',
+      authHeaders
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
       return NextResponse.json(
-        { error: 'Authorization required' },
-        { status: 401 }
+        { error: errorData.detail || 'Failed to unfollow user' },
+        { status: response.status }
       )
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/follows/${params.userId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': token,
-        'Content-Type': 'application/json',
-      },
-    })
+    const result = await response.json()
+    return NextResponse.json(result)
 
-    const data = await response.json()
-
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status })
-    }
-
-    return NextResponse.json(data)
   } catch (error) {
-    console.error('Unfollow API error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'unfollowing user')
   }
 }

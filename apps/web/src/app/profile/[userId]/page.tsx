@@ -7,6 +7,8 @@ import PostCard from "@/components/PostCard"
 import Navbar from "@/components/Navbar"
 import FollowButton from "@/components/FollowButton"
 import ProfileImageSection from "@/components/ProfileImageSection"
+import FollowersModal from "@/components/FollowersModal"
+import FollowingModal from "@/components/FollowingModal"
 import { transformUserPosts } from "@/lib/transformers"
 
 interface UserProfile {
@@ -76,6 +78,8 @@ export default function UserProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [showFollowersModal, setShowFollowersModal] = useState(false)
+  const [showFollowingModal, setShowFollowingModal] = useState(false)
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -404,16 +408,22 @@ export default function UserProfilePage() {
                     <div className="text-sm text-gray-500">Posts</div>
                   </div>
                   {profile.followersCount !== undefined && (
-                    <div className="text-center">
+                    <button 
+                      className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors"
+                      onClick={() => setShowFollowersModal(true)}
+                    >
                       <div className="text-2xl font-bold text-gray-900">{profile.followersCount}</div>
                       <div className="text-sm text-gray-500">Followers</div>
-                    </div>
+                    </button>
                   )}
                   {profile.followingCount !== undefined && (
-                    <div className="text-center">
+                    <button 
+                      className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors"
+                      onClick={() => setShowFollowingModal(true)}
+                    >
                       <div className="text-2xl font-bold text-gray-900">{profile.followingCount}</div>
                       <div className="text-sm text-gray-500">Following</div>
-                    </div>
+                    </button>
                   )}
                 </div>
               </div>
@@ -456,6 +466,21 @@ export default function UserProfilePage() {
           </div>
         </div>
       </main>
+
+      {/* Modals */}
+      <FollowersModal
+        isOpen={showFollowersModal}
+        onClose={() => setShowFollowersModal(false)}
+        userId={profile.id}
+        username={profile.displayName || profile.username}
+      />
+      
+      <FollowingModal
+        isOpen={showFollowingModal}
+        onClose={() => setShowFollowingModal(false)}
+        userId={profile.id}
+        username={profile.displayName || profile.username}
+      />
     </div>
   )
 }

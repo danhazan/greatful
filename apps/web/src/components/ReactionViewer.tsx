@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { X } from "lucide-react"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { formatTimeAgo } from "@/utils/timeAgo"
-import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
+import UserListItem from "./UserListItem"
 
 interface Reaction {
   id: string
@@ -148,45 +148,28 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                     {/* Users who reacted with this emoji */}
                     <div className="space-y-2" role="list" aria-label={`Users who reacted with ${emoji}`}>
                       {emojiReactions.map((reaction) => (
-                        <div 
+                        <UserListItem
                           key={reaction.id}
-                          className="flex items-center space-x-3 p-3 sm:p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer min-h-[44px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset"
+                          user={{
+                            id: reaction.userId,
+                            name: reaction.userName,
+                            image: reaction.userImage,
+                            createdAt: reaction.createdAt
+                          }}
                           onClick={() => onUserClick?.(parseInt(reaction.userId))}
+                          showTimestamp={true}
+                          rightElement={<span className="text-lg">{emoji}</span>}
+                          className="min-h-[44px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset"
+                          role="listitem"
+                          tabIndex={0}
+                          ariaLabel={`${reaction.userName} reacted with ${emoji} ${formatTimeAgo(reaction.createdAt)}. Press to view profile.`}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault()
                               onUserClick?.(parseInt(reaction.userId))
                             }
                           }}
-                          role="listitem"
-                          tabIndex={0}
-                          aria-label={`${reaction.userName} reacted with ${emoji} ${formatTimeAgo(reaction.createdAt)}. Press to view profile.`}
-                        >
-                          {/* User Avatar */}
-                          <div className="flex-shrink-0">
-                            <ProfilePhotoDisplay
-                              photoUrl={reaction.userImage}
-                              username={reaction.userName}
-                              size="sm"
-                              className="border-0 shadow-none"
-                            />
-                          </div>
-                          
-                          {/* User Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {reaction.userName}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {formatTimeAgo(reaction.createdAt)}
-                            </p>
-                          </div>
-                          
-                          {/* Emoji */}
-                          <div className="flex-shrink-0">
-                            <span className="text-lg">{emoji}</span>
-                          </div>
-                        </div>
+                        />
                       ))}
                     </div>
                   </div>

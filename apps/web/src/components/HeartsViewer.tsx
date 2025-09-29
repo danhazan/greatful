@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { X } from "lucide-react"
 import { formatTimeAgo } from "@/utils/timeAgo"
-import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
+import UserListItem from "./UserListItem"
 
 interface HeartUser {
   id: string
@@ -94,36 +94,18 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
             ) : (
               <div className="p-4 space-y-2">
                 {hearts.map((heart) => (
-                  <div 
+                  <UserListItem
                     key={heart.id}
-                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                    user={{
+                      id: heart.userId,
+                      name: heart.userName,
+                      image: heart.userImage,
+                      createdAt: heart.createdAt
+                    }}
                     onClick={() => onUserClick?.(parseInt(heart.userId))}
-                  >
-                    {/* User Avatar */}
-                    <div className="flex-shrink-0">
-                      <ProfilePhotoDisplay
-                        photoUrl={heart.userImage}
-                        username={heart.userName}
-                        size="sm"
-                        className="border-0 shadow-none"
-                      />
-                    </div>
-                    
-                    {/* User Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {heart.userName}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {formatTimeAgo(heart.createdAt)}
-                      </p>
-                    </div>
-                    
-                    {/* Heart Icon */}
-                    <div className="flex-shrink-0">
-                      <span className="text-sm">💜</span>
-                    </div>
-                  </div>
+                    showTimestamp={true}
+                    rightElement={<span className="text-lg">💜</span>}
+                  />
                 ))}
               </div>
             )}

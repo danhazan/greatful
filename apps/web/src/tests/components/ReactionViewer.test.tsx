@@ -137,7 +137,7 @@ describe('ReactionViewer', () => {
     expect(bobElement).toBeInTheDocument()
     
     // Should have a User icon as fallback (ProfilePhotoDisplay component)
-    const userIcon = screen.getByRole('listitem', { name: /bob_wilson reacted with/ }).querySelector('svg')
+    const userIcon = screen.getByText('bob_wilson').parentElement?.parentElement?.querySelector('svg')
     expect(userIcon).toBeInTheDocument()
     expect(userIcon).toHaveClass('lucide-user')
   })
