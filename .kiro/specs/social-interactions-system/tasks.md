@@ -1217,7 +1217,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Ensure modals are mobile-responsive with proper touch interactions
   - Integrate with existing follow system API endpoints for data fetching
 
-- [ ] **20.3 Posts Metric Navigation to Posts Section**
+- [x] **20.3 Posts Metric Navigation to Posts Section**
   - Make "Posts" metric in user profile clickable to scroll down to "Your Posts" section
   - Implement smooth scrolling behavior using `scrollIntoView` with smooth animation
   - Add visual feedback (highlight or brief animation) when posts section is reached
@@ -1243,11 +1243,21 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Test ultra-condensed UI on both desktop and mobile to ensure functionality is preserved
   - Create a compressed design system with new spacing constants for consistent ultra-tight layouts
 
-- [ ] **20.5 PostCard Image Sizing Optimization**
-  - Implement intelligent image sizing to optimize PostCard visual presentation
-  - For large images: automatically resize and crop to fit PostCard dimensions perfectly
-    - Set maximum image height to maintain card proportions (e.g., max-height: 400px)
-    - Use CSS `object-fit: cover` to crop large images while maintaining aspect ratio
+- [x] **20.5 PostCard Image Sizing Optimization**
+  - ✅ Implemented OptimizedPostImage component with intelligent image sizing
+  - ✅ **UPDATED**: Images now scale to full horizontal width while maintaining natural aspect ratio
+  - ✅ **NEW APPROACH**: Uses CSS `aspect-ratio` property for dynamic container sizing
+  - ✅ **IMPROVED**: Images use `object-fit: cover` to fill containers completely
+  - ✅ **SMART CONSTRAINTS**: Maximum heights prevent extremely tall images:
+    - Daily posts: max 500px height
+    - Photo posts: max 400px height
+    - Spontaneous posts: max 300px height
+  - ✅ Lazy loading with IntersectionObserver for performance
+  - ✅ Loading states and error handling
+  - ✅ Development overlay showing image dimensions and aspect ratio
+  - ✅ Comprehensive test coverage (14 tests passing)
+  - ✅ Integrated into PostCard component replacing basic img tags
+  - ✅ **RESULT**: Images now occupy full horizontal space with natural scaling
     - Implement smart cropping to focus on image center or detected focal points
   - For small images: implement strategic handling options
     - Option 1: Center small images with subtle background or border
