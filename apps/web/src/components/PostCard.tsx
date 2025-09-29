@@ -660,53 +660,45 @@ export default function PostCard({
   // Check if current user is the post author
   const isPostAuthor = currentUserId && currentUserId === currentPost.author.id
 
-  // Get styling based on post type
+  // Get styling based on post type - now standardized with consistent dimensions
   const getPostStyling = () => {
     const isUnread = currentPost.isUnread
-    const unreadBorder = isUnread ? 'border-purple-300 ring-2 ring-purple-100' : ''
     
+    // Standardized styling for all post types - same base size and spacing
+    const baseStyle = {
+      container: `bg-white rounded-lg shadow-md border ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'} overflow-hidden mb-6`,
+      header: 'p-5 border-b border-gray-100',
+      avatar: 'w-10 h-10',
+      name: 'font-semibold text-base',
+      content: 'p-5',
+      text: 'text-base leading-relaxed',
+      actions: 'px-5 py-3 border-t border-gray-100',
+      iconSize: 'h-5 w-5',
+      textSize: 'text-sm'
+    }
+    
+    // Visual distinction through content styling rather than card size
     switch (currentPost.postType) {
       case 'daily':
         return {
-          container: `bg-white rounded-xl shadow-lg border-2 ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-purple-100'} overflow-hidden mb-8`,
-          header: 'p-6 border-b border-gray-100',
-          avatar: 'w-12 h-12',
-          name: 'font-bold text-lg',
+          ...baseStyle,
           badge: 'text-sm px-3 py-2 bg-purple-100 text-purple-700 rounded-full capitalize font-medium',
-          content: 'p-6',
-          text: 'text-lg leading-relaxed',
-
-          actions: 'px-6 py-4 border-t border-gray-100',
-          iconSize: 'h-6 w-6',
-          textSize: 'text-base font-medium'
+          // Daily posts get enhanced text styling for prominence
+          text: 'text-base leading-relaxed font-medium text-gray-900'
         }
       case 'photo':
         return {
-          container: `bg-white rounded-lg shadow-md border ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'} overflow-hidden mb-6`,
-          header: 'p-5 border-b border-gray-100',
-          avatar: 'w-10 h-10',
-          name: 'font-semibold text-base',
-          badge: 'text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full capitalize',
-          content: 'p-5',
-          text: 'text-base leading-relaxed',
-
-          actions: 'px-5 py-3 border-t border-gray-100',
-          iconSize: 'h-5 w-5',
-          textSize: 'text-sm'
+          ...baseStyle,
+          badge: 'text-sm px-3 py-2 bg-blue-100 text-blue-700 rounded-full capitalize font-medium',
+          // Photo posts maintain standard text styling
+          text: 'text-base leading-relaxed text-gray-800'
         }
       default: // spontaneous
         return {
-          container: `bg-white rounded-lg shadow-sm border ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'} overflow-hidden mb-4`,
-          header: 'p-3 border-b border-gray-100',
-          avatar: 'w-8 h-8',
-          name: 'font-medium text-sm',
-          badge: 'text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full capitalize',
-          content: 'p-3',
-          text: 'text-sm leading-relaxed',
-
-          actions: 'px-3 py-2 border-t border-gray-100',
-          iconSize: 'h-4 w-4',
-          textSize: 'text-xs'
+          ...baseStyle,
+          badge: 'text-sm px-3 py-2 bg-gray-100 text-gray-600 rounded-full capitalize font-medium',
+          // Spontaneous posts get subtle text styling
+          text: 'text-base leading-relaxed text-gray-700'
         }
     }
   }

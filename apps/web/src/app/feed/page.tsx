@@ -481,9 +481,9 @@ export default function FeedPage() {
           },
           body: JSON.stringify({
             content: postData.content.trim(),
-            richContent: postData.richContent,
-            postStyle: postData.postStyle,
-            imageUrl: postData.imageUrl,
+            rich_content: postData.richContent,
+            post_style: postData.postStyle,
+            image_url: postData.imageUrl,
             location: postData.location,
             location_data: postData.location_data
           })

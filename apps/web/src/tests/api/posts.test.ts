@@ -88,6 +88,7 @@ describe('/api/posts', () => {
           },
           body: JSON.stringify({
             content: 'Test gratitude post',
+            rich_content: null,
             post_style: null,
             title: null,
             image_url: null,

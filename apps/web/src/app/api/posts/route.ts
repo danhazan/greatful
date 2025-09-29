@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       const formData = await request.formData()
       body = {
         content: formData.get('content') as string,
+        richContent: formData.get('richContent') as string,
         postStyle: formData.get('postStyle') as string,
         title: formData.get('title') as string,
         location: formData.get('location') as string,
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       // Forward FormData to backend for file upload
       const backendFormData = new FormData()
       backendFormData.append('content', body.content.trim())
+      if (body.richContent) backendFormData.append('rich_content', body.richContent)
       if (body.postStyle) backendFormData.append('post_style', body.postStyle)
       if (body.title) backendFormData.append('title', body.title)
       if (body.location) backendFormData.append('location', body.location)
@@ -71,9 +73,10 @@ export async function POST(request: NextRequest) {
       // Transform the request to match the backend API format for JSON
       const postData = {
         content: body.content.trim(),
-        post_style: body.postStyle || null,
+        rich_content: body.rich_content || null,
+        post_style: body.post_style || null,
         title: body.title || null,
-        image_url: body.imageUrl || null,
+        image_url: body.image_url || null,
         location: body.location || null,
         location_data: body.location_data || null,
         post_type_override: body.postTypeOverride || null,

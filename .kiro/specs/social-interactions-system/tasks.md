@@ -1321,7 +1321,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Test emoji picker across different devices and browsers for consistent experience
   - _Requirements: 1.1, 1.2, 2.1, 2.2_
 
-- [ ] **20.8 Standardize Post Sizes and Enable Picture Posts**
+- [x] **20.8 Standardize Post Sizes and Enable Picture Posts**
   - Unify post card dimensions across all post types for consistent visual hierarchy
   - Current issue: Spontaneous text posts appear smaller than other post types
   - Implementation requirements:

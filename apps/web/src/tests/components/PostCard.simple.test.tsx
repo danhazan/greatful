@@ -182,9 +182,9 @@ describe('PostCard Simple Tests', () => {
       />
     )
 
-    // Daily post should have specific styling (larger container)
+    // Daily post should have standardized styling (same as all post types)
     const dailyPost = screen.getByRole('article')
-    expect(dailyPost).toHaveClass('bg-white', 'rounded-xl', 'shadow-lg')
+    expect(dailyPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
 
     // Test photo post
     rerender(
@@ -193,7 +193,7 @@ describe('PostCard Simple Tests', () => {
         currentUserId="current-user"
       />
     )
-    // Photo post should have different styling (medium container)
+    // Photo post should have same standardized styling
     const photoPost = screen.getByRole('article')
     expect(photoPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
 
@@ -204,8 +204,8 @@ describe('PostCard Simple Tests', () => {
         currentUserId="current-user"
       />
     )
-    // Spontaneous post should have compact styling
+    // Spontaneous post should have same standardized styling
     const spontaneousPost = screen.getByRole('article')
-    expect(spontaneousPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-sm')
+    expect(spontaneousPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
   })
 })
