@@ -17,15 +17,34 @@ class TestOAuthEndpointsWorking:
     
     def test_oauth_endpoints_without_configuration(self):
         """Test OAuth endpoints return proper errors when not configured."""
-        # Test Google OAuth endpoint
-        response = self.client.post("/api/v1/auth/oauth/google", json={})
-        assert response.status_code == 503
-        assert "OAuth service not available" in response.json()["detail"]
+        # Temporarily set OAuth config to None
+        original_oauth_config = getattr(app.state, 'oauth_config', None)
+        original_oauth = getattr(app.state, 'oauth', None)
         
-        # Test Facebook OAuth endpoint
-        response = self.client.post("/api/v1/auth/oauth/facebook", json={})
-        assert response.status_code == 503
-        assert "OAuth service not available" in response.json()["detail"]
+        app.state.oauth_config = None
+        app.state.oauth = None
+        
+        try:
+            # Test Google OAuth endpoint
+            response = self.client.post("/api/v1/auth/oauth/google", json={})
+            assert response.status_code == 503
+            assert "OAuth service not available" in response.json()["detail"]
+            
+            # Test Facebook OAuth endpoint
+            response = self.client.post("/api/v1/auth/oauth/facebook", json={})
+            assert response.status_code == 503
+            assert "OAuth service not available" in response.json()["detail"]
+        finally:
+            # Restore original values
+            if original_oauth_config is not None:
+                app.state.oauth_config = original_oauth_config
+            elif hasattr(app.state, 'oauth_config'):
+                delattr(app.state, 'oauth_config')
+                
+            if original_oauth is not None:
+                app.state.oauth = original_oauth
+            elif hasattr(app.state, 'oauth'):
+                delattr(app.state, 'oauth')
     
     def test_oauth_callback_validation(self):
         """Test OAuth callback parameter validation."""
@@ -34,8 +53,26 @@ class TestOAuthEndpointsWorking:
         assert response.status_code == 422  # Validation error
         
         # Test with valid code parameter but no OAuth config
-        response = self.client.get("/api/v1/auth/oauth/callback?code=test_code&provider=google")
-        assert response.status_code == 503  # Service unavailable (OAuth not configured)
+        original_oauth_config = getattr(app.state, 'oauth_config', None)
+        original_oauth = getattr(app.state, 'oauth', None)
+        
+        app.state.oauth_config = None
+        app.state.oauth = None
+        
+        try:
+            response = self.client.get("/api/v1/auth/oauth/callback?code=test_code&provider=google")
+            assert response.status_code == 503  # Service unavailable (OAuth not configured)
+        finally:
+            # Restore original values
+            if original_oauth_config is not None:
+                app.state.oauth_config = original_oauth_config
+            elif hasattr(app.state, 'oauth_config'):
+                delattr(app.state, 'oauth_config')
+                
+            if original_oauth is not None:
+                app.state.oauth = original_oauth
+            elif hasattr(app.state, 'oauth'):
+                delattr(app.state, 'oauth')
     
     def test_oauth_input_validation_models(self):
         """Test OAuth input validation using Pydantic models directly."""
@@ -60,13 +97,31 @@ class TestOAuthEndpointsWorking:
     
     def test_oauth_security_features(self):
         """Test OAuth security features are working."""
-        # Test rate limiting headers (may not be present in test environment)
-        response = self.client.post("/api/v1/auth/oauth/google", json={})
+        original_oauth_config = getattr(app.state, 'oauth_config', None)
+        original_oauth = getattr(app.state, 'oauth', None)
         
-        # Should have proper error response structure
-        assert response.status_code == 503
-        response_data = response.json()
-        assert "detail" in response_data
+        app.state.oauth_config = None
+        app.state.oauth = None
+        
+        try:
+            # Test rate limiting headers (may not be present in test environment)
+            response = self.client.post("/api/v1/auth/oauth/google", json={})
+            
+            # Should have proper error response structure
+            assert response.status_code == 503
+            response_data = response.json()
+            assert "detail" in response_data
+        finally:
+            # Restore original values
+            if original_oauth_config is not None:
+                app.state.oauth_config = original_oauth_config
+            elif hasattr(app.state, 'oauth_config'):
+                delattr(app.state, 'oauth_config')
+                
+            if original_oauth is not None:
+                app.state.oauth = original_oauth
+            elif hasattr(app.state, 'oauth'):
+                delattr(app.state, 'oauth')
         
         # Test security headers (may be added by middleware)
         security_headers = [
