@@ -23,6 +23,7 @@ import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, hasMixedDirectionContent } from "@/utils/rtlUtils"
+import { usePostStateSynchronization } from "@/hooks/useStateSynchronization"
 
 interface Post {
   id: string
@@ -131,6 +132,11 @@ export default function PostCard({
   useEffect(() => {
     setCurrentPost(post)
   }, [post])
+
+  // Subscribe to state synchronization for real-time updates
+  usePostStateSynchronization(currentPost, (updatedPost) => {
+    setCurrentPost(updatedPost)
+  })
   
   // Loading states
   const [isHeartLoading, setIsHeartLoading] = useState(false)

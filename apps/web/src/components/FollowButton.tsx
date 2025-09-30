@@ -5,6 +5,7 @@ import { Heart, Loader2 } from 'lucide-react'
 import { isAuthenticated, getAccessToken } from '@/utils/auth'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
 import { useToast } from '@/contexts/ToastContext'
+import { useUserState } from '@/hooks/useUserState'
 
 interface FollowButtonProps {
   userId: number
@@ -29,11 +30,15 @@ export default function FollowButton({
   size = 'md',
   variant = 'primary'
 }: FollowButtonProps) {
-  const [isFollowing, setIsFollowing] = useState(initialFollowState)
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
-  const { showSuccess, showError, showLoading, hideToast, updateToast } = useToast()
+  const { showSuccess, showError, showLoading, hideToast } = useToast()
+  
+  // Use centralized state management
+  const { followState: isFollowing, toggleFollow, isLoading } = useUserState({
+    userId: userId.toString(),
+    autoFetch: true
+  })
 
   // Size classes with minimum touch targets and fixed widths for heart-shaped button
   const sizeClasses = {
@@ -80,33 +85,10 @@ export default function FollowButton({
     }
   }, [error])
 
-  // Fetch initial follow status
+  // Notify parent component of follow state changes
   useEffect(() => {
-    const fetchFollowStatus = async () => {
-      try {
-        const token = getAccessToken()
-        if (!token) return
-
-        const response = await fetch(`/api/follows/${userId}/status`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-
-        if (response && response.ok) {
-          const result = await response.json()
-          if (result.success) {
-            const status: FollowStatus = result.data
-            setIsFollowing(status.is_following)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching follow status:', error)
-      }
-    }
-
-    fetchFollowStatus()
-  }, [userId])
+    onFollowChange?.(isFollowing)
+  }, [isFollowing, onFollowChange])
 
   const handleFollowToggle = async () => {
     const token = getAccessToken()
@@ -115,14 +97,7 @@ export default function FollowButton({
       return
     }
 
-    const originalFollowState = isFollowing
-    const newFollowState = !isFollowing
-    const action = newFollowState ? 'follow' : 'unfollow'
-
-    // Optimistic update
-    setIsFollowing(newFollowState)
-    onFollowChange?.(newFollowState)
-    setIsLoading(true)
+    const action = isFollowing ? 'unfollow' : 'follow'
     setError(null)
 
     // Show loading toast
@@ -132,67 +107,38 @@ export default function FollowButton({
     )
 
     try {
-      const method = originalFollowState ? 'DELETE' : 'POST'
-      const response = await fetch(`/api/follows/${userId}`, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const result = await response.json()
-
-      if (response && response.ok && result.success) {
-        // Success - update toast
-        hideToast(loadingToastId)
-        showSuccess(
-          `User ${action === 'follow' ? 'followed' : 'unfollowed'}!`,
-          `You ${action === 'follow' ? 'are now following' : 'unfollowed'} this user`
-        )
-      } else {
-        // Rollback optimistic update
-        setIsFollowing(originalFollowState)
-        onFollowChange?.(originalFollowState)
-
-        // Handle specific error cases
-        hideToast(loadingToastId)
-        
-        let errorMessage = 'Failed to update follow status'
-        if (response && response.status === 401) {
-          errorMessage = 'Please log in to follow users'
-        } else if (response && response.status === 404) {
-          errorMessage = 'User not found'
-        } else if (response && response.status === 409) {
-          errorMessage = 'Follow relationship already exists'
-        } else if (response && response.status === 422) {
-          errorMessage = 'Cannot follow yourself'
-        } else if (result?.error?.message) {
-          errorMessage = result.error.message
-        }
-
-        showError('Follow Failed', errorMessage, {
-          label: 'Retry',
-          onClick: () => handleFollowToggle()
-        })
-      }
-    } catch (error) {
-      // Rollback optimistic update
-      setIsFollowing(originalFollowState)
-      onFollowChange?.(originalFollowState)
+      // Use centralized state management with optimistic updates
+      await toggleFollow()
       
-      console.error('Follow toggle error:', error)
+      // Success - update toast
       hideToast(loadingToastId)
-      showError(
-        'Network Error', 
-        'Please check your connection and try again',
-        {
-          label: 'Retry',
-          onClick: () => handleFollowToggle()
-        }
+      showSuccess(
+        `User ${action === 'follow' ? 'followed' : 'unfollowed'}!`,
+        `You ${action === 'follow' ? 'are now following' : 'unfollowed'} this user`
       )
-    } finally {
-      setIsLoading(false)
+    } catch (error) {
+      // Error handling - rollback is handled by useUserState
+      hideToast(loadingToastId)
+      
+      let errorMessage = 'Failed to update follow status'
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          errorMessage = 'Please log in to follow users'
+        } else if (error.message.includes('404')) {
+          errorMessage = 'User not found'
+        } else if (error.message.includes('409')) {
+          errorMessage = 'Follow relationship already exists'
+        } else if (error.message.includes('422')) {
+          errorMessage = 'Cannot follow yourself'
+        } else {
+          errorMessage = error.message
+        }
+      }
+
+      showError('Follow Failed', errorMessage, {
+        label: 'Retry',
+        onClick: () => handleFollowToggle()
+      })
     }
   }
 

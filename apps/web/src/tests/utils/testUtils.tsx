@@ -1,13 +1,16 @@
 import React from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { UserProvider } from '@/contexts/UserContext'
 
-// Custom render function that includes ToastProvider
+// Custom render function that includes all necessary providers
 const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
   return (
-    <ToastProvider>
-      {children}
-    </ToastProvider>
+    <UserProvider>
+      <ToastProvider>
+        {children}
+      </ToastProvider>
+    </UserProvider>
   )
 }
 
