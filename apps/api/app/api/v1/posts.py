@@ -35,7 +35,7 @@ security = HTTPBearer()
 
 class PostCreate(BaseModel):
     """Post creation request model with automatic type detection and rich content support."""
-    content: str = Field(..., min_length=1)
+    content: str = Field(default="", min_length=0)
     rich_content: Optional[str] = Field(None, description="HTML formatted content")
     post_style: Optional[dict] = Field(None, description="Post styling information")
     image_url: Optional[str] = None
@@ -63,6 +63,8 @@ class PostCreate(BaseModel):
                 if field not in v:
                     raise ValueError(f'Post style missing required field: {field}')
         return v
+
+
 
 
 class PostResponse(BaseModel):
@@ -285,6 +287,13 @@ async def create_post_json(
         user_repo = UserRepository(db)
         user = await user_repo.get_by_id_or_404(current_user_id)
 
+        # Validate that either content or image is provided
+        if not post_data.content.strip() and not post_data.image_url:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Either content or image must be provided"
+            )
+
         # Analyze content to determine post type automatically
         content_analysis_service = ContentAnalysisService(db)
         has_image = bool(post_data.image_url)
@@ -447,7 +456,7 @@ async def create_post_with_file(
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
     # FormData parameters
-    content: str = Form(...),
+    content: str = Form(default=""),
     rich_content: Optional[str] = Form(None),
     post_style: Optional[str] = Form(None),  # JSON string
     location: Optional[str] = Form(None),
@@ -522,6 +531,13 @@ async def create_post_with_file(
             
             upload_result = await _save_uploaded_file(image, db, current_user_id, force_upload)
             image_url = upload_result["file_url"]
+
+        # Validate that either content or image is provided (after processing uploaded file)
+        if not post_data.content.strip() and not image_url:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Either content or image must be provided"
+            )
 
         # Analyze content to determine post type automatically
         content_analysis_service = ContentAnalysisService(db)

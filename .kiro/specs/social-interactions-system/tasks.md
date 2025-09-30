@@ -1293,31 +1293,34 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
     - Add cleanup process for orphaned image files
   - Test deduplication with various scenarios: exact duplicates, similar images, different formats of same image
 
-- [-] **20.7 Enhanced Emoji Picker for Post Creation/Edit**
-  - Expand emoji picker with comprehensive collection of positive emojis
-  - Emoji categories to include at least:
-    - Hearts and love: ❤️ 💕 💖 💗 💘 💝 💞 💟 ♥️ 💓 💔 💋 😍 🥰 😘 💌
-    - Smilies and happiness: 😊 😄 😃 😀 😁 😆 😂 🤣 😇 🙂 🙃 😉 😌 😋 😎 🤗 🤩 🥳 😸 😻
-    - Hand gestures: 👍 👏 🙌 👌 🤞 🤟 ✌️ 🤘 👊 ✊ 🙏 💪 👋 🤝 🫶 👐 🙋‍♀️ 🙋‍♂️
-    - Celebration and success: 🎉 🎊 🥳 🎈 🎁 🏆 🥇 ⭐ 🌟 ✨ 💫 🎯 🎪 🎭
-    - Nature and positivity: 🌞 🌈 🌸 🌺 🌻 🌷 🌹 🦋 🌿 🍀 🌱 🌳 🏔️ 🌊 ☀️
+- [x] **20.7 Enhanced Emoji Picker for Post Creation/Edit**
+  - Keep the current simple style and size of the emoji picker
+  - Add a lean search bar at the top for emoji filtering
+  - Expand emoji collection with positive emojis while maintaining current layout:
+    - Hearts and love: ❤️ 💕 � � 😃💘 � � � ♥️  😇💓 � � �  😋� � �
+    - Smilies and happiness: � 😄 😃 ️😀 😁 � � 🤣 � 🤝 🙂 � 😉 � 🙋😋 😎 🤗 🤩 🥳 😸 😻
+    - Hand gestures: 👍 👏 🙌 👌 🤞 � ✌️ 🤘  👊 ✊ 🙏 💪 � 🤝 🫶 👐 🙋‍♀️ 🙋‍♂️
+    - Celebration and success: � �  🥳 � � � �  🍀 ⭐ � ✨ 💫🌊 🎯 🎪 🎭
+    - Nature and positivity: � � �🍓  � �🥭 � � � 🍇 � 🍀 🌱 🌳 🏔️ 🌊 ☀️
     - Food and treats: 🍰 🧁 🍪 🍫 🍯 🍓 🍒 🍑 🥭 🍊 🍋 🥝 🍇 🍉 🫐
+    - Country Flags
   - Implementation features:
-    - Organize emojis in collapsible categories for easy navigation
-    - Add search functionality to quickly find specific emojis
-    - Include recently used emojis section at the top
-    - Support skin tone variations for applicable hand gesture emojis
-    - Add emoji descriptions/tooltips on hover for accessibility
+    - **PRESERVE:** Keep current emoji picker size and simple grid layout
+    - **ADD:** Lean search bar at the top with placeholder "Search emojis..."
+    - **ADD:** Real-time filtering as user types (no search button needed)
+    - **PRESERVE:** Current emoji selection behavior and styling
+    - **OPTIONAL:** Recently used emojis (only if space allows without changing size)
   - Technical implementation:
-    - Create comprehensive emoji data structure with categories and metadata
-    - Implement efficient emoji rendering with lazy loading for performance
-    - Add keyboard navigation support (arrow keys, enter to select)
-    - Ensure proper Unicode support and cross-platform compatibility
+    - Maintain current emoji picker component structure and styling
+    - Add simple search input field at the top with minimal styling
+    - Implement emoji filtering based on emoji names/keywords
+    - Keep current emoji rendering performance (no lazy loading needed for simple grid)
+    - Preserve existing keyboard navigation and accessibility features
   - Modal positioning and mobile responsiveness:
-    - **CRITICAL:** Modal must always open above the post text box, never below
-    - **Mobile optimization:** Ensure modal doesn't cover the post text area on mobile devices
-    - Implement responsive sizing that adjusts properly for mobile viewports
-    - Add proper viewport calculations to prevent modal from extending beyond screen boundaries
+    - **PRESERVE:** Current modal positioning and size
+    - **PRESERVE:** Current mobile behavior and responsiveness
+    - **ENSURE:** Search bar doesn't increase overall modal height significantly
+    - **MAINTAIN:** Current viewport handling and positioning logic
     - Ensure touch targets are appropriately sized for mobile interaction (minimum 44px)
     - Test modal positioning across different screen sizes (mobile, tablet, desktop)
   - User experience enhancements:
@@ -1355,16 +1358,37 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - _Requirements: 1.1, 1.2, 2.1, 2.2_
 
 - [ ] **20.9 Fix Profile Picture Cropping System**
-  - Replace current side-cropping behavior with circular cropping for profile images
-  - Current issue: Profile pictures are cropped from the sides, losing important image content
-  - Implementation requirements:
-    - Remove horizontal side cropping that cuts off image content
-    - Implement circular crop overlay during profile image upload
-    - Allow user to control the size and position of the circular crop area
-    - Provide interactive crop selection interface before upload confirmation
-  - Technical changes needed:
+  - Replace current horizontal cropping with interactive circular cropping system
+  - Current issue: Bad circular cropping results in horizontal cropping that loses image content
+  - Implementation workflow:
+    1. Upload profile image as-is (no initial cropping)
+    2. Present circular cropping interface to user
+    3. Allow user to position crop circle by dragging with mouse/finger
+    4. Provide horizontal scrollbar for resizing crop circle
+    5. Apply cropping and generate all dimension variants with circular crop
+  - Circular cropping interface requirements:
+    - Draggable circular crop overlay that user can position
+    - Horizontal scrollbar for resizing crop circle (fitting site style and color scheme)
+    - Configurable minimum crop size
+    - Maximum crop size calculated to stay within image borders
+    - Real-time preview of cropped result
+  - Technical architecture changes:
+    - Each user gets individual dimension variants (no sharing between users)
+    - Variants created when user uploads profile picture
+    - Variants deleted when user changes/deletes profile picture
+    - Remove all connections between dimension variants and deduplication system
+    - Cleanup existing shared variant behavior from deduplication mechanism
+  - Backend changes needed:
     - Update profile photo service to handle circular crop coordinates
-    - Implement frontend crop selection UI with draggable/resizable circle
+    - Modify variant generation to apply circular cropping
+    - Remove variant sharing logic from deduplication system
+    - Implement individual user variant management
+  - Frontend changes needed:
+    - Implement interactive circular crop selection UI
+    - Add draggable crop circle with position controls
+    - Add horizontal scrollbar for crop size adjustment
+    - Style components to match site design and color scheme
+    - Provide real-time crop preview
     - Modify image processing to apply circular mask instead of rectangular crop
     - Store crop parameters (center point, radius) for consistent display
   - User experience improvements:
@@ -1385,56 +1409,104 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Verify crop selection interface is intuitive and responsive
   - _Requirements: 3.1, 3.2_
 
+- [ ] **20.10 Fix Component State Synchronization**
+  - Investigate and implement comprehensive state synchronization across all components
+  - Architecture changes needed:
+    1. Implement centralized state management for user data (follow status, profile info)
+    2. Create event-driven state updates using React Context or state management library
+    3. Establish consistent data flow patterns for real-time UI updates
+    4. Implement optimistic UI updates with rollback capability for failed operations
+  - Critical synchronization cases to fix:
+    1. **Follow/Unfollow State Sync**: When following/unfollowing a user in feed or profile page, all other posts by that user should immediately display correct follow status in follow buttons
+    2. **Profile Picture Updates**: When uploading profile picture in profile page, all posts by that user should immediately show new profile picture
+    3. **Display Name Changes**: When changing display name in profile page, all posts by that user should immediately show updated display name
+    4. **Post Interaction Updates**: When liking/reacting to posts, all instances of that post should show updated interaction counts
+    5. **Notification State**: When notifications are read/dismissed, notification count should update across all components
+    6. **User Status Changes**: When user comes online/offline, their status should update across all displayed instances
+  - Implementation approach:
+    1. Create UserContext provider to manage global user state and relationships
+    2. Implement useUserState hook for accessing and updating user data consistently
+    3. Add event listeners for state changes that propagate updates to all subscribed components
+    4. Create optimistic update patterns for immediate UI feedback
+    5. Implement error handling and rollback mechanisms for failed state updates
+    6. Add state validation to ensure data consistency across components
+  - Technical requirements:
+    - Centralized user data management with React Context
+    - Event-driven state updates for real-time synchronization
+    - Optimistic UI updates with proper error handling
+    - Consistent data flow patterns across all components
+    - State validation and consistency checks
+    - Performance optimization to prevent unnecessary re-renders
+  - Testing requirements:
+    - Test follow/unfollow state synchronization across multiple post instances
+    - Verify profile picture updates propagate to all user post displays
+    - Test display name changes update across all user references
+    - Validate notification state synchronization
+    - Test error handling and rollback scenarios
+    - Performance testing for state update efficiency
+  - _Requirements: 6.1, 6.2, 6.3, 1.7, 2.9, 5.6_
+
 - [ ] **Test Execution:** Run frontend tests (`npm test`) to verify new modal components and navigation functionality. Test WhatsApp sharing on actual mobile devices and desktop browsers. Verify followers/following modals display correct data and follow buttons work properly. Test posts metric navigation with smooth scrolling behavior. Validate ultra-condensed UI maintains accessibility and usability across all screen sizes. Test image sizing with various image dimensions and formats. Verify image deduplication system prevents duplicate uploads and handles edge cases properly.
 
-- [ ] **Update Project Documentation:** Update docs/FRONTEND_COMPONENTS.md with new modal components (FollowersModal, FollowingModal). Add WhatsApp sharing configuration to docs/ARCHITECTURE_AND_SETUP.md. Document new navigation patterns in docs/UI_UX_GUIDELINES.md.
+- [ ] **Update Project Documentation:** Update docs/FRONTEND_COMPONENTS.md with new modal components (FollowersModal, FollowingModal). Add WhatsApp sharing configuration to docs/ARCHITECTURE_AND_SETUP.md. Document new navigation patterns in docs/UI_UX_GUIDELINES.md. Search for more changes to update in the documentation from the completed subtasks (verify in the code)
 
 **Acceptance Criteria:** WhatsApp sharing works on both desktop and mobile with proper URL generation and analytics tracking, followers/following metrics open modals with searchable user lists and functional follow buttons, posts metric smoothly scrolls to the posts section with visual feedback, and all enhancements maintain consistent styling and mobile responsiveness.
 
 ---
 
-### **TASK 21: Privacy Controls System** (Post-MVP)
+### **TASK 21: Enhanced Post Creation and Edit Style System**
+**Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Enhanced)
+- [ ] **21.1 Simplify Post Style Modal**
+  - Remove "Font Style" section from PostStyleSelector component
+  - Remove "Preview" section from PostStyleSelector component  
+  - Keep only the "Background Styles" section with existing color options
+  - Ensure background color selection remains functional and visually clear
+  - Update modal layout to be more compact without removed sections
+- [ ] **21.2 Background Color Application**
+  - Update RichTextEditor component to apply selected background style to the text input area
+  - Ensure selected background color is visually applied to the text input area in real-time
+  - Maintain text readability with appropriate text color contrast for each background style
+  - Ensure selected PostStyle is properly stored and passed to post creation
+- [ ] **21.3 Background Color Rendering**
+  - Verify PostCard component properly renders background styles from post_style field
+  - Ensure background colors appear correctly in feed, profile, and shared post views
+  - Maintain consistent styling across all post display contexts
+  - Handle posts without background styles (default styling) and legacy posts with font properties
+- [ ] **21.4 Mobile Style Modal Optimization**
+  - Optimize style modal layout and alignment for mobile viewport
+  - Ensure background color selection buttons are touch-friendly (minimum 44px)
+  - Test modal responsiveness on various mobile screen sizes
+  - Adjust spacing and layout for better mobile user experience
+- [ ] **21.5 Edit Post Modal Enhancement**
+  - Load existing post data (text, image, location, post_style) into edit modal
+  - Ensure edit modal behaves identically to create post modal for style selection
+  - Implement proper saving of all post data changes including post_style background colors
+  - Maintain existing post data when only some fields are modified
+  - Add validation to ensure data integrity during post updates and filter out font properties
+  - Share as much code as possible between Edit Post Modal and create post modal
+- [ ] **21.6 Backend Support for Post Styles**
+  - Verify existing `post_style` JSON field in Post model supports background color storage
+  - Update PostService validation to ensure only background color properties are stored (remove font-related properties)
+  - Modify POST and PUT /api/v1/posts endpoints to validate post_style contains only background color data
+  - Add validation for background color values within post_style JSON (hex codes or predefined style IDs)
+  - Ensure backward compatibility with existing posts that may have font properties in post_style
+- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify Post model changes and API endpoints handle background colors correctly. Run frontend tests (`npm test`) to verify style modal functionality, background color application, and edit modal behavior. Test on mobile devices to verify responsive design and touch interactions.
+- [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with simplified post_style field usage (background colors only). Add post styling configuration to docs/ARCHITECTURE_AND_SETUP.md. Document post_style field restrictions in docs/DATABASE_STRUCTURE.md.
+**Acceptance Criteria:** PostStyleSelector component only shows background color selection (no font style or preview sections), selected background colors fill the text area and render in posts using existing post_style field, style modal is optimized for mobile, edit post modal loads all existing data and saves changes correctly, and all functionality is properly tested and documented.
+
+### **TASK 22: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 22: Advanced Social Features** (Post-MVP)
+### **TASK 23: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
-
-### **TASK 23: Fast Login Page for Development** (Post-MVP)
-**Module Reference:** Development Tools - Fast Login Interface for Testing
-- [ ] **23.1 Create Fast Login Page Route**
-  - Create `/auth/fast-login` page route in `apps/web/src/app/auth/fast-login/page.tsx`
-  - Copy existing login page layout and styling from `/auth/login/page.tsx`
-  - Replace email/password form with user selection dropdown
-  - Add development environment detection to prevent production access
-  - Implement purple theme consistency matching regular login page
-- [ ] **23.2 User Selection Interface**
-  - Create dropdown showing all existing users (username, email, profile picture)
-  - Implement one-click login functionality that generates development token
-  - Add user search/filter functionality for large user lists
-  - Display user information clearly (username, email, join date)
-  - Add "Login as [Username]" button for each user selection
-- [ ] **23.3 Development Environment Protection**
-  - Add environment variable check (`NODE_ENV !== 'production'`) to prevent production access
-  - Implement build-time exclusion using Next.js conditional compilation
-  - Add clear development warning banner on fast login page
-  - Create separate API endpoint `/api/v1/auth/dev-login` for development token generation
-  - Add rate limiting and IP restrictions for development endpoints
-- [ ] **23.4 Fast Login UX and Navigation**
-  - Style page identical to regular login with "Fast Login (Dev Mode)" title
-  - Add "Back to Regular Login" link for normal authentication flow
-  - Implement responsive design matching existing login page
-  - Add success feedback and automatic redirect to feed after login
-  - Include clear indication this is a development-only feature
-- [ ] **Test Execution:** Run frontend tests (`npm test`) to verify fast login page routing and user selection functionality. Test development environment protection and build exclusion. Verify fast login generates proper authentication tokens and redirects correctly.
-**Acceptance Criteria:** Fast login page is accessible at `/auth/fast-login` route only in development, displays all users in a searchable dropdown, allows one-click login with proper authentication token generation, maintains consistent login page styling, and is completely excluded from production builds.
 
 ### **TASK 24: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
