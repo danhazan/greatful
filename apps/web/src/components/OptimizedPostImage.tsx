@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Loader2, AlertCircle } from "lucide-react"
+import ImageModal from "./ImageModal"
 
 interface OptimizedPostImageProps {
   src: string
@@ -26,6 +27,7 @@ export default function OptimizedPostImage({
   const [hasError, setHasError] = useState(false)
   const [imageDimensions, setImageDimensions] = useState<ImageDimensions | null>(null)
   const [isVisible, setIsVisible] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -74,9 +76,15 @@ export default function OptimizedPostImage({
     setHasError(true)
   }
 
-  // Get container styling - now uses aspect ratio for natural scaling
+  const handleImageClick = () => {
+    if (!hasError && !isLoading) {
+      setShowModal(true)
+    }
+  }
+
+  // Get container styling - use natural image dimensions
   const getContainerStyling = () => {
-    const baseClasses = "relative overflow-hidden rounded-lg bg-gray-50 w-full"
+    const baseClasses = "relative rounded-lg overflow-hidden bg-gray-50 w-full cursor-pointer hover:opacity-95 transition-opacity"
     
     switch (postType) {
       case 'daily':
@@ -91,7 +99,7 @@ export default function OptimizedPostImage({
   // Get dynamic container style based on image aspect ratio
   const getContainerStyle = () => {
     if (!imageDimensions) {
-      // Default aspect ratio while loading
+      // Default aspect ratio while loading to prevent layout shift
       return { aspectRatio: '16 / 9' }
     }
 
@@ -99,9 +107,9 @@ export default function OptimizedPostImage({
     
     // Set max heights based on post type to prevent extremely tall images
     const maxHeights = {
-      daily: 500,    // 500px max
-      photo: 400,    // 400px max  
-      spontaneous: 300 // 300px max
+      daily: 600,    // 600px max for daily posts
+      photo: 500,    // 500px max for photo posts
+      spontaneous: 400 // 400px max for spontaneous posts
     }
     
     const maxHeight = maxHeights[postType]
@@ -111,7 +119,7 @@ export default function OptimizedPostImage({
     const estimatedWidth = 500
     const naturalHeight = estimatedWidth / aspectRatio
     
-    // If natural height exceeds max, constrain it
+    // If natural height exceeds max, constrain the aspect ratio
     if (naturalHeight > maxHeight) {
       const constrainedAspectRatio = estimatedWidth / maxHeight
       return { aspectRatio: `${constrainedAspectRatio.toFixed(3)} / 1` }
@@ -125,47 +133,74 @@ export default function OptimizedPostImage({
   const containerStyle = getContainerStyle()
 
   return (
-    <div 
-      ref={containerRef}
-      className={`${containerClasses} ${className}`}
-      style={containerStyle}
-    >
-      {/* Loading State */}
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-          <div className="flex flex-col items-center space-y-2">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-400" data-testid="loading-spinner" />
-            <span className="text-sm text-gray-500">Loading image...</span>
+    <>
+      <div 
+        ref={containerRef}
+        className={`${containerClasses} ${className}`}
+        style={containerStyle}
+        onClick={handleImageClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleImageClick()
+          }
+        }}
+        aria-label="Click to view full image"
+      >
+        {/* Loading State */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="flex flex-col items-center space-y-2">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" data-testid="loading-spinner" />
+              <span className="text-sm text-gray-500">Loading image...</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Error State */}
-      {hasError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-          <div className="flex flex-col items-center space-y-2 text-gray-500">
-            <AlertCircle className="h-8 w-8" />
-            <span className="text-sm">Failed to load image</span>
+        {/* Error State */}
+        {hasError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="flex flex-col items-center space-y-2 text-gray-500">
+              <AlertCircle className="h-8 w-8" />
+              <span className="text-sm">Failed to load image</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Image - only load when visible (lazy loading) */}
-      {isVisible && (
-        <img
-          ref={imgRef}
-          src={src}
-          alt={alt}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            isLoading ? 'opacity-0' : 'opacity-100'
-          }`}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-          loading="lazy"
-        />
-      )}
+        {/* Image - only load when visible (lazy loading) */}
+        {isVisible && (
+          <img
+            ref={imgRef}
+            src={src}
+            alt={alt}
+            className={`w-full h-full object-cover transition-opacity duration-300 ${
+              isLoading ? 'opacity-0' : 'opacity-100'
+            }`}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            loading="lazy"
+          />
+        )}
 
+        {/* Click indicator overlay */}
+        {!isLoading && !hasError && (
+          <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center opacity-0 hover:opacity-100">
+            <div className="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+              Click to expand
+            </div>
+          </div>
+        )}
+      </div>
 
-    </div>
+      {/* Image Modal */}
+      <ImageModal
+        src={src}
+        alt={alt}
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+      />
+    </>
   )
 }

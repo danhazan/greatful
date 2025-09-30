@@ -5,8 +5,9 @@
 ### ⚠️ Active Issues
 - **🚫 Share Post Production 500 Error**: POST /api/v1/posts/{post_id}/share returns 500 error in production only
 - **✏️ Edit Post Functionality Broken**: Edit post feature fails with "Update Failed" error
+- **🎨 Background Styles Not Applying**: Create/edit modal background styles not applying correctly during typing
+- **🔤 White Text Visibility Issue**: White text not visible on dark backgrounds while typing in editor
 - **🔤 RTL Text Reversal**: Hebrew and Arabic text displaying in reversed character order
-
 - **🔤 Notification Username Instead of Display Name**: Notifications show username instead of display name
 - **📊 Engagement Summary Auto-Popup**: Metrics popup automatically appears when posts reach 6+ total reactions
 - **🎭 Emoji Reactions 6 & 7**: Click handlers not working for emojis 6 (😂) and 7 (🤔)
@@ -29,17 +30,19 @@
 - **RichTextEditor Toolbar Improvements**: ✅ COMPLETED - Added pressed states, emoji repositioning, and dividers
 - **Mobile Search Bar Z-Index Issue**: ✅ COMPLETED - Mobile search bar now appears correctly positioned below navbar
 
+
 > 📚 **For detailed troubleshooting guides and historical fixes, see [`COMMON_FIXES.md`](./COMMON_FIXES.md)**
 
 ### 📊 System Health Status
 - ✅ **Heart Counter**: Working perfectly with real-time updates
 - ✅ **Reaction Counter**: Working perfectly with real-time updates  
+- ❌ **Background Styles**: Create/edit modal styling and text visibility issues persist
 - ❌ **Share Functionality**: Critical production failure - 500 errors on all share requests
 - ⚠️ **Core APIs**: Most endpoints working, share endpoint broken in production
 - ⚠️ **RTL Text Support**: Critical character reversal issue with formatted text
 - ⚠️ **Emoji Picker**: 8/10 emojis working (2 have click handler issues)
 - ⚠️ **Component Synchronization**: High-priority UI consistency issue affecting follow buttons and related components
-- ✅ **Tests**: 739+ tests passing (with known isolation issue)
+- ✅ **Tests**: 1200+ tests passing (with known isolation issue)
 
 ---
 
@@ -260,7 +263,7 @@ The original approach tried to overlay the search on top of navbar elements, cre
 - `apps/web/src/tests/components/UserSearchBar.mobile-z-index.test.tsx` - Updated test expectations
 - `docs/KNOWN_ISSUES.md` - Moved issue to resolved section
 
----
+
 
 ## ⚠️ Active Issues
 
@@ -411,6 +414,93 @@ The edit post functionality is completely broken. When users attempt to edit a p
 - `apps/api/app/api/v1/posts.py` - Backend PUT endpoint
 - `apps/api/app/models/post.py` - Post model validation
 - `apps/web/src/app/api/posts/[id]/route.ts` - Frontend API route
+
+### Background Styles Not Applying
+**Issue**: Create/edit modal background styles not applying correctly during typing  
+**Status**: ⚠️ Active Issue  
+**Priority**: High  
+**Impact**: Core Editor User Experience  
+**Discovered**: October 1, 2025  
+
+**Description**:
+Background styles selected in the post style picker are not being applied correctly to the editor area while users are typing. This creates inconsistency between the style preview and the actual editing experience.
+
+**Technical Details**:
+- Backend: Post style data is stored and retrieved correctly ✅
+- Database: Style metadata persists properly ✅
+- Frontend: Background styles not applying to editor during typing ❌
+- Issue: Editor styling implementation not working as expected
+
+**Current Behavior**:
+- User selects background style (e.g., dark theme) ✅
+- Style preview shows correctly in picker ✅
+- Editor area doesn't reflect selected background ❌
+- Published posts may not show intended styling ❌
+
+**Expected Behavior**:
+- Selected background style should apply immediately to editor
+- User should see background while typing
+- Create and edit modals should look identical
+- Published posts should match editor appearance
+
+**Reproduction Steps**:
+1. Open create post modal
+2. Select a background style (e.g., "Elegant Dark")
+3. Observe that editor background doesn't change
+4. Type text and note styling inconsistency
+
+**Priority**: High - Affects core editor user experience and visual consistency.
+
+**Implementation Attempts Made**:
+- ✅ Created wrapper-based styling approach in RichTextEditor
+- ✅ Enhanced CreatePostModal payload to include post_style and rich_content
+- ✅ Updated RichContentRenderer to prefer explicit textColor
+- ✅ Added comprehensive test coverage and colorUtils
+- ❌ **Issues persist**: Background styles still not applying correctly
+- ❌ **Root cause**: Wrapper-based styling implementation not working as expected
+
+### White Text Visibility Issue
+**Issue**: White text not visible on dark backgrounds while typing in editor  
+**Status**: ⚠️ Active Issue  
+**Priority**: High  
+**Impact**: Text Readability & User Experience  
+**Discovered**: October 1, 2025  
+
+**Description**:
+When users select dark background styles, the text color doesn't automatically adjust to white/light colors, making text invisible or very hard to read while typing.
+
+**Technical Details**:
+- Backend: Text color logic exists but may not be applied correctly ✅
+- Database: Color preferences stored properly ✅
+- Frontend: Text color not updating based on background darkness ❌
+- Issue: Color contrast calculation not working in editor
+
+**Current Behavior**:
+- User selects dark background style ✅
+- Text remains dark color (invisible on dark background) ❌
+- User cannot see what they're typing ❌
+- Published posts may have correct colors ✅
+
+**Expected Behavior**:
+- Dark backgrounds should automatically use white/light text
+- Light backgrounds should use dark text
+- Text should be clearly visible while typing
+- Color contrast should be maintained for accessibility
+
+**Reproduction Steps**:
+1. Open create post modal
+2. Select "Elegant Dark" or similar dark background
+3. Start typing text
+4. Observe that text is not visible due to poor contrast
+
+**Priority**: High - Critical usability issue affecting text visibility and user experience.
+
+**Implementation Attempts Made**:
+- ✅ Added text color inheritance with `color: inherit` in contenteditable
+- ✅ Implemented colorUtils for dynamic color computation
+- ✅ Updated tests to use computed colors instead of hardcoded values
+- ❌ **Issues persist**: Text visibility problems continue
+- ❌ **Root cause**: Color inheritance and contrast calculation not working properly
 
 ### RTL Text Reversal Issue
 **Issue**: Hebrew and Arabic text displaying in reversed character order after implementing RTL support  

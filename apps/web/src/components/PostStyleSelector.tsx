@@ -1,6 +1,7 @@
 "use client"
 
 import { Sparkles } from "lucide-react"
+import { getTextColorForBackground, extractPrimaryBackgroundColor } from "@/utils/colorUtils"
 
 export interface PostStyle {
   id: string
@@ -36,7 +37,7 @@ const POST_STYLES: PostStyle[] = [
     name: 'Warm Sunset',
     backgroundColor: '#FEF3C7',
     backgroundGradient: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 50%, #F59E0B 100%)',
-    textColor: '#92400E',
+    textColor: '#374151', // Will be computed based on background
     textShadow: '0 1px 2px rgba(0,0,0,0.1)'
   },
   {
@@ -44,7 +45,7 @@ const POST_STYLES: PostStyle[] = [
     name: 'Peaceful Purple',
     backgroundColor: '#F3E8FF',
     backgroundGradient: 'linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 50%, #C084FC 100%)',
-    textColor: '#581C87',
+    textColor: '#374151', // Will be computed based on background
     textShadow: '0 1px 2px rgba(0,0,0,0.1)'
   },
   {
@@ -52,7 +53,7 @@ const POST_STYLES: PostStyle[] = [
     name: 'Nature Green',
     backgroundColor: '#ECFDF5',
     backgroundGradient: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 50%, #34D399 100%)',
-    textColor: '#065F46',
+    textColor: '#374151', // Will be computed based on background
     textShadow: '0 1px 2px rgba(0,0,0,0.1)'
   },
   {
@@ -60,7 +61,7 @@ const POST_STYLES: PostStyle[] = [
     name: 'Ocean Blue',
     backgroundColor: '#EFF6FF',
     backgroundGradient: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #60A5FA 100%)',
-    textColor: '#1E3A8A',
+    textColor: '#374151', // Will be computed based on background
     textShadow: '0 1px 2px rgba(0,0,0,0.1)'
   },
   {
@@ -68,7 +69,7 @@ const POST_STYLES: PostStyle[] = [
     name: 'Rose Gold',
     backgroundColor: '#FDF2F8',
     backgroundGradient: 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%, #F472B6 100%)',
-    textColor: '#9D174D',
+    textColor: '#374151', // Will be computed based on background
     textShadow: '0 1px 2px rgba(0,0,0,0.1)'
   },
   {
@@ -82,7 +83,7 @@ const POST_STYLES: PostStyle[] = [
     id: 'elegant-dark',
     name: 'Elegant Dark',
     backgroundColor: '#1F2937',
-    textColor: '#F9FAFB',
+    textColor: '#F9FAFB', // Keep white for dark background
     textShadow: '0 1px 2px rgba(0,0,0,0.5)'
   },
   {
@@ -90,12 +91,12 @@ const POST_STYLES: PostStyle[] = [
     name: 'Gratitude Gold',
     backgroundColor: '#FFFBEB',
     backgroundGradient: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 50%, #FBBF24 100%)',
-    textColor: '#92400E',
+    textColor: '#374151', // Will be computed based on background
     textShadow: '0 1px 2px rgba(0,0,0,0.1)'
   }
 ]
 
-// Font options for posts
+// Font options removed - keeping only for backward compatibility in exports
 const FONT_OPTIONS = [
   { id: 'default', name: 'Default', fontFamily: 'system-ui, -apple-system, sans-serif' },
   { id: 'serif', name: 'Serif', fontFamily: 'Georgia, serif' },
@@ -117,19 +118,23 @@ export default function PostStyleSelector({
     if (onClose) onClose()
   }
 
-  const handleFontChange = (fontOption: typeof FONT_OPTIONS[0]) => {
-    const updatedStyle = {
-      ...selectedStyle,
-      fontFamily: fontOption.fontFamily
-    }
-    onStyleChange(updatedStyle)
-  }
+  // Font change handler removed - no longer needed
 
   const getStylePreview = (style: PostStyle) => {
+    // Extract the primary background color for text color computation
+    const primaryBgColor = extractPrimaryBackgroundColor(
+      style.backgroundGradient || style.backgroundColor || 'transparent'
+    );
+    
+    // Compute appropriate text color based on background
+    const computedTextColor = style.id === 'elegant-dark' 
+      ? style.textColor // Keep explicit white for dark theme
+      : getTextColorForBackground(primaryBgColor, '#374151');
+    
     const previewStyle: React.CSSProperties = {
       backgroundColor: style.backgroundColor,
       background: style.backgroundGradient || style.backgroundColor,
-      color: style.textColor,
+      color: computedTextColor,
       border: style.borderStyle || 'none',
       textShadow: style.textShadow || 'none',
       fontFamily: style.fontFamily || 'inherit'
@@ -143,7 +148,7 @@ export default function PostStyleSelector({
   const pickerStyle: React.CSSProperties = {
     position: 'fixed',
     left: Math.min(position.x, window.innerWidth - 400), // 400px is picker width
-    top: Math.min(position.y, window.innerHeight - 500), // 500px is picker height
+    top: Math.min(position.y, window.innerHeight - 350), // 350px is picker height (reduced from 500px)
     zIndex: 1000
   }
 
@@ -158,7 +163,7 @@ export default function PostStyleSelector({
       {/* Background Selector */}
       <div
         style={pickerStyle}
-        className={`bg-white border border-gray-200 rounded-xl shadow-xl w-96 max-h-[500px] flex flex-col background-selector ${className}`}
+        className={`bg-white border border-gray-200 rounded-xl shadow-xl w-96 max-h-[350px] flex flex-col background-selector ${className}`}
         data-backgrounds-modal
       >
         {/* Header */}
@@ -170,7 +175,7 @@ export default function PostStyleSelector({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {/* Background Styles */}
-          <div className="mb-6">
+          <div>
             <h4 className="text-sm font-medium text-gray-900 mb-3">Background Styles</h4>
             <div className="grid grid-cols-2 gap-3">
               {POST_STYLES.map((style) => (
@@ -195,40 +200,6 @@ export default function PostStyleSelector({
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Font Options */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Font Style</h4>
-            <div className="space-y-1">
-              {FONT_OPTIONS.map((font) => (
-                <button
-                  key={font.id}
-                  type="button"
-                  onClick={() => handleFontChange(font)}
-                  className={`w-full text-left px-3 py-2 rounded hover:bg-gray-100 transition-colors ${
-                    selectedStyle.fontFamily === font.fontFamily
-                      ? 'bg-purple-50 text-purple-700'
-                      : 'text-gray-700'
-                  }`}
-                  style={{ fontFamily: font.fontFamily }}
-                >
-                  <div className="text-sm">{font.name}</div>
-                  <div className="text-xs opacity-75">Sample text</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="text-xs font-medium text-gray-600 mb-2">Preview:</div>
-          <div
-            className="px-3 py-2 rounded-lg border text-sm"
-            style={getStylePreview(selectedStyle)}
-          >
-            I'm grateful for this beautiful day...
           </div>
         </div>
       </div>

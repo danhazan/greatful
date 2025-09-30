@@ -4,6 +4,7 @@ import { PostStyle } from "./PostStyleSelector"
 import { useMemo } from 'react'
 import "../styles/rich-content.css"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, getTextDirectionFromPlainText } from "@/utils/rtlUtils"
+import { getTextColorForBackground, extractPrimaryBackgroundColor } from "@/utils/colorUtils"
 
 // Safe DOMPurify usage for client-side only
 function safeSanitize(html: string): string {
@@ -59,9 +60,14 @@ export default function RichContentRenderer({
   // Apply post style (prefer backend field names)
   const activePostStyle = post_style || postStyle
   const containerStyle: React.CSSProperties = activePostStyle ? {
-    backgroundColor: activePostStyle.backgroundColor,
     background: activePostStyle.backgroundGradient || activePostStyle.backgroundColor,
-    color: activePostStyle.textColor,
+    backgroundColor: activePostStyle.backgroundColor,
+    color: (activePostStyle.textColor && activePostStyle.textColor !== 'auto')
+      ? activePostStyle.textColor
+      : (() => {
+        const primary = extractPrimaryBackgroundColor(activePostStyle.backgroundGradient || activePostStyle.backgroundColor || 'transparent');
+        return getTextColorForBackground(primary, '#374151');
+      })(),
     border: activePostStyle.borderStyle || 'none',
     textShadow: activePostStyle.textShadow || 'none',
     fontFamily: activePostStyle.fontFamily || 'inherit',

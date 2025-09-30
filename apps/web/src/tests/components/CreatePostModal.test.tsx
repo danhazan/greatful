@@ -116,10 +116,17 @@ describe('CreatePostModal Image Upload', () => {
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledWith({
         content: 'Test gratitude post',
-        imageUrl: undefined,
-        location: undefined,
-        imageFile: undefined,
-        mentions: undefined
+        post_style: {
+          id: 'default',
+          name: 'Default',
+          backgroundColor: '#ffffff',
+          backgroundGradient: undefined,
+          textColor: '#374151',
+          borderStyle: undefined,
+          fontFamily: undefined,
+          textShadow: undefined
+        },
+        rich_content: 'Test gratitude post'
       })
     })
   })

@@ -339,27 +339,24 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       // Build payload with rich content support
       const payload: any = {
         content: contentToSubmit.trim(),
+        // Always include post_style (normalized) and rich_content (HTML from editor) explicitly
+        post_style: selectedStyle ? ({
+          id: selectedStyle.id,
+          name: selectedStyle.name,
+          backgroundColor: selectedStyle.backgroundColor,
+          backgroundGradient: selectedStyle.backgroundGradient,
+          textColor: selectedStyle.textColor,
+          borderStyle: selectedStyle.borderStyle,
+          fontFamily: selectedStyle.fontFamily,
+          textShadow: selectedStyle.textShadow
+        }) : null,
+        rich_content: richContent || null,
         // include image if present
         ...(postData.imageUrl ? { imageUrl: postData.imageUrl } : {}),
         ...(postData.location ? { location: postData.location } : {}),
         ...(postData.location_data ? { location_data: postData.location_data } : {}),
         ...(imageFile ? { imageFile } : {}),
-        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {}),
-        // Include rich content only if it's different from plain text (i.e., contains HTML formatting)
-        ...(richContent && richContent.trim() && richContent !== contentToSubmit.trim() ? { rich_content: richContent } : {}),
-        // Always include styling if not default
-        ...(selectedStyle.id !== 'default' ? {
-          post_style: {
-            id: selectedStyle.id,
-            name: selectedStyle.name,
-            backgroundColor: selectedStyle.backgroundColor,
-            backgroundGradient: selectedStyle.backgroundGradient,
-            textColor: selectedStyle.textColor,
-            borderStyle: selectedStyle.borderStyle,
-            fontFamily: selectedStyle.fontFamily,
-            textShadow: selectedStyle.textShadow
-          }
-        } : {})
+        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {})
       }
 
       await onSubmit(payload)

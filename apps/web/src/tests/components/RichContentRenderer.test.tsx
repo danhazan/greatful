@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, jest } from '@jest/globals'
 import RichContentRenderer from '@/components/RichContentRenderer'
 import { PostStyle } from '@/components/PostStyleSelector'
+import { extractPrimaryBackgroundColor, getTextColorForBackground } from '@/utils/colorUtils'
 
 describe('RichContentRenderer', () => {
   const mockOnMentionClick = jest.fn()
@@ -65,11 +66,17 @@ describe('RichContentRenderer', () => {
       />
     )
 
+    // Compute expected color using colorUtils
+    const primary = extractPrimaryBackgroundColor(postStyle.backgroundGradient || postStyle.backgroundColor);
+    const expectedColor = postStyle.textColor && postStyle.textColor !== 'auto'
+      ? postStyle.textColor
+      : getTextColorForBackground(primary, '#374151');
+
     const styledContainer = screen.getByText('Styled content').closest('.rich-content')
     expect(styledContainer).toHaveStyle({
       backgroundColor: '#f0f0f0',
       background: 'linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%)',
-      color: '#333333',
+      color: expectedColor,
       border: '2px solid #cccccc',
       fontFamily: 'Arial, sans-serif',
       textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
@@ -161,10 +168,16 @@ describe('RichContentRenderer', () => {
       />
     )
 
+    // Compute expected color using colorUtils
+    const primary = extractPrimaryBackgroundColor(postStyle.backgroundColor || 'transparent');
+    const expectedColor = postStyle.textColor && postStyle.textColor !== 'auto'
+      ? postStyle.textColor
+      : getTextColorForBackground(primary, '#374151');
+
     const container = screen.getByText('bold').closest('.rich-content')
     expect(container).toHaveStyle({
       backgroundColor: '#fff0f0',
-      color: '#800000'
+      color: expectedColor
     })
     
     const richContainer = container?.querySelector('.rich-content-rendered')
@@ -185,5 +198,31 @@ describe('RichContentRenderer', () => {
     // The custom class is applied to the container, not the text element
     const container = screen.getByText('Content with custom class').closest('.rich-content-rendered')
     expect(container).toHaveClass('custom-class')
+  })
+
+  it('uses explicit textColor for elegant-dark style', () => {
+    const elegantDarkStyle: PostStyle = {
+      id: 'elegant-dark',
+      name: 'Elegant Dark',
+      backgroundColor: '#1a1a1a',
+      textColor: '#ffffff'
+    }
+
+    render(
+      <RichContentRenderer
+        content="Dark theme content"
+        postStyle={elegantDarkStyle}
+        onMentionClick={mockOnMentionClick}
+      />
+    )
+
+    // For elegant-dark, should use explicit textColor
+    const expectedColor = elegantDarkStyle.textColor;
+
+    const styledContainer = screen.getByText('Dark theme content').closest('.rich-content')
+    expect(styledContainer).toHaveStyle({
+      backgroundColor: '#1a1a1a',
+      color: expectedColor
+    })
   })
 })

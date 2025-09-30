@@ -7,6 +7,7 @@ import { sanitizeHtml } from "@/utils/htmlUtils"
 import { wrapMentions, mentionsToPlainText } from "@/utils/mentions"
 import MinimalEmojiPicker from "./MinimalEmojiPicker"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
+import { getTextColorForBackground, extractPrimaryBackgroundColor } from "@/utils/colorUtils"
 
 export interface RichTextEditorRef {
   getHtml: () => string
@@ -743,44 +744,65 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         )}
       </div>
 
-      {/* ContentEditable Editor */}
+      {/* Editor Wrapper with Background Style */}
       <div
-        ref={editableRef}
-        contentEditable
-        suppressContentEditableWarning
-        role="textbox"
-        aria-multiline="true"
-        aria-label={placeholder}
-        onInput={handleInput}
-        onCompositionStart={handleCompositionStart}
-        onCompositionEnd={handleCompositionEnd}
-        className="min-h-[120px] border rounded-b-lg focus:ring-2 focus:ring-purple-500 focus:outline-none relative"
-        data-placeholder={placeholder}
-        dir={getDirectionAttribute(value || htmlValue || '')}
+        className="editor-wrapper rounded-b-lg"
         style={{
-          minHeight: '120px',
-          maxHeight: '300px',
-          overflowY: 'auto',
-          direction: getDirectionAttribute(value || htmlValue || ''),
-          textAlign: getDirectionAttribute(value || htmlValue || '') === 'rtl' ? 'right' : 'left',
-          // CRITICAL: Ensure text is visible
-          color: '#374151',
-          backgroundColor: 'transparent',
-          // Fix mobile text positioning issues
-          WebkitUserSelect: 'text',
-          userSelect: 'text',
-          WebkitTouchCallout: 'default',
-          WebkitTapHighlightColor: 'transparent',
-          // Ensure proper text positioning on mobile
-          lineHeight: '1.5',
-          wordWrap: 'break-word',
-          overflowWrap: 'break-word',
-          // Fix iOS Safari text positioning
-          WebkitTextSizeAdjust: '100%',
-          // Ensure caret is visible
-          caretColor: '#374151'
+          // Apply background to wrapper (gradient or color)
+          background: selectedStyle?.backgroundGradient || selectedStyle?.backgroundColor || 'transparent',
+          backgroundColor: selectedStyle?.backgroundColor || 'transparent',
+          // Compute text color from style (use same helper as renderer)
+          color: selectedStyle?.textColor ?? (() => {
+            const primary = extractPrimaryBackgroundColor(
+              selectedStyle?.backgroundGradient || selectedStyle?.backgroundColor || 'transparent'
+            );
+            return getTextColorForBackground(primary, '#374151');
+          })(),
+          borderRadius: '0 0 8px 8px', // keep same look as editor
+          padding: 0,
+          border: selectedStyle?.borderStyle || '1px solid #d1d5db',
+          borderTop: 'none' // avoid double border with toolbar
         } as React.CSSProperties}
-      />
+      >
+        {/* ContentEditable Editor - Transparent and inherits wrapper color */}
+        <div
+          ref={editableRef}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          aria-label={placeholder}
+          onInput={handleInput}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
+          className="editor-content focus:ring-2 focus:ring-purple-500 focus:outline-none relative"
+          data-placeholder={placeholder}
+          dir={getDirectionAttribute(value || htmlValue || '')}
+          style={{
+            minHeight: '120px',
+            maxHeight: '300px',
+            overflowY: 'auto',
+            background: 'transparent', // ensure it is transparent
+            color: 'inherit', // inherit wrapper color
+            direction: getDirectionAttribute(value || htmlValue || ''),
+            textAlign: getDirectionAttribute(value || htmlValue || '') === 'rtl' ? 'right' : 'left',
+            whiteSpace: 'pre-wrap',
+            padding: '12px',
+            // Apply text shadow if specified
+            textShadow: selectedStyle?.textShadow || 'none',
+            // Apply font family if specified
+            fontFamily: selectedStyle?.fontFamily || 'inherit',
+            // Fix mobile text positioning issues
+            WebkitUserSelect: 'text',
+            userSelect: 'text',
+            WebkitTouchCallout: 'default',
+            WebkitTapHighlightColor: 'transparent',
+            // Ensure proper text positioning on mobile
+            lineHeight: '1.5',
+            wordWrap: 'break-word'
+          } as React.CSSProperties}
+        />
+      </div>
 
       {/* Click outside handlers */}
       {(showColorPicker || showBackgroundPicker || showTextSizePicker || showOverflowMenu) && (
@@ -1065,12 +1087,11 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           line-height: 1.5;
           white-space: pre-wrap;
           word-wrap: break-word;
+          opacity: 0.6;
         }
         [contenteditable] {
           position: relative;
-          /* CRITICAL: Ensure text is visible */
-          color: #374151 !important;
-          background-color: transparent !important;
+          /* Note: color and background-color are now applied via inline styles from selectedStyle */
           /* Fix mobile text positioning */
           -webkit-user-select: text;
           user-select: text;
@@ -1104,12 +1125,12 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
             font-size: 16px !important; /* Prevent zoom on iOS */
             line-height: 1.5 !important;
             min-height: 120px !important;
-            color: #374151 !important; /* Ensure text is visible on mobile */
-            background-color: transparent !important;
+            /* Note: background and color are now applied via inline styles from selectedStyle */
           }
           [contenteditable]:empty:before {
             font-size: 16px !important; /* Match contenteditable font size */
             color: #9ca3af !important; /* Ensure placeholder is visible */
+            opacity: 0.6 !important;
           }
         }
       `}</style>

@@ -1456,18 +1456,18 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
 
 ### **TASK 21: Enhanced Post Creation and Edit Style System**
 **Module Reference:** Requirements 5 - Gratitude Post Creation & Management (Enhanced)
-- [ ] **21.1 Simplify Post Style Modal**
+- [x] **21.1 Simplify Post Style Modal**
   - Remove "Font Style" section from PostStyleSelector component
   - Remove "Preview" section from PostStyleSelector component  
   - Keep only the "Background Styles" section with existing color options
   - Ensure background color selection remains functional and visually clear
   - Update modal layout to be more compact without removed sections
-- [ ] **21.2 Background Color Application**
+- [x] **21.2 Background Color Application**
   - Update RichTextEditor component to apply selected background style to the text input area
   - Ensure selected background color is visually applied to the text input area in real-time
   - Maintain text readability with appropriate text color contrast for each background style
   - Ensure selected PostStyle is properly stored and passed to post creation
-- [ ] **21.3 Background Color Rendering**
+- [x] **21.3 Background Color Rendering**
   - Verify PostCard component properly renders background styles from post_style field
   - Ensure background colors appear correctly in feed, profile, and shared post views
   - Maintain consistent styling across all post display contexts
@@ -1494,23 +1494,78 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
 - [ ] **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with simplified post_style field usage (background colors only). Add post styling configuration to docs/ARCHITECTURE_AND_SETUP.md. Document post_style field restrictions in docs/DATABASE_STRUCTURE.md.
 **Acceptance Criteria:** PostStyleSelector component only shows background color selection (no font style or preview sections), selected background colors fill the text area and render in posts using existing post_style field, style modal is optimized for mobile, edit post modal loads all existing data and saves changes correctly, and all functionality is properly tested and documented.
 
-### **TASK 22: Privacy Controls System** (Post-MVP)
+### **TASK 22: Complete Code Cleanup and Refactoring**
+**Module Reference:** Code Quality & Architecture Enhancement
+- [ ] **22.1 Import Organization and Syntax Conventions**
+  - Audit all frontend files (`apps/web/src/`) for duplicate imports and consolidate them
+  - Standardize import ordering: React imports first, then third-party libraries, then local imports
+  - Remove unused imports across all TypeScript/JavaScript files
+  - Ensure consistent import syntax (destructuring vs default imports) following project conventions
+  - Organize Python imports in backend files (`apps/api/`) following PEP 8 standards
+  - Group imports: standard library, third-party packages, local app imports
+  - Remove unused Python imports and ensure consistent import patterns
+  - **Test Execution:** Run `npm run type-check` and `npm test` for frontend, `pytest -v` for backend to verify import changes don't break functionality. Provide a brief list of sanity test cases for the code that was affected by the import refactoring
+- [ ] **22.2 API Route Deduplication and Consolidation**
+  - Audit all API endpoints in `apps/api/app/api/v1/` for duplicate or very similar routes
+  - Identify redundant endpoints that serve similar purposes without clear differentiation
+  - Consolidate similar endpoints into single, more flexible routes where appropriate
+  - Update all frontend API calls in `apps/web/src/` to use consolidated endpoints
+  - Update any configuration files, documentation, and test files that reference removed endpoints
+  - Ensure backward compatibility or provide clear migration path for any breaking changes
+  - Document all endpoint changes in the correct project document in the docs/ folder
+  - **Test Execution:** Run full backend test suite (`pytest -v`) and frontend API tests (`npm run test -- tests/api/`) to verify all endpoint changes work correctly. Provide a brief list of sanity test cases for the code that was affected by the API route consolidation
+- [ ] **22.3 Code Duplication Elimination**
+  - Identify duplicate code patterns across frontend components in `apps/web/src/components/`
+  - Extract common functionality into shared utility functions or custom hooks
+  - Consolidate similar React components into reusable components with props for variations
+  - Identify duplicate backend service methods and extract into shared base classes or utilities
+  - Share common database query patterns through repository base classes
+  - Consolidate similar API endpoint logic into shared middleware or decorators
+  - Create shared constants file for magic numbers, strings, and configuration values used across multiple files
+  - **Test Execution:** Run full test suite (`npm test` and `pytest -v`) to ensure code consolidation doesn't break existing functionality. Provide a brief list of sanity test cases for the code that was affected by the duplication elimination
+- [ ] **22.4 Component and Service Optimization**
+  - Review all React components for performance optimization opportunities (memo, useMemo, useCallback)
+  - Optimize database queries to reduce N+1 problems and improve performance
+  - Consolidate similar database models or add shared base model functionality
+  - Review and optimize API response formats to reduce payload size and improve consistency
+  - Standardize error handling patterns across all components and services
+  - Ensure consistent naming conventions across all files (components, services, utilities)
+  - **Test Execution:** Run performance tests and full test suite to verify optimizations don't break functionality and improve performance metrics. Provide a brief list of sanity test cases for the code that was affected by the optimization changes
+- [ ] **22.5 Configuration and Documentation Cleanup**
+  - Find and catalog all configuration files across the project (package.json, tsconfig.json, pytest.ini, .env files, etc.)
+  - Include code-based configuration files like algorithm_config.py, constants.ts, config modules, and settings files
+  - Organize configurations to be as shareable as possible while maintaining logical separation for each component
+  - Create shared configuration constants for common settings used across frontend and backend
+  - Review and consolidate configuration files (package.json, tsconfig.json, pytest.ini, etc.)
+  - Consolidate code-based configuration files and ensure consistent patterns across similar config modules
+  - Find all hardcoded links, URLs, string values, and constants that are shared across different code parts
+  - Extract hardcoded values into appropriate configuration files or constants modules
+  - Create centralized configuration for API endpoints, external service URLs, and shared string constants
+  - Remove unused dependencies from package.json and requirements.txt
+  - Update all inline code comments to be accurate and helpful
+  - Ensure consistent code formatting across all files (Prettier for frontend, Black for backend)
+  - Review and update TypeScript types and interfaces for accuracy and completeness
+  - Consolidate environment variable usage and ensure consistent naming
+  - **Test Execution:** Run `npm run build` and `npm test` for frontend, `pytest -v` for backend to verify configuration changes work correctly. Provide a brief list of sanity test cases for the code that was affected by the configuration cleanup
+**Acceptance Criteria:** All imports are organized and deduplicated, API routes are consolidated without redundancy, code duplication is eliminated through shared utilities and components, performance is optimized without breaking functionality, and all changes are thoroughly tested to ensure no regression in existing features.
+
+### **TASK 23: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 23: Advanced Social Features** (Post-MVP)
+### **TASK 24: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 24: Follow Notification Batching System** (Post-MVP)
+### **TASK 25: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **24.1 Follow Notification Batching Analysis and Design**
+- [ ] **25.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -1521,7 +1576,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **24.2 Follow Notification Batching Implementation**
+- [ ] **25.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope
@@ -1529,7 +1584,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Implement proper batch summary generation for follow notifications
   - Add batch expansion to show individual follower notifications with profile pictures
   - Test follow notification batching with multiple followers and time windows
-- [ ] **24.3 Cross-Notification Type Batching Strategy (Future)**
+- [ ] **25.3 Cross-Notification Type Batching Strategy (Future)**
   - **Advanced Feature:** Consider batching different notification types for the same user
   - Research feasibility of "activity digest" notifications combining multiple types
   - Design user preference system for notification batching granularity
