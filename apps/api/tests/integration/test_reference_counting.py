@@ -241,8 +241,8 @@ class TestReferenceCountingSystem:
         user_data = user_response.json()
         assert user_data["data"]["profile_image_url"] is None
 
-    def test_profile_photo_variants_shared_between_users(self, client, test_user, test_user_2, auth_headers, auth_headers_2):
-        """Test that profile photo variants are shared between users and only deleted when no users reference them."""
+    def test_profile_photo_individual_variants_per_user(self, client, test_user, test_user_2, auth_headers, auth_headers_2):
+        """Test that profile photo variants are individual per user (not shared)."""
         # Create test image
         test_image1 = self.create_test_image(color='purple')
         test_image2 = self.create_test_image(color='purple')  # Same image
@@ -256,17 +256,17 @@ class TestReferenceCountingSystem:
         assert response1.status_code == 200
         profile_data1 = response1.json()["data"]
         
-        # Get variant file paths
+        # Get variant file paths for user 1
         sizes_data1 = profile_data1.get("sizes", {})
         upload_dir = Path("/home/danha/Projects/Kiro/greatful/apps/api/uploads") / "profile_photos"
-        variant_files = []
+        variant_files_user1 = []
         for size_name, size_url in sizes_data1.items():
             filename = size_url.split('/')[-1]
             file_path = upload_dir / filename
             assert file_path.exists(), f"Variant file {filename} should exist"
-            variant_files.append(file_path)
+            variant_files_user1.append(file_path)
         
-        # User 2 uploads the same image (should be detected as duplicate)
+        # User 2 uploads the same image (should create individual variants)
         response2 = client.post(
             "/api/v1/users/me/profile/photo",
             files={"file": ("profile2.jpg", test_image2, "image/jpeg")},
@@ -275,33 +275,48 @@ class TestReferenceCountingSystem:
         assert response2.status_code == 200
         profile_data2 = response2.json()["data"]
         
-        # Both users should be using the same variants (same base filename)
+        # Each user should have individual variants (different base filenames)
         sizes_data2 = profile_data2.get("sizes", {})
         
         # Extract base filenames to compare
         def extract_base_filename(url):
             filename = url.split('/')[-1]
             parts = filename.split('_')
-            if len(parts) >= 2:
+            if len(parts) >= 3:  # profile_userid_uuid
                 return '_'.join(parts[:-1])  # Remove size suffix
             return filename
         
         base1 = extract_base_filename(list(sizes_data1.values())[0])
         base2 = extract_base_filename(list(sizes_data2.values())[0])
-        assert base1 == base2, "Both users should use the same base filename (shared variants)"
+        assert base1 != base2, "Each user should have individual variants (different base filenames)"
+        
+        # Verify user IDs are in the filenames
+        assert "profile_1_" in base1, "User 1's variants should contain user ID"
+        assert "profile_2_" in base2, "User 2's variants should contain user ID"
+        
+        # Get variant file paths for user 2
+        variant_files_user2 = []
+        for size_name, size_url in sizes_data2.items():
+            filename = size_url.split('/')[-1]
+            file_path = upload_dir / filename
+            assert file_path.exists(), f"Variant file {filename} should exist"
+            variant_files_user2.append(file_path)
         
         # User 1 deletes their profile photo
         delete_response1 = client.delete("/api/v1/users/me/profile/photo", headers=auth_headers)
         assert delete_response1.status_code == 200
         
-        # Variants should still exist because User 2 is still using them
-        for file_path in variant_files:
-            assert file_path.exists(), f"Variant file {file_path.name} should still exist (User 2 still uses it)"
+        # User 1's variants should be deleted, but User 2's should remain
+        for file_path in variant_files_user1:
+            assert not file_path.exists(), f"User 1's variant file {file_path.name} should be deleted"
+        
+        for file_path in variant_files_user2:
+            assert file_path.exists(), f"User 2's variant file {file_path.name} should still exist"
         
         # User 2 deletes their profile photo
         delete_response2 = client.delete("/api/v1/users/me/profile/photo", headers=auth_headers_2)
         assert delete_response2.status_code == 200
         
-        # Now variants should be deleted (no users reference the original image)
-        for file_path in variant_files:
-            assert not file_path.exists(), f"Variant file {file_path.name} should be deleted (no users reference it)"
+        # Now User 2's variants should also be deleted
+        for file_path in variant_files_user2:
+            assert not file_path.exists(), f"User 2's variant file {file_path.name} should be deleted"

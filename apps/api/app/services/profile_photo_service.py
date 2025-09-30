@@ -36,15 +36,19 @@ class ProfilePhotoService(BaseService):
         self,
         user_id: int,
         file: UploadFile,
+        crop_data: Dict[str, Any] = None,
         force_upload: bool = False
     ) -> Dict[str, Any]:
         """
-        Upload and process profile photo with deduplication.
+        Upload and process profile photo with circular cropping.
+        Profile photos are completely disconnected from deduplication system.
+        Each user gets individual variants that are not shared.
         
         Args:
             user_id: ID of the user
             file: Uploaded image file
-            force_upload: If True, upload even if duplicate exists
+            crop_data: Optional crop parameters (x, y, radius)
+            force_upload: If True, upload even if duplicate exists (ignored for profiles)
             
         Returns:
             Dict containing photo data and URLs
@@ -58,83 +62,42 @@ class ProfilePhotoService(BaseService):
             # Check if user exists
             user = await self.get_by_id_or_404(User, user_id, "User")
             
-            # Save with deduplication
-            upload_result = await self.file_service.save_with_deduplication(
-                file=file,
-                subdirectory="profile_photos",
-                upload_context="profile",
-                uploader_id=user_id,
-                force_upload=force_upload
-            )
-            
-            if not upload_result["success"]:
-                raise BusinessLogicError("Failed to save profile photo")
-            
-            file_url = upload_result["file_url"]
-            
-            # If it's a duplicate, use the existing file and ensure variants exist
-            if upload_result["is_duplicate"]:
-                # Clean up old profile photo and all variants if it exists
-                if user.profile_image_url:
-                    await self._delete_profile_photo_variants(user.profile_image_url)
-                
-                # Ensure variants exist for the duplicate image (create if missing)
-                sizes_result = await self._ensure_variants_exist(file_url, file)
-                
-                # Update user's profile image URL (use medium size as default)
-                medium_url = sizes_result.get("medium", file_url)
-                user.profile_image_url = medium_url
-                await self.db.commit()
-                await self.db.refresh(user)
-                
-                logger.info(f"Profile photo set to existing duplicate for user {user_id}")
-                
-                return {
-                    "success": True,
-                    "message": "Profile photo set (duplicate detected)",
-                    "profile_image_url": medium_url,
-                    "sizes": sizes_result,
-                    "is_duplicate": True,
-                    "existing_image": upload_result["existing_image"],
-                    "similar_images": upload_result.get("similar_images", []),
-                    "user_id": user_id
-                }
-            
-            # For new uploads, we need to generate different sizes
-            # Extract filename from URL for variant processing
-            filename_parts = file_url.split('/')[-1].split('.')
-            filename_base = '.'.join(filename_parts[:-1])  # Remove extension
+            # Validate the image file
+            self.file_service.validate_image_file(file)
             
             try:
                 # Clean up old profile photo and all variants if it exists
                 if user.profile_image_url:
                     await self._delete_profile_photo_variants(user.profile_image_url)
                 
-                # Create variants for the new upload
-                sizes_result = await self._ensure_variants_exist(file_url, file)
+                # Create individual variants for this user (no deduplication)
+                await file.seek(0)
+                sizes_result = await self._create_individual_variants(file, user_id, crop_data)
                 
                 # Update user's profile image URL (use medium size as default)
-                medium_url = sizes_result.get("medium", file_url)
+                medium_url = sizes_result.get("medium")
+                if not medium_url:
+                    raise BusinessLogicError("Failed to create medium size variant")
+                    
                 user.profile_image_url = medium_url
+                await self.db.commit()
+                await self.db.refresh(user)
+                
+                logger.info(f"Profile photo uploaded successfully for user {user_id}")
+                
+                return {
+                    "success": True,
+                    "message": "Profile photo uploaded successfully",
+                    "profile_image_url": medium_url,
+                    "sizes": sizes_result,
+                    "is_duplicate": False,
+                    "similar_images": [],  # No similarity checking for profiles
+                    "user_id": user_id
+                }
                 
             except Exception as e:
-                # Clean up the original file if size generation failed
-                await self.file_service.delete_with_deduplication(file_url)
+                logger.error(f"Failed to process profile photo for user {user_id}: {e}")
                 raise BusinessLogicError(f"Failed to generate profile photo sizes: {str(e)}")
-            await self.db.commit()
-            await self.db.refresh(user)
-            
-            logger.info(f"Profile photo uploaded successfully for user {user_id}")
-            
-            return {
-                "success": True,
-                "message": "Profile photo uploaded successfully",
-                "profile_image_url": medium_url,
-                "sizes": sizes_result,
-                "is_duplicate": False,
-                "similar_images": upload_result.get("similar_images", []),
-                "user_id": user_id
-            }
             
         except ValidationException:
             raise
@@ -146,54 +109,36 @@ class ProfilePhotoService(BaseService):
 
     async def check_profile_photo_duplicate(self, user_id: int, file: UploadFile) -> Dict[str, Any]:
         """
-        Check if a profile photo is a duplicate without uploading.
+        Profile photos don't use deduplication, so this always returns no duplicates.
+        Kept for API compatibility.
         
         Args:
             user_id: ID of the user
             file: Uploaded image file to check
             
         Returns:
-            Dictionary with duplicate check results
+            Dictionary with no duplicate results
             
         Raises:
             ValidationException: If file validation fails
-            BusinessLogicError: If check fails
         """
         try:
-            # Check for duplicates
-            exact_duplicate, similar_images = await self.file_service.check_for_duplicate(
-                file=file,
-                upload_context="profile"
-            )
+            # Validate the file
+            self.file_service.validate_image_file(file)
             
             return {
                 "success": True,
-                "has_exact_duplicate": exact_duplicate is not None,
-                "exact_duplicate": {
-                    "id": exact_duplicate.id,
-                    "file_path": exact_duplicate.file_path,
-                    "original_filename": exact_duplicate.original_filename,
-                    "reference_count": exact_duplicate.reference_count,
-                    "created_at": exact_duplicate.created_at.isoformat()
-                } if exact_duplicate else None,
-                "similar_images": [
-                    {
-                        "id": img_hash.id,
-                        "file_path": img_hash.file_path,
-                        "similarity_distance": distance,
-                        "original_filename": img_hash.original_filename,
-                        "created_at": img_hash.created_at.isoformat()
-                    }
-                    for img_hash, distance in similar_images[:5]  # Limit to top 5 similar
-                ],
-                "has_similar_images": len(similar_images) > 0
+                "has_exact_duplicate": False,
+                "exact_duplicate": None,
+                "similar_images": [],
+                "has_similar_images": False
             }
             
         except ValidationException:
             raise
         except Exception as e:
-            logger.error(f"Error checking profile photo duplicate for user {user_id}: {e}")
-            raise BusinessLogicError(f"Failed to check for duplicates: {str(e)}")
+            logger.error(f"Error checking profile photo for user {user_id}: {e}")
+            raise BusinessLogicError(f"Failed to check profile photo: {str(e)}")
 
     async def delete_profile_photo(self, user_id: int) -> bool:
         """
@@ -223,49 +168,29 @@ class ProfilePhotoService(BaseService):
         logger.info(f"Profile photo and all variants deleted for user {user_id}")
         return True
 
-    async def _ensure_variants_exist(self, original_file_url: str, file: UploadFile) -> Dict[str, str]:
+
+
+    async def _create_individual_variants(self, file: UploadFile, user_id: int, crop_data: Dict[str, Any] = None) -> Dict[str, str]:
         """
-        Ensure that variants exist for the given original file.
-        If variants don't exist, create them.
+        Create individual profile photo variants for a specific user.
+        Each user gets their own variants, not shared with other users.
         
         Args:
-            original_file_url: URL of the original file
-            file: UploadFile to create variants from (if needed)
+            file: UploadFile to create variants from
+            user_id: ID of the user (for unique filename)
+            crop_data: Optional circular crop parameters
             
         Returns:
             Dict mapping size names to variant URLs
         """
-        # Extract filename from the original file URL
-        filename_parts = original_file_url.split('/')[-1].split('.')
-        filename_base = '.'.join(filename_parts[:-1])  # Remove extension
-        extension = filename_parts[-1] if len(filename_parts) > 1 else 'jpg'
+        # Generate unique filename base for this user
+        import uuid
+        unique_id = str(uuid.uuid4())
+        filename_base = f"profile_{user_id}_{unique_id}"
         
-        # Check if variants already exist on disk
-        upload_dir = Path(self.file_service.base_upload_dir) / "profile_photos"
-        sizes_result = {}
-        all_variants_exist = True
-        
-        for size_name in self.sizes.keys():
-            variant_filename = f"{filename_base}_{size_name}.{extension}"
-            variant_path = upload_dir / variant_filename
-            variant_url = f"/uploads/profile_photos/{variant_filename}"
-            
-            if variant_path.exists():
-                sizes_result[size_name] = variant_url
-            else:
-                all_variants_exist = False
-                break
-        
-        # If all variants exist, return them
-        if all_variants_exist:
-            logger.debug(f"Using existing variants for {filename_base}")
-            return sizes_result
-        
-        # If variants don't exist, create them
-        logger.info(f"Creating missing variants for {filename_base}")
-        await file.seek(0)
-        sizes_result = await self.file_service.process_and_save_image_variants(
-            file, "profile_photos", filename_base, self.sizes
+        # Create variants using the dedicated profile photo method (no deduplication)
+        sizes_result = await self.file_service.save_profile_photo_variants(
+            file, filename_base, self.sizes, crop_data
         )
         
         return sizes_result
@@ -295,8 +220,8 @@ class ProfilePhotoService(BaseService):
 
     async def _delete_profile_photo_variants(self, profile_image_url: str) -> None:
         """
-        Delete profile photo through deduplication system.
-        Variants are only deleted when the original image reference count reaches 0.
+        Delete individual profile photo variants.
+        Since each user has individual variants, we delete all variants directly.
         
         Args:
             profile_image_url: URL of the main profile photo (usually the medium variant)
@@ -305,36 +230,25 @@ class ProfilePhotoService(BaseService):
             # Extract base filename from the variant URL
             base_filename, extension = self._extract_base_filename_from_variant_url(profile_image_url)
             
-            # Delete the original image through deduplication system
-            # The original image (without size suffix) is what's tracked in deduplication
-            original_url = f"/uploads/profile_photos/{base_filename}{extension}"
+            # For individual variants, delete all size variants directly
+            logger.info(f"Deleting individual profile photo variants for {base_filename}")
+            upload_dir = Path(self.file_service.base_upload_dir) / "profile_photos"
             
-            # This will decrement reference count and delete the original if count reaches 0
-            was_deleted = await self.file_service.delete_with_deduplication(original_url)
-            
-            if was_deleted:
-                # Original was deleted (reference count reached 0), so delete all variants
-                logger.info(f"Original image deleted, cleaning up variants for {base_filename}")
-                upload_dir = Path(self.file_service.base_upload_dir) / "profile_photos"
+            for size_name in self.sizes.keys():
+                variant_filename = f"{base_filename}_{size_name}{extension}"
+                variant_path = upload_dir / variant_filename
                 
-                for size_name in self.sizes.keys():
-                    variant_filename = f"{base_filename}_{size_name}{extension}"
-                    variant_path = upload_dir / variant_filename
-                    
-                    try:
-                        if variant_path.exists():
-                            variant_path.unlink()
-                            logger.debug(f"Deleted profile photo variant from disk: {variant_filename}")
-                    except Exception as e:
-                        logger.warning(f"Failed to delete variant {variant_filename}: {e}")
-            else:
-                # Original still has references, variants should remain
-                logger.debug(f"Original image still has references, keeping variants for {base_filename}")
+                try:
+                    if variant_path.exists():
+                        variant_path.unlink()
+                        logger.debug(f"Deleted profile photo variant from disk: {variant_filename}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete variant {variant_filename}: {e}")
             
         except Exception as e:
             logger.warning(f"Error deleting profile photo variants for {profile_image_url}: {e}")
-            # Fallback: try to delete the main file through deduplication
-            await self.file_service.delete_with_deduplication(profile_image_url)
+            # Fallback: try to delete the main file directly
+            self.file_service.cleanup_single_file(profile_image_url)
 
     async def get_default_avatar_url(self, user_id: int) -> str:
         """
@@ -357,8 +271,3 @@ class ProfilePhotoService(BaseService):
         # In production, this could generate actual avatar images
         return f"/api/avatar/{user_id}?color={color.replace('#', '')}"
 
-    async def _cleanup_old_photo(self, user_id: int) -> None:
-        """Clean up old profile photo files for a user with deduplication handling."""
-        user = await self.get_by_id(User, user_id)
-        if user and user.profile_image_url:
-            await self.file_service.delete_with_deduplication(user.profile_image_url)

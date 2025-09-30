@@ -132,21 +132,140 @@ class FileUploadService(BaseService):
             logger.error(f"Error saving uploaded file: {e}")
             raise BusinessLogicError(f"Failed to save uploaded file: {str(e)}")
 
+    async def save_profile_photo_variants(
+        self, 
+        file: UploadFile, 
+        filename_base: str,
+        sizes: Dict[str, tuple],
+        crop_data: Dict[str, Any] = None
+    ) -> Dict[str, str]:
+        """
+        Save profile photo variants without deduplication.
+        This is specifically for profile photos which are individual per user.
+        
+        Args:
+            file: Uploaded file
+            filename_base: Base filename (without extension)
+            sizes: Dict mapping size names to (width, height) tuples
+            crop_data: Optional circular crop parameters
+            
+        Returns:
+            Dict mapping size names to URL paths
+            
+        Raises:
+            BusinessLogicError: If processing fails
+        """
+        try:
+            # Create upload directory
+            upload_dir = self.base_upload_dir / "profile_photos"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Read and process the uploaded file
+            content = await file.read()
+            
+            # Open image with PIL
+            try:
+                image = Image.open(io.BytesIO(content))
+                
+                # Convert to RGB if necessary (handles RGBA, P mode images)
+                if image.mode in ('RGBA', 'LA', 'P'):
+                    # Create white background
+                    background = Image.new('RGB', image.size, (255, 255, 255))
+                    if image.mode == 'P':
+                        image = image.convert('RGBA')
+                    background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                    image = background
+                elif image.mode != 'RGB':
+                    image = image.convert('RGB')
+                
+                # Auto-orient image based on EXIF data
+                image = ImageOps.exif_transpose(image)
+                
+            except Exception as e:
+                raise ValidationException(f"Invalid image file: {str(e)}")
+            
+            # Apply circular cropping if crop_data is provided
+            if crop_data:
+                image = self._apply_circular_crop(image, crop_data)
+            
+            file_urls = {}
+            
+            # Create and save each size variant
+            for size_name, (width, height) in sizes.items():
+                try:
+                    # Create a copy of the original image
+                    resized_image = image.copy()
+                    
+                    # For circular cropped images, maintain aspect ratio and create square variants
+                    if crop_data:
+                        # Resize to fit the target size while maintaining aspect ratio
+                        resized_image.thumbnail((width, height), Image.Resampling.LANCZOS)
+                        
+                        # Create square canvas with transparent background
+                        final_image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+                        
+                        # Calculate position to center the image
+                        x = (width - resized_image.width) // 2
+                        y = (height - resized_image.height) // 2
+                        final_image.paste(resized_image, (x, y))
+                        
+                        # Convert to RGB with white background for JPEG
+                        if final_image.mode == 'RGBA':
+                            background = Image.new('RGB', final_image.size, (255, 255, 255))
+                            background.paste(final_image, mask=final_image.split()[-1])
+                            final_image = background
+                    else:
+                        # Original rectangular cropping logic
+                        # Resize image maintaining aspect ratio, then crop to exact size
+                        resized_image.thumbnail((width, height), Image.Resampling.LANCZOS)
+                        
+                        # Create new image with exact dimensions and paste resized image centered
+                        final_image = Image.new('RGB', (width, height), (255, 255, 255))
+                        
+                        # Calculate position to center the image
+                        x = (width - resized_image.width) // 2
+                        y = (height - resized_image.height) // 2
+                        final_image.paste(resized_image, (x, y))
+                    
+                    # Save the image
+                    filename = f"{filename_base}_{size_name}.jpg"
+                    file_path = upload_dir / filename
+                    final_image.save(file_path, "JPEG", quality=85, optimize=True)
+                    
+                    # Store URL
+                    file_urls[size_name] = f"/uploads/profile_photos/{filename}"
+                    
+                except Exception as e:
+                    logger.error(f"Error creating {size_name} variant: {e}")
+                    # Clean up any files created so far
+                    self.cleanup_files("profile_photos", filename_base, list(sizes.keys()))
+                    raise BusinessLogicError(f"Failed to create image variant: {str(e)}")
+            
+            return file_urls
+            
+        except Exception as e:
+            if isinstance(e, (ValidationException, BusinessLogicError)):
+                raise
+            logger.error(f"Error processing profile photo variants: {e}")
+            raise BusinessLogicError(f"Failed to process profile photo: {str(e)}")
+
     async def process_and_save_image_variants(
         self, 
         file: UploadFile, 
         subdirectory: str, 
         filename_base: str,
-        sizes: Dict[str, tuple]
+        sizes: Dict[str, tuple],
+        crop_data: Dict[str, Any] = None
     ) -> Dict[str, str]:
         """
-        Process image and save multiple size variants.
+        Process image and save multiple size variants with optional circular cropping.
         
         Args:
             file: Uploaded file
             subdirectory: Subdirectory under uploads/
             filename_base: Base filename (without extension)
             sizes: Dict mapping size names to (width, height) tuples
+            crop_data: Optional circular crop parameters (x, y, radius)
             
         Returns:
             Dict mapping size names to URL paths
@@ -183,6 +302,10 @@ class FileUploadService(BaseService):
             except Exception as e:
                 raise ValidationException(f"Invalid image file: {str(e)}")
             
+            # Apply circular cropping if crop_data is provided
+            if crop_data:
+                image = self._apply_circular_crop(image, crop_data)
+            
             file_urls = {}
             
             # Create and save each size variant
@@ -191,16 +314,36 @@ class FileUploadService(BaseService):
                     # Create a copy of the original image
                     resized_image = image.copy()
                     
-                    # Resize image maintaining aspect ratio, then crop to exact size
-                    resized_image.thumbnail((width, height), Image.Resampling.LANCZOS)
-                    
-                    # Create new image with exact dimensions and paste resized image centered
-                    final_image = Image.new('RGB', (width, height), (255, 255, 255))
-                    
-                    # Calculate position to center the image
-                    x = (width - resized_image.width) // 2
-                    y = (height - resized_image.height) // 2
-                    final_image.paste(resized_image, (x, y))
+                    # For circular cropped images, maintain aspect ratio and create square variants
+                    if crop_data:
+                        # Resize to fit the target size while maintaining aspect ratio
+                        resized_image.thumbnail((width, height), Image.Resampling.LANCZOS)
+                        
+                        # Create square canvas with transparent background
+                        final_image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+                        
+                        # Calculate position to center the image
+                        x = (width - resized_image.width) // 2
+                        y = (height - resized_image.height) // 2
+                        final_image.paste(resized_image, (x, y))
+                        
+                        # Convert to RGB with white background for JPEG
+                        if final_image.mode == 'RGBA':
+                            background = Image.new('RGB', final_image.size, (255, 255, 255))
+                            background.paste(final_image, mask=final_image.split()[-1])
+                            final_image = background
+                    else:
+                        # Original rectangular cropping logic
+                        # Resize image maintaining aspect ratio, then crop to exact size
+                        resized_image.thumbnail((width, height), Image.Resampling.LANCZOS)
+                        
+                        # Create new image with exact dimensions and paste resized image centered
+                        final_image = Image.new('RGB', (width, height), (255, 255, 255))
+                        
+                        # Calculate position to center the image
+                        x = (width - resized_image.width) // 2
+                        y = (height - resized_image.height) // 2
+                        final_image.paste(resized_image, (x, y))
                     
                     # Save the image
                     filename = f"{filename_base}_{size_name}.jpg"
@@ -533,6 +676,53 @@ class FileUploadService(BaseService):
         except Exception as e:
             logger.warning(f"Failed to delete file with deduplication {file_url}: {e}")
             return False
+
+    def _apply_circular_crop(self, image: Image.Image, crop_data: Dict[str, Any]) -> Image.Image:
+        """
+        Apply circular cropping to an image.
+        
+        Args:
+            image: PIL Image to crop
+            crop_data: Dict with 'x', 'y', 'radius' keys
+            
+        Returns:
+            Circularly cropped PIL Image
+        """
+        try:
+            x = float(crop_data.get('x', 0))
+            y = float(crop_data.get('y', 0))
+            radius = float(crop_data.get('radius', 100))
+            
+            # Calculate crop bounds
+            left = max(0, int(x - radius))
+            top = max(0, int(y - radius))
+            right = min(image.width, int(x + radius))
+            bottom = min(image.height, int(y + radius))
+            
+            # Crop to square containing the circle
+            crop_size = int(radius * 2)
+            cropped = image.crop((left, top, right, bottom))
+            
+            # Resize to exact crop size if needed
+            if cropped.size != (crop_size, crop_size):
+                cropped = cropped.resize((crop_size, crop_size), Image.Resampling.LANCZOS)
+            
+            # Create circular mask
+            mask = Image.new('L', (crop_size, crop_size), 0)
+            from PIL import ImageDraw
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0, crop_size, crop_size), fill=255)
+            
+            # Apply circular mask
+            result = Image.new('RGBA', (crop_size, crop_size), (0, 0, 0, 0))
+            result.paste(cropped, (0, 0))
+            result.putalpha(mask)
+            
+            return result
+            
+        except Exception as e:
+            logger.warning(f"Failed to apply circular crop: {e}")
+            return image  # Return original image if cropping fails
 
     def _convert_file_path_to_url(self, file_path: str) -> str:
         """

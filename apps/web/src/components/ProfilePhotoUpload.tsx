@@ -5,11 +5,18 @@ import { Camera, Upload, X, User, Trash2 } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { validateImageFile, createImagePreview, revokeImagePreview } from '@/utils/imageUpload'
 import { getImageUrl } from '@/utils/imageUtils'
+import CircularCropModal from './CircularCropModal'
 
 interface ProfilePhotoUploadProps {
   currentPhotoUrl?: string
   onPhotoUpdate: (photoUrl: string | null) => void
   className?: string
+}
+
+interface CropData {
+  x: number
+  y: number
+  radius: number
 }
 
 interface UploadResponse {
@@ -33,6 +40,8 @@ export default function ProfilePhotoUpload({
 }: ProfilePhotoUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+  const [showCropModal, setShowCropModal] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { showSuccess, showError } = useToast()
 
@@ -42,19 +51,13 @@ export default function ProfilePhotoUpload({
     allowedTypes: ['image/jpeg', 'image/png', 'image/webp'] // No GIF for profile photos
   }
 
-  const uploadPhoto = async (file: File) => {
-    // Use existing validation utility
-    const validation = validateImageFile(file, profilePhotoOptions)
-    if (!validation.valid) {
-      showError(validation.error || 'Invalid file')
-      return
-    }
-
+  const uploadPhoto = async (croppedBlob: Blob, cropData: CropData) => {
     setIsUploading(true)
 
     try {
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', croppedBlob, 'profile-photo.jpg')
+      formData.append('crop_data', JSON.stringify(cropData))
 
       const token = localStorage.getItem('access_token')
       const response = await fetch('/api/users/me/profile/photo', {
@@ -80,6 +83,8 @@ export default function ProfilePhotoUpload({
       )
     } finally {
       setIsUploading(false)
+      setShowCropModal(false)
+      setSelectedFile(null)
     }
   }
 
@@ -112,7 +117,24 @@ export default function ProfilePhotoUpload({
   }
 
   const handleFileSelect = (file: File) => {
-    uploadPhoto(file)
+    // Use existing validation utility
+    const validation = validateImageFile(file, profilePhotoOptions)
+    if (!validation.valid) {
+      showError(validation.error || 'Invalid file')
+      return
+    }
+
+    setSelectedFile(file)
+    setShowCropModal(true)
+  }
+
+  const handleCropComplete = (cropData: CropData, croppedBlob: Blob) => {
+    uploadPhoto(croppedBlob, cropData)
+  }
+
+  const handleCropCancel = () => {
+    setShowCropModal(false)
+    setSelectedFile(null)
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,6 +260,16 @@ export default function ProfilePhotoUpload({
         className="hidden"
         disabled={isUploading}
       />
+
+      {/* Circular Crop Modal */}
+      {selectedFile && (
+        <CircularCropModal
+          isOpen={showCropModal}
+          onClose={handleCropCancel}
+          imageFile={selectedFile}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   )
 }

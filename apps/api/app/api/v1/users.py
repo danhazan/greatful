@@ -4,7 +4,7 @@ User profile endpoints.
 
 import logging
 from typing import List, Optional, Dict
-from fastapi import APIRouter, Depends, Request, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
@@ -360,14 +360,16 @@ async def check_profile_photo_duplicate(
 async def upload_profile_photo(
     request: Request,
     file: UploadFile = File(...),
+    crop_data: str = Form(None),
     force_upload: bool = False,
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Upload profile photo with deduplication.
+    Upload profile photo with circular cropping and deduplication.
     
     - **file**: Image file (JPEG, PNG, WebP, max 5MB)
+    - **crop_data**: JSON string with crop parameters (x, y, radius)
     - **force_upload**: If true, upload even if duplicate exists
     
     Returns profile photo data with URLs for different sizes.
@@ -375,8 +377,17 @@ async def upload_profile_photo(
     Includes deduplication information if duplicates are detected.
     """
     try:
+        # Parse crop data if provided
+        parsed_crop_data = None
+        if crop_data:
+            try:
+                import json
+                parsed_crop_data = json.loads(crop_data)
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid crop_data format: {crop_data}")
+        
         photo_service = ProfilePhotoService(db)
-        result = await photo_service.upload_profile_photo(current_user_id, file, force_upload)
+        result = await photo_service.upload_profile_photo(current_user_id, file, parsed_crop_data, force_upload)
         
         return success_response(result, getattr(request.state, 'request_id', None))
         
