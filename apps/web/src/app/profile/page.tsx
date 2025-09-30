@@ -13,6 +13,7 @@ import FollowingModal from "@/components/FollowingModal"
 import { transformUserPosts } from "@/lib/transformers"
 import { normalizeUserData } from "@/utils/userDataMapping"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
+import { stateSyncUtils } from "@/utils/stateSynchronization"
 
 interface UserProfile {
   id: number
@@ -279,7 +280,7 @@ export default function ProfilePage() {
       if (response.ok) {
         const updatedProfileData = responseData.data || responseData
         if (user) {
-          setUser({
+          const updatedUser = {
             ...user,
             username: updatedProfileData.username,
             bio: updatedProfileData.bio || "",
@@ -288,6 +289,19 @@ export default function ProfilePage() {
             location: updatedProfileData.location,
             institutions: updatedProfileData.institutions || [],
             websites: updatedProfileData.websites || []
+          }
+          setUser(updatedUser)
+          
+          // Emit global state synchronization event
+          stateSyncUtils.updateUserProfile(user.id.toString(), {
+            display_name: updatedProfileData.display_name,
+            name: updatedProfileData.display_name,
+            username: updatedProfileData.username,
+            bio: updatedProfileData.bio,
+            city: updatedProfileData.city,
+            location: updatedProfileData.location,
+            institutions: updatedProfileData.institutions,
+            websites: updatedProfileData.websites
           })
         }
         setIsEditing(false)
@@ -443,6 +457,11 @@ export default function ProfilePage() {
       setUser({
         ...user,
         profileImage: photoUrl || undefined
+      })
+      
+      // Emit global state synchronization event for profile image update
+      stateSyncUtils.updateUserProfile(user.id.toString(), {
+        image: photoUrl || undefined
       })
     }
     setShowPhotoUpload(false)

@@ -17,6 +17,7 @@ import MentionAutocomplete from '@/components/MentionAutocomplete'
 import FollowButton from '@/components/FollowButton'
 import Navbar from '@/components/Navbar'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { UserProvider } from '@/contexts/UserContext'
 
 // Mock dependencies
 jest.mock('@/utils/emojiMapping', () => ({
@@ -62,9 +63,11 @@ jest.mock('@/utils/timeAgo', () => ({
 global.fetch = jest.fn()
 
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <ToastProvider>
-    {children}
-  </ToastProvider>
+  <UserProvider>
+    <ToastProvider>
+      {children}
+    </ToastProvider>
+  </UserProvider>
 )
 
 describe('Accessibility Tests', () => {
