@@ -54,11 +54,11 @@ class OptimisticUpdateManager<T> {
   rollbackStaleUpdates(maxAge: number = 30000): void {
     const now = Date.now()
     
-    for (const [id, update] of this.updates.entries()) {
+    this.updates.forEach((update, id) => {
       if (now - update.timestamp > maxAge) {
         this.rollbackUpdate(id)
       }
-    }
+    })
   }
 
   // Get all pending updates

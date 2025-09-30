@@ -121,7 +121,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       switch (event.type) {
         case 'USER_PROFILE_UPDATE':
           if (event.payload.userId === userId) {
-            setLocalUserProfile(prev => prev ? { ...prev, ...event.payload.updates } : null)
+            setLocalUserProfile((prev: any) => prev ? { ...prev, ...event.payload.updates } : null)
           }
           break
         case 'FOLLOW_STATE_UPDATE':
@@ -141,7 +141,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
 
     // Optimistic update
     updateUserProfile(userId, updates)
-    setLocalUserProfile(prev => prev ? { ...prev, ...updates } : null)
+    setLocalUserProfile((prev: any) => prev ? { ...prev, ...updates } : null)
 
     try {
       const token = getAccessToken()

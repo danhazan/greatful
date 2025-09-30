@@ -291,7 +291,12 @@ async def create_post_json(
         if not post_data.content.strip() and not post_data.image_url:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Either content or image must be provided"
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["body"],
+                    "msg": "Either content or image must be provided",
+                    "input": None
+                }]
             )
 
         # Analyze content to determine post type automatically
@@ -536,7 +541,12 @@ async def create_post_with_file(
         if not post_data.content.strip() and not image_url:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Either content or image must be provided"
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["body"],
+                    "msg": "Either content or image must be provided",
+                    "input": None
+                }]
             )
 
         # Analyze content to determine post type automatically

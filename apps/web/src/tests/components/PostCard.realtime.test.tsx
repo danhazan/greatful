@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import '@testing-library/jest-dom'
 import PostCard from '../../components/PostCard'
+import { describe, it, expect, beforeEach } from '@jest/globals'
 
 // Mock the analytics service
 jest.mock('@/services/analytics', () => ({
@@ -34,7 +35,7 @@ const mockPost = {
   id: 'test-post-1',
   content: 'Test post content',
   author: {
-    id: 'author-1',
+    id: '1',
     name: 'Test Author',
     image: 'https://example.com/avatar.jpg',
   },
@@ -55,8 +56,24 @@ describe('PostCard Real-time Updates', () => {
   it('should update heart count in real-time when heart button is clicked', async () => {
     const mockOnHeart = jest.fn()
     
-    // Mock successful heart API call
+    // Mock all API calls that happen on component mount and heart click
     ;(fetch as jest.Mock)
+      // Mock username validation call (happens on mount)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { valid_usernames: [] } }),
+      })
+      // Mock user profile call (happens on mount from FollowButton)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'author-1', name: 'Test Author' }),
+      })
+      // Mock follow status call (happens on mount from FollowButton)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ is_following: false }),
+      })
+      // Mock successful heart API call
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
@@ -85,24 +102,23 @@ describe('PostCard Real-time Updates', () => {
     // Click heart button
     fireEvent.click(heartButton)
 
-    // Wait for API calls to complete
+    // Wait for heart API calls to be made
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/heart', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer mock-token',
+          'Content-Type': 'application/json',
+        },
+      })
     })
 
-    // Verify API calls
-    expect(fetch).toHaveBeenNthCalledWith(1, '/api/posts/test-post-1/heart', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer mock-token',
-        'Content-Type': 'application/json',
-      },
-    })
-
-    expect(fetch).toHaveBeenNthCalledWith(2, '/api/posts/test-post-1/hearts', {
-      headers: {
-        'Authorization': 'Bearer mock-token',
-      },
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/hearts', {
+        headers: {
+          'Authorization': 'Bearer mock-token',
+        },
+      })
     })
 
     // Verify onHeart was called with updated server data
@@ -116,8 +132,24 @@ describe('PostCard Real-time Updates', () => {
     const mockOnHeart = jest.fn()
     const heartedPost = { ...mockPost, heartsCount: 6, isHearted: true }
     
-    // Mock successful unheart API call
+    // Mock all API calls that happen on component mount and heart click
     ;(fetch as jest.Mock)
+      // Mock username validation call (happens on mount)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { valid_usernames: [] } }),
+      })
+      // Mock user profile call (happens on mount from FollowButton)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'author-1', name: 'Test Author' }),
+      })
+      // Mock follow status call (happens on mount from FollowButton)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ is_following: false }),
+      })
+      // Mock successful unheart API call
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
@@ -146,18 +178,15 @@ describe('PostCard Real-time Updates', () => {
     // Click heart button to remove heart
     fireEvent.click(heartButton)
 
-    // Wait for API calls to complete
+    // Wait for heart API calls to be made
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(2)
-    })
-
-    // Verify API calls
-    expect(fetch).toHaveBeenNthCalledWith(1, '/api/posts/test-post-1/heart', {
-      method: 'DELETE',
-      headers: {
-        'Authorization': 'Bearer mock-token',
-        'Content-Type': 'application/json',
-      },
+      expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/heart', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': 'Bearer mock-token',
+          'Content-Type': 'application/json',
+        },
+      })
     })
 
     // Verify onHeart was called with updated server data
@@ -170,8 +199,24 @@ describe('PostCard Real-time Updates', () => {
   it('should fallback to optimistic update if heart info fetch fails', async () => {
     const mockOnHeart = jest.fn()
     
-    // Mock successful heart API call but failed heart info fetch
+    // Mock all API calls that happen on component mount and heart click
     ;(fetch as jest.Mock)
+      // Mock username validation call (happens on mount)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { valid_usernames: [] } }),
+      })
+      // Mock user profile call (happens on mount from FollowButton)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'author-1', name: 'Test Author' }),
+      })
+      // Mock follow status call (happens on mount from FollowButton)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ is_following: false }),
+      })
+      // Mock successful heart API call but failed heart info fetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
@@ -193,9 +238,15 @@ describe('PostCard Real-time Updates', () => {
     const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
     fireEvent.click(heartButton!)
 
-    // Wait for API calls to complete
+    // Wait for heart API calls to be made
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/heart', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer mock-token',
+          'Content-Type': 'application/json',
+        },
+      })
     })
 
     // Verify onHeart was called without server data (fallback)

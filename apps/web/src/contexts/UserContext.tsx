@@ -86,7 +86,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Subscribe to state updates
   const subscribeToStateUpdates = useCallback((callback: (event: StateEvent) => void) => {
-    setStateEventListeners(prev => new Set([...prev, callback]))
+    setStateEventListeners(prev => {
+      const newSet = new Set(prev)
+      newSet.add(callback)
+      return newSet
+    })
     
     // Return unsubscribe function
     return () => {

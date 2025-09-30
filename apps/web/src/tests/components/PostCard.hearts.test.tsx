@@ -48,31 +48,42 @@ describe('PostCard Hearts Counter', () => {
   })
 
   it('should open hearts viewer when hearts counter is clicked', async () => {
-    // Mock follow status fetch (called by FollowButton)
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ success: true, data: { is_following: false } })
-    })
-    
-    // Mock successful hearts fetch
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        {
-          id: 'heart-1',
-          userId: '1',
-          userName: 'user1',
-          userImage: null,
-          createdAt: '2024-01-15T12:00:00Z',
-        },
-        {
-          id: 'heart-2',
-          userId: '2',
-          userName: 'user2',
-          userImage: null,
-          createdAt: '2024-01-15T11:30:00Z',
-        },
-      ],
+    // Mock all the API calls that PostCard makes - need to provide enough mocks for all calls
+    ;(fetch as jest.Mock)
+      // Mock profile fetches (from FollowButton component)
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
+      })
+
+    // Add specific mock for hearts fetch
+    ;(fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('/hearts/users')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            {
+              id: 'heart-1',
+              userId: '1',
+              userName: 'user1',
+              userImage: null,
+              createdAt: '2024-01-15T12:00:00Z',
+            },
+            {
+              id: 'heart-2',
+              userId: '2',
+              userName: 'user2',
+              userImage: null,
+              createdAt: '2024-01-15T11:30:00Z',
+            },
+          ],
+        })
+      }
+      // Default mock for other calls
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
+      })
     })
 
     render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
@@ -99,11 +110,20 @@ describe('PostCard Hearts Counter', () => {
   })
 
   it('should handle hearts fetch error gracefully', async () => {
-    // Mock failed hearts fetch
-    ;(fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'))
-
     // Mock console.error to avoid test output noise
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+    // Mock all API calls that PostCard makes, with hearts fetch failing
+    ;(fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('/hearts/users')) {
+        return Promise.reject(new Error('Network error'))
+      }
+      // Default mock for other calls (profile fetches, follow status)
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
+      })
+    })
 
     render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 

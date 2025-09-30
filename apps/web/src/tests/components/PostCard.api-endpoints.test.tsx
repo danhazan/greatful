@@ -49,16 +49,40 @@ describe('PostCard API Endpoints Regression Tests', () => {
 
   describe('Heart Functionality API Calls', () => {
     it('should call correct /api/posts/ endpoints for heart actions', async () => {
-      // Mock successful heart action
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true }),
-      })
-      // Mock successful heart info fetch
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ hearts_count: 4, is_hearted: true }),
-      })
+      // Mock all the API calls that PostCard makes
+      ;(fetch as jest.Mock)
+        // Mock profile fetches (from FollowButton component)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: 'test-user-1', username: 'currentuser', display_name: 'Current User' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
+        })
+        // Mock successful heart action
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true }),
+        })
+        // Mock successful heart info fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ hearts_count: 4, is_hearted: true }),
+        })
+        // Mock follow status checks
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ is_following: false }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ is_following: false }),
+        })
 
       const onHeart = jest.fn()
       render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} onHeart={onHeart} />)
@@ -87,7 +111,7 @@ describe('PostCard API Endpoints Regression Tests', () => {
         })
       })
 
-      expect(fetch).toHaveBeenCalledTimes(3) // Heart action + Heart info + Follow status
+      expect(fetch).toHaveBeenCalledTimes(7) // Profile fetches + Heart action + Heart info + Follow status checks
     })
 
     it('should handle heart action API errors gracefully', async () => {
@@ -118,10 +142,40 @@ describe('PostCard API Endpoints Regression Tests', () => {
 
   describe('API Endpoint Consistency Regression Tests', () => {
     it('should never use /api/v1/ prefix (which causes 404 errors)', async () => {
-      // Mock heart action API calls
+      // Mock all API calls that PostCard makes
       ;(fetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }) // heart action
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ hearts_count: 4, is_hearted: true }) }) // heart info
+        // Mock profile fetches (from FollowButton component)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: 'test-user-1', username: 'currentuser', display_name: 'Current User' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
+        })
+        // Mock successful heart action
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true }),
+        })
+        // Mock successful heart info fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ hearts_count: 4, is_hearted: true }),
+        })
+        // Mock follow status checks
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ is_following: false }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ is_following: false }),
+        })
 
       render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 

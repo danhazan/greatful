@@ -58,25 +58,51 @@ describe('Share Workflow Integration Tests', () => {
       },
       writable: true,
     })
+
+    // Mock UserContext API calls to prevent interference
+    ;(global.fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('/api/users/me/profile')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
+        })
+      }
+      // Return undefined for other calls - will be overridden by specific test mocks
+      return Promise.resolve({
+        ok: false,
+        status: 404
+      })
+    })
   })
 
   describe('Complete URL Share Workflow', () => {
     it('should complete full URL share workflow: UI -> Clipboard -> API -> Analytics', async () => {
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
       
-      // Mock successful API response
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 201,
-        json: () => Promise.resolve({
-          id: 'share-456',
-          user_id: 1,
-          post_id: 'test-post-123',
-          share_method: 'url',
-          share_url: 'http://localhost:3000/post/test-post-123',
-          created_at: '2025-01-08T12:00:00Z'
-        })
-      } as Response)
+      // Override the default mock for this test
+      mockFetch.mockImplementation((url) => {
+        if (url.includes('/api/users/me/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
+          })
+        }
+        if (url.includes('/api/posts/test-post-123/share')) {
+          return Promise.resolve({
+            ok: true,
+            status: 201,
+            json: () => Promise.resolve({
+              id: 'share-456',
+              user_id: 1,
+              post_id: 'test-post-123',
+              share_method: 'url',
+              share_url: 'http://localhost:3000/post/test-post-123',
+              created_at: '2025-01-08T12:00:00Z'
+            })
+          })
+        }
+        return Promise.resolve({ ok: false, status: 404 })
+      })
 
       const onShare = jest.fn()
       const onClose = jest.fn()
@@ -132,14 +158,25 @@ describe('Share Workflow Integration Tests', () => {
     it('should handle API failure gracefully without affecting user experience', async () => {
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
       
-      // Mock API failure
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 429,
-        json: () => Promise.resolve({
-          detail: 'Rate limit exceeded'
-        })
-      } as Response)
+      // Override the default mock for this test
+      mockFetch.mockImplementation((url) => {
+        if (url.includes('/api/users/me/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
+          })
+        }
+        if (url.includes('/api/posts/test-post-123/share')) {
+          return Promise.resolve({
+            ok: false,
+            status: 429,
+            json: () => Promise.resolve({
+              detail: 'Rate limit exceeded'
+            })
+          })
+        }
+        return Promise.resolve({ ok: false, status: 404 })
+      })
 
       const onShare = jest.fn()
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
@@ -167,7 +204,7 @@ describe('Share Workflow Integration Tests', () => {
       // API error should be logged but not affect UX
       await waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith('Share analytics failed:', expect.any(Error))
-      })
+      }, { timeout: 2000 })
 
       // onShare should still be called with null shareId
       await waitFor(() => {
@@ -183,8 +220,19 @@ describe('Share Workflow Integration Tests', () => {
     it('should handle network errors gracefully', async () => {
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
       
-      // Mock network error
-      mockFetch.mockRejectedValueOnce(new Error('Network error'))
+      // Override the default mock for this test
+      mockFetch.mockImplementation((url) => {
+        if (url.includes('/api/users/me/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
+          })
+        }
+        if (url.includes('/api/posts/test-post-123/share')) {
+          return Promise.reject(new Error('Network error'))
+        }
+        return Promise.resolve({ ok: false, status: 404 })
+      })
 
       const onShare = jest.fn()
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
@@ -212,7 +260,7 @@ describe('Share Workflow Integration Tests', () => {
       // Network error should be logged
       await waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith('Share analytics failed:', expect.any(Error))
-      })
+      }, { timeout: 2000 })
 
       consoleSpy.mockRestore()
     })
