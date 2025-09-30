@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, Calendar } from "lucide-react"
+import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, Calendar, Loader2 } from "lucide-react"
 import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
 import { htmlToPlainText } from "@/utils/htmlUtils"
@@ -38,6 +38,7 @@ interface LocationResult {
 interface Post {
   id: string
   content: string
+  rich_content?: string
   postStyle?: PostStyle
   post_style?: PostStyle
   location?: string
@@ -54,6 +55,7 @@ interface EditPostModalProps {
   post: Post
   onSubmit: (postData: {
     content: string
+    rich_content?: string
     postStyle?: PostStyle
     location?: string
     location_data?: LocationResult
@@ -91,13 +93,16 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const { showSuccess, showError, showLoading, hideToast } = useToast()
   const [postData, setPostData] = useState<{
     content: string
+    imageUrl?: string
     location?: string
     location_data?: LocationResult
   }>({
     content: post.content || '',
+    imageUrl: post.imageUrl || '',
     location: post.location || '',
     location_data: post.location_data
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const modalRef = useRef<HTMLDivElement>(null)
@@ -107,8 +112,20 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   // Rich text and styling state (always enabled)
   const [richContent, setRichContent] = useState('')
   const [formattedContent, setFormattedContent] = useState('')
+  
+  // Filter out font properties from post style to maintain consistency
+  const filterPostStyleProperties = (style: PostStyle): PostStyle => {
+    if (!style) return POST_STYLES[0]
+    
+    const filtered = { ...style }
+    // Remove font properties as per task requirements
+    delete filtered.fontFamily
+    
+    return filtered
+  }
+  
   const [selectedStyle, setSelectedStyle] = useState<PostStyle>(
-    post.postStyle || post.post_style || POST_STYLES[0]
+    filterPostStyleProperties(post.postStyle || post.post_style || POST_STYLES[0])
   )
   const [showBackgrounds, setShowBackgrounds] = useState(false)
   const [backgroundsPosition, setBackgroundsPosition] = useState({ x: 0, y: 0 })
@@ -121,6 +138,10 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
   // Location state
   const [showLocationModal, setShowLocationModal] = useState(false)
+
+  // Drag and drop state (same as CreatePostModal)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dragCounter, setDragCounter] = useState(0)
 
   // BEFORE: analyzeContent returned {type, limit} and UI used limit to enforce input. 
   // AFTER: analyzeContent returns predicted type only (for display), and we compute maxChars separately.
@@ -141,10 +162,17 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     return { type: 'daily' as const }
   }
 
-  const hasImage = Boolean(post.imageUrl)
+  const hasImage = Boolean(postData.imageUrl)
   
-  // Always use rich content for analysis
-  const contentForAnalysis = richContent || postData.content
+  // Always use plain text for analysis to avoid HTML tag length issues
+  const getPlainTextContent = () => {
+    if (richTextEditorRef.current) {
+      return richTextEditorRef.current.getPlainText()
+    }
+    return postData.content
+  }
+  
+  const contentForAnalysis = getPlainTextContent()
   const trimmed = contentForAnalysis.trim()
   const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
   
@@ -218,17 +246,24 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   // Reset form when modal opens/closes or post changes
   useEffect(() => {
     if (isOpen) {
+      // Load existing post data including image
       setPostData({
         content: post.content || '',
+        imageUrl: post.imageUrl || '',
         location: post.location || '',
         location_data: post.location_data
       })
-      // Don't convert HTML to plain text - keep the rich content
-      setRichContent('')
+      
+      // Initialize rich content - preserve existing HTML formatting
+      setRichContent(post.rich_content || '')
       setFormattedContent('')
-      setSelectedStyle(post.postStyle || post.post_style || POST_STYLES[0])
+      
+      // Filter and set post style
+      setSelectedStyle(filterPostStyleProperties(post.postStyle || post.post_style || POST_STYLES[0]))
+      
       setError('')
       setIsSubmitting(false)
+      setImageFile(null) // Reset image file since we're editing existing post
       
       // Focus on content editor after a short delay
       setTimeout(() => {
@@ -239,56 +274,258 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     }
   }, [isOpen, post])
 
+  // Cleanup blob URLs when modal closes (same as CreatePostModal)
+  useEffect(() => {
+    return () => {
+      if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
+        revokeImagePreview(postData.imageUrl)
+      }
+    }
+  }, [postData.imageUrl])
+
+  // Reset drag state when modal closes (same as CreatePostModal)
+  useEffect(() => {
+    if (!isOpen) {
+      setIsDragOver(false)
+      setDragCounter(0)
+    }
+  }, [isOpen])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (isSubmitting) return
-    
+    setError('')
+
     // Get content from the rich text editor
-    const finalHtml = richTextEditorRef.current?.getHtml() || ''
+    const contentToSubmit = richContent || postData.content
     const finalPlainText = richTextEditorRef.current?.getPlainText() || ''
     
-    if (!finalPlainText.trim()) {
-      setError('Please enter some content for your post')
+    // Allow image-only posts (no content required if there's an image)
+    if (!contentToSubmit.trim() && !postData.imageUrl && !imageFile) {
+      setError('Please write something you\'re grateful for or add an image')
       return
     }
 
-    // Validate content length using plain text
     if (finalPlainText.length > maxChars) {
-      setError(`Content is too long. Maximum ${maxChars} characters allowed for ${predicted.type} posts.`)
+      setError(`Content is too long. Maximum ${maxChars} characters for ${currentPostTypeInfo.name}`)
       return
     }
 
     setIsSubmitting(true)
-    setError('')
+
+    // Show loading toast
+    const loadingToastId = showLoading(
+      'Updating post...',
+      'Saving your changes'
+    )
 
     try {
-      // Extract mentions from plain text content
-      const mentionMatches = extractMentions(finalPlainText)
-      const mentions = mentionMatches.map(match => match.username)
+      // Extract mentions from content
+      const mentions = extractMentions(contentToSubmit.trim())
+      const mentionUsernames = mentions.map(m => m.username)
 
-      const submitData = {
-        content: finalHtml || finalPlainText, // Send HTML if available, fallback to plain text
-        postStyle: selectedStyle,
-        location: postData.location,
-        location_data: postData.location_data,
-        mentions
+      // Build payload - only include changed fields to maintain existing data
+      const payload: any = {
+        content: contentToSubmit.trim(),
+        rich_content: richContent || null,
+        // Always include post_style (filtered) explicitly
+        postStyle: filterPostStyleProperties(selectedStyle),
+        // Only include location if it exists or has been changed
+        ...(postData.location !== undefined ? { location: postData.location } : {}),
+        ...(postData.location_data !== undefined ? { location_data: postData.location_data } : {}),
+        // Include mentions if present
+        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {})
       }
 
-      await onSubmit(submitData)
+      await onSubmit(payload)
+
+      // Hide loading toast and show success
+      hideToast(loadingToastId)
+      showSuccess(
+        'Post Updated!',
+        'Your changes have been saved successfully'
+      )
+
+      // Close modal on successful submission
+      onClose()
       
-      // Reset form on successful submission
-      setPostData({ content: '', location: '' })
-      setRichContent('')
-      setFormattedContent('')
-      setSelectedStyle(POST_STYLES[0])
+    } catch (error: any) {
+      // Hide loading toast and show error
+      hideToast(loadingToastId)
+      console.error('Post update error:', error)
       
-    } catch (error) {
-      console.error('Error updating post:', error)
-      setError('Failed to update post. Please try again.')
+      // Better error message extraction
+      let errorMessage = 'Failed to update post. Please try again.'
+      
+      if (error?.message) {
+        errorMessage = error.message
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      } else if (error?.error) {
+        errorMessage = error.error
+      } else if (error?.detail) {
+        errorMessage = error.detail
+      }
+      
+      setError(errorMessage)
+      showError(
+        'Update Failed',
+        errorMessage,
+        {
+          label: 'Retry',
+          onClick: () => handleSubmit(e)
+        }
+      )
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Image handling functions (same as CreatePostModal)
+  const handleAddPhoto = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        handleImageUpload(file)
+      }
+    }
+    input.click()
+  }
+
+  const handleImageUpload = async (file: File) => {
+    // Clear any previous errors
+    setError('')
+
+    // Validate the file
+    const validation = validateImageFile(file)
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid image file')
+      return
+    }
+
+    try {
+      // Create a preview URL for immediate display
+      const previewUrl = createImagePreview(file)
+
+      // Store both the file and preview URL
+      setImageFile(file)
+      setPostData({
+        ...postData,
+        imageUrl: previewUrl
+      })
+
+    } catch (error) {
+      console.error('Error handling image:', error)
+      setError('Failed to process image. Please try again.')
+    }
+  }
+
+  // Drag and drop handlers (same as CreatePostModal)
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragCounter(prev => prev + 1)
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragOver(true)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newCounter = dragCounter - 1
+    setDragCounter(newCounter)
+    if (newCounter <= 0) {
+      setIsDragOver(false)
+      setDragCounter(0)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    setDragCounter(0)
+
+    const files = Array.from(e.dataTransfer.files)
+
+    if (files.length === 0) {
+      setError('No files were dropped')
+      return
+    }
+
+    const imageFiles = files.filter(file => file.type.startsWith('image/'))
+
+    if (imageFiles.length === 0) {
+      const fileTypes = files.map(f => f.type).join(', ')
+      setError(`Please drop an image file. Received: ${fileTypes || 'unknown file types'}`)
+      return
+    }
+
+    if (imageFiles.length > 1) {
+      setError('Please drop only one image at a time')
+      return
+    }
+
+    // Handle the first image file (MVP supports single image)
+    const file = imageFiles[0]
+    handleImageUpload(file)
+  }
+
+  const handleRemoveImage = () => {
+    // Only revoke blob URLs, not data URLs
+    if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
+      revokeImagePreview(postData.imageUrl)
+    }
+    setImageFile(null)
+    setPostData({
+      ...postData,
+      imageUrl: ''
+    })
+  }
+
+  // Handle keyboard navigation for drag and drop zone
+  const handleDragZoneKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleAddPhoto()
+    }
+  }
+
+  // Rich text and styling handlers (same as CreatePostModal)
+  const handleRichTextChange = (plainText: string, formattedText: string) => {
+    setPostData({ ...postData, content: plainText })
+    setRichContent(formattedText)
+  }
+
+  const handleRichTextMentionTrigger = (query: string, position: { x: number, y: number }, cursorPosition?: number) => {
+    setMentionQuery(query)
+    setMentionPosition(position)
+    setShowMentionAutocomplete(true)
+
+    // Use the provided cursor position to find mention start
+    if (cursorPosition !== undefined) {
+      // Get the current plain text from the editor (not from postData.content which might be stale)
+      const currentContent = richTextEditorRef.current?.getPlainText() || postData.content
+      const textBeforeCursor = currentContent.slice(0, cursorPosition)
+      const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
+      if (mentionMatch) {
+        setCurrentMentionStart(cursorPosition - mentionMatch[0].length)
+      }
+    }
+  }
+
+  const handleRichTextMentionHide = () => {
+    setShowMentionAutocomplete(false)
+    setMentionQuery('')
+    setCurrentMentionStart(-1)
   }
 
   // Mention handling functions
@@ -301,22 +538,23 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
   const handleMentionSelect = (user: UserInfo) => {
     if (currentMentionStart >= 0 && richTextEditorRef.current) {
-      const currentContent = richContent || postData.content
-      
-      // Find the start of the mention (the @ symbol)
-      // currentMentionStart is the cursor position, we need to find the @ before it
-      const textBeforeCursor = currentContent.slice(0, currentMentionStart)
-      const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
-      
-      if (mentionMatch) {
-        const mentionStartPos = currentMentionStart - mentionMatch[0].length
-        const mentionEndPos = currentMentionStart
-        
-        // Use the RichTextEditor's insertMention method to handle the replacement properly
-        richTextEditorRef.current.insertMention(user.username, mentionStartPos, mentionEndPos)
+      // Get the current plain text from the editor to ensure accuracy
+      const currentContent = richTextEditorRef.current.getPlainText()
+
+      // Find the end of the current partial mention
+      let mentionEnd = currentMentionStart + 1 // Start after the @
+      while (mentionEnd < currentContent.length &&
+        /[a-zA-Z0-9_\-\.]/.test(currentContent[mentionEnd])) {
+        mentionEnd++
       }
+
+      // Use the RichTextEditor's insertMention method to handle the insertion properly
+      richTextEditorRef.current.insertMention(user.username, currentMentionStart, mentionEnd)
     }
-    handleMentionClose()
+
+    setShowMentionAutocomplete(false)
+    setMentionQuery('')
+    setCurrentMentionStart(-1)
   }
 
   const handleMentionClose = () => {
@@ -346,12 +584,9 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   }
 
   // Background selector functions
-  const handleBackgroundsClick = (event: React.MouseEvent) => {
-    const rect = (event.target as HTMLElement).getBoundingClientRect()
-    setBackgroundsPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top
-    })
+  const handleShowBackgrounds = (e: React.MouseEvent) => {
+    const rect = (e.target as HTMLElement).getBoundingClientRect()
+    setBackgroundsPosition({ x: rect.left, y: rect.bottom + 8 })
     setShowBackgrounds(true)
   }
 
@@ -359,136 +594,243 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div 
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-gray-900 bg-opacity-30 z-40"
+        onClick={(e) => {
+          // Don't close if location modal is open
+          if (e.target === e.currentTarget && !showLocationModal) {
+            onClose()
+          }
+        }}
+      />
+
+      {/* Modal */}
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+        <div
           ref={modalRef}
-          className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+          role="dialog"
+          aria-labelledby="modal-title"
+          aria-modal="true"
+          className={`bg-white rounded-xl shadow-xl border w-full max-w-2xl max-h-[90vh] flex flex-col transition-colors ${isDragOver ? 'border-purple-400 shadow-purple-200' : 'border-gray-200'
+            }`}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <FileText className="h-4 w-4 text-purple-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Edit Post</h2>
-                <p className="text-sm text-gray-500">Update your gratitude post</p>
-              </div>
-            </div>
+          <div className={`flex items-center justify-between p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
+            }`}>
+            <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center">
+              Edit Your Gratitude
+              <span className="text-xl ml-2" aria-hidden="true">💜</span>
+            </h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              aria-label="Close modal"
             >
-              <X className="h-5 w-5 text-gray-500" />
+              <X className="h-6 w-6" />
             </button>
           </div>
 
-          {/* Content */}
-          <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-
-
-
-
-              {/* Rich Text Editor */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Content
-                </label>
-                <RichTextEditor
-                  ref={richTextEditorRef}
-                  htmlValue={post.content || null}
-                  onChange={(plainText, formattedText) => {
-                    setRichContent(plainText)
-                    setFormattedContent(formattedText)
-                  }}
-                  onMentionTrigger={handleMentionTrigger}
-                  onMentionHide={handleMentionClose}
-                  selectedStyle={selectedStyle}
-                  onStyleChange={setSelectedStyle}
-                  placeholder="What are you grateful for today?"
-                  maxLength={maxChars}
-                />
-              </div>
-
-              {/* Toolbar */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <div className="flex items-center space-x-3">
-                  {/* Background Styles */}
-                  <button
-                    type="button"
-                    onClick={handleBackgroundsClick}
-                    className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                  >
-                    <Palette className="h-4 w-4" />
-                    <span className="text-sm font-medium">Style</span>
-                  </button>
-
-                  {/* Location */}
-                  <button
-                    type="button"
-                    onClick={() => setShowLocationModal(true)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                      postData.location 
-                        ? 'text-purple-600 bg-purple-50' 
-                        : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
-                    }`}
-                  >
-                    <MapPin className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      {postData.location ? 'Location Added' : 'Location'}
-                    </span>
-                  </button>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              {/* Content Input */}
+              <div className="flex-1 p-4 sm:p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    What are you grateful for?
+                  </label>
                 </div>
 
-                {/* Character Count */}
-                <div className="text-sm text-gray-500">
-                  {(richTextEditorRef.current?.getPlainText() || '').length}/{maxChars === 0 ? '∞' : maxChars}
-                </div>
-              </div>
-
-              {/* Location Display */}
-              {postData.location && (
-                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-800">{postData.location}</span>
+                {/* Content Editor - Always Rich Text */}
+                <div
+                  className={`relative ${isDragOver ? 'pointer-events-none' : ''}`}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                >
+                  <div className={`border rounded-lg ${isDragOver ? 'border-purple-400 bg-purple-50' : 'border-gray-300'}`}>
+                    <RichTextEditor
+                      ref={richTextEditorRef}
+                      value={postData.content}
+                      htmlValue={post.rich_content || post.content || null}
+                      onChange={handleRichTextChange}
+                      placeholder="Share what you're grateful for today... (Use @username to mention someone)"
+                      maxLength={maxChars}
+                      onMentionTrigger={handleRichTextMentionTrigger}
+                      onMentionHide={handleRichTextMentionHide}
+                      selectedStyle={selectedStyle}
+                      onStyleChange={setSelectedStyle}
+                    />
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleLocationClear}
-                    className="text-green-600 hover:text-green-800"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
 
-              {/* Error Message */}
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600">{error}</p>
+                  {/* Drag Overlay */}
+                  {isDragOver && (
+                    <div className="absolute inset-0 bg-purple-100 bg-opacity-90 border-2 border-dashed border-purple-400 rounded-lg flex items-center justify-center z-10">
+                      <div className="text-center">
+                        <ImageIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                        <p className="text-purple-700 font-medium">Drop image to upload</p>
+                        <p className="text-purple-600 text-sm">Supports JPG, PNG, WebP</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {/* Toolbar - Style and Location buttons under textbox */}
+                <div className="flex items-center justify-between pt-3 mt-3">
+                  <div className="flex items-center space-x-3">
+                    {/* Style Button */}
+                    <button
+                      type="button"
+                      onClick={handleShowBackgrounds}
+                      className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    >
+                      <Brush className="h-4 w-4" />
+                      <span className="text-sm font-medium">Style</span>
+                    </button>
+
+                    {/* Location Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationModal(true)}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${postData.location_data
+                          ? 'text-purple-600 bg-purple-50'
+                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                        }`}
+                    >
+                      <MapPin className="h-4 w-4" />
+                      <span className="text-sm font-medium">
+                        {postData.location_data ? 'Location Added' : 'Location'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Character Count */}
+                  <div className={`text-sm ${contentForAnalysis.length > maxChars * 0.9
+                    ? 'text-red-500'
+                    : 'text-gray-500'
+                    }`}>
+                    {contentForAnalysis.length}/{maxChars}
+                  </div>
+                </div>
+
+                {/* Location Display */}
+                {postData.location_data && (
+                  <div className="flex items-center space-x-2 mt-2 p-2 bg-purple-50 rounded-lg">
+                    <MapPin className="h-4 w-4 text-purple-600" />
+                    <div className="text-sm text-purple-700 font-medium truncate flex-1">
+                      {postData.location_data.display_name}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleLocationSelect(null)}
+                      className="text-purple-600 hover:text-purple-800 transition-colors"
+                      title="Remove location"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Image Preview */}
+                {postData.imageUrl && (
+                  <div className="mt-4">
+                    <div className="relative inline-block group">
+                      <img
+                        src={postData.imageUrl}
+                        alt="Post preview"
+                        className="max-w-full h-32 object-cover rounded-lg border border-gray-200 transition-opacity group-hover:opacity-90"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400"
+                        title="Remove image"
+                        aria-label="Remove uploaded image"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      {imageFile && (
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                          {imageFile.name} ({(imageFile.size / 1024 / 1024).toFixed(1)}MB)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Additional Options */}
+              <div className="px-4 pb-6 pt-0">
+                {/* Drag and Drop Zone (when no image) */}
+                {!postData.imageUrl && (
+                  <div
+                    className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isDragOver
+                        ? 'border-purple-400 bg-purple-50'
+                        : 'border-gray-300 hover:border-purple-300 hover:bg-purple-50'
+                      }`}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    onClick={handleAddPhoto}
+                    onKeyDown={handleDragZoneKeyDown}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Upload image by dragging and dropping or clicking to browse"
+                  >
+                    <ImageIcon className={`h-8 w-8 mx-auto mb-2 ${isDragOver ? 'text-purple-600' : 'text-gray-400'
+                      }`} />
+                    <p className={`text-sm font-medium mb-1 ${isDragOver ? 'text-purple-700' : 'text-gray-600'
+                      }`}>
+                      {isDragOver ? 'Drop your image here' : 'Drag and drop an image, or click to browse'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Supports JPG, PNG, WebP up to 5MB
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* Error Message */}
+            {error && (
+              <div className="px-6 pb-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              </div>
+            )}
+
             {/* Footer */}
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-center space-x-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !(richTextEditorRef.current?.getPlainText() || '').trim()}
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
-                >
-                  {isSubmitting ? 'Updating...' : 'Update Post'}
-                </button>
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-500">
+                  Predicted type: {currentPostTypeInfo.name}
+                </div>
+                <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center space-x-2"
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    <span>{isSubmitting ? 'Updating...' : 'Update Post'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </form>

@@ -58,10 +58,8 @@ class PostCreate(BaseModel):
     @classmethod
     def validate_post_style(cls, v):
         if v is not None:
-            required_fields = ['id', 'name', 'backgroundColor', 'textColor']
-            for field in required_fields:
-                if field not in v:
-                    raise ValueError(f'Post style missing required field: {field}')
+            from app.utils.post_style_validator import PostStyleValidator
+            return PostStyleValidator.validate_post_style(v)
         return v
 
 
@@ -164,10 +162,8 @@ class PostUpdate(BaseModel):
     @classmethod
     def validate_post_style(cls, v):
         if v is not None:
-            required_fields = ['id', 'name', 'backgroundColor', 'textColor']
-            for field in required_fields:
-                if field not in v:
-                    raise ValueError(f'Post style missing required field: {field}')
+            from app.utils.post_style_validator import PostStyleValidator
+            return PostStyleValidator.validate_post_style(v)
         return v
 
 
@@ -650,6 +646,8 @@ async def create_post_with_file(
             is_hearted=False
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error creating post with file: {str(e)}")
         raise HTTPException(
