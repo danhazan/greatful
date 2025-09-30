@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
       body = await request.json()
     }
 
-    // Validate required fields (only content is required now)
-    if (!body.content) {
+    // Validate that either content or image is provided
+    if (!body.content && !body.image_url && !body.image) {
       return NextResponse.json(
-        { error: 'Content is required' },
+        { error: 'Either content or image must be provided' },
         { status: 400 }
       )
     }
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
 
 
-      response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
+      response = await fetch(`${API_BASE_URL}/api/v1/posts`, {
         method: 'POST',
         headers: {
           'Authorization': authHeader,

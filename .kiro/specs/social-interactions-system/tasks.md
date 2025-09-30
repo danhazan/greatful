@@ -1420,9 +1420,9 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
     1. **Follow/Unfollow State Sync**: When following/unfollowing a user in feed or profile page, all other posts by that user should immediately display correct follow status in follow buttons
     2. **Profile Picture Updates**: When uploading profile picture in profile page, all posts by that user should immediately show new profile picture
     3. **Display Name Changes**: When changing display name in profile page, all posts by that user should immediately show updated display name
-    4. **Post Interaction Updates**: When liking/reacting to posts, all instances of that post should show updated interaction counts
-    5. **Notification State**: When notifications are read/dismissed, notification count should update across all components
-    6. **User Status Changes**: When user comes online/offline, their status should update across all displayed instances
+    4. **Post Interaction Updates**: When liking/reacting to posts, all instances of that post should show updated interaction counts (currently handled)
+    5. **Notification State**: When notifications are read/dismissed, notification count should update across all components (partly handled)
+
   - Implementation approach:
     1. Create UserContext provider to manage global user state and relationships
     2. Implement useUserState hook for accessing and updating user data consistently

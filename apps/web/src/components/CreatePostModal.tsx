@@ -310,8 +310,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     setError('')
 
     const contentToSubmit = richContent || postData.content
-    if (!contentToSubmit.trim()) {
-      setError('Please write something you\'re grateful for')
+    // Allow image-only posts (no content required if there's an image)
+    if (!contentToSubmit.trim() && !postData.imageUrl && !imageFile) {
+      setError('Please write something you\'re grateful for or add an image')
       return
     }
 
@@ -388,7 +389,21 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     } catch (error: any) {
       // Hide loading toast and show error
       hideToast(loadingToastId)
-      const errorMessage = error.message || 'Failed to create post. Please try again.'
+      console.error('Post creation error:', error)
+      
+      // Better error message extraction
+      let errorMessage = 'Failed to create post. Please try again.'
+      
+      if (error?.message) {
+        errorMessage = error.message
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      } else if (error?.error) {
+        errorMessage = error.error
+      } else if (error?.detail) {
+        errorMessage = error.detail
+      }
+      
       setError(errorMessage)
       showError(
         'Post Failed',
@@ -880,7 +895,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting || !postData.content.trim()}
+                    disabled={isSubmitting || (!postData.content.trim() && !postData.imageUrl && !imageFile)}
                     className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
                   >
                     {isSubmitting ? 'Sharing...' : 'Share Gratitude'}

@@ -79,7 +79,7 @@ describe('/api/posts', () => {
       })
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/v1/posts/',
+        'http://localhost:8000/api/v1/posts',
         {
           method: 'POST',
           headers: {
@@ -130,7 +130,51 @@ describe('/api/posts', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data.error).toBe('Content is required')
+      expect(data.error).toBe('Either content or image must be provided')
+    })
+
+    it('allows image-only posts', async () => {
+      // Mock successful backend response for image-only post
+      ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          id: 'test-post-id',
+          content: '',
+          author: {
+            id: 1,
+            username: 'testuser',
+            display_name: 'Test User',
+            email: 'test@example.com'
+          },
+          created_at: '2023-01-01T00:00:00Z',
+          post_type: 'photo',
+          image_url: 'http://localhost:8000/uploads/test-image.jpg',
+          hearts_count: 0,
+          reactions_count: 0
+        })
+      } as Response)
+
+      const request = new NextRequest('http://localhost:3000/api/posts', {
+        method: 'POST',
+        headers: {
+          'authorization': 'Bearer test-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: '',
+          image_url: 'http://localhost:8000/uploads/test-image.jpg'
+        })
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(201)
+      expect(data.id).toBe('test-post-id')
+      expect(data.content).toBe('')
+      expect(data.imageUrl).toBe('http://localhost:8000/uploads/test-image.jpg')
+      expect(data.postType).toBe('photo')
     })
 
     it('validates post type override', async () => {
