@@ -423,6 +423,199 @@ print('Providers:', config.get_provider_status())
 "
 ```
 
+### 3.2. WhatsApp Sharing Configuration
+
+The Grateful platform includes WhatsApp sharing functionality that allows users to share posts directly to WhatsApp Web or the WhatsApp mobile app. This feature is implemented with a reliable, cross-platform approach.
+
+#### WhatsApp Sharing Architecture
+
+**Configuration Files:**
+- `apps/web/src/config/whatsapp.ts` - WhatsApp URL configuration and constants
+- `apps/web/src/utils/mobileDetection.ts` - Device detection and URL generation utilities
+
+**Key Features:**
+- **Universal Compatibility**: Uses WhatsApp Web URL (`https://wa.me/`) for maximum compatibility
+- **Cross-Platform Support**: Works on desktop browsers, mobile browsers, and native apps
+- **Mobile Detection**: Intelligent device detection for optimal user experience
+- **Analytics Integration**: Tracks WhatsApp shares in the existing share analytics system
+
+#### WhatsApp Configuration Setup
+
+**1. WhatsApp URL Configuration:**
+
+The system uses a centralized configuration approach in `apps/web/src/config/whatsapp.ts`:
+
+```typescript
+export const WHATSAPP_CONFIG = {
+  // Primary WhatsApp Web URL - works on all platforms
+  WEB_URL: 'https://wa.me/',
+  
+  // Alternative URL (backup)
+  WEB_URL_ALT: 'https://api.whatsapp.com/send',
+  
+  // Default share message template
+  SHARE_MESSAGE_TEMPLATE: 'Check out this gratitude post:',
+} as const
+```
+
+**2. Mobile Detection Configuration:**
+
+The mobile detection system in `apps/web/src/utils/mobileDetection.ts` provides:
+
+```typescript
+// Device detection functions
+export function isMobileDevice(): boolean
+export function isIOS(): boolean  
+export function isAndroid(): boolean
+
+// WhatsApp URL generation
+export function generateWhatsAppURL(text: string): string
+export function formatWhatsAppShareText(postContent: string, postUrl: string): string
+```
+
+**3. Share Modal Integration:**
+
+WhatsApp sharing is integrated into the existing ShareModal component with:
+- WhatsApp icon and styling consistent with other share options
+- Automatic text formatting for optimal WhatsApp display
+- Analytics tracking for WhatsApp shares
+- Success feedback and error handling
+
+#### WhatsApp Sharing Implementation
+
+**Backend Integration:**
+
+The backend supports WhatsApp sharing through the existing share system:
+
+```python
+# Share method validation includes WhatsApp
+VALID_SHARE_METHODS = ['url', 'message', 'whatsapp']
+
+# WhatsApp-specific share service method
+async def share_via_whatsapp(self, user_id: int, post_id: str) -> Dict[str, Any]:
+    # Creates share record with method='whatsapp'
+    # Generates share URL and WhatsApp-formatted text
+    # Tracks analytics and creates notifications
+```
+
+**Frontend Implementation:**
+
+```typescript
+// WhatsApp share handler in ShareModal
+const handleWhatsAppShare = async () => {
+  // Generate share URL
+  const shareUrl = `${window.location.origin}/post/${post.id}`
+  
+  // Format text for WhatsApp
+  const whatsAppText = formatWhatsAppShareText(cleanContent, shareUrl)
+  
+  // Generate WhatsApp URL
+  const whatsAppUrl = generateWhatsAppURL(whatsAppText)
+  
+  // Track analytics
+  await trackWhatsAppShare(post.id)
+  
+  // Open WhatsApp
+  window.open(whatsAppUrl, '_blank')
+}
+```
+
+#### WhatsApp URL Format
+
+**Generated URLs follow this pattern:**
+```
+https://wa.me/?text=Check%20out%20this%20gratitude%20post%3A%0Ahttps%3A//your-domain.com/post/123
+```
+
+**URL Components:**
+- **Base URL**: `https://wa.me/` (WhatsApp Web)
+- **Text Parameter**: URL-encoded share message with post URL
+- **Message Format**: "Check out this gratitude post:\n[POST_URL]"
+
+#### Testing WhatsApp Integration
+
+**1. Development Testing:**
+```bash
+# Test WhatsApp URL generation
+cd apps/web
+npm test -- --testNamePattern="WhatsApp"
+
+# Test mobile detection
+npm test -- --testNamePattern="mobile"
+```
+
+**2. Manual Testing:**
+- **Desktop**: Should open WhatsApp Web in new tab
+- **Mobile**: Should open WhatsApp app or WhatsApp Web
+- **Share Text**: Should include formatted message with post URL
+
+**3. Analytics Verification:**
+```bash
+# Check WhatsApp share analytics
+curl -H "Authorization: Bearer TOKEN" \
+  "http://localhost:8000/api/v1/posts/POST_ID/analytics"
+
+# Should show whatsapp_shares count
+```
+
+#### WhatsApp Sharing Best Practices
+
+**1. URL Reliability:**
+- Always use `https://wa.me/` for maximum compatibility
+- Avoid `whatsapp://` scheme URLs (causes blank pages on desktop)
+- Include proper URL encoding for special characters
+
+**2. Message Formatting:**
+- Keep share text concise and clear
+- Include post URL for easy access
+- Use line breaks (`\n`) for better readability
+
+**3. Error Handling:**
+- Graceful fallback if WhatsApp is not available
+- User-friendly error messages
+- Analytics tracking even for failed attempts
+
+**4. Mobile Optimization:**
+- Detect mobile devices for optimal experience
+- Handle both iOS and Android properly
+- Test on actual devices, not just browser dev tools
+
+#### Troubleshooting WhatsApp Sharing
+
+**Common Issues:**
+
+1. **WhatsApp doesn't open:**
+   - Verify URL format is correct (`https://wa.me/?text=...`)
+   - Check that text is properly URL-encoded
+   - Test on different browsers and devices
+
+2. **Blank page on desktop:**
+   - Ensure using `wa.me` URL, not `whatsapp://` scheme
+   - Check popup blocker settings
+   - Verify WhatsApp Web is accessible
+
+3. **Analytics not tracking:**
+   - Check authentication token is valid
+   - Verify share endpoint is responding
+   - Check network requests in browser dev tools
+
+**Debug WhatsApp Issues:**
+```bash
+# Test WhatsApp URL generation
+node -e "
+const { generateWhatsAppURL, formatWhatsAppShareText } = require('./apps/web/src/utils/mobileDetection.ts');
+const text = formatWhatsAppShareText('Test post', 'https://example.com/post/123');
+const url = generateWhatsAppURL(text);
+console.log('WhatsApp URL:', url);
+"
+
+# Test share endpoint
+curl -X POST "http://localhost:8000/api/v1/posts/POST_ID/share" \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"share_method": "whatsapp"}'
+```
+
 ### 4. Frontend (Next.js) Setup
 
 ```sh
