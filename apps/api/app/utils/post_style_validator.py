@@ -43,7 +43,18 @@ class PostStyleValidator:
     
     @classmethod
     def validate_gradient(cls, gradient: Any) -> bool:
-        """Validate gradient object structure."""
+        """Validate gradient object structure or CSS gradient string."""
+        # Accept CSS gradient strings (common format from frontend)
+        if isinstance(gradient, str):
+            # Basic validation for CSS gradient strings
+            gradient_lower = gradient.lower().strip()
+            if gradient_lower.startswith(('linear-gradient(', 'radial-gradient(')):
+                # Simple validation - contains parentheses and some color-like content
+                if '(' in gradient and ')' in gradient and '#' in gradient:
+                    return True
+            return False
+        
+        # Accept structured gradient objects
         if not isinstance(gradient, dict):
             return False
         
@@ -168,15 +179,21 @@ class PostStyleValidator:
         # Validate backgroundColor
         bg_color = cleaned_style['backgroundColor']
         if isinstance(bg_color, str):
-            # Single color - validate hex
-            if not cls.validate_hex_color(bg_color):
-                raise ValueError(f"Invalid background color hex code: {bg_color}")
+            # Check if it's a CSS gradient string or hex color
+            if bg_color.lower().strip().startswith(('linear-gradient(', 'radial-gradient(')):
+                # CSS gradient string - validate using gradient validator
+                if not cls.validate_gradient(bg_color):
+                    raise ValueError("Invalid background gradient format")
+            else:
+                # Single color - validate hex
+                if not cls.validate_hex_color(bg_color):
+                    raise ValueError(f"Invalid background color hex code: {bg_color}")
         elif isinstance(bg_color, dict):
-            # Gradient - validate gradient structure
+            # Gradient object - validate gradient structure
             if not cls.validate_gradient(bg_color):
                 raise ValueError("Invalid background gradient format")
         else:
-            raise ValueError("Background color must be a hex string or gradient object")
+            raise ValueError("Background color must be a hex string, CSS gradient string, or gradient object")
         
         # Validate optional background properties
         if 'backgroundGradient' in cleaned_style:

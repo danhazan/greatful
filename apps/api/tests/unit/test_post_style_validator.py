@@ -43,8 +43,9 @@ class TestPostStyleValidator:
             assert not PostStyleValidator.validate_hex_color(color), f"Should be invalid: {color}"
     
     def test_validate_gradient_valid(self):
-        """Test validation of valid gradient objects."""
+        """Test validation of valid gradient objects and CSS strings."""
         valid_gradients = [
+            # Gradient objects
             {
                 "type": "linear",
                 "colors": ["#FF0000", "#00FF00"]
@@ -60,22 +61,34 @@ class TestPostStyleValidator:
                 "type": "linear",
                 "colors": ["#FF0000", "#00FF00", "#0000FF"],
                 "direction": "45deg"
-            }
+            },
+            # CSS gradient strings
+            "linear-gradient(135deg, #FF0000 0%, #00FF00 100%)",
+            "linear-gradient(to right, #FF0000, #00FF00)",
+            "radial-gradient(circle, #FF0000 0%, #00FF00 100%)",
+            "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #60A5FA 100%)"
         ]
         
         for gradient in valid_gradients:
             assert PostStyleValidator.validate_gradient(gradient), f"Should be valid: {gradient}"
     
     def test_validate_gradient_invalid(self):
-        """Test validation of invalid gradient objects."""
+        """Test validation of invalid gradient objects and CSS strings."""
         invalid_gradients = [
+            # Invalid gradient objects
             {"type": "linear"},  # Missing colors
             {"colors": ["#FF0000", "#00FF00"]},  # Missing type
             {"type": "invalid", "colors": ["#FF0000", "#00FF00"]},  # Invalid type
             {"type": "linear", "colors": ["#FF0000"]},  # Too few colors
             {"type": "linear", "colors": ["invalid", "#00FF00"]},  # Invalid color
             {"type": "linear", "colors": [{"color": "invalid"}]},  # Invalid color in object
-            "not a dict",  # Not a dictionary
+            # Invalid CSS gradient strings
+            "not-a-gradient",  # Not a gradient
+            "linear-gradient()",  # Empty gradient
+            "gradient(#FF0000, #00FF00)",  # Invalid CSS function
+            "linear-gradient(no-colors)",  # No color values
+            # Other invalid types
+            123,  # Not a string or dict
             None,  # None value
         ]
         
@@ -191,6 +204,17 @@ class TestPostStyleValidator:
                 "name": "Custom Style",
                 "backgroundColor": "#FF5733",
                 "backgroundBlendMode": "overlay"
+            },
+            {
+                "id": "css-gradient",
+                "name": "CSS Gradient Style",
+                "backgroundColor": "linear-gradient(135deg, #FF0000 0%, #00FF00 100%)"
+            },
+            {
+                "id": "ocean-blue",
+                "name": "Ocean Blue",
+                "backgroundColor": "#EFF6FF",
+                "backgroundGradient": "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #60A5FA 100%)"
             }
         ]
         
