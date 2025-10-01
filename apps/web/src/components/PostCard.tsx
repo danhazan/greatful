@@ -531,6 +531,8 @@ export default function PostCard({
     location?: string
     location_data?: any
     mentions?: string[]
+    imageUrl?: string
+    imageFile?: File
   }) => {
     try {
       const token = getAccessToken()
@@ -541,10 +543,40 @@ export default function PostCard({
 
       const loadingToastId = showLoading('Updating Post', 'Saving your changes...')
 
+      let finalImageUrl = postData.imageUrl
+
+      // If there's a new image file, upload it first
+      if (postData.imageFile) {
+        try {
+          const formData = new FormData()
+          formData.append('image', postData.imageFile)
+
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: formData
+          })
+
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json()
+            finalImageUrl = uploadResult.url || uploadResult.file_url
+          } else {
+            throw new Error('Failed to upload image')
+          }
+        } catch (uploadError) {
+          hideToast(loadingToastId)
+          showError('Upload Failed', 'Failed to upload image. Please try again.')
+          return
+        }
+      }
+
       const updateData = {
         content: postData.content,
         post_style: postData.postStyle,
         title: postData.title,
+        image_url: finalImageUrl,
         location: postData.location,
         location_data: postData.location_data
       }

@@ -155,6 +155,7 @@ class PostUpdate(BaseModel):
     content: Optional[str] = Field(None, min_length=1)
     rich_content: Optional[str] = Field(None, description="HTML formatted content")
     post_style: Optional[dict] = Field(None, description="Post styling information")
+    image_url: Optional[str] = Field(None, description="Image URL for the post")
     location: Optional[str] = Field(None, max_length=150)
     location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
 
@@ -1411,18 +1412,24 @@ async def edit_post(
             update_data['rich_content'] = sanitize_html(post_update.rich_content)
         if post_update.post_style is not None:
             update_data['post_style'] = post_update.post_style
+        # Handle image_url explicitly - allow setting to None to remove image
+        if hasattr(post_update, 'image_url'):
+            update_data['image_url'] = post_update.image_url
         if post_update.location is not None:
             update_data['location'] = post_update.location
         if post_update.location_data is not None:
             update_data['location_data'] = post_update.location_data
         
-        # If content is being updated, re-analyze post type
-        if 'content' in update_data:
+        # If content or image is being updated, re-analyze post type
+        if 'content' in update_data or 'image_url' in update_data:
             content_analysis_service = ContentAnalysisService(db)
-            has_image = bool(post.image_url)
+            # Use updated image_url if provided, otherwise use existing
+            has_image = bool(update_data.get('image_url', post.image_url))
+            # Use updated content if provided, otherwise use existing
+            content_to_analyze = update_data.get('content', post.content)
             
             analysis_result = content_analysis_service.analyze_content(
-                content=update_data['content'],
+                content=content_to_analyze,
                 has_image=has_image
             )
             
@@ -1431,7 +1438,7 @@ async def edit_post(
             
             # Validate content length for the new type
             validation_result = content_analysis_service.validate_content_for_type(
-                content=update_data['content'],
+                content=content_to_analyze,
                 post_type=analysis_result.suggested_type
             )
             

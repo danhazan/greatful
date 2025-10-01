@@ -329,6 +329,9 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         rich_content: richContent || null,
         // Always include post_style (filtered) explicitly
         postStyle: filterPostStyleProperties(selectedStyle),
+        // Include image information
+        ...(postData.imageUrl !== undefined ? { imageUrl: postData.imageUrl } : {}),
+        ...(imageFile ? { imageFile } : {}),
         // Only include location if it exists or has been changed
         ...(postData.location !== undefined ? { location: postData.location } : {}),
         ...(postData.location_data !== undefined ? { location_data: postData.location_data } : {}),
@@ -697,6 +700,21 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                 {/* Toolbar - Style and Location buttons under textbox */}
                 <div className="flex items-center justify-between pt-3 mt-3">
                   <div className="flex items-center space-x-3">
+                    {/* Photo Button */}
+                    <button
+                      type="button"
+                      onClick={handleAddPhoto}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${postData.imageUrl
+                          ? 'text-purple-600 bg-purple-50'
+                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                        }`}
+                    >
+                      <Camera className="h-4 w-4" />
+                      <span className="text-sm font-medium">
+                        {postData.imageUrl ? 'Photo Added' : 'Photo'}
+                      </span>
+                    </button>
+
                     {/* Style Button */}
                     <button
                       type="button"
