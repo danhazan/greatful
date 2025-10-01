@@ -587,9 +587,26 @@ export default function PostCard({
         }
       } else {
         const errorData = await response.json().catch(() => ({}))
+        
+        // Handle Pydantic validation errors (422 responses)
+        let errorMessage = 'Unable to update post. Please try again.'
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            // Pydantic validation errors - extract the first error message
+            const firstError = errorData.detail[0]
+            if (firstError && firstError.msg) {
+              errorMessage = firstError.msg
+            } else {
+              errorMessage = 'Validation error occurred'
+            }
+          } else if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail
+          }
+        }
+        
         showError(
           'Update Failed',
-          errorData.detail || 'Unable to update post. Please try again.',
+          errorMessage,
           {
             label: 'Retry',
             onClick: () => handleEditPost(postData)

@@ -363,7 +363,19 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       } else if (error?.error) {
         errorMessage = error.error
       } else if (error?.detail) {
-        errorMessage = error.detail
+        // Handle Pydantic validation errors (array of error objects)
+        if (Array.isArray(error.detail)) {
+          const firstError = error.detail[0]
+          if (firstError && firstError.msg) {
+            errorMessage = firstError.msg
+          } else {
+            errorMessage = 'Validation error occurred'
+          }
+        } else if (typeof error.detail === 'string') {
+          errorMessage = error.detail
+        } else {
+          errorMessage = 'Validation error occurred'
+        }
       }
       
       setError(errorMessage)

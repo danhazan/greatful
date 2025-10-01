@@ -13,7 +13,12 @@ class PostStyleValidator:
     # Predefined style IDs that are allowed
     PREDEFINED_STYLE_IDS = {
         'default', 'warm', 'cool', 'nature', 'sunset', 'ocean', 'forest', 
-        'lavender', 'rose', 'mint', 'peach', 'sky', 'earth', 'gradient'
+        'lavender', 'rose', 'mint', 'peach', 'sky', 'earth', 'gradient',
+        # Additional common style variations
+        'nature-green', 'warm-orange', 'cool-blue', 'sunset-pink', 'ocean-blue',
+        'forest-green', 'lavender-purple', 'rose-pink', 'mint-green', 'peach-orange',
+        'sky-blue', 'earth-brown', 'gradient-rainbow', 'soft-pink', 'deep-blue',
+        'bright-green', 'golden-yellow', 'coral-red', 'teal-blue', 'purple-violet'
     }
     
     # Allowed background color properties
@@ -77,7 +82,15 @@ class PostStyleValidator:
         
         # Allow custom style IDs with format: custom-{uuid} or user-{id}-{name}
         custom_pattern = r'^(custom-[a-f0-9-]{36}|user-\d+-[a-zA-Z0-9_-]+)$'
-        return bool(re.match(custom_pattern, style_id))
+        if re.match(custom_pattern, style_id):
+            return True
+        
+        # Allow common style naming patterns: word-word, word_word, or single word
+        # This covers cases like "nature-green", "warm_orange", "coolblue", etc.
+        # Pattern: starts with letter, contains letters/numbers/single dash/underscore, ends with letter/number
+        # No consecutive dashes or underscores
+        common_pattern = r'^[a-zA-Z][a-zA-Z0-9]*(?:[_-][a-zA-Z0-9]+)*$'
+        return bool(re.match(common_pattern, style_id))
     
     @classmethod
     def clean_post_style(cls, post_style: Dict[str, Any]) -> Dict[str, Any]:

@@ -95,6 +95,13 @@ class TestPostStyleValidator:
             "custom-12345678-1234-1234-1234-123456789abc",
             "user-123-my-style",
             "user-456-another_style",
+            # Common style patterns
+            "nature-green",
+            "warm-orange", 
+            "cool_blue",
+            "multi-word-style",
+            "valid123",
+            "singleword"
         ]
         
         for style_id in valid_custom_ids:
@@ -103,12 +110,15 @@ class TestPostStyleValidator:
     def test_validate_style_id_invalid(self):
         """Test validation of invalid style IDs."""
         invalid_ids = [
-            "invalid-format",
-            "custom-invalid-uuid",
-            "user-abc-style",  # Non-numeric user ID
             "",
             None,
             123,
+            # Invalid patterns
+            "invalid--style",  # Double dash
+            "invalid__style",  # Double underscore
+            "style-",          # Ends with dash
+            "-style",          # Starts with dash
+            "123invalid",      # Starts with number
         ]
         
         for style_id in invalid_ids:
@@ -197,7 +207,7 @@ class TestPostStyleValidator:
             "not a dict",  # Not a dictionary
             {},  # Missing required fields
             {"id": "default"},  # Missing name and backgroundColor
-            {"id": "invalid-id", "name": "Test", "backgroundColor": "#FF0000"},  # Invalid ID
+            {"id": "", "name": "Test", "backgroundColor": "#FF0000"},  # Empty ID
             {"id": "default", "name": "", "backgroundColor": "#FF0000"},  # Empty name
             {"id": "default", "name": "Test", "backgroundColor": "invalid"},  # Invalid color
             {"id": "default", "name": "Test", "backgroundColor": "#FF0000", "backgroundOpacity": 2},  # Invalid opacity
@@ -242,7 +252,7 @@ class TestPostStyleValidator:
         }
         
         invalid_style = {
-            "id": "invalid-id",
+            "id": "",  # Empty ID should be invalid
             "name": "Test Style",
             "backgroundColor": "#FFFFFF"
         }
