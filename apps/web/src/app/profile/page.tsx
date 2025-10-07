@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { User, Edit3, Calendar, Heart, X, Plus, Trash2, MapPin, Building, Globe } from "lucide-react"
 import PostCard from "@/components/PostCard"
@@ -103,10 +103,12 @@ export default function ProfilePage() {
   const [pendingWebsite, setPendingWebsite] = useState("")
   const [institutionError, setInstitutionError] = useState("")
   const [websiteError, setWebsiteError] = useState("")
+  const [usernameError, setUsernameError] = useState("")
   const [originalLocation, setOriginalLocation] = useState<any>(null)
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
+  const usernameInputRef = useRef<HTMLInputElement>(null)
 
   // Load user profile data
   useEffect(() => {
@@ -310,6 +312,7 @@ export default function ProfilePage() {
         setPendingWebsite("")
         setInstitutionError("")
         setWebsiteError("")
+        setUsernameError("")
       } else {
         console.error('Profile update error response:', response.status, response.statusText)
         console.error('Profile update error data:', responseData)
@@ -317,9 +320,22 @@ export default function ProfilePage() {
         let errorMessage = "Failed to update profile"
         if (responseData.detail) {
           if (typeof responseData.detail === 'string') {
-            errorMessage = responseData.detail
+            if (responseData.detail === "Username already taken") {
+              setUsernameError("Username already taken")
+              usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              errorMessage = ""
+            } else {
+              errorMessage = responseData.detail
+            }
           } else if (Array.isArray(responseData.detail)) {
-            errorMessage = responseData.detail.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ')
+            const usernameErr = responseData.detail.find((err: any) => err.loc && err.loc.includes('username'))
+            if (usernameErr) {
+              setUsernameError(usernameErr.msg)
+              usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              errorMessage = ""
+            } else {
+              errorMessage = responseData.detail.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ')
+            }
           } else {
             errorMessage = JSON.stringify(responseData.detail)
           }
@@ -327,7 +343,9 @@ export default function ProfilePage() {
           errorMessage = responseData.error
         }
         
-        alert(`Error (${response.status}): ${errorMessage}`)
+        if (errorMessage) {
+          alert(`Error (${response.status}): ${errorMessage}`)
+        }
       }
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -626,12 +644,14 @@ export default function ProfilePage() {
                         </label>
                         <input
                           type="text"
+                          ref={usernameInputRef}
                           value={editForm.username}
                           onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
                           className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
                           style={getCompleteInputStyling().style}
                           maxLength={50}
                         />
+                        {usernameError && <p className="text-xs text-red-600 mt-1">{usernameError}</p>}
                       </div>
 
                       {/* Bio */}
