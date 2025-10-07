@@ -33,6 +33,16 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
 
+    @field_validator('username')
+    def validate_username(cls, v):
+        """Validate username format, length, and characters."""
+        username_lower = v.lower()
+        if not (3 <= len(username_lower) <= 30):
+            raise ValueError('Username must be between 3 and 30 characters.')
+        if not re.match(r'^[a-z0-9_]+$', username_lower):
+            raise ValueError('Username can only contain letters, numbers, and underscores.')
+        return username_lower
+
 
 class UserLogin(BaseModel):
     """User login request model."""

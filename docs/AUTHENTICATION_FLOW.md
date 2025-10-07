@@ -91,6 +91,18 @@ Frontend → /api/auth/signup → FastAPI /api/v1/auth/signup
 }
 ```
 
+#### Username Constraints
+
+To ensure consistency and prevent issues, usernames must adhere to the following rules:
+
+- **Length**: Must be between 3 and 30 characters.
+- **Characters**: Can only contain lowercase letters (a-z), numbers (0-9), and underscores (_).
+- **Uniqueness**: Usernames must be unique across the platform.
+- **Case**: Usernames are automatically converted to lowercase.
+
+This is enforced on both the frontend during signup and on the backend for all username modifications.
+
+
 #### 2. User Login
 ```
 Frontend → /api/auth/login → FastAPI /api/v1/auth/login

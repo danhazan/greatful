@@ -33,10 +33,18 @@ export default function SignupPage() {
     clearError: clearOAuthError
   } = useOAuth()
 
+  const [usernameError, setUsernameError] = useState("")
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
+
+    // Re-validate username on submit
+    if (!validateUsername(formData.username)) {
+      setIsLoading(false)
+      return
+    }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -126,11 +134,32 @@ export default function SignupPage() {
     }
   }
 
+  const validateUsername = (value: string): boolean => {
+    if (value.length < 3 || value.length > 30) {
+      setUsernameError('Username must be 3-30 characters long.');
+      return false;
+    }
+    const regex = /^[a-z0-9_]+$/;
+    if (!regex.test(value)) {
+      setUsernameError('Only letters, numbers, and underscores are allowed.');
+      return false;
+    }
+    setUsernameError('');
+    return true;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
+    const { name, value } = e.target;
+    if (name === 'username') {
+      const lowerCaseUsername = value.toLowerCase();
+      setFormData({ ...formData, [name]: lowerCaseUsername });
+      validateUsername(lowerCaseUsername);
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   }
 
   const handleOAuthLoginClick = async (provider: 'google' | 'facebook') => {
@@ -206,6 +235,7 @@ export default function SignupPage() {
                 minLength={3}
                 maxLength={30}
               />
+              {usernameError && <p className="text-xs text-red-500 mt-1">{usernameError}</p>}
             </div>
 
             <div>
