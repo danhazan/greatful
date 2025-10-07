@@ -6,7 +6,8 @@ import logging
 from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+import re
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
 from app.services.user_service import UserService
@@ -28,6 +29,17 @@ class UserProfileUpdate(BaseModel):
     location_data: Optional[Dict] = None
     institutions: Optional[List[str]] = None
     websites: Optional[List[str]] = None
+
+    @field_validator('username')
+    def validate_username(cls, v):
+        if v is None:
+            return v
+        username_lower = v.lower()
+        if not (3 <= len(username_lower) <= 30):
+            raise ValueError('Username must be between 3 and 30 characters.')
+        if not re.match(r'^[a-z0-9_]+$', username_lower):
+            raise ValueError('Username can only contain letters, numbers, and underscores.')
+        return username_lower
 
 
 class UserProfileResponse(BaseModel):
@@ -155,6 +167,13 @@ async def update_my_profile(
 ):
     """Update current user's profile."""
     user_service = UserService(db)
+
+    # Add uniqueness check for username
+    if profile_update.username:
+        existing_user = await user_service.get_user_by_username(profile_update.username)
+        if existing_user and existing_user.id != current_user_id:
+            raise HTTPException(status_code=409, detail="Username already taken")
+
     result = await user_service.update_user_profile(
         user_id=current_user_id,
         username=profile_update.username,

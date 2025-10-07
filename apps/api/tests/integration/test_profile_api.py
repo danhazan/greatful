@@ -103,9 +103,8 @@ class TestUpdateMyProfile:
         
         assert response.status_code == 409
         data = response.json()
-        assert "error" in data
-        assert data["error"]["code"] == "already_exists"
-        assert "already taken" in data["error"]["message"].lower()
+        assert "detail" in data
+        assert data["detail"] == "Username already taken"
 
     @pytest.mark.asyncio
     async def test_update_profile_same_username(self, client, test_user, auth_headers):
