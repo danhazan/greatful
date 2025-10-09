@@ -14,9 +14,17 @@ from app.services.user_service import UserService
 from app.services.mention_service import MentionService
 from app.services.profile_photo_service import ProfilePhotoService
 from app.core.responses import success_response
+from app.core.security import verify_password
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class ChangePasswordRequest(BaseModel):
+    """Request model for changing a user's password."""
+    current_password: str
+    new_password: str
 
 
 class UserProfileUpdate(BaseModel):
@@ -518,3 +526,36 @@ async def search_locations(
     finally:
         # Clean up HTTP client
         await location_service.cleanup()
+
+@router.put("/me/password")
+async def change_password(
+    password_request: ChangePasswordRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Change the current user's password.
+    This endpoint is only available for users who signed up with an email and password.
+    """
+    user_service = UserService(db)
+    user = await user_service.get_by_id(User, current_user_id)
+
+    # Enforce the rule: OAuth users cannot change passwords.
+    if user.oauth_provider:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Users with a linked social account cannot change a password."
+        )
+
+    # Verify the current password
+    if not verify_password(password_request.current_password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect current password"
+        )
+
+    # Update to the new password
+    await user_service.update_password(user, password_request.new_password)
+
+    return success_response({"message": "Password updated successfully"}, getattr(request.state, 'request_id', None))

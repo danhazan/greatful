@@ -11,6 +11,7 @@ from app.core.query_monitor import monitor_query
 from app.repositories.user_repository import UserRepository
 from app.repositories.post_repository import PostRepository
 from app.models.user import User
+from app.core.security import get_password_hash
 
 logger = logging.getLogger(__name__)
 
@@ -347,3 +348,17 @@ class UserService(BaseService):
             "id": user.id,
             "username": user.username
         }
+
+    async def update_password(self, user: User, new_password: str) -> None:
+        """
+        Update user's password.
+
+        Args:
+            user: The User object to update.
+            new_password: The new plain-text password.
+        """
+        self.validate_field_length(new_password, "password", 128, 8)
+        
+        hashed_password = get_password_hash(new_password)
+        await self.user_repo.update(user, hashed_password=hashed_password)
+        logger.info(f"Password updated for user {user.id}")

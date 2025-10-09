@@ -12,6 +12,8 @@ from app.core.exceptions import (
     ValidationException
 )
 from app.models.user import User
+from app.models.token import PasswordResetToken
+import secrets
 from app.core.security import create_access_token, create_refresh_token, decode_token, get_password_hash, verify_password
 
 logger = logging.getLogger(__name__)
@@ -217,3 +219,74 @@ class AuthService(BaseService):
         # In a real implementation, you might want to blacklist the token
         # For now, we just return a success message
         return {"message": "Successfully logged out"}
+
+    async def generate_password_reset_token(self, email: str) -> Optional[str]:
+        """
+        Generate a password reset token for a user.
+
+        Args:
+            email: The user's email address.
+
+        Returns:
+            The generated token, or None if the user is an OAuth user.
+        """
+        user = await User.get_by_email(self.db, email)
+        if not user:
+            # To prevent email enumeration attacks, we don't reveal that the user doesn't exist.
+            logger.warning(f"Password reset requested for non-existent email: {email}")
+            return None
+
+        if user.oauth_provider:
+            # Users who signed up with OAuth cannot reset passwords.
+            logger.warning(f"Password reset requested for OAuth user: {email}")
+            # Here you might trigger an informational email.
+            return None
+
+        # Generate a secure token
+        token = secrets.token_urlsafe(32)
+
+        # Store the token in the database
+        reset_token = PasswordResetToken(user_id=user.id, token=token)
+        self.db.add(reset_token)
+        await self.db.commit()
+
+        logger.info(f"Generated password reset token for user: {email}")
+        return token
+
+    async def reset_password_with_token(self, token: str, new_password: str) -> None:
+        """
+        Reset a user's password using a valid reset token.
+
+        Args:
+            token: The password reset token.
+            new_password: The new password.
+
+        Raises:
+            AuthenticationError: If the token is invalid, expired, or already used.
+        """
+        from sqlalchemy.future import select
+        import datetime
+
+        # Find the token in the database
+        query = select(PasswordResetToken).where(PasswordResetToken.token == token)
+        result = await self.db.execute(query)
+        reset_token = result.scalar_one_or_none()
+
+        if not reset_token or reset_token.is_used or reset_token.expires_at < datetime.datetime.utcnow():
+            raise AuthenticationError("Invalid or expired password reset token")
+
+        # Get the user associated with the token
+        user = await self.get_by_id(User, reset_token.user_id)
+        if not user:
+            raise AuthenticationError("User not found")
+
+        # Update the password
+        from app.services.user_service import UserService
+        user_service = UserService(self.db)
+        await user_service.update_password(user, new_password)
+
+        # Invalidate the token
+        reset_token.is_used = True
+        await self.db.commit()
+
+        logger.info(f"Password has been reset for user: {user.email}")

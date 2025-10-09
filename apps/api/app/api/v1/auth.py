@@ -3,7 +3,7 @@ Authentication endpoints with security audit logging.
 """
 
 import logging
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
@@ -66,6 +66,17 @@ class UserResponse(BaseModel):
 class RefreshTokenRequest(BaseModel):
     """Refresh token request model."""
     refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request model for initiating a password reset."""
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request model for resetting a password with a token."""
+    token: str
+    new_password: str
 
 
 class OAuthCallbackRequest(BaseModel):
@@ -326,6 +337,52 @@ async def refresh_token(
             severity="WARNING"
         )
         raise
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    forgot_request: ForgotPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Initiate the password reset process for a user.
+    If the user exists and is not an OAuth user, a reset token is generated.
+    Email sending is deferred.
+    """
+    auth_service = AuthService(db)
+    token = await auth_service.generate_password_reset_token(forgot_request.email)
+
+    # For now, we return the token in the response for development purposes.
+    # In production, this should trigger an email and return a generic success message.
+    if token:
+        return success_response(
+            {"message": "Password reset token generated.", "reset_token": token},
+            getattr(request.state, 'request_id', None)
+        )
+    else:
+        # To prevent email enumeration, we return a generic success message even if the email doesn't exist or is an OAuth user.
+        return success_response(
+            {"message": "If an account with that email exists and is eligible for password reset, a token has been generated."},
+            getattr(request.state, 'request_id', None)
+        )
+
+
+@router.post("/reset-password")
+async def reset_password(
+    reset_request: ResetPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reset a user's password using a valid token.
+    """
+    auth_service = AuthService(db)
+    try:
+        await auth_service.reset_password_with_token(reset_request.token, reset_request.new_password)
+        return success_response({"message": "Password has been reset successfully."}, getattr(request.state, 'request_id', None))
+    except AuthenticationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 # OAuth Authentication Endpoints
