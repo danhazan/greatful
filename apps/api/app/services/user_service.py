@@ -62,7 +62,8 @@ class UserService(BaseService):
             "created_at": user.created_at.isoformat(),
             "posts_count": stats["posts_count"],
             "followers_count": stats["followers_count"],
-            "following_count": stats["following_count"]
+            "following_count": stats["following_count"],
+            "oauth_provider": user.oauth_provider
         }
 
     async def get_public_user_profile(self, user_id: int) -> Dict[str, any]:

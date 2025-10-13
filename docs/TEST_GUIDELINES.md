@@ -720,6 +720,19 @@ describe('Follow System Integration', () => {
 - ✅ Follow status integration - 100%
 - ✅ Follow workflow end-to-end - 100%
 
+### Profile Page Account Editing Tests (`apps/web/src/tests/components/profile-page-editing.test.tsx`)
+
+- **`test_renders_edit_account_button`**: Ensures the "Edit Account" button is visible after the refactor.
+- **`test_opens_account_editing_section_on_click`**: Verifies that clicking the "Edit Account" button reveals the account editing form and hides the profile editing form.
+- **`test_username_field_is_initially_readonly`**: Confirms the username field is not editable by default within the new account section.
+- **`test_username_field_becomes_editable_on_change_click`**: Tests the "Change" button for the username, ensuring the field becomes editable.
+- **`test_password_section_is_hidden_for_oauth_user`**: Enforces the rule that OAuth users cannot see the password section, showing an informational message instead.
+- **`test_password_section_is_visible_for_password_user`**: Ensures the password section is visible for standard (non-OAuth) users.
+- **`test_password_fields_expand_on_change_click`**: Tests the "Change" button for the password, ensuring the current and new password fields expand correctly.
+- **`test_password_mismatch_error`**: Verifies client-side validation for password confirmation, displaying an error if the new passwords do not match.
+- **`test_successful_password_change`**: Mocks a successful API call to test the end-to-end password change flow, ensuring the correct data is sent and the form closes.
+- **`test_successful_username_change`**: Mocks a successful API call to test the username change flow, ensuring the correct data is sent and the form closes.
+
 ### Performance Testing
 
 **Backend Performance**:

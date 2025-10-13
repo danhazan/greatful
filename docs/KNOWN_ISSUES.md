@@ -21,6 +21,7 @@
 - **🔁 Follow Notification Duplication**: Multiple follow notifications sent when unfollow/follow on same day
 - **🎯 Reaction Notification Duplication**: Changing emoji reactions creates duplicate notifications instead of updating
 - **🔄 Component State Synchronization**: Follow buttons and other interactive components don't update related UI elements
+- **🔐 Password Manager Not Triggered**: Password manager doesn't save new passwords when changed in profile settings
 
 ### ✅ Recently Resolved
 - **Heart Counter Real-time Updates**: ✅ COMPLETED - Real-time updates without page refresh
@@ -1146,6 +1147,76 @@ The platform currently allows usernames to contain special characters like dots,
 - User communication about username changes
 
 **Planned Resolution**: Scheduled for Phase 2 (post-MVP) as "Username Validation Standards" feature.
+
+### Password Manager Not Triggered
+**Issue**: Browser password manager doesn't save new passwords when changed in profile settings  
+**Status**: ⚠️ Active Issue  
+**Priority**: Medium  
+**Impact**: User Experience & Password Management  
+**Discovered**: January 13, 2025  
+
+**Description**:
+When users change their password in the profile settings, the browser's password manager is not triggered to save or update the new password. This forces users to manually save passwords or remember them, creating a poor user experience compared to standard login forms where password managers work automatically.
+
+**Technical Details**:
+- Backend: Password change API works correctly ✅
+- Database: New passwords are stored and validated properly ✅
+- Frontend: Password change form doesn't trigger browser password manager ❌
+- Issue: Missing password manager integration in profile password change flow
+
+**Current Behavior**:
+- User opens profile settings and clicks "Edit Account" ✅
+- User enters current password and new password ✅
+- User clicks "Save Changes" and password is updated successfully ✅
+- Browser password manager is not triggered to save the new password ❌
+- User must manually save password in their password manager ❌
+
+**Expected Behavior**:
+- When password change is successful, browser should prompt to save/update password
+- Password manager should associate new password with current username/email
+- User should not need to manually manage password storage
+- Experience should match standard login form password manager behavior
+
+**Reproduction Steps**:
+1. Navigate to profile page and click "Edit Account"
+2. Click "Change" next to password field
+3. Enter current password and new password
+4. Click "Save Changes"
+5. Observe successful password change but no password manager prompt
+6. Check password manager - new password is not saved automatically
+
+**Root Cause**: 
+- Profile password change uses AJAX API calls instead of form submission
+- Browser password managers typically trigger on form submission with proper form structure
+- Missing hidden form or password manager trigger mechanism
+- No `autocomplete` attributes or form structure to signal password manager
+
+**Impact**: 
+- Users must manually save passwords, reducing security convenience
+- Inconsistent experience compared to login/signup flows
+- May lead to weaker passwords if users avoid password managers
+- Reduces adoption of strong, unique passwords
+
+**Workaround**: Users can manually save passwords in their password manager after changing them.
+
+**Priority**: Medium - Affects user experience and password security practices.
+
+**Implementation Requirements**:
+- Add hidden form with proper `autocomplete` attributes for password manager
+- Trigger form submission after successful password change API call
+- Ensure username and new password are properly formatted for password manager
+- Test across different browsers (Chrome, Firefox, Safari, Edge)
+- Maintain existing API-based password change functionality
+
+**Files Affected**:
+- `apps/web/src/app/profile/page.tsx` - Profile password change implementation
+- Password change form structure and password manager trigger logic
+
+**Technical Solution Approach**:
+- Create hidden form with `username` and `password` fields
+- Use proper `autocomplete="username"` and `autocomplete="new-password"` attributes
+- Populate and submit hidden form after successful API password change
+- Use `setTimeout` to ensure form submission happens after API response
 
 ---
 

@@ -66,6 +66,7 @@ class UserProfileResponse(BaseModel):
     posts_count: int
     followers_count: int = 0  # Will be implemented with follow system
     following_count: int = 0  # Will be implemented with follow system
+    oauth_provider: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -85,6 +86,7 @@ class PublicUserProfileResponse(BaseModel):
     posts_count: int
     followers_count: int = 0  # Will be implemented with follow system
     following_count: int = 0  # Will be implemented with follow system
+    oauth_provider: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

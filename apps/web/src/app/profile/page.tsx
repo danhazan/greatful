@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { User, Edit3, Calendar, Heart, X, Plus, Trash2, MapPin, Building, Globe } from "lucide-react"
+import { User, Edit3, Calendar, Heart, X, Plus, Trash2, MapPin, Building, Globe, Shield, Eye, EyeOff } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import Navbar from "@/components/Navbar"
 import ProfilePhotoUpload from "@/components/ProfilePhotoUpload"
@@ -35,6 +35,7 @@ interface UserProfile {
   postsCount: number
   followersCount: number
   followingCount: number
+  oauth_provider?: string | null
 }
 
 interface Post {
@@ -85,14 +86,20 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editForm, setEditForm] = useState({
-    username: "",
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [isEditingAccount, setIsEditingAccount] = useState(false)
+  const [profileEditForm, setProfileEditForm] = useState({
     bio: "",
     displayName: "",
     city: "",
     institutions: [] as string[],
     websites: [] as string[]
+  })
+  const [accountEditForm, setAccountEditForm] = useState({
+    username: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
   })
   const [selectedLocation, setSelectedLocation] = useState<any>(null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
@@ -104,11 +111,18 @@ export default function ProfilePage() {
   const [institutionError, setInstitutionError] = useState("")
   const [websiteError, setWebsiteError] = useState("")
   const [usernameError, setUsernameError] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [isUsernameEditable, setIsUsernameEditable] = useState(false)
+  const [isPasswordSectionOpen, setIsPasswordSectionOpen] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [originalLocation, setOriginalLocation] = useState<any>(null)
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
   const usernameInputRef = useRef<HTMLInputElement>(null)
+  const passwordSectionRef = useRef<HTMLDivElement>(null)
 
   // Load user profile data
   useEffect(() => {
@@ -147,7 +161,8 @@ export default function ProfilePage() {
             joinDate: profileData.created_at || new Date().toISOString(),
             postsCount: profileData.posts_count || 0,
             followersCount: profileData.followers_count || 0,
-            followingCount: profileData.following_count || 0
+            followingCount: profileData.following_count || 0,
+            oauth_provider: profileData.oauth_provider || null
           }
 
           setUser(userProfile)
@@ -160,13 +175,18 @@ export default function ProfilePage() {
             profile_image_url: profileData.profile_image_url,
             image: profileData.image // Use normalized image field
           })
-          setEditForm({
-            username: userProfile.username,
+          setProfileEditForm({
             bio: userProfile.bio || "",
             displayName: userProfile.displayName || "",
             city: userProfile.city || "",
             institutions: Array.isArray(userProfile.institutions) ? userProfile.institutions : [],
             websites: Array.isArray(userProfile.websites) ? userProfile.websites : []
+          })
+          setAccountEditForm({
+            username: userProfile.username,
+            currentPassword: "",
+            newPassword: "",
+            confirmPassword: ""
           })
           setSelectedLocation(userProfile.location)
 
@@ -207,14 +227,22 @@ export default function ProfilePage() {
   }, [router])
 
   const handleEditProfile = () => {
-    setIsEditing(true)
-    // Store original location for validation
+    setIsEditingProfile(true)
+    setIsEditingAccount(false)
     setOriginalLocation(selectedLocation)
-    // Clear pending fields and errors
     setPendingInstitution("")
     setPendingWebsite("")
     setInstitutionError("")
     setWebsiteError("")
+  }
+
+  const handleEditAccount = () => {
+    setIsEditingAccount(true)
+    setIsEditingProfile(false)
+    setUsernameError("")
+    setPasswordError("")
+    setIsUsernameEditable(false)
+    setIsPasswordSectionOpen(false)
   }
 
   const handleSaveProfile = async () => {
@@ -223,12 +251,12 @@ export default function ProfilePage() {
 
     // Validate location - if there's text but no valid location selected, revert to original
     let locationToSave = selectedLocation
-    if (editForm.city && editForm.city.trim() && !selectedLocation) {
+    if (profileEditForm.city && profileEditForm.city.trim() && !selectedLocation) {
       // User typed something but didn't select from autocomplete - revert to original
       locationToSave = originalLocation
       setSelectedLocation(originalLocation)
-      setEditForm({
-        ...editForm,
+      setProfileEditForm({
+        ...profileEditForm,
         city: originalLocation ? originalLocation.display_name : ""
       })
       alert("Please select a location from the dropdown or leave the field empty")
@@ -239,22 +267,17 @@ export default function ProfilePage() {
       // Build request body, only including fields that have valid values
       const requestBody: any = {}
       
-      // Username is required and must be at least 3 characters
-      if (editForm.username && editForm.username.trim().length >= 3) {
-        requestBody.username = editForm.username.trim()
-      }
-      
       // Bio can be empty
-      requestBody.bio = editForm.bio || ""
+      requestBody.bio = profileEditForm.bio || ""
       
       // Display name must be at least 1 character if provided
-      if (editForm.displayName && editForm.displayName.trim().length >= 1) {
-        requestBody.display_name = editForm.displayName.trim()
+      if (profileEditForm.displayName && profileEditForm.displayName.trim().length >= 1) {
+        requestBody.display_name = profileEditForm.displayName.trim()
       }
       
       // City can be empty
-      if (editForm.city && editForm.city.trim()) {
-        requestBody.city = editForm.city.trim()
+      if (profileEditForm.city && profileEditForm.city.trim()) {
+        requestBody.city = profileEditForm.city.trim()
       }
       
       // Location data
@@ -263,8 +286,8 @@ export default function ProfilePage() {
       }
       
       // Institutions and websites
-      requestBody.institutions = Array.isArray(editForm.institutions) ? editForm.institutions.filter(inst => inst && inst.trim()) : []
-      requestBody.websites = Array.isArray(editForm.websites) ? editForm.websites.filter(url => url && url.trim()) : []
+      requestBody.institutions = Array.isArray(profileEditForm.institutions) ? profileEditForm.institutions.filter(inst => inst && inst.trim()) : []
+      requestBody.websites = Array.isArray(profileEditForm.websites) ? profileEditForm.websites.filter(url => url && url.trim()) : []
       
       console.log('Sending profile update request:', requestBody)
       
@@ -284,7 +307,6 @@ export default function ProfilePage() {
         if (user) {
           const updatedUser = {
             ...user,
-            username: updatedProfileData.username,
             bio: updatedProfileData.bio || "",
             displayName: updatedProfileData.display_name,
             city: updatedProfileData.city,
@@ -298,7 +320,6 @@ export default function ProfilePage() {
           stateSyncUtils.updateUserProfile(user.id.toString(), {
             display_name: updatedProfileData.display_name,
             name: updatedProfileData.display_name,
-            username: updatedProfileData.username,
             bio: updatedProfileData.bio,
             city: updatedProfileData.city,
             location: updatedProfileData.location,
@@ -306,13 +327,12 @@ export default function ProfilePage() {
             websites: updatedProfileData.websites
           })
         }
-        setIsEditing(false)
+        setIsEditingProfile(false)
         // Clear pending fields
         setPendingInstitution("")
         setPendingWebsite("")
         setInstitutionError("")
         setWebsiteError("")
-        setUsernameError("")
       } else {
         console.error('Profile update error response:', response.status, response.statusText)
         console.error('Profile update error data:', responseData)
@@ -320,22 +340,9 @@ export default function ProfilePage() {
         let errorMessage = "Failed to update profile"
         if (responseData.detail) {
           if (typeof responseData.detail === 'string') {
-            if (responseData.detail === "Username already taken") {
-              setUsernameError("Username already taken")
-              usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              errorMessage = ""
-            } else {
-              errorMessage = responseData.detail
-            }
+            errorMessage = responseData.detail
           } else if (Array.isArray(responseData.detail)) {
-            const usernameErr = responseData.detail.find((err: any) => err.loc && err.loc.includes('username'))
-            if (usernameErr) {
-              setUsernameError(usernameErr.msg)
-              usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              errorMessage = ""
-            } else {
-              errorMessage = responseData.detail.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ')
-            }
+            errorMessage = responseData.detail.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ')
           } else {
             errorMessage = JSON.stringify(responseData.detail)
           }
@@ -353,10 +360,134 @@ export default function ProfilePage() {
     }
   }
 
-  const handleCancelEdit = () => {
+  const handleSaveAccount = async () => {
+    const token = localStorage.getItem("access_token")
+    if (!token) return
+
+    let hasErrors = false
+    setUsernameError("")
+    setPasswordError("")
+
+    // Handle username change
+    if (isUsernameEditable && user && accountEditForm.username !== user.username) {
+      // Validate username
+      if (!accountEditForm.username || accountEditForm.username.trim().length < 3) {
+        setUsernameError("Username must be at least 3 characters long")
+        usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        hasErrors = true
+      } else if (!/^[a-zA-Z0-9_]+$/.test(accountEditForm.username)) {
+        setUsernameError("Username can only contain letters, numbers, and underscores")
+        usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        hasErrors = true
+      } else {
+      try {
+        const response = await fetch('/api/users/me/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ username: accountEditForm.username })
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          setUsernameError(errorData.detail || "Failed to update username")
+          usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          hasErrors = true
+        } else {
+          const updatedData = await response.json()
+          if (user) {
+            const updatedUser = { ...user, username: updatedData.data.username }
+            setUser(updatedUser)
+          }
+        }
+      } catch (error) {
+        setUsernameError("An unexpected error occurred")
+        usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        hasErrors = true
+      }
+      }
+    }
+
+    // Handle password change
+    if (isPasswordSectionOpen && accountEditForm.newPassword) {
+      // Validate passwords
+      if (!accountEditForm.currentPassword) {
+        setPasswordError("Current password is required")
+        passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        return
+      }
+      
+      if (accountEditForm.newPassword.length < 6) {
+        setPasswordError("New password must be at least 6 characters long")
+        passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        return
+      }
+      
+      if (accountEditForm.newPassword !== accountEditForm.confirmPassword) {
+        setPasswordError("New passwords do not match")
+        passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        return
+      }
+
+      try {
+        const response = await fetch('/api/users/me/password', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            current_password: accountEditForm.currentPassword,
+            new_password: accountEditForm.newPassword
+          })
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          setPasswordError(errorData.detail || "Failed to update password")
+          passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          hasErrors = true
+        } else {
+          // Trigger browser password manager to save new password
+          setTimeout(() => {
+            const hiddenForm = document.getElementById('password-manager-form') as HTMLFormElement
+            if (hiddenForm && user) {
+              const usernameInput = hiddenForm.querySelector('input[name="username"]') as HTMLInputElement
+              const passwordInput = hiddenForm.querySelector('input[name="password"]') as HTMLInputElement
+              if (usernameInput && passwordInput) {
+                usernameInput.value = user.username
+                passwordInput.value = accountEditForm.newPassword
+                // Submit the form to trigger password manager
+                hiddenForm.submit()
+              }
+            }
+          }, 100)
+        }
+      } catch (error) {
+        setPasswordError("An unexpected error occurred")
+        passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        hasErrors = true
+      }
+    }
+
+    if (!hasErrors) {
+      setIsEditingAccount(false)
+      setIsUsernameEditable(false)
+      setIsPasswordSectionOpen(false)
+      setAccountEditForm({
+        ...accountEditForm,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      })
+    }
+  }
+
+  const handleCancelProfileEdit = () => {
     if (user) {
-      setEditForm({
-        username: user.username,
+      setProfileEditForm({
         bio: user.bio || "",
         displayName: user.displayName || "",
         city: user.city || "",
@@ -365,12 +496,27 @@ export default function ProfilePage() {
       })
       setSelectedLocation(user.location)
     }
-    setIsEditing(false)
-    // Clear pending fields and errors
+    setIsEditingProfile(false)
     setPendingInstitution("")
     setPendingWebsite("")
     setInstitutionError("")
     setWebsiteError("")
+  }
+
+  const handleCancelAccountEdit = () => {
+    if (user) {
+      setAccountEditForm({
+        username: user.username,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      })
+    }
+    setIsEditingAccount(false)
+    setUsernameError("")
+    setPasswordError("")
+    setIsUsernameEditable(false)
+    setIsPasswordSectionOpen(false)
   }
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
@@ -509,7 +655,7 @@ export default function ProfilePage() {
       return
     }
     
-    const institutions = Array.isArray(editForm.institutions) ? editForm.institutions : []
+    const institutions = Array.isArray(profileEditForm.institutions) ? profileEditForm.institutions : []
     if (institutions.length >= 10) {
       setInstitutionError("Maximum 10 institutions allowed")
       return
@@ -520,8 +666,8 @@ export default function ProfilePage() {
       return
     }
 
-    setEditForm({
-      ...editForm,
+    setProfileEditForm({
+      ...profileEditForm,
       institutions: [...institutions, trimmed]
     })
     setPendingInstitution("")
@@ -529,10 +675,10 @@ export default function ProfilePage() {
   }
 
   const removeInstitution = (index: number) => {
-    const institutions = Array.isArray(editForm.institutions) ? editForm.institutions : []
+    const institutions = Array.isArray(profileEditForm.institutions) ? profileEditForm.institutions : []
     const newInstitutions = institutions.filter((_, i) => i !== index)
-    setEditForm({
-      ...editForm,
+    setProfileEditForm({
+      ...profileEditForm,
       institutions: newInstitutions
     })
   }
@@ -567,7 +713,7 @@ export default function ProfilePage() {
       return
     }
     
-    const websites = Array.isArray(editForm.websites) ? editForm.websites : []
+    const websites = Array.isArray(profileEditForm.websites) ? profileEditForm.websites : []
     if (websites.length >= 5) {
       setWebsiteError("Maximum 5 websites allowed")
       return
@@ -578,8 +724,8 @@ export default function ProfilePage() {
       return
     }
 
-    setEditForm({
-      ...editForm,
+    setProfileEditForm({
+      ...profileEditForm,
       websites: [...websites, normalizedUrl]
     })
     setPendingWebsite("")
@@ -587,10 +733,10 @@ export default function ProfilePage() {
   }
 
   const removeWebsite = (index: number) => {
-    const websites = Array.isArray(editForm.websites) ? editForm.websites : []
+    const websites = Array.isArray(profileEditForm.websites) ? profileEditForm.websites : []
     const newWebsites = websites.filter((_, i) => i !== index)
-    setEditForm({
-      ...editForm,
+    setProfileEditForm({
+      ...profileEditForm,
       websites: newWebsites
     })
   }
@@ -619,8 +765,178 @@ export default function ProfilePage() {
 
                 {/* Profile Info */}
                 <div className="flex-1 text-center sm:text-left min-w-0">
-                  {isEditing ? (
+                  {isEditingAccount ? (
                     <div className="space-y-4 max-w-2xl">
+                      <h2 className="text-xl font-bold text-gray-900 border-b pb-2">Account Settings</h2>
+                      
+                      {/* Email Display */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={user?.email || ''}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+
+                      {/* Username Section */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            ref={usernameInputRef}
+                            value={accountEditForm.username}
+                            readOnly={!isUsernameEditable}
+                            onChange={(e) => setAccountEditForm({ ...accountEditForm, username: e.target.value })}
+                            className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                              isUsernameEditable
+                                ? 'border-gray-300'
+                                : 'border-gray-200 bg-gray-100 cursor-not-allowed'
+                            }`}
+                            maxLength={50}
+                            autoComplete="username"
+                            name="username"
+                          />
+                          <button
+                            onClick={() => setIsUsernameEditable(!isUsernameEditable)}
+                            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                          >
+                            {isUsernameEditable ? 'Cancel' : 'Change'}
+                          </button>
+                        </div>
+                        {usernameError && <p className="text-xs text-red-600 mt-1">{usernameError}</p>}
+                      </div>
+
+                      {/* Password Section */}
+                      <div ref={passwordSectionRef}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="password"
+                            value="********"
+                            readOnly
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed"
+                          />
+                          <button
+                            onClick={() => !user?.oauth_provider && setIsPasswordSectionOpen(!isPasswordSectionOpen)}
+                            disabled={user?.oauth_provider ? true : false}
+                            title={user?.oauth_provider ? `Password management is not available for accounts created with ${user.oauth_provider} login` : undefined}
+                            className={`px-4 py-2 text-sm border border-gray-300 rounded-lg relative ${
+                              user?.oauth_provider 
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed group' 
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            {isPasswordSectionOpen ? 'Cancel' : 'Change'}
+                            {user?.oauth_provider && (
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 hidden sm:block">
+                                Password management is not available for {user.oauth_provider} accounts
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                              </div>
+                            )}
+                          </button>
+                        </div>
+                        {isPasswordSectionOpen && !user?.oauth_provider && (
+                          <div className="space-y-2 mt-2 pl-2 border-l-2 border-gray-200">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Current Password</label>
+                              <div className="relative">
+                                <input
+                                  type={showCurrentPassword ? "text" : "password"}
+                                  value={accountEditForm.currentPassword}
+                                  onChange={(e) => setAccountEditForm({ ...accountEditForm, currentPassword: e.target.value })}
+                                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  autoComplete="current-password"
+                                  name="currentPassword"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                >
+                                  {showCurrentPassword ? (
+                                    <EyeOff className="h-4 w-4 text-gray-400" />
+                                  ) : (
+                                    <Eye className="h-4 w-4 text-gray-400" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">New Password</label>
+                              <div className="relative">
+                                <input
+                                  type={showNewPassword ? "text" : "password"}
+                                  value={accountEditForm.newPassword}
+                                  onChange={(e) => setAccountEditForm({ ...accountEditForm, newPassword: e.target.value })}
+                                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  autoComplete="off"
+                                  name="newPassword"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowNewPassword(!showNewPassword)}
+                                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                >
+                                  {showNewPassword ? (
+                                    <EyeOff className="h-4 w-4 text-gray-400" />
+                                  ) : (
+                                    <Eye className="h-4 w-4 text-gray-400" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Confirm New Password</label>
+                              <div className="relative">
+                                <input
+                                  type={showConfirmPassword ? "text" : "password"}
+                                  value={accountEditForm.confirmPassword}
+                                  onChange={(e) => setAccountEditForm({ ...accountEditForm, confirmPassword: e.target.value })}
+                                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  autoComplete="off"
+                                  name="confirmPassword"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                >
+                                  {showConfirmPassword ? (
+                                    <EyeOff className="h-4 w-4 text-gray-400" />
+                                  ) : (
+                                    <Eye className="h-4 w-4 text-gray-400" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
+                      </div>
+
+                      {/* Save/Cancel Buttons */}
+                      <div className="mt-6 flex space-x-2 justify-end">
+                        <button
+                          onClick={handleCancelAccountEdit}
+                          className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveAccount}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </div>
+                  ) : isEditingProfile ? (
+                    <div className="space-y-4 max-w-2xl">
+                      <h2 className="text-xl font-bold text-gray-900 border-b pb-2">Profile Information</h2>
+                      
                       {/* Display Name */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -628,8 +944,8 @@ export default function ProfilePage() {
                         </label>
                         <input
                           type="text"
-                          value={editForm.displayName}
-                          onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                          value={profileEditForm.displayName}
+                          onChange={(e) => setProfileEditForm({ ...profileEditForm, displayName: e.target.value })}
                           className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
                           style={getCompleteInputStyling().style}
                           maxLength={100}
@@ -644,12 +960,9 @@ export default function ProfilePage() {
                         </label>
                         <input
                           type="text"
-                          ref={usernameInputRef}
-                          value={editForm.username}
-                          onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
-                          style={getCompleteInputStyling().style}
-                          maxLength={50}
+                          value={user?.username || ''}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed"
                         />
                         {usernameError && <p className="text-xs text-red-600 mt-1">{usernameError}</p>}
                       </div>
@@ -660,8 +973,8 @@ export default function ProfilePage() {
                           Bio
                         </label>
                         <textarea
-                          value={editForm.bio}
-                          onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                          value={profileEditForm.bio}
+                          onChange={(e) => setProfileEditForm({ ...profileEditForm, bio: e.target.value })}
                           className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
                           style={getCompleteInputStyling().style}
                           rows={3}
@@ -669,7 +982,7 @@ export default function ProfilePage() {
                           placeholder="Tell us about yourself..."
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          {editForm.bio.length}/500 characters
+                          {profileEditForm.bio.length}/500 characters
                         </p>
                       </div>
 
@@ -679,8 +992,8 @@ export default function ProfilePage() {
                           Location
                         </label>
                         <LocationAutocomplete
-                          value={editForm.city}
-                          onChange={(value) => setEditForm({ ...editForm, city: value })}
+                          value={profileEditForm.city}
+                          onChange={(value) => setProfileEditForm({ ...profileEditForm, city: value })}
                           onLocationSelect={(location) => setSelectedLocation(location)}
                           placeholder="Enter city, neighborhood, or place..."
                         />
@@ -698,7 +1011,7 @@ export default function ProfilePage() {
                         </label>
                         <div className="space-y-2">
                           {/* Existing institutions */}
-                          {Array.isArray(editForm.institutions) && editForm.institutions.map((institution, index) => (
+                          {Array.isArray(profileEditForm.institutions) && profileEditForm.institutions.map((institution, index) => (
                             <div key={index} className="flex items-center space-x-2">
                               <Building className="h-4 w-4 text-gray-400 flex-shrink-0" />
                               <div className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
@@ -716,7 +1029,7 @@ export default function ProfilePage() {
                           ))}
                           
                           {/* Add new institution */}
-                          {Array.isArray(editForm.institutions) && editForm.institutions.length < 10 && (
+                          {Array.isArray(profileEditForm.institutions) && profileEditForm.institutions.length < 10 && (
                             <div className="space-y-2">
                               <div className="flex items-center space-x-2">
                                 <Building className="h-4 w-4 text-gray-400 flex-shrink-0" />
@@ -764,7 +1077,7 @@ export default function ProfilePage() {
                         </label>
                         <div className="space-y-2">
                           {/* Existing websites */}
-                          {Array.isArray(editForm.websites) && editForm.websites.map((website, index) => (
+                          {Array.isArray(profileEditForm.websites) && profileEditForm.websites.map((website, index) => (
                             <div key={index} className="flex items-center space-x-2">
                               <Globe className="h-4 w-4 text-gray-400 flex-shrink-0" />
                               <div className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
@@ -782,7 +1095,7 @@ export default function ProfilePage() {
                           ))}
                           
                           {/* Add new website */}
-                          {Array.isArray(editForm.websites) && editForm.websites.length < 5 && (
+                          {Array.isArray(profileEditForm.websites) && profileEditForm.websites.length < 5 && (
                             <div className="space-y-2">
                               <div className="flex items-center space-x-2">
                                 <Globe className="h-4 w-4 text-gray-400 flex-shrink-0" />
@@ -882,9 +1195,9 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Edit Profile Button - positioned below "Joined..." text */}
-                      {!isEditing && (
-                        <div className="mt-4 flex justify-center sm:justify-start">
+                      {/* Edit Profile and Account Buttons - positioned below "Joined..." text */}
+                      {!isEditingProfile && !isEditingAccount && (
+                        <div className="mt-4 flex justify-center sm:justify-start space-x-2">
                           <button
                             onClick={handleEditProfile}
                             className="flex items-center space-x-2 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm min-h-[44px] touch-manipulation"
@@ -892,16 +1205,23 @@ export default function ProfilePage() {
                             <Edit3 className="h-3 w-3 sm:h-4 sm:w-4" />
                             <span>Edit Profile</span>
                           </button>
+                          <button
+                            onClick={handleEditAccount}
+                            className="flex items-center space-x-2 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm min-h-[44px] touch-manipulation"
+                          >
+                            <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span>Edit Account</span>
+                          </button>
                         </div>
                       )}
                     </>
                   )}
 
                   {/* Cancel/Save Buttons - positioned below profile details when editing */}
-                  {isEditing && (
+                  {isEditingProfile && (
                     <div className="mt-6 flex space-x-2 justify-center sm:justify-start">
                       <button
-                        onClick={handleCancelEdit}
+                        onClick={handleCancelProfileEdit}
                         className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm min-h-[44px] touch-manipulation"
                       >
                         Cancel
@@ -914,6 +1234,8 @@ export default function ProfilePage() {
                       </button>
                     </div>
                   )}
+
+
                 </div>
               </div>
             </div>
@@ -1030,6 +1352,26 @@ export default function ProfilePage() {
         userId={user.id}
         username={user.displayName || user.username}
       />
+      
+      {/* Hidden form to trigger browser password manager */}
+      <form 
+        id="password-manager-form" 
+        style={{ display: 'none' }} 
+        action="#" 
+        method="post"
+        onSubmit={(e) => e.preventDefault()}
+      >
+        <input 
+          type="text" 
+          name="username" 
+          autoComplete="username"
+        />
+        <input 
+          type="password" 
+          name="password" 
+          autoComplete="new-password"
+        />
+      </form>
     </div>
   )
 }
