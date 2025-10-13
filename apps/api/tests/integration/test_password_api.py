@@ -107,15 +107,15 @@ async def test_forgot_password_success_for_password_user(client: AsyncClient, pa
     assert token_in_db.token == data["reset_token"]
 
 async def test_forgot_password_graceful_fail_for_oauth_user(client: AsyncClient, oauth_user_in_db: User, db_session: AsyncSession):
-    """Ensure the endpoint doesn't leak that a user is an OAuth user."""
+    """Ensure OAuth users get a clear error message about using social login."""
     payload = {"email": oauth_user_in_db.email}
     
     response = client.post("/api/v1/auth/forgot-password", json=payload)
     
-    assert response.status_code == 200
-    data = response.json()["data"]
-    assert "reset_token" not in data
-    assert "eligible for password reset" in data["message"]
+    assert response.status_code == 422
+    data = response.json()
+    assert "social login" in data["error"]["message"]
+    assert "sign in with your social account" in data["error"]["message"]
 
 async def test_reset_password_success_with_valid_token(client: AsyncClient, password_user_in_db: User, auth_headers_for):
     """Test the end-to-end reset flow via the API."""

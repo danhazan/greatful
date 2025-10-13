@@ -372,11 +372,23 @@ async def forgot_password(
             getattr(request.state, 'request_id', None)
         )
     else:
-        # To prevent email enumeration, we return a generic success message even if the email doesn't exist or is an OAuth user.
-        return success_response(
-            {"message": "If an account with that email exists and is eligible for password reset, a token has been generated."},
-            getattr(request.state, 'request_id', None)
-        )
+        # Check if this is an OAuth user to provide better error message for development
+        from app.models.user import User
+        user = await User.get_by_email(db, forgot_request.email)
+        
+        if user and user.oauth_provider:
+            # OAuth user - provide specific error message for better UX
+            from app.core.exceptions import ValidationException
+            raise ValidationException(
+                "This account uses social login. Please sign in with your social account instead of resetting your password.",
+                {"email": "This email is associated with a social login account"}
+            )
+        else:
+            # To prevent email enumeration, we return a generic success message for non-existent users
+            return success_response(
+                {"message": "If an account with that email exists and is eligible for password reset, a token has been generated."},
+                getattr(request.state, 'request_id', None)
+            )
 
 
 @router.post("/reset-password")

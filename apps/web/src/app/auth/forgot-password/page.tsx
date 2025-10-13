@@ -30,7 +30,16 @@ export default function ForgotPasswordPage() {
       if (response.ok) {
         setMessage("If an account with that email exists, a password reset link has been sent.")
       } else {
-        setError(data.detail || "An error occurred. Please try again.")
+        // Handle structured error responses
+        let errorMessage = "An error occurred. Please try again."
+        
+        if (data.error && data.error.message) {
+          errorMessage = data.error.message
+        } else if (data.detail) {
+          errorMessage = data.detail
+        }
+        
+        setError(errorMessage)
       }
     } catch (error) {
       setError("Network error. Please check your connection.")
