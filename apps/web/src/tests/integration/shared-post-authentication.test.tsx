@@ -110,27 +110,22 @@ describe('Shared Post Authentication Integration', () => {
         expect(screen.queryByText('Join to interact with this post')).not.toBeInTheDocument()
       })
       
-      // Find and click heart button
-      const buttons = screen.getAllByRole('button')
-      const heartButton = buttons.find(button => {
-        return button.classList.contains('heart-button')
-      })
+      // Find and click heart button by class
+      const heartButton = document.querySelector('.heart-button') as HTMLButtonElement
       
       expect(heartButton).toBeInTheDocument()
       
-      if (heartButton) {
-        fireEvent.click(heartButton)
-        
-        await waitFor(() => {
-          expect(fetch).toHaveBeenCalledWith('/api/posts/shared-post-123/heart', {
-            method: 'POST',
-            headers: {
-              'Authorization': 'Bearer valid-token-123',
-              'Content-Type': 'application/json',
-            },
-          })
+      fireEvent.click(heartButton)
+      
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith('/api/posts/shared-post-123/heart', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer valid-token-123',
+            'Content-Type': 'application/json',
+          },
         })
-      }
+      })
     })
 
     it('should allow logged-in users to react with emojis on shared posts', async () => {
