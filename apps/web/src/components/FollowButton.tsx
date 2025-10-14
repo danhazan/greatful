@@ -40,6 +40,14 @@ export default function FollowButton({
     autoFetch: true
   })
 
+  // Debug logging to track which user IDs are being requested
+  React.useEffect(() => {
+    console.log('FollowButton mounted for userId:', userId)
+    return () => {
+      console.log('FollowButton unmounted for userId:', userId)
+    }
+  }, [userId])
+
   // Size classes with minimum touch targets and fixed widths for heart-shaped button
   const sizeClasses = {
     xxs: 'px-2 py-0.5 text-xs min-w-[22px] min-h-[20px] w-[90px]',

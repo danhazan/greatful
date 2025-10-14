@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
+import React, { useEffect, useCallback, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
 import { getAccessToken } from '@/utils/auth'
+import { apiClient } from '@/utils/apiClient'
 
 interface UseUserStateOptions {
   userId?: string
@@ -41,6 +42,13 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   const [localUserProfile, setLocalUserProfile] = useState<any | null>(null)
   const [localFollowState, setLocalFollowState] = useState(false)
 
+  // Debug logging to track which users are being processed
+  React.useEffect(() => {
+    if (userId) {
+      console.log('useUserState hook initialized for userId:', userId)
+    }
+  }, [userId])
+
   // Get current state from context
   const userProfile = userId ? getUserProfile(userId) || localUserProfile : null
   const followState = userId ? getFollowState(userId) : localFollowState
@@ -64,9 +72,11 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     return { hasProfile: !!cachedProfile, hasFollowState: cachedFollowState !== undefined }
   }, [userId, getUserProfile, getFollowState])
 
-  // Fetch user data from API with caching
+  // Fetch user data from API with optimized caching
   const fetchUserData = useCallback(async (targetUserId: string) => {
     if (!targetUserId) return
+
+    console.log('useUserState fetchUserData called for userId:', targetUserId)
 
     // Check cache first
     const { hasProfile, hasFollowState } = getCachedData()
@@ -76,6 +86,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     
     // If we have recent cached data, don't fetch again
     if (hasProfile && hasFollowState && lastFetch && (now - lastFetch) < CACHE_DURATION) {
+      console.log('Using cached data for userId:', targetUserId)
       setIsLoading(false)
       return
     }
@@ -105,18 +116,10 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
 
         // Fetch user profile only if not cached or stale
         if (!hasProfile || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
-          const profileResponse = await fetch(`/api/users/${targetUserId}/profile`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          })
+          try {
+            const profile: any = await apiClient.getUserProfile(targetUserId)
 
-          if (profileResponse && profileResponse.ok) {
-            const profileData = await profileResponse.json()
-            const profile = profileData.data || profileData
-
-            // Update context state
+            // Update context state with correct field mapping
             updateUserProfile(targetUserId, {
               id: targetUserId,
               name: profile.display_name || profile.name || profile.username,
@@ -124,31 +127,32 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
               email: profile.email,
               image: profile.profile_image_url || profile.image,
               display_name: profile.display_name,
-              follower_count: profile.follower_count,
-              following_count: profile.following_count,
-              posts_count: profile.posts_count
+              follower_count: profile.followers_count || profile.follower_count || 0,
+              following_count: profile.following_count || profile.following_count || 0,
+              posts_count: profile.posts_count || 0
             })
 
             setLocalUserProfile(profile)
+          } catch (profileError) {
+            console.warn('Failed to fetch user profile:', profileError)
+            // Don't fail the entire operation if profile fetch fails
           }
         }
 
         // Fetch follow status only if not cached or stale
         if (!hasFollowState || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
-          const followResponse = await fetch(`/api/follows/${targetUserId}/status`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          })
-
-          if (followResponse && followResponse.ok) {
-            const followData = await followResponse.json()
-            const isFollowing = followData.data?.is_following || false
+          try {
+            const followData: any = await apiClient.getFollowStatus(targetUserId)
+            const isFollowing = followData?.is_following || false
 
             // Update context state
             updateFollowState(targetUserId, isFollowing)
             setLocalFollowState(isFollowing)
+          } catch (followError) {
+            console.warn('Failed to fetch follow status:', followError)
+            // Default to false if follow status fetch fails
+            updateFollowState(targetUserId, false)
+            setLocalFollowState(false)
           }
         }
         
@@ -183,9 +187,22 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
         setIsLoading(false)
         return
       }
-      fetchUserData(userId)
+      
+      // Check if we already have recent cached data
+      const { hasProfile, hasFollowState } = getCachedData()
+      const cacheKey = `${userId}`
+      const lastFetch = lastFetchTime.get(cacheKey)
+      const now = Date.now()
+      
+      // Only fetch if we don't have cached data or it's stale
+      if (!hasProfile || !hasFollowState || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
+        fetchUserData(userId)
+      } else {
+        // We have cached data, just set loading to false
+        setIsLoading(false)
+      }
     }
-  }, [userId, autoFetch, fetchUserData])
+  }, [userId, autoFetch]) // Remove fetchUserData from dependencies to prevent loops
 
   // Subscribe to state updates for real-time synchronization
   useEffect(() => {
@@ -262,10 +279,13 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
 
   // Toggle follow state with optimistic updates and API call
   const toggleFollow = useCallback(async () => {
-    if (!userId) return
+    if (!userId || isLoading) return // Prevent multiple simultaneous calls
 
     const currentFollowState = followState
     const newFollowState = !currentFollowState
+
+    // Set loading state to prevent rapid clicks
+    setIsLoading(true)
 
     // Optimistic update
     updateFollowState(userId, newFollowState)
@@ -277,28 +297,24 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
         throw new Error('Authentication required')
       }
 
-      const method = currentFollowState ? 'DELETE' : 'POST'
-      const response = await fetch(`/api/follows/${userId}`, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      // Use optimized API client with cache invalidation
+      await apiClient.toggleFollow(userId, currentFollowState)
 
-      if (!response.ok) {
-        throw new Error(`Failed to ${currentFollowState ? 'unfollow' : 'follow'} user`)
-      }
+      // The API client handles cache invalidation automatically
+      // Refresh the user profile to get updated follower count
+      setTimeout(() => {
+        fetchUserData(userId)
+      }, 500) // Small delay to allow backend to update
 
-      // Optionally refresh user data to get updated follower counts
-      await fetchUserData(userId)
     } catch (err) {
       // Rollback optimistic update on error
       updateFollowState(userId, currentFollowState)
       setLocalFollowState(currentFollowState)
       throw err
+    } finally {
+      setIsLoading(false)
     }
-  }, [userId, followState, updateFollowState, fetchUserData])
+  }, [userId, followState, updateFollowState, isLoading, fetchUserData])
 
   // Refresh user data
   const refreshUserData = useCallback(async () => {

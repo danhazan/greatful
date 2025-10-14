@@ -10,6 +10,7 @@ import ProfileImageSection from "@/components/ProfileImageSection"
 import FollowersModal from "@/components/FollowersModal"
 import FollowingModal from "@/components/FollowingModal"
 import { transformUserPosts } from "@/lib/transformers"
+import { apiClient } from "@/utils/apiClient"
 
 interface UserProfile {
   id: number
@@ -72,7 +73,7 @@ export default function UserProfilePage() {
   const router = useRouter()
   const params = useParams()
   const userId = params.userId as string
-  
+
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -91,18 +92,11 @@ export default function UserProfilePage() {
           return
         }
 
-        // Get current user info
-        let currentUserData = null
-        const currentUserResponse = await fetch('/api/users/me/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        // Get current user info using optimized API client
+        let currentUserData: any = null
+        try {
+          currentUserData = await apiClient.getCurrentUserProfile({ cacheTTL: 300000 }) // 5 minutes cache
 
-        if (currentUserResponse.ok) {
-          const apiResponse = await currentUserResponse.json()
-          currentUserData = apiResponse.data  // Extract data from wrapped response
-          
           if (currentUserData && currentUserData.id) {
             setCurrentUser({
               id: currentUserData.id,
@@ -114,17 +108,16 @@ export default function UserProfilePage() {
               image: currentUserData.image // Use normalized image field
             })
           }
+        } catch (error) {
+          console.error('Failed to fetch current user:', error)
         }
 
-        // Fetch user profile
-        const profileResponse = await fetch(`/api/users/${userId}/profile`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
-        if (!profileResponse.ok) {
-          if (profileResponse.status === 404) {
+        // Fetch user profile using optimized API client (skip cache to get fresh data)
+        let profileData: any
+        try {
+          profileData = await apiClient.getUserProfile(userId, { skipCache: true })
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('404')) {
             setError("User not found")
           } else {
             setError("Failed to load user profile")
@@ -132,11 +125,21 @@ export default function UserProfilePage() {
           return
         }
 
-        const profileApiResponse = await profileResponse.json()
-        const profileData = profileApiResponse.data || profileApiResponse  // Handle both wrapped and direct responses
-        
         console.log('Profile data received:', profileData)
-        
+
+        // Ensure we use the correct field names from API response
+        const followersCount = profileData.followers_count ?? profileData.followersCount ?? 0
+        const followingCount = profileData.following_count ?? profileData.followingCount ?? 0
+
+        console.log('API Response - Setting profile with follower counts:', {
+          raw_followers_count: profileData.followers_count,
+          raw_following_count: profileData.following_count,
+          finalFollowersCount: followersCount,
+          finalFollowingCount: followingCount,
+          userId: profileData.id,
+          username: profileData.username
+        })
+
         setProfile({
           id: profileData.id,
           username: profileData.username,
@@ -146,68 +149,50 @@ export default function UserProfilePage() {
           displayName: profileData.display_name,
           createdAt: profileData.created_at,
           postsCount: profileData.posts_count || 0,
-          followersCount: profileData.followers_count || 0,
-          followingCount: profileData.following_count || 0
+          followersCount: followersCount,
+          followingCount: followingCount
         })
-        
+
+        console.log('Profile state set with counts:', {
+          followersCount: followersCount,
+          followingCount: followingCount
+        })
+
         console.log('Profile state set:', {
           username: profileData.username,
           displayName: profileData.display_name,
           profileImageUrl: profileData.profile_image_url
         })
 
-        // Fetch user posts
+        // Fetch user posts using optimized API client
         try {
+          let postsData
           if (userId === currentUserData?.id?.toString()) {
             // For current user, use the existing me/posts endpoint
-            const postsResponse = await fetch('/api/users/me/posts', {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            })
-            if (postsResponse.ok) {
-              const postsApiResponse = await postsResponse.json()
-              const postsData = postsApiResponse.data || postsApiResponse  // Handle both wrapped and direct responses
-              const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
-              setPosts(transformedPosts)
-            }
+            postsData = await apiClient.get('/users/me/posts')
           } else {
             // For other users, try the dedicated endpoint first
-            const userPostsResponse = await fetch(`/api/users/${userId}/posts`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            })
-            
-            if (userPostsResponse.ok) {
-              const userPostsApiResponse = await userPostsResponse.json()
-              const userPostsData = userPostsApiResponse.data || userPostsApiResponse  // Handle both wrapped and direct responses
-              // Transform posts from backend format to frontend format
-              const transformedPosts = Array.isArray(userPostsData) ? transformUserPosts(userPostsData) : []
-              // Sort posts by creation date (newest first) as a backup
-              const sortedPosts = transformedPosts.sort((a, b) => 
-                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-              )
-              setPosts(sortedPosts)
-            } else {
+            try {
+              postsData = await apiClient.getUserPosts(userId)
+            } catch (userPostsError) {
               // Fallback: get all posts from feed and filter by author
-              const feedResponse = await fetch('/api/posts', {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              })
-              if (feedResponse.ok) {
-                const feedApiResponse = await feedResponse.json()
-                const allPosts = feedApiResponse.data || feedApiResponse  // Handle both wrapped and direct responses
-                const userPosts = Array.isArray(allPosts) ? allPosts.filter((post: any) => post.author.id === userId) : []
-                console.log('Filtered user posts:', userPosts)
-                setPosts(userPosts)
-              }
+              console.warn('Failed to fetch user posts, falling back to feed filter:', userPostsError)
+              const allPosts = await apiClient.getPosts()
+              postsData = Array.isArray(allPosts) ? allPosts.filter((post: any) => post.author.id === userId) : []
             }
           }
+
+          // Transform posts from backend format to frontend format
+          const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
+          // Sort posts by creation date (newest first) as a backup
+          const sortedPosts = transformedPosts.sort((a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          setPosts(sortedPosts)
         } catch (postsError) {
           console.error('Error fetching posts:', postsError)
           // Don't fail the whole page if posts can't be loaded
+          setPosts([])
         }
 
       } catch (error) {
@@ -223,11 +208,11 @@ export default function UserProfilePage() {
     }
   }, [userId, router])
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {
+  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { hearts_count: number, is_hearted: boolean }) => {
     // If we have server data, use it; otherwise fallback to optimistic update
     const newHearted = heartInfo ? heartInfo.is_hearted : !isCurrentlyHearted
     const newCount = heartInfo ? heartInfo.hearts_count : (isCurrentlyHearted ? (posts.find(p => p.id === postId)?.heartsCount || 1) - 1 : (posts.find(p => p.id === postId)?.heartsCount || 0) + 1)
-    
+
     // Update both the user's individual heart state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
@@ -243,11 +228,11 @@ export default function UserProfilePage() {
     }))
   }
 
-  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: { total_count: number, reactions: { [key: string]: number }, user_reaction: string | null }) => {
     // If we have server data, use it; otherwise fallback to optimistic update
     const newReaction = reactionSummary ? reactionSummary.user_reaction : emojiCode
     const newCount = reactionSummary ? reactionSummary.total_count : (posts.find(p => p.id === postId)?.reactionsCount || 0) + 1
-    
+
     // Update both the user's individual reaction state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
@@ -263,11 +248,11 @@ export default function UserProfilePage() {
     }) as typeof posts)
   }
 
-  const handleRemoveReaction = async (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+  const handleRemoveReaction = async (postId: string, reactionSummary?: { total_count: number, reactions: { [key: string]: number }, user_reaction: string | null }) => {
     // If we have server data, use it; otherwise fallback to optimistic update
     const newReaction = reactionSummary ? reactionSummary.user_reaction : undefined
     const newCount = reactionSummary ? reactionSummary.total_count : Math.max((posts.find(p => p.id === postId)?.reactionsCount || 1) - 1, 0)
-    
+
     // Update both the user's individual reaction state AND the global count from server
     setPosts(posts.map(post => {
       if (post.id === postId) {
@@ -289,7 +274,7 @@ export default function UserProfilePage() {
   }
 
   const handleUserClick = (clickedUserId: string) => {
-    if (clickedUserId === currentUser?.id) {
+    if (clickedUserId === currentUser?.id?.toString()) {
       router.push("/profile")
     } else {
       router.push(`/profile/${clickedUserId}`)
@@ -298,7 +283,7 @@ export default function UserProfilePage() {
 
   const handleEditPost = (postId: string, updatedPost: any) => {
     // Update the post in the local state
-    setPosts(posts.map(post => 
+    setPosts(posts.map(post =>
       post.id === postId ? updatedPost : post
     ))
   }
@@ -311,11 +296,11 @@ export default function UserProfilePage() {
   const handlePostsClick = () => {
     const postsSection = document.getElementById('posts-section')
     if (postsSection) {
-      postsSection.scrollIntoView({ 
+      postsSection.scrollIntoView({
         behavior: 'smooth',
         block: 'start'
       })
-      
+
       // Add visual feedback with highlight animation
       setPostsHighlighted(true)
       setTimeout(() => {
@@ -359,7 +344,14 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <Navbar user={currentUser} />
+      <Navbar
+        user={currentUser}
+        onLogout={() => {
+          localStorage.removeItem("access_token")
+          setCurrentUser(null)
+          router.push("/")
+        }}
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -384,7 +376,7 @@ export default function UserProfilePage() {
                 {profile?.username && (
                   <p className="text-gray-500 text-sm mb-2">@{profile.username}</p>
                 )}
-                
+
                 {profile.bio && (
                   <p className="text-gray-600 mb-4 max-w-md">
                     {profile.bio}
@@ -401,18 +393,14 @@ export default function UserProfilePage() {
                 {/* Follow Button - only show when viewing someone else's profile */}
                 {currentUser && currentUser.id !== profile.id && (
                   <div className="mb-4">
-                    <FollowButton 
-                      userId={profile.id} 
+                    <FollowButton
+                      userId={profile.id}
                       size="md"
                       variant="primary"
                       onFollowChange={(isFollowing) => {
-                        // Update follower count optimistically
-                        setProfile(prev => prev ? {
-                          ...prev,
-                          followersCount: isFollowing 
-                            ? (prev.followersCount || 0) + 1 
-                            : Math.max((prev.followersCount || 1) - 1, 0)
-                        } : null)
+                        // Don't do optimistic updates here - let the FollowButton handle it
+                        // The profile data should remain authoritative from the API
+                        console.log('Follow state changed:', isFollowing, 'for user:', profile.id)
                       }}
                     />
                   </div>
@@ -420,7 +408,7 @@ export default function UserProfilePage() {
 
                 {/* Stats */}
                 <div className="flex items-center justify-center md:justify-start space-x-8">
-                  <button 
+                  <button
                     className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
                     onClick={handlePostsClick}
                     aria-label={`View ${profile.username}'s ${profile.postsCount} posts`}
@@ -430,7 +418,7 @@ export default function UserProfilePage() {
                     <div className="text-sm text-gray-500">Posts</div>
                   </button>
                   {profile.followersCount !== undefined && (
-                    <button 
+                    <button
                       className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
                       onClick={() => setShowFollowersModal(true)}
                       aria-label={`View ${profile.username}'s ${profile.followersCount} followers`}
@@ -440,7 +428,7 @@ export default function UserProfilePage() {
                     </button>
                   )}
                   {profile.followingCount !== undefined && (
-                    <button 
+                    <button
                       className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
                       onClick={() => setShowFollowingModal(true)}
                       aria-label={`View ${profile.followingCount} users ${profile.username} is following`}
@@ -455,18 +443,17 @@ export default function UserProfilePage() {
           </div>
 
           {/* Posts Section */}
-          <div 
-            id="posts-section" 
-            className={`space-y-6 transition-all duration-500 ${
-              postsHighlighted 
-                ? 'bg-purple-50 border-2 border-purple-200 rounded-xl p-4 -m-4' 
-                : ''
-            }`}
+          <div
+            id="posts-section"
+            className={`space-y-6 transition-all duration-500 ${postsHighlighted
+              ? 'bg-purple-50 border-2 border-purple-200 rounded-xl p-4 -m-4'
+              : ''
+              }`}
           >
             <h2 className="text-xl font-semibold text-gray-900">
               {profile.username}'s Gratitude Posts
             </h2>
-            
+
             {posts.length === 0 ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                 <div className="text-gray-400 text-4xl mb-4">📝</div>
@@ -505,7 +492,7 @@ export default function UserProfilePage() {
         userId={profile.id}
         username={profile.displayName || profile.username}
       />
-      
+
       <FollowingModal
         isOpen={showFollowingModal}
         onClose={() => setShowFollowingModal(false)}
