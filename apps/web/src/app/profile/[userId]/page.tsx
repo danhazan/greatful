@@ -83,6 +83,23 @@ export default function UserProfilePage() {
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
 
+  // Listen for follower count updates from follow actions
+  useEffect(() => {
+    const handleFollowerCountUpdate = (e: CustomEvent) => {
+      if (profile && e.detail.userId === profile.id.toString()) {
+        setProfile(prev => prev ? {
+          ...prev,
+          followersCount: e.detail.isFollowing 
+            ? (prev.followersCount || 0) + 1 
+            : Math.max(0, (prev.followersCount || 0) - 1)
+        } : null)
+      }
+    }
+
+    window.addEventListener('followerCountUpdate', handleFollowerCountUpdate as EventListener)
+    return () => window.removeEventListener('followerCountUpdate', handleFollowerCountUpdate as EventListener)
+  }, [profile])
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -398,11 +415,8 @@ export default function UserProfilePage() {
                       userId={profile.id}
                       size="md"
                       variant="primary"
-                      onFollowChange={(isFollowing) => {
-                        // Don't do optimistic updates here - let the FollowButton handle it
-                        // The profile data should remain authoritative from the API
-                        console.log('Follow state changed:', isFollowing, 'for user:', profile.id)
-                      }}
+                      // Remove onFollowChange callback to prevent double counting
+                      // The ProfilePage already listens to followerCountUpdate events
                     />
                   </div>
                 )}

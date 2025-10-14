@@ -56,36 +56,52 @@ describe('PostCard Real-time Updates', () => {
   it('should update heart count in real-time when heart button is clicked', async () => {
     const mockOnHeart = jest.fn()
     
-    // Mock all API calls that happen on component mount and heart click
-    ;(fetch as jest.Mock)
-      // Mock username validation call (happens on mount)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: { valid_usernames: [] } }),
-      })
-      // Mock user profile call (happens on mount from FollowButton)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ id: 'author-1', name: 'Test Author' }),
-      })
-      // Mock follow status call (happens on mount from FollowButton)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ is_following: false }),
-      })
-      // Mock successful heart API call
-      .mockResolvedValueOnce({
+    // Mock all API calls with a more flexible approach
+    ;(fetch as jest.Mock).mockImplementation((url: string, options?: any) => {
+      // Mock username validation call
+      if (url.includes('/users/validate-usernames')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { valid_usernames: [] } }),
+        })
+      }
+      // Mock user profile calls
+      if (url.includes('/users/') && url.includes('/profile')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: 'author-1', name: 'Test Author' }),
+        })
+      }
+      // Mock follow status calls
+      if (url.includes('/follows/') && url.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ is_following: false }),
+        })
+      }
+      // Mock heart API call
+      if (url.includes('/heart') && !url.includes('/hearts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({}),
+        })
+      }
+      // Mock heart info fetch
+      if (url.includes('/hearts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            hearts_count: 6,
+            is_hearted: true,
+          }),
+        })
+      }
+      // Default fallback
+      return Promise.resolve({
         ok: true,
         json: async () => ({}),
       })
-      // Mock successful heart info fetch with updated count
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          hearts_count: 6,
-          is_hearted: true,
-        }),
-      })
+    })
 
     render(
       <PostCard
@@ -132,36 +148,52 @@ describe('PostCard Real-time Updates', () => {
     const mockOnHeart = jest.fn()
     const heartedPost = { ...mockPost, heartsCount: 6, isHearted: true }
     
-    // Mock all API calls that happen on component mount and heart click
-    ;(fetch as jest.Mock)
-      // Mock username validation call (happens on mount)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: { valid_usernames: [] } }),
-      })
-      // Mock user profile call (happens on mount from FollowButton)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ id: 'author-1', name: 'Test Author' }),
-      })
-      // Mock follow status call (happens on mount from FollowButton)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ is_following: false }),
-      })
-      // Mock successful unheart API call
-      .mockResolvedValueOnce({
+    // Mock all API calls with a more flexible approach
+    ;(fetch as jest.Mock).mockImplementation((url: string, options?: any) => {
+      // Mock username validation call
+      if (url.includes('/users/validate-usernames')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { valid_usernames: [] } }),
+        })
+      }
+      // Mock user profile calls
+      if (url.includes('/users/') && url.includes('/profile')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: 'author-1', name: 'Test Author' }),
+        })
+      }
+      // Mock follow status calls
+      if (url.includes('/follows/') && url.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ is_following: false }),
+        })
+      }
+      // Mock heart API call
+      if (url.includes('/heart') && !url.includes('/hearts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({}),
+        })
+      }
+      // Mock heart info fetch
+      if (url.includes('/hearts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            hearts_count: 5,
+            is_hearted: false,
+          }),
+        })
+      }
+      // Default fallback
+      return Promise.resolve({
         ok: true,
         json: async () => ({}),
       })
-      // Mock successful heart info fetch with updated count
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          hearts_count: 5,
-          is_hearted: false,
-        }),
-      })
+    })
 
     render(
       <PostCard
@@ -199,32 +231,49 @@ describe('PostCard Real-time Updates', () => {
   it('should fallback to optimistic update if heart info fetch fails', async () => {
     const mockOnHeart = jest.fn()
     
-    // Mock all API calls that happen on component mount and heart click
-    ;(fetch as jest.Mock)
-      // Mock username validation call (happens on mount)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: { valid_usernames: [] } }),
-      })
-      // Mock user profile call (happens on mount from FollowButton)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ id: 'author-1', name: 'Test Author' }),
-      })
-      // Mock follow status call (happens on mount from FollowButton)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ is_following: false }),
-      })
-      // Mock successful heart API call but failed heart info fetch
-      .mockResolvedValueOnce({
+    // Mock all API calls with a more flexible approach
+    ;(fetch as jest.Mock).mockImplementation((url: string, options?: any) => {
+      // Mock username validation call
+      if (url.includes('/users/validate-usernames')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { valid_usernames: [] } }),
+        })
+      }
+      // Mock user profile calls
+      if (url.includes('/users/') && url.includes('/profile')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: 'author-1', name: 'Test Author' }),
+        })
+      }
+      // Mock follow status calls
+      if (url.includes('/follows/') && url.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ is_following: false }),
+        })
+      }
+      // Mock heart API call
+      if (url.includes('/heart') && !url.includes('/hearts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({}),
+        })
+      }
+      // Mock heart info fetch failure
+      if (url.includes('/hearts')) {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+        })
+      }
+      // Default fallback
+      return Promise.resolve({
         ok: true,
         json: async () => ({}),
       })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-      })
+    })
 
     render(
       <PostCard
@@ -257,8 +306,39 @@ describe('PostCard Real-time Updates', () => {
     const mockOnHeart = jest.fn()
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
     
-    // Mock failed heart API call
-    ;(fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'))
+    // Mock all API calls with network error for heart action
+    ;(fetch as jest.Mock).mockImplementation((url: string, options?: any) => {
+      // Mock username validation call
+      if (url.includes('/users/validate-usernames')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { valid_usernames: [] } }),
+        })
+      }
+      // Mock user profile calls
+      if (url.includes('/users/') && url.includes('/profile')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: 'author-1', name: 'Test Author' }),
+        })
+      }
+      // Mock follow status calls
+      if (url.includes('/follows/') && url.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ is_following: false }),
+        })
+      }
+      // Mock heart API call with network error
+      if (url.includes('/heart')) {
+        return Promise.reject(new Error('Network error'))
+      }
+      // Default fallback
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({}),
+      })
+    })
 
     render(
       <PostCard

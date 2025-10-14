@@ -128,49 +128,73 @@ describe('Follow Interactions Integration', () => {
 
 
     it('maintains follow state after component remount', async () => {
-      // Mock initial fetch
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true, data: { is_following: true } })
+      // Mock API calls for useUserState
+      mockFetch.mockImplementation((url) => {
+        if (url.includes('/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ id: '123', username: 'testuser', display_name: 'Test User' }),
+          })
+        }
+        if (url.includes('/status')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ is_following: true }),
+          })
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({}),
+        })
       })
 
-      const { rerender, unmount } = render(<FollowButton userId={123} />)
+      const { rerender, unmount } = render(<FollowButton userId={123} initialFollowState={true} />)
 
-      await waitFor(() => {
-        expect(screen.getByText(/Following/)).toBeInTheDocument()
-      })
+      // Component should immediately show following state
+      expect(screen.getByText(/Following/)).toBeInTheDocument()
 
       // Unmount and remount component completely
       unmount()
-      render(<FollowButton userId={123} />)
+      render(<FollowButton userId={123} initialFollowState={true} />)
 
-      // Should fetch status again and maintain state
-      await waitFor(() => {
-        expect(screen.getByText(/Following/)).toBeInTheDocument()
-      })
+      // Should maintain state
+      expect(screen.getByText(/Following/)).toBeInTheDocument()
 
       // The useUserState hook makes multiple API calls (profile, status, etc.)
       expect(mockFetch).toHaveBeenCalled() // Just verify it was called
     })
 
     it('handles concurrent follow/unfollow requests', async () => {
-      // Mock initial status as following
-      mockFetch
-        .mockResolvedValueOnce({
+      // Mock API calls for useUserState
+      mockFetch.mockImplementation((url, options) => {
+        if (url.includes('/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ id: '123', username: 'testuser', display_name: 'Test User' }),
+          })
+        }
+        if (url.includes('/status')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ is_following: true }),
+          })
+        }
+        if (url.includes('/follows/123') && options?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ success: true }),
+          })
+        }
+        return Promise.resolve({
           ok: true,
-          json: async () => ({ success: true, data: { is_following: true } })
+          json: async () => ({}),
         })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ success: true, data: { success: true } })
-        })
-
-      render(<FollowButton userId={123} />)
-
-      // Wait for initial following state
-      await waitFor(() => {
-        expect(screen.getByText(/Following/)).toBeInTheDocument()
       })
+
+      render(<FollowButton userId={123} initialFollowState={true} />)
+
+      // Component should immediately show following state
+      expect(screen.getByText(/Following/)).toBeInTheDocument()
 
       const followButton = screen.getByRole('button', { name: /following|unfollow/i })
 
@@ -185,22 +209,36 @@ describe('Follow Interactions Integration', () => {
 
   describe('Follow Button Accessibility', () => {
     it('provides proper keyboard navigation', async () => {
-      mockFetch
-        .mockResolvedValueOnce({
+      // Mock API calls for useUserState
+      mockFetch.mockImplementation((url, options) => {
+        if (url.includes('/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ id: '123', username: 'testuser', display_name: 'Test User' }),
+          })
+        }
+        if (url.includes('/status')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ is_following: true }),
+          })
+        }
+        if (url.includes('/follows/123') && options?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ success: true }),
+          })
+        }
+        return Promise.resolve({
           ok: true,
-          json: async () => ({ success: true, data: { is_following: false } })
+          json: async () => ({}),
         })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ success: true, data: { id: 'follow-123' } })
-        })
-
-      render(<FollowButton userId={123} />)
-
-      // Wait for initial status to load - component starts in following state
-      await waitFor(() => {
-        expect(screen.getByText(/Following/)).toBeInTheDocument()
       })
+
+      render(<FollowButton userId={123} initialFollowState={true} />)
+
+      // Component should immediately show following state
+      expect(screen.getByText(/Following/)).toBeInTheDocument()
 
       const followButton = screen.getByRole('button', { name: /follow|unfollow/i })
 

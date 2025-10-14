@@ -124,6 +124,23 @@ export default function ProfilePage() {
   const usernameInputRef = useRef<HTMLInputElement>(null)
   const passwordSectionRef = useRef<HTMLDivElement>(null)
 
+  // Listen for follower count updates from other users following/unfollowing this user
+  useEffect(() => {
+    const handleFollowerCountUpdate = (e: CustomEvent) => {
+      if (user && e.detail.userId === user.id.toString()) {
+        setUser(prev => prev ? {
+          ...prev,
+          followersCount: e.detail.isFollowing 
+            ? (prev.followersCount || 0) + 1 
+            : Math.max(0, (prev.followersCount || 0) - 1)
+        } : null)
+      }
+    }
+
+    window.addEventListener('followerCountUpdate', handleFollowerCountUpdate as EventListener)
+    return () => window.removeEventListener('followerCountUpdate', handleFollowerCountUpdate as EventListener)
+  }, [user])
+
   // Load user profile data
   useEffect(() => {
     const token = localStorage.getItem("access_token")

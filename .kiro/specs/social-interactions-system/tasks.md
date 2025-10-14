@@ -1549,21 +1549,21 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - **Test Execution:** Run `npm run build` and `npm test` for frontend, `pytest -v` for backend to verify configuration changes work correctly. Provide a brief list of sanity test cases for the code that was affected by the configuration cleanup
 **Acceptance Criteria:** All imports are organized and deduplicated, API routes are consolidated without redundancy, code duplication is eliminated through shared utilities and components, performance is optimized without breaking functionality, and all changes are thoroughly tested to ensure no regression in existing features.
 
-### **TASK 23: Privacy Controls System** (Post-MVP)
+### **TASK 24: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 24: Advanced Social Features** (Post-MVP)
+### **TASK 25: Advanced Social Features** (Post-MVP)
 - [ ] **Comment System:** Full commenting with threading and notifications
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 25: Follow Notification Batching System** (Post-MVP)
+### **TASK 26: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
 - [ ] **25.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy

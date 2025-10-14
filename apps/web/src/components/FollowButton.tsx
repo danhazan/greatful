@@ -34,11 +34,18 @@ export default function FollowButton({
   const errorRef = useRef<HTMLDivElement>(null)
   const { showSuccess, showError, showLoading, hideToast } = useToast()
   
-  // Use centralized state management
+  // Use centralized state management with initial state
   const { followState: isFollowing, toggleFollow, isLoading } = useUserState({
     userId: userId.toString(),
-    autoFetch: true
+    autoFetch: true,
+    initialFollowState: initialFollowState
   })
+
+  // Don't show loading state if we have an initial follow state
+  const shouldShowLoading = isLoading && initialFollowState === undefined
+  
+  // Use initial state if provided, otherwise use the state from useUserState
+  const effectiveFollowState = initialFollowState !== undefined ? initialFollowState : isFollowing
 
   // Debug logging to track which user IDs are being requested
   React.useEffect(() => {
@@ -95,8 +102,8 @@ export default function FollowButton({
 
   // Notify parent component of follow state changes
   useEffect(() => {
-    onFollowChange?.(isFollowing)
-  }, [isFollowing, onFollowChange])
+    onFollowChange?.(effectiveFollowState)
+  }, [effectiveFollowState, onFollowChange])
 
   const handleFollowToggle = async () => {
     const token = getAccessToken()
@@ -105,7 +112,7 @@ export default function FollowButton({
       return
     }
 
-    const action = isFollowing ? 'unfollow' : 'follow'
+    const action = effectiveFollowState ? 'unfollow' : 'follow'
     setError(null)
 
     // Show loading toast
@@ -150,14 +157,14 @@ export default function FollowButton({
     }
   }
 
-  const buttonText = isFollowing ? 'Following  ' : 'Follow me!'
-  const heartButtonClasses = getHeartButtonClasses(isFollowing)
+  const buttonText = effectiveFollowState ? 'Following  ' : 'Follow me!'
+  const heartButtonClasses = getHeartButtonClasses(effectiveFollowState)
 
   return (
     <div className="relative">
       <button
         onClick={handleFollowToggle}
-        disabled={isLoading}
+        disabled={shouldShowLoading}
         className={`
           inline-flex items-center justify-center gap-1.5
           font-medium rounded-full transition-all duration-200
@@ -169,20 +176,20 @@ export default function FollowButton({
           ${heartButtonClasses}
           ${className}
         `}
-        aria-label={isFollowing ? `Unfollow user ${userId}` : `Follow user ${userId}`}
-        aria-pressed={isFollowing}
+        aria-label={effectiveFollowState ? `Unfollow user ${userId}` : `Follow user ${userId}`}
+        aria-pressed={effectiveFollowState}
         aria-describedby={error ? `follow-error-${userId}` : undefined}
         {...createTouchHandlers(undefined, 'light')}
       >
-        {isLoading ? (
+        {shouldShowLoading ? (
           <Loader2 className={`${heartSizes[size]} animate-spin`} />
         ) : (
           <Heart 
-            className={`${heartSizes[size]} ${!isFollowing ? 'fill-current' : ''} flex-shrink-0`}
+            className={`${heartSizes[size]} ${!effectiveFollowState ? 'fill-current' : ''} flex-shrink-0`}
             strokeWidth={2}
           />
         )}
-        <span className="whitespace-nowrap whitespace-pre text-xs font-medium">{isLoading ? 'Loading...' : buttonText}</span>
+        <span className="whitespace-nowrap whitespace-pre text-xs font-medium">{shouldShowLoading ? 'Loading...' : buttonText}</span>
       </button>
 
       {error && (

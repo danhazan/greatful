@@ -34,7 +34,7 @@ describe('FollowButton', () => {
       if (url.includes('/status')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { is_following: false } }),
+          json: async () => ({ is_following: false }),
         })
       }
       if (url.includes('/follows/')) {
@@ -81,7 +81,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: true } }),
+            json: async () => ({ is_following: true }),
           })
         }
         return Promise.resolve({
@@ -92,11 +92,8 @@ describe('FollowButton', () => {
       
       render(<FollowButton userId={123} initialFollowState={true} />)
       
-      // Wait for the component to finish loading and show following state
-      await waitFor(() => {
-        expect(screen.getByText(/Following/)).toBeInTheDocument()
-      })
-      
+      // The component should immediately show following state due to initialFollowState
+      expect(screen.getByText(/Following/)).toBeInTheDocument()
       expect(screen.getByLabelText('Unfollow user 123')).toBeInTheDocument()
     })
 
@@ -162,7 +159,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: true } }),
+            json: async () => ({ is_following: true }),
           })
         }
         return Promise.resolve({
@@ -198,7 +195,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: true } }),
+            json: async () => ({ is_following: true }),
           })
         }
         return Promise.resolve({
@@ -210,9 +207,9 @@ describe('FollowButton', () => {
       render(<FollowButton userId={123} />)
 
       await waitFor(() => {
-        // Check that the profile API was called (useUserState fetches profile first)
+        // Check that the API was called (useUserState fetches user data)
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/users/123/profile'),
+          expect.stringContaining('/api/users/me/profile'),
           expect.objectContaining({
             headers: expect.objectContaining({
               'Authorization': 'Bearer mock-token',
@@ -278,7 +275,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: false } }),
+            json: async () => ({ is_following: false }),
           })
         }
         if (url.includes('/follows/123') && options?.method === 'POST') {
@@ -339,7 +336,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: true } }),
+            json: async () => ({ is_following: true }),
           })
         }
         if (url.includes('/follows/123') && options?.method === 'DELETE') {
@@ -353,10 +350,8 @@ describe('FollowButton', () => {
 
       render(<FollowButton userId={123} onFollowChange={onFollowChange} initialFollowState={true} />)
 
-      // Wait for initial status to load
-      await waitFor(() => {
-        expect(screen.getByText(/Following/)).toBeInTheDocument()
-      })
+      // Component should immediately show following state due to initialFollowState
+      expect(screen.getByText(/Following/)).toBeInTheDocument()
 
       const button = screen.getByRole('button')
       fireEvent.click(button)
@@ -398,7 +393,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: false } }),
+            json: async () => ({ is_following: false }),
           })
         }
         if (url.includes('/follows/123') && options?.method === 'POST') {
@@ -449,7 +444,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: false } }),
+            json: async () => ({ is_following: false }),
           })
         }
         if (url.includes('/follows/123') && options?.method === 'POST') {
@@ -500,7 +495,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: false } }),
+            json: async () => ({ is_following: false }),
           })
         }
         if (url.includes('/follows/123') && options?.method === 'POST') {
@@ -551,7 +546,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: false } }),
+            json: async () => ({ is_following: false }),
           })
         }
         if (url.includes('/follows/123') && options?.method === 'POST') {
@@ -602,7 +597,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: false } }),
+            json: async () => ({ is_following: false }),
           })
         }
         if (url.includes('/follows/123') && options?.method === 'POST') {
@@ -658,7 +653,7 @@ describe('FollowButton', () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ success: true, data: { is_following: false } })
+          json: async () => ({ is_following: false })
         })
         .mockResolvedValueOnce({
           ok: false,
@@ -686,7 +681,7 @@ describe('FollowButton', () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ success: true, data: { is_following: false } })
+          json: async () => ({ is_following: false })
         })
         .mockRejectedValueOnce(new Error('Network error'))
 
@@ -788,7 +783,7 @@ describe('FollowButton', () => {
         if (url.includes('/status')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ data: { is_following: true } }),
+            json: async () => ({ is_following: true }),
           })
         }
         return Promise.resolve({ ok: true, json: async () => ({}) })
@@ -796,9 +791,8 @@ describe('FollowButton', () => {
 
       render(<FollowButton userId={123} initialFollowState={true} />)
 
-      await waitFor(() => {
-        expect(screen.getByLabelText('Unfollow user 123')).toBeInTheDocument()
-      })
+      // Component should immediately show correct ARIA label due to initialFollowState
+      expect(screen.getByLabelText('Unfollow user 123')).toBeInTheDocument()
     })
 
     it('has focus styles', () => {

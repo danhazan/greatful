@@ -93,7 +93,7 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
               </div>
             ) : (
               <div className="p-4 space-y-2">
-                {hearts.map((heart) => (
+                {Array.isArray(hearts) && hearts.map((heart) => (
                   <UserListItem
                     key={heart.id}
                     user={{

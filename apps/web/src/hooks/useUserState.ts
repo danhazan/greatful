@@ -8,6 +8,7 @@ import { apiClient } from '@/utils/apiClient'
 interface UseUserStateOptions {
   userId?: string
   autoFetch?: boolean
+  initialFollowState?: boolean
 }
 
 interface UserStateHook {
@@ -28,7 +29,7 @@ const lastFetchTime = new Map<string, number>()
 const CACHE_DURATION = 30000 // 30 seconds
 
 export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
-  const { userId, autoFetch = true } = options
+  const { userId, autoFetch = true, initialFollowState = false } = options
   const {
     getUserProfile,
     getFollowState,
@@ -40,7 +41,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [localUserProfile, setLocalUserProfile] = useState<any | null>(null)
-  const [localFollowState, setLocalFollowState] = useState(false)
+  const [localFollowState, setLocalFollowState] = useState(initialFollowState)
 
   // Debug logging to track which users are being processed
   React.useEffect(() => {
@@ -49,9 +50,10 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     }
   }, [userId])
 
-  // Get current state from context
+  // Get current state from context, with proper fallback to initial state
   const userProfile = userId ? getUserProfile(userId) || localUserProfile : null
-  const followState = userId ? getFollowState(userId) : localFollowState
+  const contextFollowState = userId ? getFollowState(userId) : undefined
+  const followState = contextFollowState !== undefined ? contextFollowState : localFollowState
 
   // Check if we have cached data
   const getCachedData = useCallback(() => {
@@ -65,6 +67,8 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       setIsLoading(false)
     }
     
+    // Only update local state if we have a definitive cached state
+    // Don't override initialFollowState with undefined
     if (cachedFollowState !== undefined) {
       setLocalFollowState(cachedFollowState)
     }
@@ -201,6 +205,9 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
         // We have cached data, just set loading to false
         setIsLoading(false)
       }
+    } else if (!autoFetch) {
+      // If autoFetch is disabled, don't show loading state
+      setIsLoading(false)
     }
   }, [userId, autoFetch]) // Remove fetchUserData from dependencies to prevent loops
 
@@ -305,6 +312,22 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       setTimeout(() => {
         fetchUserData(userId)
       }, 500) // Small delay to allow backend to update
+
+      // Emit follower count update for profile pages
+      try {
+        // Don't calculate the new count here - let the ProfilePage calculate it
+        // based on its current state to avoid stale data issues
+        const event = new CustomEvent('followerCountUpdate', {
+          detail: {
+            userId: userId,
+            isFollowing: newFollowState,
+            timestamp: Date.now()
+          }
+        })
+        window.dispatchEvent(event)
+      } catch (error) {
+        console.error('Error emitting follower count update:', error)
+      }
 
     } catch (err) {
       // Rollback optimistic update on error
