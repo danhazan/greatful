@@ -565,6 +565,171 @@ async def run_performance_diagnostics(db: AsyncSession):
 - Async/await patterns throughout for non-blocking operations
 - Efficient pagination for large result sets
 
+## 🔐 Password Management System
+
+### Authentication Method Segregation
+
+The Grateful platform enforces strict separation between OAuth and password-based authentication:
+
+- **Password Users**: Have `oauth_provider = NULL`, can use all password features
+- **OAuth Users**: Have `oauth_provider` set (e.g., 'google'), blocked from password operations
+- **Security**: Users can only be one type at a time, preventing account conflicts
+
+### Password Change API
+
+**Change Password (Authenticated Users)**
+```http
+PUT /api/v1/users/me/password
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "current_password": "current_password",
+  "new_password": "new_secure_password"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Password updated successfully",
+  "timestamp": "2025-01-08T10:00:00Z",
+  "request_id": "req_123"
+}
+```
+
+**Error Responses:**
+```json
+// OAuth user attempting password change
+{
+  "success": false,
+  "error": {
+    "code": "OAUTH_USER_PASSWORD_CHANGE_FORBIDDEN",
+    "message": "Users with a linked social account cannot change a password.",
+    "details": {
+      "oauth_provider": "google",
+      "suggested_action": "unlink_account"
+    }
+  }
+}
+
+// Invalid current password
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_CURRENT_PASSWORD",
+    "message": "Current password is incorrect",
+    "details": {
+      "field": "current_password"
+    }
+  }
+}
+```
+
+### Password Reset API
+
+**Initiate Password Reset**
+```http
+POST /api/v1/auth/forgot-password
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response (Always Success for Security):**
+```json
+{
+  "success": true,
+  "message": "If an account exists, a reset link has been sent",
+  "data": {
+    "reset_token": "dev-token-123" // Only in development
+  },
+  "timestamp": "2025-01-08T10:00:00Z",
+  "request_id": "req_124"
+}
+```
+
+**Complete Password Reset**
+```http
+POST /api/v1/auth/reset-password
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "token": "password-reset-token",
+  "new_password": "new_secure_password"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Password reset successfully",
+  "timestamp": "2025-01-08T10:00:00Z",
+  "request_id": "req_125"
+}
+```
+
+**Error Responses:**
+```json
+// Invalid or expired token
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_RESET_TOKEN",
+    "message": "Invalid or expired reset token",
+    "details": {
+      "token_status": "expired",
+      "expires_at": "2025-01-07T10:00:00Z"
+    }
+  }
+}
+
+// Token already used
+{
+  "success": false,
+  "error": {
+    "code": "RESET_TOKEN_ALREADY_USED",
+    "message": "This reset token has already been used",
+    "details": {
+      "used_at": "2025-01-08T09:30:00Z"
+    }
+  }
+}
+```
+
+### Password Security Features
+
+#### Database Security
+- **Single-Use Tokens**: Reset tokens marked as used after successful reset
+- **Token Expiration**: 24-hour expiration for reset tokens
+- **Secure Storage**: Tokens stored in dedicated `password_reset_tokens` table
+- **Automatic Cleanup**: Expired and used tokens automatically cleaned up
+
+#### API Security
+- **Generic Responses**: Forgot password always returns success to prevent email enumeration
+- **Rate Limiting**: Password reset attempts limited to prevent abuse
+- **OAuth Protection**: OAuth users cannot use password features
+- **Input Validation**: Comprehensive validation of passwords and tokens
+
+#### Frontend Integration
+- **Account Editing**: Password change integrated into profile page account section
+- **Forgot Password Page**: Dedicated page at `/auth/forgot-password`
+- **Reset Password Page**: Token-based reset at `/auth/reset-password?token=xxx`
+- **User Type Detection**: UI automatically hides password features for OAuth users
+
 ## 📋 API Endpoints
 
 ### Authentication
@@ -573,6 +738,13 @@ POST   /api/v1/auth/signup               # Create new user account
 POST   /api/v1/auth/login                # Authenticate user and get token
 GET    /api/v1/auth/session              # Get current user session info
 POST   /api/v1/auth/logout               # Logout user (placeholder for token blacklisting)
+POST   /api/v1/auth/forgot-password      # Initiate password reset (send reset token)
+POST   /api/v1/auth/reset-password       # Complete password reset using token
+```
+
+### Password Management
+```
+PUT    /api/v1/users/me/password         # Change password for authenticated users (Password users only)
 ```
 
 ### OAuth 2.0 Social Authentication ✅ **PRODUCTION READY**

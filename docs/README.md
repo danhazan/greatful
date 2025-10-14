@@ -7,7 +7,7 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 ### 🏗️ Architecture & Setup
 - **[Architecture and Setup Guide](ARCHITECTURE_AND_SETUP.md)** - Technical setup guide and project structure
 - **[Configuration Files](CONFIGURATION_FILES.md)** - Environment variables and configuration management
-- **[Authentication Flow](AUTHENTICATION_FLOW.md)** - Complete authentication system documentation and testing
+- **[Authentication and Password Management](AUTHENTICATION_AND_PASSWORD_MANAGEMENT.md)** - Complete authentication system, password management, and OAuth documentation
 
 ### 🗄️ Database & Data
 - **[Database Structure](DATABASE_STRUCTURE.md)** - Complete database documentation and relationships
@@ -30,14 +30,14 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 ### For Developers
 1. Start with **[Architecture and Setup Guide](ARCHITECTURE_AND_SETUP.md)**
 2. Review **[Database Structure](DATABASE_STRUCTURE.md)** for data models
-3. Check **[Authentication Flow](AUTHENTICATION_FLOW.md)** for auth implementation
+3. Check **[Authentication and Password Management](AUTHENTICATION_AND_PASSWORD_MANAGEMENT.md)** for auth implementation
 4. Follow **[Test Guidelines](TEST_GUIDELINES.md)** for testing practices
 5. Use **[Useful Commands](USEFUL_COMMANDS.md)** for development workflow
 6. Check **[Common Fixes](COMMON_FIXES.md)** and **[Known Issues](KNOWN_ISSUES.md)** when encountering issues
 
 ### For Testers
 1. Follow **[Test Guidelines](TEST_GUIDELINES.md)** for writing tests
-2. Review **[Authentication Flow](AUTHENTICATION_FLOW.md)** for auth testing
+2. Review **[Authentication and Password Management](AUTHENTICATION_AND_PASSWORD_MANAGEMENT.md)** for auth testing
 3. Check **[Known Issues](KNOWN_ISSUES.md)** for common problems
 
 ### For DevOps

@@ -1,8 +1,8 @@
-# Authentication Flow Documentation
+# Authentication and Password Management Documentation
 
 ## Overview
 
-The Grateful project implements a complete authentication flow using JWT tokens with the frontend acting as a proxy to the FastAPI backend. This document describes the implementation, testing, and usage of the authentication system.
+The Grateful project implements a comprehensive authentication and password management system using JWT tokens with the frontend acting as a proxy to the FastAPI backend. This document describes the complete implementation including traditional authentication, OAuth social login, password changes, and password reset functionality.
 
 ## Architecture
 
@@ -20,9 +20,18 @@ The Grateful project implements a complete authentication flow using JWT tokens 
 
 ## Authentication Flow
 
-The Grateful platform supports two authentication methods:
-1. **Traditional Email/Password Authentication** - Standard signup and login flow
+The Grateful platform supports two authentication methods with comprehensive password management:
+1. **Traditional Email/Password Authentication** - Standard signup, login, password change, and reset flow
 2. **OAuth 2.0 Social Authentication** - Login with Google (and Facebook support ready)
+
+### Authentication Method Segregation
+
+The system enforces strict separation between OAuth-based and password-based authentication:
+
+- **Password User**: Identified by `oauth_provider` being `NULL` in the `users` table. They have a valid `hashed_password` and can use all password-related features (change password, reset password).
+- **OAuth User**: Identified by `oauth_provider` being set (e.g., 'google'). Their `hashed_password` is an empty string, and they are blocked from using any password-related features.
+
+Users can only be one type at a time. The only way for an OAuth User to become a Password User will be via a future "Unlink and Swap" feature.
 
 ### OAuth 2.0 Social Authentication
 
@@ -342,7 +351,96 @@ Authorization: Bearer jwt-token-here
 }
 ```
 
-### 4. User Logout
+### 4. Password Management
+
+#### Change Password (Authenticated Users)
+```
+Frontend → /api/auth/change-password → FastAPI /api/v1/users/me/password
+```
+
+**Frontend Route**: Profile page account editing section
+**Backend Endpoint**: `apps/api/app/api/v1/users.py` (change_password method)
+
+**Request**:
+```json
+{
+  "current_password": "current_password",
+  "new_password": "new_secure_password"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Password updated successfully"
+}
+```
+
+**Restrictions**:
+- Only available to Password Users (OAuth users receive 403 Forbidden)
+- Requires valid current password
+- New password must meet security requirements
+
+#### Forgot Password (Initiate Reset)
+```
+Frontend → /api/auth/forgot-password → FastAPI /api/v1/auth/forgot-password
+```
+
+**Frontend Page**: `/auth/forgot-password`
+**Backend Endpoint**: `apps/api/app/api/v1/auth.py` (forgot_password method)
+
+**Request**:
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "If an account exists, a reset link has been sent",
+  "reset_token": "token-for-development"
+}
+```
+
+**Security Features**:
+- Generic response for both existing and non-existing emails
+- Only generates tokens for Password Users
+- OAuth users receive generic response without token generation
+
+#### Reset Password (Complete Reset)
+```
+Frontend → /api/auth/reset-password → FastAPI /api/v1/auth/reset-password
+```
+
+**Frontend Page**: `/auth/reset-password?token=reset-token`
+**Backend Endpoint**: `apps/api/app/api/v1/auth.py` (reset_password method)
+
+**Request**:
+```json
+{
+  "token": "password-reset-token",
+  "new_password": "new_secure_password"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Password reset successfully"
+}
+```
+
+**Security Features**:
+- Token-based validation with expiration
+- Single-use tokens (marked as used after successful reset)
+- Automatic token cleanup for expired/used tokens
+
+### 5. User Logout
 ```
 Frontend → /api/auth/logout → FastAPI /api/v1/auth/logout
 ```
@@ -364,14 +462,42 @@ Authorization: Bearer jwt-token-here
 
 ## Frontend Implementation
 
-### API Route Structure
+### Frontend Page Structure
 ```
 apps/web/src/app/api/auth/
-├── signup/route.ts      # User registration
-├── login/route.ts       # User login
-├── session/route.ts     # Session validation
-└── logout/route.ts      # User logout
+├── signup/route.ts           # User registration
+├── login/route.ts            # User login  
+├── session/route.ts          # Session validation
+├── logout/route.ts           # User logout
+├── forgot-password/          # Password reset initiation
+└── reset-password/           # Password reset completion
+
+apps/web/src/app/auth/
+├── login/page.tsx            # Login page with "Forgot password?" link
+├── signup/page.tsx           # Registration page
+├── forgot-password/page.tsx  # Password reset request page
+└── reset-password/page.tsx   # Password reset completion page
+
+apps/web/src/app/profile/
+└── page.tsx                  # Profile page with account editing section
 ```
+
+### Account Management UI
+
+The profile page includes an "Edit Account" section accessible via a Shield icon button:
+
+**Account Editing Features**:
+- **Username Change**: ReadOnly field with "Change" button to enable editing
+- **Password Change**: Only visible to non-OAuth users
+  - ReadOnly password field (`********`) with "Change" button
+  - Reveals "Current Password", "New Password", and "Confirm New Password" fields
+  - Client-side validation for matching passwords
+  - Automatic scrolling to password errors on submission
+
+**OAuth User Restrictions**:
+- Password change section is hidden for OAuth users
+- Username can still be changed for all user types
+- Clear indication of authentication method in account settings
 
 ### Common Pattern
 All frontend API routes follow this pattern:
@@ -402,33 +528,65 @@ async def get_session(request: Request, db: AsyncSession = Depends(get_db))
 
 @router.post("/logout")
 async def logout()
+
+@router.post("/forgot-password")
+async def forgot_password(forgot_request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db))
+
+@router.post("/reset-password")
+async def reset_password(reset_request: ResetPasswordRequest, db: AsyncSession = Depends(get_db))
+```
+
+```python
+# apps/api/app/api/v1/users.py
+
+@router.put("/me/password")
+async def change_password(
+    password_request: ChangePasswordRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+)
 ```
 
 ### Security Features
 - **Password Hashing**: bcrypt with salt
 - **JWT Tokens**: HS256 algorithm with configurable expiration
 - **Token Validation**: Automatic validation on protected endpoints
-- **Error Handling**: Comprehensive error responses
+- **Password Reset Security**:
+  - Single-use tokens with expiration (24 hours)
+  - Tokens stored in dedicated `password_reset_tokens` table
+  - Generic responses to prevent email enumeration
+  - Automatic cleanup of expired/used tokens
+- **Authentication Method Segregation**: Strict separation between OAuth and password users
+- **Error Handling**: Comprehensive error responses without information leakage
 
 ## Testing
 
 ### Test Coverage
-The authentication flow is thoroughly tested with integration tests:
+The authentication flow is thoroughly tested with comprehensive test suites:
 
-**Test File**: `apps/web/src/tests/integration/auth-flow.test.ts`
+**Frontend Tests**: `apps/web/src/tests/integration/auth-flow.test.ts`
+**Backend Unit Tests**: `apps/api/tests/unit/test_password_management.py`
+**Backend Integration Tests**: `apps/api/tests/integration/test_password_api.py`
 
 ### Test Scenarios
 1. **Complete Flow**: signup → login → session → logout
-2. **Error Handling**: Invalid credentials, missing tokens, configuration errors
-3. **Edge Cases**: Duplicate emails, invalid tokens, missing backend URL
+2. **Password Management**: change password → forgot password → reset password
+3. **OAuth vs Password User Segregation**: Proper restrictions and permissions
+4. **Error Handling**: Invalid credentials, missing tokens, configuration errors
+5. **Edge Cases**: Duplicate emails, invalid tokens, expired reset tokens
+6. **Security**: Token validation, password hashing, CSRF protection
 
 ### Test Results
 ```
 ✓ Complete authentication flow: signup → login → session → logout
+✓ Password change for authenticated users
+✓ Password reset flow with token validation
+✓ OAuth user restrictions for password features
 ✓ Handle signup with existing email
 ✓ Handle login with invalid credentials  
 ✓ Handle session check without token
 ✓ Handle session check with invalid token
+✓ Handle invalid password reset tokens
 ✓ Handle missing backend URL configuration
 ```
 
@@ -448,6 +606,36 @@ const response = await fetch('/api/auth/login', {
   method: 'POST', 
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ email, password })
+})
+
+// Change Password (authenticated users only)
+const response = await fetch('/api/users/me/password', {
+  method: 'PUT',
+  headers: { 
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({ 
+    current_password: 'current_password',
+    new_password: 'new_secure_password'
+  })
+})
+
+// Forgot Password
+const response = await fetch('/api/auth/forgot-password', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'user@example.com' })
+})
+
+// Reset Password
+const response = await fetch('/api/auth/reset-password', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: 'reset-token-from-url',
+    new_password: 'new_secure_password'
+  })
 })
 
 // Check session
@@ -473,6 +661,22 @@ curl -X POST http://localhost:8000/api/v1/auth/signup \
 curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"password"}'
+
+# Change Password (authenticated users)
+curl -X PUT http://localhost:8000/api/v1/users/me/password \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-jwt-token" \
+  -d '{"current_password":"old_password","new_password":"new_password"}'
+
+# Forgot Password
+curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com"}'
+
+# Reset Password
+curl -X POST http://localhost:8000/api/v1/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"token":"reset-token","new_password":"new_password"}'
 
 # Check session
 curl -X GET http://localhost:8000/api/v1/auth/session \
@@ -516,6 +720,21 @@ curl -X POST http://localhost:8000/api/v1/auth/logout \
 // Email already registered
 {
   "detail": "Email already registered"
+}
+
+// OAuth user trying to change password
+{
+  "detail": "Users with a linked social account cannot change a password."
+}
+
+// Invalid current password
+{
+  "detail": "Current password is incorrect"
+}
+
+// Invalid reset token
+{
+  "detail": "Invalid or expired reset token"
 }
 
 // Missing authorization
