@@ -21,6 +21,11 @@ interface UserStateHook {
   refreshUserData: () => Promise<void>
 }
 
+// Cache to prevent duplicate API calls
+const fetchingCache = new Map<string, Promise<any>>()
+const lastFetchTime = new Map<string, number>()
+const CACHE_DURATION = 30000 // 30 seconds
+
 export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   const { userId, autoFetch = true } = options
   const {
@@ -40,75 +45,144 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   const userProfile = userId ? getUserProfile(userId) || localUserProfile : null
   const followState = userId ? getFollowState(userId) : localFollowState
 
-  // Fetch user data from API
+  // Check if we have cached data
+  const getCachedData = useCallback(() => {
+    if (!userId) return { hasProfile: false, hasFollowState: false }
+    
+    const cachedProfile = getUserProfile(userId)
+    const cachedFollowState = getFollowState(userId)
+    
+    if (cachedProfile) {
+      setLocalUserProfile(cachedProfile)
+      setIsLoading(false)
+    }
+    
+    if (cachedFollowState !== undefined) {
+      setLocalFollowState(cachedFollowState)
+    }
+    
+    return { hasProfile: !!cachedProfile, hasFollowState: cachedFollowState !== undefined }
+  }, [userId, getUserProfile, getFollowState])
+
+  // Fetch user data from API with caching
   const fetchUserData = useCallback(async (targetUserId: string) => {
     if (!targetUserId) return
+
+    // Check cache first
+    const { hasProfile, hasFollowState } = getCachedData()
+    const cacheKey = `${targetUserId}`
+    const lastFetch = lastFetchTime.get(cacheKey)
+    const now = Date.now()
+    
+    // If we have recent cached data, don't fetch again
+    if (hasProfile && hasFollowState && lastFetch && (now - lastFetch) < CACHE_DURATION) {
+      setIsLoading(false)
+      return
+    }
+
+    // Check if we're already fetching this user's data
+    if (fetchingCache.has(cacheKey)) {
+      try {
+        await fetchingCache.get(cacheKey)
+        getCachedData()
+        setIsLoading(false)
+        return
+      } catch (err) {
+        // If the cached promise failed, continue with new fetch
+      }
+    }
 
     setIsLoading(true)
     setError(null)
 
+    // Create fetch promise and cache it
+    const fetchPromise = (async () => {
+      try {
+        const token = getAccessToken()
+        if (!token) {
+          throw new Error('Authentication required')
+        }
+
+        // Fetch user profile only if not cached or stale
+        if (!hasProfile || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
+          const profileResponse = await fetch(`/api/users/${targetUserId}/profile`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (profileResponse && profileResponse.ok) {
+            const profileData = await profileResponse.json()
+            const profile = profileData.data || profileData
+
+            // Update context state
+            updateUserProfile(targetUserId, {
+              id: targetUserId,
+              name: profile.display_name || profile.name || profile.username,
+              username: profile.username,
+              email: profile.email,
+              image: profile.profile_image_url || profile.image,
+              display_name: profile.display_name,
+              follower_count: profile.follower_count,
+              following_count: profile.following_count,
+              posts_count: profile.posts_count
+            })
+
+            setLocalUserProfile(profile)
+          }
+        }
+
+        // Fetch follow status only if not cached or stale
+        if (!hasFollowState || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
+          const followResponse = await fetch(`/api/follows/${targetUserId}/status`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (followResponse && followResponse.ok) {
+            const followData = await followResponse.json()
+            const isFollowing = followData.data?.is_following || false
+
+            // Update context state
+            updateFollowState(targetUserId, isFollowing)
+            setLocalFollowState(isFollowing)
+          }
+        }
+        
+        // Update last fetch time
+        lastFetchTime.set(cacheKey, now)
+        
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user data'
+        setError(errorMessage)
+        console.error('Error fetching user data:', err)
+        throw err
+      }
+    })()
+
+    fetchingCache.set(cacheKey, fetchPromise)
+    
     try {
-      const token = getAccessToken()
-      if (!token) {
-        throw new Error('Authentication required')
-      }
-
-      // Fetch user profile
-      const profileResponse = await fetch(`/api/users/${targetUserId}/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (profileResponse.ok) {
-        const profileData = await profileResponse.json()
-        const profile = profileData.data || profileData
-
-        // Update context state
-        updateUserProfile(targetUserId, {
-          id: targetUserId,
-          name: profile.display_name || profile.name || profile.username,
-          username: profile.username,
-          email: profile.email,
-          image: profile.profile_image_url || profile.image,
-          display_name: profile.display_name,
-          follower_count: profile.follower_count,
-          following_count: profile.following_count,
-          posts_count: profile.posts_count
-        })
-
-        setLocalUserProfile(profile)
-      }
-
-      // Fetch follow status
-      const followResponse = await fetch(`/api/follows/${targetUserId}/status`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (followResponse.ok) {
-        const followData = await followResponse.json()
-        const isFollowing = followData.data?.is_following || false
-
-        // Update context state
-        updateFollowState(targetUserId, isFollowing)
-        setLocalFollowState(isFollowing)
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user data'
-      setError(errorMessage)
-      console.error('Error fetching user data:', err)
+      await fetchPromise
     } finally {
       setIsLoading(false)
+      fetchingCache.delete(cacheKey)
     }
-  }, [updateUserProfile, updateFollowState])
+  }, [updateUserProfile, updateFollowState, getCachedData])
 
   // Auto-fetch user data when userId changes
   useEffect(() => {
     if (userId && autoFetch) {
+      // Don't throw error immediately if no token, just set error state
+      const token = getAccessToken()
+      if (!token) {
+        setError('Authentication required')
+        setIsLoading(false)
+        return
+      }
       fetchUserData(userId)
     }
   }, [userId, autoFetch, fetchUserData])

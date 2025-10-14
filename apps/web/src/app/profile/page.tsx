@@ -519,6 +519,30 @@ export default function ProfilePage() {
     setIsPasswordSectionOpen(false)
   }
 
+  const handleCancelUsernameEdit = () => {
+    setIsUsernameEditable(false)
+    // Reset username to original value
+    if (user) {
+      setAccountEditForm(prev => ({
+        ...prev,
+        username: user.username
+      }))
+    }
+    setUsernameError("")
+  }
+
+  const handleCancelPasswordEdit = () => {
+    setIsPasswordSectionOpen(false)
+    // Clear all password fields
+    setAccountEditForm(prev => ({
+      ...prev,
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    }))
+    setPasswordError("")
+  }
+
   const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
@@ -800,7 +824,7 @@ export default function ProfilePage() {
                             name="username"
                           />
                           <button
-                            onClick={() => setIsUsernameEditable(!isUsernameEditable)}
+                            onClick={() => isUsernameEditable ? handleCancelUsernameEdit() : setIsUsernameEditable(true)}
                             className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
                           >
                             {isUsernameEditable ? 'Cancel' : 'Change'}
@@ -820,7 +844,14 @@ export default function ProfilePage() {
                             className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed"
                           />
                           <button
-                            onClick={() => !user?.oauth_provider && setIsPasswordSectionOpen(!isPasswordSectionOpen)}
+                            onClick={() => {
+                              if (user?.oauth_provider) return
+                              if (isPasswordSectionOpen) {
+                                handleCancelPasswordEdit()
+                              } else {
+                                setIsPasswordSectionOpen(true)
+                              }
+                            }}
                             disabled={user?.oauth_provider ? true : false}
                             title={user?.oauth_provider ? `Password management is not available for accounts created with ${user.oauth_provider} login` : undefined}
                             className={`px-4 py-2 text-sm border border-gray-300 rounded-lg relative ${
@@ -927,7 +958,12 @@ export default function ProfilePage() {
                         </button>
                         <button
                           onClick={handleSaveAccount}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                          disabled={!isUsernameEditable && !isPasswordSectionOpen}
+                          className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                            isUsernameEditable || isPasswordSectionOpen
+                              ? 'bg-purple-600 text-white hover:bg-purple-700'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
                         >
                           Save Changes
                         </button>
