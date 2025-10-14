@@ -1549,6 +1549,50 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - **Test Execution:** Run `npm run build` and `npm test` for frontend, `pytest -v` for backend to verify configuration changes work correctly. Provide a brief list of sanity test cases for the code that was affected by the configuration cleanup
 **Acceptance Criteria:** All imports are organized and deduplicated, API routes are consolidated without redundancy, code duplication is eliminated through shared utilities and components, performance is optimized without breaking functionality, and all changes are thoroughly tested to ensure no regression in existing features.
 
+### **TASK 23: API Call Optimization and Batching System**
+**Module Reference:** Performance Optimization - API Efficiency
+- [ ] **23.1 Systematic API Call Investigation**
+  - Conduct comprehensive analysis of all frontend pages to identify duplicated API calls
+  - Document all instances of multiple requests to the same endpoints (posts, notifications, profile, update-feed-view)
+  - Identify individual API calls that could be batched (user profiles, follow status checks)
+  - Create detailed report of current API call patterns with specific examples from feed, profile, and other pages
+  - Map out API call dependencies and timing to understand root causes of duplication
+  - Analyze network waterfall patterns to identify sequential calls that could be parallelized
+  - Document performance impact of current API call patterns (request count, payload size, response times)
+  - _Requirements: Comprehensive API call audit and performance baseline_
+- [ ] **23.2 API Call Deduplication Strategy**
+  - Implement request deduplication logic to prevent multiple identical API calls within short time windows
+  - Create caching layer for frequently requested data (user profiles, follow status, post engagement)
+  - Add request coalescing for simultaneous identical requests
+  - Implement smart cache invalidation strategies for real-time data updates
+  - Remove redundant API calls identified in investigation phase
+  - Optimize component-level data fetching to prevent unnecessary re-requests
+  - Add request debouncing for user-triggered actions (search, autocomplete, feed refresh)
+  - _Requirements: Eliminate duplicate API requests and implement intelligent caching_
+- [ ] **23.3 API Batching Implementation**
+  - Create batch API endpoints for commonly grouped requests:
+    - `POST /api/v1/batch/user-profiles` - Get multiple user profiles in single request
+    - `POST /api/v1/batch/follow-status` - Check follow status for multiple users
+    - `POST /api/v1/batch/post-engagement` - Get engagement data for multiple posts
+  - Implement frontend batching utilities to group individual requests automatically
+  - Add intelligent batching logic that waits for multiple requests before sending batch
+  - Create fallback mechanisms for when batch endpoints are unavailable
+  - Optimize feed loading to use batch requests for user data and engagement metrics
+  - Update notification system to batch user profile and engagement data requests
+  - _Requirements: Efficient batch API system with automatic request grouping_
+- [ ] **23.4 Testing and Performance Validation**
+  - **Test Execution Phase 1:** Run full test suite (`pytest -v` and `npm test`) after deduplication changes to ensure no functionality is broken
+  - **Test Execution Phase 2:** Run full test suite again after batching implementation to verify all features work correctly
+  - Create performance tests to measure API call reduction and response time improvements
+  - Add integration tests for batch API endpoints with various payload sizes
+  - Test cache invalidation scenarios to ensure data consistency
+  - Validate that real-time features (notifications, feed updates) still work correctly with caching
+  - Measure and document performance improvements (request count reduction, page load times)
+  - Test error handling and fallback mechanisms for batch requests
+  - **Performance Benchmarking:** Document before/after metrics for API call counts, response times, and user experience improvements
+  - _Requirements: Comprehensive testing and performance validation of optimization changes_
+**Acceptance Criteria:** API call duplication is eliminated through intelligent caching and deduplication, batch endpoints reduce individual requests by at least 60% for multi-user operations, page load performance improves measurably, all existing functionality remains intact after optimization, and comprehensive testing validates both performance gains and feature stability.
+
 ### **TASK 24: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
