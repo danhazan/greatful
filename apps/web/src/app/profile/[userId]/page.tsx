@@ -173,12 +173,13 @@ export default function UserProfilePage() {
           } else {
             // For other users, try the dedicated endpoint first
             try {
+              console.log('Fetching posts for userId:', userId)
               postsData = await apiClient.getUserPosts(userId)
+              console.log('Successfully fetched user posts:', Array.isArray(postsData) ? postsData.length : 0)
             } catch (userPostsError) {
-              // Fallback: get all posts from feed and filter by author
-              console.warn('Failed to fetch user posts, falling back to feed filter:', userPostsError)
-              const allPosts = await apiClient.getPosts()
-              postsData = Array.isArray(allPosts) ? allPosts.filter((post: any) => post.author.id === userId) : []
+              // Don't use fallback that loads all posts - this causes multiple user requests
+              console.warn('Failed to fetch user posts, no fallback used to prevent multiple user requests:', userPostsError)
+              postsData = [] // Just show empty posts instead of loading all posts
             }
           }
 

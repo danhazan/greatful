@@ -708,8 +708,23 @@ const profileData = await apiClient.getUserProfile(userId, {
 - [x] ✅ Profile page loads with ≤5 API requests
 - [x] ✅ Current user data cached for 5 minutes
 - [x] ✅ Profile data always fresh (not cached)
-- [ ] 🔄 Multiple user requests still being investigated
-- [ ] 🔄 Console shows correct userId in debug logs (for multiple request debugging)
+- [x] ✅ Multiple user requests issue identified and fixed
+- [x] ✅ Console shows correct userId in debug logs
+
+#### 4. **Multiple User Requests Issue Fixed**
+- **Problem**: Profile pages made requests for multiple different users (e.g., "bob_bob")
+- **Root Cause**: Fallback mechanism loaded ALL posts from feed when user-specific endpoint failed, causing FollowButton components to be created for all post authors
+- **Solution**: Removed problematic fallback that loaded all posts, now shows empty posts instead
+- **Result**: ✅ Only requests for the target user are made
+
+```tsx
+// Fixed fallback that was causing multiple user requests
+} catch (userPostsError) {
+  // Don't use fallback that loads all posts - this causes multiple user requests
+  console.warn('Failed to fetch user posts, no fallback used to prevent multiple user requests:', userPostsError)
+  postsData = [] // Just show empty posts instead of loading all posts
+}
+```
 
 ---
 
