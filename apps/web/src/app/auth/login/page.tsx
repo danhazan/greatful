@@ -2,9 +2,9 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Heart } from "lucide-react"
 import Link from "next/link"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
+import PasswordInput from "@/components/PasswordInput"
 import OAuthIconButton from "@/components/OAuthIconButton"
 import AccountLinkingDialog from "@/components/AccountLinkingDialog"
 import { useOAuth } from "@/hooks/useOAuth"
@@ -15,7 +15,7 @@ export default function LoginPage() {
     email: "",
     password: ""
   })
-  const [showPassword, setShowPassword] = useState(false)
+
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [showLinkingDialog, setShowLinkingDialog] = useState(false)
@@ -183,36 +183,22 @@ export default function LoginPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className={`w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${getCompleteInputStyling().className}`}
-                  style={getCompleteInputStyling().style}
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-              <div className="text-right">
+            <PasswordInput
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              label="Password"
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              required
+            >
+              <div className="text-right mt-2">
                 <Link href="/auth/forgot-password" className="text-sm text-purple-600 hover:text-purple-700">
                   Forgot your password?
                 </Link>
               </div>
-            </div>
+            </PasswordInput>
 
             <button
               type="submit"
