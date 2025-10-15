@@ -2,7 +2,8 @@
  * Optimized API Client with caching and deduplication
  */
 
-import { apiCache, userProfileCache, followStateCache, postsCache } from './apiCache'
+import { apiCache, userProfileCache, followStateCache, postsCache, notificationCache, batchDataCache } from './apiCache'
+import { requestDeduplicator } from './requestDeduplicator'
 import { getAccessToken } from './auth'
 
 interface APIResponse<T = any> {
@@ -33,7 +34,7 @@ class OptimizedAPIClient {
   }
 
   /**
-   * Make authenticated request with caching
+   * Make authenticated request with caching and deduplication
    */
   private async request<T>(
     endpoint: string,
@@ -59,8 +60,36 @@ class OptimizedAPIClient {
       cache = followStateCache
     } else if (endpoint.includes('/posts')) {
       cache = postsCache
+    } else if (endpoint.includes('/notifications')) {
+      cache = notificationCache
+    } else if (endpoint.includes('/batch')) {
+      cache = batchDataCache
     }
 
+    // Use request deduplicator for GET requests
+    if (requestOptions.method === 'GET' || !requestOptions.method) {
+      return requestDeduplicator.dedupe(
+        url,
+        async (abortSignal) => {
+          const response = await cache.fetch<APIResponse<T>>(
+            url,
+            { ...requestOptions, signal: abortSignal },
+            { skipCache, ttl: cacheTTL }
+          )
+
+          // Handle wrapped responses
+          if (response && typeof response === 'object' && 'data' in response) {
+            return response.data
+          }
+          
+          return response as T
+        },
+        requestOptions,
+        { retries }
+      )
+    }
+
+    // For non-GET requests, use direct cache fetch
     try {
       const response = await cache.fetch<APIResponse<T>>(
         url,
@@ -134,13 +163,27 @@ class OptimizedAPIClient {
   }
 
   /**
-   * Invalidate cache for specific patterns
+   * Invalidate cache for specific patterns with smart invalidation
    */
   invalidateCache(pattern: string | RegExp): void {
     apiCache.invalidate(pattern)
     userProfileCache.invalidate(pattern)
     followStateCache.invalidate(pattern)
     postsCache.invalidate(pattern)
+    notificationCache.invalidate(pattern)
+    batchDataCache.invalidate(pattern)
+  }
+
+  /**
+   * Smart cache invalidation for related data
+   */
+  invalidateRelatedCache(url: string): void {
+    apiCache.invalidateRelated(url)
+    userProfileCache.invalidateRelated(url)
+    followStateCache.invalidateRelated(url)
+    postsCache.invalidateRelated(url)
+    notificationCache.invalidateRelated(url)
+    batchDataCache.invalidateRelated(url)
   }
 
   /**
@@ -151,6 +194,26 @@ class OptimizedAPIClient {
     userProfileCache.clear()
     followStateCache.clear()
     postsCache.clear()
+    notificationCache.clear()
+    batchDataCache.clear()
+    
+    // Also cancel any pending requests
+    requestDeduplicator.cancelAll()
+  }
+
+  /**
+   * Get comprehensive cache statistics
+   */
+  getCacheStats() {
+    return {
+      api: apiCache.getStats(),
+      userProfile: userProfileCache.getStats(),
+      followState: followStateCache.getStats(),
+      posts: postsCache.getStats(),
+      notifications: notificationCache.getStats(),
+      batchData: batchDataCache.getStats(),
+      deduplicator: requestDeduplicator.getStats()
+    }
   }
 
   // Specialized methods for common operations
@@ -158,25 +221,25 @@ class OptimizedAPIClient {
   /**
    * Get user profile with optimized caching
    */
-  async getUserProfile(userId: string, options: RequestOptions = {}) {
+  async getUserProfile(userId: string, options: RequestOptions = {}): Promise<any> {
     return this.get(`/users/${userId}/profile`, {
-      cacheTTL: 60000, // Cache for 1 minute
+      cacheTTL: 300000, // Cache for 5 minutes (increased from 1 minute)
       ...options
     })
   }
 
   /**
-   * Get follow status with shorter cache
+   * Get follow status with optimized cache
    */
-  async getFollowStatus(userId: string, options: RequestOptions = {}) {
+  async getFollowStatus(userId: string, options: RequestOptions = {}): Promise<any> {
     return this.get(`/follows/${userId}/status`, {
-      cacheTTL: 15000, // Cache for 15 seconds
+      cacheTTL: 120000, // Cache for 2 minutes (increased from 15 seconds)
       ...options
     })
   }
 
   /**
-   * Follow/unfollow user with cache invalidation
+   * Follow/unfollow user with smart cache invalidation
    */
   async toggleFollow(userId: string, isCurrentlyFollowing: boolean) {
     const method = isCurrentlyFollowing ? 'DELETE' : 'POST'
@@ -185,9 +248,12 @@ class OptimizedAPIClient {
       skipCache: true
     })
 
-    // Invalidate related caches
-    this.invalidateCache(`/follows/${userId}`)
-    this.invalidateCache(`/users/${userId}/profile`)
+    // Smart cache invalidation for related data
+    this.invalidateRelatedCache(`/follows/${userId}`)
+    this.invalidateRelatedCache(`/users/${userId}/profile`)
+    
+    // Also invalidate current user's profile (following count changes)
+    this.invalidateCache('/users/me/profile')
     
     return result
   }
@@ -195,9 +261,9 @@ class OptimizedAPIClient {
   /**
    * Get posts with caching
    */
-  async getPosts(options: RequestOptions = {}) {
+  async getPosts(options: RequestOptions = {}): Promise<any> {
     return this.get('/posts', {
-      cacheTTL: 30000, // Cache for 30 seconds
+      cacheTTL: 60000, // Cache for 1 minute (increased from 30 seconds)
       ...options
     })
   }
@@ -207,7 +273,7 @@ class OptimizedAPIClient {
    */
   async getUserPosts(userId: string, options: RequestOptions = {}) {
     return this.get(`/users/${userId}/posts`, {
-      cacheTTL: 45000, // Cache for 45 seconds
+      cacheTTL: 90000, // Cache for 1.5 minutes (increased from 45 seconds)
       ...options
     })
   }
@@ -215,9 +281,39 @@ class OptimizedAPIClient {
   /**
    * Get current user profile
    */
-  async getCurrentUserProfile(options: RequestOptions = {}) {
+  async getCurrentUserProfile(options: RequestOptions = {}): Promise<any> {
     return this.get('/users/me/profile', {
-      cacheTTL: 60000, // Cache for 1 minute
+      cacheTTL: 300000, // Cache for 5 minutes (increased from 1 minute)
+      ...options
+    })
+  }
+
+  /**
+   * Get notifications with optimized caching
+   */
+  async getNotifications(options: RequestOptions = {}) {
+    return this.get('/notifications', {
+      cacheTTL: 30000, // Cache for 30 seconds (notifications are more dynamic)
+      ...options
+    })
+  }
+
+  /**
+   * Batch get user profiles
+   */
+  async getBatchUserProfiles(userIds: string[], options: RequestOptions = {}) {
+    return this.post('/users/batch-profiles', { user_ids: userIds }, {
+      cacheTTL: 300000, // Cache for 5 minutes
+      ...options
+    })
+  }
+
+  /**
+   * Batch get follow statuses
+   */
+  async getBatchFollowStatuses(userIds: string[], options: RequestOptions = {}) {
+    return this.post('/follows/batch-status', { user_ids: userIds }, {
+      cacheTTL: 120000, // Cache for 2 minutes
       ...options
     })
   }

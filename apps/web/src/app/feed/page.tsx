@@ -7,6 +7,7 @@ import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 import { normalizePostFromApi } from "@/utils/normalizePost"
 import { normalizeUserData } from "@/utils/userDataMapping"
+import { apiClient } from "@/utils/apiClient"
 
 import Navbar from "@/components/Navbar"
 
@@ -78,41 +79,16 @@ export default function FeedPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const lastRefreshTime = useRef(0)
 
-  // Load posts from API - server is authoritative for all data
+  // Load posts from API using optimized API client
   const loadPosts = async (token: string, refresh: boolean = false) => {
     try {
       setError(null)
-      const queryParams = new URLSearchParams()
-      if (refresh) {
-        queryParams.set('refresh', 'true')
-      }
       
-      const response = await fetch(`/api/posts?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      // Use optimized API client instead of direct fetch
+      const postsData = await apiClient.getPosts({
+        skipCache: refresh // Skip cache on refresh
       })
 
-      if (!response.ok) {
-        // Check if it's an auth error
-        if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem("access_token")
-          router.push("/auth/login")
-          return
-        }
-        
-        let errorText = 'Unknown error'
-        try {
-          const errorData = await response.json()
-          errorText = errorData.error || errorData.detail || 'Unknown error'
-        } catch (e) {
-          // Fallback to generic error if json() fails
-          errorText = 'Unknown error'
-        }
-        throw new Error(`Failed to load posts: ${response.status} - ${errorText}`)
-      }
-
-      const postsData = await response.json()
       console.log('Raw posts data from API:', postsData)
 
       // Handle both wrapped and unwrapped responses
@@ -155,6 +131,14 @@ export default function FeedPage() {
       setPosts(normalizedPosts)
     } catch (error) {
       console.error('Error loading posts:', error)
+      
+      // Handle auth errors
+      if (error instanceof Error && error.message.includes('401')) {
+        localStorage.removeItem("access_token")
+        router.push("/auth/login")
+        return
+      }
+      
       setError(error instanceof Error ? error.message : 'Failed to load posts')
       setPosts([]) // Set empty array on error
     }
@@ -168,57 +152,48 @@ export default function FeedPage() {
       return
     }
 
-    // Get user info from API
+    // Get user info from API using optimized client
     const fetchUserInfo = async () => {
       try {
-        const response = await fetch('/api/users/me/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
-        if (response.ok) {
-          const userData = await response.json()
-          // Handle both wrapped and unwrapped responses
-          const profileData = userData.data || userData
-          
-          // Debug: Log raw profile data to check image URL format
-          console.log("Raw profile data from API:", profileData)
-          
-          // Normalize user data to ensure consistent field names and absolute URLs
-          const normalizedUser = normalizeUserData(profileData)
-          
-          // Debug: Log normalized user data
-          console.log("Normalized user data:", normalizedUser)
-          
-          const currentUser = {
-            id: normalizedUser.id,
-            name: normalizedUser.name,
-            display_name: normalizedUser.display_name,
-            username: normalizedUser.username,
-            email: normalizedUser.email,
-            profile_image_url: normalizedUser.profile_image_url,
-            image: normalizedUser.image
-          }
-          
-          // Debug: Check if username is properly set
-          if (!normalizedUser.username) {
-            console.error('Username is missing from API response:', profileData)
-          } else {
-            console.log('Username correctly set:', normalizedUser.username)
-          }
-          setUser(currentUser)
-        } else {
-          // Check if it's an auth error
-          if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem("access_token")
-            router.push("/auth/login")
-            return
-          }
-          throw new Error('Failed to fetch user info')
+        // Use optimized API client instead of direct fetch
+        const profileData = await apiClient.getCurrentUserProfile()
+        
+        // Debug: Log raw profile data to check image URL format
+        console.log("Raw profile data from API:", profileData)
+        
+        // Normalize user data to ensure consistent field names and absolute URLs
+        const normalizedUser = normalizeUserData(profileData)
+        
+        // Debug: Log normalized user data
+        console.log("Normalized user data:", normalizedUser)
+        
+        const currentUser = {
+          id: normalizedUser.id,
+          name: normalizedUser.name,
+          display_name: normalizedUser.display_name,
+          username: normalizedUser.username,
+          email: normalizedUser.email,
+          profile_image_url: normalizedUser.profile_image_url,
+          image: normalizedUser.image
         }
+        
+        // Debug: Check if username is properly set
+        if (!normalizedUser.username) {
+          console.error('Username is missing from API response:', profileData)
+        } else {
+          console.log('Username correctly set:', normalizedUser.username)
+        }
+        setUser(currentUser)
       } catch (error) {
         console.error('Error fetching user info:', error)
+        
+        // Handle auth errors
+        if (error instanceof Error && error.message.includes('401')) {
+          localStorage.removeItem("access_token")
+          router.push("/auth/login")
+          return
+        }
+        
         setError('Failed to load user information')
         // Redirect to login on auth failure
         localStorage.removeItem("access_token")
@@ -231,15 +206,9 @@ export default function FeedPage() {
       await fetchUserInfo()
       await loadPosts(token)
       
-      // Update user's last feed view timestamp
+      // Update user's last feed view timestamp using optimized client
       try {
-        await fetch('/api/posts/update-feed-view', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
+        await apiClient.post('/posts/update-feed-view')
       } catch (error) {
         console.error('Error updating feed view timestamp:', error)
         // Don't fail the page load if this fails
@@ -340,12 +309,7 @@ export default function FeedPage() {
         // Update user's last feed view timestamp after refresh
         if (useRefreshMode) {
           try {
-            await fetch('/api/posts/update-feed-view', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            })
+            await apiClient.post('/posts/update-feed-view')
           } catch (error) {
             console.error('Error updating feed view timestamp:', error)
           }
@@ -386,28 +350,25 @@ export default function FeedPage() {
     touchStartY.current = 0
   }, [pullDistance, isPullToRefresh, refreshPosts])
 
-  // Check for new posts silently
+  // Check for new posts silently with debouncing
   const checkForNewPosts = useCallback(async () => {
     const now = Date.now()
-    if (now - lastRefreshTime.current < 30000) return // Minimum 30 seconds between checks
+    if (now - lastRefreshTime.current < 60000) return // Minimum 1 minute between checks (increased from 30s)
     
     const token = localStorage.getItem("access_token")
     if (!token) return
     
     try {
-      const response = await fetch('/api/posts?refresh=true', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      // Use optimized API client with cache skipping for refresh
+      const postsData = await apiClient.getPosts({ skipCache: true })
+      const posts = postsData.data || postsData
       
-      if (response.ok) {
-        const postsData = await response.json()
-        const posts = postsData.data || postsData
-        if (Array.isArray(posts)) {
-          const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
-          const unreadPostsCount = normalizedPosts.filter(post => post.isUnread).length
-          setUnreadCount(unreadPostsCount)
-        }
+      if (Array.isArray(posts)) {
+        const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
+        const unreadPostsCount = normalizedPosts.filter(post => post.isUnread).length
+        setUnreadCount(unreadPostsCount)
       }
+      
       lastRefreshTime.current = now
     } catch (error) {
       console.error('Error checking for new posts:', error)

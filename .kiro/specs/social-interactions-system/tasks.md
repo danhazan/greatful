@@ -1564,7 +1564,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - **Implementation Roadmap**: Three-phase optimization plan with specific priorities and success metrics
   - **Reference Document**: `api-call-investigation-report.md` contains full analysis and recommendations
   - _Requirements: Comprehensive API call audit and performance baseline_ ✅
-- [ ] **23.2 API Call Deduplication Strategy**
+- [x] **23.2 API Call Deduplication Strategy**
   - **Implementation Guide**: Follow Priority 1 recommendations from `api-call-investigation-report.md`
   - Implement global request deduplication service to prevent multiple identical API calls
   - **Target Specific Issues**: Address the 8+ duplicate profile calls and multiple posts/notifications requests
@@ -1577,6 +1577,40 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - **Performance Target**: Reduce feed page from 32+ requests to under 13 requests (60% reduction)
   - **Reference**: See "Priority 1: Critical Issues" section in `api-call-investigation-report.md`
   - _Requirements: Eliminate duplicate API requests and implement intelligent caching_
+
+- [ ] **23.3 Systematic Current User Profile Call Elimination**
+  - **Issue**: Every page makes an additional `/users/me/profile` call even when UserContext already provides current user data
+  - **Root Cause**: Components and pages independently fetch current user profile instead of using centralized UserContext
+  - **Solution Strategy**: 
+    - Audit all components making direct `/users/me/profile` calls
+    - Replace direct API calls with UserContext consumption
+    - Implement centralized current user state management
+    - Add proper loading states and error handling in UserContext
+    - Ensure UserContext is the single source of truth for current user data
+  - **Target Components**: Profile pages, Navbar, PostCard, SinglePostView, and any component fetching current user
+  - **Performance Impact**: Eliminate 1 duplicate call per page load (significant reduction across all pages)
+  - **Implementation**: 
+    - Replace `apiClient.getCurrentUserProfile()` calls with `useUser()` hook
+    - Ensure UserContext loads once on app initialization
+    - Add proper caching and error recovery in UserContext
+  - _Requirements: Centralize current user data fetching and eliminate redundant calls_
+
+- [ ] **23.4 Evaluate Long-term Data Fetching Architecture**
+  - **Current State**: Custom API client with manual deduplication (patch-like approach)
+  - **Industry Standards**: React Query, SWR, Apollo Client provide built-in deduplication, caching, and state management
+  - **Evaluation Criteria**:
+    - **Maintainability**: How easy to maintain custom vs library solution
+    - **Performance**: Built-in optimizations vs manual implementation
+    - **Developer Experience**: Type safety, devtools, error handling
+    - **Bundle Size**: Impact of adding external dependencies
+  - **Options to Evaluate**:
+    - **React Query (TanStack Query)**: Industry standard, excellent caching, automatic deduplication
+    - **SWR**: Lightweight, good for simple use cases, built-in deduplication
+    - **Keep Custom**: Improve current implementation with better patterns
+  - **Migration Strategy**: If library adoption is chosen, plan incremental migration
+  - **Decision Factors**: Team expertise, project timeline, long-term maintenance
+  - **Deliverable**: Technical decision document with recommendation and migration plan
+  - _Requirements: Assess whether current custom solution should be replaced with industry-standard library_
 - [ ] **23.3 API Batching Implementation**
   - **Implementation Guide**: Follow Priority 2 recommendations from `api-call-investigation-report.md`
   - Create batch API endpoints for commonly grouped requests (as identified in investigation):

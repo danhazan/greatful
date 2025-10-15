@@ -8,6 +8,8 @@ import { parseNotificationMessage, formatNotificationWithClickableUser, formatNo
 import ClickableProfilePicture from "@/components/ClickableProfilePicture"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
+import { smartNotificationPoller } from "@/utils/smartNotificationPoller"
+import { apiClient } from "@/utils/apiClient"
 
 interface Notification {
   id: string
@@ -88,62 +90,34 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     return () => clearInterval(interval)
   }, [])
 
-  // Fetch notifications on mount and periodically
+  // Setup smart notification polling
   useEffect(() => {
     if (!userId) return
 
-    const fetchNotifications = async () => {
-      try {
-        const token = localStorage.getItem("access_token")
-        if (!token) {
-          if (process.env.NODE_ENV === 'development') {
-            console.debug('No access token found for notifications')
-          }
-          return
-        }
+    console.debug('🔔 Setting up smart notification polling for user:', userId)
 
-        const response = await fetch('/api/notifications', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+    // Subscribe to notification updates
+    const unsubscribeUpdate = smartNotificationPoller.onUpdate((update) => {
+      console.debug('📬 Received notification update:', update)
+      setNotifications(update.notifications)
+      setUnreadCount(update.unreadCount)
+    })
 
-        if (response.ok) {
-          const data = await response.json()
-          
-          // Debug logging in development
-          if (process.env.NODE_ENV === 'development' && data.length > 0) {
-            console.debug('Notification data sample:', data[0])
-            console.debug('All notification timestamps:', data.map((n: any) => ({
-              id: n.id,
-              createdAt: n.createdAt,
-              lastUpdatedAt: n.lastUpdatedAt
-            })))
-          }
-          
-          setNotifications(data)
-          
-          const unreadCount = data.filter((n: Notification) => !n.read).length
-          setUnreadCount(unreadCount)
-        } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.debug('Failed to fetch notifications:', response.status, await response.text())
-          }
-        }
-      } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('Failed to fetch notifications:', error)
-        }
-      }
+    // Subscribe to errors
+    const unsubscribeError = smartNotificationPoller.onError((error) => {
+      console.error('❌ Notification polling error:', error)
+      // Could show user-friendly error message here
+    })
+
+    // Start polling
+    smartNotificationPoller.start(userId.toString())
+
+    return () => {
+      console.debug('🔕 Cleaning up notification polling')
+      unsubscribeUpdate()
+      unsubscribeError()
+      smartNotificationPoller.stop()
     }
-
-    // Fetch immediately
-    fetchNotifications()
-
-    // Set up periodic fetching every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000)
-
-    return () => clearInterval(interval)
   }, [userId])
 
   const markAsRead = async (notificationId: string) => {
@@ -155,21 +129,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     )
     setUnreadCount(prev => Math.max(0, prev - 1))
 
-    // Try to sync with backend, but don't block UI if it fails
+    // Try to sync with backend using optimized API client
     try {
-      const token = localStorage.getItem("access_token")
-      if (!token) return
-
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok && process.env.NODE_ENV === 'development') {
-        console.debug('Backend sync failed for notification read status')
-      }
+      await apiClient.post(`/notifications/${notificationId}/read`)
+      
+      // Invalidate notification cache to ensure fresh data on next fetch
+      apiClient.invalidateCache('/notifications')
     } catch (error) {
       // Silently handle errors - local state is already updated
       if (process.env.NODE_ENV === 'development') {
@@ -183,21 +148,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     setUnreadCount(0)
 
-    // Try to sync with backend, but don't block UI if it fails
+    // Try to sync with backend using optimized API client
     try {
-      const token = localStorage.getItem("access_token")
-      if (!token) return
-
-      const response = await fetch('/api/notifications/read-all', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok && process.env.NODE_ENV === 'development') {
-        console.debug('Backend sync failed for mark all notifications as read')
-      }
+      await apiClient.post('/notifications/read-all')
+      
+      // Invalidate notification cache to ensure fresh data on next fetch
+      apiClient.invalidateCache('/notifications')
     } catch (error) {
       // Silently handle errors - local state is already updated
       if (process.env.NODE_ENV === 'development') {
@@ -220,22 +176,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
       // Expand the batch - fetch children if not already loaded
       if (!batchChildren[batchId]) {
         try {
-          const token = localStorage.getItem("access_token")
-          if (!token) return
-
-          const response = await fetch(`/api/notifications/${batchId}/children`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-
-          if (response.ok) {
-            const children = await response.json()
-            setBatchChildren(prev => ({
-              ...prev,
-              [batchId]: children
-            }))
-          }
+          // Use optimized API client instead of direct fetch
+          const children = await apiClient.get(`/notifications/${batchId}/children`) as Notification[]
+          setBatchChildren(prev => ({
+            ...prev,
+            [batchId]: children
+          }))
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {
             console.debug('Failed to fetch batch children:', error)

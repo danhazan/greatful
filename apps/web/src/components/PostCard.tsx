@@ -13,6 +13,7 @@ import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import RichContentRenderer from "./RichContentRenderer"
 import EditPostModal from "./EditPostModal"
 import DeleteConfirmationModal from "./DeleteConfirmationModal"
+import { apiClient } from "@/utils/apiClient"
 import LocationDisplayModal from "./LocationDisplayModal"
 import OptimizedPostImage from "./OptimizedPostImage"
 import analyticsService from "@/services/analytics"
@@ -213,24 +214,11 @@ export default function PostCard({
           return
         }
 
-        // Use batch validation endpoint to avoid 404 errors
-        const response = await fetch('/api/users/validate-batch', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            usernames: validFormatUsernames
-          })
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
-          setValidUsernames(result.data.valid_usernames || [])
-        } else {
-          setValidUsernames([])
-        }
+        // Use batch validation endpoint to avoid 404 errors with optimized API client
+        const result = await apiClient.post('/users/validate-batch', {
+          usernames: validFormatUsernames
+        }) as any
+        setValidUsernames(result.valid_usernames || [])
       } catch (error) {
         // Only log errors in development
         if (process.env.NODE_ENV === 'development') {
@@ -300,31 +288,19 @@ export default function PostCard({
         const token = getAccessToken()
         
         // Make API call to remove reaction
-        const response = await fetch(`/api/posts/${post.id}/reactions`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-        
-        if (response.ok) {
-          // Get updated reaction summary from server
-          const summaryResponse = await fetch(`/api/posts/${post.id}/reactions/summary`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          })
+        try {
+          // Use optimized API client for reaction removal
+          await apiClient.delete(`/posts/${post.id}/reactions`)
           
-          if (summaryResponse.ok) {
-            const reactionSummary = await summaryResponse.json()
-            // Call handler with updated server data
-            onRemoveReaction(post.id, reactionSummary)
-          } else {
-            // Fallback to original handler if summary fetch fails
-            onRemoveReaction(post.id)
-          }
-        } else {
-          console.error('Failed to remove reaction')
+          // Get updated reaction summary from server
+          const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
+          
+          // Call handler with updated server data
+          onRemoveReaction(post.id, reactionSummary)
+        } catch (error) {
+          console.error('Failed to remove reaction:', error)
+          // Fallback to original handler if removal fails
+          onRemoveReaction(post.id)
         }
       } catch (error) {
         console.error('Error removing reaction:', error)
@@ -365,41 +341,22 @@ export default function PostCard({
     try {
       const token = localStorage.getItem("access_token")
       
-      // Make API call to add/update reaction
-      const response = await fetch(`/api/posts/${post.id}/reactions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ emoji_code: emojiCode })
-      })
-      
-      if (response.ok) {
-        // Get updated reaction summary from server
-        const summaryResponse = await fetch(`/api/posts/${post.id}/reactions/summary`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
+      try {
+        // Make API call to add/update reaction using optimized API client
+        await apiClient.post(`/posts/${post.id}/reactions`, { emoji_code: emojiCode })
         
-        if (summaryResponse.ok) {
-          const reactionSummary = await summaryResponse.json()
-          // Call handler with updated server data
-          onReaction?.(post.id, emojiCode, reactionSummary)
-          
-          // Note: No loading toast to hide for reactions
-        } else {
-          // Fallback to original handler if summary fetch fails
-          onReaction?.(post.id, emojiCode)
-          // Note: No loading toast to hide for reactions
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}))
+        // Get updated reaction summary from server
+        const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
+        
+        // Call handler with updated server data
+        onReaction?.(post.id, emojiCode, reactionSummary)
+        
+        // Note: No loading toast to hide for reactions
+      } catch (apiError: any) {
         // Note: No loading toast to hide for reactions
         showError(
           'Reaction Failed',
-          errorData.message || 'Unable to add reaction. Please try again.',
+          apiError.message || 'Unable to add reaction. Please try again.',
           {
             label: 'Retry',
             onClick: () => handleEmojiSelect(emojiCode)
@@ -461,17 +418,12 @@ export default function PostCard({
     // Fetch hearts from API
     try {
       const token = localStorage.getItem("access_token")
-      const response = await fetch(`/api/posts/${post.id}/hearts/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      if (response.ok) {
-        const heartsData = await response.json()
+      try {
+        // Use optimized API client for hearts users
+        const heartsData = await apiClient.get(`/posts/${post.id}/hearts/users`) as any
         setHearts(heartsData)
         setShowHeartsViewer(true)
-      } else {
+      } catch (apiError) {
         showError('Failed to Load', 'Unable to load hearts. Please try again.')
       }
     } catch (error) {
@@ -581,20 +533,12 @@ export default function PostCard({
         location_data: postData.location_data
       }
 
-      const response = await fetch(`/api/posts/${post.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData)
-      })
-
-      hideToast(loadingToastId)
-
-      if (response.ok) {
-        // Parse raw JSON response (could be wrapper)
-        const raw = await response.json()
+      try {
+        // Use optimized API client for post update
+        const raw = await apiClient.put(`/posts/${post.id}`, updateData) as any
+        
+        hideToast(loadingToastId)
+        
         debugApiResponse(raw, "PUT /api/posts/:id response")
         
         const normalized = normalizePostFromApi(raw)
@@ -617,23 +561,13 @@ export default function PostCard({
         if (onEdit) {
           onEdit(post.id, normalized)
         }
-      } else {
-        const errorData = await response.json().catch(() => ({}))
+      } catch (error: any) {
+        hideToast(loadingToastId)
         
-        // Handle Pydantic validation errors (422 responses)
+        // Handle API client errors
         let errorMessage = 'Unable to update post. Please try again.'
-        if (errorData.detail) {
-          if (Array.isArray(errorData.detail)) {
-            // Pydantic validation errors - extract the first error message
-            const firstError = errorData.detail[0]
-            if (firstError && firstError.msg) {
-              errorMessage = firstError.msg
-            } else {
-              errorMessage = 'Validation error occurred'
-            }
-          } else if (typeof errorData.detail === 'string') {
-            errorMessage = errorData.detail
-          }
+        if (error.message) {
+          errorMessage = error.message
         }
         
         showError(
@@ -1015,40 +949,26 @@ export default function PostCard({
                   const token = getAccessToken()
                   const method = isCurrentlyHearted ? 'DELETE' : 'POST'
                   
-                  const response = await fetch(`/api/posts/${post.id}/heart`, {
-                    method,
-                    headers: {
-                      'Authorization': `Bearer ${token}`,
-                      'Content-Type': 'application/json',
-                    },
-                  })
-                  
-                  if (response.ok) {
-                    // Get updated heart info from server
-                    const heartInfoResponse = await fetch(`/api/posts/${post.id}/hearts`, {
-                      headers: {
-                        'Authorization': `Bearer ${token}`,
-                      },
-                    })
-                    
-                    if (heartInfoResponse.ok) {
-                      const heartInfo = await heartInfoResponse.json()
-                      // Call handler with updated server data
-                      onHeart?.(post.id, isCurrentlyHearted, heartInfo)
-                      
-                      // Note: No loading toast to hide for hearts
+                  try {
+                    // Use optimized API client for heart action
+                    if (method === 'POST') {
+                      await apiClient.post(`/posts/${post.id}/heart`)
                     } else {
-                      // Fallback to original handler if heart info fetch fails
-                      onHeart?.(post.id, isCurrentlyHearted)
-                      // Note: No loading toast to hide for hearts
-                      // Heart action completed successfully
+                      await apiClient.delete(`/posts/${post.id}/heart`)
                     }
-                  } else {
-                    const errorData = await response.json().catch(() => ({}))
+                    
+                    // Get updated heart info from server
+                    const heartInfo = await apiClient.get(`/posts/${post.id}/hearts`) as any
+                    
+                    // Call handler with updated server data
+                    onHeart?.(post.id, isCurrentlyHearted, heartInfo)
+                    
+                    // Note: No loading toast to hide for hearts
+                  } catch (error: any) {
                     // Note: No loading toast to hide for hearts
                     showError(
                       'Heart Failed',
-                      errorData.message || 'Unable to update heart. Please try again.',
+                      error.message || 'Unable to update heart. Please try again.',
                       {
                         label: 'Retry',
                         onClick: () => {

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 import { stateSyncUtils } from '@/utils/stateSynchronization'
+import { apiClient } from '@/utils/apiClient'
 
 interface User {
   id: string
@@ -207,56 +208,44 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           return
         }
 
-        // Validate token and fetch user data
-        const response = await fetch('/api/users/me/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
+        console.log('[UserContext] Loading user profile...')
 
-        if (response.ok) {
-          const apiResponse = await response.json()
-          // The backend returns data wrapped in { success: true, data: {...} }
-          const userData = apiResponse.data
+        // Validate token and fetch user data using optimized API client with deduplication
+        const userData = await apiClient.getCurrentUserProfile()
           
-          // Safely handle user data and ensure id exists before converting
-          if (userData && userData.id) {
-            const user: User = {
-              id: userData.id.toString(),
-              name: userData.display_name || userData.name || userData.username,
-              username: userData.username,
-              email: userData.email,
-              image: userData.profile_image_url,
-              display_name: userData.display_name
-            }
-            
-            setCurrentUser(user)
-            
-            // Also store in user profiles for consistency
-            const userProfile: UserProfile = {
-              id: user.id,
-              name: user.name,
-              username: user.username,
-              email: user.email,
-              image: user.image,
-              display_name: userData.display_name,
-              follower_count: userData.follower_count,
-              following_count: userData.following_count,
-              posts_count: userData.posts_count
-            }
-            
-            setUserProfiles(prev => ({
-              ...prev,
-              [user.id]: userProfile
-            }))
-          } else {
-            // Invalid user data, remove token
-            localStorage.removeItem('access_token')
-            setCurrentUser(null)
+        // Safely handle user data and ensure id exists before converting
+        if (userData && userData.id) {
+          const user: User = {
+            id: userData.id.toString(),
+            name: userData.display_name || userData.name || userData.username,
+            username: userData.username,
+            email: userData.email,
+            image: userData.profile_image_url,
+            display_name: userData.display_name
           }
+          
+          setCurrentUser(user)
+          console.log('[UserContext] User profile loaded')
+          
+          // Also store in user profiles for consistency
+          const userProfile: UserProfile = {
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            image: user.image,
+            display_name: userData.display_name,
+            follower_count: userData.follower_count,
+            following_count: userData.following_count,
+            posts_count: userData.posts_count
+          }
+          
+          setUserProfiles(prev => ({
+            ...prev,
+            [user.id]: userProfile
+          }))
         } else {
-          // Token is invalid, remove it
+          // Invalid user data, remove token
           localStorage.removeItem('access_token')
           setCurrentUser(null)
         }

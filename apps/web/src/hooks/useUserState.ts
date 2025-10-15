@@ -23,10 +23,9 @@ interface UserStateHook {
   refreshUserData: () => Promise<void>
 }
 
-// Cache to prevent duplicate API calls
-const fetchingCache = new Map<string, Promise<any>>()
+// Optimized cache settings - longer durations to reduce API calls
 const lastFetchTime = new Map<string, number>()
-const CACHE_DURATION = 30000 // 30 seconds
+const CACHE_DURATION = 120000 // 2 minutes (increased from 30 seconds)
 
 export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   const { userId, autoFetch = true, initialFollowState = false } = options
@@ -95,89 +94,77 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       return
     }
 
-    // Check if we're already fetching this user's data
-    if (fetchingCache.has(cacheKey)) {
-      try {
-        await fetchingCache.get(cacheKey)
-        getCachedData()
-        setIsLoading(false)
-        return
-      } catch (err) {
-        // If the cached promise failed, continue with new fetch
-      }
-    }
+    // The request deduplicator will handle duplicate requests automatically
+    // No need to check manually as it's handled in the API client
 
     setIsLoading(true)
     setError(null)
 
-    // Create fetch promise and cache it
-    const fetchPromise = (async () => {
-      try {
-        const token = getAccessToken()
-        if (!token) {
-          throw new Error('Authentication required')
-        }
-
-        // Fetch user profile only if not cached or stale
-        if (!hasProfile || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
-          try {
-            const profile: any = await apiClient.getUserProfile(targetUserId)
-
-            // Update context state with correct field mapping
-            updateUserProfile(targetUserId, {
-              id: targetUserId,
-              name: profile.display_name || profile.name || profile.username,
-              username: profile.username,
-              email: profile.email,
-              image: profile.profile_image_url || profile.image,
-              display_name: profile.display_name,
-              follower_count: profile.followers_count || profile.follower_count || 0,
-              following_count: profile.following_count || profile.following_count || 0,
-              posts_count: profile.posts_count || 0
-            })
-
-            setLocalUserProfile(profile)
-          } catch (profileError) {
-            console.warn('Failed to fetch user profile:', profileError)
-            // Don't fail the entire operation if profile fetch fails
-          }
-        }
-
-        // Fetch follow status only if not cached or stale
-        if (!hasFollowState || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
-          try {
-            const followData: any = await apiClient.getFollowStatus(targetUserId)
-            const isFollowing = followData?.is_following || false
-
-            // Update context state
-            updateFollowState(targetUserId, isFollowing)
-            setLocalFollowState(isFollowing)
-          } catch (followError) {
-            console.warn('Failed to fetch follow status:', followError)
-            // Default to false if follow status fetch fails
-            updateFollowState(targetUserId, false)
-            setLocalFollowState(false)
-          }
-        }
-        
-        // Update last fetch time
-        lastFetchTime.set(cacheKey, now)
-        
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user data'
-        setError(errorMessage)
-        console.error('Error fetching user data:', err)
-        throw err
-      }
-    })()
-
-    fetchingCache.set(cacheKey, fetchPromise)
-    
     try {
-      await fetchPromise
+      const token = getAccessToken()
+      if (!token) {
+        throw new Error('Authentication required')
+      }
+
+      // Use Promise.allSettled to fetch both profile and follow status concurrently
+      // This reduces the number of sequential API calls
+      const promises = []
+      
+      // Fetch user profile only if not cached or stale
+      if (!hasProfile || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
+        promises.push(
+          apiClient.getUserProfile(targetUserId).then(profile => ({ type: 'profile', data: profile }))
+        )
+      }
+
+      // Fetch follow status only if not cached or stale
+      if (!hasFollowState || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
+        promises.push(
+          apiClient.getFollowStatus(targetUserId).then(followData => ({ type: 'follow', data: followData }))
+        )
+      }
+
+      if (promises.length > 0) {
+        const results = await Promise.allSettled(promises)
+        
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const { type, data } = result.value
+            
+            if (type === 'profile') {
+              // Update context state with correct field mapping
+              updateUserProfile(targetUserId, {
+                id: targetUserId,
+                name: data.display_name || data.name || data.username,
+                username: data.username,
+                email: data.email,
+                image: data.profile_image_url || data.image,
+                display_name: data.display_name,
+                follower_count: data.followers_count || data.follower_count || 0,
+                following_count: data.following_count || data.following_count || 0,
+                posts_count: data.posts_count || 0
+              })
+              setLocalUserProfile(data)
+            } else if (type === 'follow') {
+              const isFollowing = data?.is_following || false
+              updateFollowState(targetUserId, isFollowing)
+              setLocalFollowState(isFollowing)
+            }
+          } else {
+            console.warn(`Failed to fetch ${result.reason}:`, result.reason)
+          }
+        })
+        
+        // Update last fetch time only if we actually made requests
+        lastFetchTime.set(cacheKey, now)
+      }
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user data'
+      setError(errorMessage)
+      console.error('Error fetching user data:', err)
     } finally {
       setIsLoading(false)
-      fetchingCache.delete(cacheKey)
     }
   }, [updateUserProfile, updateFollowState, getCachedData])
 

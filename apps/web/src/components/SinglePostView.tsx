@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import PostCard from './PostCard'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
+import { apiClient } from '@/utils/apiClient'
 
 interface SinglePostViewProps {
   postId: string
@@ -68,40 +69,37 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
         setLoading(true)
         setError(null)
 
-        const token = localStorage.getItem('access_token')
-        
-        // Build headers - include auth if available
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        }
-        
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`
-        }
+        console.log('[SinglePostView] Fetching post:', postId)
 
-        const response = await fetch(`/api/posts/${postId}`, {
-          headers,
-        })
-
-        if (!response.ok) {
-          if (response.status === 404) {
+        // Use optimized API client with deduplication
+        try {
+          const postData = await apiClient.get(`/posts/${postId}`) as any
+          setPost(postData)
+          console.log('[SinglePostView] Post loaded')
+        } catch (apiError: any) {
+          // Handle API client errors
+          if (apiError.message?.includes('404') || apiError.status === 404) {
             setError('Post not found')
-          } else if (response.status === 403) {
+          } else if (apiError.message?.includes('403') || apiError.status === 403) {
             setError('This post is private')
-          } else if (response.status === 401 && !token) {
-            setError('Authentication required to view this post')
+          } else if (apiError.message?.includes('401') || apiError.status === 401) {
+            const token = localStorage.getItem('access_token')
+            if (!token) {
+              setError('Authentication required to view this post')
+            } else {
+              setError('Failed to load post')
+            }
           } else {
             setError('Failed to load post')
           }
-          return
+          throw apiError
         }
-
-        const postData = await response.json()
-        setPost(postData)
       } catch (error) {
         console.error('Error fetching post:', error)
-        setError('Failed to load post')
-        showError('Network Error', 'Failed to load post. Please check your connection.')
+        if (!error || typeof error !== 'object' || !('message' in error)) {
+          setError('Failed to load post')
+          showError('Network Error', 'Failed to load post. Please check your connection.')
+        }
       } finally {
         setLoading(false)
       }

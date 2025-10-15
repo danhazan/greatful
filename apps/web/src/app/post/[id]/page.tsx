@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import SinglePostView from '@/components/SinglePostView'
 import Navbar from '@/components/Navbar'
+import { apiClient } from '@/utils/apiClient'
 
 interface PostPageProps {
   params: {
@@ -28,35 +29,20 @@ export default function PostPage({ params }: PostPageProps) {
     // Get user info from API if token exists
     const fetchUserInfo = async () => {
       try {
-        const response = await fetch('/api/users/me/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
-        if (response.ok) {
-          const userData = await response.json()
-          // Handle both wrapped and unwrapped responses
-          const profileData = userData.data || userData
-          const currentUser = {
-            id: profileData.id,
-            name: profileData.display_name || profileData.username,
-            display_name: profileData.display_name,
-            username: profileData.username,
-            email: profileData.email,
-            profile_image_url: profileData.profile_image_url,
-            image: profileData.image // Use normalized image field
-          }
-          setUser(currentUser)
-        } else {
-          // Check if it's an auth error - clear token but don't redirect
-          if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem("access_token")
-            setUser(null)
-          } else {
-            throw new Error('Failed to fetch user info')
-          }
+        console.log('[PostPage] Fetching user info...')
+        // Use optimized API client with deduplication
+        const profileData = await apiClient.getCurrentUserProfile()
+        const currentUser = {
+          id: profileData.id,
+          name: profileData.display_name || profileData.username,
+          display_name: profileData.display_name,
+          username: profileData.username,
+          email: profileData.email,
+          profile_image_url: profileData.profile_image_url,
+          image: profileData.image // Use normalized image field
         }
+        setUser(currentUser)
+        console.log('[PostPage] User info loaded')
       } catch (error) {
         console.error('Error fetching user info:', error)
         // Clear invalid token but allow viewing in read-only mode
@@ -67,7 +53,9 @@ export default function PostPage({ params }: PostPageProps) {
       }
     }
 
-    fetchUserInfo()
+    // Add a small delay to prevent race conditions with UserContext
+    const timeoutId = setTimeout(fetchUserInfo, 150)
+    return () => clearTimeout(timeoutId)
   }, [router])
 
   const handleLogout = () => {

@@ -14,6 +14,7 @@ interface FollowButtonProps {
   className?: string
   size?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg'
   variant?: 'primary' | 'secondary' | 'outline'
+  autoFetch?: boolean // Add option to disable auto-fetching when parent already has data
 }
 
 interface FollowStatus {
@@ -28,7 +29,8 @@ export default function FollowButton({
   onFollowChange,
   className = '',
   size = 'md',
-  variant = 'primary'
+  variant = 'primary',
+  autoFetch = true
 }: FollowButtonProps) {
   const [error, setError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
@@ -37,7 +39,7 @@ export default function FollowButton({
   // Use centralized state management with initial state
   const { followState: isFollowing, toggleFollow, isLoading } = useUserState({
     userId: userId.toString(),
-    autoFetch: true,
+    autoFetch: autoFetch,
     initialFollowState: initialFollowState
   })
 

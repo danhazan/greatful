@@ -13,6 +13,7 @@ import FollowingModal from "@/components/FollowingModal"
 import { transformUserPosts } from "@/lib/transformers"
 import { normalizeUserData } from "@/utils/userDataMapping"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
+import { apiClient } from "@/utils/apiClient"
 import { stateSyncUtils } from "@/utils/stateSynchronization"
 
 interface UserProfile {
@@ -151,86 +152,73 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
       try {
-        const response = await fetch('/api/users/me/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        console.log('[Profile] Fetching profile data...')
+        
+        // Use optimized API client with deduplication
+        const rawProfileData = await apiClient.getCurrentUserProfile()
+          
+        // Normalize user data to ensure consistent field names and absolute URLs
+        const profileData = normalizeUserData(rawProfileData)
+          
+        const userProfile: UserProfile = {
+          id: profileData.id,
+          username: profileData.username || 'Unknown User',
+          email: profileData.email,
+          bio: profileData.bio || "No bio yet - add one by editing your profile!",
+          profileImage: profileData.profile_image_url,
+          displayName: profileData.display_name,
+          city: profileData.city,
+          location: profileData.location,
+          institutions: profileData.institutions || [],
+          websites: profileData.websites || [],
+          joinDate: profileData.created_at || new Date().toISOString(),
+          postsCount: profileData.posts_count || 0,
+          followersCount: profileData.followers_count || 0,
+          followingCount: profileData.following_count || 0,
+          oauth_provider: profileData.oauth_provider || null
+        }
+
+        setUser(userProfile)
+        setCurrentUser({
+          id: userProfile.id,
+          name: userProfile.displayName || userProfile.username,
+          display_name: userProfile.displayName,
+          username: userProfile.username,
+          email: userProfile.email,
+          profile_image_url: profileData.profile_image_url,
+          image: profileData.image // Use normalized image field
         })
+        setProfileEditForm({
+          bio: userProfile.bio || "",
+          displayName: userProfile.displayName || "",
+          city: userProfile.city || "",
+          institutions: Array.isArray(userProfile.institutions) ? userProfile.institutions : [],
+          websites: Array.isArray(userProfile.websites) ? userProfile.websites : []
+        })
+        setAccountEditForm({
+          username: userProfile.username,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: ""
+        })
+        setSelectedLocation(userProfile.location)
 
-        if (response.ok) {
-          const responseData = await response.json()
-          const rawProfileData = responseData.data || responseData // Handle both wrapped and unwrapped responses
-          
-          // Normalize user data to ensure consistent field names and absolute URLs
-          const profileData = normalizeUserData(rawProfileData)
-          
-          const userProfile: UserProfile = {
-            id: profileData.id,
-            username: profileData.username || 'Unknown User',
-            email: profileData.email,
-            bio: profileData.bio || "No bio yet - add one by editing your profile!",
-            profileImage: profileData.profile_image_url,
-            displayName: profileData.display_name,
-            city: profileData.city,
-            location: profileData.location,
-            institutions: profileData.institutions || [],
-            websites: profileData.websites || [],
-            joinDate: profileData.created_at || new Date().toISOString(),
-            postsCount: profileData.posts_count || 0,
-            followersCount: profileData.followers_count || 0,
-            followingCount: profileData.following_count || 0,
-            oauth_provider: profileData.oauth_provider || null
-          }
-
-          setUser(userProfile)
-          setCurrentUser({
-            id: userProfile.id,
-            name: userProfile.displayName || userProfile.username,
-            display_name: userProfile.displayName,
-            username: userProfile.username,
-            email: userProfile.email,
-            profile_image_url: profileData.profile_image_url,
-            image: profileData.image // Use normalized image field
-          })
-          setProfileEditForm({
-            bio: userProfile.bio || "",
-            displayName: userProfile.displayName || "",
-            city: userProfile.city || "",
-            institutions: Array.isArray(userProfile.institutions) ? userProfile.institutions : [],
-            websites: Array.isArray(userProfile.websites) ? userProfile.websites : []
-          })
-          setAccountEditForm({
-            username: userProfile.username,
-            currentPassword: "",
-            newPassword: "",
-            confirmPassword: ""
-          })
-          setSelectedLocation(userProfile.location)
-
-          // Fetch user's posts
-          const postsResponse = await fetch('/api/users/me/posts', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-
-          if (postsResponse.ok) {
-            const postsResponseData = await postsResponse.json()
-            const userPosts = postsResponseData.data || postsResponseData // Handle both wrapped and unwrapped responses
-            // Transform posts from backend format to frontend format
-            const transformedPosts = Array.isArray(userPosts) ? transformUserPosts(userPosts) : []
-            // Sort posts by creation date (newest first) as a backup
-            const sortedPosts = transformedPosts.sort((a, b) => 
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            )
-            setPosts(sortedPosts)
-          } else {
-            console.error('Failed to fetch user posts')
-            setPosts([])
-          }
-        } else {
-          console.error('Failed to fetch profile')
-          router.push("/auth/login")
+        // Fetch user's posts using optimized API client with deduplication
+        try {
+          console.log('[Profile] Fetching user posts...')
+          const userPosts = await apiClient.get('/users/me/posts') as any
+          const postsData = userPosts.data || userPosts // Handle both wrapped and unwrapped responses
+          // Transform posts from backend format to frontend format
+          const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
+          // Sort posts by creation date (newest first) as a backup
+          const sortedPosts = transformedPosts.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          setPosts(sortedPosts)
+          console.log('[Profile] Posts loaded:', sortedPosts.length)
+        } catch (postsError) {
+          console.error('Failed to fetch user posts:', postsError)
+          setPosts([])
         }
       } catch (error) {
         console.error('Error fetching profile:', error)
@@ -240,7 +228,9 @@ export default function ProfilePage() {
       }
     }
 
-    fetchProfile()
+    // Add a small delay to prevent race conditions with UserContext
+    const timeoutId = setTimeout(fetchProfile, 100)
+    return () => clearTimeout(timeoutId)
   }, [router])
 
   const handleEditProfile = () => {
@@ -308,19 +298,9 @@ export default function ProfilePage() {
       
       console.log('Sending profile update request:', requestBody)
       
-      const response = await fetch('/api/users/me/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(requestBody)
-      })
+      const response = await apiClient.put('/users/me/profile', requestBody) as any
 
-      const responseData = await response.json()
-
-      if (response.ok) {
-        const updatedProfileData = responseData.data || responseData
+      const updatedProfileData = response.data || response
         if (user) {
           const updatedUser = {
             ...user,
@@ -350,27 +330,6 @@ export default function ProfilePage() {
         setPendingWebsite("")
         setInstitutionError("")
         setWebsiteError("")
-      } else {
-        console.error('Profile update error response:', response.status, response.statusText)
-        console.error('Profile update error data:', responseData)
-        
-        let errorMessage = "Failed to update profile"
-        if (responseData.detail) {
-          if (typeof responseData.detail === 'string') {
-            errorMessage = responseData.detail
-          } else if (Array.isArray(responseData.detail)) {
-            errorMessage = responseData.detail.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ')
-          } else {
-            errorMessage = JSON.stringify(responseData.detail)
-          }
-        } else if (responseData.error) {
-          errorMessage = responseData.error
-        }
-        
-        if (errorMessage) {
-          alert(`Error (${response.status}): ${errorMessage}`)
-        }
-      }
     } catch (error) {
       console.error('Error updating profile:', error)
       alert("Failed to update profile")
@@ -398,29 +357,13 @@ export default function ProfilePage() {
         hasErrors = true
       } else {
       try {
-        const response = await fetch('/api/users/me/profile', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ username: accountEditForm.username })
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          setUsernameError(errorData.detail || "Failed to update username")
-          usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          hasErrors = true
-        } else {
-          const updatedData = await response.json()
-          if (user) {
-            const updatedUser = { ...user, username: updatedData.data.username }
-            setUser(updatedUser)
-          }
+        const updatedData = await apiClient.put('/users/me/profile', { username: accountEditForm.username }) as any
+        if (user) {
+          const updatedUser = { ...user, username: updatedData.username }
+          setUser(updatedUser)
         }
-      } catch (error) {
-        setUsernameError("An unexpected error occurred")
+      } catch (error: any) {
+        setUsernameError(error.message || "Failed to update username")
         usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         hasErrors = true
       }
@@ -449,41 +392,27 @@ export default function ProfilePage() {
       }
 
       try {
-        const response = await fetch('/api/users/me/password', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            current_password: accountEditForm.currentPassword,
-            new_password: accountEditForm.newPassword
-          })
+        await apiClient.put('/users/me/password', {
+          current_password: accountEditForm.currentPassword,
+          new_password: accountEditForm.newPassword
         })
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          setPasswordError(errorData.detail || "Failed to update password")
-          passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          hasErrors = true
-        } else {
-          // Trigger browser password manager to save new password
-          setTimeout(() => {
-            const hiddenForm = document.getElementById('password-manager-form') as HTMLFormElement
-            if (hiddenForm && user) {
-              const usernameInput = hiddenForm.querySelector('input[name="username"]') as HTMLInputElement
-              const passwordInput = hiddenForm.querySelector('input[name="password"]') as HTMLInputElement
-              if (usernameInput && passwordInput) {
-                usernameInput.value = user.username
-                passwordInput.value = accountEditForm.newPassword
-                // Submit the form to trigger password manager
-                hiddenForm.submit()
-              }
+        // Trigger browser password manager to save new password
+        setTimeout(() => {
+          const hiddenForm = document.getElementById('password-manager-form') as HTMLFormElement
+          if (hiddenForm && user) {
+            const usernameInput = hiddenForm.querySelector('input[name="username"]') as HTMLInputElement
+            const passwordInput = hiddenForm.querySelector('input[name="password"]') as HTMLInputElement
+            if (usernameInput && passwordInput) {
+              usernameInput.value = user.username
+              passwordInput.value = accountEditForm.newPassword
+              // Submit the form to trigger password manager
+              hiddenForm.submit()
             }
-          }, 100)
-        }
-      } catch (error) {
-        setPasswordError("An unexpected error occurred")
+          }
+        }, 100)
+      } catch (error: any) {
+        setPasswordError(error.message || "Failed to update password")
         passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         hasErrors = true
       }

@@ -173,36 +173,115 @@ class APICache {
   }
 
   /**
+   * Smart invalidation for related data
+   */
+  invalidateRelated(url: string, options?: RequestInit): void {
+    const key = this.generateKey(url, options)
+    
+    // Define related patterns for smart invalidation
+    const relatedPatterns: Record<string, string[]> = {
+      '/users/': ['/follows/', '/posts/', '/notifications'],
+      '/follows/': ['/users/', '/posts/'],
+      '/posts/': ['/users/', '/notifications'],
+      '/notifications': ['/users/']
+    }
+    
+    // Find matching patterns and invalidate related data
+    for (const [pattern, relatedUrls] of Object.entries(relatedPatterns)) {
+      if (key.includes(pattern)) {
+        relatedUrls.forEach(relatedPattern => {
+          this.invalidate(relatedPattern)
+        })
+        break
+      }
+    }
+  }
+
+  /**
+   * Batch invalidation for multiple patterns
+   */
+  invalidateBatch(patterns: (string | RegExp)[]): void {
+    patterns.forEach(pattern => this.invalidate(pattern))
+  }
+
+  /**
+   * Conditional invalidation based on data freshness
+   */
+  invalidateIfStale(url: string, options?: RequestInit, maxAge: number = this.config.ttl): void {
+    const key = this.generateKey(url, options)
+    const entry = this.cache.get(key)
+    
+    if (entry) {
+      const age = Date.now() - entry.timestamp
+      if (age > maxAge) {
+        this.cache.delete(key)
+      }
+    }
+  }
+
+  /**
+   * Get cache hit rate statistics
+   */
+  getHitRate(): { hits: number; misses: number; rate: number } {
+    // This would need to be tracked over time in a real implementation
+    // For now, return basic stats
+    return {
+      hits: 0, // Would track actual hits
+      misses: 0, // Would track actual misses
+      rate: 0 // hits / (hits + misses)
+    }
+  }
+
+  /**
    * Get cache statistics
    */
   getStats() {
+    const now = Date.now()
+    const entries = Array.from(this.cache.values())
+    const validEntries = entries.filter(entry => now < entry.expiresAt)
+    const expiredEntries = entries.length - validEntries.length
+    
     return {
       size: this.cache.size,
+      validEntries: validEntries.length,
+      expiredEntries,
       pendingRequests: this.pendingRequests.size,
       maxSize: this.config.maxSize,
-      ttl: this.config.ttl
+      ttl: this.config.ttl,
+      memoryUsage: this.cache.size * 1024 // Rough estimate
     }
   }
 }
 
-// Create singleton instance
+// Create singleton instance with optimized TTL values
 export const apiCache = new APICache({
-  ttl: 30000, // 30 seconds
-  maxSize: 200 // 200 entries max
+  ttl: 60000, // 1 minute (increased from 30 seconds)
+  maxSize: 300 // Increased cache size
 })
 
-// Specialized caches for different data types
+// Specialized caches for different data types with optimized TTL values
 export const userProfileCache = new APICache({
-  ttl: 60000, // 1 minute for user profiles
-  maxSize: 50
+  ttl: 300000, // 5 minutes for user profiles (increased from 1 minute)
+  maxSize: 100 // Increased cache size
 })
 
 export const followStateCache = new APICache({
-  ttl: 15000, // 15 seconds for follow states (more dynamic)
-  maxSize: 100
+  ttl: 120000, // 2 minutes for follow states (increased from 15 seconds)
+  maxSize: 200 // Increased cache size
 })
 
 export const postsCache = new APICache({
-  ttl: 30000, // 30 seconds for posts
+  ttl: 60000, // 1 minute for posts (increased from 30 seconds)
+  maxSize: 150 // Increased cache size
+})
+
+// New specialized caches for specific use cases
+export const notificationCache = new APICache({
+  ttl: 30000, // 30 seconds for notifications (more dynamic)
+  maxSize: 50
+})
+
+export const batchDataCache = new APICache({
+  ttl: 180000, // 3 minutes for batch data (less frequent changes)
   maxSize: 100
 })

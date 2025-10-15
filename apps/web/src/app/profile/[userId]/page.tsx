@@ -415,8 +415,9 @@ export default function UserProfilePage() {
                       userId={profile.id}
                       size="md"
                       variant="primary"
-                      // Remove onFollowChange callback to prevent double counting
-                      // The ProfilePage already listens to followerCountUpdate events
+                      autoFetch={false}
+                      // Disable auto-fetch since parent component already fetched profile
+                      // This prevents duplicate API calls to the same user profile endpoint
                     />
                   </div>
                 )}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import PostCard from "./PostCard"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
+import { apiClient } from "@/utils/apiClient"
 
 interface Post {
   id: string
@@ -43,36 +44,28 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
         try {
           const token = getAccessToken()
           
-          // Fetch user profile to get current user ID
-          const userResponse = await fetch('/api/users/me/profile', {
+          // Fetch user profile to get current user ID using optimized API client
+          const userData = await apiClient.getCurrentUserProfile()
+          setCurrentUserId(userData.id?.toString())
+
+          // Fetch user-specific post data (hearts and reactions)
+          const postResponse = await fetch(`/api/posts/${post.id}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
             },
           })
 
-          if (userResponse.ok) {
-            const userData = await userResponse.json()
-            setCurrentUserId(userData.id?.toString())
-
-            // Fetch user-specific post data (hearts and reactions)
-            const postResponse = await fetch(`/api/posts/${post.id}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-            })
-
-            if (postResponse.ok) {
-              const postData = await postResponse.json()
-              
-              // Update post with user-specific data
-              setPost(prevPost => ({
-                ...prevPost,
-                isHearted: postData.is_hearted || false,
-                currentUserReaction: postData.current_user_reaction || undefined,
-                heartsCount: postData.hearts_count || 0,
-                reactionsCount: postData.reactions_count || prevPost.reactionsCount || 0,
-              }))
-            }
+          if (postResponse.ok) {
+            const postData = await postResponse.json()
+            
+            // Update post with user-specific data
+            setPost(prevPost => ({
+              ...prevPost,
+              isHearted: postData.is_hearted || false,
+              currentUserReaction: postData.current_user_reaction || undefined,
+              heartsCount: postData.hearts_count || 0,
+              reactionsCount: postData.reactions_count || prevPost.reactionsCount || 0,
+            }))
           }
         } catch (error) {
           console.error('Error fetching user data:', error)
