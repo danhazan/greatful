@@ -15,6 +15,7 @@ import { normalizeUserData } from "@/utils/userDataMapping"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
 import { apiClient } from "@/utils/apiClient"
 import { stateSyncUtils } from "@/utils/stateSynchronization"
+import { useUser } from "@/contexts/UserContext"
 
 interface UserProfile {
   id: number
@@ -84,6 +85,7 @@ interface Post {
 
 export default function ProfilePage() {
   const router = useRouter()
+  const { currentUser: contextUser, isLoading: userLoading, getUserProfile } = useUser()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -104,7 +106,6 @@ export default function ProfilePage() {
   })
   const [selectedLocation, setSelectedLocation] = useState<any>(null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
-  const [currentUser, setCurrentUser] = useState<any>(null)
   
   // State for managing pending institutions and websites
   const [pendingInstitution, setPendingInstitution] = useState("")
@@ -142,26 +143,55 @@ export default function ProfilePage() {
     return () => window.removeEventListener('followerCountUpdate', handleFollowerCountUpdate as EventListener)
   }, [user])
 
-  // Load user profile data
+  // Load user profile data from UserContext
   useEffect(() => {
-    const token = localStorage.getItem("access_token")
-    if (!token) {
+    // Redirect to login if no user after UserContext has loaded
+    if (!userLoading && !contextUser) {
       router.push("/auth/login")
       return
     }
 
-    const fetchProfile = async () => {
+    // Wait for UserContext to load
+    if (userLoading || !contextUser) {
+      return
+    }
+
+    const loadProfileData = async () => {
       try {
-        console.log('[Profile] Fetching profile data...')
+        console.log('[Profile] Loading profile data from UserContext...')
         
-        // Use optimized API client with deduplication
-        const rawProfileData = await apiClient.getCurrentUserProfile()
+        // Get additional profile data from UserContext if available
+        const userProfile = getUserProfile(contextUser.id)
+        
+        // If we don't have complete profile data, fetch it
+        let profileData
+        if (!userProfile || !userProfile.follower_count) {
+          console.log('[Profile] Fetching additional profile data...')
+          const rawProfileData = await apiClient.getCurrentUserProfile()
+          profileData = normalizeUserData(rawProfileData)
+        } else {
+          // Use data from UserContext
+          profileData = {
+            id: contextUser.id,
+            username: contextUser.username,
+            email: contextUser.email,
+            display_name: contextUser.display_name || contextUser.name,
+            profile_image_url: contextUser.image,
+            followers_count: userProfile.follower_count,
+            following_count: userProfile.following_count,
+            posts_count: userProfile.posts_count,
+            bio: (userProfile as any)?.bio || undefined,
+            city: (userProfile as any)?.city || undefined,
+            location: (userProfile as any)?.location || undefined,
+            institutions: (userProfile as any)?.institutions || undefined,
+            websites: (userProfile as any)?.websites || undefined,
+            created_at: (userProfile as any)?.created_at || undefined,
+            oauth_provider: (userProfile as any)?.oauth_provider || undefined
+          }
+        }
           
-        // Normalize user data to ensure consistent field names and absolute URLs
-        const profileData = normalizeUserData(rawProfileData)
-          
-        const userProfile: UserProfile = {
-          id: profileData.id,
+        const userProfileData: UserProfile = {
+          id: parseInt(profileData.id),
           username: profileData.username || 'Unknown User',
           email: profileData.email,
           bio: profileData.bio || "No bio yet - add one by editing your profile!",
@@ -178,30 +208,21 @@ export default function ProfilePage() {
           oauth_provider: profileData.oauth_provider || null
         }
 
-        setUser(userProfile)
-        setCurrentUser({
-          id: userProfile.id,
-          name: userProfile.displayName || userProfile.username,
-          display_name: userProfile.displayName,
-          username: userProfile.username,
-          email: userProfile.email,
-          profile_image_url: profileData.profile_image_url,
-          image: profileData.image // Use normalized image field
-        })
+        setUser(userProfileData)
         setProfileEditForm({
-          bio: userProfile.bio || "",
-          displayName: userProfile.displayName || "",
-          city: userProfile.city || "",
-          institutions: Array.isArray(userProfile.institutions) ? userProfile.institutions : [],
-          websites: Array.isArray(userProfile.websites) ? userProfile.websites : []
+          bio: userProfileData.bio || "",
+          displayName: userProfileData.displayName || "",
+          city: userProfileData.city || "",
+          institutions: Array.isArray(userProfileData.institutions) ? userProfileData.institutions : [],
+          websites: Array.isArray(userProfileData.websites) ? userProfileData.websites : []
         })
         setAccountEditForm({
-          username: userProfile.username,
+          username: userProfileData.username,
           currentPassword: "",
           newPassword: "",
           confirmPassword: ""
         })
-        setSelectedLocation(userProfile.location)
+        setSelectedLocation(userProfileData.location)
 
         // Fetch user's posts using optimized API client with deduplication
         try {
@@ -221,17 +242,15 @@ export default function ProfilePage() {
           setPosts([])
         }
       } catch (error) {
-        console.error('Error fetching profile:', error)
+        console.error('Error loading profile data:', error)
         router.push("/auth/login")
       } finally {
         setIsLoading(false)
       }
     }
 
-    // Add a small delay to prevent race conditions with UserContext
-    const timeoutId = setTimeout(fetchProfile, 100)
-    return () => clearTimeout(timeoutId)
-  }, [router])
+    loadProfileData()
+  }, [contextUser, userLoading, router, getUserProfile])
 
   const handleEditProfile = () => {
     setIsEditingProfile(true)
@@ -714,7 +733,14 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <Navbar user={currentUser} onLogout={handleLogout} />
+      <Navbar user={contextUser ? {
+        id: contextUser.id,
+        name: contextUser.display_name || contextUser.name,
+        display_name: contextUser.display_name,
+        username: contextUser.username,
+        email: contextUser.email,
+        profile_image_url: contextUser.image
+      } : undefined} onLogout={handleLogout} />
 
       {/* Profile Content */}
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
@@ -1282,7 +1308,7 @@ export default function ProfilePage() {
                 <PostCard
                   key={post.id}
                   post={post}
-                  currentUserId={currentUser?.id?.toString()}
+                  currentUserId={contextUser?.id}
                   hideFollowButton={true}
                   onHeart={handleHeart}
                   onReaction={handleReaction}

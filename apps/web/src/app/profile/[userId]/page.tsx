@@ -11,6 +11,7 @@ import FollowersModal from "@/components/FollowersModal"
 import FollowingModal from "@/components/FollowingModal"
 import { transformUserPosts } from "@/lib/transformers"
 import { apiClient } from "@/utils/apiClient"
+import { useUser } from "@/contexts/UserContext"
 
 interface UserProfile {
   id: number
@@ -73,12 +74,12 @@ export default function UserProfilePage() {
   const router = useRouter()
   const params = useParams()
   const userId = params.userId as string
+  const { currentUser, isLoading: userLoading } = useUser()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentUser, setCurrentUser] = useState<any>(null)
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
@@ -103,30 +104,21 @@ export default function UserProfilePage() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const token = localStorage.getItem("access_token")
-        if (!token) {
+        // Redirect to login if no user after UserContext has loaded
+        if (!userLoading && !currentUser) {
           router.push("/auth/login")
           return
         }
 
-        // Get current user info using optimized API client
-        let currentUserData: any = null
-        try {
-          currentUserData = await apiClient.getCurrentUserProfile({ cacheTTL: 300000 }) // 5 minutes cache
+        // Wait for UserContext to load
+        if (userLoading) {
+          return
+        }
 
-          if (currentUserData && currentUserData.id) {
-            setCurrentUser({
-              id: currentUserData.id,
-              name: currentUserData.display_name || currentUserData.name || currentUserData.username,
-              display_name: currentUserData.display_name,
-              username: currentUserData.username,
-              email: currentUserData.email,
-              profile_image_url: currentUserData.profile_image_url,
-              image: currentUserData.image // Use normalized image field
-            })
-          }
-        } catch (error) {
-          console.error('Failed to fetch current user:', error)
+        const token = localStorage.getItem("access_token")
+        if (!token) {
+          router.push("/auth/login")
+          return
         }
 
         // Fetch user profile using optimized API client (skip cache to get fresh data)
@@ -184,7 +176,7 @@ export default function UserProfilePage() {
         // Fetch user posts using optimized API client
         try {
           let postsData
-          if (userId === currentUserData?.id?.toString()) {
+          if (userId === currentUser?.id?.toString()) {
             // For current user, use the existing me/posts endpoint
             postsData = await apiClient.get('/users/me/posts')
           } else {
@@ -224,7 +216,7 @@ export default function UserProfilePage() {
     if (userId) {
       fetchUserProfile()
     }
-  }, [userId, router])
+  }, [userId, router, currentUser, userLoading])
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { hearts_count: number, is_hearted: boolean }) => {
     // If we have server data, use it; otherwise fallback to optimistic update
@@ -363,10 +355,16 @@ export default function UserProfilePage() {
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
       <Navbar
-        user={currentUser}
+        user={currentUser ? {
+          id: currentUser.id,
+          name: currentUser.display_name || currentUser.name,
+          display_name: currentUser.display_name,
+          username: currentUser.username,
+          email: currentUser.email,
+          profile_image_url: currentUser.image
+        } : undefined}
         onLogout={() => {
           localStorage.removeItem("access_token")
-          setCurrentUser(null)
           router.push("/")
         }}
       />
@@ -409,7 +407,7 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Follow Button - only show when viewing someone else's profile */}
-                {currentUser && currentUser.id !== profile.id && (
+                {currentUser && currentUser.id !== profile.id.toString() && (
                   <div className="mb-4">
                     <FollowButton
                       userId={profile.id}

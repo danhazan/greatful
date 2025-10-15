@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import SinglePostView from '@/components/SinglePostView'
 import Navbar from '@/components/Navbar'
-import { apiClient } from '@/utils/apiClient'
+import { useUser } from '@/contexts/UserContext'
 
 interface PostPageProps {
   params: {
@@ -14,53 +14,20 @@ interface PostPageProps {
 
 export default function PostPage({ params }: PostPageProps) {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const token = localStorage.getItem("access_token")
-    
-    // If no token, allow viewing in read-only mode
-    if (!token) {
-      setIsLoading(false)
-      return
-    }
-
-    // Get user info from API if token exists
-    const fetchUserInfo = async () => {
-      try {
-        console.log('[PostPage] Fetching user info...')
-        // Use optimized API client with deduplication
-        const profileData = await apiClient.getCurrentUserProfile()
-        const currentUser = {
-          id: profileData.id,
-          name: profileData.display_name || profileData.username,
-          display_name: profileData.display_name,
-          username: profileData.username,
-          email: profileData.email,
-          profile_image_url: profileData.profile_image_url,
-          image: profileData.image // Use normalized image field
-        }
-        setUser(currentUser)
-        console.log('[PostPage] User info loaded')
-      } catch (error) {
-        console.error('Error fetching user info:', error)
-        // Clear invalid token but allow viewing in read-only mode
-        localStorage.removeItem("access_token")
-        setUser(null)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    // Add a small delay to prevent race conditions with UserContext
-    const timeoutId = setTimeout(fetchUserInfo, 150)
-    return () => clearTimeout(timeoutId)
-  }, [router])
+  const { currentUser, isLoading } = useUser()
+  
+  // Convert UserContext user to the format expected by Navbar
+  const user = currentUser ? {
+    id: currentUser.id,
+    name: currentUser.display_name || currentUser.name,
+    display_name: currentUser.display_name,
+    username: currentUser.username,
+    email: currentUser.email,
+    profile_image_url: currentUser.image
+  } : undefined
 
   const handleLogout = () => {
     localStorage.removeItem("access_token")
-    setUser(null)
     router.push("/")
   }
 

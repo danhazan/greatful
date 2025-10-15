@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import PostCard from "./PostCard"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
-import { apiClient } from "@/utils/apiClient"
+import { useUser } from "@/contexts/UserContext"
 
 interface Post {
   id: string
@@ -31,53 +31,51 @@ interface SharedPostWrapperProps {
 export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapperProps) {
   const router = useRouter()
   const [post, setPost] = useState(initialPost)
-  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined)
-  const [isUserAuthenticated, setIsUserAuthenticated] = useState(false)
+  const { currentUser, isLoading } = useUser()
+  
+  // Derive authentication state from UserContext
+  const isUserAuthenticated = !!currentUser
+  const currentUserId = currentUser?.id
 
-  // Check authentication status and fetch user-specific data
+  // Fetch user-specific post data when user is available
   useEffect(() => {
-    const checkAuthAndFetchUserData = async () => {
-      const authenticated = isAuthenticated()
-      setIsUserAuthenticated(authenticated)
+    const fetchUserSpecificPostData = async () => {
+      if (!isUserAuthenticated || !currentUserId) {
+        return
+      }
 
-      if (authenticated) {
-        try {
-          const token = getAccessToken()
+      try {
+        const token = getAccessToken()
+        
+        // Fetch user-specific post data (hearts and reactions)
+        const postResponse = await fetch(`/api/posts/${post.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+
+        if (postResponse.ok) {
+          const postData = await postResponse.json()
           
-          // Fetch user profile to get current user ID using optimized API client
-          const userData = await apiClient.getCurrentUserProfile()
-          setCurrentUserId(userData.id?.toString())
-
-          // Fetch user-specific post data (hearts and reactions)
-          const postResponse = await fetch(`/api/posts/${post.id}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          })
-
-          if (postResponse.ok) {
-            const postData = await postResponse.json()
-            
-            // Update post with user-specific data
-            setPost(prevPost => ({
-              ...prevPost,
-              isHearted: postData.is_hearted || false,
-              currentUserReaction: postData.current_user_reaction || undefined,
-              heartsCount: postData.hearts_count || 0,
-              reactionsCount: postData.reactions_count || prevPost.reactionsCount || 0,
-            }))
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error)
-          // If there's an error, treat as unauthenticated
-          setIsUserAuthenticated(false)
-          setCurrentUserId(undefined)
+          // Update post with user-specific data
+          setPost(prevPost => ({
+            ...prevPost,
+            isHearted: postData.is_hearted || false,
+            currentUserReaction: postData.current_user_reaction || undefined,
+            heartsCount: postData.hearts_count || 0,
+            reactionsCount: postData.reactions_count || prevPost.reactionsCount || 0,
+          }))
         }
+      } catch (error) {
+        console.error('Error fetching user-specific post data:', error)
       }
     }
 
-    checkAuthAndFetchUserData()
-  }, [post.id])
+    // Only fetch when UserContext has finished loading
+    if (!isLoading) {
+      fetchUserSpecificPostData()
+    }
+  }, [post.id, isUserAuthenticated, currentUserId, isLoading])
 
   // Handle heart interaction
   const handleHeart = async (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {

@@ -8,6 +8,7 @@ import CreatePostModal from "@/components/CreatePostModal"
 import { normalizePostFromApi } from "@/utils/normalizePost"
 import { normalizeUserData } from "@/utils/userDataMapping"
 import { apiClient } from "@/utils/apiClient"
+import { useUser } from "@/contexts/UserContext"
 
 import Navbar from "@/components/Navbar"
 
@@ -62,9 +63,9 @@ interface Post {
 
 export default function FeedPage() {
   const router = useRouter()
+  const { currentUser, isLoading: userLoading } = useUser()
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
@@ -144,85 +145,52 @@ export default function FeedPage() {
     }
   }
 
-  // Check authentication and load user data
+  // Check authentication and load data using UserContext
   useEffect(() => {
-    const token = localStorage.getItem("access_token")
-    if (!token) {
+    // Redirect to login if no user after UserContext has loaded
+    if (!userLoading && !currentUser) {
       router.push("/auth/login")
       return
     }
 
-    // Get user info from API using optimized client
-    const fetchUserInfo = async () => {
-      try {
-        // Use optimized API client instead of direct fetch
-        const profileData = await apiClient.getCurrentUserProfile()
-        
-        // Debug: Log raw profile data to check image URL format
-        console.log("Raw profile data from API:", profileData)
-        
-        // Normalize user data to ensure consistent field names and absolute URLs
-        const normalizedUser = normalizeUserData(profileData)
-        
-        // Debug: Log normalized user data
-        console.log("Normalized user data:", normalizedUser)
-        
-        const currentUser = {
-          id: normalizedUser.id,
-          name: normalizedUser.name,
-          display_name: normalizedUser.display_name,
-          username: normalizedUser.username,
-          email: normalizedUser.email,
-          profile_image_url: normalizedUser.profile_image_url,
-          image: normalizedUser.image
-        }
-        
-        // Debug: Check if username is properly set
-        if (!normalizedUser.username) {
-          console.error('Username is missing from API response:', profileData)
-        } else {
-          console.log('Username correctly set:', normalizedUser.username)
-        }
-        setUser(currentUser)
-      } catch (error) {
-        console.error('Error fetching user info:', error)
-        
-        // Handle auth errors
-        if (error instanceof Error && error.message.includes('401')) {
-          localStorage.removeItem("access_token")
+    // Wait for UserContext to load
+    if (userLoading) {
+      return
+    }
+
+    // If we have a user, load posts
+    if (currentUser) {
+      const initializePage = async () => {
+        const token = localStorage.getItem("access_token")
+        if (!token) {
           router.push("/auth/login")
           return
         }
-        
-        setError('Failed to load user information')
-        // Redirect to login on auth failure
-        localStorage.removeItem("access_token")
-        router.push("/auth/login")
-        return
-      }
-    }
 
-    const initializePage = async () => {
-      await fetchUserInfo()
-      await loadPosts(token)
-      
-      // Update user's last feed view timestamp using optimized client
-      try {
-        await apiClient.post('/posts/update-feed-view')
-      } catch (error) {
-        console.error('Error updating feed view timestamp:', error)
-        // Don't fail the page load if this fails
+        try {
+          await loadPosts(token)
+          
+          // Update user's last feed view timestamp using optimized client
+          try {
+            await apiClient.post('/posts/update-feed-view')
+          } catch (error) {
+            console.error('Error updating feed view timestamp:', error)
+            // Don't fail the page load if this fails
+          }
+        } catch (error) {
+          console.error('Error loading feed data:', error)
+          setError('Failed to load feed data')
+        } finally {
+          setIsLoading(false)
+        }
       }
-      
-      setIsLoading(false)
-    }
 
-    initializePage()
-  }, [router])
+      initializePage()
+    }
+  }, [currentUser, userLoading, router])
 
   const handleLogout = () => {
     localStorage.removeItem("access_token")
-    setUser(null)
     setPosts([])
     router.push("/")
   }
@@ -276,7 +244,7 @@ export default function FeedPage() {
   }
 
   const handleUserClick = (userId: string) => {
-    if (userId === "current-user" || userId === user?.id) {
+    if (userId === "current-user" || userId === currentUser?.id) {
       router.push("/profile")
     } else {
       // Navigate to specific user's profile
@@ -503,7 +471,14 @@ export default function FeedPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar */}
-      <Navbar user={user} onLogout={handleLogout} />
+      <Navbar user={currentUser ? {
+        id: currentUser.id,
+        name: currentUser.display_name || currentUser.name,
+        display_name: currentUser.display_name,
+        username: currentUser.username,
+        email: currentUser.email,
+        profile_image_url: currentUser.image
+      } : undefined} onLogout={handleLogout} />
 
       {/* Main Content */}
       <main 
@@ -583,7 +558,7 @@ export default function FeedPage() {
                 <PostCard
                   key={post.id}
                   post={post}
-                  currentUserId={user?.id?.toString()}
+                  currentUserId={currentUser?.id}
                   onHeart={handleHeart}
                   onReaction={handleReaction}
                   onRemoveReaction={handleRemoveReaction}

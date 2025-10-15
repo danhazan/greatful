@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import ProfilePage from '@/app/profile/page'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { UserProvider } from '@/contexts/UserContext'
 import { describe, it, expect, beforeEach } from '@jest/globals'
 
 // Mock fetch
@@ -84,7 +85,7 @@ describe('Profile Account Editing', () => {
   })
 
   it('renders Edit Account button', async () => {
-    render(<ToastProvider><ProfilePage /></ToastProvider>)
+    render(<UserProvider><ToastProvider><ProfilePage /></ToastProvider></UserProvider>)
     
     await waitFor(() => {
       expect(screen.queryByText(/Loading your profile/i)).not.toBeInTheDocument()
@@ -95,7 +96,7 @@ describe('Profile Account Editing', () => {
 
   it('opens account editing section on click', async () => {
     const u = user()
-    render(<ToastProvider><ProfilePage /></ToastProvider>)
+    render(<UserProvider><ToastProvider><ProfilePage /></ToastProvider></UserProvider>)
     
     await waitFor(() => {
       expect(screen.queryByText(/Loading your profile/i)).not.toBeInTheDocument()
@@ -109,7 +110,7 @@ describe('Profile Account Editing', () => {
 
   it('shows password section for password users', async () => {
     const u = user()
-    render(<ToastProvider><ProfilePage /></ToastProvider>)
+    render(<UserProvider><ToastProvider><ProfilePage /></ToastProvider></UserProvider>)
     
     await waitFor(() => {
       expect(screen.queryByText(/Loading your profile/i)).not.toBeInTheDocument()
@@ -143,7 +144,7 @@ describe('Profile Account Editing', () => {
     })
 
     const u = user()
-    render(<ToastProvider><ProfilePage /></ToastProvider>)
+    render(<UserProvider><ToastProvider><ProfilePage /></ToastProvider></UserProvider>)
     
     await waitFor(() => {
       expect(screen.queryByText(/Loading your profile/i)).not.toBeInTheDocument()
