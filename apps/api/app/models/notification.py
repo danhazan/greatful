@@ -99,7 +99,7 @@ class Notification(Base):
                 return "New Engagement 💜", "Someone engaged with your post 💜"
             else:
                 return "New Engagement 💜", f"{count} people engaged with your post 💜"
-        elif self.type == 'new_follower':
+        elif self.type == 'new_follower' or self.type == 'follow':
             data = self.data or {}
             if count == 1:
                 return "New Follower", f"{data.get('follower_username')} started following you"

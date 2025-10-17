@@ -4,10 +4,10 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { handleNotificationClick } from "@/utils/notificationLinks"
-import { parseNotificationMessage, formatNotificationWithClickableUser, formatNotificationWithEnhancedData } from "@/utils/notificationMessageParser"
+import { formatNotificationWithEnhancedData } from "@/utils/notificationMessageParser"
 import ClickableProfilePicture from "@/components/ClickableProfilePicture"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
-import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
+import { getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
 import { smartNotificationPoller } from "@/utils/smartNotificationPoller"
 import { apiClient } from "@/utils/apiClient"
 

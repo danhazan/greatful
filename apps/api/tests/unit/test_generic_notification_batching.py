@@ -395,6 +395,35 @@ class TestUserInteractionBatcher:
                 actor_data={"user_id": 2, "username": "user"}
             )
 
+    async def test_follow_batch_message_format(self, user_interaction_batcher, mock_db):
+        """Test that follow batch notifications have correct message format."""
+        # Create a follow notification
+        notification = Notification(
+            user_id=1,
+            type="follow",
+            title="New Follower",
+            message="started following you",
+            data={
+                "follower_username": "follower1",
+                "follower_id": 2,
+                "actor_user_id": "2",
+                "actor_username": "follower1"
+            }
+        )
+        
+        # Test batch summary for different counts
+        title_1, message_1 = notification.create_batch_summary(1)
+        assert title_1 == "New Follower"
+        assert message_1 == "follower1 started following you"
+        
+        title_2, message_2 = notification.create_batch_summary(2)
+        assert title_2 == "New Followers"
+        assert message_2 == "2 people started following you"
+        
+        title_5, message_5 = notification.create_batch_summary(5)
+        assert title_5 == "New Followers"
+        assert message_5 == "5 people started following you"
+
 
 class TestBatchingLogic:
     """Test the core batching logic."""
