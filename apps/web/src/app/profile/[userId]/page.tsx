@@ -413,9 +413,9 @@ export default function UserProfilePage() {
                       userId={profile.id}
                       size="md"
                       variant="primary"
-                      autoFetch={false}
-                      // Disable auto-fetch since parent component already fetched profile
-                      // This prevents duplicate API calls to the same user profile endpoint
+                      autoFetch={true}
+                      // Enable auto-fetch so the button can manage its own follow state
+                      // This ensures the button updates properly after follow/unfollow actions
                     />
                   </div>
                 )}

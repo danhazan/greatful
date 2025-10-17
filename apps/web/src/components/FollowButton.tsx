@@ -46,8 +46,9 @@ export default function FollowButton({
   // Don't show loading state if we have an initial follow state
   const shouldShowLoading = isLoading && initialFollowState === undefined
   
-  // Use initial state if provided, otherwise use the state from useUserState
-  const effectiveFollowState = initialFollowState !== undefined ? initialFollowState : isFollowing
+  // Use the state from useUserState if available, otherwise fall back to initial state
+  // This ensures the button updates after successful follow/unfollow actions
+  const effectiveFollowState = isFollowing !== undefined ? isFollowing : (initialFollowState ?? false)
 
   // Debug logging to track which user IDs are being requested
   React.useEffect(() => {

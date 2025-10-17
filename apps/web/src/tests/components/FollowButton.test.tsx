@@ -72,16 +72,22 @@ describe('FollowButton', () => {
     it('renders following button when initially following', async () => {
       // Mock follow status as true
       mockFetch.mockImplementation((url) => {
-        if (url.includes('/profile')) {
+        if (url.includes('/api/users/123/profile')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ id: '123', username: 'testuser', display_name: 'Test User' }),
+            json: async () => ({ id: 123, username: 'testuser', display_name: 'Test User' }),
           })
         }
-        if (url.includes('/status')) {
+        if (url.includes('/api/follows/123/status')) {
           return Promise.resolve({
             ok: true,
             json: async () => ({ is_following: true }),
+          })
+        }
+        if (url.includes('/api/users/me/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ id: 1, username: 'currentuser', display_name: 'Current User' }),
           })
         }
         return Promise.resolve({
@@ -92,8 +98,10 @@ describe('FollowButton', () => {
       
       render(<FollowButton userId={123} initialFollowState={true} />)
       
-      // The component should immediately show following state due to initialFollowState
-      expect(screen.getByText(/Following/)).toBeInTheDocument()
+      // Wait for the component to fetch and update with the real follow state
+      await waitFor(() => {
+        expect(screen.getByText(/Following/)).toBeInTheDocument()
+      })
       expect(screen.getByLabelText('Unfollow user 123')).toBeInTheDocument()
     })
 
@@ -361,16 +369,22 @@ describe('FollowButton', () => {
     it('updates ARIA label when following state changes', async () => {
       // Mock initial following state
       mockFetch.mockImplementation((url) => {
-        if (url.includes('/profile')) {
+        if (url.includes('/api/users/123/profile')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ id: '123', username: 'testuser', display_name: 'Test User' }),
+            json: async () => ({ id: 123, username: 'testuser', display_name: 'Test User' }),
           })
         }
-        if (url.includes('/status')) {
+        if (url.includes('/api/follows/123/status')) {
           return Promise.resolve({
             ok: true,
             json: async () => ({ is_following: true }),
+          })
+        }
+        if (url.includes('/api/users/me/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ id: 1, username: 'currentuser', display_name: 'Current User' }),
           })
         }
         return Promise.resolve({ ok: true, json: async () => ({}) })
@@ -378,8 +392,10 @@ describe('FollowButton', () => {
 
       render(<FollowButton userId={123} initialFollowState={true} />)
 
-      // Component should immediately show correct ARIA label due to initialFollowState
-      expect(screen.getByLabelText('Unfollow user 123')).toBeInTheDocument()
+      // Wait for the component to fetch and update with the real follow state
+      await waitFor(() => {
+        expect(screen.getByLabelText('Unfollow user 123')).toBeInTheDocument()
+      })
     })
 
     it('has focus styles', () => {
