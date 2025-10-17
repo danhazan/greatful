@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import oauthService from '@/services/oauthService'
+import { useUser } from '@/contexts/UserContext'
 
 export default function OAuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { reloadUser } = useUser()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const [isNewUser, setIsNewUser] = useState(false)
@@ -71,22 +73,20 @@ export default function OAuthCallbackPage() {
         const tokens = result.tokens
         console.log('resolved tokens', tokens)
         
-        // Store access token
+        // Store access token using centralized auth utility
         if (tokens?.access_token) {
-          localStorage.setItem('access_token', tokens.access_token)
+          // Use the centralized login function to store token
+          const { login } = await import('@/utils/auth')
+          login(tokens.access_token)
+          
+          // Trigger UserContext to reload user data
+          await reloadUser()
+          
           // optional: save refresh token too
           if (tokens.refresh_token) localStorage.setItem('refresh_token', tokens.refresh_token)
-          console.log('Stored access_token length', tokens.access_token.length)
+          console.log('Stored access_token via auth utility and reloaded user context, length:', tokens.access_token.length)
         } else {
           console.warn('No access_token in callback response; full result:', result)
-        }
-
-        // Immediately verify: fetch profile to ensure token works (helps debug)
-        if (tokens?.access_token) {
-          const testResp = await fetch('/api/users/me/profile', {
-            headers: { 'Authorization': `Bearer ${tokens.access_token}` }
-          })
-          console.log('Profile verify status', testResp.status, await testResp.text())
         }
 
         setIsNewUser(result.is_new_user)
