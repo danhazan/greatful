@@ -92,7 +92,13 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
   // Setup smart notification polling
   useEffect(() => {
-    if (!userId) return
+    if (!userId) {
+      // Clear notifications when no user (logged out)
+      setNotifications([])
+      setUnreadCount(0)
+      setShowNotifications(false)
+      return
+    }
 
     console.debug('🔔 Setting up smart notification polling for user:', userId)
 

@@ -74,7 +74,7 @@ export default function UserProfilePage() {
   const router = useRouter()
   const params = useParams()
   const userId = params.userId as string
-  const { currentUser, isLoading: userLoading } = useUser()
+  const { currentUser, isLoading: userLoading, logout } = useUser()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -364,7 +364,8 @@ export default function UserProfilePage() {
           profile_image_url: currentUser.image
         } : undefined}
         onLogout={() => {
-          localStorage.removeItem("access_token")
+          // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
+          logout()
           router.push("/")
         }}
       />

@@ -43,11 +43,12 @@ class OptimizedAPIClient {
     const { skipCache, cacheTTL, retries = 1, ...fetchOptions } = options
     
     const url = `${this.baseURL}${endpoint}`
+    const authHeaders = this.getAuthHeaders()
     const requestOptions: RequestInit = {
       ...fetchOptions,
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
+        ...authHeaders,
         ...fetchOptions.headers
       }
     }

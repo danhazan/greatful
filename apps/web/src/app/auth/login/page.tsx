@@ -8,9 +8,11 @@ import PasswordInput from "@/components/PasswordInput"
 import OAuthIconButton from "@/components/OAuthIconButton"
 import AccountLinkingDialog from "@/components/AccountLinkingDialog"
 import { useOAuth } from "@/hooks/useOAuth"
+import { useUser } from "@/contexts/UserContext"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { reloadUser } = useUser()
   const [formData, setFormData] = useState({
     email: "",
     password: ""
@@ -50,6 +52,9 @@ export default function LoginPage() {
         // Store the access token (backend wraps response in data field)
         const accessToken = data.data?.access_token || data.access_token
         localStorage.setItem("access_token", accessToken)
+        
+        // Trigger UserContext to reload user data with the new token
+        await reloadUser()
         
         // Redirect to feed
         router.push("/feed")

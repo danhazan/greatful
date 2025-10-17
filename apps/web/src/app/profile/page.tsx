@@ -85,7 +85,7 @@ interface Post {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { currentUser: contextUser, isLoading: userLoading, getUserProfile } = useUser()
+  const { currentUser: contextUser, isLoading: userLoading, getUserProfile, logout } = useUser()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -601,7 +601,10 @@ export default function ProfilePage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token")
+    // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
+    logout()
+    
+    // Redirect to home page
     router.push("/")
   }
 

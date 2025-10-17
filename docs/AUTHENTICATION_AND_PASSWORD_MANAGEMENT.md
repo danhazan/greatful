@@ -351,6 +351,26 @@ Authorization: Bearer jwt-token-here
 }
 ```
 
+#### Session Management Fixes
+
+**Critical Bug Fixes Implemented**:
+
+1. **Logout State Persistence Bug**: Fixed issue where notification state and user data persisted between user sessions after logout.
+   - **Problem**: Notification polling continued with old user ID after logout, causing cross-user data leakage
+   - **Solution**: Centralized logout utility (`apps/web/src/utils/auth.ts`) that properly cleans up all authentication state
+   - **Implementation**: Enhanced `UserContext` to use centralized logout and clear all cached data
+
+2. **Login Redirect Loop**: Fixed race condition where successful login would immediately redirect back to login page.
+   - **Problem**: UserContext wouldn't detect newly stored tokens, causing feed page to redirect to login
+   - **Solution**: Added `reloadUser()` method to UserContext and proper token detection after login
+   - **Implementation**: Login flow now triggers UserContext reload after token storage before redirect
+
+**Key Components**:
+- **Centralized Auth Utility**: `apps/web/src/utils/auth.ts` - Handles login/logout state management
+- **Enhanced UserContext**: `apps/web/src/contexts/UserContext.tsx` - Improved state management and cleanup
+- **Notification System**: `apps/web/src/components/NotificationSystem.tsx` - Proper cleanup on user change
+- **Feed Page**: `apps/web/src/app/feed/page.tsx` - Grace period handling for timing edge cases
+
 ### 4. Password Management
 
 #### Change Password (Authenticated Users)

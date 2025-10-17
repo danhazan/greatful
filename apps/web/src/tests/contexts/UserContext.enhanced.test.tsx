@@ -17,6 +17,17 @@ Object.defineProperty(window, 'localStorage', {
   value: mockLocalStorage
 })
 
+// Mock auth utility
+jest.mock('@/utils/auth', () => ({
+  logout: jest.fn(() => {
+    mockLocalStorage.removeItem('access_token')
+  }),
+  isAuthenticated: jest.fn(),
+  getAccessToken: jest.fn(),
+  setAccessToken: jest.fn(),
+  login: jest.fn()
+}))
+
 // Test component to access UserContext
 const TestComponent: React.FC = () => {
   const {

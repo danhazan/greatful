@@ -162,9 +162,14 @@ async def get_my_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Get current user's profile."""
+    # Debug logging for auth troubleshooting
+    auth_header = request.headers.get('authorization', 'NO_AUTH_HEADER')
+    print(f"[BACKEND] /users/me/profile - auth_header: {auth_header[:20] if auth_header != 'NO_AUTH_HEADER' else auth_header}... current_user_id: {current_user_id}")
+    
     user_service = UserService(db)
     result = await user_service.get_user_profile(current_user_id)
     
+    print(f"[BACKEND] /users/me/profile - returning user profile for user_id: {current_user_id}, username: {result.get('username', 'N/A')}")
     return success_response(result, getattr(request.state, 'request_id', None))
 
 

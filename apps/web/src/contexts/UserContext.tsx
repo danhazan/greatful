@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 import { stateSyncUtils } from '@/utils/stateSynchronization'
 import { apiClient } from '@/utils/apiClient'
+import { logout as authLogout } from '@/utils/auth'
 
 interface User {
   id: string
@@ -61,6 +62,10 @@ interface UserContextType {
   getUserProfile: (userId: string) => UserProfile | null
   getFollowState: (userId: string) => boolean
   
+  // Authentication methods
+  logout: () => void
+  reloadUser: () => Promise<void>
+  
   // Event subscription for components
   subscribeToStateUpdates: (callback: (event: StateEvent) => void) => () => void
 }
@@ -84,6 +89,87 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     })
   }, [stateEventListeners])
+
+  // Load user function - defined at component level so it can be called from outside
+  const loadUser = useCallback(async () => {
+    try {
+      // Only access localStorage on client-side
+      console.log('[UserContext] loadUser - typeof window=', typeof window)
+      if (typeof window === 'undefined') {
+        setIsLoading(false)
+        return
+      }
+
+      const token = localStorage.getItem('access_token')
+      console.log('[UserContext] token present?', !!token, 'token_len=', token?.length ?? 0)
+      if (!token) {
+        setCurrentUser(null)
+        setIsLoading(false)
+        return
+      }
+
+      console.log('[UserContext] Loading user profile...')
+      console.log('[UserContext] calling apiClient.getCurrentUserProfile()')
+
+      // Validate token and fetch user data using optimized API client with deduplication
+      const userData = await apiClient.getCurrentUserProfile()
+      console.log('[UserContext] getCurrentUserProfile response:', userData && userData.id ? 'OK id=' + userData.id : 'NO_ID', userData)
+          
+      // Safely handle user data and ensure id exists before converting
+      if (userData && userData.id) {
+        const user: User = {
+          id: userData.id.toString(),
+          name: userData.display_name || userData.name || userData.username,
+          username: userData.username,
+          email: userData.email,
+          image: userData.profile_image_url,
+          display_name: userData.display_name
+        }
+        
+        setCurrentUser(user)
+        console.log('[UserContext] User profile loaded')
+        
+        // Also store in user profiles for consistency
+        const userProfile: UserProfile = {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          image: user.image,
+          display_name: userData.display_name,
+          follower_count: userData.follower_count,
+          following_count: userData.following_count,
+          posts_count: userData.posts_count
+        }
+        
+        setUserProfiles(prev => ({
+          ...prev,
+          [user.id]: userProfile
+        }))
+      } else {
+        // Invalid user data (no ID) - this indicates a serious auth issue
+        console.log('[UserContext] Invalid user data (no ID), logging out')
+        authLogout()
+        setCurrentUser(null)
+      }
+    } catch (error) {
+      console.error('[UserContext] getCurrentUserProfile error', error)
+      
+      // Only logout on authentication errors (401), not on network errors
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (errorMessage.includes('HTTP 401') || errorMessage.includes('401')) {
+        console.log('[UserContext] Authentication failed (401), logging out')
+        authLogout()
+      } else {
+        console.log('[UserContext] Network or other error, keeping token for retry')
+      }
+      
+      setCurrentUser(null)
+    } finally {
+      console.log('[UserContext] finished loading user (isLoading will be false)')
+      setIsLoading(false)
+    }
+  }, [])
 
   // Subscribe to state updates
   const subscribeToStateUpdates = useCallback((callback: (event: StateEvent) => void) => {
@@ -192,71 +278,32 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return followStates[userId] || false
   }, [followStates])
 
+  // Comprehensive logout function
+  const logout = useCallback(() => {
+    console.log('[UserContext] Logging out user...')
+    
+    // 1. Use auth utility to clean up tokens and stop polling
+    authLogout()
+    
+    // 2. Clear all user-related state
+    setCurrentUser(null)
+    setUserProfiles({})
+    setFollowStates({})
+    
+    // 3. Clear API client cache to prevent stale data
+    apiClient.clearCache()
+    
+    // 4. Emit logout event to notify components
+    emitStateEvent({
+      type: 'CURRENT_USER_UPDATE',
+      payload: { id: '', name: '', username: '', email: '' }
+    })
+    
+    console.log('[UserContext] Logout completed')
+  }, [emitStateEvent])
+
+
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        // Only access localStorage on client-side
-        if (typeof window === 'undefined') {
-          setIsLoading(false)
-          return
-        }
-
-        const token = localStorage.getItem('access_token')
-        if (!token) {
-          setCurrentUser(null)
-          setIsLoading(false)
-          return
-        }
-
-        console.log('[UserContext] Loading user profile...')
-
-        // Validate token and fetch user data using optimized API client with deduplication
-        const userData = await apiClient.getCurrentUserProfile()
-          
-        // Safely handle user data and ensure id exists before converting
-        if (userData && userData.id) {
-          const user: User = {
-            id: userData.id.toString(),
-            name: userData.display_name || userData.name || userData.username,
-            username: userData.username,
-            email: userData.email,
-            image: userData.profile_image_url,
-            display_name: userData.display_name
-          }
-          
-          setCurrentUser(user)
-          console.log('[UserContext] User profile loaded')
-          
-          // Also store in user profiles for consistency
-          const userProfile: UserProfile = {
-            id: user.id,
-            name: user.name,
-            username: user.username,
-            email: user.email,
-            image: user.image,
-            display_name: userData.display_name,
-            follower_count: userData.follower_count,
-            following_count: userData.following_count,
-            posts_count: userData.posts_count
-          }
-          
-          setUserProfiles(prev => ({
-            ...prev,
-            [user.id]: userProfile
-          }))
-        } else {
-          // Invalid user data, remove token
-          localStorage.removeItem('access_token')
-          setCurrentUser(null)
-        }
-      } catch (error) {
-        console.error('Error loading user:', error)
-        setCurrentUser(null)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     loadUser()
   }, [])
 
@@ -271,6 +318,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateCurrentUser,
     getUserProfile,
     getFollowState,
+    logout,
+    reloadUser: loadUser,
     subscribeToStateUpdates
   }
 

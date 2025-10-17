@@ -63,7 +63,7 @@ interface Post {
 
 export default function FeedPage() {
   const router = useRouter()
-  const { currentUser, isLoading: userLoading } = useUser()
+  const { currentUser, isLoading: userLoading, logout } = useUser()
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -98,32 +98,9 @@ export default function FeedPage() {
         console.error('Posts data is not an array:', posts)
         throw new Error('Invalid posts data format')
       }
-
-      console.log('Processed posts:', posts)
       
-      // 🔍 DEBUG: Check if updatedAt is present in first post (before normalization)
-      if (posts.length > 0) {
-        console.log('First post debug (before normalization):', {
-          id: posts[0].id,
-          createdAt: posts[0].createdAt,
-          updatedAt: posts[0].updatedAt,
-          created_at: posts[0].created_at,
-          updated_at: posts[0].updated_at
-        })
-      }
-      
-      // 🔧 FIX: Normalize posts to ensure consistent field naming
+      // Normalize posts to ensure consistent field naming
       const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
-      
-      // 🔍 DEBUG: Check if updatedAt is present after normalization
-      if (normalizedPosts.length > 0) {
-        console.log('First post debug (after normalization):', {
-          id: normalizedPosts[0].id,
-          createdAt: normalizedPosts[0].createdAt,
-          updatedAt: normalizedPosts[0].updatedAt,
-          isUnread: normalizedPosts[0].isUnread
-        })
-      }
       
       // Count unread posts
       const unreadPostsCount = normalizedPosts.filter(post => post.isUnread).length
@@ -147,51 +124,64 @@ export default function FeedPage() {
 
   // Check authentication and load data using UserContext
   useEffect(() => {
-    // Redirect to login if no user after UserContext has loaded
-    if (!userLoading && !currentUser) {
+    // First check if we have a token - if not, redirect immediately
+    const token = localStorage.getItem("access_token")
+    console.log('[Feed] useEffect - token present?', !!token, 'userLoading=', userLoading, 'currentUser=', !!currentUser)
+    if (!token) {
+      console.log('[Feed] No token, redirecting to login')
       router.push("/auth/login")
       return
     }
 
     // Wait for UserContext to load
     if (userLoading) {
+      console.log('[Feed] UserContext still loading, waiting...')
       return
     }
 
-    // If we have a user, load posts
-    if (currentUser) {
-      const initializePage = async () => {
-        const token = localStorage.getItem("access_token")
-        if (!token) {
+    // If UserContext finished loading but no user, wait a short moment in case UserContext is still finishing up
+    if (!currentUser) {
+      console.log('[Feed] No currentUser, waiting grace period before redirect...')
+      const t = setTimeout(() => {
+        if (!currentUser) {
+          console.log('[Feed] Grace period expired, no user - redirecting to login')
           router.push("/auth/login")
-          return
         }
-
-        try {
-          await loadPosts(token)
-          
-          // Update user's last feed view timestamp using optimized client
-          try {
-            await apiClient.post('/posts/update-feed-view')
-          } catch (error) {
-            console.error('Error updating feed view timestamp:', error)
-            // Don't fail the page load if this fails
-          }
-        } catch (error) {
-          console.error('Error loading feed data:', error)
-          setError('Failed to load feed data')
-        } finally {
-          setIsLoading(false)
-        }
-      }
-
-      initializePage()
+      }, 200)
+      return () => clearTimeout(t)
     }
+
+    // If we have a user, load posts
+    const initializePage = async () => {
+      try {
+        await loadPosts(token)
+        
+        // Update user's last feed view timestamp using optimized client
+        try {
+          await apiClient.post('/posts/update-feed-view')
+        } catch (error) {
+          console.error('Error updating feed view timestamp:', error)
+          // Don't fail the page load if this fails
+        }
+      } catch (error) {
+        console.error('Error loading feed data:', error)
+        setError('Failed to load feed data')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    initializePage()
   }, [currentUser, userLoading, router])
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token")
+    // Clear local posts state
     setPosts([])
+    
+    // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
+    logout()
+    
+    // Redirect to home page
     router.push("/")
   }
 

@@ -14,7 +14,7 @@ interface PostPageProps {
 
 export default function PostPage({ params }: PostPageProps) {
   const router = useRouter()
-  const { currentUser, isLoading } = useUser()
+  const { currentUser, isLoading, logout } = useUser()
   
   // Convert UserContext user to the format expected by Navbar
   const user = currentUser ? {
@@ -27,7 +27,8 @@ export default function PostPage({ params }: PostPageProps) {
   } : undefined
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token")
+    // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
+    logout()
     router.push("/")
   }
 
