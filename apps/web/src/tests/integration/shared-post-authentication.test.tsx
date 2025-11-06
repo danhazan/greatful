@@ -159,6 +159,11 @@ describe('Shared Post Authentication Integration', () => {
 
       render(<SharedPostWrapper post={mockPost} />)
       
+      // Wait for authentication check and data loading
+      await waitFor(() => {
+        expect(screen.queryByText('Join to interact with this post')).not.toBeInTheDocument()
+      })
+      
       // The component should eventually load user data and enable interactions
       // For now, we'll test that the component renders and can handle interactions
       await waitFor(() => {
@@ -207,6 +212,11 @@ describe('Shared Post Authentication Integration', () => {
         })
 
       render(<SharedPostWrapper post={heartedPost} />)
+      
+      // Wait for authentication check and data loading
+      await waitFor(() => {
+        expect(screen.queryByText('Join to interact with this post')).not.toBeInTheDocument()
+      })
       
       // Test that the component renders with the post data
       await waitFor(() => {

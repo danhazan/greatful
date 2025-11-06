@@ -1,14 +1,8 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import PostCard from '@/components/PostCard'
-import * as authUtils from '@/utils/auth'
-
-// Mock the auth utilities
-jest.mock('@/utils/auth', () => ({
-  isAuthenticated: jest.fn(),
-  getAccessToken: jest.fn(),
-  canInteract: jest.fn(),
-}))
+import * as authUtils from '@/utils/auth';
+const mockedAuthUtils = authUtils as jest.Mocked<typeof authUtils>;
 
 // Mock analytics service
 jest.mock('@/services/analytics', () => ({
@@ -54,9 +48,9 @@ describe('PostCard Authentication Controls', () => {
 
   describe('when user is not authenticated', () => {
     beforeEach(() => {
-      ;(authUtils.isAuthenticated as jest.Mock).mockReturnValue(false)
-      ;(authUtils.getAccessToken as jest.Mock).mockReturnValue(null)
-      ;(authUtils.canInteract as jest.Mock).mockReturnValue(false)
+      ;(mockedAuthUtils.isAuthenticated as jest.Mock).mockReturnValue(false)
+      ;(mockedAuthUtils.getAccessToken as jest.Mock).mockReturnValue(null)
+      ;(mockedAuthUtils.canInteract as jest.Mock).mockReturnValue(false)
     })
 
     it('should show authentication notice', () => {
@@ -122,9 +116,9 @@ describe('PostCard Authentication Controls', () => {
 
   describe('when user is authenticated', () => {
     beforeEach(() => {
-      ;(authUtils.isAuthenticated as jest.Mock).mockReturnValue(true)
-      ;(authUtils.getAccessToken as jest.Mock).mockReturnValue('mock-token')
-      ;(authUtils.canInteract as jest.Mock).mockReturnValue(true)
+      ;(mockedAuthUtils.isAuthenticated as jest.Mock).mockReturnValue(true)
+      ;(mockedAuthUtils.getAccessToken as jest.Mock).mockReturnValue('mock-token')
+      ;(mockedAuthUtils.canInteract as jest.Mock).mockReturnValue(true)
     })
 
     it('should not show authentication notice', () => {
@@ -193,12 +187,12 @@ describe('PostCard Authentication Controls', () => {
       const { rerender } = render(<PostCard post={mockPost} {...mockHandlers} />)
       
       // Initially not authenticated
-      ;(authUtils.isAuthenticated as jest.Mock).mockReturnValue(false)
+      ;(mockedAuthUtils.isAuthenticated as jest.Mock).mockReturnValue(false)
       expect(screen.getByText('Join to interact with this post')).toBeInTheDocument()
       
       // Simulate authentication
-      ;(authUtils.isAuthenticated as jest.Mock).mockReturnValue(true)
-      ;(authUtils.getAccessToken as jest.Mock).mockReturnValue('mock-token')
+      ;(mockedAuthUtils.isAuthenticated as jest.Mock).mockReturnValue(true)
+      ;(mockedAuthUtils.getAccessToken as jest.Mock).mockReturnValue(null)
       
       rerender(<PostCard post={mockPost} currentUserId="current-user-123" {...mockHandlers} />)
       

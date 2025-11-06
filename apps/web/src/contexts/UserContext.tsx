@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 import { stateSyncUtils } from '@/utils/stateSynchronization'
 import { apiClient } from '@/utils/apiClient'
-import { logout as authLogout } from '@/utils/auth'
+import * as auth from '@/utils/auth'
 
 interface User {
   id: string
@@ -100,7 +100,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return
       }
 
-      const token = localStorage.getItem('access_token')
+      const token = auth.getAccessToken()
       console.log('[UserContext] token present?', !!token, 'token_len=', token?.length ?? 0)
       if (!token) {
         setCurrentUser(null)
@@ -149,7 +149,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         // Invalid user data (no ID) - this indicates a serious auth issue
         console.log('[UserContext] Invalid user data (no ID), logging out')
-        authLogout()
+        auth.logout()
         setCurrentUser(null)
       }
     } catch (error) {
@@ -159,7 +159,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const errorMessage = error instanceof Error ? error.message : String(error)
       if (errorMessage.includes('HTTP 401') || errorMessage.includes('401')) {
         console.log('[UserContext] Authentication failed (401), logging out')
-        authLogout()
+        auth.logout()
       } else {
         console.log('[UserContext] Network or other error, keeping token for retry')
       }
@@ -283,7 +283,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     console.log('[UserContext] Logging out user...')
     
     // 1. Use auth utility to clean up tokens and stop polling
-    authLogout()
+    auth.logout()
     
     // 2. Clear all user-related state
     setCurrentUser(null)

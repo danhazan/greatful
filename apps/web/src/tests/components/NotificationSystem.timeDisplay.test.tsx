@@ -10,22 +10,44 @@ import NotificationSystem from '@/components/NotificationSystem'
 // Jest globals
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals'
 
+// Mock auth before importing
+jest.mock('@/utils/auth');
 
-// Mock localStorage
-const mockLocalStorage = {
-  getItem: jest.fn(() => 'mock-token'),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-}
-Object.defineProperty(window, 'localStorage', { value: mockLocalStorage })
+import * as auth from '@/utils/auth';
 
 // Mock fetch
 global.fetch = jest.fn()
+
+// Create mock functions
+const mockGetAccessToken = jest.fn();
+const mockIsAuthenticated = jest.fn();
+const mockCanInteract = jest.fn();
+
+// Assign mocks to the auth module
+(auth.getAccessToken as jest.Mock) = mockGetAccessToken;
+(auth.isAuthenticated as jest.Mock) = mockIsAuthenticated;
+(auth.canInteract as jest.Mock) = mockCanInteract;
 
 describe('NotificationSystem Time Display', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.useFakeTimers()
+
+    mockGetAccessToken.mockReturnValue('mock-token');
+
+    // Mock successful fetch response for notifications endpoint
+    ;(global.fetch as jest.Mock).mockImplementation((url, options) => {
+      if (url.includes('/api/notifications')) {
+        if (options?.headers?.Authorization !== 'Bearer mock-token') {
+          return Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({ error: 'Unauthorized' }) });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([]) // Default empty notifications
+        });
+      }
+      return Promise.reject(new Error('Unhandled fetch request: ' + url));
+    });
   })
 
   afterEach(() => {
@@ -37,42 +59,23 @@ describe('NotificationSystem Time Display', () => {
     jest.setSystemTime(now)
 
     const mockNotifications = [
-      {
-        id: '1',
-        type: 'reaction',
-        message: 'User1 reacted to your post',
-        postId: 'post1',
-        fromUser: { id: '1', name: 'user1' },
-        createdAt: '2025-08-26T17:00:00.000Z', // 1 hour ago
-        read: false,
-        isBatch: false
-      },
-      {
-        id: '2',
-        type: 'reaction',
-        message: 'User2 reacted to your post',
-        postId: 'post2',
-        fromUser: { id: '2', name: 'user2' },
-        createdAt: '2025-08-26T17:30:00.000Z', // 30 minutes ago
-        read: false,
-        isBatch: false
-      },
-      {
-        id: '3',
-        type: 'reaction',
-        message: 'User3 reacted to your post',
-        postId: 'post3',
-        fromUser: { id: '3', name: 'user3' },
-        createdAt: '2025-08-26T17:59:00.000Z', // 1 minute ago
-        read: false,
-        isBatch: false
-      }
-    ]
+      { id: '1', type: 'reaction', message: 'User1 reacted to your post', postId: 'post1', fromUser: { id: '1', name: 'user1' }, createdAt: '2025-08-26T17:00:00.000Z', read: false, isBatch: false },
+      { id: '2', type: 'reaction', message: 'User2 reacted to your post', postId: 'post2', fromUser: { id: '2', name: 'user2' }, createdAt: '2025-08-26T17:30:00.000Z', read: false, isBatch: false },
+      { id: '3', type: 'reaction', message: 'User3 reacted to your post', postId: 'post3', fromUser: { id: '3', name: 'user3' }, createdAt: '2025-08-26T17:59:00.000Z', read: false, isBatch: false }
+    ];
 
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockNotifications
-    })
+    ;(fetch as jest.Mock).mockImplementationOnce((url, options) => {
+      if (url.includes('/api/notifications')) {
+        if (options?.headers?.Authorization !== 'Bearer mock-token') {
+          return Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({ error: 'Unauthorized' }) });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockNotifications)
+        });
+      }
+      return Promise.reject(new Error('Unhandled fetch request: ' + url));
+    });
 
     const { container } = render(<NotificationSystem userId={1} />)
 
@@ -88,9 +91,12 @@ describe('NotificationSystem Time Display', () => {
     })
 
     // Check that different times are displayed
-    expect(screen.getByText('1h ago')).toBeInTheDocument()
-    expect(screen.getByText('30m ago')).toBeInTheDocument()
-    expect(screen.getByText('1m ago')).toBeInTheDocument()
+    expect(screen.getByText('User1 reacted to your post')).toBeInTheDocument();
+    expect(screen.getByText('1h')).toBeInTheDocument();
+    expect(screen.getByText('User2 reacted to your post')).toBeInTheDocument();
+    expect(screen.getByText('30m')).toBeInTheDocument();
+    expect(screen.getByText('User3 reacted to your post')).toBeInTheDocument();
+    expect(screen.getByText('1m')).toBeInTheDocument();
   }, 10000)
 
   it('should update relative times when time passes', async () => {
@@ -110,11 +116,15 @@ describe('NotificationSystem Time Display', () => {
       }
     ]
 
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockNotifications
-    })
-
+    ;(fetch as jest.Mock).mockImplementationOnce((url, options) => {
+      if (url.includes('/api/notifications')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockNotifications)
+        });
+      }
+      return Promise.reject(new Error('Unhandled fetch request: ' + url));
+    });
     render(<NotificationSystem userId={1} />)
 
     // Open notifications
@@ -128,17 +138,19 @@ describe('NotificationSystem Time Display', () => {
       jest.advanceTimersByTime(0)
     })
 
-    // Initially should show "1m ago"
-    expect(screen.getByText('1m ago')).toBeInTheDocument()
+    // Initially should show "1m"
+    const notificationList = screen.getByRole('list', { name: /Notification items/i });
+    expect(notificationList).toHaveTextContent('User1 reacted to your post');
+    expect(notificationList).toHaveTextContent('1m');
 
     // Advance time by 2 minutes
     act(() => {
       jest.advanceTimersByTime(2 * 60 * 1000) // 2 minutes
     })
 
-    // Should now show "3m ago"
-    expect(screen.getByText('3m ago')).toBeInTheDocument()
-    expect(screen.queryByText('1m ago')).not.toBeInTheDocument()
+    // Should now show "3m"
+    expect(notificationList).toHaveTextContent('3m');
+    expect(screen.queryByText('1m')).not.toBeInTheDocument()
   })
 
   it('should handle "Just now" for very recent notifications', async () => {
@@ -158,11 +170,15 @@ describe('NotificationSystem Time Display', () => {
       }
     ]
 
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockNotifications
-    })
-
+    ;(fetch as jest.Mock).mockImplementationOnce((url, options) => {
+      if (url.includes('/api/notifications')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockNotifications)
+        });
+      }
+      return Promise.reject(new Error('Unhandled fetch request: ' + url));
+    });
     render(<NotificationSystem userId={1} />)
 
     // Open notifications
@@ -176,7 +192,9 @@ describe('NotificationSystem Time Display', () => {
       jest.advanceTimersByTime(0)
     })
 
-    // Should show "Just now" for notifications less than 1 minute old
-    expect(screen.getByText('Just now')).toBeInTheDocument()
+    // Should show "0s" for notifications less than 1 minute old
+    const notificationList = screen.getByRole('list', { name: /Notification items/i });
+    expect(notificationList).toHaveTextContent('User1 reacted to your post');
+    expect(notificationList).toHaveTextContent('0s');
   })
 })

@@ -223,11 +223,16 @@ describe('Accessibility Tests', () => {
     }
 
     beforeEach(() => {
-      // Mock successful fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve([])
-      })
+      // Mock successful fetch response for notifications endpoint
+      ;(global.fetch as jest.Mock).mockImplementation((url, options) => {
+        if (url.includes('/api/notifications')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([])
+          });
+        }
+        return Promise.reject(new Error('Unhandled fetch request: ' + url));
+      });
     })
 
     it('should have accessible notification bell', () => {
@@ -245,18 +250,32 @@ describe('Accessibility Tests', () => {
 
     it('should announce unread count to screen readers', async () => {
       // Mock notifications with unread items
-      ;(global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve([
-          {
-            id: '1',
-            type: 'reaction',
-            message: 'liked your post',
-            read: false,
-            fromUser: { id: '2', name: 'Test User' }
-          }
-        ])
-      })
+      ;(global.fetch as jest.Mock).mockImplementation((url, options) => {
+        if (url.includes('/api/notifications')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([
+              {
+                id: '1',
+                type: 'reaction',
+                message: 'liked your post',
+                read: false,
+                fromUser: { id: '2', name: 'Test User' }
+              }
+            ])
+          });
+        }
+        if (url.includes('/api/users/me/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+              success: true,
+              data: { id: 1, username: 'testuser', email: 'test@example.com' }
+            })
+          });
+        }
+        return Promise.reject(new Error('Unhandled fetch request: ' + url));
+      });
 
       render(
         <TestWrapper>
@@ -264,10 +283,11 @@ describe('Accessibility Tests', () => {
         </TestWrapper>
       )
 
+      // Wait for notifications to load and unread count to be calculated
       await waitFor(() => {
         const bellButton = screen.getByRole('button')
-        expect(bellButton.getAttribute('aria-label')).toContain('1 unread')
-      })
+        expect(bellButton.getAttribute('aria-label')).toContain('(1 unread)')
+      }, { timeout: 3000 })
     })
 
     it('should have accessible notification panel', async () => {

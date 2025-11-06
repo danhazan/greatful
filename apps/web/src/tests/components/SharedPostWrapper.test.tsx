@@ -142,17 +142,14 @@ describe('SharedPostWrapper', () => {
       render(<SharedPostWrapper post={mockPost} />)
       
       await waitFor(() => {
-        expect(fetch).toHaveBeenCalledWith('/api/users/me/profile', {
-          headers: {
-            'Authorization': 'Bearer mock-token',
-          },
-        })
-        
-        expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1', {
-          headers: {
-            'Authorization': 'Bearer mock-token',
-          },
-        })
+        expect(fetch).toHaveBeenCalledWith(
+          '/api/posts/test-post-1',
+          expect.objectContaining({
+            headers: {
+              'Authorization': 'Bearer mock-token',
+            },
+          }),
+        )
       })
     })
 

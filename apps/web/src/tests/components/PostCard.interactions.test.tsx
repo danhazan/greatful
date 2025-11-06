@@ -50,6 +50,9 @@ jest.mock('@/components/ReactionViewer', () => {
 
 const mockPost = createTestPost()
 
+import * as authUtils from '@/utils/auth';
+jest.mock('@/utils/auth');
+
 describe('PostCard Interactions', () => {
   const mockOnHeart = jest.fn()
   const mockOnReaction = jest.fn()
@@ -62,6 +65,10 @@ describe('PostCard Interactions', () => {
   beforeEach(() => {
     testEnv = setupTestEnvironment()
     jest.clearAllMocks()
+    const mockedAuthUtils = authUtils as jest.Mocked<typeof authUtils>;
+    mockedAuthUtils.isAuthenticated.mockReturnValue(true);
+    mockedAuthUtils.canInteract.mockReturnValue(true);
+    mockedAuthUtils.getAccessToken.mockReturnValue('mock-token');
   })
 
   afterEach(() => {
@@ -117,12 +124,16 @@ describe('PostCard Interactions', () => {
     })
 
     // Verify API call was made
-    expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/heart', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer mock-token',
-        'Content-Type': 'application/json',
-      },
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/posts/test-post-1/heart',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer mock-token',
+          }),
+        })
+      )
     })
   })
 

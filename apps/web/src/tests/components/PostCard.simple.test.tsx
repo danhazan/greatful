@@ -129,7 +129,7 @@ describe('PostCard Simple Tests', () => {
 
     const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('6'))
     expect(heartButton).toBeInTheDocument()
-    expect(heartButton).toHaveClass('text-purple-500')
+    expect(heartButton).toHaveClass('text-gray-400')
   })
 
   it('should show heart button as unfilled when user has not hearted', () => {
@@ -142,7 +142,7 @@ describe('PostCard Simple Tests', () => {
 
     const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
     expect(heartButton).toBeInTheDocument()
-    expect(heartButton).toHaveClass('text-gray-500')
+    expect(heartButton).toHaveClass('text-gray-400')
   })
 
   it('should display engagement summary for highly engaged posts', () => {

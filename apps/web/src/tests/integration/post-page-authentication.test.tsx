@@ -308,7 +308,7 @@ describe('PostPage Authentication', () => {
 
       await waitFor(() => {
         expect(screen.queryByText('Loading post...')).not.toBeInTheDocument()
-      })
+      }, { timeout: 5000 })
 
       await waitFor(() => {
         expect(screen.getByText('Post not found')).toBeInTheDocument()

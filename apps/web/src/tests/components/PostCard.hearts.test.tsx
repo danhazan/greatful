@@ -1,29 +1,7 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
+import { render, screen, fireEvent, waitFor, act, within } from '@/tests/utils/testUtils'
 import '@testing-library/jest-dom'
 import PostCard from '../../components/PostCard'
-
-// Mock fetch
-global.fetch = jest.fn()
-
-// Mock localStorage
-const mockLocalStorage = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-}
-Object.defineProperty(window, 'localStorage', {
-  value: mockLocalStorage,
-})
-
-// Mock analytics
-jest.mock('@/services/analytics', () => ({
-  trackHeartEvent: jest.fn(),
-  trackReactionEvent: jest.fn(),
-  trackShareEvent: jest.fn(),
-  trackViewEvent: jest.fn(),
-}))
 
 const mockPost = {
   id: 'test-post-1',
@@ -41,50 +19,32 @@ const mockPost = {
   currentUserReaction: undefined,
 }
 
+import { getAccessToken, isAuthenticated } from '@/utils/auth';
+import { apiClient } from '@/utils/apiClient';
+
 describe('PostCard Hearts Counter', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockLocalStorage.getItem.mockReturnValue('fake-token')
+    jest.clearAllMocks();
+    (getAccessToken as jest.Mock).mockReturnValue('fake-token');
+    (isAuthenticated as jest.Mock).mockReturnValue(true);
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   })
 
   it('should open hearts viewer when hearts counter is clicked', async () => {
-    // Mock all the API calls that PostCard makes - need to provide enough mocks for all calls
-    ;(fetch as jest.Mock)
-      // Mock profile fetches (from FollowButton component)
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
-      })
+    const heartsData = [
+      { id: 'heart-1', userId: '1', userName: 'user1', userImage: null, createdAt: '2024-01-15T12:00:00Z' },
+      { id: 'heart-2', userId: '2', userName: 'user2', userImage: null, createdAt: '2024-01-15T11:30:00Z' },
+    ];
 
-    // Add specific mock for hearts fetch
-    ;(fetch as jest.Mock).mockImplementation((url) => {
+    const apiGetSpy = jest.spyOn(apiClient, 'get').mockImplementation(async (url: string) => {
       if (url.includes('/hearts/users')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => [
-            {
-              id: 'heart-1',
-              userId: '1',
-              userName: 'user1',
-              userImage: null,
-              createdAt: '2024-01-15T12:00:00Z',
-            },
-            {
-              id: 'heart-2',
-              userId: '2',
-              userName: 'user2',
-              userImage: null,
-              createdAt: '2024-01-15T11:30:00Z',
-            },
-          ],
-        })
+        return heartsData;
       }
-      // Default mock for other calls
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
-      })
-    })
+      return {};
+    });
 
     render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
@@ -94,18 +54,15 @@ describe('PostCard Hearts Counter', () => {
 
     // Wait for the API call
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/hearts/users', {
-        headers: {
-          Authorization: 'Bearer fake-token',
-        },
-      })
+      expect(apiGetSpy).toHaveBeenCalledWith('/posts/test-post-1/hearts/users')
     })
 
     // Check that hearts viewer opens
     await waitFor(() => {
-      expect(screen.getByText(/Hearts \(/)).toBeInTheDocument()
-      expect(screen.getByText('user1')).toBeInTheDocument()
-      expect(screen.getByText('user2')).toBeInTheDocument()
+      expect(screen.getByText(/Hearts/i)).toBeInTheDocument()
+      const heartsDialog = screen.getByRole('dialog', { name: /Hearts/i });
+      expect(within(heartsDialog).getByText('user1')).toBeInTheDocument();
+      expect(within(heartsDialog).getByText('user2')).toBeInTheDocument();
     })
   })
 
@@ -113,34 +70,31 @@ describe('PostCard Hearts Counter', () => {
     // Mock console.error to avoid test output noise
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
 
-    // Mock all API calls that PostCard makes, with hearts fetch failing
-    ;(fetch as jest.Mock).mockImplementation((url) => {
+    // Mock apiClient.get to reject for the hearts call
+    jest.spyOn(apiClient, 'get').mockImplementation(async (url: string) => {
       if (url.includes('/hearts/users')) {
-        return Promise.reject(new Error('Network error'))
+        throw new Error('Network error');
       }
-      // Default mock for other calls (profile fetches, follow status)
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
-      })
-    })
+      return {};
+    });
 
     render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
     // Find and click the hearts counter
     const heartsCounter = screen.getByText('3')
-    fireEvent.click(heartsCounter)
+    await act(async () => {
+      fireEvent.click(heartsCounter)
+    })
 
-    // Wait for the error to be logged
+    // Wait for the error toast to be displayed
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to fetch hearts:', expect.any(Error))
+      expect(screen.getByText(/Unable to load hearts/i)).toBeInTheDocument()
     })
 
     // Hearts viewer should not open
     expect(screen.queryByText('Hearts')).not.toBeInTheDocument()
-
-    consoleSpy.mockRestore()
   })
+
 
   it('should show hearts counter with 0 when count is 0', () => {
     const postWithNoHearts = { ...mockPost, heartsCount: 0 }

@@ -66,11 +66,14 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div 
           ref={modalRef}
+          role="dialog"
+          aria-labelledby="hearts-modal-title"
+          aria-modal="true"
           className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[80vh] flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+            <h2 id="hearts-modal-title" className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
               <span className="text-lg">💜</span>
               <span>Hearts ({totalCount})</span>
             </h2>
