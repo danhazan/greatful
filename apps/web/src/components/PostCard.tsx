@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Share, Calendar, MapPin, Plus, Loader2, MoreHorizontal, Edit3, Trash2, Heart } from "lucide-react"
+import { Share, Calendar, MapPin, Plus, Loader2, MoreHorizontal, Edit3, Trash2, Heart, MessageCircle } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
 import HeartsViewer from "./HeartsViewer"
 import ShareModal from "./ShareModal"
+import CommentsModal from "./CommentsModal"
 import MentionHighlighter from "./MentionHighlighter"
 import FollowButton from "./FollowButton"
 import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
@@ -81,6 +82,7 @@ interface Post {
   currentUserReaction?: string
   isRead?: boolean
   isUnread?: boolean
+  commentsCount?: number
 }
 
 interface PostCardProps {
@@ -114,6 +116,7 @@ export default function PostCard({
   const [showReactionViewer, setShowReactionViewer] = useState(false)
   const [showHeartsViewer, setShowHeartsViewer] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
@@ -125,6 +128,7 @@ export default function PostCard({
   const [locationModalPosition, setLocationModalPosition] = useState({ x: 0, y: 0 })
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
   const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
+  const [comments, setComments] = useState<any[]>([]) // Will be populated from API
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const [validUsernames, setValidUsernames] = useState<string[]>([])
   const [currentPost, setCurrentPost] = useState(post)
@@ -144,6 +148,8 @@ export default function PostCard({
   const [isReactionLoading, setIsReactionLoading] = useState(false)
   const [isReactionsViewerLoading, setIsReactionsViewerLoading] = useState(false)
   const [isHeartsViewerLoading, setIsHeartsViewerLoading] = useState(false)
+  const [isCommentsLoading, setIsCommentsLoading] = useState(false)
+  const [isCommentSubmitting, setIsCommentSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
@@ -437,6 +443,117 @@ export default function PostCard({
   const handleUserClick = (userId: number) => {
     if (onUserClick) {
       onUserClick(userId.toString())
+    }
+  }
+
+  const handleCommentsButtonClick = async () => {
+    if (!isUserAuthenticated) {
+      // Redirect to login for unauthenticated users
+      router.push('/auth/login')
+      return
+    }
+
+    if (isCommentsLoading) return
+    
+    setIsCommentsLoading(true)
+    
+    // Fetch top-level comments from API
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        showError('Authentication Error', 'Please log in to view comments.')
+        return
+      }
+
+      const commentsData = await apiClient.get(`/posts/${post.id}/comments`) as any
+      setComments(commentsData)
+      setShowCommentsModal(true)
+    } catch (error: any) {
+      console.error('Failed to fetch comments:', error)
+      showError('Failed to Load', error.message || 'Unable to load comments. Please try again.')
+    } finally {
+      setIsCommentsLoading(false)
+    }
+  }
+
+  const handleCommentSubmit = async (content: string) => {
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        showError('Authentication Error', 'Please log in to comment.')
+        return
+      }
+
+      setIsCommentSubmitting(true)
+
+      // Create the comment
+      const newComment = await apiClient.post(`/posts/${post.id}/comments`, {
+        content
+      }) as any
+
+      // Reload comments to show the new comment
+      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`) as any
+      setComments(updatedComments)
+
+      // Update comment count in post (includes all comments + replies)
+      const newCount = (currentPost.commentsCount || 0) + 1
+      setCurrentPost(prev => ({
+        ...prev,
+        commentsCount: newCount
+      }))
+
+      showSuccess('Comment Posted', 'Your comment has been added.')
+    } catch (error: any) {
+      console.error('Failed to post comment:', error)
+      showError('Failed to Post', error.message || 'Unable to post comment. Please try again.')
+      throw error // Re-throw to let modal handle it
+    } finally {
+      setIsCommentSubmitting(false)
+    }
+  }
+
+  const handleReplySubmit = async (commentId: string, content: string) => {
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        showError('Authentication Error', 'Please log in to reply.')
+        return
+      }
+
+      // Use the correct endpoint for replies
+      const newReply = await apiClient.post(`/comments/${commentId}/replies`, {
+        content
+      }) as any
+
+      // Update comment count in post (includes all comments + replies)
+      const newCount = (currentPost.commentsCount || 0) + 1
+      setCurrentPost(prev => ({
+        ...prev,
+        commentsCount: newCount
+      }))
+
+      showSuccess('Reply Posted', 'Your reply has been added.')
+    } catch (error: any) {
+      console.error('Failed to post reply:', error)
+      showError('Failed to Post', error.message || 'Unable to post reply. Please try again.')
+      throw error // Re-throw to let modal handle it
+    }
+  }
+
+  const handleLoadReplies = async (commentId: string): Promise<any[]> => {
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        showError('Authentication Error', 'Please log in to view replies.')
+        return []
+      }
+
+      const replies = await apiClient.get(`/comments/${commentId}/replies`) as any
+      return replies
+    } catch (error: any) {
+      console.error('Failed to load replies:', error)
+      showError('Failed to Load', error.message || 'Unable to load replies. Please try again.')
+      return []
     }
   }
 
@@ -920,8 +1037,8 @@ export default function PostCard({
             </div>
           )}
           
-          {/* Post Actions Toolbar - Three main buttons in single horizontal line */}
-          <div className="flex items-center justify-center gap-6 sm:gap-12">
+          {/* Post Actions Toolbar - Four main buttons in single horizontal line */}
+          <div className="flex items-center justify-center gap-4 sm:gap-8">
             {/* Heart Button */}
             <button 
               onClick={async () => {
@@ -1078,6 +1195,27 @@ export default function PostCard({
               </span>
             </button>
 
+            {/* Comments Button */}
+            <button
+              onClick={handleCommentsButtonClick}
+              disabled={isCommentsLoading}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
+                !isUserAuthenticated
+                  ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
+                  : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
+              } ${(currentPost.commentsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
+              title={!isUserAuthenticated ? 'Login to comment on posts' : 'View and add comments'}
+            >
+              {isCommentsLoading ? (
+                <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
+              ) : (
+                <MessageCircle className={`${styling.iconSize} flex-shrink-0`} />
+              )}
+              <span className={`${styling.textSize} font-medium`}>
+                {currentPost.commentsCount || 0}
+              </span>
+            </button>
+
             {/* Share Button */}
             <button 
               ref={shareButtonRef}
@@ -1146,6 +1284,19 @@ export default function PostCard({
           // Call original onShare callback if provided
           onShare?.(post.id)
         }}
+      />
+
+      {/* Comments Modal */}
+      <CommentsModal
+        isOpen={showCommentsModal}
+        onClose={() => setShowCommentsModal(false)}
+        postId={post.id}
+        comments={comments}
+        totalCommentsCount={currentPost.commentsCount || 0}
+        onCommentSubmit={handleCommentSubmit}
+        onReplySubmit={handleReplySubmit}
+        onLoadReplies={handleLoadReplies}
+        isSubmitting={isCommentSubmitting}
       />
 
       {/* Location Display Modal */}

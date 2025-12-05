@@ -1578,7 +1578,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - **Reference**: See "Priority 1: Critical Issues" section in `api-call-investigation-report.md`
   - _Requirements: Eliminate duplicate API requests and implement intelligent caching_
 
-- [ ] **23.3 Systematic Current User Profile Call Elimination**
+- [x] **23.3 Systematic Current User Profile Call Elimination**
   - **Issue**: Every page makes an additional `/users/me/profile` call even when UserContext already provides current user data
   - **Root Cause**: Components and pages independently fetch current user profile instead of using centralized UserContext
   - **Solution Strategy**: 
@@ -1595,7 +1595,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
     - Add proper caching and error recovery in UserContext
   - _Requirements: Centralize current user data fetching and eliminate redundant calls_
 
-- [ ] **23.4 Evaluate Long-term Data Fetching Architecture**
+- [x] **23.4 Evaluate Long-term Data Fetching Architecture**
   - **Current State**: Custom API client with manual deduplication (patch-like approach)
   - **Industry Standards**: React Query, SWR, Apollo Client provide built-in deduplication, caching, and state management
   - **Evaluation Criteria**:
@@ -1611,7 +1611,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - **Decision Factors**: Team expertise, project timeline, long-term maintenance
   - **Deliverable**: Technical decision document with recommendation and migration plan
   - _Requirements: Assess whether current custom solution should be replaced with industry-standard library_
-- [ ] **23.3 API Batching Implementation**
+- [ ] **23.5 API Batching Implementation**
   - **Implementation Guide**: Follow Priority 2 recommendations from `api-call-investigation-report.md`
   - Create batch API endpoints for commonly grouped requests (as identified in investigation):
     - `POST /api/v1/batch/user-profiles` - Get multiple user profiles in single request
@@ -1625,7 +1625,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - **Smart Notification Polling**: Implement adaptive polling intervals based on user activity (as documented in report)
   - **Reference**: See "Priority 2: Performance Improvements" section in `api-call-investigation-report.md`
   - _Requirements: Efficient batch API system with automatic request grouping_
-- [ ] **23.4 Testing and Performance Validation**
+- [ ] **23.6 Testing and Performance Validation**
   - **Success Metrics**: Achieve targets defined in `api-call-investigation-report.md` (60% API call reduction, 40% page load improvement)
   - **Test Execution Phase 1:** Run full test suite (`pytest -v` and `npm test`) after deduplication changes to ensure no functionality is broken
   - **Test Execution Phase 2:** Run full test suite again after batching implementation to verify all features work correctly
@@ -1643,23 +1643,245 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - _Requirements: Comprehensive testing and performance validation of optimization changes_
 **Acceptance Criteria:** API call duplication is eliminated through intelligent caching and deduplication, batch endpoints reduce individual requests by at least 60% for multi-user operations, page load performance improves measurably, all existing functionality remains intact after optimization, and comprehensive testing validates both performance gains and feature stability.
 
-### **TASK 24: Privacy Controls System** (Post-MVP)
+### **TASK 24: Post Comments System**
+**Module Reference:** Social Interactions Enhancement - Comments Feature
+**Priority:** High - Core social interaction feature
+
+#### Overview
+Implement a simple, elegant commenting system for posts that follows existing patterns for reactions and likes. The system supports two types of comments: regular comments on posts and replies to comments (single-level nesting only). Future enhancements may support deeper nesting.
+
+#### Database Design
+- [x] **24.1 Create Comment Database Model and Migration**
+  - Create `Comment` model in `apps/api/app/models/comment.py` following existing model patterns
+  - Fields:
+    - `id` (UUID, primary key)
+    - `post_id` (UUID, foreign key to posts table, indexed)
+    - `user_id` (integer, foreign key to users table, indexed)
+    - `parent_comment_id` (UUID, nullable, foreign key to comments table for replies)
+    - `content` (text, required, max 500 characters) - **Supports emojis and Unicode characters**
+    - `created_at` (timestamp with timezone)
+    - `updated_at` (timestamp with timezone)
+  - Add database indexes:
+    - Composite index on `(post_id, created_at DESC)` for efficient post comment retrieval
+    - Index on `parent_comment_id` for reply lookups
+    - Index on `user_id` for user comment history
+  - Add constraints:
+    - Check constraint: `content` length between 1 and 500 characters
+    - Foreign key constraints with CASCADE delete for post and user
+  - Create Alembic migration: `alembic revision --autogenerate -m "add_comments_table"`
+  - **Note:** PostgreSQL text fields natively support Unicode/emojis, no special configuration needed
+  - **Test Execution:** Run `pytest -v` to verify model creation, constraints, and emoji support work correctly
+  - **Update Project Documentation:** Update docs/DATABASE_STRUCTURE.md with Comment model schema and relationships
+
+- [x] **24.2 Implement CommentService with Business Logic**
+  - Create `CommentService` in `apps/api/app/services/comment_service.py` inheriting from `BaseService` (existing base class in `apps/api/app/core/service_base.py`)
+  - **Note:** `BaseService` is an existing class that provides common database operations (get_by_id, create_entity, update_entity, delete_entity, validation methods)
+  - Follow existing service patterns from `ReactionService` (see `apps/api/app/services/reaction_service.py` for reference)
+  - Implement methods following existing service patterns:
+    - `create_comment(post_id, user_id, content, parent_comment_id=None)` - Create new comment or reply
+    - `get_post_comments(post_id, include_replies=True)` - Get all comments for a post with user data loaded
+    - `get_comment_replies(comment_id)` - Get replies for a specific comment
+    - `delete_comment(comment_id, user_id)` - Delete comment (owner only)
+    - `get_comment_count(post_id)` - Get total comment count for a post
+  - Add validation:
+    - Verify post exists before creating comment using `get_by_id_or_404` from BaseService
+    - Verify parent comment exists and belongs to same post for replies
+    - Prevent replies to replies (single-level nesting only)
+    - Validate content length (1-500 characters) using `validate_field_length` from BaseService
+    - Verify user ownership for delete operations
+  - Implement notification creation:
+    - Notify post author when someone comments on their post (don't notify if commenting on own post)
+    - Notify comment author when someone replies to their comment (don't notify if replying to own comment)
+    - Use existing `NotificationFactory` patterns (see `ReactionService.add_reaction` for reference)
+  - **Performance Optimization:** Fetch replies only when explicitly requested (lazy loading) to optimize large comment sections
+  - **Test Execution:** Run `pytest tests/unit/test_comment_service.py -v` to verify all service methods and validation logic
+  - **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with CommentService methods and business logic
+
+#### Backend API Implementation
+- [x] **24.3 Create Comment API Endpoints**
+  - Create comment endpoints in `apps/api/app/api/v1/comments.py` following existing API patterns (see `apps/api/app/api/v1/reactions.py` for reference)
+  - Implement endpoints:
+    - `POST /api/v1/posts/{post_id}/comments` - Create comment on post
+    - `POST /api/v1/comments/{comment_id}/replies` - Create reply to comment
+    - `GET /api/v1/posts/{post_id}/comments` - Get all comments for post (top-level only by default)
+    - `GET /api/v1/comments/{comment_id}/replies` - Get replies for specific comment (lazy loaded when user expands)
+    - `DELETE /api/v1/comments/{comment_id}` - Delete comment (owner only)
+  - **Performance Optimization:** Replies are fetched separately via `/comments/{comment_id}/replies` endpoint when user clicks "X replies" button, not loaded with initial comments
+  - Response format:
+    ```json
+    {
+      "id": "uuid",
+      "post_id": "uuid",
+      "user": {
+        "id": 123,
+        "username": "user123",
+        "display_name": "User Name",
+        "profile_image_url": "url"
+      },
+      "content": "Comment text with emoji support 😊",
+      "parent_comment_id": null,
+      "reply_count": 0,
+      "created_at": "timestamp",
+      "is_reply": false
+    }
+    ```
+  - Add proper authentication and authorization checks using existing dependency patterns
+  - Use standardized response functions from `app.core.responses` (success_response, error_response)
+  - **Test Execution:** Run `pytest tests/integration/test_comments_api.py -v` to verify all API endpoints work correctly
+  - **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with comment API endpoints and request/response formats
+
+#### Frontend Implementation
+- [x] **24.4 Create CommentsModal Component**
+  - Create `CommentsModal.tsx` in `apps/web/src/components/` following existing modal patterns (similar to `ReactionViewer.tsx`)
+  - Component structure:
+    - Header showing "Comments (X)" count
+    - Scrollable list of comments with user profile pictures and names
+    - Each comment shows:
+      - User profile picture (clickable to profile)
+      - Display name (bold) and @username
+      - Comment text with emoji support (render emojis properly)
+      - Timestamp (relative, e.g., "2h ago")
+      - "X replies" button if comment has replies (collapsed by default)
+      - Reply button for adding replies
+    - Reply section (when expanded):
+      - Lazy load replies when "X replies" button is clicked (fetch from `/comments/{comment_id}/replies`)
+      - Nested display of replies (slightly indented)
+      - "Close replies" button to collapse
+    - Comment input at bottom:
+      - Text input field (max 500 characters) with emoji support
+      - Character counter
+      - Submit button
+  - **Performance Optimization:** Only fetch replies when user clicks "X replies" button, not on initial modal load
+  - Styling:
+    - Match existing modal styling (purple theme, rounded corners, shadows)
+    - Use consistent spacing and typography
+    - Ensure mobile-responsive design
+    - Minimum 44px touch targets for mobile
+  - **Test Execution:** Run `npm test -- CommentsModal.test.tsx` to verify component rendering and interactions
+  - **Update Project Documentation:** Update docs/ARCHITECTURE_AND_SETUP.md with CommentsModal component architecture and lazy loading strategy
+
+- [x] **24.5 Add Comments Button to PostCard**
+  - Update `PostCard.tsx` to add comments button between reactions and share buttons
+  - Button design:
+    - Icon: 💬 (speech bubble emoji)
+    - Show comment count next to icon
+    - Position: Between reaction button (😊+) and share button
+    - Styling: Match existing button styling (purple theme on hover)
+  - Click handler:
+    - Open `CommentsModal` component
+    - Load top-level comments only (replies loaded on demand)
+    - Handle loading and error states
+  - Update toolbar layout:
+    - Ensure proper spacing between buttons
+    - Maintain responsive design on mobile
+    - Keep buttons centered and evenly spaced
+  - **Test Execution:** Run `npm test -- PostCard.test.tsx` to verify comments button integration
+  - **Update Project Documentation:** Update docs/FRONTEND_COMPONENTS.md with PostCard comments button integration
+
+- [ ] **24.6 Implement Comment Reply Functionality**
+  - Add reply input field that appears when "Reply" button is clicked
+  - Implement reply submission:
+    - Send reply to `POST /api/v1/comments/{comment_id}/replies`
+    - Update UI optimistically
+    - Show success/error feedback
+    - Support emojis in reply text
+  - Add reply expansion/collapse with lazy loading:
+    - "X replies" button shows reply count
+    - Clicking fetches replies from `GET /api/v1/comments/{comment_id}/replies` (lazy loaded)
+    - Display replies below comment (nested display with slight indentation)
+    - "Close replies" button collapses the section
+  - Implement single-level nesting validation:
+    - Disable reply button on reply comments
+    - Show tooltip: "Cannot reply to replies"
+  - **Performance Optimization:** Replies are only fetched when user clicks "X replies", supporting large comment sections efficiently
+  - **Test Execution:** Run `npm test -- CommentsModal.test.tsx` to verify reply functionality and lazy loading
+  - **Update Project Documentation:** Update docs/ARCHITECTURE_AND_SETUP.md with reply lazy loading strategy and performance considerations
+
+#### Notification Integration
+- [ ] **24.7 Integrate Comment Notifications**
+  - Add comment notification types to `NotificationFactory` (see `apps/api/app/core/notification_factory.py`):
+    - `comment_on_post`: "[Username] commented on your post"
+    - `comment_reply`: "[Username] replied to your comment"
+  - Implement notification creation in `CommentService` following `ReactionService` patterns:
+    - Create notification when user comments on someone else's post (don't notify if commenting on own post)
+    - Create notification when user replies to someone else's comment (don't notify if replying to own comment)
+    - Use try-except blocks to prevent notification failures from breaking comment creation
+  - Add notification links:
+    - Clicking notification navigates to post with comments modal open
+    - Highlight the specific comment that triggered the notification
+  - Consider future batching:
+    - Design notification structure to support batching (similar to reactions)
+    - Document batching strategy for post-MVP implementation
+  - **Test Execution:** Run `pytest tests/integration/test_comment_notifications.py -v` to verify notification creation and delivery
+  - **Update Project Documentation:** Update docs/BACKEND_API_DOCUMENTATION.md with comment notification types and behavior
+
+#### Testing and Documentation
+- [ ] **24.8 Comprehensive Testing**
+  - **Unit Tests:**
+    - Test `Comment` model validation and constraints (including emoji support)
+    - Test `CommentService` methods with various scenarios
+    - Test single-level nesting enforcement
+    - Test comment deletion and cascading
+    - Test emoji handling in comment content
+  - **Integration Tests:**
+    - Test complete comment creation workflow (API → Service → Database)
+    - Test reply creation and lazy loading retrieval
+    - Test comment notifications end-to-end
+    - Test permission checks (delete own comments only)
+    - Test performance with large comment sections (lazy loading optimization)
+  - **Frontend Tests:**
+    - Test `CommentsModal` component rendering
+    - Test comment submission and reply functionality with emoji support
+    - Test expand/collapse reply sections with lazy loading
+    - Test mobile responsiveness and touch interactions
+  - **Test Execution:** Run full test suite: `pytest -v` (backend) and `npm test` (frontend)
+  - **Update Project Documentation:** Update docs/TEST_GUIDELINES.md with comment system testing patterns and lazy loading test scenarios
+
+#### Design Decisions and Future Enhancements
+
+**Current Implementation:**
+- Simple text-only comments (no rich text, images, or mentions)
+- Single-level nesting (replies to comments only, no replies to replies)
+- Comments stored as plain text with basic validation
+- Backend returns all comments together with `is_reply` flag and `parent_comment_id`
+- Frontend handles display logic for regular comments vs. replies
+
+**Future Enhancements (Post-MVP):**
+- Multi-level comment threading (replies to replies)
+- Rich text support in comments (mentions, emojis, formatting)
+- Comment editing functionality
+- Comment reactions (likes/emojis on comments)
+- Comment batching in notifications
+- Comment sorting options (newest, oldest, most liked)
+- Comment moderation and reporting
+
+**Acceptance Criteria:** 
+- Users can add comments to posts and see them in a modal similar to reactions viewer
+- Comments display user profile pictures, names, and timestamps
+- Users can reply to comments with single-level nesting
+- Reply sections can be expanded/collapsed with "X replies" button
+- Comment notifications are sent to post authors and comment authors
+- Comments button appears between reactions and share buttons in PostCard
+- All functionality works on mobile with proper touch targets
+- Comprehensive tests cover all comment scenarios
+- Documentation is updated to reflect comment system implementation
+
+### **TASK 25: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 25: Advanced Social Features** (Post-MVP)
-- [ ] **Comment System:** Full commenting with threading and notifications
+### **TASK 26: Advanced Social Features** (Post-MVP)
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 26: Follow Notification Batching System** (Post-MVP)
+### **TASK 27: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **25.1 Follow Notification Batching Analysis and Design**
+- [ ] **27.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -1670,7 +1892,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **25.2 Follow Notification Batching Implementation**
+- [ ] **27.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope
@@ -1678,7 +1900,7 @@ Implement three key UI enhancements to improve user experience: WhatsApp sharing
   - Implement proper batch summary generation for follow notifications
   - Add batch expansion to show individual follower notifications with profile pictures
   - Test follow notification batching with multiple followers and time windows
-- [ ] **25.3 Cross-Notification Type Batching Strategy (Future)**
+- [ ] **27.3 Cross-Notification Type Batching Strategy (Future)**
   - **Advanced Feature:** Consider batching different notification types for the same user
   - Research feasibility of "activity digest" notifications combining multiple types
   - Design user preference system for notification batching granularity

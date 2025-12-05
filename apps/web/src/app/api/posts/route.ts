@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         image: transformProfileImageUrl(getAuthorImageUrl(createdPost.author))
       },
       createdAt: createdPost.created_at,
-      updatedAt: createdPost.updated_at, // Add missing updatedAt field mapping
+      updatedAt: createdPost.updated_at,
       postType: createdPost.post_type,
       imageUrl: createdPost.image_url,
       location: createdPost.location,
@@ -136,6 +136,7 @@ export async function POST(request: NextRequest) {
       heartsCount: createdPost.hearts_count || 0,
       isHearted: false,
       reactionsCount: createdPost.reactions_count || 0,
+      commentsCount: createdPost.comments_count || 0,
       currentUserReaction: createdPost.current_user_reaction
     }
 
@@ -221,7 +222,7 @@ export async function GET(request: NextRequest) {
         image: transformProfileImageUrl(getAuthorImageUrl(post.author))
       },
       createdAt: post.created_at,
-      updatedAt: post.updated_at, // Add missing updatedAt field mapping
+      updatedAt: post.updated_at,
       postType: post.post_type,
       imageUrl: post.image_url,
       location: post.location,
@@ -229,6 +230,7 @@ export async function GET(request: NextRequest) {
       heartsCount: post.hearts_count || 0,
       isHearted: post.is_hearted || false,
       reactionsCount: post.reactions_count || 0,
+      commentsCount: post.comments_count || 0,
       currentUserReaction: post.current_user_reaction,
       isRead: post.is_read || false,
       isUnread: post.is_unread || false

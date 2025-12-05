@@ -26,6 +26,7 @@ apps/api/
 │   │   ├── auth_service.py      # Authentication operations
 │   │   ├── user_service.py      # User profile management
 │   │   ├── reaction_service.py  # Emoji reactions business logic
+│   │   ├── comment_service.py   # Comment and reply management
 │   │   ├── notification_service.py # Notification system with batching
 │   │   ├── follow_service.py      # Follow relationships and suggestions
 │   │   └── algorithm_service.py   # Feed algorithm and engagement scoring
@@ -1426,6 +1427,178 @@ GET    /api/v1/posts/{post_id}/reactions # Get all reactions for post
 GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
 ```
 
+### Comments & Replies
+```
+POST   /api/v1/posts/{post_id}/comments    # Create comment on post
+POST   /api/v1/comments/{comment_id}/replies # Create reply to comment
+GET    /api/v1/posts/{post_id}/comments    # Get all top-level comments for post
+GET    /api/v1/comments/{comment_id}/replies # Get replies for specific comment
+DELETE /api/v1/comments/{comment_id}       # Delete comment (owner only)
+```
+
+**Create Comment on Post**
+```http
+POST /api/v1/posts/{post_id}/comments
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "content": "Great post! 😊"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "comment-uuid",
+    "post_id": "post-uuid",
+    "user_id": 123,
+    "content": "Great post! 😊",
+    "parent_comment_id": null,
+    "created_at": "2025-12-04T21:00:00Z",
+    "updated_at": null,
+    "is_reply": false,
+    "reply_count": 0,
+    "user": {
+      "id": 123,
+      "username": "user123",
+      "display_name": "User Name",
+      "profile_image_url": "https://example.com/photo.jpg"
+    }
+  }
+}
+```
+
+**Create Reply to Comment**
+```http
+POST /api/v1/comments/{comment_id}/replies
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "content": "Thank you! 💜"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "reply-uuid",
+    "post_id": "post-uuid",
+    "user_id": 456,
+    "content": "Thank you! 💜",
+    "parent_comment_id": "comment-uuid",
+    "created_at": "2025-12-04T21:05:00Z",
+    "updated_at": null,
+    "is_reply": true,
+    "reply_count": 0,
+    "user": {
+      "id": 456,
+      "username": "user456",
+      "display_name": "Another User",
+      "profile_image_url": "https://example.com/photo2.jpg"
+    }
+  }
+}
+```
+
+**Get Comments for Post**
+```http
+GET /api/v1/posts/{post_id}/comments?include_replies=false
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `include_replies` (optional, default: false): Whether to include replies in response. Set to false for performance optimization - replies should be fetched separately when user expands a comment.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "comment-uuid",
+      "post_id": "post-uuid",
+      "user_id": 123,
+      "content": "Great post! 😊",
+      "parent_comment_id": null,
+      "created_at": "2025-12-04T21:00:00Z",
+      "updated_at": null,
+      "is_reply": false,
+      "reply_count": 3,
+      "replies": [],
+      "user": {
+        "id": 123,
+        "username": "user123",
+        "display_name": "User Name",
+        "profile_image_url": "https://example.com/photo.jpg"
+      }
+    }
+  ]
+}
+```
+
+**Get Replies for Comment**
+```http
+GET /api/v1/comments/{comment_id}/replies
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "reply-uuid",
+      "post_id": "post-uuid",
+      "user_id": 456,
+      "content": "Thank you! 💜",
+      "parent_comment_id": "comment-uuid",
+      "created_at": "2025-12-04T21:05:00Z",
+      "updated_at": null,
+      "is_reply": true,
+      "reply_count": 0,
+      "user": {
+        "id": 456,
+        "username": "user456",
+        "display_name": "Another User",
+        "profile_image_url": "https://example.com/photo2.jpg"
+      }
+    }
+  ]
+}
+```
+
+**Delete Comment**
+```http
+DELETE /api/v1/comments/{comment_id}
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Comment deleted successfully"
+  }
+}
+```
+
+**Comment System Features:**
+- **Emoji Support**: Full Unicode emoji support in comment content
+- **Single-Level Nesting**: Comments can have replies, but replies cannot have replies (prevents deep nesting)
+- **Performance Optimization**: Replies are fetched separately via lazy loading when user clicks "X replies" button
+- **Cascade Delete**: Deleting a comment automatically deletes all its replies
+- **Owner-Only Delete**: Only the comment author can delete their comment
+- **Notifications**: Automatic notifications for comment authors when they receive replies, and post authors when they receive comments
+- **Content Validation**: 1-500 character limit with whitespace trimming
+
 ### Mentions & User Search
 ```
 POST   /api/v1/users/search              # Search users by username with autocomplete
@@ -1489,6 +1662,79 @@ class ReactionService(BaseService):
             emoji_code=emoji_code
         )
 ```
+
+#### CommentService
+
+The `CommentService` handles all comment and reply business logic with comprehensive validation and notification integration.
+
+**Key Features:**
+- **Comment Creation**: Create top-level comments on posts with content validation (1-500 characters)
+- **Reply System**: Single-level nested replies with parent comment validation
+- **Notification Integration**: Automatic notifications for post authors and comment authors
+- **Permission Checks**: Owner-only deletion with proper authorization
+- **Performance Optimization**: Lazy loading of replies for efficient large comment sections
+
+**Methods:**
+
+```python
+class CommentService(BaseService):
+    async def create_comment(
+        self,
+        post_id: str,
+        user_id: int,
+        content: str,
+        parent_comment_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new comment or reply.
+        
+        Validation:
+        - Content length: 1-500 characters
+        - Post existence verification
+        - Parent comment validation (same post, no nested replies)
+        
+        Notifications:
+        - Post author notified for top-level comments (unless self-comment)
+        - Parent comment author notified for replies (unless self-reply)
+        """
+    
+    async def get_post_comments(
+        self,
+        post_id: str,
+        include_replies: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all comments for a post with user data loaded.
+        
+        Performance:
+        - Lazy loading of replies when include_replies=False
+        - Efficient query with relationship loading
+        - Ordered by creation time (oldest first)
+        """
+    
+    async def get_comment_replies(self, comment_id: str) -> List[Dict[str, Any]]:
+        """Get replies for a specific comment with user data."""
+    
+    async def delete_comment(self, comment_id: str, user_id: int) -> bool:
+        """
+        Delete a comment (owner only).
+        
+        Authorization:
+        - Verifies user ownership before deletion
+        - Cascade deletes all replies automatically
+        """
+    
+    async def get_comment_count(self, post_id: str) -> int:
+        """Get total comment count for a post (including replies)."""
+```
+
+**Business Logic:**
+- **Single-Level Nesting**: Prevents replies to replies (only one level of nesting allowed)
+- **Content Validation**: Enforces 1-500 character limit using BaseService validation
+- **Self-Notification Prevention**: Users don't receive notifications for their own comments/replies
+- **Cascade Deletion**: Deleting a comment automatically removes all its replies
+- **Post Verification**: Ensures post exists before allowing comments
+- **Parent Validation**: Verifies parent comment belongs to the same post for replies
 
 ### Repository Pattern
 

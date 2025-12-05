@@ -52,13 +52,14 @@ export async function GET(
         image: transformProfileImageUrl(getAuthorImageUrl(post.author))
       },
       createdAt: post.created_at,
-      updatedAt: post.updated_at, // Add missing updatedAt field mapping
+      updatedAt: post.updated_at,
       postType: post.post_type,
       imageUrl: post.image_url,
       location: post.location,
       heartsCount: post.hearts_count || 0,
       isHearted: post.is_hearted || false,
       reactionsCount: post.reactions_count || 0,
+      commentsCount: post.comments_count || 0,
       currentUserReaction: post.current_user_reaction
     }
 
@@ -132,7 +133,7 @@ export async function PUT(
         image: transformProfileImageUrl(getAuthorImageUrl(data.author))
       },
       createdAt: data.created_at,
-      updatedAt: data.updated_at, // Include updatedAt field mapping
+      updatedAt: data.updated_at,
       postType: data.post_type,
       imageUrl: data.image_url,
       location: data.location,
@@ -140,6 +141,7 @@ export async function PUT(
       heartsCount: data.hearts_count || 0,
       isHearted: data.is_hearted || false,
       reactionsCount: data.reactions_count || 0,
+      commentsCount: data.comments_count || 0,
       currentUserReaction: data.current_user_reaction
     }
 

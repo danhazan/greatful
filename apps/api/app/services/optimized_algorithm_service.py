@@ -629,6 +629,7 @@ class OptimizedAlgorithmService(AlgorithmService):
                         'hearts_count': engagement_data.hearts_count if engagement_data else 0,
                         'reactions_count': engagement_data.reactions_count if engagement_data else 0,
                         'shares_count': engagement_data.shares_count if engagement_data else 0,
+                        'comments_count': post.comments_count or 0,
                         'algorithm_score': score,
                         'is_read': read_status if consider_read_status else False,
                         'is_unread': not read_status if consider_read_status and read_status is not None else False

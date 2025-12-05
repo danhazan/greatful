@@ -102,7 +102,7 @@ describe('PostCard Hearts Counter', () => {
 
     // Hearts counter should show 0 - find all buttons with "0" and check the first one (hearts)
     const zeroButtons = screen.getAllByText('0')
-    expect(zeroButtons).toHaveLength(2) // hearts and reactions
+    expect(zeroButtons).toHaveLength(3) // hearts, reactions, and comments
     expect(zeroButtons[0]).toBeInTheDocument() // hearts counter
   })
 })

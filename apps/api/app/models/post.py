@@ -35,6 +35,7 @@ class Post(Base):
     hearts_count = Column(Integer, nullable=False, server_default="0")
     reactions_count = Column(Integer, nullable=False, server_default="0")
     shares_count = Column(Integer, nullable=False, server_default="0")
+    comments_count = Column(Integer, nullable=False, server_default="0")
 
     def __repr__(self):
         return f"<Post(id={self.id}, author_id={self.author_id}, type={self.post_type})>" 

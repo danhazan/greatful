@@ -546,6 +546,105 @@ The component implements intelligent navigation with the following priority:
 
 ---
 
+### PostCard
+
+The main component for displaying gratitude posts with social interactions including hearts, reactions, comments, and sharing.
+
+**Location:** `apps/web/src/components/PostCard.tsx`
+
+#### Props Interface
+
+```typescript
+interface PostCardProps {
+  post: Post
+  currentUserId?: string
+  hideFollowButton?: boolean
+  onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: any) => void
+  onReaction?: (postId: string, emojiCode: string, reactionSummary?: any) => void
+  onRemoveReaction?: (postId: string, reactionSummary?: any) => void
+  onShare?: (postId: string) => void
+  onUserClick?: (userId: string) => void
+  onEdit?: (postId: string, updatedPost: Post) => void
+  onDelete?: (postId: string) => void
+}
+```
+
+#### Features
+
+- **Social Interactions**: Heart/like, emoji reactions, comments, and sharing
+- **Comments System**: View and add comments with reply support
+- **Real-time Updates**: Synchronizes post state across components
+- **Authentication Handling**: Graceful handling for logged-out users
+- **Mobile Optimized**: Touch-friendly buttons with proper spacing
+- **Accessibility**: Full keyboard navigation and screen reader support
+
+#### Comments Button Integration
+
+The comments button is positioned between the reactions and share buttons in the post toolbar.
+
+**Button Features:**
+- **Icon**: 💬 (speech bubble emoji)
+- **Comment Count**: Displays number of comments next to icon
+- **Visual Feedback**: Purple ring when post has comments
+- **Loading States**: Shows spinner while loading comments
+- **Authentication**: Redirects to login for unauthenticated users
+- **Touch Targets**: Minimum 44px × 44px for mobile accessibility
+
+**Styling:**
+```typescript
+// Authenticated user styling
+className="text-gray-500 hover:text-purple-500 hover:bg-purple-50"
+
+// With comments (shows ring)
+className="ring-1 ring-purple-200"
+
+// Unauthenticated user styling
+className="text-gray-400 cursor-pointer hover:bg-gray-50"
+```
+
+**Usage Example:**
+
+```typescript
+<PostCard
+  post={post}
+  currentUserId={currentUser?.id}
+  onHeart={handleHeart}
+  onReaction={handleReaction}
+  onShare={handleShare}
+/>
+```
+
+#### Comments Modal Integration
+
+When the comments button is clicked, the `CommentsModal` component is opened with:
+
+- **Top-level Comments**: Initially loads only parent comments
+- **Reply Support**: Load replies on demand when user expands a comment
+- **Comment Submission**: Post new comments with real-time updates
+- **Reply Submission**: Reply to existing comments with threading
+- **Loading States**: Proper loading indicators during API calls
+- **Error Handling**: User-friendly error messages with retry options
+
+**API Endpoints:**
+- `GET /api/posts/{postId}/comments` - Load top-level comments
+- `POST /api/posts/{postId}/comments` - Submit new comment
+- `GET /api/comments/{commentId}/replies` - Load comment replies
+
+#### Button Layout
+
+The post toolbar contains four main interaction buttons in this order:
+
+1. **Heart Button** (💜) - Like/unlike the post
+2. **Reaction Button** (😊+) - Add emoji reactions
+3. **Comments Button** (💬) - View and add comments
+4. **Share Button** (Share) - Share the post
+
+**Responsive Spacing:**
+- Desktop: `gap-8` (2rem spacing between buttons)
+- Mobile: `gap-4` (1rem spacing between buttons)
+
+---
+
 ## Future Enhancements
 
 ### Planned Improvements

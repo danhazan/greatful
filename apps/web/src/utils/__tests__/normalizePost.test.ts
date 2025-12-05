@@ -33,6 +33,7 @@ describe('normalizePostFromApi', () => {
       heartsCount: 5,
       isHearted: true,
       reactionsCount: 3,
+      commentsCount: 0,
       currentUserReaction: "heart_eyes",
       isRead: false,
       isUnread: false,
@@ -113,6 +114,7 @@ describe('normalizePostFromApi', () => {
     expect(normalized?.heartsCount).toBe(0)
     expect(normalized?.isHearted).toBe(false)
     expect(normalized?.reactionsCount).toBe(0)
+    expect(normalized?.commentsCount).toBe(0)
     expect(normalized?.postType).toBe("spontaneous")
     expect(normalized?.isRead).toBe(false)
     expect(normalized?.isUnread).toBe(false)
@@ -172,6 +174,7 @@ describe('mergePostUpdate', () => {
       heartsCount: 0,
       isHearted: false,
       reactionsCount: 0,
+      commentsCount: 0,
       author: {
         id: "456",
         name: "Test User",
@@ -205,6 +208,7 @@ describe('mergePostUpdate', () => {
       heartsCount: 0,
       isHearted: false,
       reactionsCount: 0,
+      commentsCount: 0,
       author: {
         id: "456",
         name: "Test User",
@@ -226,6 +230,7 @@ describe('mergePostUpdate', () => {
       heartsCount: 0,
       isHearted: false,
       reactionsCount: 0,
+      commentsCount: 0,
       author: {
         id: "456",
         name: "Test User"

@@ -170,6 +170,24 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **Public Profiles**: View other users' profiles and posts
 - **Profile Navigation**: Click usernames/avatars throughout the app to view profiles
 
+#### 💬 Comment System
+- **CommentsModal Component**: Full-featured modal for viewing and creating comments
+  - **Lazy Loading Strategy**: Replies are only fetched when user clicks "X replies" button, optimizing performance for posts with many comments
+  - **Single-Level Nesting**: Comments can have replies, but replies cannot have replies (prevents deep threading complexity)
+  - **Emoji Support**: Full Unicode emoji support in comment content with proper rendering
+  - **Character Limit**: 500 characters per comment/reply with real-time counter
+  - **User Navigation**: Clickable usernames and profile pictures navigate to user profiles
+  - **Relative Timestamps**: Human-readable time display (e.g., "2h ago", "5m ago")
+  - **Reply Management**: Inline reply input with cancel functionality
+  - **Mobile Optimization**: 44px minimum touch targets, responsive design, touch-friendly interactions
+  - **Accessibility**: Full ARIA labels, keyboard navigation support, screen reader compatible
+  - **Visual Indentation**: Replies are visually indented to show hierarchy
+  - **Loading States**: Clear loading indicators for async operations (posting, loading replies)
+  - **Error Handling**: User-friendly error messages with toast notifications
+- **Performance Optimization**: Comments list loads top-level comments only; replies fetched on-demand
+- **Backend API**: RESTful endpoints for creating comments, replies, and fetching comment threads
+- **Database Design**: Efficient schema with parent_comment_id for single-level nesting
+
 #### 📱 Mobile-Optimized Design
 - **Responsive Components**: All modals and interactions work on mobile
 - **Touch-Friendly**: Optimized for touch interactions and gestures
@@ -179,11 +197,12 @@ The Grateful platform includes a comprehensive social interaction system with th
 ### Technical Implementation
 
 #### Frontend Architecture
-- **Component-Based**: Reusable React components (PostCard, EmojiPicker, ReactionViewer, etc.)
+- **Component-Based**: Reusable React components (PostCard, EmojiPicker, ReactionViewer, CommentsModal, etc.)
 - **TypeScript**: Full type safety with shared type definitions
 - **Optimistic Updates**: Immediate UI feedback with server synchronization
 - **Error Handling**: Graceful error handling with user-friendly messages
 - **Performance**: Debounced searches, efficient re-renders, lazy loading
+- **Lazy Loading Strategy**: Comments modal implements lazy loading for replies - only fetches reply data when user expands a comment thread
 
 #### Backend Architecture
 - **Service Layer**: Clean separation of business logic (UserService, ReactionService, NotificationService, FollowService)
@@ -1592,6 +1611,7 @@ The Grateful platform is designed with mobile-first principles to ensure optimal
 - **FollowButton**: Properly sized with loading states and haptic feedback simulation
 - **NotificationDropdown**: Touch-optimized scrolling and tap interactions
 - **MentionAutocomplete**: Touch-friendly dropdown with proper positioning
+- **CommentsModal**: Full-featured comment system with lazy-loaded replies, emoji support, and mobile-optimized touch targets (44px minimum)
 
 #### Responsive Design Patterns
 

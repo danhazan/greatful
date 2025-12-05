@@ -4,10 +4,162 @@ This document contains common fixes and solutions that can be applied to similar
 
 ## 📋 Table of Contents
 
+- [API Response Field Mapping Issues](#api-response-field-mapping-issues)
 - [Text Input Visibility Fixes](#text-input-visibility-fixes)
 - [Dropdown Positioning Fixes](#dropdown-positioning-fixes)
 - [Responsive Design Patterns](#responsive-design-patterns)
 - [Mobile Optimization Techniques](#mobile-optimization-techniques)
+
+---
+
+## API Response Field Mapping Issues
+
+### Missing Fields in Next.js API Proxy Transformations
+
+**Problem**: Fields that exist in the FastAPI backend response (snake_case) don't appear in the frontend because the Next.js API proxy routes are manually transforming responses to camelCase but missing certain fields.
+
+**Root Cause**: Next.js API routes at `apps/web/src/app/api/` act as proxies between the frontend and FastAPI backend, manually transforming field names from snake_case to camelCase. When new fields are added to the backend, they must also be added to these transformation mappings.
+
+#### Symptoms:
+- Backend API returns field correctly (verified with direct API testing)
+- Frontend receives response but field is missing
+- Other similar fields (e.g., `heartsCount`, `reactionsCount`) work correctly
+- Browser Network tab shows field is missing from the response
+- Field appears in backend response but not in Next.js proxy response
+
+#### Example Case: Missing `comments_count` Field
+
+**Problem**: The `comments_count` field was returned by FastAPI backend but didn't appear in the frontend response as `commentsCount`.
+
+**Investigation Steps**:
+1. ✅ Verified database has `comments_count` column with correct data
+2. ✅ Verified FastAPI `PostResponse` model includes `comments_count` field
+3. ✅ Verified backend service layer includes `comments_count` in response dictionary
+4. ✅ Created test that confirmed backend API returns `comments_count` correctly
+5. ❌ Found that Next.js API proxy was filtering out `comments_count` during transformation
+
+#### Solution: Add Missing Field to All API Proxy Transformations
+
+Identify all Next.js API routes that transform post responses and add the missing field mapping.
+
+#### Implementation:
+
+**1. Locate all API proxy transformation points:**
+```bash
+# Find all places where similar fields are transformed
+grep -r "heartsCount.*hearts_count" apps/web/src/app/api/
+```
+
+**2. Add missing field to each transformation:**
+
+**File: `apps/web/src/app/api/posts/route.ts` (GET /api/posts - feed endpoint)**
+```typescript
+const transformedPosts = posts.map((post: any) => ({
+  id: post.id,
+  content: post.content,
+  // ... other fields ...
+  heartsCount: post.hearts_count || 0,
+  reactionsCount: post.reactions_count || 0,
+  commentsCount: post.comments_count || 0,  // ✅ ADD THIS
+  // ... other fields ...
+}))
+```
+
+**File: `apps/web/src/app/api/posts/route.ts` (POST /api/posts - create post)**
+```typescript
+const transformedPost = {
+  id: createdPost.id,
+  // ... other fields ...
+  heartsCount: createdPost.hearts_count || 0,
+  reactionsCount: createdPost.reactions_count || 0,
+  commentsCount: createdPost.comments_count || 0,  // ✅ ADD THIS
+  // ... other fields ...
+}
+```
+
+**File: `apps/web/src/app/api/posts/[id]/route.ts` (GET /api/posts/:id - single post)**
+```typescript
+const transformedPost = {
+  id: post.id,
+  // ... other fields ...
+  heartsCount: post.hearts_count || 0,
+  reactionsCount: post.reactions_count || 0,
+  commentsCount: post.comments_count || 0,  // ✅ ADD THIS
+  // ... other fields ...
+}
+```
+
+**File: `apps/web/src/app/api/posts/[id]/route.ts` (PUT /api/posts/:id - update post)**
+```typescript
+const transformedPost = {
+  id: data.id,
+  // ... other fields ...
+  heartsCount: data.hearts_count || 0,
+  reactionsCount: data.reactions_count || 0,
+  commentsCount: data.comments_count || 0,  // ✅ ADD THIS
+  // ... other fields ...
+}
+```
+
+#### Benefits:
+- ✅ Field now appears in frontend API responses
+- ✅ Consistent with other count fields (`heartsCount`, `reactionsCount`)
+- ✅ No backend changes required
+- ✅ Works across all API endpoints (feed, single post, create, update)
+
+#### How to Prevent This Issue:
+
+**1. When adding new fields to backend models:**
+- Add field to FastAPI Pydantic model (e.g., `PostResponse`)
+- Add field to backend service layer response dictionaries
+- **CRITICAL**: Add field to ALL Next.js API proxy transformations
+
+**2. Create a checklist for new fields:**
+```markdown
+- [ ] Added to FastAPI Pydantic model
+- [ ] Added to backend service layer
+- [ ] Added to Next.js API proxy - GET /api/posts (feed)
+- [ ] Added to Next.js API proxy - POST /api/posts (create)
+- [ ] Added to Next.js API proxy - GET /api/posts/:id (single)
+- [ ] Added to Next.js API proxy - PUT /api/posts/:id (update)
+- [ ] Added to frontend TypeScript interfaces
+- [ ] Tested in browser Network tab
+```
+
+**3. Use grep to find all transformation points:**
+```bash
+# Find all places where a similar field is transformed
+grep -r "heartsCount.*hearts_count" apps/web/src/app/api/
+
+# This will show you all the places you need to add your new field
+```
+
+**4. Consider automated transformation:**
+For future improvements, consider using a library like `humps` or `lodash` to automatically convert snake_case to camelCase instead of manual mapping:
+
+```typescript
+import { camelizeKeys } from 'humps'
+
+// Automatic transformation (future improvement)
+const transformedPost = camelizeKeys(post)
+```
+
+#### Testing Checklist:
+- [ ] Backend test confirms field is in FastAPI response
+- [ ] Browser Network tab shows field in Next.js API response
+- [ ] Frontend component receives and displays field correctly
+- [ ] Field appears in all relevant endpoints (feed, single post, create, update)
+- [ ] Field has correct default value (e.g., `|| 0` for counts)
+
+#### Applied To:
+- **Comments count field** - Added `commentsCount` transformation (December 2024)
+- **Future fields** - Use this pattern for any new backend fields
+
+#### Related Files:
+- `apps/web/src/app/api/posts/route.ts` - Feed and create post endpoints
+- `apps/web/src/app/api/posts/[id]/route.ts` - Single post and update endpoints
+- `apps/api/app/api/v1/posts.py` - Backend post endpoints
+- `apps/api/app/services/optimized_algorithm_service.py` - Backend service layer
 
 ---
 

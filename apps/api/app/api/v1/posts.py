@@ -82,6 +82,7 @@ class PostResponse(BaseModel):
     author: dict
     hearts_count: int = 0
     reactions_count: int = 0
+    comments_count: int = 0
     current_user_reaction: Optional[str] = None
     is_hearted: Optional[bool] = False
     is_read: Optional[bool] = False
@@ -393,6 +394,7 @@ async def create_post_json(
             },
             hearts_count=0,
             reactions_count=0,
+            comments_count=0,
             current_user_reaction=None,
             is_hearted=False
         )
@@ -767,6 +769,7 @@ async def get_feed(
                     },
                     hearts_count=post_data['hearts_count'],
                     reactions_count=post_data['reactions_count'],
+                    comments_count=post_data['comments_count'],
                     current_user_reaction=current_user_reaction,
                     is_hearted=is_hearted,
                     is_read=post_data.get('is_read', False),
@@ -795,6 +798,7 @@ async def get_feed(
                            p.is_public,
                            p.created_at,
                            p.updated_at,
+                           p.comments_count,
                            u.id as author_id,
                            u.username as author_username,
                            u.display_name as author_display_name,
@@ -838,6 +842,7 @@ async def get_feed(
                            p.is_public,
                            p.created_at,
                            p.updated_at,
+                           p.comments_count,
                            u.id as author_id,
                            u.username as author_username,
                            u.display_name as author_display_name,
@@ -898,6 +903,7 @@ async def get_feed(
                     },
                     hearts_count=int(row.hearts_count) if row.hearts_count else 0,
                     reactions_count=int(row.reactions_count) if row.reactions_count else 0,
+                    comments_count=int(row.comments_count) if row.comments_count else 0,
                     current_user_reaction=row.current_user_reaction,
                     is_hearted=bool(getattr(row, 'is_hearted', False)),
                     is_read=is_read,
@@ -1094,6 +1100,7 @@ async def get_post_by_id(
                        p.is_public,
                        p.created_at,
                        p.updated_at,
+                       p.comments_count,
                        u.id as author_id,
                        u.username as author_username,
                        u.display_name as author_display_name,
@@ -1136,6 +1143,7 @@ async def get_post_by_id(
                        p.is_public,
                        p.created_at,
                        p.updated_at,
+                       p.comments_count,
                        u.id as author_id,
                        u.username as author_username,
                        u.display_name as author_display_name,
@@ -1214,6 +1222,7 @@ async def get_post_by_id(
             },
             hearts_count=int(row.hearts_count) if row.hearts_count else 0,
             reactions_count=int(row.reactions_count) if row.reactions_count else 0,
+            comments_count=int(row.comments_count) if row.comments_count else 0,
             current_user_reaction=row.current_user_reaction,
             is_hearted=bool(row.is_hearted) if hasattr(row, 'is_hearted') else False,
             algorithm_score=None  # Individual post view doesn't include algorithm score

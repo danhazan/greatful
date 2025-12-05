@@ -26,6 +26,8 @@ export interface ApiPost {
   isHearted?: boolean
   reactions_count?: number
   reactionsCount?: number
+  comments_count?: number
+  commentsCount?: number
   current_user_reaction?: string
   currentUserReaction?: string
   is_read?: boolean
@@ -56,6 +58,7 @@ export interface NormalizedPost {
   heartsCount: number
   isHearted: boolean
   reactionsCount: number
+  commentsCount: number
   currentUserReaction?: string
   isRead?: boolean
   isUnread?: boolean
@@ -99,6 +102,7 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
     heartsCount: post.hearts_count ?? post.heartsCount ?? 0,
     isHearted: post.is_hearted ?? post.isHearted ?? false,
     reactionsCount: post.reactions_count ?? post.reactionsCount ?? 0,
+    commentsCount: post.comments_count ?? post.commentsCount ?? 0,
     currentUserReaction: post.current_user_reaction ?? post.currentUserReaction ?? undefined,
     isRead: post.is_read ?? post.isRead ?? false,
     isUnread: post.is_unread ?? post.isUnread ?? false,

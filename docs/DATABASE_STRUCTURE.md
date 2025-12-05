@@ -161,23 +161,38 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 
 ### Comments Table (`comments`)
 
-**Tracks comments on posts with support for nested replies.**
+**Tracks comments on posts with support for nested replies and emoji/Unicode content.**
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | String (UUID) | Primary Key | Unique comment identifier |
-| `author_id` | Integer | Foreign Key (users.id), Not Null | Comment author |
-| `post_id` | String | Foreign Key (posts.id), Not Null | Post being commented on |
-| `parent_id` | String | Foreign Key (comments.id), Nullable | Parent comment for replies |
-| `content` | Text | Not Null | Comment content |
+| `post_id` | String | Foreign Key (posts.id, CASCADE), Not Null, Index | Post being commented on |
+| `user_id` | Integer | Foreign Key (users.id, CASCADE), Not Null, Index | Comment author |
+| `parent_comment_id` | String | Foreign Key (comments.id, CASCADE), Nullable, Index | Parent comment for replies |
+| `content` | Text | Not Null, Check: 1-500 chars | Comment content (supports emojis/Unicode) |
 | `created_at` | DateTime | Default: now() | Comment creation timestamp |
 | `updated_at` | DateTime | On Update | Last modification timestamp |
 
+**Content Support:**
+- PostgreSQL text fields natively support Unicode and emoji characters
+- No special configuration needed for emoji storage
+- Content length enforced by check constraint: `LENGTH(content) >= 1 AND LENGTH(content) <= 500`
+
+**Constraints:**
+- Check constraint: `check_content_length` - Ensures content is between 1 and 500 characters
+- Foreign key constraints with CASCADE delete for post, user, and parent comment
+
+**Performance Indexes:**
+- `idx_comments_post_created` - Composite index on (post_id, created_at) for efficient post comment retrieval ordered by time
+- `ix_comments_post_id` - Index on post_id for post-based queries
+- `ix_comments_user_id` - Index on user_id for user comment history
+- `ix_comments_parent_comment_id` - Index on parent_comment_id for reply lookups
+
 **Relationships:**
-- `author` - Many-to-One with Users (comment author)
+- `user` - Many-to-One with Users (comment author)
 - `post` - Many-to-One with Posts (commented post)
-- `parent` - Many-to-One with Comments (parent comment)
-- `replies` - One-to-Many with Comments (child comments)
+- `parent_comment` - Many-to-One with Comments (parent comment for replies)
+- `replies` - One-to-Many with Comments (child comments/replies)
 
 ### Follows Table (`follows`)
 
