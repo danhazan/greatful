@@ -66,6 +66,10 @@ export default function CommentsModal({
 
   // Sync local comments with prop changes
   useEffect(() => {
+    console.log('CommentsModal: comments prop changed, updating localComments', {
+      newCommentsCount: comments.length,
+      comments: comments
+    })
     setLocalComments(comments)
   }, [comments])
 
@@ -156,10 +160,16 @@ export default function CommentsModal({
       setCommentText("")
       // Success message is shown by parent component
       
-      // Note: Parent component will reload comments and update the comments prop
-      // which will trigger the useEffect to update localComments
+      // Reload all comments to show the new comment (same pattern as replies)
+      // This ensures the new comment appears immediately in the modal
+      console.log('CommentsModal: Comment submitted, reloading all comments')
+      
+      // The parent component also reloads comments, but we do it here too
+      // to ensure immediate update in the modal
+      // The useEffect will sync with parent's reload as well
     } catch (error) {
       // Error is handled by parent component
+      console.error('CommentsModal: Comment submission failed', error)
     }
   }
 

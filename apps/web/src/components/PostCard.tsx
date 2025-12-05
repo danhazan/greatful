@@ -492,7 +492,14 @@ export default function PostCard({
       }) as any
 
       // Reload comments to show the new comment
-      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`) as any
+      // Use skipCache to ensure we get fresh data
+      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, { 
+        skipCache: true 
+      }) as any
+      console.log('PostCard: Reloaded comments after creation', {
+        commentsCount: updatedComments.length,
+        comments: updatedComments
+      })
       setComments(updatedComments)
 
       // Update comment count in post (includes all comments + replies)
