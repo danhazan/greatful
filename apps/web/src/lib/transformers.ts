@@ -342,35 +342,51 @@ export interface FrontendUserPost {
   heartsCount: number
   isHearted: boolean
   reactionsCount: number
+  commentsCount: number
   currentUserReaction?: string
 }
 
 /**
  * Transform backend user post to frontend format with author info
+ * Handles both snake_case (direct backend) and camelCase (Next.js API proxy) formats
  */
-export function transformUserPost(post: BackendUserPost, userProfile?: any): FrontendUserPost {
+export function transformUserPost(post: any, userProfile?: any): FrontendUserPost {
+  // Handle both snake_case and camelCase field names
+  const postStyle = post.postStyle || post.post_style
+  const createdAt = post.createdAt || post.created_at
+  const updatedAt = post.updatedAt || post.updated_at
+  const postType = post.postType || post.post_type
+  const imageUrl = post.imageUrl || post.image_url
+  const locationData = post.location_data
+  const heartsCount = post.heartsCount ?? post.hearts_count ?? 0
+  const isHearted = post.isHearted ?? post.is_hearted ?? false
+  const reactionsCount = post.reactionsCount ?? post.reactions_count ?? 0
+  const commentsCount = post.commentsCount ?? post.comments_count ?? 0
+  const currentUserReaction = post.currentUserReaction || post.current_user_reaction
+  
   return {
     id: post.id,
     content: post.content,
-    postStyle: post.post_style,
-    post_style: post.post_style,  // Keep backend field name for compatibility
+    postStyle: postStyle,
+    post_style: postStyle,  // Keep backend field name for compatibility
     author: {
       id: post.author.id.toString(),
-      name: post.author.display_name || post.author.username || 'Unknown User',
+      name: post.author.display_name || post.author.name || post.author.username || 'Unknown User',
       username: post.author.username || 'unknown',
       display_name: post.author.display_name || post.author.username,
-      image: post.author.profile_image_url
+      image: post.author.image || post.author.profile_image_url
     },
-    createdAt: ensureTimezoneIndicator(post.created_at),
-    updatedAt: post.updated_at ? ensureTimezoneIndicator(post.updated_at) : undefined,
-    postType: (post.post_type as "daily" | "photo" | "spontaneous") || "daily",
-    imageUrl: post.image_url,
+    createdAt: ensureTimezoneIndicator(createdAt),
+    updatedAt: updatedAt ? ensureTimezoneIndicator(updatedAt) : undefined,
+    postType: (postType as "daily" | "photo" | "spontaneous") || "daily",
+    imageUrl: imageUrl,
     location: post.location,
-    location_data: post.location_data,
-    heartsCount: post.hearts_count || 0,
-    isHearted: post.is_hearted || false,
-    reactionsCount: post.reactions_count || 0,
-    currentUserReaction: post.current_user_reaction
+    location_data: locationData,
+    heartsCount: heartsCount,
+    isHearted: isHearted,
+    reactionsCount: reactionsCount,
+    commentsCount: commentsCount,
+    currentUserReaction: currentUserReaction
   }
 }
 

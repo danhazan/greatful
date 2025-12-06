@@ -139,6 +139,7 @@ class PostRepository(BaseRepository):
                            u.profile_image_url as author_profile_image_url,
                            COALESCE(hearts.hearts_count, 0) as hearts_count,
                            COALESCE(reactions.reactions_count, 0) as reactions_count,
+                           COALESCE(comments.comments_count, 0) as comments_count,
                            user_reactions.emoji_code as current_user_reaction,
                            CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
                     FROM posts p
@@ -153,6 +154,11 @@ class PostRepository(BaseRepository):
                         FROM emoji_reactions
                         GROUP BY post_id
                     ) reactions ON reactions.post_id = p.id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(*) as comments_count
+                        FROM comments
+                        GROUP BY post_id
+                    ) comments ON comments.post_id = p.id
                     LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
                         AND user_reactions.user_id = :user_id
                     LEFT JOIN likes user_hearts ON user_hearts.post_id = p.id 
@@ -181,6 +187,7 @@ class PostRepository(BaseRepository):
                            u.profile_image_url as author_profile_image_url,
                            0 as hearts_count,
                            COALESCE(reactions.reactions_count, 0) as reactions_count,
+                           COALESCE(comments.comments_count, 0) as comments_count,
                            user_reactions.emoji_code as current_user_reaction,
                            false as is_hearted
                     FROM posts p
@@ -190,6 +197,11 @@ class PostRepository(BaseRepository):
                         FROM emoji_reactions
                         GROUP BY post_id
                     ) reactions ON reactions.post_id = p.id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(*) as comments_count
+                        FROM comments
+                        GROUP BY post_id
+                    ) comments ON comments.post_id = p.id
                     LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
                         AND user_reactions.user_id = :user_id
                     {where_clause}
@@ -249,6 +261,7 @@ class PostRepository(BaseRepository):
                     },
                     "hearts_count": int(row.hearts_count) if row.hearts_count else 0,
                     "reactions_count": int(row.reactions_count) if row.reactions_count else 0,
+                    "comments_count": int(row.comments_count) if row.comments_count else 0,
                     "current_user_reaction": row.current_user_reaction,
                     "is_hearted": bool(row.is_hearted) if hasattr(row, 'is_hearted') else False
                 }

@@ -61,6 +61,7 @@ describe('/api/posts', () => {
       expect(data).toEqual({
         id: 'post-123',
         content: 'Test gratitude post',
+        commentsCount: 0,
         postStyle: null,
         author: {
           id: '1',
@@ -337,6 +338,7 @@ describe('/api/posts', () => {
       expect(data[0]).toEqual({
         id: 'post-1',
         content: 'First post',
+        commentsCount: 0,
         author: {
           id: '1',
           name: 'User One',

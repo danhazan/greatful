@@ -1837,6 +1837,51 @@ Implement a simple, elegant commenting system for posts that follows existing pa
   - **Test Execution:** Run full test suite: `pytest -v` (backend) and `npm test` (frontend)
   - **Update Project Documentation:** Update docs/TEST_GUIDELINES.md with comment system testing patterns and lazy loading test scenarios
 
+- [ ] **24.9 Standardize API Response Casing (camelCase)**
+  - **Objective:** Implement automated snake_case to camelCase transformation for all API responses to ensure consistency across the frontend
+  - **Reference:** See `docs/API_RESPONSE_CASING_ANALYSIS.md` for detailed analysis and recommendations
+  - **Implementation Steps:**
+    1. **Install Dependencies:**
+       - Install `humps` library: `npm install humps`
+       - Install types: `npm install --save-dev @types/humps`
+    2. **Create Shared Transformation Utility:**
+       - Create `apps/web/src/lib/caseTransform.ts`
+       - Implement `transformApiResponse<T>(data: any): T` using `camelizeKeys` from humps
+       - Implement `transformApiRequest<T>(data: any): T` using `decamelizeKeys` for request payloads
+       - Add special handling for fields that should not be transformed (if any)
+    3. **Update API Proxy:**
+       - Modify `apps/web/src/lib/api-proxy.ts` to use transformation utility
+       - Add `transform?: boolean` option (default: true)
+       - Apply transformation to all passthrough responses
+    4. **Replace Manual Transformations:**
+       - Update `apps/web/src/app/api/posts/route.ts` to use automated transformation
+       - Update `apps/web/src/app/api/posts/[id]/route.ts` to use automated transformation
+       - Update `apps/web/src/lib/user-posts-api.ts` to use automated transformation
+       - Remove manual field-by-field mapping code
+    5. **Update Frontend Utilities:**
+       - Simplify `apps/web/src/utils/normalizePost.ts` to remove snake_case fallbacks
+       - Update TypeScript interfaces to only use camelCase
+       - Remove dual-casing support from components
+    6. **Testing:**
+       - Test all API endpoints return camelCase
+       - Test feed page displays correctly
+       - Test profile pages display correctly
+       - Test post creation/editing works
+       - Test edge cases (null values, nested objects, arrays)
+       - Run frontend tests: `npm test`
+    7. **Documentation:**
+       - Update `docs/API_RESPONSE_CASING_ANALYSIS.md` with implementation status
+       - Document the transformation utility usage
+       - Add guidelines for future API endpoint development
+  - **Benefits:**
+    - ✅ Consistent camelCase across entire frontend
+    - ✅ No manual field mapping needed
+    - ✅ Automatic inclusion of new backend fields
+    - ✅ Idiomatic JavaScript/TypeScript code
+    - ✅ Reduced maintenance burden
+  - **Estimated Effort:** 1-2 days
+  - **Priority:** Medium (improves maintainability and prevents future bugs)
+
 #### Design Decisions and Future Enhancements
 
 **Current Implementation:**

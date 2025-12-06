@@ -67,6 +67,7 @@ interface Post {
   heartsCount: number
   isHearted: boolean
   reactionsCount: number
+  commentsCount: number
   currentUserReaction?: string
 }
 
