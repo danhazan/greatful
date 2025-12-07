@@ -334,7 +334,7 @@ export default function CommentsModal({
             </div>
 
             {/* Comment Text */}
-            <div className="mt-1 bg-purple-50 rounded-full px-4 py-2 inline-block max-w-full">
+            <div className="mt-1 bg-purple-50 rounded-2xl px-5 py-3 inline-block max-w-full">
               <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
                 {comment.content}
               </p>
