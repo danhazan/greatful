@@ -1778,7 +1778,7 @@ Implement a simple, elegant commenting system for posts that follows existing pa
   - **Test Execution:** Run `npm test -- PostCard.test.tsx` to verify comments button integration
   - **Update Project Documentation:** Update docs/FRONTEND_COMPONENTS.md with PostCard comments button integration
 
-- [ ] **24.6 Implement Comment Reply Functionality**
+- [x] **24.6 Implement Comment Reply Functionality**
   - Add reply input field that appears when "Reply" button is clicked
   - Implement reply submission:
     - Send reply to `POST /api/v1/comments/{comment_id}/replies`

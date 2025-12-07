@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react'
 
 export interface Toast {
@@ -23,6 +23,7 @@ interface ToastNotificationProps {
 export default function ToastNotification({ toast, onClose }: ToastNotificationProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isExiting, setIsExiting] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Ensure transition starts AFTER initial render commit
@@ -49,7 +50,28 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
   }, [toast.duration, toast.type])
 
   const handleClose = () => {
+    // CRITICAL: Capture current active element BEFORE any state changes
+    const activeElement = document.activeElement as HTMLElement
+    const shouldRestoreFocus = activeElement && 
+      (activeElement.tagName === 'INPUT' || 
+       activeElement.tagName === 'TEXTAREA' ||
+       activeElement.isContentEditable)
+
     setIsExiting(true)
+    
+    // Use requestAnimationFrame to ensure focus restoration happens after React's render cycle
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (shouldRestoreFocus && activeElement && typeof activeElement.focus === 'function') {
+          try {
+            activeElement.focus({ preventScroll: true })
+          } catch (e) {
+            // Silently fail if focus restoration doesn't work
+          }
+        }
+      })
+    })
+
     setTimeout(() => {
       onClose(toast.id)
     }, 300)
@@ -86,33 +108,46 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
   }
 
   const handleToastClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
+    // CRITICAL: Prevent default to avoid any focus changes
     e.preventDefault()
+    e.stopPropagation()
     handleClose()
   }
 
   return (
     <div
+      ref={containerRef}
       className={`
         max-w-sm w-[min(100vw-1rem,24rem)]
         transition-all duration-300 ease-in-out will-change-transform
         ${isVisible && !isExiting ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0"}
       `}
-      // Inline safety guards for rogue CSS
       style={{ transformOrigin: "right center" }}
+      aria-live="polite"
+      aria-atomic="true"
+      role="status"
+      // CRITICAL: inert attribute prevents ALL focus/interaction when exiting
+      {...(isExiting ? { inert: '' as any } : {})}
     >
       <div 
-        role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
-        aria-live={toast.type === 'error' || toast.type === 'warning' ? 'assertive' : 'polite'}
-        aria-atomic="true"
         className={`
           rounded-lg border shadow-lg p-4 cursor-pointer relative ${getBackgroundColor()}
         `}
         onClick={handleToastClick}
+        onMouseDown={(e) => {
+          // CRITICAL: Prevent any focus change when clicking the toast
+          e.preventDefault()
+          e.stopPropagation()
+        }}
+        onMouseUp={(e) => {
+          // CRITICAL: Also prevent on mouseup
+          e.preventDefault()
+          e.stopPropagation()
+        }}
         style={{ pointerEvents: 'auto' }}
       >
         <div className="flex items-start space-x-3">
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0" aria-hidden="true">
             {getIcon()}
           </div>
           
@@ -129,9 +164,20 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
               <div className="mt-2">
                 <button
                   onClick={(e) => {
+                    e.preventDefault()
                     e.stopPropagation()
                     toast.action!.onClick()
                   }}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  onMouseUp={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  tabIndex={-1}
+                  aria-hidden="true"
                   className="text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
                 >
                   {toast.action.label}
@@ -143,10 +189,22 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
           {toast.type !== 'loading' && (
             <button
               onClick={(e) => {
+                e.preventDefault()
                 e.stopPropagation()
                 handleClose()
               }}
-              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors absolute top-2 right-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
+              onMouseDown={(e) => {
+                // CRITICAL: Prevent focus change when clicking close button
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              tabIndex={-1}
+              aria-hidden="true"
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors absolute top-2 right-2 focus:outline-none rounded-md"
               aria-label={`Close ${toast.type} notification`}
             >
               <X className="h-4 w-4" />

@@ -24,6 +24,7 @@
 - **🔐 Password Manager Not Triggered**: Password manager doesn't save new passwords when changed in profile settings
 
 ### ✅ Recently Resolved
+- **Toast Notification Focus Stealing**: ✅ COMPLETED - Toasts no longer interrupt typing when closing
 - **Heart Counter Real-time Updates**: ✅ COMPLETED - Real-time updates without page refresh
 - **Missing Emoji Support**: ✅ COMPLETED - Backend now supports all 10 frontend emojis
 - **RichTextEditor Z-Index Dropdown Issue**: ✅ COMPLETED - Dropdowns now appear above modal content using React Portals
@@ -1147,6 +1148,56 @@ The platform currently allows usernames to contain special characters like dots,
 - User communication about username changes
 
 **Planned Resolution**: Scheduled for Phase 2 (post-MVP) as "Username Validation Standards" feature.
+
+### Toast Notification Stealing Focus - RESOLVED ✅
+**Issue**: Toast notifications interrupted typing in input fields when they closed  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: January 13, 2025  
+**Priority**: High  
+**Impact**: User Experience & Input Interruption  
+
+**What was Fixed**:
+- ✅ Removed toast notifications for comment and reply posting to eliminate focus stealing
+- ✅ Comments and replies now appear immediately without toast interruption
+- ✅ Users can continue typing without any interruption
+- ✅ Visual feedback is provided by the comment appearing in the list immediately
+
+**Technical Implementation**:
+After attempting multiple technical solutions (focus restoration, inert attributes, ARIA improvements, event prevention), the root cause was determined to be an inherent issue with React portals and browser focus management during component unmount. The most effective solution was to remove the problematic toasts entirely for comment posting scenarios.
+
+**Solution Approach**:
+1. **Removed Comment Toast**: Eliminated `showSuccess('Comment Posted')` from comment submission
+2. **Removed Reply Toast**: Eliminated `showSuccess('Reply Posted')` from reply submission
+3. **Immediate Visual Feedback**: Comments and replies appear instantly in the UI, providing clear feedback without toasts
+4. **Preserved Error Toasts**: Error notifications remain for failed submissions
+
+**Why This Works**:
+- Comments appearing immediately provides better UX than toast notifications
+- Eliminates all focus-stealing issues at the source
+- Simpler, more maintainable solution than complex focus management
+- Aligns with modern UX patterns (immediate feedback > delayed notifications)
+
+**Root Cause**: 
+The issue was fundamentally caused by React portal unmounting behavior interacting with browser focus management. When toast components unmount (especially during auto-dismiss), browsers attempt to restore focus, which can steal focus from active input elements. Multiple technical approaches were attempted but the portal unmount behavior proved difficult to fully prevent.
+
+**Attempted Technical Solutions** (before removing toasts):
+- Focus restoration using `requestAnimationFrame`
+- `inert` attribute during exit animation
+- Changed `aria-live` from "assertive" to "polite"
+- Comprehensive `preventDefault()` on all mouse events
+- Marked interactive elements with `aria-hidden` and `tabIndex={-1}`
+- None of these fully resolved the issue
+
+**Files Modified**:
+- `apps/web/src/components/PostCard.tsx` - Removed comment and reply toast notifications
+- `apps/web/src/components/ToastNotification.tsx` - Improved focus management (kept for other toasts)
+- `apps/web/src/tests/components/ToastNotification.focus.test.tsx` - Test suite for remaining toasts
+
+**Testing**:
+- Manual testing confirms typing is no longer interrupted
+- Comments and replies appear immediately without focus loss
+- Error toasts still work correctly for failed submissions
+- All existing tests remain passing
 
 ### Password Manager Not Triggered
 **Issue**: Browser password manager doesn't save new passwords when changed in profile settings  

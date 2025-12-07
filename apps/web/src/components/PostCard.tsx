@@ -509,7 +509,7 @@ export default function PostCard({
         commentsCount: newCount
       }))
 
-      showSuccess('Comment Posted', 'Your comment has been added.')
+      // Toast removed to prevent focus stealing from input fields
     } catch (error: any) {
       console.error('Failed to post comment:', error)
       showError('Failed to Post', error.message || 'Unable to post comment. Please try again.')
@@ -532,6 +532,17 @@ export default function PostCard({
         content
       }) as any
 
+      // Reload all comments to show the new reply (same pattern as regular comments)
+      // Use skipCache to ensure we get fresh data
+      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, { 
+        skipCache: true 
+      }) as any
+      console.log('PostCard: Reloaded comments after reply creation', {
+        commentsCount: updatedComments.length,
+        comments: updatedComments
+      })
+      setComments(updatedComments)
+
       // Update comment count in post (includes all comments + replies)
       const newCount = (currentPost.commentsCount || 0) + 1
       setCurrentPost(prev => ({
@@ -539,7 +550,7 @@ export default function PostCard({
         commentsCount: newCount
       }))
 
-      showSuccess('Reply Posted', 'Your reply has been added.')
+      // Toast removed to prevent focus stealing from input fields
     } catch (error: any) {
       console.error('Failed to post reply:', error)
       showError('Failed to Post', error.message || 'Unable to post reply. Please try again.')
@@ -555,7 +566,14 @@ export default function PostCard({
         return []
       }
 
-      const replies = await apiClient.get(`/comments/${commentId}/replies`) as any
+      // Use skipCache to ensure we get fresh replies after submission
+      const replies = await apiClient.get(`/comments/${commentId}/replies`, {
+        skipCache: true
+      }) as any
+      console.log('PostCard: Loaded replies for comment', {
+        commentId,
+        repliesCount: replies.length
+      })
       return replies
     } catch (error: any) {
       console.error('Failed to load replies:', error)

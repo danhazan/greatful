@@ -71,6 +71,7 @@ export default function CommentsModal({
       comments: comments
     })
     setLocalComments(comments)
+    // Don't clear expanded state or cache - keep the UI state intact
   }, [comments])
 
   // Prevent body scroll when modal is open
@@ -207,20 +208,26 @@ export default function CommentsModal({
       setReplyingTo(null)
       // Success message is shown by parent component
       
-      // Refresh replies for this comment
-      await loadReplies(commentId)
+      // Force refresh replies for this comment to show the new reply immediately
+      await loadReplies(commentId, true)
     } catch (error) {
       // Error is handled by parent component
     }
   }
 
-  const loadReplies = async (commentId: string) => {
-    if (loadingReplies.has(commentId)) return
+  const loadReplies = async (commentId: string, forceReload: boolean = false) => {
+    // Skip if already loading, unless force reload is requested
+    if (!forceReload && loadingReplies.has(commentId)) return
 
     setLoadingReplies(prev => new Set(prev).add(commentId))
     
     try {
       const replies = await onLoadReplies(commentId)
+      console.log('CommentsModal: Loaded replies', {
+        commentId,
+        repliesCount: replies.length,
+        replies
+      })
       setRepliesCache(prev => ({ ...prev, [commentId]: replies }))
       setExpandedComments(prev => new Set(prev).add(commentId))
     } catch (error) {
