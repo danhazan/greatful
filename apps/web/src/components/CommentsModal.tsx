@@ -53,6 +53,7 @@ export default function CommentsModal({
   const modalRef = useRef<HTMLDivElement>(null)
   const replyInputRef = useRef<HTMLTextAreaElement>(null)
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
+  const commentsContainerRef = useRef<HTMLDivElement>(null)
   const [commentText, setCommentText] = useState("")
   const [replyText, setReplyText] = useState("")
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
@@ -193,6 +194,13 @@ export default function CommentsModal({
       // The parent component also reloads comments, but we do it here too
       // to ensure immediate update in the modal
       // The useEffect will sync with parent's reload as well
+      
+      // Scroll to bottom to show the new comment
+      setTimeout(() => {
+        if (commentsContainerRef.current) {
+          commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight
+        }
+      }, 100)
     } catch (error) {
       // Error is handled by parent component
       console.error('CommentsModal: Comment submission failed', error)
@@ -210,6 +218,26 @@ export default function CommentsModal({
       
       // Force refresh replies for this comment to show the new reply immediately
       await loadReplies(commentId, true)
+      
+      // Scroll to the end of the replies section to show the new reply
+      setTimeout(() => {
+        const repliesSection = document.querySelector(`[data-replies-section="${commentId}"]`)
+        if (repliesSection && commentsContainerRef.current) {
+          // Scroll the replies section into view, then scroll a bit more to show the last reply
+          repliesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+          
+          // Additional scroll to ensure the last reply is visible
+          setTimeout(() => {
+            if (commentsContainerRef.current) {
+              const repliesSectionBottom = repliesSection.getBoundingClientRect().bottom
+              const containerBottom = commentsContainerRef.current.getBoundingClientRect().bottom
+              if (repliesSectionBottom > containerBottom) {
+                commentsContainerRef.current.scrollTop += (repliesSectionBottom - containerBottom + 20)
+              }
+            }
+          }, 100)
+        }
+      }, 150)
     } catch (error) {
       // Error is handled by parent component
     }
@@ -404,7 +432,12 @@ export default function CommentsModal({
 
         {/* Render Replies */}
         {isExpanded && replies.length > 0 && (
-          <div className="space-y-3 mt-3" role="list" aria-label="Replies">
+          <div 
+            className="space-y-3 mt-3" 
+            role="list" 
+            aria-label="Replies"
+            data-replies-section={comment.id}
+          >
             {replies.map(reply => renderComment(reply, true))}
           </div>
         )}
@@ -445,7 +478,11 @@ export default function CommentsModal({
           </div>
 
           {/* Content - Scrollable Comments List */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6" role="main">
+          <div 
+            ref={commentsContainerRef}
+            className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6" 
+            role="main"
+          >
             {localComments.length === 0 ? (
               <div className="text-center py-8" role="status" aria-label="No comments yet">
                 <div className="text-gray-400 text-4xl mb-4" aria-hidden="true">💬</div>
