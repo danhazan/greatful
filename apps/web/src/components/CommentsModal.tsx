@@ -334,9 +334,11 @@ export default function CommentsModal({
             </div>
 
             {/* Comment Text */}
-            <p className="text-sm text-gray-800 mt-1 whitespace-pre-wrap break-words">
-              {comment.content}
-            </p>
+            <div className="mt-1 bg-purple-50 rounded-full px-4 py-2 inline-block max-w-full">
+              <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                {comment.content}
+              </p>
+            </div>
 
             {/* Action Buttons */}
             <div className="flex items-center space-x-4 mt-2">
