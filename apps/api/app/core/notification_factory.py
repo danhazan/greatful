@@ -261,3 +261,85 @@ class NotificationFactory:
         except Exception as e:
             logger.error(f"Failed to create follow notification for user {followed_user_id}: {e}")
             return None
+    
+    async def create_comment_notification(
+        self,
+        post_author_id: int,
+        commenter_username: str,
+        commenter_id: int,
+        post_id: str,
+        comment_id: str
+    ) -> Optional[Any]:
+        """Create a comment notification with batching support."""
+        # Prevent self-notifications
+        if post_author_id == commenter_id:
+            logger.debug(f"Prevented self-notification for user {post_author_id}")
+            return None
+        
+        try:
+            # Create notification object for batching
+            from app.models.notification import Notification
+            notification = Notification(
+                user_id=post_author_id,
+                type='comment_on_post',
+                title='New Comment',
+                message='commented on your post',
+                data={
+                    'post_id': post_id,
+                    'comment_id': comment_id,
+                    'actor_user_id': str(commenter_id),
+                    'actor_username': commenter_username
+                }
+            )
+            
+            # Use generic batcher for comment notifications
+            result = await self.batcher.create_or_update_batch(notification)
+            
+            logger.info(f"Created comment_on_post notification for user {post_author_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to create comment_on_post notification for user {post_author_id}: {e}")
+            return None
+    
+    async def create_comment_reply_notification(
+        self,
+        comment_author_id: int,
+        replier_username: str,
+        replier_id: int,
+        post_id: str,
+        comment_id: str,
+        parent_comment_id: str
+    ) -> Optional[Any]:
+        """Create a comment reply notification with batching support."""
+        # Prevent self-notifications
+        if comment_author_id == replier_id:
+            logger.debug(f"Prevented self-notification for user {comment_author_id}")
+            return None
+        
+        try:
+            # Create notification object for batching
+            from app.models.notification import Notification
+            notification = Notification(
+                user_id=comment_author_id,
+                type='comment_reply',
+                title='New Reply',
+                message='replied to your comment',
+                data={
+                    'post_id': post_id,
+                    'comment_id': comment_id,
+                    'parent_comment_id': parent_comment_id,
+                    'actor_user_id': str(replier_id),
+                    'actor_username': replier_username
+                }
+            )
+            
+            # Use generic batcher for comment reply notifications
+            result = await self.batcher.create_or_update_batch(notification)
+            
+            logger.info(f"Created comment_reply notification for user {comment_author_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to create comment_reply notification for user {comment_author_id}: {e}")
+            return None

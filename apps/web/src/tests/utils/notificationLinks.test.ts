@@ -79,6 +79,40 @@ describe('notificationLinks utilities', () => {
       })
     })
 
+    it('should generate post link for comment_on_post notifications', () => {
+      const notification = {
+        type: 'comment_on_post',
+        postId: 'post-comment-123',
+        fromUser: { id: '1', name: 'commenter' },
+        isBatch: false
+      }
+
+      const result = generateNotificationLink(notification)
+
+      expect(result).toEqual({
+        type: 'post',
+        url: '/post/post-comment-123',
+        shouldCloseDropdown: true
+      })
+    })
+
+    it('should generate post link for comment_reply notifications', () => {
+      const notification = {
+        type: 'comment_reply',
+        postId: 'post-reply-456',
+        fromUser: { id: '1', name: 'replier' },
+        isBatch: false
+      }
+
+      const result = generateNotificationLink(notification)
+
+      expect(result).toEqual({
+        type: 'post',
+        url: '/post/post-reply-456',
+        shouldCloseDropdown: true
+      })
+    })
+
     it('should generate user profile link for follow notifications using follower_id', () => {
       const notification = {
         type: 'new_follower',

@@ -199,6 +199,12 @@ await factory.create_like_notification(post_author_id, liker_username, liker_id,
 
 # Follow notifications
 await factory.create_follow_notification(followed_user_id, follower_username, follower_id)
+
+# Comment notifications
+await factory.create_comment_notification(post_author_id, commenter_username, commenter_id, post_id, comment_id)
+
+# Comment reply notifications
+await factory.create_comment_reply_notification(comment_author_id, replier_username, replier_id, post_id, comment_id, parent_comment_id)
 ```
 
 **Advanced Notification Features**:
@@ -2602,6 +2608,153 @@ Authorization: Bearer <token>
 - **Length Validation**: Minimum and maximum query length enforcement
 - **Character Filtering**: Username format validation and special character handling
 - **Abuse Prevention**: Monitoring and throttling for excessive search patterns
+
+---
+
+## 💬 Comment System API Details
+
+### Comment System Overview
+
+The comment system provides a simple, elegant way for users to engage with posts through comments and replies. The system supports single-level nesting (comments and replies to comments) with automatic notification creation.
+
+### Comment Notification Types
+
+The comment system creates two types of notifications:
+
+#### 1. Comment on Post Notification (`comment_on_post`)
+**Trigger**: When a user comments on another user's post  
+**Recipient**: Post author  
+**Message Format**: "[Username] commented on your post"  
+**Behavior**:
+- Automatically created when comment is posted
+- Self-notifications prevented (commenting on own post)
+- Includes post_id and comment_id for navigation
+- Supports batching for multiple comments on same post
+
+**Notification Data Structure**:
+```json
+{
+  "type": "comment_on_post",
+  "title": "New Comment",
+  "message": "commented on your post",
+  "data": {
+    "post_id": "uuid",
+    "comment_id": "uuid",
+    "actor_user_id": "123",
+    "actor_username": "commenter_username"
+  }
+}
+```
+
+#### 2. Comment Reply Notification (`comment_reply`)
+**Trigger**: When a user replies to another user's comment  
+**Recipient**: Original comment author  
+**Message Format**: "[Username] replied to your comment"  
+**Behavior**:
+- Automatically created when reply is posted
+- Self-notifications prevented (replying to own comment)
+- Includes post_id, comment_id, and parent_comment_id for navigation
+- Supports batching for multiple replies to same comment
+
+**Notification Data Structure**:
+```json
+{
+  "type": "comment_reply",
+  "title": "New Reply",
+  "message": "replied to your comment",
+  "data": {
+    "post_id": "uuid",
+    "comment_id": "uuid",
+    "parent_comment_id": "uuid",
+    "actor_user_id": "123",
+    "actor_username": "replier_username"
+  }
+}
+```
+
+### Comment Notification Features
+
+#### Automatic Notification Creation
+- **Integrated with CommentService**: Notifications created automatically during comment/reply creation
+- **Error Resilience**: Notification failures don't break comment creation (try-except blocks)
+- **Self-Notification Prevention**: Built-in logic prevents users from notifying themselves
+- **Batching Support**: Designed to support future batching implementation
+
+#### Navigation and Linking
+- **Post Navigation**: Clicking notification navigates to the post
+- **Comment Highlighting**: Notification data includes comment_id for highlighting specific comment
+- **Modal Integration**: Can open comments modal directly from notification
+- **Deep Linking**: Full support for direct navigation to specific comments
+
+#### Future Enhancements (Post-MVP)
+- **Notification Batching**: Group multiple comments/replies into batch notifications
+- **Comment Editing**: Support for editing comments with notification updates
+- **Comment Reactions**: Allow reactions on comments with notifications
+- **Multi-level Threading**: Support for deeper comment nesting
+
+### Comment API Endpoints
+
+```
+POST   /api/v1/posts/{post_id}/comments           # Create comment on post
+POST   /api/v1/comments/{comment_id}/replies      # Create reply to comment
+GET    /api/v1/posts/{post_id}/comments           # Get all comments for post
+GET    /api/v1/comments/{comment_id}/replies      # Get replies for comment
+DELETE /api/v1/comments/{comment_id}              # Delete comment (owner only)
+```
+
+### Comment Service Integration
+
+**CommentService** (`apps/api/app/services/comment_service.py`):
+```python
+async def create_comment(
+    self,
+    post_id: str,
+    user_id: int,
+    content: str,
+    parent_comment_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create a new comment or reply with automatic notification creation.
+    
+    Notifications:
+    - Creates comment_on_post notification for post author (if not self)
+    - Creates comment_reply notification for comment author (if reply and not self)
+    - Uses NotificationFactory convenience methods
+    - Gracefully handles notification failures
+    """
+```
+
+**NotificationFactory Integration**:
+```python
+# Comment notification creation
+await factory.create_comment_notification(
+    post_author_id=post.author_id,
+    commenter_username=user.username,
+    commenter_id=user_id,
+    post_id=post_id,
+    comment_id=comment.id
+)
+
+# Reply notification creation
+await factory.create_comment_reply_notification(
+    comment_author_id=parent_comment.user_id,
+    replier_username=user.username,
+    replier_id=user_id,
+    post_id=post_id,
+    comment_id=comment.id,
+    parent_comment_id=parent_comment_id
+)
+```
+
+### Testing
+
+**Integration Tests** (`tests/integration/test_comment_notifications.py`):
+- Comment notification creation for post authors
+- Reply notification creation for comment authors
+- Self-notification prevention for both types
+- Notification failure resilience
+- Multiple comment notification handling
+- Correct notification data structure validation
 
 ---
 

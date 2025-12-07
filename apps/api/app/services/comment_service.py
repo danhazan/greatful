@@ -98,7 +98,7 @@ class CommentService(BaseService):
             + (f" (reply to {parent_comment_id})" if parent_comment_id else "")
         )
         
-        # Create notifications
+        # Create notifications using NotificationFactory convenience methods
         try:
             notification_factory = NotificationFactory(self.db)
             
@@ -107,40 +107,24 @@ class CommentService(BaseService):
                 parent_comment = await self.get_by_id(Comment, parent_comment_id)
                 if parent_comment and parent_comment.user_id != user_id:
                     # Don't notify if replying to own comment
-                    await notification_factory.create_notification(
-                        user_id=parent_comment.user_id,
-                        notification_type="comment_reply",
-                        title="New Reply",
-                        message="replied to your comment",
-                        data={
-                            "post_id": post_id,
-                            "comment_id": comment.id,
-                            "parent_comment_id": parent_comment_id,
-                            "username": user.username,
-                            "actor_user_id": str(user_id),
-                            "actor_username": user.username
-                        },
-                        prevent_self_notification=True,
-                        self_user_id=user_id
+                    await notification_factory.create_comment_reply_notification(
+                        comment_author_id=parent_comment.user_id,
+                        replier_username=user.username,
+                        replier_id=user_id,
+                        post_id=post_id,
+                        comment_id=comment.id,
+                        parent_comment_id=parent_comment_id
                     )
             else:
                 # This is a top-level comment - notify the post author
                 if post.author_id != user_id:
                     # Don't notify if commenting on own post
-                    await notification_factory.create_notification(
-                        user_id=post.author_id,
-                        notification_type="comment",
-                        title="New Comment",
-                        message="commented on your post",
-                        data={
-                            "post_id": post_id,
-                            "comment_id": comment.id,
-                            "username": user.username,
-                            "actor_user_id": str(user_id),
-                            "actor_username": user.username
-                        },
-                        prevent_self_notification=True,
-                        self_user_id=user_id
+                    await notification_factory.create_comment_notification(
+                        post_author_id=post.author_id,
+                        commenter_username=user.username,
+                        commenter_id=user_id,
+                        post_id=post_id,
+                        comment_id=comment.id
                     )
         except Exception as e:
             logger.error(f"Failed to create notification for comment: {e}")

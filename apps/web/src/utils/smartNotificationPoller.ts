@@ -41,6 +41,9 @@ class SmartNotificationPoller {
   private callbacks: NotificationCallback[] = []
   private errorCallbacks: ErrorCallback[] = []
   private userId: string | null = null
+  
+  // Store last notification state to persist across component remounts
+  private lastNotificationState: NotificationUpdate | null = null
 
   constructor(config?: Partial<PollingConfig>) {
     if (config) {
@@ -69,6 +72,18 @@ class SmartNotificationPoller {
 
     console.debug('🔔 Starting smart notification polling for user:', userId)
     
+    // If we have cached notification state, immediately notify callbacks
+    if (this.lastNotificationState) {
+      console.debug('📦 Restoring cached notification state')
+      this.callbacks.forEach(callback => {
+        try {
+          callback(this.lastNotificationState!)
+        } catch (error) {
+          console.error('Error in notification callback:', error)
+        }
+      })
+    }
+    
     // Initial fetch
     this.fetchNotifications()
     
@@ -91,6 +106,8 @@ class SmartNotificationPoller {
       clearTimeout(this.pollInterval)
       this.pollInterval = null
     }
+    
+    // Note: We intentionally keep lastNotificationState to restore on next start
   }
 
   /**
@@ -130,6 +147,13 @@ class SmartNotificationPoller {
     if (!this.userId) return
     
     await this.fetchNotifications()
+  }
+
+  /**
+   * Get cached notification state (useful for restoring state on component mount)
+   */
+  getCachedState(): NotificationUpdate | null {
+    return this.lastNotificationState
   }
 
   /**
@@ -201,6 +225,9 @@ class SmartNotificationPoller {
         unreadCount,
         timestamp: now
       }
+
+      // Store the notification state for persistence across component remounts
+      this.lastNotificationState = update
 
       // Notify all callbacks
       this.callbacks.forEach(callback => {

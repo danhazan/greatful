@@ -134,11 +134,14 @@ class TestCreateComment:
                 content="Great post!"
             )
             
-            # Verify notification was created for post author
-            mock_notification_factory.create_notification.assert_called_once()
-            call_args = mock_notification_factory.create_notification.call_args
-            assert call_args[1]["user_id"] == 2  # Post author ID
-            assert call_args[1]["notification_type"] == "comment"
+            # Verify notification was created for post author using new convenience method
+            mock_notification_factory.create_comment_notification.assert_called_once()
+            call_args = mock_notification_factory.create_comment_notification.call_args
+            # Check positional or keyword arguments
+            if call_args[0]:  # positional args
+                assert call_args[0][0] == 2  # post_author_id
+            else:  # keyword args
+                assert call_args[1]["post_author_id"] == 2
 
     @pytest.mark.asyncio
     async def test_create_comment_no_self_notification(self, comment_service, sample_user, sample_post):
@@ -166,7 +169,7 @@ class TestCreateComment:
             )
             
             # Verify no notification was created (self-notification prevented)
-            mock_notification_factory.create_notification.assert_not_called()
+            mock_notification_factory.create_comment_notification.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_create_reply_success(self, comment_service, sample_user, sample_post, sample_comment):
@@ -229,11 +232,14 @@ class TestCreateComment:
                 parent_comment_id="comment-123"
             )
             
-            # Verify notification was created for parent comment author
-            mock_notification_factory.create_notification.assert_called_once()
-            call_args = mock_notification_factory.create_notification.call_args
-            assert call_args[1]["user_id"] == 2  # Parent comment author ID
-            assert call_args[1]["notification_type"] == "comment_reply"
+            # Verify notification was created for parent comment author using new convenience method
+            mock_notification_factory.create_comment_reply_notification.assert_called_once()
+            call_args = mock_notification_factory.create_comment_reply_notification.call_args
+            # Check positional or keyword arguments
+            if call_args[0]:  # positional args
+                assert call_args[0][0] == 2  # comment_author_id
+            else:  # keyword args
+                assert call_args[1]["comment_author_id"] == 2
 
     @pytest.mark.asyncio
     async def test_create_reply_wrong_post(self, comment_service, sample_user, sample_post, sample_comment):

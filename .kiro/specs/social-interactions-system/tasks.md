@@ -1798,7 +1798,7 @@ Implement a simple, elegant commenting system for posts that follows existing pa
   - **Update Project Documentation:** Update docs/ARCHITECTURE_AND_SETUP.md with reply lazy loading strategy and performance considerations
 
 #### Notification Integration
-- [ ] **24.7 Integrate Comment Notifications**
+- [x] **24.7 Integrate Comment Notifications**
   - Add comment notification types to `NotificationFactory` (see `apps/api/app/core/notification_factory.py`):
     - `comment_on_post`: "[Username] commented on your post"
     - `comment_reply`: "[Username] replied to your comment"

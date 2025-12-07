@@ -26,8 +26,8 @@ export function generateNotificationLink(notification: {
     return null
   }
 
-  // For post-related notifications (reactions, mentions, shares, likes), link to post
-  if (notification.postId && ['reaction', 'emoji_reaction', 'mention', 'post_shared', 'share', 'like'].includes(notification.type)) {
+  // For post-related notifications (reactions, mentions, shares, likes, comments), link to post
+  if (notification.postId && ['reaction', 'emoji_reaction', 'mention', 'post_shared', 'share', 'like', 'comment_on_post', 'comment_reply'].includes(notification.type)) {
     return {
       type: 'post',
       url: `/post/${notification.postId}`,
