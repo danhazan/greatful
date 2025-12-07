@@ -3,25 +3,7 @@
  */
 
 import { SmartNotificationPoller } from '@/utils/smartNotificationPoller'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { expect } from '@jest/globals'
-import { it } from '@jest/globals'
-import { afterEach } from '@jest/globals'
-import { beforeEach } from '@jest/globals'
-import { describe } from '@jest/globals'
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 
 describe('SmartNotificationPoller - Notification Persistence', () => {
   let poller: SmartNotificationPoller
