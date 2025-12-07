@@ -76,6 +76,7 @@ describe('CommentsModal', () => {
     onClose: jest.fn(),
     postId: 'post-1',
     comments: mockComments,
+    totalCommentsCount: 2,
     onCommentSubmit: jest.fn().mockResolvedValue(undefined),
     onReplySubmit: jest.fn().mockResolvedValue(undefined),
     onLoadReplies: jest.fn().mockResolvedValue(mockReplies),
@@ -224,15 +225,15 @@ describe('CommentsModal', () => {
     
     expect(screen.getByPlaceholderText(/Reply to Test User.../i)).toBeInTheDocument()
     
-    // Click cancel
-    const cancelButton = screen.getByRole('button', { name: /Cancel reply/i })
-    fireEvent.click(cancelButton)
+    // Click hide button (which acts as cancel)
+    const hideButton = screen.getByRole('button', { name: /Hide reply input/i })
+    fireEvent.click(hideButton)
     
     expect(screen.queryByPlaceholderText(/Reply to Test User.../i)).not.toBeInTheDocument()
   })
 
   it('shows empty state when no comments', () => {
-    renderWithToast(<CommentsModal {...defaultProps} comments={[]} />)
+    renderWithToast(<CommentsModal {...defaultProps} comments={[]} totalCommentsCount={0} />)
     
     expect(screen.getByText('No comments yet')).toBeInTheDocument()
     expect(screen.getByText('Be the first to comment!')).toBeInTheDocument()
@@ -259,7 +260,9 @@ describe('CommentsModal', () => {
   it('shows loading state when submitting comment', () => {
     renderWithToast(<CommentsModal {...defaultProps} isSubmitting={true} />)
     
-    expect(screen.getByText('Posting...')).toBeInTheDocument()
+    // Check that submit button is disabled during submission
+    const submitButton = screen.getByRole('button', { name: /Post comment/i })
+    expect(submitButton).toBeDisabled()
   })
 
   it('displays usernames with @ prefix', () => {
@@ -314,10 +317,11 @@ describe('CommentsModal', () => {
     expect(focusableElements.length).toBeGreaterThan(0)
   })
 
-  it('displays emoji support message', () => {
+  it('supports emoji in comments', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
-    expect(screen.getByText('Emojis are supported! 😊')).toBeInTheDocument()
+    // Check that emoji is displayed in comment content
+    expect(screen.getByText(/😊/)).toBeInTheDocument()
   })
 
   it('indents replies visually', async () => {

@@ -2540,8 +2540,537 @@ The old notification testing patterns are deprecated but kept for reference:
 ---
 
 *For complete examples, see the test files in `apps/api/tests/unit/test_notification_factory.py` and `apps/web/src/tests/utils/notificationUserResolver.test.ts`*
-## Mob
-ile Testing Guidelines
+
+## Comment System Testing Patterns
+
+### Overview
+
+The comment system supports single-level nesting (comments and replies), emoji support, lazy loading of replies, and comprehensive notification integration. Testing patterns ensure proper validation, permission checks, and performance optimization.
+
+### Backend Testing
+
+#### Unit Tests (`apps/api/tests/unit/test_comment_service.py`)
+
+**Comment Creation Tests**:
+```python
+async def test_create_comment_success(comment_service, sample_user, sample_post):
+    """Test successful comment creation with validation."""
+    result = await comment_service.create_comment(
+        post_id="post-123",
+        user_id=1,
+        content="Great post! 😊"
+    )
+    
+    assert result["content"] == "Great post! 😊"
+    assert result["post_id"] == "post-123"
+    assert result["is_reply"] is False
+    assert result["user"]["username"] == "testuser"
+```
+
+**Reply Creation Tests**:
+```python
+async def test_create_reply_success(comment_service, sample_comment):
+    """Test successful reply creation with parent validation."""
+    result = await comment_service.create_comment(
+        post_id="post-123",
+        user_id=1,
+        content="Great comment!",
+        parent_comment_id="comment-123"
+    )
+    
+    assert result["parent_comment_id"] == "comment-123"
+    assert result["is_reply"] is True
+```
+
+**Single-Level Nesting Enforcement**:
+```python
+async def test_create_reply_to_reply_fails(comment_service):
+    """Test that replies to replies are prevented."""
+    parent_reply = Comment(
+        id="reply-123",
+        post_id="post-123",
+        user_id=1,
+        parent_comment_id="comment-original",  # This is already a reply
+        content="This is a reply"
+    )
+    
+    with pytest.raises(ValidationException) as exc_info:
+        await comment_service.create_comment(
+            post_id="post-123",
+            user_id=1,
+            content="Reply to reply",
+            parent_comment_id="reply-123"  # Trying to reply to a reply
+        )
+    
+    assert "single-level nesting" in str(exc_info.value).lower()
+```
+
+**Emoji Support Tests**:
+```python
+async def test_create_comment_with_emoji(comment_service):
+    """Test comment creation with emoji support."""
+    result = await comment_service.create_comment(
+        post_id="post-123",
+        user_id=1,
+        content="Love this! 💜🙏✨"
+    )
+    
+    assert "💜" in result["content"]
+    assert "🙏" in result["content"]
+    assert "✨" in result["content"]
+```
+
+**Validation Tests**:
+```python
+async def test_create_comment_content_too_long(comment_service):
+    """Test that content exceeding 500 characters is rejected."""
+    long_content = "x" * 501
+    
+    with pytest.raises(ValidationException):
+        await comment_service.create_comment(
+            post_id="post-123",
+            user_id=1,
+            content=long_content
+        )
+```
+
+**Notification Tests**:
+```python
+async def test_comment_notifies_post_author(comment_service):
+    """Test that post author receives notification for new comment."""
+    # Create comment by different user
+    await comment_service.create_comment(
+        post_id="post-123",
+        user_id=1,  # Commenter
+        content="Great post!"
+    )
+    
+    # Verify notification was created for post author (user_id=2)
+    mock_notification_factory.create_comment_notification.assert_called_once()
+```
+
+**Permission Tests**:
+```python
+async def test_delete_comment_not_owner(comment_service):
+    """Test that non-owner cannot delete comment."""
+    with pytest.raises(PermissionDeniedError) as exc_info:
+        await comment_service.delete_comment("comment-123", user_id=999)
+    
+    assert "Cannot delete other user's comment" in str(exc_info.value)
+```
+
+#### Integration Tests (`apps/api/tests/integration/test_comments_api.py`)
+
+**API Endpoint Tests**:
+```python
+async def test_create_comment_success(async_client, test_post, auth_headers):
+    """Test complete comment creation workflow (API → Service → Database)."""
+    response = await async_client.post(
+        f"/api/v1/posts/{test_post.id}/comments",
+        json={"content": "Great post! 😊"},
+        headers=auth_headers
+    )
+    
+    assert response.status_code == 201
+    data = response.json()["data"]
+    assert data["content"] == "Great post! 😊"
+    assert data["is_reply"] is False
+    assert data["reply_count"] == 0
+```
+
+**Lazy Loading Tests**:
+```python
+async def test_get_comments_excludes_replies_by_default(async_client, test_post, auth_headers):
+    """Test that replies are not included by default (performance optimization)."""
+    # Create parent comment and reply
+    parent_comment = await create_comment(test_post.id, "Parent comment")
+    reply = await create_reply(parent_comment.id, "Reply")
+    
+    response = await async_client.get(
+        f"/api/v1/posts/{test_post.id}/comments",
+        headers=auth_headers
+    )
+    
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert len(data) == 1  # Only parent comment
+    assert data[0]["replies"] == []  # Replies not loaded
+    assert data[0]["reply_count"] == 1  # But count is available
+```
+
+**Cascade Deletion Tests**:
+```python
+async def test_delete_comment_cascades_to_replies(async_client, db_session, test_post, auth_headers):
+    """Test that deleting a comment also deletes its replies (cascade)."""
+    # Create parent comment with reply
+    parent_comment = await create_comment(test_post.id, "Parent")
+    reply = await create_reply(parent_comment.id, "Reply")
+    
+    # Delete parent comment
+    response = await async_client.delete(
+        f"/api/v1/comments/{parent_comment.id}",
+        headers=auth_headers
+    )
+    
+    assert response.status_code == 200
+    
+    # Verify all comments are deleted (cascade)
+    count = await db_session.execute(
+        select(func.count(Comment.id)).where(Comment.post_id == test_post.id)
+    )
+    assert count.scalar() == 0
+```
+
+#### Notification Integration Tests (`apps/api/tests/integration/test_comment_notifications.py`)
+
+**Comment Notification Tests**:
+```python
+async def test_comment_creates_notification_for_post_author(async_client, db_session, test_post, another_user, another_auth_headers):
+    """Test that commenting on a post creates a notification for the post author."""
+    response = await async_client.post(
+        f"/api/v1/posts/{test_post.id}/comments",
+        json={"content": "Great post! 😊"},
+        headers=another_auth_headers
+    )
+    
+    assert response.status_code == 201
+    
+    # Check notification was created
+    notification = await db_session.execute(
+        select(Notification).where(
+            Notification.user_id == test_post.author_id,
+            Notification.type == "comment_on_post"
+        )
+    )
+    notification = notification.scalar_one_or_none()
+    
+    assert notification is not None
+    assert notification.data["post_id"] == test_post.id
+    assert notification.data["actor_username"] == "anotheruser"
+```
+
+**Reply Notification Tests**:
+```python
+async def test_reply_creates_notification_for_comment_author(async_client, db_session, test_comment, another_user, another_auth_headers):
+    """Test that replying to a comment creates a notification for the comment author."""
+    response = await async_client.post(
+        f"/api/v1/comments/{test_comment.id}/replies",
+        json={"content": "Great point! 👍"},
+        headers=another_auth_headers
+    )
+    
+    assert response.status_code == 201
+    
+    # Check notification was created
+    notification = await db_session.execute(
+        select(Notification).where(
+            Notification.user_id == test_comment.user_id,
+            Notification.type == "comment_reply"
+        )
+    )
+    notification = notification.scalar_one_or_none()
+    
+    assert notification is not None
+    assert notification.data["parent_comment_id"] == test_comment.id
+```
+
+**Self-Notification Prevention**:
+```python
+async def test_comment_no_self_notification(async_client, db_session, test_post, auth_headers):
+    """Test that commenting on own post does not create a notification."""
+    response = await async_client.post(
+        f"/api/v1/posts/{test_post.id}/comments",
+        json={"content": "Commenting on my own post"},
+        headers=auth_headers
+    )
+    
+    assert response.status_code == 201
+    
+    # Verify no notification was created
+    notification = await db_session.execute(
+        select(Notification).where(
+            Notification.user_id == test_post.author_id,
+            Notification.type == "comment_on_post"
+        )
+    )
+    assert notification.scalar_one_or_none() is None
+```
+
+### Frontend Testing
+
+#### Component Tests (`apps/web/src/tests/components/CommentsModal.test.tsx`)
+
+**Modal Rendering Tests**:
+```typescript
+it('renders modal when open', () => {
+  renderWithToast(<CommentsModal {...defaultProps} />)
+  
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  expect(screen.getByText('Comments (2)')).toBeInTheDocument()
+})
+```
+
+**Comment Display Tests**:
+```typescript
+it('displays comments with user information', () => {
+  renderWithToast(<CommentsModal {...defaultProps} />)
+  
+  expect(screen.getByText('This is a great post! 😊')).toBeInTheDocument()
+  expect(screen.getByText('Test User')).toBeInTheDocument()
+  expect(screen.getByText('@testuser')).toBeInTheDocument()
+})
+```
+
+**Lazy Loading Tests**:
+```typescript
+it('loads and displays replies when clicking show replies button', async () => {
+  renderWithToast(<CommentsModal {...defaultProps} />)
+  
+  const showRepliesButton = screen.getByText(/Show 2 replies/i)
+  fireEvent.click(showRepliesButton)
+  
+  await waitFor(() => {
+    expect(defaultProps.onLoadReplies).toHaveBeenCalledWith('1')
+  })
+  
+  await waitFor(() => {
+    expect(screen.getByText('Thanks for sharing!')).toBeInTheDocument()
+  })
+})
+```
+
+**Comment Submission Tests**:
+```typescript
+it('allows user to add a comment', async () => {
+  renderWithToast(<CommentsModal {...defaultProps} />)
+  
+  const textarea = screen.getByPlaceholderText('Add a comment...')
+  const submitButton = screen.getByRole('button', { name: /Post comment/i })
+  
+  fireEvent.change(textarea, { target: { value: 'New comment text' } })
+  fireEvent.click(submitButton)
+  
+  await waitFor(() => {
+    expect(defaultProps.onCommentSubmit).toHaveBeenCalledWith('New comment text')
+  })
+})
+```
+
+**Reply Submission Tests**:
+```typescript
+it('allows user to submit a reply', async () => {
+  renderWithToast(<CommentsModal {...defaultProps} />)
+  
+  // Click reply button
+  const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
+  fireEvent.click(replyButtons[0])
+  
+  // Enter reply text
+  const replyTextarea = screen.getByPlaceholderText(/Reply to Test User.../i)
+  fireEvent.change(replyTextarea, { target: { value: 'This is a reply' } })
+  
+  // Submit reply
+  const submitReplyButton = screen.getByRole('button', { name: /Submit reply/i })
+  fireEvent.click(submitReplyButton)
+  
+  await waitFor(() => {
+    expect(defaultProps.onReplySubmit).toHaveBeenCalledWith('1', 'This is a reply')
+  })
+})
+```
+
+**Character Limit Tests**:
+```typescript
+it('enforces maximum character limit', () => {
+  renderWithToast(<CommentsModal {...defaultProps} />)
+  
+  const textarea = screen.getByPlaceholderText('Add a comment...') as HTMLTextAreaElement
+  const longText = 'a'.repeat(600)
+  
+  fireEvent.change(textarea, { target: { value: longText } })
+  
+  expect(textarea.value.length).toBe(500)
+  expect(screen.getByText('500/500')).toBeInTheDocument()
+})
+```
+
+**Accessibility Tests**:
+```typescript
+it('has proper ARIA labels for accessibility', () => {
+  renderWithToast(<CommentsModal {...defaultProps} />)
+  
+  expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true')
+  expect(screen.getByRole('dialog')).toHaveAttribute('aria-labelledby', 'comments-modal-title')
+  expect(screen.getByLabelText('Add a comment')).toBeInTheDocument()
+})
+```
+
+**Mobile Touch Target Tests**:
+```typescript
+it('has minimum touch target size for mobile', () => {
+  renderWithToast(<CommentsModal {...defaultProps} />)
+  
+  const buttons = screen.getAllByRole('button').filter(el => el.tagName === 'BUTTON')
+  
+  // At least some buttons should have minimum touch target size (44px)
+  const buttonsWithMinHeight = buttons.filter(button => 
+    button.className.includes('min-h-[44px]') || button.className.includes('min-h-0')
+  )
+  
+  expect(buttonsWithMinHeight.length).toBeGreaterThan(0)
+})
+```
+
+### Performance Testing
+
+**Large Comment Section Tests**:
+```python
+async def test_get_comments_performance_with_large_dataset(async_client, test_post, auth_headers):
+    """Test performance with large comment sections (lazy loading optimization)."""
+    # Create 100 comments with 10 replies each
+    for i in range(100):
+        comment = await create_comment(test_post.id, f"Comment {i}")
+        for j in range(10):
+            await create_reply(comment.id, f"Reply {j}")
+    
+    # Measure response time for getting comments (should not load replies)
+    import time
+    start = time.time()
+    
+    response = await async_client.get(
+        f"/api/v1/posts/{test_post.id}/comments",
+        headers=auth_headers
+    )
+    
+    elapsed = time.time() - start
+    
+    assert response.status_code == 200
+    assert elapsed < 1.0  # Should be fast due to lazy loading
+    assert len(response.json()["data"]) == 100
+    # Replies not loaded, only counts available
+```
+
+### Testing Best Practices
+
+#### Comment System Testing Checklist
+
+**Backend Tests**:
+- [ ] Comment creation with validation (length, content)
+- [ ] Reply creation with parent validation
+- [ ] Single-level nesting enforcement
+- [ ] Emoji support in comment content
+- [ ] Comment deletion with permission checks
+- [ ] Cascade deletion of replies
+- [ ] Notification creation for comments and replies
+- [ ] Self-notification prevention
+- [ ] Lazy loading of replies (performance)
+- [ ] Comment count accuracy
+
+**Frontend Tests**:
+- [ ] Modal rendering and closing
+- [ ] Comment display with user information
+- [ ] Reply display with indentation
+- [ ] Comment submission with validation
+- [ ] Reply submission with parent reference
+- [ ] Character counter functionality
+- [ ] Lazy loading of replies (expand/collapse)
+- [ ] Empty state display
+- [ ] Loading states during submission
+- [ ] Accessibility (ARIA labels, keyboard navigation)
+- [ ] Mobile responsiveness (touch targets, viewport)
+
+**Integration Tests**:
+- [ ] Complete comment creation workflow (API → Service → Database)
+- [ ] Complete reply creation workflow
+- [ ] Notification delivery end-to-end
+- [ ] Permission checks across API boundaries
+- [ ] Error handling and user feedback
+
+### Common Testing Patterns
+
+**Setup Test Data**:
+```python
+@pytest.fixture
+async def test_comment(db_session, test_post, test_user):
+    """Create a test comment for testing."""
+    comment = Comment(
+        post_id=test_post.id,
+        user_id=test_user.id,
+        content="Test comment"
+    )
+    db_session.add(comment)
+    await db_session.commit()
+    await db_session.refresh(comment)
+    return comment
+```
+
+**Mock Comment Props**:
+```typescript
+const mockComments = [
+  {
+    id: '1',
+    post_id: 'post-1',
+    user_id: 1,
+    content: 'This is a great post! 😊',
+    created_at: new Date().toISOString(),
+    user: {
+      id: 1,
+      username: 'testuser',
+      display_name: 'Test User',
+      profile_image_url: null
+    },
+    is_reply: false,
+    reply_count: 2
+  }
+]
+```
+
+**Test Helpers**:
+```python
+async def create_comment(post_id: str, content: str, user_id: int = 1) -> Comment:
+    """Helper to create test comments."""
+    comment = Comment(post_id=post_id, user_id=user_id, content=content)
+    db_session.add(comment)
+    await db_session.commit()
+    await db_session.refresh(comment)
+    return comment
+
+async def create_reply(parent_id: str, content: str, user_id: int = 1) -> Comment:
+    """Helper to create test replies."""
+    reply = Comment(
+        post_id=parent.post_id,
+        user_id=user_id,
+        content=content,
+        parent_comment_id=parent_id
+    )
+    db_session.add(reply)
+    await db_session.commit()
+    await db_session.refresh(reply)
+    return reply
+```
+
+### Debugging Comment Tests
+
+**Common Issues**:
+
+1. **Notification Not Created**: Check that user IDs are different (self-notification prevention)
+2. **Reply Count Mismatch**: Verify lazy loading is working correctly
+3. **Cascade Deletion Fails**: Check database foreign key constraints
+4. **Character Limit Not Enforced**: Verify validation is called before database insert
+5. **Modal Not Rendering**: Check that `totalCommentsCount` prop is provided
+
+**Debug Logging**:
+```python
+# Add to CommentService for debugging
+logger.info(f"Creating comment: post_id={post_id}, user_id={user_id}, content_length={len(content)}")
+logger.info(f"Notification created: type={notification.type}, recipient={notification.user_id}")
+```
+
+---
+
+*For complete examples, see test files in `apps/api/tests/unit/test_comment_service.py`, `apps/api/tests/integration/test_comments_api.py`, `apps/api/tests/integration/test_comment_notifications.py`, and `apps/web/src/tests/components/CommentsModal.test.tsx`*
+
+## Mobile Testing Guidelines
 
 ### Mobile Testing Strategy
 
