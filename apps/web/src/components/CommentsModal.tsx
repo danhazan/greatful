@@ -329,12 +329,12 @@ export default function CommentsModal({
                 @{comment.user.username}
               </span>
               <span className="text-gray-400 text-xs">
-                {formatTimeAgo(comment.created_at)}
+                {formatTimeAgo(comment.created_at || (comment as any).createdAt)}
               </span>
             </div>
 
             {/* Comment Text */}
-            <div className="mt-1 bg-purple-50 rounded-2xl px-5 py-3 inline-block max-w-full">
+            <div className="mt-1 bg-purple-50 rounded-2xl px-3 py-2 sm:px-5 sm:py-3 inline-block max-w-full">
               <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
                 {comment.content}
               </p>
@@ -403,11 +403,11 @@ export default function CommentsModal({
                       e.target.style.height = e.target.scrollHeight + 'px'
                     }}
                     placeholder={`Reply to ${comment.user.display_name || comment.user.username}...`}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm overflow-hidden"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm overflow-hidden text-gray-900 bg-white"
                     rows={1}
                     maxLength={MAX_CHARS}
                     aria-label={`Reply to ${comment.user.display_name || comment.user.username}`}
-                    style={{ minHeight: '40px', maxHeight: '200px' }}
+                    style={{ minHeight: '40px', maxHeight: '200px', WebkitTextFillColor: '#111827' }}
                   />
                   {/* Reply Button inside textarea */}
                   <button
@@ -516,12 +516,12 @@ export default function CommentsModal({
                   e.target.style.height = e.target.scrollHeight + 'px'
                 }}
                 placeholder="Add a comment..."
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden"
+                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden text-gray-900 bg-white"
                 rows={1}
                 maxLength={MAX_CHARS}
                 aria-label="Add a comment"
                 aria-describedby="comment-char-count"
-                style={{ minHeight: '44px', maxHeight: '200px' }}
+                style={{ minHeight: '44px', maxHeight: '200px', WebkitTextFillColor: '#111827' }}
               />
               {/* Send Button inside textarea */}
               <button

@@ -2,7 +2,18 @@
  * Format a date as time ago (e.g., "2m", "1h", "3d", "5w", "7m", "1y")
  */
 export function formatTimeAgo(dateString: string): string {
+  if (!dateString) {
+    return 'just now'
+  }
+  
   const date = new Date(dateString)
+  
+  // Check if date is invalid
+  if (isNaN(date.getTime())) {
+    console.warn('Invalid date string provided to formatTimeAgo:', dateString)
+    return 'just now'
+  }
+  
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
 

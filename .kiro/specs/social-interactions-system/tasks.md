@@ -1882,6 +1882,74 @@ Implement a simple, elegant commenting system for posts that follows existing pa
   - **Estimated Effort:** 1-2 days
   - **Priority:** Medium (improves maintainability and prevents future bugs)
 
+- [ ] **24.10 Comment Editing and Deletion System**
+  - **Objective:** Allow users to edit and delete their own comments and reply comments with proper authorization and UI feedback
+  - **Reference:** Requirements 4 - Comment System (Enhanced Management)
+  - **Implementation Steps:**
+    1. **Backend API Endpoints:**
+       - Create `PUT /api/v1/comments/{comment_id}` endpoint for editing comments
+       - Create `DELETE /api/v1/comments/{comment_id}` endpoint for deleting comments
+       - Implement authorization checks: only comment author can edit/delete their own comments
+       - Add validation for edit content (same rules as comment creation: 500 char limit, no empty comments)
+       - Handle reply comment deletion: when parent comment is deleted, mark replies as orphaned or cascade delete
+       - Update CommentService with `update_comment()` and `delete_comment()` methods
+       - Add proper error handling for unauthorized access, not found, and validation errors
+    2. **Database Schema Updates:**
+       - Add `edited_at` timestamp field to Comment model (nullable, set on edit)
+       - Add `is_edited` boolean flag to Comment model (default: false)
+       - Create database migration for new fields
+       - Update comment serialization to include edit metadata
+    3. **Frontend Comment Management UI:**
+       - Add three-dot menu (⋮) to each comment card for comment author only
+       - Implement dropdown menu with "Edit" and "Delete" options
+       - Create inline edit mode: replace comment text with textarea when editing
+       - Add "Save" and "Cancel" buttons for edit mode
+       - Show "(edited)" indicator next to timestamp for edited comments
+       - Add confirmation dialog for comment deletion: "Are you sure you want to delete this comment?"
+       - Implement optimistic updates for edit/delete with rollback on failure
+    4. **Reply Comment Handling:**
+       - Apply same edit/delete functionality to reply comments
+       - When parent comment is deleted, handle reply display appropriately:
+         - Option A: Show "[Comment deleted]" placeholder with replies intact
+         - Option B: Cascade delete all replies (simpler, recommended for MVP)
+       - Update reply count when comments are deleted
+       - Ensure reply expansion/collapse still works after parent deletion
+    5. **API Integration:**
+       - Create `updateComment(commentId, content)` function in comment API utilities
+       - Create `deleteComment(commentId)` function in comment API utilities
+       - Update CommentModal component to handle edit/delete actions
+       - Add loading states during edit/delete operations
+       - Implement error handling with user-friendly toast messages
+    6. **Testing:**
+       - Write backend tests for edit/delete authorization (only author can modify)
+       - Test edit validation (character limits, empty content rejection)
+       - Test delete cascading behavior for parent comments with replies
+       - Write frontend tests for edit mode UI and inline editing
+       - Test confirmation dialog and optimistic updates
+       - Test edit/delete on both regular comments and reply comments
+       - Run full test suite: `pytest -v` (backend) and `npm test` (frontend)
+    7. **Documentation:**
+       - Update `docs/BACKEND_API_DOCUMENTATION.md` with edit/delete endpoints
+       - Document comment management workflows in `docs/ARCHITECTURE_AND_SETUP.md`
+       - Add comment edit/delete patterns to `docs/TEST_GUIDELINES.md`
+  - **Benefits:**
+    - ✅ Users can correct mistakes in their comments
+    - ✅ Users can remove unwanted comments
+    - ✅ Proper authorization prevents unauthorized modifications
+    - ✅ Edit history is tracked with timestamps
+    - ✅ Consistent with social media best practices
+  - **Estimated Effort:** 2-3 days
+  - **Priority:** High (essential for comment system completeness)
+  - **Acceptance Criteria:**
+    - Users can edit their own comments with inline editing UI
+    - Users can delete their own comments with confirmation dialog
+    - Edit/delete functionality works for both regular comments and replies
+    - Only comment authors can edit/delete their comments (authorization enforced)
+    - Edited comments show "(edited)" indicator with timestamp
+    - Deleted parent comments handle replies appropriately (cascade or placeholder)
+    - All operations have proper loading states and error handling
+    - Comprehensive tests cover authorization, validation, and UI interactions
+
 #### Design Decisions and Future Enhancements
 
 **Current Implementation:**
