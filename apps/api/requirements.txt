@@ -17,3 +17,8 @@ email_validator==2.2.0
 requests==2.32.4
 typing_extensions==4.14.1
 Pillow==10.1.0
+itsdangerous==2.1.2
+bleach==6.1.0
+httpx==0.25.2
+imagehash==4.3.1
+aiohttp==3.9.1
