@@ -1,47 +1,35 @@
 /**
  * Utility to normalize API post responses to frontend Post interface
- * Handles snake_case to camelCase conversion and response wrappers
+ * Note: API responses are now automatically transformed to camelCase by the API layer
+ * This utility primarily handles response wrappers and provides type safety
  */
 
 export interface ApiPost {
   id: string
-  author_id?: number
+  authorId?: number
   content: string
-  post_style?: any
   postStyle?: any
-  post_type?: string
   postType?: string
-  image_url?: string
   imageUrl?: string
   location?: string
-  location_data?: any
   locationData?: any
-  created_at?: string
   createdAt?: string
-  updated_at?: string
   updatedAt?: string
-  hearts_count?: number
   heartsCount?: number
-  is_hearted?: boolean
   isHearted?: boolean
-  reactions_count?: number
   reactionsCount?: number
-  comments_count?: number
   commentsCount?: number
-  current_user_reaction?: string
   currentUserReaction?: string
-  is_read?: boolean
   isRead?: boolean
-  is_unread?: boolean
   isUnread?: boolean
   author?: {
     id: string | number
-    user_id?: string | number
+    userId?: string | number
     name?: string
     username?: string
-    display_name?: string
+    displayName?: string
     image?: string
-    profile_image_url?: string
+    profileImageUrl?: string
   }
 }
 
@@ -74,6 +62,7 @@ export interface NormalizedPost {
 /**
  * Normalizes API post response to frontend Post interface
  * Handles both direct post objects and wrapped responses ({ data: ... })
+ * Note: API responses are now automatically transformed to camelCase
  */
 export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
   if (!apiResponse) return null
@@ -88,32 +77,31 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
   return {
     id: String(post.id),
     content: post.content ?? "",
-    postStyle: post.post_style ?? post.postStyle ?? undefined,
+    postStyle: post.postStyle ?? undefined,
     
-    // Map backend snake_case to frontend camelCase
-    createdAt: post.created_at ?? post.createdAt ?? new Date().toISOString(),
-    updatedAt: post.updated_at ?? post.updatedAt ?? undefined,
+    // All fields are now in camelCase from API
+    createdAt: post.createdAt ?? new Date().toISOString(),
+    updatedAt: post.updatedAt ?? undefined,
     
-    postType: (post.post_type ?? post.postType ?? "spontaneous") as "daily" | "photo" | "spontaneous",
-    imageUrl: post.image_url ?? post.imageUrl ?? undefined,
+    postType: (post.postType ?? "spontaneous") as "daily" | "photo" | "spontaneous",
+    imageUrl: post.imageUrl ?? undefined,
     location: post.location ?? undefined,
-    location_data: post.location_data ?? post.locationData ?? undefined,
+    location_data: post.locationData ?? undefined,
     
-    heartsCount: post.hearts_count ?? post.heartsCount ?? 0,
-    isHearted: post.is_hearted ?? post.isHearted ?? false,
-    reactionsCount: post.reactions_count ?? post.reactionsCount ?? 0,
-    commentsCount: post.comments_count ?? post.commentsCount ?? 0,
-    currentUserReaction: post.current_user_reaction ?? post.currentUserReaction ?? undefined,
-    isRead: post.is_read ?? post.isRead ?? false,
-    isUnread: post.is_unread ?? post.isUnread ?? false,
+    heartsCount: post.heartsCount ?? 0,
+    isHearted: post.isHearted ?? false,
+    reactionsCount: post.reactionsCount ?? 0,
+    commentsCount: post.commentsCount ?? 0,
+    currentUserReaction: post.currentUserReaction ?? undefined,
+    isRead: post.isRead ?? false,
+    isUnread: post.isUnread ?? false,
     
     author: {
-      id: String(author.id ?? author.user_id ?? ""),
-      name: author.name ?? author.display_name ?? author.username ?? "",
+      id: String(author.id ?? author.userId ?? ""),
+      name: author.name ?? author.displayName ?? author.username ?? "",
       username: author.username ?? undefined,
-      display_name: author.display_name ?? undefined,
-      // Handle multiple possible profile image field names
-      image: author.profile_image_url ?? author.image ?? undefined
+      display_name: author.displayName ?? undefined,
+      image: author.image ?? author.profileImageUrl ?? undefined
     }
   }
 }
@@ -144,8 +132,6 @@ export function debugApiResponse(response: any, context: string = "API Response"
       hasData: !!response.data,
       keys: Object.keys(response),
       dateFields: {
-        created_at: response.created_at ?? response.data?.created_at,
-        updated_at: response.updated_at ?? response.data?.updated_at,
         createdAt: response.createdAt ?? response.data?.createdAt,
         updatedAt: response.updatedAt ?? response.data?.updatedAt
       }

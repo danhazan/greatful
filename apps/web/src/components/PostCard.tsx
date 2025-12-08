@@ -224,7 +224,8 @@ export default function PostCard({
         const result = await apiClient.post('/users/validate-batch', {
           usernames: validFormatUsernames
         }) as any
-        setValidUsernames(result.valid_usernames || [])
+        // API now returns camelCase
+        setValidUsernames(result.data?.validUsernames || result.validUsernames || [])
       } catch (error) {
         // Only log errors in development
         if (process.env.NODE_ENV === 'development') {

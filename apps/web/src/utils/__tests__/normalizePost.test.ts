@@ -1,23 +1,24 @@
+import { describe, it, expect } from '@jest/globals'
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from '../normalizePost'
 
 describe('normalizePostFromApi', () => {
-  it('should normalize snake_case API response to camelCase', () => {
+  it('should normalize camelCase API response', () => {
     const apiResponse = {
       id: "123",
       content: "Test content",
-      created_at: "2025-09-09T10:00:00Z",
-      updated_at: "2025-09-09T11:00:00Z",
-      post_type: "daily",
-      image_url: "https://example.com/image.jpg",
-      hearts_count: 5,
-      is_hearted: true,
-      reactions_count: 3,
-      current_user_reaction: "heart_eyes",
+      createdAt: "2025-09-09T10:00:00Z",
+      updatedAt: "2025-09-09T11:00:00Z",
+      postType: "daily",
+      imageUrl: "https://example.com/image.jpg",
+      heartsCount: 5,
+      isHearted: true,
+      reactionsCount: 3,
+      currentUserReaction: "heart_eyes",
       author: {
         id: 456,
         username: "testuser",
-        display_name: "Test User",
-        profile_image_url: "https://example.com/avatar.jpg"
+        displayName: "Test User",
+        profileImageUrl: "https://example.com/avatar.jpg"
       }
     }
 
@@ -55,8 +56,8 @@ describe('normalizePostFromApi', () => {
       data: {
         id: "123",
         content: "Test content",
-        created_at: "2025-09-09T10:00:00Z",
-        post_type: "spontaneous",
+        createdAt: "2025-09-09T10:00:00Z",
+        postType: "spontaneous",
         author: {
           id: 456,
           username: "testuser"
@@ -71,21 +72,21 @@ describe('normalizePostFromApi', () => {
     expect(normalized?.postType).toBe("spontaneous")
   })
 
-  it('should handle mixed camelCase and snake_case fields', () => {
-    const mixedResponse = {
+  it('should handle all camelCase fields', () => {
+    const camelCaseResponse = {
       id: "123",
       content: "Test content",
-      createdAt: "2025-09-09T10:00:00Z", // camelCase
-      updated_at: "2025-09-09T11:00:00Z", // snake_case
-      postType: "photo", // camelCase
-      image_url: "https://example.com/image.jpg", // snake_case
+      createdAt: "2025-09-09T10:00:00Z",
+      updatedAt: "2025-09-09T11:00:00Z",
+      postType: "photo",
+      imageUrl: "https://example.com/image.jpg",
       author: {
         id: 456,
         username: "testuser"
       }
     }
 
-    const normalized = normalizePostFromApi(mixedResponse)
+    const normalized = normalizePostFromApi(camelCaseResponse)
 
     expect(normalized?.createdAt).toBe("2025-09-09T10:00:00Z")
     expect(normalized?.updatedAt).toBe("2025-09-09T11:00:00Z")
@@ -126,8 +127,8 @@ describe('normalizePostFromApi', () => {
       id: "123",
       content: "Test content",
       author: {
-        user_id: 456,
-        display_name: "Test User"
+        userId: 456,
+        displayName: "Test User"
       }
     }
 

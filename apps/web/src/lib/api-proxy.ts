@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { transformApiResponse } from './caseTransform';
 
 const API_BASE_URL = (process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
@@ -6,6 +7,7 @@ type ProxyOptions = {
   requireAuth?: boolean;       // if true -> return 401 early when no auth header
   forwardCookies?: boolean;    // forward Cookie header if present
   passthroughOn401?: boolean;  // if true -> forward backend 401 instead of returning early
+  transform?: boolean;         // if true -> transform snake_case to camelCase (default: true)
 };
 
 function readHeader(request: any, key: string): string | undefined {
@@ -26,7 +28,7 @@ function readHeader(request: any, key: string): string | undefined {
 }
 
 export async function proxyApiRequest(request: any, backendPath: string, opts: ProxyOptions = {}) {
-  const { requireAuth = false, forwardCookies = true, passthroughOn401 = false } = opts;
+  const { requireAuth = false, forwardCookies = true, passthroughOn401 = false, transform = true } = opts;
 
   // read incoming headers robustly
   const incomingAuth = readHeader(request, "authorization");
@@ -114,6 +116,25 @@ export async function proxyApiRequest(request: any, backendPath: string, opts: P
 
   // Return backend response body and status back to client
   const respText = await resp.text();
+  
+  // Transform response if requested
+  if (transform) {
+    try {
+      const respData = JSON.parse(respText);
+      const transformedData = transformApiResponse(respData);
+      return new NextResponse(JSON.stringify(transformedData), {
+        status: resp.status,
+        headers: { "content-type": "application/json" },
+      });
+    } catch (e) {
+      // If JSON parsing fails, return as-is
+      return new NextResponse(respText, {
+        status: resp.status,
+        headers: { "content-type": resp.headers.get("content-type") ?? "application/json" },
+      });
+    }
+  }
+  
   return new NextResponse(respText, {
     status: resp.status,
     headers: { "content-type": resp.headers.get("content-type") ?? "application/json" },

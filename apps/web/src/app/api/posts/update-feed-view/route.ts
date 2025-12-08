@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +25,9 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json()
-    return NextResponse.json(data)
+    // Transform snake_case to camelCase
+    const transformedData = transformApiResponse(data)
+    return NextResponse.json(transformedData)
 
   } catch (error) {
     console.error('Error updating feed view:', error)

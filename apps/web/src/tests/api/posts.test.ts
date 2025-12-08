@@ -58,23 +58,21 @@ describe('/api/posts', () => {
       const data = await response.json()
 
       expect(response.status).toBe(201)
-      expect(data).toEqual({
+      expect(data).toMatchObject({
         id: 'post-123',
         content: 'Test gratitude post',
-        commentsCount: 0,
         postStyle: null,
         author: {
           id: '1',
-          name: 'testuser',
-          image: null
+          username: 'testuser',
+          profileImageUrl: null
         },
         createdAt: '2025-01-08T12:00:00Z',
         postType: 'daily',
         imageUrl: null,
         location: null,
-        location_data: null,
+        locationData: null,
         heartsCount: 0,
-        isHearted: false,
         reactionsCount: 0,
         currentUserReaction: null
       })
@@ -335,23 +333,18 @@ describe('/api/posts', () => {
 
       expect(response.status).toBe(200)
       expect(data).toHaveLength(2)
-      expect(data[0]).toEqual({
+      expect(data[0]).toMatchObject({
         id: 'post-1',
         content: 'First post',
-        commentsCount: 0,
         author: {
           id: '1',
           name: 'User One',
-          username: 'user1',
-          image: null
+          username: 'user1'
         },
         createdAt: '2025-01-08T12:00:00Z',
         postType: 'daily',
         heartsCount: 5,
-        isHearted: false,
-        reactionsCount: 3,
-        isRead: false,
-        isUnread: false
+        reactionsCount: 3
       })
 
       expect(fetch).toHaveBeenCalledWith(

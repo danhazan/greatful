@@ -6,6 +6,7 @@ import {
   createErrorResponse,
   hasValidAuth
 } from '@/lib/api-utils'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export async function GET(
   request: NextRequest,
@@ -35,7 +36,9 @@ export async function GET(
     }
 
     const result = await response.json()
-    return NextResponse.json(result)
+    // Transform snake_case to camelCase
+    const transformedResult = transformApiResponse(result)
+    return NextResponse.json(transformedResult)
 
   } catch (error) {
     return handleApiError(error, 'getting follow status')

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { transformApiResponse } from './caseTransform';
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -74,50 +75,25 @@ export async function handleUserPostsRequest(request: any, userId?: string) {
       )
     }
 
-    // Helper function to transform post image URL (same as profile images)
-    const transformPostImageUrl = (url: string | null): string | null => {
-      if (!url) return null
-      if (url.startsWith('http')) return url // Already a full URL
-      return `${API_BASE_URL}${url}` // Convert relative URL to full URL
-    }
-
-    // Transform the posts to match the frontend format (snake_case to camelCase)
-    const transformedPosts = posts.map((post: any) => {
-      // Debug logging to see what we're getting from backend
-      console.log('Transforming post:', {
-        id: post.id,
-        image_url: post.image_url,
-        comments_count: post.comments_count,
-        hearts_count: post.hearts_count,
-        reactions_count: post.reactions_count
+    // Automatically transform snake_case to camelCase
+    const transformedPosts = transformApiResponse(posts)
+    
+    // Post-process: ensure author.id is string and fix profile image URLs
+    if (Array.isArray(transformedPosts)) {
+      transformedPosts.forEach((post: any) => {
+        if (post.author) {
+          post.author.id = String(post.author.id)
+          if (post.author.image || post.author.profileImageUrl) {
+            const imageUrl = post.author.image || post.author.profileImageUrl
+            post.author.image = transformProfileImageUrl(imageUrl)
+          }
+        }
+        // Transform post image URL if present
+        if (post.imageUrl && !post.imageUrl.startsWith('http')) {
+          post.imageUrl = `${API_BASE_URL}${post.imageUrl}`
+        }
       })
-      
-      return {
-        id: post.id,
-        content: post.content,
-        postStyle: post.post_style,
-        author: {
-          id: post.author.id.toString(),
-          name: post.author.name || post.author.username,
-          username: post.author.username,
-          display_name: post.author.display_name,
-          image: transformProfileImageUrl(getAuthorImageUrl(post.author))
-        },
-        createdAt: post.created_at,
-        updatedAt: post.updated_at,
-        postType: post.post_type,
-        imageUrl: transformPostImageUrl(post.image_url),
-        location: post.location,
-        location_data: post.location_data,
-        heartsCount: post.hearts_count || 0,
-        isHearted: post.is_hearted || false,
-        reactionsCount: post.reactions_count || 0,
-        commentsCount: post.comments_count || 0,
-        currentUserReaction: post.current_user_reaction,
-        isRead: post.is_read || false,
-        isUnread: post.is_unread || false
-      }
-    })
+    }
 
     return NextResponse.json(transformedPosts)
 

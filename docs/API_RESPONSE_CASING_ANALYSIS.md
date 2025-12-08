@@ -323,25 +323,65 @@ return NextResponse.json(transformedPosts)
 
 ---
 
-## Current Status
+## Current Status (Updated: December 2024)
 
-### Endpoints Using Manual Transformation (camelCase)
-- ✅ `GET /api/posts` (feed)
-- ✅ `POST /api/posts` (create post)
-- ✅ `GET /api/posts/:id` (single post)
-- ✅ `PUT /api/posts/:id` (update post)
+### ✅ IMPLEMENTATION COMPLETE
 
-### Endpoints Using Passthrough (snake_case)
-- ❌ `GET /api/users/me/posts` (user's own posts)
-- ❌ `GET /api/users/me/profile` (user's own profile)
-- ❌ `GET /api/users/:userId/posts` (other user's posts)
-- ❌ `GET /api/users/:userId/profile` (other user's profile)
-- ❌ Most other user-related endpoints
+All API endpoints now use automated snake_case to camelCase transformation via the `humps` library.
+
+**Latest Updates (December 8, 2024):**
+- Fixed remaining endpoints that were missing transformation:
+  - `/api/users/validate-batch` - Now returns `validUsernames` instead of `valid_usernames`
+  - `/api/follows/{userId}/status` - Now returns `isFollowing`, `followStatus`, etc.
+  - `/api/follows/{userId}` - POST/DELETE now transform responses
+  - `/api/posts/update-feed-view` - Now transforms response
+- Updated frontend components to handle camelCase responses:
+  - `PostCard.tsx` - Updated to use `validUsernames`
+  - `FollowButton.tsx` - Updated interface to use camelCase
+  - `useUserState.ts` - Updated to handle `isFollowing` (with fallback for compatibility)
+
+### Implemented Changes
+
+1. **Shared Transformation Utility** (`apps/web/src/lib/caseTransform.ts`)
+   - ✅ Created `transformApiResponse<T>()` using `camelizeKeys` from humps
+   - ✅ Created `transformApiRequest<T>()` using `decamelizeKeys` for request payloads
+   - ✅ Handles nested objects and arrays automatically
+
+2. **API Proxy Enhancement** (`apps/web/src/lib/api-proxy.ts`)
+   - ✅ Added `transform?: boolean` option (default: true)
+   - ✅ Automatically transforms all passthrough responses to camelCase
+   - ✅ Maintains backward compatibility with `transform: false` option
+
+3. **Posts Endpoints** (Manual → Automated)
+   - ✅ `GET /api/posts` (feed) - Now uses automated transformation
+   - ✅ `POST /api/posts` (create post) - Now uses automated transformation
+   - ✅ `GET /api/posts/:id` (single post) - Now uses automated transformation
+   - ✅ `PUT /api/posts/:id` (update post) - Now uses automated transformation
+
+4. **User Posts Endpoints** (Passthrough → Automated)
+   - ✅ `GET /api/users/me/posts` - Now uses automated transformation
+   - ✅ `GET /api/users/:userId/posts` - Now uses automated transformation
+   - ✅ All other user-related endpoints using `proxyApiRequest` - Automatically transformed
+
+5. **Frontend Utilities Updated**
+   - ✅ `apps/web/src/utils/normalizePost.ts` - Simplified to remove snake_case fallbacks
+   - ✅ TypeScript interfaces updated to only use camelCase
+   - ✅ Removed dual-casing support
+
+### Benefits Achieved
+- ✅ Consistent camelCase across entire frontend
+- ✅ No manual field mapping needed
+- ✅ Automatic inclusion of new backend fields
+- ✅ Idiomatic JavaScript/TypeScript code
+- ✅ Reduced maintenance burden
+- ✅ Profile pages now show correct comment counts
+- ✅ All endpoints return consistent data structure
 
 ### Impact
-- **Feed page**: ✅ Works correctly (uses transformed endpoints)
-- **Profile pages**: ❌ Shows 0 comments (uses passthrough endpoints)
-- **User posts**: ❌ Inconsistent data structure
+- **Feed page**: ✅ Works correctly with automated transformation
+- **Profile pages**: ✅ Now shows correct comments and all engagement data
+- **User posts**: ✅ Consistent camelCase data structure
+- **All API endpoints**: ✅ Automatically transformed to camelCase
 
 ---
 
@@ -365,11 +405,52 @@ return NextResponse.json(transformedPosts)
 
 ---
 
+## Implementation Notes
+
+### Usage Guidelines for Future Development
+
+1. **New API Endpoints**: All new API endpoints automatically receive camelCase transformation via `proxyApiRequest`
+2. **Disabling Transformation**: If needed, pass `transform: false` to `proxyApiRequest` options
+3. **Request Payloads**: Use `transformApiRequest()` when sending camelCase data to snake_case backend
+4. **TypeScript Interfaces**: Always use camelCase in frontend interfaces
+
+### Example: Creating a New API Endpoint
+
+```typescript
+// apps/web/src/app/api/new-endpoint/route.ts
+import { proxyApiRequest } from '@/lib/api-proxy'
+
+export async function GET(request: NextRequest) {
+  // Automatically transforms snake_case to camelCase
+  return proxyApiRequest(request, '/api/v1/backend-endpoint', {
+    requireAuth: true,
+    transform: true  // default, can be omitted
+  })
+}
+```
+
+### Example: Sending Request Data
+
+```typescript
+import { transformApiRequest } from '@/lib/caseTransform'
+
+const requestData = {
+  heartsCount: 5,
+  createdAt: new Date().toISOString()
+}
+
+// Transform to snake_case for backend
+const backendData = transformApiRequest(requestData)
+// Result: { hearts_count: 5, created_at: "..." }
+```
+
 ## Next Steps
 
-1. **Immediate**: Fix profile pages by adding transformation to user posts endpoints
-2. **Short-term**: Implement shared transformation utility
-3. **Long-term**: Apply transformation to all endpoints and remove manual mappings
+✅ **COMPLETED**: All planned implementation steps have been completed
+- Shared transformation utility implemented
+- All endpoints using automated transformation
+- Manual mappings removed
+- Documentation updated
 
 ---
 

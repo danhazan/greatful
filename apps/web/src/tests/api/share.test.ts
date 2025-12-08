@@ -59,8 +59,9 @@ describe('Share API Routes', () => {
       )
 
       expect(response.status).toBe(201)
-      expect(data.share_method).toBe('url')
-      expect(data.share_url).toContain('/post/post-123')
+      // API now returns camelCase
+      expect(data.shareMethod).toBe('url')
+      expect(data.shareUrl).toContain('/post/post-123')
     })
 
     it('should proxy message share request to backend', async () => {
@@ -113,9 +114,10 @@ describe('Share API Routes', () => {
       )
 
       expect(response.status).toBe(201)
-      expect(data.share_method).toBe('message')
-      expect(data.recipient_count).toBe(2)
-      expect(data.message_content).toBe('Check this out!')
+      // API now returns camelCase
+      expect(data.shareMethod).toBe('message')
+      expect(data.recipientCount).toBe(2)
+      expect(data.messageContent).toBe('Check this out!')
     })
 
     it('should handle backend validation errors', async () => {

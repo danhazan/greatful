@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { proxyApiRequest } from "@/lib/api-proxy";
+import { transformApiResponse } from '@/lib/caseTransform'
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -33,34 +34,16 @@ export async function GET(
       return `${API_BASE_URL}${url}` // Convert relative URL to full URL
     }
 
-    // Helper function to get profile image URL from author object (handles both field names)
-    const getAuthorImageUrl = (author: any): string | null => {
-      return author.image || author.profile_image_url || null
-    }
-
-    // Transform the post to match the frontend format
-    const transformedPost = {
-      id: post.id,
-      content: post.content,
-      postStyle: post.post_style,
-      title: post.title,
-      author: {
-        id: post.author.id.toString(),
-        name: post.author.display_name || post.author.name || post.author.username,
-        username: post.author.username,
-        display_name: post.author.display_name,
-        image: transformProfileImageUrl(getAuthorImageUrl(post.author))
-      },
-      createdAt: post.created_at,
-      updatedAt: post.updated_at,
-      postType: post.post_type,
-      imageUrl: post.image_url,
-      location: post.location,
-      heartsCount: post.hearts_count || 0,
-      isHearted: post.is_hearted || false,
-      reactionsCount: post.reactions_count || 0,
-      commentsCount: post.comments_count || 0,
-      currentUserReaction: post.current_user_reaction
+    // Automatically transform snake_case to camelCase
+    const transformedPost = transformApiResponse(post)
+    
+    // Post-process: ensure author.id is string and fix profile image URLs
+    if (transformedPost.author) {
+      transformedPost.author.id = String(transformedPost.author.id)
+      if (transformedPost.author.image || transformedPost.author.profileImageUrl) {
+        const imageUrl = transformedPost.author.image || transformedPost.author.profileImageUrl
+        transformedPost.author.image = transformProfileImageUrl(imageUrl)
+      }
     }
 
     return NextResponse.json(transformedPost)
@@ -114,35 +97,16 @@ export async function PUT(
       return `${API_BASE_URL}${url}` // Convert relative URL to full URL
     }
 
-    // Helper function to get profile image URL from author object (handles both field names)
-    const getAuthorImageUrl = (author: any): string | null => {
-      return author.image || author.profile_image_url || null
-    }
-
-    // Transform the response to match the frontend format
-    const transformedPost = {
-      id: data.id,
-      content: data.content,
-      postStyle: data.post_style,
-      title: data.title,
-      author: {
-        id: data.author.id.toString(),
-        name: data.author.display_name || data.author.name || data.author.username,
-        username: data.author.username,
-        display_name: data.author.display_name,
-        image: transformProfileImageUrl(getAuthorImageUrl(data.author))
-      },
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-      postType: data.post_type,
-      imageUrl: data.image_url,
-      location: data.location,
-      location_data: data.location_data,
-      heartsCount: data.hearts_count || 0,
-      isHearted: data.is_hearted || false,
-      reactionsCount: data.reactions_count || 0,
-      commentsCount: data.comments_count || 0,
-      currentUserReaction: data.current_user_reaction
+    // Automatically transform snake_case to camelCase
+    const transformedPost = transformApiResponse(data)
+    
+    // Post-process: ensure author.id is string and fix profile image URLs
+    if (transformedPost.author) {
+      transformedPost.author.id = String(transformedPost.author.id)
+      if (transformedPost.author.image || transformedPost.author.profileImageUrl) {
+        const imageUrl = transformedPost.author.image || transformedPost.author.profileImageUrl
+        transformedPost.author.image = transformProfileImageUrl(imageUrl)
+      }
     }
 
     return NextResponse.json(transformedPost)

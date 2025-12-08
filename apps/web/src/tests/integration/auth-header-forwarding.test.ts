@@ -113,8 +113,8 @@ describe('Auth Header Forwarding', () => {
     expect(response.status).toBe(200)
     
     const responseData = JSON.parse(await response.text())
-    expect(responseData.is_hearted).toBe(true)
-    expect(responseData.current_user_reaction).toBe('❤️')
+    expect(responseData.isHearted).toBe(true)
+    expect(responseData.currentUserReaction).toBe('❤️')
   })
 
   it('should work without Authorization header for public endpoints', async () => {
@@ -164,8 +164,8 @@ describe('Auth Header Forwarding', () => {
     expect(response.status).toBe(200)
     
     const responseData = JSON.parse(await response.text())
-    expect(responseData.is_hearted).toBe(false)
-    expect(responseData.current_user_reaction).toBeNull()
+    expect(responseData.isHearted).toBe(false)
+    expect(responseData.currentUserReaction).toBeNull()
   })
 
   it('should return 401 early when auth is required but missing', async () => {

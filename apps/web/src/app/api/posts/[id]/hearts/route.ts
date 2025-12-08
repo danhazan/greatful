@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -32,7 +33,8 @@ export async function GET(
     }
 
     const data = await response.json()
-    return NextResponse.json(data)
+    const transformedData = transformApiResponse(data)
+    return NextResponse.json(transformedData)
   } catch (error) {
     console.error('Error getting hearts info:', error)
     return NextResponse.json(

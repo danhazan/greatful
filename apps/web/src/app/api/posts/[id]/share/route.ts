@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export async function POST(
   request: NextRequest,
@@ -34,7 +35,9 @@ export async function POST(
       return NextResponse.json(data, { status: response.status })
     }
 
-    return NextResponse.json(data, { status: response.status })
+    // Transform snake_case to camelCase
+    const transformedData = transformApiResponse(data)
+    return NextResponse.json(transformedData, { status: response.status })
   } catch (error) {
     console.error('Share API error:', error)
     return NextResponse.json(

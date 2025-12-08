@@ -18,9 +18,9 @@ interface FollowButtonProps {
 }
 
 interface FollowStatus {
-  is_following: boolean
-  follow_status?: string
-  is_followed_by: boolean
+  isFollowing: boolean
+  followStatus?: string
+  isFollowedBy: boolean
 }
 
 export default function FollowButton({

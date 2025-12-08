@@ -3,31 +3,33 @@
  * Tests the complete flow: API response -> normalization -> UI update
  */
 
+import { describe, it, expect } from '@jest/globals'
 import { normalizePostFromApi } from '../normalizePost'
 
 describe('Post Edit Integration', () => {
   it('should handle typical backend PUT response and show correct date', () => {
-    // Simulate typical backend response from PUT /api/posts/:id
-    const backendResponse = {
+    // Simulate API response after camelCase transformation
+    // (API layer transforms snake_case to camelCase automatically)
+    const apiResponse = {
       id: "123",
-      author_id: 456,
+      authorId: 456,
       content: "Updated content",
-      post_type: "daily",
-      created_at: "2025-09-09T10:00:00Z",
-      updated_at: "2025-09-09T11:30:00Z", // Post was edited
-      hearts_count: 5,
-      is_hearted: false,
-      reactions_count: 2,
-      current_user_reaction: null,
+      postType: "daily",
+      createdAt: "2025-09-09T10:00:00Z",
+      updatedAt: "2025-09-09T11:30:00Z", // Post was edited
+      heartsCount: 5,
+      isHearted: false,
+      reactionsCount: 2,
+      currentUserReaction: null,
       author: {
         id: 456,
         username: "testuser",
-        display_name: "Test User",
+        displayName: "Test User",
         email: "test@example.com"
       }
     }
 
-    const normalized = normalizePostFromApi(backendResponse)
+    const normalized = normalizePostFromApi(apiResponse)
 
     // Verify normalization worked correctly
     expect(normalized).not.toBeNull()
@@ -57,13 +59,14 @@ describe('Post Edit Integration', () => {
 
   it('should handle wrapped API response', () => {
     // Some API endpoints might wrap the response
+    // (Already transformed to camelCase by API layer)
     const wrappedResponse = {
       data: {
         id: "123",
         content: "Updated content",
-        created_at: "2025-09-09T10:00:00Z",
-        updated_at: "2025-09-09T11:30:00Z",
-        post_type: "spontaneous",
+        createdAt: "2025-09-09T10:00:00Z",
+        updatedAt: "2025-09-09T11:30:00Z",
+        postType: "spontaneous",
         author: {
           id: 456,
           username: "testuser"
@@ -78,12 +81,13 @@ describe('Post Edit Integration', () => {
   })
 
   it('should handle post that was never edited', () => {
+    // API response after camelCase transformation
     const neverEditedResponse = {
       id: "123",
       content: "Original content",
-      created_at: "2025-09-09T10:00:00Z",
-      updated_at: null, // Never edited
-      post_type: "photo",
+      createdAt: "2025-09-09T10:00:00Z",
+      updatedAt: null, // Never edited
+      postType: "photo",
       author: {
         id: 456,
         username: "testuser"
@@ -105,11 +109,12 @@ describe('Post Edit Integration', () => {
   })
 
   it('should handle missing date fields gracefully', () => {
+    // API response after camelCase transformation
     const malformedResponse = {
       id: "123",
       content: "Content",
-      post_type: "daily",
-      // Missing created_at and updated_at
+      postType: "daily",
+      // Missing createdAt and updatedAt
       author: {
         id: 456,
         username: "testuser"
@@ -141,23 +146,23 @@ describe('Post Edit Integration', () => {
       }
     }
 
-    // Simulate backend PUT response without profile image
-    const backendResponse = {
+    // Simulate API response after camelCase transformation
+    const apiResponse = {
       id: "123",
       content: "Updated content",
-      created_at: "2025-09-09T10:00:00Z",
-      updated_at: "2025-09-09T11:30:00Z",
-      post_type: "daily",
+      createdAt: "2025-09-09T10:00:00Z",
+      updatedAt: "2025-09-09T11:30:00Z",
+      postType: "daily",
       author: {
         id: 456,
         username: "testuser",
-        display_name: "Test User",
+        displayName: "Test User",
         email: "test@example.com"
-        // Note: no profile_image_url in backend response
+        // Note: no profileImageUrl in API response
       }
     }
 
-    const normalized = normalizePostFromApi(backendResponse)
+    const normalized = normalizePostFromApi(apiResponse)
     expect(normalized).not.toBeNull()
 
     // Simulate the merge that happens in PostCard

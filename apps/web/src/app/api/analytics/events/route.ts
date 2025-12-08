@@ -54,7 +54,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json()
-    return NextResponse.json(result)
+    // Transform snake_case to camelCase
+    const { transformApiResponse } = await import('@/lib/caseTransform')
+    const transformedResult = transformApiResponse(result)
+    return NextResponse.json(transformedResult)
 
   } catch (error) {
     return handleApiError(error, 'recording analytics event')

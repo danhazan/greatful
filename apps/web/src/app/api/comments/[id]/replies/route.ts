@@ -45,7 +45,11 @@ export async function GET(
     const repliesResponse = await response.json()
     const replies = repliesResponse.data || repliesResponse
 
-    return NextResponse.json(replies)
+    // Transform snake_case to camelCase
+    const { transformApiResponse } = await import('@/lib/caseTransform')
+    const transformedReplies = transformApiResponse(replies)
+
+    return NextResponse.json(transformedReplies)
 
   } catch (error) {
     return handleApiError(error, 'fetching replies')
@@ -99,7 +103,11 @@ export async function POST(
     const replyResponse = await response.json()
     const reply = replyResponse.data || replyResponse
 
-    return NextResponse.json(reply, { status: 201 })
+    // Transform snake_case to camelCase
+    const { transformApiResponse } = await import('@/lib/caseTransform')
+    const transformedReply = transformApiResponse(reply)
+
+    return NextResponse.json(transformedReply, { status: 201 })
 
   } catch (error) {
     return handleApiError(error, 'adding reply')

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -105,11 +106,6 @@ export async function POST(request: NextRequest) {
 
     const createdPost = await response.json()
 
-    // Helper function to get profile image URL from author object (handles both field names)
-    const getAuthorImageUrl = (author: any): string | null => {
-      return author.image || author.profile_image_url || null
-    }
-
     // Helper function to transform profile image URL
     const transformProfileImageUrl = (url: string | null): string | null => {
       if (!url) return null
@@ -117,27 +113,16 @@ export async function POST(request: NextRequest) {
       return `${API_BASE_URL}${url}` // Convert relative URL to full URL
     }
 
-    // Transform the response to match the frontend format
-    const transformedPost = {
-      id: createdPost.id,
-      content: createdPost.content,
-      postStyle: createdPost.post_style,
-      author: {
-        id: createdPost.author.id.toString(),
-        name: createdPost.author.username,
-        image: transformProfileImageUrl(getAuthorImageUrl(createdPost.author))
-      },
-      createdAt: createdPost.created_at,
-      updatedAt: createdPost.updated_at,
-      postType: createdPost.post_type,
-      imageUrl: createdPost.image_url,
-      location: createdPost.location,
-      location_data: createdPost.location_data,
-      heartsCount: createdPost.hearts_count || 0,
-      isHearted: false,
-      reactionsCount: createdPost.reactions_count || 0,
-      commentsCount: createdPost.comments_count || 0,
-      currentUserReaction: createdPost.current_user_reaction
+    // Automatically transform snake_case to camelCase
+    const transformedPost = transformApiResponse(createdPost)
+    
+    // Post-process: ensure author.id is string and fix profile image URLs
+    if (transformedPost.author) {
+      transformedPost.author.id = String(transformedPost.author.id)
+      if (transformedPost.author.image || transformedPost.author.profileImageUrl) {
+        const imageUrl = transformedPost.author.image || transformedPost.author.profileImageUrl
+        transformedPost.author.image = transformProfileImageUrl(imageUrl)
+      }
     }
 
     return NextResponse.json(transformedPost, { status: 201 })
@@ -204,37 +189,21 @@ export async function GET(request: NextRequest) {
       return `${API_BASE_URL}${url}` // Convert relative URL to full URL
     }
 
-    // Helper function to get profile image URL from author object (handles both field names)
-    const getAuthorImageUrl = (author: any): string | null => {
-      return author.image || author.profile_image_url || null
+    // Automatically transform snake_case to camelCase
+    const transformedPosts = transformApiResponse(posts)
+    
+    // Post-process: ensure author.id is string and fix profile image URLs
+    if (Array.isArray(transformedPosts)) {
+      transformedPosts.forEach((post: any) => {
+        if (post.author) {
+          post.author.id = String(post.author.id)
+          if (post.author.image || post.author.profileImageUrl) {
+            const imageUrl = post.author.image || post.author.profileImageUrl
+            post.author.image = transformProfileImageUrl(imageUrl)
+          }
+        }
+      })
     }
-
-    // Transform the posts to match the frontend format
-    const transformedPosts = posts.map((post: any) => ({
-      id: post.id,
-      content: post.content,
-      postStyle: post.post_style,
-      author: {
-        id: post.author.id.toString(),
-        name: post.author.name || post.author.username,
-        username: post.author.username,
-        display_name: post.author.display_name,
-        image: transformProfileImageUrl(getAuthorImageUrl(post.author))
-      },
-      createdAt: post.created_at,
-      updatedAt: post.updated_at,
-      postType: post.post_type,
-      imageUrl: post.image_url,
-      location: post.location,
-      location_data: post.location_data,
-      heartsCount: post.hearts_count || 0,
-      isHearted: post.is_hearted || false,
-      reactionsCount: post.reactions_count || 0,
-      commentsCount: post.comments_count || 0,
-      currentUserReaction: post.current_user_reaction,
-      isRead: post.is_read || false,
-      isUnread: post.is_unread || false
-    }))
 
     return NextResponse.json(transformedPosts)
 

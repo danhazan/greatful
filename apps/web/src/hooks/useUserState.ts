@@ -146,7 +146,8 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
               })
               setLocalUserProfile(data)
             } else if (type === 'follow') {
-              const isFollowing = data?.is_following || false
+              // API now returns camelCase
+              const isFollowing = data?.isFollowing || data?.is_following || false
               updateFollowState(targetUserId, isFollowing)
               setLocalFollowState(isFollowing)
             }

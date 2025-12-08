@@ -45,7 +45,10 @@ export async function GET(
     const commentsResponse = await response.json()
     const comments = commentsResponse.data || commentsResponse
 
-    return NextResponse.json(comments)
+    // Transform snake_case to camelCase
+    const { transformApiResponse } = await import('@/lib/caseTransform')
+    const transformedComments = transformApiResponse(comments)
+    return NextResponse.json(transformedComments)
 
   } catch (error) {
     return handleApiError(error, 'fetching comments')
@@ -100,7 +103,10 @@ export async function POST(
     const commentResponse = await response.json()
     const comment = commentResponse.data || commentResponse
 
-    return NextResponse.json(comment, { status: 201 })
+    // Transform snake_case to camelCase
+    const { transformApiResponse } = await import('@/lib/caseTransform')
+    const transformedComment = transformApiResponse(comment)
+    return NextResponse.json(transformedComment, { status: 201 })
 
   } catch (error) {
     return handleApiError(error, 'adding comment')
