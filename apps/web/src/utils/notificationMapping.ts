@@ -25,17 +25,18 @@ export function toAbsoluteUrl(url?: string): string | undefined {
  * Maps backend notification to frontend format with consistent field names.
  */
 export function mapBackendNotificationToFrontend(n: any) {
-  const fu = n.fromUser || n.data?.fromUser || null
+  // Handle both camelCase and snake_case field names for backward compatibility
+  const fu = n.fromUser || n.from_user || n.data?.fromUser || n.data?.from_user || null
   
-  // Get image from backend (now standardized on camelCase)
-  const image = fu?.image ?? fu?.profileImageUrl ?? null
+  // Get image from backend (handle both camelCase and snake_case)
+  const image = fu?.image ?? fu?.profileImageUrl ?? fu?.profile_image_url ?? null
   
   // Create fromUser object if we have user data or can extract from data
   let fromUser = undefined
   if (fu) {
     fromUser = {
       id: String(fu.id ?? n.data?.actor_user_id ?? ""),
-      name: fu.name ?? fu.displayName ?? fu.username ?? "Unknown",
+      name: fu.name ?? fu.displayName ?? fu.display_name ?? fu.username ?? "Unknown",
       username: fu.username ?? null,
       image: toAbsoluteUrl(image) || undefined, // Convert to absolute URL
     }
@@ -49,26 +50,30 @@ export function mapBackendNotificationToFrontend(n: any) {
     }
   }
   
+  // Handle timestamp fields (both camelCase and snake_case)
+  const createdAt = n.createdAt || n.created_at
+  const lastUpdatedAt = n.lastUpdatedAt || n.last_updated_at
+  
   return {
     id: n.id,
     type: n.type === "emoji_reaction" ? "reaction" : n.type,
     message: stripHtmlTags(n.message || ""),
-    postId: n.postId || n.data?.postId || "",
-    createdAt: n.createdAt ? (
-      n.createdAt.endsWith('Z') 
-        ? n.createdAt 
-        : n.createdAt.replace(' ', 'T') + 'Z'
-    ) : n.createdAt,
-    lastUpdatedAt: n.lastUpdatedAt ? (
-      n.lastUpdatedAt.endsWith('Z') 
-        ? n.lastUpdatedAt 
-        : n.lastUpdatedAt.replace(' ', 'T') + 'Z'
-    ) : n.lastUpdatedAt,
+    postId: n.postId || n.post_id || n.data?.postId || n.data?.post_id || "",
+    createdAt: createdAt ? (
+      createdAt.endsWith('Z') 
+        ? createdAt 
+        : createdAt.replace(' ', 'T') + 'Z'
+    ) : createdAt,
+    lastUpdatedAt: lastUpdatedAt ? (
+      lastUpdatedAt.endsWith('Z') 
+        ? lastUpdatedAt 
+        : lastUpdatedAt.replace(' ', 'T') + 'Z'
+    ) : lastUpdatedAt,
     read: n.read,
-    // Batching fields
-    isBatch: n.isBatch || false,
-    batchCount: n.batchCount || 1,
-    parentId: n.parentId || null,
+    // Batching fields (handle both camelCase and snake_case)
+    isBatch: n.isBatch || n.is_batch || false,
+    batchCount: n.batchCount || n.batch_count || 1,
+    parentId: n.parentId || n.parent_id || null,
     // Normalized fromUser object
     fromUser,
   }
