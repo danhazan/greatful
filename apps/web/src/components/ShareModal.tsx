@@ -437,7 +437,7 @@ export default function ShareModal({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-gray-900 bg-opacity-20 z-40" />
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-20 z-40" onClick={onClose} />
       
       {/* Small Popup Modal */}
       <div 

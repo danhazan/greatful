@@ -10,21 +10,21 @@ import { useToast } from "@/contexts/ToastContext"
 interface CommentUser {
   id: number
   username: string
-  display_name?: string
-  profile_image_url?: string
+  displayName?: string
+  profileImageUrl?: string
 }
 
 interface Comment {
   id: string
-  post_id: string
-  user_id: number
+  postId: string
+  userId: number
   content: string
-  parent_comment_id?: string
-  created_at: string
-  updated_at?: string
+  parentCommentId?: string
+  createdAt: string
+  updatedAt?: string
   user: CommentUser
-  is_reply: boolean
-  reply_count: number
+  isReply: boolean
+  replyCount: number
 }
 
 interface CommentsModalProps {
@@ -298,13 +298,13 @@ export default function CommentsModal({
         key={comment.id} 
         className={`${isReply ? 'ml-8 sm:ml-12' : ''} space-y-2`}
         role="article"
-        aria-label={`Comment by ${comment.user.display_name || comment.user.username}`}
+        aria-label={`Comment by ${comment.user.displayName || comment.user.username}`}
       >
         <div className="flex space-x-3">
           {/* User Profile Picture */}
           <div className="flex-shrink-0">
             <ProfilePhotoDisplay
-              photoUrl={comment.user.profile_image_url}
+              photoUrl={comment.user.profileImageUrl}
               username={comment.user.username}
               size="sm"
               className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
@@ -319,22 +319,33 @@ export default function CommentsModal({
           <div className="flex-1 min-w-0">
             {/* User Info */}
             <div className="flex items-baseline space-x-2 flex-wrap">
-              <ClickableUsername
-                userId={comment.user.id}
-                username={comment.user.username}
-                displayName={comment.user.display_name}
-                className="font-bold text-gray-900 hover:text-purple-600 cursor-pointer transition-colors text-sm"
-              />
-              <span className="text-gray-500 text-xs">
+              <span className="font-bold text-gray-900 text-sm">
+                {comment.user.displayName || comment.user.username}
+              </span>
+              <span 
+                className="text-gray-500 hover:text-purple-600 cursor-pointer transition-colors text-xs"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  window.location.href = `/profile/${comment.user.id}`
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    window.location.href = `/profile/${comment.user.id}`
+                  }
+                }}
+              >
                 @{comment.user.username}
               </span>
               <span className="text-gray-400 text-xs">
-                {formatTimeAgo(comment.created_at || (comment as any).createdAt)}
+                {formatTimeAgo(comment.createdAt)}
               </span>
             </div>
 
             {/* Comment Text */}
-            <div className="mt-1 bg-purple-50 rounded-2xl px-3 py-2 sm:px-5 sm:py-3 inline-block max-w-full">
+            <div className="mt-0.5 bg-purple-50 rounded-2xl px-3 py-2 sm:px-5 sm:py-3 inline-block max-w-full">
               <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
                 {comment.content}
               </p>
@@ -357,19 +368,19 @@ export default function CommentsModal({
                     }
                   }}
                   className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
-                  aria-label={isReplyingToThis ? 'Hide reply input' : `Reply to ${comment.user.display_name || comment.user.username}'s comment`}
+                  aria-label={isReplyingToThis ? 'Hide reply input' : `Reply to ${comment.user.displayName || comment.user.username}'s comment`}
                 >
                   {isReplyingToThis ? 'Hide' : 'Reply'}
                 </button>
               )}
 
               {/* Show/Hide Replies Button */}
-              {!isReply && comment.reply_count > 0 && (
+              {!isReply && comment.replyCount > 0 && (
                 <button
                   onClick={() => toggleReplies(comment.id)}
                   disabled={isLoadingReplies}
                   className="text-xs text-purple-600 hover:text-purple-700 transition-colors font-medium flex items-center space-x-1 min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
-                  aria-label={isExpanded ? `Hide ${comment.reply_count} replies` : `Show ${comment.reply_count} replies`}
+                  aria-label={isExpanded ? `Hide ${comment.replyCount} replies` : `Show ${comment.replyCount} replies`}
                   aria-expanded={isExpanded}
                 >
                   {isLoadingReplies ? (
@@ -381,7 +392,7 @@ export default function CommentsModal({
                     <>
                       <MessageCircle className="h-3 w-3" />
                       <span>
-                        {isExpanded ? 'Hide' : 'Show'} {comment.reply_count} {comment.reply_count === 1 ? 'reply' : 'replies'}
+                        {isExpanded ? 'Hide' : 'Show'} {comment.replyCount} {comment.replyCount === 1 ? 'reply' : 'replies'}
                       </span>
                     </>
                   )}
@@ -402,11 +413,11 @@ export default function CommentsModal({
                       e.target.style.height = 'auto'
                       e.target.style.height = e.target.scrollHeight + 'px'
                     }}
-                    placeholder={`Reply to ${comment.user.display_name || comment.user.username}...`}
+                    placeholder={`Reply to ${comment.user.displayName || comment.user.username}...`}
                     className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm overflow-hidden text-gray-900 bg-white"
                     rows={1}
                     maxLength={MAX_CHARS}
-                    aria-label={`Reply to ${comment.user.display_name || comment.user.username}`}
+                    aria-label={`Reply to ${comment.user.displayName || comment.user.username}`}
                     style={{ minHeight: '40px', maxHeight: '200px', WebkitTextFillColor: '#111827' }}
                   />
                   {/* Reply Button inside textarea */}
@@ -450,21 +461,20 @@ export default function CommentsModal({
   if (!isOpen) return null
 
   return (
-    <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50" />
+      <div className="absolute inset-0 bg-black bg-opacity-50" aria-hidden="true" onClick={onClose} />
       
       {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 sm:p-6">
-        <div 
-          ref={modalRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="comments-modal-title"
-          aria-describedby="comments-modal-description"
-          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl max-h-[85vh] sm:max-h-[80vh] flex flex-col touch-manipulation"
-          tabIndex={-1}
-        >
+      <div 
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="comments-modal-title"
+        aria-describedby="comments-modal-description"
+        className="relative bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl max-h-[85vh] sm:max-h-[80vh] flex flex-col touch-manipulation z-10"
+        tabIndex={-1}
+      >
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
             <h2 id="comments-modal-title" className="text-lg font-semibold text-gray-900">
@@ -548,6 +558,5 @@ export default function CommentsModal({
           </div>
         </div>
       </div>
-    </>
   )
 }

@@ -155,9 +155,9 @@ export default function UserProfilePage() {
           username: profileData.username,
           email: profileData.email,
           bio: profileData.bio,
-          profileImageUrl: profileData.profile_image_url,
-          displayName: profileData.display_name,
-          createdAt: profileData.created_at,
+          profileImageUrl: profileData.profileImageUrl,
+          displayName: profileData.displayName,
+          createdAt: profileData.createdAt,
           postsCount: profileData.posts_count || 0,
           followersCount: followersCount,
           followingCount: followingCount
@@ -170,8 +170,8 @@ export default function UserProfilePage() {
 
         console.log('Profile state set:', {
           username: profileData.username,
-          displayName: profileData.display_name,
-          profileImageUrl: profileData.profile_image_url
+          displayName: profileData.displayName,
+          profileImageUrl: profileData.profileImageUrl
         })
 
         // Fetch user posts using optimized API client

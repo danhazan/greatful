@@ -22,52 +22,52 @@ describe('CommentsModal', () => {
   const mockComments = [
     {
       id: '1',
-      post_id: 'post-1',
-      user_id: 1,
+      postId: 'post-1',
+      userId: 1,
       content: 'This is a great post! 😊',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       user: {
         id: 1,
         username: 'testuser',
-        display_name: 'Test User',
-        profile_image_url: null
+        displayName: 'Test User',
+        profileImageUrl: null
       },
-      is_reply: false,
-      reply_count: 2
+      isReply: false,
+      replyCount: 2
     },
     {
       id: '2',
-      post_id: 'post-1',
-      user_id: 2,
+      postId: 'post-1',
+      userId: 2,
       content: 'I agree! This is inspiring.',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       user: {
         id: 2,
         username: 'anotheruser',
-        display_name: 'Another User',
-        profile_image_url: null
+        displayName: 'Another User',
+        profileImageUrl: null
       },
-      is_reply: false,
-      reply_count: 0
+      isReply: false,
+      replyCount: 0
     }
   ]
 
   const mockReplies = [
     {
       id: '3',
-      post_id: 'post-1',
-      user_id: 3,
+      postId: 'post-1',
+      userId: 3,
       content: 'Thanks for sharing!',
-      parent_comment_id: '1',
-      created_at: new Date().toISOString(),
+      parentCommentId: '1',
+      createdAt: new Date().toISOString(),
       user: {
         id: 3,
         username: 'replyuser',
-        display_name: 'Reply User',
-        profile_image_url: null
+        displayName: 'Reply User',
+        profileImageUrl: null
       },
-      is_reply: true,
-      reply_count: 0
+      isReply: true,
+      replyCount: 0
     }
   ]
 

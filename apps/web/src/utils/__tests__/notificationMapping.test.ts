@@ -54,14 +54,14 @@ describe('notificationMapping', () => {
         id: 'notif-123',
         type: 'like',
         message: 'User liked your post',
-        post_id: 'post-456',
-        created_at: '2024-01-01T12:00:00Z',
-        last_updated_at: '2024-01-01T12:30:00Z',
+        postId: 'post-456',
+        createdAt: '2024-01-01T12:00:00Z',
+        lastUpdatedAt: '2024-01-01T12:30:00Z',
         read: false,
-        is_batch: false,
-        batch_count: 1,
-        parent_id: null,
-        from_user: {
+        isBatch: false,
+        batchCount: 1,
+        parentId: null,
+        fromUser: {
           id: 'user-789',
           name: 'John Doe',
           username: 'johndoe',
@@ -267,20 +267,20 @@ describe('notificationMapping', () => {
       expect(result.postId).toBe('post-789')
     })
 
-    it('should prefer top-level from_user over nested data.from_user', () => {
-      // Test priority: top-level from_user should win
+    it('should prefer top-level fromUser over nested data.fromUser', () => {
+      // Test priority: top-level fromUser should win
       const notificationWithBoth = {
         id: 'both-123',
         type: 'reaction',
         message: 'User reacted',
-        from_user: {
+        fromUser: {
           id: '111',
           name: 'Top Level User',
           username: 'toplevel',
           image: 'https://example.com/top.jpg'
         },
         data: {
-          from_user: {
+          fromUser: {
             id: '222',
             name: 'Nested User',
             username: 'nested',

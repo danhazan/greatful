@@ -23,26 +23,26 @@ describe('/api/notifications', () => {
           id: 'notification-1',
           type: 'reaction',
           message: 'reacted to your post',
-          post_id: 'post-1',
-          from_user: {
+          postId: 'post-1',
+          fromUser: {
             id: 2,
             username: 'john_doe',
-            profile_image_url: 'https://example.com/john.jpg'
+            profileImageUrl: 'https://example.com/john.jpg'
           },
-          created_at: '2025-01-08T12:00:00Z',
+          createdAt: '2025-01-08T12:00:00Z',
           read: false
         },
         {
           id: 'notification-2',
           type: 'comment',
           message: 'commented on your post',
-          post_id: 'post-2',
-          from_user: {
+          postId: 'post-2',
+          fromUser: {
             id: 3,
             username: 'jane_smith',
-            profile_image_url: null
+            profileImageUrl: null
           },
-          created_at: '2025-01-08T11:00:00Z',
+          createdAt: '2025-01-08T11:00:00Z',
           read: true
         }
       ]

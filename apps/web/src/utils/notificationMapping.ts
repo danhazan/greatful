@@ -25,17 +25,17 @@ export function toAbsoluteUrl(url?: string): string | undefined {
  * Maps backend notification to frontend format with consistent field names.
  */
 export function mapBackendNotificationToFrontend(n: any) {
-  const fu = n.from_user || n.data?.from_user || null
+  const fu = n.fromUser || n.data?.fromUser || null
   
-  // Get image from backend's 'image' field (preferred) or fallback to 'profile_image_url'
-  const image = fu?.image ?? fu?.profile_image_url ?? null
+  // Get image from backend (now standardized on camelCase)
+  const image = fu?.image ?? fu?.profileImageUrl ?? null
   
   // Create fromUser object if we have user data or can extract from data
   let fromUser = undefined
   if (fu) {
     fromUser = {
       id: String(fu.id ?? n.data?.actor_user_id ?? ""),
-      name: fu.name ?? fu.display_name ?? fu.username ?? "Unknown",
+      name: fu.name ?? fu.displayName ?? fu.username ?? "Unknown",
       username: fu.username ?? null,
       image: toAbsoluteUrl(image) || undefined, // Convert to absolute URL
     }
@@ -53,22 +53,22 @@ export function mapBackendNotificationToFrontend(n: any) {
     id: n.id,
     type: n.type === "emoji_reaction" ? "reaction" : n.type,
     message: stripHtmlTags(n.message || ""),
-    postId: n.post_id || n.data?.post_id || "",
-    createdAt: n.created_at ? (
-      n.created_at.endsWith('Z') 
-        ? n.created_at 
-        : n.created_at.replace(' ', 'T') + 'Z'
-    ) : n.created_at,
-    lastUpdatedAt: n.last_updated_at ? (
-      n.last_updated_at.endsWith('Z') 
-        ? n.last_updated_at 
-        : n.last_updated_at.replace(' ', 'T') + 'Z'
-    ) : n.last_updated_at,
+    postId: n.postId || n.data?.postId || "",
+    createdAt: n.createdAt ? (
+      n.createdAt.endsWith('Z') 
+        ? n.createdAt 
+        : n.createdAt.replace(' ', 'T') + 'Z'
+    ) : n.createdAt,
+    lastUpdatedAt: n.lastUpdatedAt ? (
+      n.lastUpdatedAt.endsWith('Z') 
+        ? n.lastUpdatedAt 
+        : n.lastUpdatedAt.replace(' ', 'T') + 'Z'
+    ) : n.lastUpdatedAt,
     read: n.read,
     // Batching fields
-    isBatch: n.is_batch || false,
-    batchCount: n.batch_count || 1,
-    parentId: n.parent_id || null,
+    isBatch: n.isBatch || false,
+    batchCount: n.batchCount || 1,
+    parentId: n.parentId || null,
     // Normalized fromUser object
     fromUser,
   }

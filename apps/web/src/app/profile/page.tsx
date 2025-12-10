@@ -195,17 +195,17 @@ export default function ProfilePage() {
           username: profileData.username || 'Unknown User',
           email: profileData.email,
           bio: profileData.bio || "No bio yet - add one by editing your profile!",
-          profileImage: profileData.profile_image_url,
-          displayName: profileData.display_name,
+          profileImage: profileData.profileImageUrl,
+          displayName: profileData.displayName,
           city: profileData.city,
           location: profileData.location,
           institutions: profileData.institutions || [],
           websites: profileData.websites || [],
-          joinDate: profileData.created_at || new Date().toISOString(),
-          postsCount: profileData.posts_count || 0,
-          followersCount: profileData.followers_count || 0,
-          followingCount: profileData.following_count || 0,
-          oauth_provider: profileData.oauth_provider || null
+          joinDate: profileData.createdAt || new Date().toISOString(),
+          postsCount: profileData.postsCount || 0,
+          followersCount: profileData.followersCount || 0,
+          followingCount: profileData.followingCount || 0,
+          oauth_provider: profileData.oauthProvider || null
         }
 
         setUser(userProfileData)
