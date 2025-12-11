@@ -102,7 +102,7 @@ describe('Touch Interactions', () => {
       })
     })
 
-    it('should prevent default on click to avoid zoom', () => {
+    it('should prevent default on click to avoid zoom', async () => {
       const mockPreventDefault = jest.fn()
       render(
         <EmojiPicker
@@ -122,6 +122,9 @@ describe('Touch Interactions', () => {
         })
         
         fireEvent(emojiButton, clickEvent)
+        
+        // Wait for the delayed onEmojiSelect call (50ms timeout in component)
+        await new Promise(resolve => setTimeout(resolve, 100))
         expect(mockOnEmojiSelect).toHaveBeenCalled()
       }
     })

@@ -21,6 +21,7 @@
 - **🔁 Follow Notification Duplication**: Multiple follow notifications sent when unfollow/follow on same day
 - **🎯 Reaction Notification Duplication**: Changing emoji reactions creates duplicate notifications instead of updating
 - **🔄 Component State Synchronization**: Follow buttons and other interactive components don't update related UI elements
+- **🔄 Button UI Sync After API Calls**: Reaction buttons may not immediately reflect server state after API operations complete
 - **🔐 Password Manager Not Triggered**: Password manager doesn't save new passwords when changed in profile settings
 
 ### ✅ Recently Resolved
@@ -264,6 +265,45 @@ The original approach tried to overlay the search on top of navbar elements, cre
 - `apps/web/src/components/UserSearchBar.tsx` - Updated positioning and z-index values
 - `apps/web/src/tests/components/UserSearchBar.mobile-z-index.test.tsx` - Updated test expectations
 - `docs/KNOWN_ISSUES.md` - Moved issue to resolved section
+
+### Deferred Reaction System UX Issues - COMPLETED ✅
+**Issue**: Multiple UX and state synchronization issues with the deferred reaction system  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: December 11, 2025  
+**Impact**: High - Core reaction functionality and user experience  
+
+**What was Fixed**:
+- ✅ Removed loading spinner from EmojiPicker selected emoji display
+- ✅ Fixed PostCard state synchronization after API calls complete
+- ✅ Button state now updates immediately after reaction addition/removal
+- ✅ No page refresh required to see updated reaction state
+- ✅ Added functionality to close modal when clicking on currently selected emoji
+- ✅ Improved state management with proper API response handling
+
+**Technical Implementation**:
+- **EmojiPicker**: Removed spinner animation wrapper from selected emoji display
+- **PostCard**: Fixed `setCurrentPost` calls to properly merge server response data
+- **State Sync**: Updated reaction removal to use `reactionSummary.is_hearted` from server
+- **State Sync**: Updated reaction addition to include both `isHearted` and `heartsCount` from server
+- **UX**: Added close-on-selected-emoji functionality in EmojiPicker mock and real component
+- **Tests**: Updated test expectations to match new deferred reaction behavior
+
+**Root Cause**: 
+The deferred reaction system was working correctly but had two main issues:
+1. Loading spinner was showing on selected emoji when it should only show during API calls
+2. State updates weren't properly merging server response data, causing button state to be out of sync
+
+**Files Modified**:
+- `apps/web/src/components/EmojiPicker.tsx` - Removed spinner from selected emoji display
+- `apps/web/src/components/PostCard.tsx` - Fixed state synchronization with server data
+- `apps/web/src/tests/components/PostCard.interactions.test.tsx` - Updated test for new behavior
+
+**User Experience Improvements**:
+- Reactions now work seamlessly without page refresh
+- No confusing loading spinners on static emoji selection
+- Button state reflects actual reaction state immediately
+- Clicking selected emoji closes modal (as requested)
+- Deferred API calls prevent duplicate notifications while maintaining responsive UI
 
 
 
@@ -624,33 +664,7 @@ An "Engagement Summary" popup automatically appears on posts when the total enga
 3. **User Control**: Add user preference setting
 4. **Redesign**: Make engagement summary more subtle/integrated
 
-### Emoji Reactions 6 & 7 Click Handlers Not Working
-**Issue**: Emojis 6 (laughing 😂) and 7 (thinking 🤔) don't respond when clicked in emoji picker  
-**Status**: ⚠️ Active Issue  
-**Priority**: Medium  
-**Impact**: User Experience  
-**Discovered**: August 15, 2025  
 
-**Description**:
-While most emoji reactions work correctly, emojis 6 and 7 in the emoji picker don't function when clicked. Pressing on them does nothing - no API call is made and no reaction is added.
-
-**Technical Details**:
-- Backend: Supports 'joy' and 'thinking' emoji codes ✅
-- Database: Can store these reactions ✅
-- Frontend: Emoji picker displays these emojis ✅
-- Issue: Click handlers not working for these specific emojis ❌
-
-**Reproduction Steps**:
-1. Navigate to a post
-2. Click the reaction button to open emoji picker
-3. Click on emoji 6 (😂) or emoji 7 (🤔)
-4. Observe that nothing happens
-
-**Next Steps**:
-1. Debug emoji picker click handlers for emojis 6 & 7
-2. Check if emoji codes are being passed correctly
-3. Verify event handlers are attached to all emoji buttons
-4. Add specific tests for these emoji interactions
 
 ### Backend Test Isolation Issue
 **Issue**: Profile API tests pass individually but fail when run with all tests  

@@ -1979,22 +1979,79 @@ Implement a simple, elegant commenting system for posts that follows existing pa
 - Comprehensive tests cover all comment scenarios
 - Documentation is updated to reflect comment system implementation
 
-### **TASK 25: Privacy Controls System** (Post-MVP)
+### **TASK 25: Unified Like/Reaction Button System**
+**Module Reference:** UI/UX Enhancement - Unified Social Interaction
+- [x] **25.1 Unified Button Component Design**
+  - Replace separate heart and reaction buttons with single unified button
+  - Button displays as empty heart (♡) when no interaction exists
+  - Clicking empty heart automatically selects purple heart reaction (💜) and opens reaction modal
+  - Modal opens positioned above button (bottom of modal above button, ensuring button remains visible)
+  - Purple heart appears as first reaction in modal, pre-selected
+  - Remove thinking emoji (🤔) from reaction options to make space for heart
+  - Selected reaction displays on button (replacing empty heart)
+  - Clicking selected reaction removes the reaction entirely
+  - _Requirements: Unified interaction experience with heart as default reaction_
+
+- [x] **25.2 Backend Integration Strategy**
+  - **Recommended Approach**: Extend EmojiReaction Model with complete Like model cleanup
+  - Add 'heart' emoji_code as first option in EmojiReaction.VALID_EMOJIS mapping to 💜
+  - Update emoji selection: Remove 'thinking' (🤔) and 'joy' (😂), replace 'fire' (🔥) with 'praise' (🙌), add 'grateful' (�))
+  - Final emoji set: heart (💜), heart_eyes (😍), hug (🤗), pray (🙏), muscle (💪), grateful (�)), praise (🙌), clap (👏)
+  - Remove Like model entirely (no production data migration needed)
+  - Clean up all like-related code: LikeService, LikeRepository, like API endpoints
+  - Implement unified service methods for getting/setting user's interaction on a post
+  - _Requirements: Complete transition to unified emoji reaction system_
+
+- [x] **25.3 Frontend Component Refactoring**
+  - Update PostCard component to use unified interaction button
+  - Modify EmojiPicker to include purple heart as first option (pre-selected when opened from heart click)
+  - Update reaction modal positioning to appear above button without covering it
+  - Ensure proper touch targets and mobile responsiveness
+  - Update all interaction-related components (ReactionViewer, etc.) to handle heart as reaction
+  - _Requirements: Seamless UI transition to unified interaction system_
+
+- [ ] **25.4 Notification System Updates (Minimal Changes)**
+  - **Leverage Existing System**: The PostInteractionBatcher already handles unified batching perfectly!
+  - **Simple Change**: Update `create_like_notification` in NotificationFactory to call `create_reaction_notification` with 'heart' emoji
+  - **Keep Existing Batching**: All existing batching logic in PostInteractionBatcher works as-is
+  - **Keep Existing Messages**: Current "X people engaged with your post 💜" batching already perfect
+  - **No Notification Type Changes**: Keep "like" and "emoji_reaction" types - they already batch together as "post_interaction"
+  - **Result**: Hearts will automatically batch with other reactions using existing sophisticated system
+  - _Requirements: Minimal changes to leverage existing unified notification system_
+
+- [ ] **25.5 Complete Like System Cleanup**
+  - Remove Like model from apps/api/app/models/like.py
+  - Remove LikeService from apps/api/app/services/ (if exists)
+  - Remove LikeRepository from apps/api/app/repositories/like_repository.py
+  - Remove like API endpoints from apps/api/app/api/v1/likes.py
+  - Remove like-related imports from apps/api/app/models/__init__.py
+  - Drop likes table from database (since no production data exists)
+  - Update all references to use reaction endpoints instead
+  - Remove like-related test files or convert to reaction tests
+  - _Requirements: Complete removal of legacy like system_
+
+- [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify unified interaction system works correctly. Run frontend tests (`npm test`) to verify button behavior, modal positioning, and interaction flows. Test notification creation and batching for heart reactions.
+
+- [ ] **Update Project Documentation:** Document unified interaction system in design and architecture docs. Update API documentation with new interaction endpoints. Add migration notes for existing like/reaction data.
+
+**Acceptance Criteria:** Single button starts as empty heart, clicking selects purple heart and opens modal with heart pre-selected, modal positioned above button, selected reaction shows on button, clicking selected reaction removes it, hearts automatically batch with other reactions using existing PostInteractionBatcher system, Like model and related code completely removed.
+
+### **TASK 26: Privacy Controls System** (Post-MVP)
 **Module Reference:** Privacy & User Safety Features
 - [ ] User privacy settings with profile levels (Public/Friendly/Private)
 - [ ] Post-level privacy controls with granular permissions
 - [ ] User blocking functionality across all social interactions
 - [ ] Privacy enforcement in feed algorithm and content visibility
 
-### **TASK 26: Advanced Social Features** (Post-MVP)
+### **TASK 27: Advanced Social Features** (Post-MVP)
 - [ ] **Real-time Notifications:** WebSocket integration for instant updates
 - [ ] **Advanced Analytics:** Personal dashboard with engagement insights and trends
 - [ ] **Content Moderation:** Reporting system and automated content screening
 - [ ] **Enhanced Share System:** Rate limiting (20/hour) and comprehensive analytics tracking
 
-### **TASK 27: Follow Notification Batching System** (Post-MVP)
+### **TASK 28: Follow Notification Batching System** (Post-MVP)
 **Module Reference:** Requirements 6 - Follow System Integration (Enhanced Batching)
-- [ ] **27.1 Follow Notification Batching Analysis and Design**
+- [ ] **28.1 Follow Notification Batching Analysis and Design**
   - **Context:** Follow notifications are user-based rather than post-based, requiring different batching strategy
   - **Challenge:** Unlike post interactions (likes/reactions), follows are directed at users, not posts
   - Analyze current follow notification patterns and volume for batching opportunities
@@ -2005,7 +2062,7 @@ Implement a simple, elegant commenting system for posts that follows existing pa
   - Consider batch size limits (e.g., max 10 followers per batch before creating new batch)
   - Design batch metadata to track follower information and timestamps
   - Plan integration with existing generic batching system from Task 11.3
-- [ ] **27.2 Follow Notification Batching Implementation**
+- [ ] **28.2 Follow Notification Batching Implementation**
   - Extend generic batching system to support user-based batching (not just post-based)
   - Implement follow notification batching using the generic NotificationBatcher
   - Create batch configuration for follow notifications with user-based scope
@@ -2013,7 +2070,7 @@ Implement a simple, elegant commenting system for posts that follows existing pa
   - Implement proper batch summary generation for follow notifications
   - Add batch expansion to show individual follower notifications with profile pictures
   - Test follow notification batching with multiple followers and time windows
-- [ ] **27.3 Cross-Notification Type Batching Strategy (Future)**
+- [ ] **28.3 Cross-Notification Type Batching Strategy (Future)**
   - **Advanced Feature:** Consider batching different notification types for the same user
   - Research feasibility of "activity digest" notifications combining multiple types
   - Design user preference system for notification batching granularity

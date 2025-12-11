@@ -96,7 +96,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
     }
   }, [isOpen, onClose])
 
-  // Group reactions by emoji
+  // Group reactions by emoji (including hearts as purple heart reactions)
   const groupedReactions = reactions.reduce((acc, reaction) => {
     const emoji = getEmojiFromCode(reaction.emojiCode)
     if (!acc[emoji]) {

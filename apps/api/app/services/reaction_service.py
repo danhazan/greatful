@@ -269,3 +269,61 @@ class ReactionService(BaseService):
             int: Total reaction count
         """
         return await self.reaction_repo.get_total_reaction_count(post_id)
+
+    async def get_user_interaction(self, user_id: int, post_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a user's interaction (reaction) with a post.
+        This is the unified method that replaces separate like/reaction checks.
+        
+        Args:
+            user_id: ID of the user
+            post_id: ID of the post
+            
+        Returns:
+            Optional[Dict]: User's interaction data or None if no interaction
+        """
+        reaction = await self.get_user_reaction(user_id, post_id)
+        
+        if reaction:
+            return {
+                "type": "reaction",
+                "emoji_code": reaction.emoji_code,
+                "emoji_display": reaction.emoji_display,
+                "created_at": reaction.created_at.isoformat()
+            }
+        
+        return None
+
+    async def set_user_interaction(
+        self, 
+        user_id: int, 
+        post_id: str, 
+        emoji_code: str
+    ) -> Dict[str, Any]:
+        """
+        Set a user's interaction (reaction) with a post.
+        This is the unified method that replaces separate like/reaction operations.
+        
+        Args:
+            user_id: ID of the user
+            post_id: ID of the post
+            emoji_code: Emoji code for the reaction
+            
+        Returns:
+            Dict: Updated interaction data
+        """
+        return await self.add_reaction(user_id, post_id, emoji_code)
+
+    async def remove_user_interaction(self, user_id: int, post_id: str) -> bool:
+        """
+        Remove a user's interaction (reaction) with a post.
+        This is the unified method that replaces separate like/reaction removal.
+        
+        Args:
+            user_id: ID of the user
+            post_id: ID of the post
+            
+        Returns:
+            bool: True if interaction was removed, False if no interaction existed
+        """
+        return await self.remove_reaction(user_id, post_id)

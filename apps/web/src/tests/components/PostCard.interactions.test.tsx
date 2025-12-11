@@ -23,14 +23,40 @@ jest.mock('@/services/analytics', () => ({
 
 // Mock the EmojiPicker and ReactionViewer components
 jest.mock('@/components/EmojiPicker', () => {
-  return function MockEmojiPicker({ isOpen, onEmojiSelect, onClose }: any) {
+  let selectedEmoji: string | null = null
+  
+  return function MockEmojiPicker({ isOpen, onEmojiSelect, onClose, currentReaction }: any) {
     if (!isOpen) return null
     return (
       <div data-testid="emoji-picker">
-        <button onClick={() => onEmojiSelect('heart_eyes')}>😍</button>
-        <button onClick={() => onEmojiSelect('fire')}>🔥</button>
-        <button onClick={() => onEmojiSelect('pray')}>🙏</button>
-        <button onClick={onClose}>Close</button>
+        <button onClick={() => {
+          if (currentReaction === 'heart_eyes' || selectedEmoji === 'heart_eyes') {
+            onClose()
+          } else {
+            selectedEmoji = 'heart_eyes'
+            onEmojiSelect('heart_eyes')
+          }
+        }}>😍</button>
+        <button onClick={() => {
+          if (currentReaction === 'fire' || selectedEmoji === 'fire') {
+            onClose()
+          } else {
+            selectedEmoji = 'fire'
+            onEmojiSelect('fire')
+          }
+        }}>🔥</button>
+        <button onClick={() => {
+          if (currentReaction === 'pray' || selectedEmoji === 'pray') {
+            onClose()
+          } else {
+            selectedEmoji = 'pray'
+            onEmojiSelect('pray')
+          }
+        }}>🙏</button>
+        <button onClick={() => {
+          selectedEmoji = null
+          onClose()
+        }}>Close</button>
       </div>
     )
   }
@@ -91,12 +117,17 @@ describe('PostCard Interactions', () => {
     expect(analyticsService.trackViewEvent).toHaveBeenCalledWith('test-post-1', 'current-user')
   })
 
-  it('should track heart event when heart button is clicked', async () => {
-    // Mock successful API response
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ success: true })
-    })
+  it('should automatically select purple heart when unified button is clicked (no current reaction)', async () => {
+    // Mock successful API responses
+    ;(fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'reaction-1' })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ total_count: 1, reactions: { heart: 1 }, user_reaction: 'heart' })
+      })
 
     render(
       <PostCard
@@ -110,23 +141,38 @@ describe('PostCard Interactions', () => {
       />
     )
 
-    // Find the heart button by looking for the button with heart count
-    const heartButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('5') && btn.className.includes('heart-button'))
-    fireEvent.click(heartButton!)
+    // Find the unified reaction button by looking for the button with total count (hearts + reactions = 5 + 3 = 8)
+    const unifiedButton = screen.getAllByRole('button').find(btn => btn.textContent?.includes('8') && btn.title?.includes('React with emoji'))
+    fireEvent.click(unifiedButton!)
 
-    // Wait for async operations to complete
+    // Should open emoji picker immediately (deferred reaction system)
     await waitFor(() => {
-      expect(analyticsService.trackHeartEvent).toHaveBeenCalledWith('test-post-1', 'current-user', true)
+      expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
+    })
+
+    // Close the modal to trigger the API call (deferred reaction system)
+    const closeButton = screen.getByText('Close')
+    fireEvent.click(closeButton)
+
+    // Wait for async operations to complete - API call happens when modal closes
+    await waitFor(() => {
+      expect(analyticsService.trackReactionEvent).toHaveBeenCalledWith(
+        'reaction_add',
+        'test-post-1', 
+        'current-user', 
+        'heart',
+        undefined
+      )
     })
 
     await waitFor(() => {
-      expect(mockOnHeart).toHaveBeenCalledWith('test-post-1', false, expect.any(Object))
+      expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'heart', expect.any(Object))
     })
 
-    // Verify API call was made
+    // Verify API call was made - unified button now calls reactions endpoint
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
-        '/api/posts/test-post-1/heart',
+        '/api/posts/test-post-1/reactions',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
@@ -161,7 +207,18 @@ describe('PostCard Interactions', () => {
     expect(analyticsService.trackShareEvent).not.toHaveBeenCalled()
   })
 
-  it('should open emoji picker when reaction button is clicked (no current reaction)', () => {
+  it('should automatically select purple heart when reaction button is clicked (no current reaction)', async () => {
+    // Mock successful API responses for purple heart selection
+    ;(fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'reaction-1' })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ total_count: 1, reactions: { heart: 1 }, user_reaction: 'heart' })
+      })
+
     render(
       <PostCard
         post={mockPost}
@@ -177,10 +234,22 @@ describe('PostCard Interactions', () => {
     const reactionButton = screen.getByTitle('React with emoji')
     fireEvent.click(reactionButton)
 
-    expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
+    // Should automatically select purple heart and open picker
+    await waitFor(() => {
+      expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
+    })
+
+    // Close the modal to trigger the API call (deferred reaction system)
+    const closeButton = screen.getByText('Close')
+    fireEvent.click(closeButton)
+
+    // Should call onReaction with heart after modal closes
+    await waitFor(() => {
+      expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'heart', expect.any(Object))
+    })
   })
 
-  it('should remove reaction when reaction button is clicked (has current reaction)', async () => {
+  it('should remove reaction when unified button is clicked (has current reaction)', async () => {
     // Mock successful API responses for reaction removal
     ;(fetch as jest.Mock)
       .mockResolvedValueOnce({
@@ -229,8 +298,8 @@ describe('PostCard Interactions', () => {
     })
   })
 
-  it('should track reaction_add when selecting emoji for first time', async () => {
-    // Mock successful API responses for adding reaction
+  it('should track reaction_add when selecting purple heart for first time', async () => {
+    // Mock successful API responses for adding purple heart reaction
     ;(fetch as jest.Mock)
       .mockResolvedValueOnce({
         ok: true,
@@ -240,8 +309,8 @@ describe('PostCard Interactions', () => {
         ok: true,
         json: () => Promise.resolve({
           total_count: 4,
-          reactions: { heart_eyes: 1, fire: 3 },
-          user_reaction: 'heart_eyes'
+          reactions: { heart: 1 },
+          user_reaction: 'heart'
         })
       })
 
@@ -257,25 +326,32 @@ describe('PostCard Interactions', () => {
       />
     )
 
-    // Open emoji picker
+    // Click unified reaction button (automatically selects purple heart)
     const reactionButton = screen.getByTitle('React with emoji')
     fireEvent.click(reactionButton)
 
-    // Select an emoji
-    const heartEyesEmoji = screen.getByText('😍')
-    fireEvent.click(heartEyesEmoji)
-
-    expect(analyticsService.trackReactionEvent).toHaveBeenCalledWith(
-      'reaction_add',
-      'test-post-1',
-      'current-user',
-      'heart_eyes',
-      undefined
-    )
-
-    // Wait for async operations to complete
+    // Should open emoji picker immediately
     await waitFor(() => {
-      expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'heart_eyes', expect.any(Object))
+      expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
+    })
+
+    // Close the modal to trigger the API call (deferred reaction system)
+    const closeButton = screen.getByText('Close')
+    fireEvent.click(closeButton)
+
+    // Wait for async operations to complete - API call happens when modal closes
+    await waitFor(() => {
+      expect(analyticsService.trackReactionEvent).toHaveBeenCalledWith(
+        'reaction_add',
+        'test-post-1',
+        'current-user',
+        'heart',
+        undefined
+      )
+    })
+
+    await waitFor(() => {
+      expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'heart', expect.any(Object))
     })
   })
 
@@ -395,7 +471,7 @@ describe('PostCard Interactions', () => {
       />
     )
 
-    expect(screen.getByText('15 total reactions')).toBeInTheDocument()
+    expect(screen.getByText('15 reactions')).toBeInTheDocument()
   })
 
   it('should not display engagement summary for low engagement posts', () => {
@@ -444,8 +520,8 @@ describe('PostCard Interactions', () => {
     expect(postImage).toHaveAttribute('src', 'https://example.com/photo.jpg')
   })
 
-  it('should close emoji picker when emoji is selected', async () => {
-    // Mock successful API responses
+  it('should show empty heart (♡) and automatically select purple heart on first click', async () => {
+    // Mock successful API responses for purple heart selection
     ;(fetch as jest.Mock)
       .mockResolvedValueOnce({
         ok: true,
@@ -453,12 +529,20 @@ describe('PostCard Interactions', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ total_count: 1, reactions: { heart_eyes: 1 }, user_reaction: 'heart_eyes' })
+        json: () => Promise.resolve({ total_count: 1, reactions: { heart: 1 }, user_reaction: 'heart' })
       })
+
+    const postWithNoReaction = {
+      ...mockPost,
+      currentUserReaction: undefined,
+      isHearted: false,
+      heartsCount: 0,
+      reactionsCount: 0
+    }
 
     render(
       <PostCard
-        post={mockPost}
+        post={postWithNoReaction}
         currentUserId="current-user"
         onHeart={mockOnHeart}
         onReaction={mockOnReaction}
@@ -468,19 +552,126 @@ describe('PostCard Interactions', () => {
       />
     )
 
-    // Open emoji picker
+    // Should show 0 count initially on the reaction button
+    const reactionButton = screen.getByTitle('React with emoji')
+    expect(reactionButton).toHaveTextContent('0')
+
+    // Click unified reaction button (should auto-select purple heart and open picker)
+    fireEvent.click(reactionButton)
+
+    // Should automatically select purple heart and open picker
+    await waitFor(() => {
+      expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
+    })
+
+    // Close the modal to trigger the API call (deferred reaction system)
+    const closeButton = screen.getByText('Close')
+    fireEvent.click(closeButton)
+
+    // Should call onReaction with heart after modal closes
+    await waitFor(() => {
+      expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'heart', expect.any(Object))
+    })
+  })
+
+  it('should allow changing emoji selection before closing modal', async () => {
+    // Mock successful API responses
+    ;(fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'reaction-1' })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ total_count: 1, reactions: { fire: 1 }, user_reaction: 'fire' })
+      })
+
+    const postWithNoReaction = {
+      ...mockPost,
+      currentUserReaction: undefined,
+      isHearted: false,
+      heartsCount: 0,
+      reactionsCount: 0
+    }
+
+    render(
+      <PostCard
+        post={postWithNoReaction}
+        currentUserId="current-user"
+        onHeart={mockOnHeart}
+        onReaction={mockOnReaction}
+        onRemoveReaction={mockOnRemoveReaction}
+        onShare={mockOnShare}
+        onUserClick={mockOnUserClick}
+      />
+    )
+
+    // Click reaction button to open picker
     const reactionButton = screen.getByTitle('React with emoji')
     fireEvent.click(reactionButton)
 
-    expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
+    // Should open emoji picker
+    await waitFor(() => {
+      expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
+    })
 
-    // Select an emoji
-    const heartEyesEmoji = screen.getByText('😍')
-    fireEvent.click(heartEyesEmoji)
+    // Click on fire emoji (second emoji in the mock)
+    const fireEmoji = screen.getByText('🔥')
+    fireEvent.click(fireEmoji)
 
-    // Wait for async operations to complete and picker to close
+    // Close the modal to trigger the API call
+    const closeButton = screen.getByText('Close')
+    fireEvent.click(closeButton)
+
+    // Should call onReaction with fire (not heart)
+    await waitFor(() => {
+      expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'fire', expect.any(Object))
+    })
+  })
+
+  it('should send pending reaction when modal closes', async () => {
+    const postWithoutReaction = {
+      ...mockPost,
+      currentUserReaction: undefined,
+      heartsCount: 0,
+      reactionsCount: 0,
+      isHearted: false
+    }
+
+    render(
+      <PostCard
+        post={postWithoutReaction}
+        currentUserId="current-user"
+        onHeart={mockOnHeart}
+        onReaction={mockOnReaction}
+        onRemoveReaction={mockOnRemoveReaction}
+        onShare={mockOnShare}
+        onUserClick={mockOnUserClick}
+      />
+    )
+
+    // Click reaction button to open picker (automatically sets pending reaction to 'heart')
+    const reactionButton = screen.getByTitle('React with emoji')
+    fireEvent.click(reactionButton)
+
+    // Should open emoji picker
+    await waitFor(() => {
+      expect(screen.getByTestId('emoji-picker')).toBeInTheDocument()
+    })
+
+    // Click close button
+    const closeButton = screen.getByText('Close')
+    fireEvent.click(closeButton)
+
+    // Modal should close immediately
     await waitFor(() => {
       expect(screen.queryByTestId('emoji-picker')).not.toBeInTheDocument()
     })
+
+    // Should send the pending reaction (heart) when modal closes
+    await waitFor(() => {
+      expect(mockOnReaction).toHaveBeenCalledWith('test-post-1', 'heart', expect.any(Object))
+    })
+    expect(mockOnRemoveReaction).not.toHaveBeenCalled()
   })
 })

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from main import app
 from app.models.user import User
 from app.models.post import Post
-from app.models.like import Like
+from app.models.emoji_reaction import EmojiReaction
 from app.core.database import get_db
 import uuid
 
@@ -53,8 +53,8 @@ class TestHeartsProfileImages:
         await db_session.refresh(post)
         
         # Create hearts from both users
-        heart1 = Like(post_id=post.id, user_id=user1.id)
-        heart2 = Like(post_id=post.id, user_id=user2.id)
+        heart1 = EmojiReaction(post_id=post.id, user_id=user1.id, emoji_code='heart')
+        heart2 = EmojiReaction(post_id=post.id, user_id=user2.id, emoji_code='heart')
         
         db_session.add(heart1)
         db_session.add(heart2)
@@ -81,7 +81,7 @@ class TestHeartsProfileImages:
             # "userImage": None
             
             # This test verifies the code change is in place
-            from app.api.v1.likes import get_post_hearts_users
+            from app.api.v1.hearts import get_hearts_users
             
             # Verify the function exists and can be called
             assert get_post_hearts_users is not None
@@ -98,9 +98,9 @@ class TestHeartsProfileImages:
         
         # Read the source code to verify the change was made
         import inspect
-        from app.api.v1.likes import get_post_hearts_users
+        from app.api.v1.hearts import get_hearts_users
         
-        source = inspect.getsource(get_post_hearts_users)
+        source = inspect.getsource(get_hearts_users)
         
         # Verify that the API now returns profile_image_url instead of None
         assert "heart.user.profile_image_url" in source

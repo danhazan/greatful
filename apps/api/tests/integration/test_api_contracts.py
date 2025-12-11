@@ -179,8 +179,8 @@ class TestReactionsAPIContracts:
         
         assert "emoji_code" in data
         assert data["emoji_code"] in [
-            "heart_eyes", "hug", "pray", "muscle", 
-            "star", "fire", "heart_face", "clap"
+            "heart", "heart_eyes", "hug", "pray", "muscle", 
+            "grateful", "praise", "clap"
         ]
         
         assert "emoji_display" in data

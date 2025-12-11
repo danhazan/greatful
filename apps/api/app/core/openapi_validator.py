@@ -154,7 +154,7 @@ class OpenAPIValidator:
         
         schemas["EmojiCode"] = {
             "type": "string",
-            "enum": ["heart_eyes", "hug", "pray", "muscle", "star", "fire", "heart_face", "clap"],
+            "enum": ["heart", "heart_eyes", "hug", "pray", "muscle", "grateful", "praise", "clap"],
             "description": "Valid emoji reaction codes"
         }
         

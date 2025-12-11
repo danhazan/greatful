@@ -196,17 +196,17 @@ class TestFeedRefreshWorkflow:
         db_session.add(high_engagement_old)
         await db_session.commit()
         
-        # Add some engagement to the old post (simulate likes/reactions)
-        from app.models.like import Like
+        # Add some engagement to the old post (simulate hearts/reactions)
         from app.models.emoji_reaction import EmojiReaction
         
-        # Add likes to old post
+        # Add hearts to old post
         for i in range(5):
-            like = Like(
+            heart = EmojiReaction(
                 user_id=workflow_user.id + i + 1,  # Different user IDs
-                post_id=high_engagement_old.id
+                post_id=high_engagement_old.id,
+                emoji_code='heart'
             )
-            db_session.add(like)
+            db_session.add(heart)
         
         # Add reactions to old post
         for i in range(3):

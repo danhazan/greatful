@@ -32,10 +32,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 from app.api.v1.reactions import router as reactions_router
+from app.api.v1.hearts import router as hearts_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
 from app.api.v1.posts import router as posts_router
-from app.api.v1.likes import router as likes_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.follows import router as follows_router
 from app.api.v1.oauth import router as oauth_router
@@ -270,7 +270,7 @@ app.include_router(oauth_router, prefix="/api/v1/oauth", tags=["oauth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(posts_router, prefix="/api/v1/posts", tags=["posts"])
 app.include_router(reactions_router, prefix="/api/v1", tags=["reactions"])
-app.include_router(likes_router, prefix="/api/v1", tags=["likes"])
+app.include_router(hearts_router, prefix="/api/v1", tags=["hearts"])
 app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])
 app.include_router(follows_router, prefix="/api/v1", tags=["follows"])
 app.include_router(comments_router, prefix="/api/v1", tags=["comments"])

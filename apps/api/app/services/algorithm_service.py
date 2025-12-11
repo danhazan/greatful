@@ -13,7 +13,6 @@ from sqlalchemy import func, and_, or_
 
 from app.core.service_base import BaseService
 from app.models.post import Post, PostType
-from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
@@ -242,13 +241,16 @@ class AlgorithmService(BaseService):
         if not post_ids:
             return {}
             
-        # Get hearts counts
+        # Get hearts counts (from emoji reactions with 'heart' emoji_code)
         hearts_query = select(
-            Like.post_id,
-            func.count(Like.id).label('count')
+            EmojiReaction.post_id,
+            func.count(EmojiReaction.id).label('count')
         ).where(
-            Like.post_id.in_(post_ids)
-        ).group_by(Like.post_id)
+            and_(
+                EmojiReaction.post_id.in_(post_ids),
+                EmojiReaction.emoji_code == 'heart'
+            )
+        ).group_by(EmojiReaction.post_id)
         
         hearts_result = await self.db.execute(hearts_query)
         hearts_counts = {row.post_id: row.count for row in hearts_result}
@@ -314,7 +316,12 @@ class AlgorithmService(BaseService):
         # Get engagement counts if not provided
         if hearts_count is None:
             hearts_result = await self.db.execute(
-                select(func.count(Like.id)).where(Like.post_id == post.id)
+                select(func.count(EmojiReaction.id)).where(
+                    and_(
+                        EmojiReaction.post_id == post.id,
+                        EmojiReaction.emoji_code == 'heart'
+                    )
+                )
             )
             hearts_count = hearts_result.scalar() or 0
 
@@ -1189,16 +1196,28 @@ class AlgorithmService(BaseService):
         # Query posts created within the time window with engagement
         from sqlalchemy.orm import outerjoin
         
+        # Create aliases for different emoji reaction types
+        HeartReactions = EmojiReaction.__table__.alias('heart_reactions')
+        OtherReactions = EmojiReaction.__table__.alias('other_reactions')
+        
         query = select(
             Post,
-            func.count(Like.id).label('hearts_count'),
-            func.count(EmojiReaction.id).label('reactions_count'),
+            func.count(HeartReactions.c.id).label('hearts_count'),
+            func.count(OtherReactions.c.id).label('reactions_count'),
             func.count(Share.id).label('shares_count')
         ).select_from(
             outerjoin(
                 outerjoin(
-                    outerjoin(Post, Like, and_(Post.id == Like.post_id, Like.created_at >= cutoff_time)),
-                    EmojiReaction, and_(Post.id == EmojiReaction.post_id, EmojiReaction.created_at >= cutoff_time)
+                    outerjoin(Post, HeartReactions, and_(
+                        Post.id == HeartReactions.c.post_id, 
+                        HeartReactions.c.created_at >= cutoff_time,
+                        HeartReactions.c.emoji_code == 'heart'
+                    )),
+                    OtherReactions, and_(
+                        Post.id == OtherReactions.c.post_id, 
+                        OtherReactions.c.created_at >= cutoff_time,
+                        OtherReactions.c.emoji_code != 'heart'
+                    )
                 ),
                 Share, and_(Post.id == Share.post_id, Share.created_at >= cutoff_time)
             )
@@ -1480,7 +1499,12 @@ class AlgorithmService(BaseService):
         
         # Get engagement counts
         hearts_result = await self.db.execute(
-            select(func.count(Like.id)).where(Like.post_id == post.id)
+            select(func.count(EmojiReaction.id)).where(
+                and_(
+                    EmojiReaction.post_id == post.id,
+                    EmojiReaction.emoji_code == 'heart'
+                )
+            )
         )
         hearts_count = hearts_result.scalar() or 0
 

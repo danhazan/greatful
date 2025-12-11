@@ -15,7 +15,6 @@ from app.core.exceptions import ValidationException, NotFoundError
 from app.models.user_interaction import UserInteraction
 from app.models.user import User
 from app.models.post import Post
-from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.mention import Mention

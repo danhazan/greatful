@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.algorithm_service import AlgorithmService
 from app.models.post import Post, PostType
 from app.models.user import User
-from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow

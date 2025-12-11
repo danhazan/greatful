@@ -4,32 +4,31 @@
 
 export const emojiCodeToEmoji: { [key: string]: string } = {
   // Hearts and love
-  'heart': '❤️',
-  'heart_face': '😍',
+  'heart': '💜',
   'heart_eyes': '😍',
-  'smiling_face_with_heart_eyes': '😍',
+  'hug': '🤗',
   
-  // Happy emotions
+  // Support and encouragement
+  'pray': '🙏',
+  'clap': '👏',
+  'muscle': '💪',
+  'grateful': '🙏',
+  'praise': '🙌',
+  
+  // Legacy mappings for backward compatibility
+  'heart_face': '😍',
+  'smiling_face_with_heart_eyes': '😍',
   'smile': '😊',
   'grinning': '😀',
   'joy': '😂',
   'laughing': '😆',
   'smiley': '😃',
   'happy': '😊',
-  
-  // Support and encouragement
-  'pray': '🙏',
-  'clap': '👏',
-  'muscle': '💪',
   'thumbs_up': '👍',
   'raised_hands': '🙌',
-  
-  // Fire and excitement
   'fire': '🔥',
   'star': '⭐',
   'sparkles': '✨',
-  
-  // Thinking and contemplation
   'thinking': '🤔',
   'mind_blown': '🤯',
   
@@ -49,13 +48,13 @@ export function getEmojiFromCode(code: string): string {
  */
 export function getAvailableEmojis(): { code: string; emoji: string; label: string }[] {
   return [
-    { code: 'heart_face', emoji: '😍', label: 'Love it' },
-    { code: 'fire', emoji: '🔥', label: 'Fire' },
+    { code: 'heart', emoji: '💜', label: 'Heart' },
+    { code: 'heart_eyes', emoji: '😍', label: 'Love it' },
+    { code: 'hug', emoji: '🤗', label: 'Hug' },
     { code: 'pray', emoji: '🙏', label: 'Grateful' },
     { code: 'muscle', emoji: '💪', label: 'Strong' },
-    { code: 'clap', emoji: '👏', label: 'Applause' },
-    { code: 'joy', emoji: '😂', label: 'Funny' },
-    { code: 'thinking', emoji: '🤔', label: 'Thinking' },
-    { code: 'star', emoji: '⭐', label: 'Amazing' }
+    { code: 'grateful', emoji: '🙏', label: 'Thankful' },
+    { code: 'praise', emoji: '🙌', label: 'Praise' },
+    { code: 'clap', emoji: '👏', label: 'Applause' }
   ]
 }

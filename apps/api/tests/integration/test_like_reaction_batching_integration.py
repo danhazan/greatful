@@ -8,7 +8,6 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.models.post import Post
-from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.notification import Notification
 from app.services.notification_service import NotificationService
@@ -256,9 +255,11 @@ class TestLikeReactionBatchingIntegration:
         assert len(notifications) == 1
         notification = notifications[0]
         
-        # Verify purple heart styling
-        assert "💜" in notification.title
-        assert notification.type == "like"
+        # Verify that likes are now treated as emoji reactions with heart emoji
+        # Since likes now use the unified batching system, they should be emoji_reaction type
+        assert notification.type == "emoji_reaction"
+        # The notification should contain heart emoji information in the data
+        assert notification.data.get("emoji_code") == "heart"
 
     def _create_token(self, user_id: int) -> str:
         """Helper to create JWT token for testing."""

@@ -147,6 +147,7 @@ export default function PostCard({
   const [isHeartLoading, setIsHeartLoading] = useState(false)
   const [isReactionLoading, setIsReactionLoading] = useState(false)
   const [isReactionsViewerLoading, setIsReactionsViewerLoading] = useState(false)
+  const [pendingReaction, setPendingReaction] = useState<string | null>(null) // Track pending reaction before API call
   const [isHeartsViewerLoading, setIsHeartsViewerLoading] = useState(false)
   const [isCommentsLoading, setIsCommentsLoading] = useState(false)
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false)
@@ -278,7 +279,7 @@ export default function PostCard({
       return
     }
     
-    // If user already has a reaction, remove it
+    // If user already has a reaction, remove it immediately
     if (currentPost.currentUserReaction && onRemoveReaction) {
       // Track analytics event for reaction removal
       if (currentUserId) {
@@ -302,6 +303,15 @@ export default function PostCard({
           // Get updated reaction summary from server
           const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
           
+          // Update local state immediately for responsive UI
+          setCurrentPost(prev => ({
+            ...prev,
+            currentUserReaction: undefined,
+            reactionsCount: reactionSummary.total_count || 0,
+            isHearted: reactionSummary.is_hearted || false,
+            heartsCount: reactionSummary.hearts_count || 0
+          }))
+          
           // Call handler with updated server data
           onRemoveReaction(post.id, reactionSummary)
         } catch (error) {
@@ -315,77 +325,103 @@ export default function PostCard({
       return
     }
     
+    // Set pending reaction to heart (show purple heart immediately in UI)
+    setPendingReaction('heart')
+    
     if (reactionButtonRef.current) {
       const rect = reactionButtonRef.current.getBoundingClientRect()
       setEmojiPickerPosition({
         x: rect.left + rect.width / 2,
-        y: rect.top
+        y: rect.top - 8 // Position above button with 8px spacing to avoid covering
       })
     }
     
     setShowEmojiPicker(true)
   }
 
-  const handleEmojiSelect = async (emojiCode: string) => {
-    setIsReactionLoading(true)
+  const handleEmojiSelect = (emojiCode: string) => {
+    // Just update the pending reaction, don't send API request yet
+    setPendingReaction(emojiCode)
+    // Don't close the picker yet - let user see their selection
+  }
+
+  const handleEmojiPickerClose = async () => {
+    setShowEmojiPicker(false)
     
-    // Track analytics event
-    if (currentUserId) {
-      const eventType = currentPost.currentUserReaction ? 'reaction_change' : 'reaction_add'
-      analyticsService.trackReactionEvent(
-        eventType,
-        post.id,
-        currentUserId,
-        emojiCode,
-        currentPost.currentUserReaction
-      )
-    }
-    
-    // Note: Removed loading toast for reactions to reduce visual noise
-    // The reaction UI provides sufficient visual feedback
-    const loadingToastId = '' // Placeholder for error handling
-    
-    try {
-      const token = localStorage.getItem("access_token")
+    // If there's a pending reaction, send it to the API
+    if (pendingReaction) {
+      const reactionToSend = pendingReaction // Store it before clearing
+      setIsReactionLoading(true)
       
-      try {
-        // Make API call to add/update reaction using optimized API client
-        await apiClient.post(`/posts/${post.id}/reactions`, { emoji_code: emojiCode })
-        
-        // Get updated reaction summary from server
-        const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
-        
-        // Call handler with updated server data
-        onReaction?.(post.id, emojiCode, reactionSummary)
-        
-        // Note: No loading toast to hide for reactions
-      } catch (apiError: any) {
-        // Note: No loading toast to hide for reactions
-        showError(
-          'Reaction Failed',
-          apiError.message || 'Unable to add reaction. Please try again.',
-          {
-            label: 'Retry',
-            onClick: () => handleEmojiSelect(emojiCode)
-          }
+      // Track analytics event
+      if (currentUserId) {
+        const eventType = currentPost.currentUserReaction ? 'reaction_change' : 'reaction_add'
+        analyticsService.trackReactionEvent(
+          eventType,
+          post.id,
+          currentUserId,
+          reactionToSend,
+          currentPost.currentUserReaction
         )
       }
-    } catch (error) {
-      console.error('Error updating reaction:', error)
-      // Note: No loading toast to hide for reactions
-      showError(
-        'Network Error',
-        'Please check your connection and try again.',
-        {
-          label: 'Retry',
-          onClick: () => handleEmojiSelect(emojiCode)
+      
+      try {
+        const token = localStorage.getItem("access_token")
+        
+        try {
+          // Make API call to add/update reaction using optimized API client
+          await apiClient.post(`/posts/${post.id}/reactions`, { emoji_code: reactionToSend })
+          
+          // Get updated reaction summary from server
+          const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
+          
+          // Update local state immediately for responsive UI
+          setCurrentPost(prev => ({
+            ...prev,
+            currentUserReaction: reactionToSend,
+            reactionsCount: reactionSummary.total_count || 0,
+            isHearted: reactionSummary.is_hearted || false,
+            heartsCount: reactionSummary.hearts_count || 0
+          }))
+          
+          // Call handler with updated server data
+          onReaction?.(post.id, reactionToSend, reactionSummary)
+          
+        } catch (apiError: any) {
+          showError(
+            'Reaction Failed',
+            apiError.message || 'Unable to add reaction. Please try again.',
+            {
+              label: 'Retry',
+              onClick: () => {
+                // Retry by setting the pending reaction and closing again
+                setPendingReaction(reactionToSend)
+                handleEmojiPickerClose()
+              }
+            }
+          )
         }
-      )
-    } finally {
-      setIsReactionLoading(false)
+      } catch (error) {
+        console.error('Error updating reaction:', error)
+        showError(
+          'Network Error',
+          'Please check your connection and try again.',
+          {
+            label: 'Retry',
+            onClick: () => {
+              // Retry by setting the pending reaction and closing again
+              setPendingReaction(reactionToSend)
+              handleEmojiPickerClose()
+            }
+          }
+        )
+      } finally {
+        setIsReactionLoading(false)
+      }
     }
     
-    setShowEmojiPicker(false)
+    // Clear pending reaction after processing
+    setPendingReaction(null)
   }
 
   const handleReactionCountClick = async () => {
@@ -1044,142 +1080,17 @@ export default function PostCard({
               <div className="flex items-center space-x-2 text-xs text-gray-600">
                 <span className="flex items-center space-x-1">
                   <span className="text-xs">💜</span>
-                  <span>{post.heartsCount || 0}</span>
-                </span>
-                {(post.reactionsCount || 0) > 0 && (
-                  <>
-                    <span>•</span>
-                    <span className="flex items-center space-x-1">
-                      <span className="text-purple-400">😊</span>
-                      <span>{post.reactionsCount}</span>
-                    </span>
-                  </>
-                )}
-                <span className="text-gray-400">•</span>
-                <span className="font-medium text-purple-600">
-                  {(post.heartsCount || 0) + (post.reactionsCount || 0)} total reactions
+                  <span className="font-medium text-purple-600">
+                    {(post.heartsCount || 0) + (post.reactionsCount || 0)} reactions
+                  </span>
                 </span>
               </div>
             </div>
           )}
           
-          {/* Post Actions Toolbar - Four main buttons in single horizontal line */}
+          {/* Post Actions Toolbar - Three main buttons in single horizontal line */}
           <div className="flex items-center justify-center gap-4 sm:gap-8">
-            {/* Heart Button */}
-            <button 
-              onClick={async () => {
-                if (!isUserAuthenticated) {
-                  // Call the onHeart handler which will handle the redirect
-                  onHeart?.(post.id, currentPost.isHearted || false)
-                  return
-                }
-
-                if (isHeartLoading) return
-
-                const isCurrentlyHearted = currentPost.isHearted || false
-                setIsHeartLoading(true)
-                
-                // Track analytics event
-                if (currentUserId) {
-                  analyticsService.trackHeartEvent(post.id, currentUserId, !isCurrentlyHearted)
-                }
-                
-                // Note: Removed loading toast for hearts to reduce visual noise
-                // The heart UI provides sufficient visual feedback
-                const loadingToastId = '' // Placeholder for error handling
-                
-                try {
-                  const token = getAccessToken()
-                  const method = isCurrentlyHearted ? 'DELETE' : 'POST'
-                  
-                  try {
-                    // Use optimized API client for heart action
-                    if (method === 'POST') {
-                      await apiClient.post(`/posts/${post.id}/heart`)
-                    } else {
-                      await apiClient.delete(`/posts/${post.id}/heart`)
-                    }
-                    
-                    // Get updated heart info from server
-                    const heartInfo = await apiClient.get(`/posts/${post.id}/hearts`) as any
-                    
-                    // Call handler with updated server data
-                    onHeart?.(post.id, isCurrentlyHearted, heartInfo)
-                    
-                    // Note: No loading toast to hide for hearts
-                  } catch (error: any) {
-                    // Note: No loading toast to hide for hearts
-                    showError(
-                      'Heart Failed',
-                      error.message || 'Unable to update heart. Please try again.',
-                      {
-                        label: 'Retry',
-                        onClick: () => {
-                          // Retry the heart action
-                          setTimeout(() => {
-                            const button = document.querySelector(`[data-post-id="${post.id}"] .heart-button`) as HTMLButtonElement
-                            button?.click()
-                          }, 100)
-                        }
-                      }
-                    )
-                  }
-                } catch (error) {
-                  console.error('Error updating heart:', error)
-                  // Note: No loading toast to hide for hearts
-                  showError(
-                    'Network Error',
-                    'Please check your connection and try again.',
-                    {
-                      label: 'Retry',
-                      onClick: () => {
-                        // Retry the heart action
-                        setTimeout(() => {
-                          const button = document.querySelector(`[data-post-id="${post.id}"] .heart-button`) as HTMLButtonElement
-                          button?.click()
-                        }, 100)
-                      }
-                    }
-                  )
-                } finally {
-                  setIsHeartLoading(false)
-                }
-              }}
-              disabled={isHeartLoading}
-              className={`heart-button flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
-                !isUserAuthenticated
-                  ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
-                  : currentPost.isHearted 
-                    ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100' 
-                    : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
-              }`}
-              title={!isUserAuthenticated ? 'Login to like posts' : undefined}
-            >
-              {isHeartLoading ? (
-                <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
-              ) : (
-                <Heart 
-                  className={`${styling.iconSize} flex-shrink-0 ${currentPost.isHearted ? 'fill-purple-500 text-purple-500' : 'text-current'}`}
-                />
-              )}
-              <span 
-                className={`${styling.textSize} font-medium ${isUserAuthenticated && !isHeartsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (isUserAuthenticated && !isHeartsViewerLoading) {
-                    handleHeartsCountClick()
-                  }
-                }}
-              >
-                {isHeartsViewerLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin inline" />
-                ) : (
-                  post.heartsCount || 0
-                )}
-              </span>
-            </button>
-
-            {/* Emoji Reaction Button */}
+            {/* Unified Heart/Reaction Button */}
             <button
               ref={reactionButtonRef}
               onClick={handleReactionButtonClick}
@@ -1187,36 +1098,51 @@ export default function PostCard({
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
                 !isUserAuthenticated
                   ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
-                  : post.currentUserReaction
+                  : (pendingReaction || currentPost.currentUserReaction || currentPost.isHearted)
                     ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
                     : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
-              } ${(post.reactionsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
+              } ${((post.reactionsCount || 0) + (post.heartsCount || 0)) > 0 ? 'ring-1 ring-purple-200' : ''}`}
               title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
             >
               {isReactionLoading ? (
                 <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
-              ) : post.currentUserReaction ? (
+              ) : pendingReaction ? (
+                // Show pending reaction (selected but not yet sent to API)
                 <span className={`flex-shrink-0 ${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
-                  {getEmojiFromCode(post.currentUserReaction)}
+                  {getEmojiFromCode(pendingReaction)}
                 </span>
+              ) : currentPost.currentUserReaction ? (
+                <span className={`flex-shrink-0 ${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
+                  {getEmojiFromCode(currentPost.currentUserReaction)}
+                </span>
+              ) : currentPost.isHearted ? (
+                <Heart 
+                  className={`${styling.iconSize} flex-shrink-0 fill-purple-500 text-purple-500`}
+                />
               ) : (
-                <div className={`${styling.iconSize} rounded-full border-2 border-current flex items-center justify-center flex-shrink-0`}>
-                  <Plus className="h-3 w-3" />
-                </div>
+                // Show empty heart icon when no interaction exists
+                <Heart 
+                  className={`${styling.iconSize} flex-shrink-0 text-gray-500`}
+                />
               )}
               <span 
-                className={`${styling.textSize} font-medium ${!isReactionsViewerLoading ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+                className={`${styling.textSize} font-medium ${(isUserAuthenticated && !isReactionsViewerLoading && !isHeartsViewerLoading) ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (!isReactionsViewerLoading) {
-                    handleReactionCountClick()
+                  if (isUserAuthenticated && !isReactionsViewerLoading && !isHeartsViewerLoading) {
+                    // Show combined reactions and hearts viewer
+                    if ((post.reactionsCount || 0) > 0) {
+                      handleReactionCountClick()
+                    } else if ((post.heartsCount || 0) > 0) {
+                      handleHeartsCountClick()
+                    }
                   }
                 }}
               >
-                {isReactionsViewerLoading ? (
+                {(isReactionsViewerLoading || isHeartsViewerLoading) ? (
                   <Loader2 className="h-3 w-3 animate-spin inline" />
                 ) : (
-                  post.reactionsCount || 0
+                  (post.reactionsCount || 0) + (post.heartsCount || 0)
                 )}
               </span>
             </button>
@@ -1271,9 +1197,9 @@ export default function PostCard({
       {/* Emoji Picker Modal */}
       <EmojiPicker
         isOpen={showEmojiPicker}
-        onClose={() => setShowEmojiPicker(false)}
+        onClose={handleEmojiPickerClose}
         onEmojiSelect={handleEmojiSelect}
-        currentReaction={post.currentUserReaction}
+        currentReaction={pendingReaction || currentPost.currentUserReaction}
         position={emojiPickerPosition}
         isLoading={isReactionLoading}
       />

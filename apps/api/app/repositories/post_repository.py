@@ -111,12 +111,8 @@ class PostRepository(BaseRepository):
         
         where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
         
-        # Check if likes table exists
-        try:
-            await self.db.execute(text("SELECT 1 FROM likes LIMIT 1"))
-            has_likes_table = True
-        except Exception:
-            has_likes_table = False
+        # Using unified emoji reaction system (hearts are emoji_code='heart')
+        has_likes_table = True  # Always true since we use emoji reactions
         
         try:
             if has_likes_table:
@@ -146,7 +142,8 @@ class PostRepository(BaseRepository):
                     LEFT JOIN users u ON u.id = p.author_id
                     LEFT JOIN (
                         SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
-                        FROM likes
+                        FROM emoji_reactions
+                        WHERE emoji_code = 'heart'
                         GROUP BY post_id
                     ) hearts ON hearts.post_id = p.id
                     LEFT JOIN (
@@ -161,8 +158,8 @@ class PostRepository(BaseRepository):
                     ) comments ON comments.post_id = p.id
                     LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
                         AND user_reactions.user_id = :user_id
-                    LEFT JOIN likes user_hearts ON user_hearts.post_id = p.id 
-                        AND user_hearts.user_id = :user_id
+                    LEFT JOIN emoji_reactions user_hearts ON user_hearts.post_id = p.id 
+                        AND user_hearts.user_id = :user_id AND user_hearts.emoji_code = 'heart'
                     {where_clause}
                     ORDER BY p.created_at DESC
                     LIMIT :limit OFFSET :offset
@@ -334,22 +331,17 @@ class PostRepository(BaseRepository):
         Returns:
             Dict containing post statistics
         """
-        # Check if likes table exists
-        try:
-            await self.db.execute(text("SELECT 1 FROM likes LIMIT 1"))
-            has_likes_table = True
-        except Exception:
-            has_likes_table = False
+        # Using unified emoji reaction system (hearts are emoji_code='heart')
+        has_likes_table = True  # Always true since we use emoji reactions
         
         if has_likes_table:
             query = text("""
                 SELECT 
                     p.id,
-                    COUNT(DISTINCT l.id) as hearts_count,
-                    COUNT(DISTINCT er.id) as reactions_count,
+                    COUNT(DISTINCT CASE WHEN er.emoji_code = 'heart' THEN er.id END) as hearts_count,
+                    COUNT(DISTINCT CASE WHEN er.emoji_code != 'heart' THEN er.id END) as reactions_count,
                     COUNT(DISTINCT er.emoji_code) as unique_emoji_count
                 FROM posts p
-                LEFT JOIN likes l ON l.post_id = p.id
                 LEFT JOIN emoji_reactions er ON er.post_id = p.id
                 WHERE p.id = :post_id
                 GROUP BY p.id

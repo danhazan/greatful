@@ -23,7 +23,6 @@ from sqlalchemy import text
 from app.core.database import get_db
 from app.models.user import User
 from app.models.post import Post, PostType
-from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
@@ -114,7 +113,6 @@ class LoadTestDataGenerator:
         await db_session.execute(text("DELETE FROM follows WHERE follower_id IN (SELECT id FROM users WHERE email LIKE 'loadtest_%@%') OR followed_id IN (SELECT id FROM users WHERE email LIKE 'loadtest_%@%')"))
         await db_session.execute(text("DELETE FROM shares WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'loadtest_%@%')"))
         await db_session.execute(text("DELETE FROM emoji_reactions WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'loadtest_%@%')"))
-        await db_session.execute(text("DELETE FROM likes WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'loadtest_%@%')"))
         await db_session.execute(text("DELETE FROM mentions WHERE post_id IN (SELECT id FROM posts WHERE author_id IN (SELECT id FROM users WHERE email LIKE 'loadtest_%@%'))"))
         await db_session.execute(text("DELETE FROM posts WHERE author_id IN (SELECT id FROM users WHERE email LIKE 'loadtest_%@%')"))
         await db_session.execute(text("DELETE FROM users WHERE email LIKE 'loadtest_%@%'"))
@@ -263,13 +261,13 @@ class LoadTestDataGenerator:
                     
                     try:
                         if interaction_type == 'like':
-                            like = Like(post_id=post_id, user_id=user.id)
-                            batch_interactions.append(like)
+                            heart = EmojiReaction(post_id=post_id, user_id=user.id, emoji_code='heart')
+                            batch_interactions.append(heart)
                             post_object.hearts_count += 1
                             
                         elif interaction_type == 'reaction':
                             # Use only valid emoji codes from database constraint
-                            emoji_codes = ['heart_eyes', 'heart_face', 'hug', 'pray', 'muscle', 'star', 'fire', 'clap']
+                            emoji_codes = ['heart', 'heart_eyes', 'hug', 'pray', 'muscle', 'grateful', 'praise', 'clap']
                             emoji_code = random.choice(emoji_codes)
                             reaction = EmojiReaction(
                                 post_id=post_id,

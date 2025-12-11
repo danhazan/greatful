@@ -23,7 +23,6 @@ from collections import defaultdict
 
 from app.services.algorithm_service import AlgorithmService
 from app.models.post import Post, PostType
-from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
@@ -183,23 +182,29 @@ class OptimizedAlgorithmService(AlgorithmService):
         
         engagement_data = {}
         
-        # Batch query for hearts
+        # Batch query for hearts (using emoji reactions with 'heart' emoji_code)
         hearts_query = select(
-            Like.post_id,
-            func.count(Like.id).label('hearts_count')
+            EmojiReaction.post_id,
+            func.count(EmojiReaction.id).label('hearts_count')
         ).where(
-            Like.post_id.in_(post_ids)
-        ).group_by(Like.post_id)
+            and_(
+                EmojiReaction.post_id.in_(post_ids),
+                EmojiReaction.emoji_code == 'heart'
+            )
+        ).group_by(EmojiReaction.post_id)
         
         hearts_result = await self.db.execute(hearts_query)
         hearts_counts = {row.post_id: row.hearts_count for row in hearts_result.fetchall()}
         
-        # Batch query for reactions
+        # Batch query for reactions (excluding heart reactions which are counted separately)
         reactions_query = select(
             EmojiReaction.post_id,
             func.count(EmojiReaction.id).label('reactions_count')
         ).where(
-            EmojiReaction.post_id.in_(post_ids)
+            and_(
+                EmojiReaction.post_id.in_(post_ids),
+                EmojiReaction.emoji_code != 'heart'
+            )
         ).group_by(EmojiReaction.post_id)
         
         reactions_result = await self.db.execute(reactions_query)
@@ -415,12 +420,22 @@ class OptimizedAlgorithmService(AlgorithmService):
         else:
             # Fallback to individual queries (less efficient)
             hearts_result = await self.db.execute(
-                select(func.count(Like.id)).where(Like.post_id == post.id)
+                select(func.count(EmojiReaction.id)).where(
+                    and_(
+                        EmojiReaction.post_id == post.id,
+                        EmojiReaction.emoji_code == 'heart'
+                    )
+                )
             )
             hearts_count = hearts_result.scalar() or 0
 
             reactions_result = await self.db.execute(
-                select(func.count(EmojiReaction.id)).where(EmojiReaction.post_id == post.id)
+                select(func.count(EmojiReaction.id)).where(
+                    and_(
+                        EmojiReaction.post_id == post.id,
+                        EmojiReaction.emoji_code != 'heart'
+                    )
+                )
             )
             reactions_count = reactions_result.scalar() or 0
 

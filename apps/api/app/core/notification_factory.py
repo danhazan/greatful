@@ -207,30 +207,15 @@ class NotificationFactory:
         liker_id: int,
         post_id: str
     ) -> Optional[Any]:
-        """Create a like notification with batching support."""
-        # Prevent self-notifications
-        if post_author_id == liker_id:
-            logger.debug(f"Prevented self-notification for user {post_author_id}")
-            return None
-        
-        try:
-            # Use the post interaction batcher for likes
-            result = await self.post_interaction_batcher.create_interaction_notification(
-                notification_type="like",
-                post_id=post_id,
-                user_id=post_author_id,
-                actor_data={
-                    "user_id": liker_id,
-                    "username": liker_username
-                }
-            )
-            
-            logger.info(f"Created like notification for user {post_author_id}")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Failed to create like notification for user {post_author_id}: {e}")
-            return None
+        """Create a like notification by calling create_reaction_notification with 'heart' emoji."""
+        # Leverage existing unified batching system by treating likes as heart reactions
+        return await self.create_reaction_notification(
+            post_author_id=post_author_id,
+            reactor_username=liker_username,
+            reactor_id=liker_id,
+            post_id=post_id,
+            emoji_code="heart"
+        )
     
     async def create_follow_notification(
         self,

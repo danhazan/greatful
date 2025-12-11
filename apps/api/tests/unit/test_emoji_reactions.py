@@ -21,14 +21,14 @@ class TestEmojiReactionModel:
 
     def test_valid_emojis(self):
         """Test that valid emoji codes are recognized."""
-        valid_codes = ['heart_eyes', 'heart_face', 'hug', 'pray', 'muscle', 'star', 'fire', 'clap', 'joy', 'thinking']
+        valid_codes = ['heart', 'heart_eyes', 'hug', 'pray', 'muscle', 'grateful', 'praise', 'clap']
         
         for code in valid_codes:
             assert EmojiReaction.is_valid_emoji(code)
 
     def test_invalid_emojis(self):
         """Test that invalid emoji codes are rejected."""
-        invalid_codes = ['angry', 'sad', 'thumbs_down', 'invalid']
+        invalid_codes = ['angry', 'sad', 'thumbs_down', 'invalid', 'joy', 'thinking', 'crying', 'rage', 'poop']
         
         for code in invalid_codes:
             assert not EmojiReaction.is_valid_emoji(code)
@@ -38,18 +38,19 @@ class TestEmojiReactionModel:
         reaction = EmojiReaction(emoji_code='heart_eyes')
         assert reaction.emoji_display == '😍'
         
-    def test_missing_emojis_now_supported(self):
-        """Test that previously missing emojis (joy, thinking) are now supported."""
-        # These were causing issues before - now they should work
-        assert EmojiReaction.is_valid_emoji('joy')
-        assert EmojiReaction.is_valid_emoji('thinking')
+    def test_new_unified_emojis_supported(self):
+        """Test that new unified emoji system emojis are supported."""
+        # Test the new heart emoji (unified with likes)
+        assert EmojiReaction.is_valid_emoji('heart')
+        assert EmojiReaction.is_valid_emoji('grateful')
+        assert EmojiReaction.is_valid_emoji('praise')
         
         # Test their display
-        joy_reaction = EmojiReaction(emoji_code='joy')
-        assert joy_reaction.emoji_display == '😂'
+        heart_reaction = EmojiReaction(emoji_code='heart')
+        assert heart_reaction.emoji_display == '💜'
         
-        thinking_reaction = EmojiReaction(emoji_code='thinking')
-        assert thinking_reaction.emoji_display == '🤔'
+        praise_reaction = EmojiReaction(emoji_code='praise')
+        assert praise_reaction.emoji_display == '🙌'
         
         # Test other emojis as well
         pray_reaction = EmojiReaction(emoji_code='pray')

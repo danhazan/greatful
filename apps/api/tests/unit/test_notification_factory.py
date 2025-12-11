@@ -237,10 +237,10 @@ class TestNotificationFactory:
 
     @pytest.mark.asyncio
     async def test_create_like_notification(self, notification_factory, mock_notification_repo):
-        """Test like notification creation using PostInteractionBatcher."""
+        """Test like notification creation by calling create_reaction_notification with heart emoji."""
         # Arrange
         mock_notification = MagicMock()
-        notification_factory.post_interaction_batcher.create_interaction_notification = AsyncMock(return_value=mock_notification)
+        notification_factory.create_reaction_notification = AsyncMock(return_value=mock_notification)
 
         # Act
         result = await notification_factory.create_like_notification(
@@ -252,14 +252,12 @@ class TestNotificationFactory:
 
         # Assert
         assert result == mock_notification
-        notification_factory.post_interaction_batcher.create_interaction_notification.assert_called_once_with(
-            notification_type="like",
+        notification_factory.create_reaction_notification.assert_called_once_with(
+            post_author_id=123,
+            reactor_username="liker_user",
+            reactor_id=456,
             post_id="post-123",
-            user_id=123,
-            actor_data={
-                "user_id": 456,
-                "username": "liker_user"
-            }
+            emoji_code="heart"
         )
 
     @pytest.mark.asyncio

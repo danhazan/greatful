@@ -15,7 +15,6 @@ from sqlalchemy import func
 from main import app
 from app.models.user import User
 from app.models.post import Post, PostType
-from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.follow import Follow
 from app.models.share import Share
@@ -129,11 +128,12 @@ class TestFeedAlgorithm:
             for j in range(hearts_count):
                 user_idx = j % len(sample_users)
                 if sample_users[user_idx].id != post.author_id:  # Don't heart own posts
-                    like = Like(
+                    heart = EmojiReaction(
                         user_id=sample_users[user_idx].id,
-                        post_id=post.id
+                        post_id=post.id,
+                        emoji_code='heart'
                     )
-                    db_session.add(like)
+                    db_session.add(heart)
         
         # Add emoji reactions
         emoji_codes = ["heart_eyes", "pray", "star", "fire", "muscle"]
@@ -335,11 +335,12 @@ class TestFeedAlgorithm:
             post = posts[i]
             for j in range(min(5, len(users))):  # Up to 5 hearts per post
                 if users[j].id != post.author_id:
-                    like = Like(
+                    heart = EmojiReaction(
                         user_id=users[j].id,
-                        post_id=post.id
+                        post_id=post.id,
+                        emoji_code='heart'
                     )
-                    db_session.add(like)
+                    db_session.add(heart)
         
         await db_session.commit()
         
@@ -619,11 +620,12 @@ class TestFeedAlgorithm:
             for j in range(3):
                 user_idx = (j + 1) % len(sample_users)
                 if sample_users[user_idx].id != post.author_id:
-                    like = Like(
+                    heart = EmojiReaction(
                         user_id=sample_users[user_idx].id,
-                        post_id=post.id
+                        post_id=post.id,
+                        emoji_code='heart'
                     )
-                    db_session.add(like)
+                    db_session.add(heart)
         
         await db_session.commit()
         
@@ -847,12 +849,13 @@ class TestFeedAlgorithm:
             # Add engagement (limit to available users to avoid duplicates)
             max_likes = min(post_data["hearts"], len(sample_users))
             for j in range(max_likes):
-                like = Like(
-                    id=f"like-{i}-{j}",
+                heart = EmojiReaction(
+                    id=f"heart-{i}-{j}",
                     user_id=sample_users[j].id,
+                    emoji_code='heart',
                     post_id=post.id
                 )
-                db_session.add(like)
+                db_session.add(heart)
             
             max_reactions = min(post_data["reactions"], len(sample_users))
             for j in range(max_reactions):

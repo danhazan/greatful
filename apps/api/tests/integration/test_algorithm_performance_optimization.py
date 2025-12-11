@@ -30,7 +30,6 @@ from app.core.algorithm_performance import (
 )
 from app.models.user import User
 from app.models.post import Post, PostType
-from app.models.like import Like
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
@@ -101,10 +100,10 @@ class TestAlgorithmPerformanceOptimization:
         
         # Create engagement data (likes, reactions, shares)
         for i, post in enumerate(posts[:50]):  # Add engagement to first 50 posts
-            # Add likes
-            for j in range(min(i % 10, 5)):  # 0-5 likes per post
-                like = Like(post_id=post.id, user_id=users[j % len(users)].id)
-                db_session.add(like)
+            # Add hearts
+            for j in range(min(i % 10, 5)):  # 0-5 hearts per post
+                heart = EmojiReaction(post_id=post.id, user_id=users[j % len(users)].id, emoji_code='heart')
+                db_session.add(heart)
             
             # Add reactions
             for j in range(min(i % 8, 3)):  # 0-3 reactions per post

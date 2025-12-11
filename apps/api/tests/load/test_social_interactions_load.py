@@ -50,7 +50,7 @@ class TestSocialInteractionsLoad:
             # Use real JWT token
             token = load_test_tokens[test_user.id]
             headers = {"Authorization": f"Bearer {token}"}
-            emoji_codes = ['heart_eyes', 'heart_face', 'hug', 'pray', 'muscle', 'star', 'fire', 'clap']
+            emoji_codes = ['heart', 'heart_eyes', 'hug', 'pray', 'muscle', 'grateful', 'praise', 'clap']
             emoji_code = random.choice(emoji_codes)
             
             # Add reaction
@@ -367,7 +367,7 @@ class TestSocialInteractionsLoad:
             if interaction_type == 'reaction':
                 test_post = posts[request_id % len(posts)]
                 if test_post.author_id != test_user.id:
-                    emoji_code = random.choice(['heart_eyes', 'pray', 'star', 'fire'])
+                    emoji_code = random.choice(['heart', 'heart_eyes', 'pray', 'muscle'])
                     response = await client.post(
                         f"/api/v1/posts/{test_post.id}/reactions",
                         headers=headers,

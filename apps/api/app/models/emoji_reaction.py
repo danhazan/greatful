@@ -12,8 +12,10 @@ class EmojiReaction(Base):
     """
     EmojiReaction model for storing user emoji reactions on posts.
     
-    Supports 10 positive emotions: heart_eyes, heart_face, hug, pray, muscle, star, fire, clap, joy, thinking
-    Corresponding to emojis: 😍, 😍, 🤗, 🙏, 💪, ⭐, 🔥, 👏, 😂, 🤔
+    Supports 8 positive emotions: heart, heart_eyes, hug, pray, muscle, grateful, praise, clap
+    Corresponding to emojis: 💜, 😍, 🤗, 🙏, 💪, 🙏, 🙌, 👏
+    
+    The 'heart' emoji_code represents the unified heart/like system (purple heart 💜).
     """
     __tablename__ = "emoji_reactions"
 
@@ -30,17 +32,19 @@ class EmojiReaction(Base):
     )
 
     # Valid emoji codes mapping to actual emojis
+    # Updated to include heart as first option and all emojis allowed by database constraint
     VALID_EMOJIS = {
-        'heart_eyes': '😍',
-        'heart_face': '😍',  # Using same emoji as heart_eyes for consistency
-        'hug': '🤗', 
-        'pray': '🙏',
-        'muscle': '💪',
-        'star': '⭐',  # Using ⭐ to match frontend
-        'fire': '🔥',
-        'clap': '👏',
-        'joy': '😂',  # Adding missing joy emoji
-        'thinking': '🤔'  # Adding missing thinking emoji
+        'heart': '💜',        # Purple heart as first option (unified with likes)
+        'heart_eyes': '😍',   # Heart eyes
+        'hug': '🤗',          # Hug
+        'pray': '🙏',         # Pray/grateful hands
+        'muscle': '💪',       # Muscle/strength
+        'star': '⭐',         # Star
+        'fire': '🔥',         # Fire
+        'heart_face': '🥰',   # Heart face (legacy)
+        'clap': '👏',         # Clap
+        'grateful': '🙏',     # Grateful (using pray emoji for now)
+        'praise': '🙌'        # Praise hands
     }
 
     def __repr__(self):

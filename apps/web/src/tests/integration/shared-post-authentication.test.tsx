@@ -253,9 +253,6 @@ describe.skip('Shared Post Authentication Integration', () => {
       })
       
       // Should show interaction buttons with disabled styling
-      const heartButton = screen.getByTitle('Login to like posts')
-      expect(heartButton).toHaveClass('text-gray-400')
-      
       const reactionButton = screen.getByTitle('Login to react to posts')
       expect(reactionButton).toHaveClass('text-gray-400')
     })
@@ -267,9 +264,9 @@ describe.skip('Shared Post Authentication Integration', () => {
         expect(screen.getByText('Join to interact with this post')).toBeInTheDocument()
       })
       
-      // Click heart button
-      const heartButton = screen.getByTitle('Login to like posts')
-      fireEvent.click(heartButton)
+      // Click reaction button
+      const reactionButton = screen.getByTitle('Login to react to posts')
+      fireEvent.click(reactionButton)
       
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/auth/login')
@@ -289,10 +286,10 @@ describe.skip('Shared Post Authentication Integration', () => {
         // Should show authentication notice
         expect(screen.getByText('Join to interact with this post')).toBeInTheDocument()
         
-        // Heart should not be filled for unauthenticated users
-        const heartButton = screen.getByTitle('Login to like posts')
-        // For emoji hearts, we check the button styling instead of SVG fill
-        expect(heartButton).toHaveClass('text-gray-400')
+        // Reaction button should not be filled for unauthenticated users
+        const reactionButton = screen.getByTitle('Login to react to posts')
+        // For emoji reactions, we check the button styling instead of SVG fill
+        expect(reactionButton).toHaveClass('text-gray-400')
       })
     })
 

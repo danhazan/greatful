@@ -30,14 +30,16 @@ export default function EmojiPicker({
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
   const { showError } = useToast()
 
-  // Reset selected emoji when modal opens/closes
+  // Reset selected emoji when modal opens/closes and pre-select purple heart if it's the current reaction
   useEffect(() => {
     if (isOpen) {
       setSelectedEmoji(null)
+      // Purple heart (first option) is pre-selected when opened from heart click
+      // It will be highlighted by the currentReaction prop if user already has heart reaction
     }
   }, [isOpen])
 
-  // Handle click outside to close
+  // Handle click outside and scroll to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
@@ -45,9 +47,17 @@ export default function EmojiPicker({
       }
     }
 
+    const handleScroll = () => {
+      onClose()
+    }
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener('scroll', handleScroll, true) // Use capture to catch all scroll events
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+        document.removeEventListener('scroll', handleScroll, true)
+      }
     }
   }, [isOpen, onClose])
 
@@ -112,13 +122,15 @@ export default function EmojiPicker({
         className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px]"
         style={{
           left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 296)),
-          top: Math.max(16, position.y - 160),
+          bottom: Math.max(16, window.innerHeight - position.y + 24), // Position above button with proper spacing to avoid covering
         }}
         tabIndex={-1}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <h3 id="emoji-picker-title" className="text-sm font-semibold text-gray-900">React with</h3>
+          <h3 id="emoji-picker-title" className="text-sm font-semibold text-gray-900">
+            {currentReaction ? 'Change reaction' : 'React with'}
+          </h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1"
@@ -140,12 +152,24 @@ export default function EmojiPicker({
               onClick={(e) => {
                 // Prevent double-tap zoom on mobile
                 e.preventDefault()
-                if (isLoading || selectedEmoji) return
+                if (isLoading) return
                 
-                setSelectedEmoji(option.code)
-                onEmojiSelect(option.code)
+                // If clicking on the same emoji that's currently selected, close the modal
+                if (currentReaction === option.code) {
+                  onClose()
+                  return
+                }
+                
+                // If clicking on a different emoji while one is already selected, allow the change
+                // Reset any previous selection first
+                setSelectedEmoji(null)
+                // Set new selection after a brief delay to show the change
+                setTimeout(() => {
+                  setSelectedEmoji(option.code)
+                  onEmojiSelect(option.code)
+                }, 50)
               }}
-              disabled={isLoading || selectedEmoji === option.code}
+              disabled={isLoading}
               className={`
                 relative p-3 sm:p-4 rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
                 min-h-[44px] min-w-[44px] flex items-center justify-center
@@ -165,15 +189,9 @@ export default function EmojiPicker({
               role="gridcell"
               {...createTouchHandlers(undefined, 'medium')}
             >
-              {selectedEmoji === option.code ? (
-                <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
-              ) : (
-                <>
-                  <span className="text-2xl sm:text-3xl block pointer-events-none">{option.emoji}</span>
-                  {currentReaction === option.code && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
-                  )}
-                </>
+              <span className="text-2xl sm:text-3xl block pointer-events-none">{option.emoji}</span>
+              {currentReaction === option.code && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
               )}
             </button>
           ))}

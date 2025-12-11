@@ -104,7 +104,7 @@ class PostResponse(BaseModel):
     def validate_emoji_code(cls, v):
         if v is None:
             return v
-        valid_emojis = ['heart_eyes', 'hug', 'pray', 'muscle', 'star', 'fire', 'heart_face', 'clap']
+        valid_emojis = ['heart', 'heart_eyes', 'hug', 'pray', 'muscle', 'star', 'fire', 'heart_face', 'clap', 'grateful', 'praise']
         if v not in valid_emojis:
             raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
         return v
@@ -683,13 +683,8 @@ async def get_feed(
         from sqlalchemy import text
         from app.models.emoji_reaction import EmojiReaction
         
-        # Import the likes model
-        try:
-            from app.models.like import Like
-            has_likes_table = True
-        except ImportError:
-            has_likes_table = False
-            logger.warning("Likes table not found, hearts count will be 0")
+        # Using unified emoji reaction system (hearts are emoji_code='heart')
+        has_likes_table = True  # Always true since we use emoji reactions
 
         # Use OptimizedAlgorithmService for personalized feed with performance monitoring
         if algorithm:
@@ -725,10 +720,10 @@ async def get_feed(
                 is_hearted = False
                 
                 if has_likes_table:
-                    # Check for user's heart
+                    # Check for user's heart (using emoji reactions with 'heart' emoji_code)
                     heart_query = text("""
-                        SELECT 1 FROM likes 
-                        WHERE post_id = :post_id AND user_id = :user_id
+                        SELECT 1 FROM emoji_reactions 
+                        WHERE post_id = :post_id AND user_id = :user_id AND emoji_code = 'heart'
                     """)
                     heart_result = await db.execute(heart_query, {
                         "post_id": post_data['id'],
@@ -811,18 +806,20 @@ async def get_feed(
                     LEFT JOIN users u ON u.id = p.author_id
                     LEFT JOIN (
                         SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
-                        FROM likes
+                        FROM emoji_reactions
+                        WHERE emoji_code = 'heart'
                         GROUP BY post_id
                     ) hearts ON hearts.post_id = p.id
                     LEFT JOIN (
                         SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
                         FROM emoji_reactions
+                        WHERE emoji_code != 'heart'
                         GROUP BY post_id
                     ) reactions ON reactions.post_id = p.id
                     LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                        AND user_reactions.user_id = :current_user_id
-                    LEFT JOIN likes user_hearts ON user_hearts.post_id = p.id 
-                        AND user_hearts.user_id = :current_user_id
+                        AND user_reactions.user_id = :current_user_id AND user_reactions.emoji_code != 'heart'
+                    LEFT JOIN emoji_reactions user_hearts ON user_hearts.post_id = p.id 
+                        AND user_hearts.user_id = :current_user_id AND user_hearts.emoji_code = 'heart'
                     WHERE p.is_public = true
                     ORDER BY p.created_at DESC
                     LIMIT :limit OFFSET :offset
@@ -1076,13 +1073,8 @@ async def get_post_by_id(
         from sqlalchemy import text
         from app.models.emoji_reaction import EmojiReaction
         
-        # Import the likes model
-        try:
-            from app.models.like import Like
-            has_likes_table = True
-        except ImportError:
-            has_likes_table = False
-            logger.warning("Likes table not found, hearts count will be 0")
+        # Using unified emoji reaction system (hearts are emoji_code='heart')
+        has_likes_table = True  # Always true since we use emoji reactions
 
         # Build query with engagement counts using efficient LEFT JOINs
         if has_likes_table:
@@ -1114,18 +1106,20 @@ async def get_post_by_id(
                 LEFT JOIN users u ON u.id = p.author_id
                 LEFT JOIN (
                     SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
-                    FROM likes
+                    FROM emoji_reactions
+                    WHERE emoji_code = 'heart'
                     GROUP BY post_id
                 ) hearts ON hearts.post_id = p.id
                 LEFT JOIN (
                     SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
                     FROM emoji_reactions
+                    WHERE emoji_code != 'heart'
                     GROUP BY post_id
                 ) reactions ON reactions.post_id = p.id
                 LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                    AND user_reactions.user_id = :current_user_id
-                LEFT JOIN likes user_hearts ON user_hearts.post_id = p.id 
-                    AND user_hearts.user_id = :current_user_id
+                    AND user_reactions.user_id = :current_user_id AND user_reactions.emoji_code != 'heart'
+                LEFT JOIN emoji_reactions user_hearts ON user_hearts.post_id = p.id 
+                    AND user_hearts.user_id = :current_user_id AND user_hearts.emoji_code = 'heart'
                 WHERE p.id = :post_id
             """)
         else:
@@ -1568,9 +1562,9 @@ async def delete_post(
             reaction_service = ReactionService(db)
             await reaction_service.delete_all_post_reactions(post.id)
             
-            # Delete likes/hearts
+            # Delete hearts (emoji reactions with 'heart' emoji_code)
             from sqlalchemy import text
-            await db.execute(text("DELETE FROM likes WHERE post_id = :post_id"), {"post_id": post.id})
+            await db.execute(text("DELETE FROM emoji_reactions WHERE post_id = :post_id AND emoji_code = 'heart'"), {"post_id": post.id})
             
             # Delete shares
             await db.execute(text("DELETE FROM shares WHERE post_id = :post_id"), {"post_id": post.id})
