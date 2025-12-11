@@ -2032,7 +2032,7 @@ Implement a simple, elegant commenting system for posts that follows existing pa
 
 - [ ] **Test Execution:** Run backend tests (`pytest -v`) to verify unified interaction system works correctly. Run frontend tests (`npm test`) to verify button behavior, modal positioning, and interaction flows. Test notification creation and batching for heart reactions.
 
-- [ ] **Update Project Documentation:** Document unified interaction system in design and architecture docs. Update API documentation with new interaction endpoints. Add migration notes for existing like/reaction data.
+- [ ] **Update Project Documentation:** Document unified interaction system in project docs (/docs folder). Update API documentation with new interaction endpoints. Add migration notes for existing like/reaction data.
 
 **Acceptance Criteria:** Single button starts as empty heart, clicking selects purple heart and opens modal with heart pre-selected, modal positioned above button, selected reaction shows on button, clicking selected reaction removes it, hearts automatically batch with other reactions using existing PostInteractionBatcher system, Like model and related code completely removed.
 

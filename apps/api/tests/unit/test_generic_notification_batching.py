@@ -46,7 +46,7 @@ class TestGenericNotificationBatcher:
     def test_batch_configs_exist(self):
         """Test that batch configurations are properly defined."""
         assert "emoji_reaction" in BATCH_CONFIGS
-        assert "like" in BATCH_CONFIGS
+        # Note: "like" is now handled as heart emoji reactions
         assert "post_interaction" in BATCH_CONFIGS
         assert "follow" in BATCH_CONFIGS
         assert "post_shared" in BATCH_CONFIGS
@@ -57,9 +57,8 @@ class TestGenericNotificationBatcher:
         assert emoji_config.batch_scope == "post"
         assert emoji_config.notification_type == "emoji_reaction"
         
-        like_config = BATCH_CONFIGS["like"]
-        assert like_config.batch_scope == "post"
-        assert like_config.notification_type == "like"
+        # Like functionality is now handled through heart emoji reactions
+        # No separate like config needed
         
         # Test user-based configurations
         follow_config = BATCH_CONFIGS["follow"]
@@ -76,9 +75,9 @@ class TestGenericNotificationBatcher:
         key = notification_batcher.generate_batch_key("follow", "456", "user")
         assert key == "follow:user:456"
         
-        # Like batch key
-        key = notification_batcher.generate_batch_key("like", "post-789", "post")
-        assert key == "like:post:post-789"
+        # Heart emoji reaction batch key (likes are now heart emoji reactions)
+        key = notification_batcher.generate_batch_key("emoji_reaction", "post-789", "post")
+        assert key == "emoji_reaction:post:post-789"
 
     async def test_create_single_notification_no_config(self, notification_batcher, mock_db):
         """Test creating single notification when no batch config exists."""
@@ -120,22 +119,22 @@ class TestGenericNotificationBatcher:
 
 
 class TestPostInteractionBatcher:
-    """Test the post interaction batcher for likes and reactions."""
+    """Test the post interaction batcher for heart emoji reactions and other reactions."""
 
-    async def test_create_like_notification(self, post_interaction_batcher, mock_db):
-        """Test creating a like notification with purple heart styling."""
+    async def test_create_heart_emoji_notification(self, post_interaction_batcher, mock_db):
+        """Test creating a heart emoji reaction notification with purple heart styling."""
         # Mock no existing batch or single notification
         post_interaction_batcher.notification_repo.find_existing_batch = AsyncMock(return_value=None)
         post_interaction_batcher._find_existing_interaction_notification = AsyncMock(return_value=None)
         
-        mock_created = Notification(id="like-123", user_id=1, type="like")
+        mock_created = Notification(id="heart-123", user_id=1, type="emoji_reaction")
         post_interaction_batcher.notification_repo.create = AsyncMock(return_value=mock_created)
         
         result = await post_interaction_batcher.create_interaction_notification(
-            notification_type="like",
+            notification_type="emoji_reaction",
             post_id="post-123",
             user_id=1,
-            actor_data={"user_id": 2, "username": "liker"}
+            actor_data={"user_id": 2, "username": "reactor", "emoji_code": "heart"}
         )
         
         assert result == mock_created
@@ -164,22 +163,22 @@ class TestPostInteractionBatcher:
         assert result == mock_created
         post_interaction_batcher.notification_repo.create.assert_called_once()
 
-    async def test_combined_batching_like_then_reaction(self, post_interaction_batcher, mock_db):
-        """Test combined batching when like is followed by reaction."""
-        # Mock existing like notification
-        existing_like = Notification(
-            id="like-123",
+    async def test_combined_batching_heart_then_reaction(self, post_interaction_batcher, mock_db):
+        """Test combined batching when heart emoji is followed by another reaction."""
+        # Mock existing heart emoji reaction notification
+        existing_heart = Notification(
+            id="heart-123",
             user_id=1,
-            type="like",
-            title="New Like 💜",
-            message="user1 liked your post",
-            data={"post_id": "post-123", "liker_username": "user1"},
-            batch_key="like:post:post-123"
+            type="emoji_reaction",
+            title="New Reaction 💜",
+            message="user1 reacted with 💜 to your post",
+            data={"post_id": "post-123", "reactor_username": "user1", "emoji_code": "heart"},
+            batch_key="emoji_reaction:post:post-123"
         )
         
         # Mock no existing batch but existing single notification
         post_interaction_batcher.notification_repo.find_existing_batch = AsyncMock(return_value=None)
-        post_interaction_batcher._find_existing_interaction_notification = AsyncMock(return_value=existing_like)
+        post_interaction_batcher._find_existing_interaction_notification = AsyncMock(return_value=existing_heart)
         
         # Mock batch creation
         mock_batch = Notification(
@@ -215,10 +214,10 @@ class TestPostInteractionBatcher:
         assert "engaged" in result.message
         
         # Check that existing notification becomes a child
-        assert existing_like.parent_id == mock_batch.id
+        assert existing_heart.parent_id == mock_batch.id
 
-    async def test_combined_batching_reaction_then_like(self, post_interaction_batcher, mock_db):
-        """Test combined batching when reaction is followed by like."""
+    async def test_combined_batching_reaction_then_heart(self, post_interaction_batcher, mock_db):
+        """Test combined batching when reaction is followed by heart emoji."""
         # Mock existing reaction notification
         existing_reaction = Notification(
             id="reaction-123",
@@ -254,10 +253,10 @@ class TestPostInteractionBatcher:
         mock_db.refresh = AsyncMock()
         
         result = await post_interaction_batcher.create_interaction_notification(
-            notification_type="like",
+            notification_type="emoji_reaction",
             post_id="post-123",
             user_id=1,
-            actor_data={"user_id": 2, "username": "liker"}
+            actor_data={"user_id": 2, "username": "reactor", "emoji_code": "heart"}
         )
         
         # Check that a combined batch was created
@@ -293,10 +292,10 @@ class TestPostInteractionBatcher:
         mock_db.refresh = AsyncMock()
         
         result = await post_interaction_batcher.create_interaction_notification(
-            notification_type="like",
+            notification_type="emoji_reaction",
             post_id="post-123",
             user_id=1,
-            actor_data={"user_id": 3, "username": "liker2"}
+            actor_data={"user_id": 3, "username": "reactor2", "emoji_code": "heart"}
         )
         
         # Check batch was updated
@@ -325,16 +324,16 @@ class TestPostInteractionBatcher:
         assert message == "Someone engaged with your post 💜"
 
     async def test_find_existing_interaction_notification(self, post_interaction_batcher):
-        """Test finding existing like or reaction notifications for the same post."""
-        # Mock existing like notification
-        existing_like = Notification(id="like-123", type="like")
+        """Test finding existing heart emoji or other reaction notifications for the same post."""
+        # Mock existing heart emoji reaction notification
+        existing_heart = Notification(id="heart-123", type="emoji_reaction")
         post_interaction_batcher.notification_repo.find_existing_single_notification = AsyncMock(
-            side_effect=[existing_like, None]  # First call finds like, second call for reaction returns None
+            return_value=existing_heart
         )
         
         result = await post_interaction_batcher._find_existing_interaction_notification(1, "post-123")
         
-        assert result == existing_like
+        assert result == existing_heart
         assert post_interaction_batcher.notification_repo.find_existing_single_notification.call_count == 1
 
     async def test_find_existing_interaction_notification_reaction(self, post_interaction_batcher):
@@ -549,27 +548,27 @@ class TestBatchingLogic:
 class TestNotificationModelBatchSummary:
     """Test notification model batch summary generation."""
 
-    def test_like_batch_summary_single(self):
-        """Test like notification batch summary for single notification."""
+    def test_heart_emoji_batch_summary_single(self):
+        """Test heart emoji reaction notification batch summary for single notification."""
         notification = Notification(
-            type="like",
-            data={"liker_username": "john"}
+            type="emoji_reaction",
+            data={"reactor_username": "john", "emoji_code": "heart"}
         )
         
         title, message = notification.create_batch_summary(1)
-        assert title == "New Like 💜"
-        assert message == "john liked your post 💜"
+        assert title == "New Reaction"
+        assert message == "john reacted with 💜 to your post"
 
-    def test_like_batch_summary_multiple(self):
-        """Test like notification batch summary for multiple notifications."""
+    def test_heart_emoji_batch_summary_multiple(self):
+        """Test heart emoji reaction notification batch summary for multiple notifications."""
         notification = Notification(
-            type="like",
-            data={"liker_username": "john"}
+            type="emoji_reaction",
+            data={"reactor_username": "john", "emoji_code": "heart"}
         )
         
         title, message = notification.create_batch_summary(3)
-        assert title == "New Likes 💜"
-        assert message == "3 people liked your post 💜"
+        assert title == "New Reactions"
+        assert message == "3 people reacted to your post"
 
     def test_post_interaction_batch_summary_single(self):
         """Test post_interaction notification batch summary for single notification."""

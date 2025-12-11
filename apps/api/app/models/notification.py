@@ -72,16 +72,9 @@ class Notification(Base):
         """Create batch summary title and message."""
         if self.type == 'emoji_reaction':
             data = self.data or {}
-            emoji_display = {
-                'heart_eyes': '😍',
-                'hugs': '🤗', 
-                'pray': '🙏',
-                'muscle': '💪',
-                'star': '🌟',
-                'fire': '🔥',
-                'heart_face': '🥰',
-                'clap': '👏'
-            }.get(data.get('emoji_code', ''), '😊')
+            # Use the official emoji mapping from EmojiReaction model
+            from app.models.emoji_reaction import EmojiReaction
+            emoji_display = EmojiReaction.VALID_EMOJIS.get(data.get('emoji_code', ''), '😊')
             
             if count == 1:
                 return "New Reaction", f"{data.get('reactor_username')} reacted with {emoji_display} to your post"
@@ -129,16 +122,9 @@ class Notification(Base):
         post_id: str
     ) -> "Notification":
         """Create a notification for emoji reaction."""
-        emoji_display = {
-            'heart_eyes': '😍',
-            'hugs': '🤗', 
-            'pray': '🙏',
-            'muscle': '💪',
-            'star': '🌟',
-            'fire': '🔥',
-            'heart_face': '🥰',
-            'clap': '👏'
-        }.get(emoji_code, '😊')
+        # Use the official emoji mapping from EmojiReaction model
+        from app.models.emoji_reaction import EmojiReaction
+        emoji_display = EmojiReaction.VALID_EMOJIS.get(emoji_code, '😊')
         
         notification = cls(
             user_id=user_id,

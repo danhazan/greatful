@@ -111,8 +111,8 @@ class PostRepository(BaseRepository):
         
         where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
         
-        # Using unified emoji reaction system (hearts are emoji_code='heart')
-        has_likes_table = True  # Always true since we use emoji reactions
+        # Hearts are implemented as emoji reactions with emoji_code='heart'
+        has_likes_table = True  # Hearts available through emoji reactions system
         
         try:
             if has_likes_table:
@@ -331,8 +331,8 @@ class PostRepository(BaseRepository):
         Returns:
             Dict containing post statistics
         """
-        # Using unified emoji reaction system (hearts are emoji_code='heart')
-        has_likes_table = True  # Always true since we use emoji reactions
+        # Hearts are implemented as emoji reactions with emoji_code='heart'
+        has_likes_table = True  # Hearts available through emoji reactions system
         
         if has_likes_table:
             query = text("""

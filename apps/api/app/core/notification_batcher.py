@@ -304,11 +304,19 @@ class PostInteractionBatcher(NotificationBatcher):
             from app.models.emoji_reaction import EmojiReaction
             emoji_display = EmojiReaction.VALID_EMOJIS.get(actor_data["emoji_code"], actor_data["emoji_code"])
             
+            # Special handling for heart emoji (unified like system)
+            if actor_data["emoji_code"] == "heart":
+                title = "New Like 💜"
+                message = f"liked your post 💜"
+            else:
+                title = "New Reaction"
+                message = f"reacted to your post with {emoji_display}"
+            
             notification = Notification(
                 user_id=user_id,
                 type="emoji_reaction",
-                title="New Reaction",
-                message=f"reacted to your post with {emoji_display}",
+                title=title,
+                message=message,
                 data={
                     "post_id": post_id,
                     "reactor_username": actor_data["username"],

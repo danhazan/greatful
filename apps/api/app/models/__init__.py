@@ -14,4 +14,4 @@ from .user_interaction import UserInteraction
 from .image_hash import ImageHash
 from .comment import Comment
 
-__all__ = ["User", "Post", "Like", "EmojiReaction", "Notification", "Share", "Mention", "Follow", "UserInteraction", "ImageHash", "Comment"]
+__all__ = ["User", "Post", "EmojiReaction", "Notification", "Share", "Mention", "Follow", "UserInteraction", "ImageHash", "Comment"]

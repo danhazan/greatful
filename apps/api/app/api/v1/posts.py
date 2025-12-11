@@ -683,8 +683,8 @@ async def get_feed(
         from sqlalchemy import text
         from app.models.emoji_reaction import EmojiReaction
         
-        # Using unified emoji reaction system (hearts are emoji_code='heart')
-        has_likes_table = True  # Always true since we use emoji reactions
+        # Hearts are implemented as emoji reactions with emoji_code='heart'
+        has_likes_table = True  # Hearts available through emoji reactions system
 
         # Use OptimizedAlgorithmService for personalized feed with performance monitoring
         if algorithm:
@@ -1073,12 +1073,12 @@ async def get_post_by_id(
         from sqlalchemy import text
         from app.models.emoji_reaction import EmojiReaction
         
-        # Using unified emoji reaction system (hearts are emoji_code='heart')
-        has_likes_table = True  # Always true since we use emoji reactions
+        # Hearts are implemented as emoji reactions with emoji_code='heart'
+        has_likes_table = True  # Hearts available through emoji reactions system
 
         # Build query with engagement counts using efficient LEFT JOINs
         if has_likes_table:
-            # Query with both likes (hearts) and emoji reactions
+            # Query includes hearts (emoji_code='heart') and other emoji reactions
             query = text("""
                 SELECT p.id,
                        p.author_id,

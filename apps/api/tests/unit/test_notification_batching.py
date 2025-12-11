@@ -50,14 +50,14 @@ class TestNotificationBatching:
         key = notification.generate_batch_key()
         assert key == "emoji_reaction:post:post-123"
 
-        # Like notification - new format
+        # Heart emoji reaction - new format (likes are now heart emoji reactions)
         notification = Notification(
             user_id=2,
-            type='like',
-            data={'post_id': 'post-456'}
+            type='emoji_reaction',
+            data={'post_id': 'post-456', 'emoji_code': 'heart'}
         )
         key = notification.generate_batch_key()
-        assert key == "like:post:post-456"
+        assert key == "emoji_reaction:post:post-456"
 
         # Follow notification - new format
         notification = Notification(
