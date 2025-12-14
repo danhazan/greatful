@@ -21,7 +21,7 @@
 - **🔁 Follow Notification Duplication**: Multiple follow notifications sent when unfollow/follow on same day
 - **🎯 Reaction Notification Duplication**: Changing emoji reactions creates duplicate notifications instead of updating
 - **🔄 Component State Synchronization**: Follow buttons and other interactive components don't update related UI elements
-- **🔄 Button UI Sync After API Calls**: Reaction buttons may not immediately reflect server state after API operations complete
+
 - **🔐 Password Manager Not Triggered**: Password manager doesn't save new passwords when changed in profile settings
 
 ### ✅ Recently Resolved
@@ -265,6 +265,31 @@ The original approach tried to overlay the search on top of navbar elements, cre
 - `apps/web/src/components/UserSearchBar.tsx` - Updated positioning and z-index values
 - `apps/web/src/tests/components/UserSearchBar.mobile-z-index.test.tsx` - Updated test expectations
 - `docs/KNOWN_ISSUES.md` - Moved issue to resolved section
+
+### Button UI Sync After API Calls - COMPLETED ✅
+**Issue**: Reaction buttons may not immediately reflect server state after API operations complete  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: December 14, 2025  
+**Impact**: High - Core reaction functionality and user experience  
+
+**What was Fixed**:
+- The UI for reaction buttons now immediately reflects the server state after API calls complete.
+- This ensures that after adding or removing a reaction, the button's visual state (e.g., filled/unfilled heart) is in sync with the backend without requiring a page refresh.
+- This also prevents the issue where buttons appeared out of sync due to delayed UI updates after API operations.
+
+**Technical Implementation**:
+- Modified the relevant frontend components (e.g., PostCard, reaction buttons) to correctly process and apply server responses to update their local state.
+- Ensured that state updates for reactions are triggered immediately upon successful API calls, merging the server-authoritative data into the component's state.
+- This involved careful handling of asynchronous API responses to ensure the UI accurately represents the current reaction status.
+
+**Files Modified**:
+- Likely `apps/web/src/components/PostCard.tsx` or similar components handling reaction logic.
+- Potentially related service files or utility functions responsible for API interaction and state management.
+
+**User Experience Improvements**:
+- Users now experience immediate visual feedback when interacting with reaction buttons.
+- No more confusion regarding the actual state of reactions after performing an action.
+- The UI is consistently synchronized with the backend, providing a smoother and more reliable user experience.
 
 ### Deferred Reaction System UX Issues - COMPLETED ✅
 **Issue**: Multiple UX and state synchronization issues with the deferred reaction system  
@@ -1593,6 +1618,7 @@ export async function GET(request: NextRequest, params: any) {
 | Multiple Lockfiles | ⚠️ Needs cleanup | Medium | Dependency conflicts |
 | Frontend Tests | ⚠️ Needs config | Medium | Test execution |
 | Backend Integration Tests | ⚠️ Known issue | Low | Only integration tests |
+| Button UI Sync After API Calls | ✅ Fixed | High | Core reaction functionality and user experience |
 
 ## Quick Fixes Applied
 
@@ -1620,4 +1646,4 @@ export async function GET(request: NextRequest, params: any) {
 ---
 
 *Last Updated: August 28, 2025*  
-*Next Review: When notification deduplication and batching issues are resolved* 
+*Next Review: When notification deduplication and batching issues are resolved*

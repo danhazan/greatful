@@ -199,32 +199,31 @@ export default function FeedPage() {
     }))
   }
 
-  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
-    // Update post state with server response data
+  const handleReaction = (postId: string, emojiCode: string) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
+        const wasReacted = !!post.currentUserReaction
         return {
           ...post,
-          reactionsCount: reactionSummary ? reactionSummary.total_count : post.reactionsCount + 1,
-          currentUserReaction: reactionSummary ? reactionSummary.user_reaction : emojiCode
+          reactionsCount: wasReacted ? post.reactionsCount || 1 : (post.reactionsCount || 0) + 1,
+          currentUserReaction: emojiCode
         }
       }
       return post
-    }) as typeof posts)
+    }))
   }
 
-  const handleRemoveReaction = async (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
-    // Update post state with server response data
+  const handleRemoveReaction = (postId: string) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          reactionsCount: reactionSummary ? reactionSummary.total_count : Math.max(post.reactionsCount - 1, 0),
-          currentUserReaction: reactionSummary ? reactionSummary.user_reaction : undefined
+          reactionsCount: Math.max(0, (post.reactionsCount || 1) - 1),
+          currentUserReaction: undefined
         }
       }
       return post
-    }) as typeof posts)
+    }))
   }
 
   const handleShare = (postId: string) => {
