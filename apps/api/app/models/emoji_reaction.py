@@ -11,11 +11,13 @@ import uuid
 class EmojiReaction(Base):
     """
     EmojiReaction model for storing user emoji reactions on posts.
-    
-    Supports 8 positive emotions: heart, heart_eyes, hug, pray, muscle, grateful, praise, clap
-    Corresponding to emojis: 💜, 😍, 🤗, 🙏, 💪, 🙏, 🙌, 👏
-    
+
+    Supports 56 positive emoji reactions organized in 7 rows:
+    - Row 1: Heart, Love it, Hug, Grateful, Strong, Thankful, Praise, Applause
+    - Row 2-7: Additional love, celebration, encouragement, nature, affection, expression emojis
+
     The 'heart' emoji_code represents the unified heart/like system (purple heart 💜).
+    Validation is done in Python via VALID_EMOJIS dict (database CHECK constraint not updated).
     """
     __tablename__ = "emoji_reactions"
 
@@ -32,19 +34,81 @@ class EmojiReaction(Base):
     )
 
     # Valid emoji codes mapping to actual emojis
-    # Updated to include heart as first option and all emojis allowed by database constraint
+    # Expanded set with 56 positive emojis organized by category
+    # Note: Database CHECK constraint is NOT updated - Python validation is sufficient
     VALID_EMOJIS = {
-        'heart': '💜',        # Purple heart as first option (unified with likes)
-        'heart_eyes': '😍',   # Heart eyes
-        'hug': '🤗',          # Hug
-        'pray': '🙏',         # Pray/grateful hands
-        'muscle': '💪',       # Muscle/strength
-        'star': '⭐',         # Star
-        'fire': '🔥',         # Fire
-        'heart_face': '🥰',   # Heart face (legacy)
-        'clap': '👏',         # Clap
-        'grateful': '🙏',     # Grateful (using pray emoji for now)
-        'praise': '🙌'        # Praise hands
+        # Row 1 - Original emojis
+        'heart': '💜',           # Purple heart (unified with likes)
+        'heart_eyes': '😍',      # Heart eyes
+        'hug': '🤗',             # Hug
+        'touched': '🥹',         # Touched/emotional - Position 4 "Grateful" (bug fix)
+        'muscle': '💪',          # Muscle/strength
+        'grateful': '🙏',        # Grateful hands - Position 6 "Thankful"
+        'praise': '🙌',          # Praise hands
+        'clap': '👏',            # Clap
+
+        # Row 2 - Love/Warmth
+        'star': '⭐',
+        'fire': '🔥',
+        'sparkles': '✨',
+        'heart_face': '🥰',
+        'sparkling_heart': '💖',
+        'gift_heart': '💝',
+        'two_hearts': '💕',
+        'growing_heart': '💗',
+
+        # Row 3 - Joy/Celebration
+        'party': '🎉',
+        'confetti': '🎊',
+        'partying_face': '🥳',
+        'blush': '😊',
+        'grinning': '😄',
+        'beaming': '😁',
+        'starstruck': '🤩',
+        'smile': '🙂',
+
+        # Row 4 - Encouragement
+        'hundred': '💯',
+        'trophy': '🏆',
+        'glowing_star': '🌟',
+        'crown': '👑',
+        'gem': '💎',
+        'bullseye': '🎯',
+        'check': '✅',
+        'dizzy': '💫',
+
+        # Row 5 - Nature/Peace
+        'rainbow': '🌈',
+        'sunflower': '🌻',
+        'cherry_blossom': '🌸',
+        'four_leaf_clover': '🍀',
+        'hibiscus': '🌺',
+        'tulip': '🌷',
+        'blossom': '🌼',
+        'butterfly': '🦋',
+
+        # Row 6 - Affection
+        'heart_hands': '🫶',
+        'handshake': '🤝',
+        'open_hands': '👐',
+        'hugging_people': '🫂',
+        'bouquet': '💐',
+        'gift': '🎁',
+        'dove': '🕊️',
+        'sun': '☀️',
+
+        # Row 7 - Expressions
+        'innocent': '😇',
+        'holding_back_tears': '🥲',
+        'relieved': '😌',
+        'face_with_hand': '🤭',
+        'cool': '😎',
+        'warm_hug': '🤗',
+        'yum': '😋',
+        'salute': '🫡',
+
+        # Legacy codes for backward compatibility with existing reactions
+        'pray': '🙏',            # Keep for existing reactions using 'pray' code
     }
 
     def __repr__(self):

@@ -104,8 +104,10 @@ class PostResponse(BaseModel):
     def validate_emoji_code(cls, v):
         if v is None:
             return v
-        valid_emojis = ['heart', 'heart_eyes', 'hug', 'pray', 'muscle', 'star', 'fire', 'heart_face', 'clap', 'grateful', 'praise']
-        if v not in valid_emojis:
+        # Use the single source of truth from EmojiReaction model
+        from app.models.emoji_reaction import EmojiReaction
+        if not EmojiReaction.is_valid_emoji(v):
+            valid_emojis = list(EmojiReaction.VALID_EMOJIS.keys())
             raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
         return v
 

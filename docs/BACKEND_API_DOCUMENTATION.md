@@ -1433,6 +1433,81 @@ GET    /api/v1/posts/{post_id}/reactions # Get all reactions for post
 GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
 ```
 
+**Add/Update Reaction**
+```http
+POST /api/v1/posts/{post_id}/reactions
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "emoji_code": "heart_eyes"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "reaction-uuid",
+    "user_id": 123,
+    "post_id": "post-uuid",
+    "emoji_code": "heart_eyes",
+    "emoji_display": "😍",
+    "created_at": "2025-12-16T10:00:00Z",
+    "user": {
+      "id": 123,
+      "username": "alice",
+      "name": "Alice"
+    }
+  }
+}
+```
+
+**Valid Emoji Codes (57 total)**
+
+Validation is performed at the Python application layer via `EmojiReaction.is_valid_emoji()`. The database CHECK constraint has been removed for flexibility.
+
+| Row | Theme | Emoji Codes |
+|-----|-------|-------------|
+| 1 | Original | `heart`, `heart_eyes`, `hug`, `touched`, `muscle`, `grateful`, `praise`, `clap` |
+| 2 | Love/Warmth | `star`, `fire`, `sparkles`, `heart_face`, `sparkling_heart`, `gift_heart`, `two_hearts`, `growing_heart` |
+| 3 | Joy/Celebration | `party`, `confetti`, `partying_face`, `blush`, `grinning`, `beaming`, `starstruck`, `smile` |
+| 4 | Encouragement | `hundred`, `trophy`, `glowing_star`, `crown`, `gem`, `bullseye`, `check`, `dizzy` |
+| 5 | Nature/Peace | `rainbow`, `sunflower`, `cherry_blossom`, `four_leaf_clover`, `hibiscus`, `tulip`, `blossom`, `butterfly` |
+| 6 | Affection | `heart_hands`, `handshake`, `open_hands`, `hugging_people`, `bouquet`, `gift`, `dove`, `sun` |
+| 7 | Expressions | `innocent`, `holding_back_tears`, `relieved`, `face_with_hand`, `cool`, `warm_hug`, `yum`, `salute` |
+| Legacy | Backward compat | `pray` (maps to 🙏) |
+
+**Business Rules:**
+- One reaction per user per post (enforced by unique constraint)
+- Users can change their reaction by posting a new one
+- Invalid emoji codes return HTTP 422 with validation error
+
+**Get Reaction Summary**
+```http
+GET /api/v1/posts/{post_id}/reactions/summary
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "total_count": 15,
+    "emoji_counts": {
+      "heart": 5,
+      "heart_eyes": 4,
+      "fire": 3,
+      "party": 2,
+      "rainbow": 1
+    },
+    "user_reaction": "heart_eyes"
+  }
+}
+```
+
 ### Comments & Replies
 ```
 POST   /api/v1/posts/{post_id}/comments    # Create comment on post

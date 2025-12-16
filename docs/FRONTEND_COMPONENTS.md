@@ -225,6 +225,125 @@ function PostCard({ post }) {
 
 ---
 
+### EmojiPicker
+
+A modal component for selecting emoji reactions on posts. Features a scrollable grid of 56 positive emojis organized in 7 themed rows.
+
+**Location:** `apps/web/src/components/EmojiPicker.tsx`
+
+#### Props Interface
+
+```typescript
+interface EmojiPickerProps {
+  isOpen: boolean
+  onClose: () => void           // Called when emoji is selected (sends reaction)
+  onCancel: () => void          // Called when X clicked or click outside (cancels, no reaction)
+  onEmojiSelect: (emojiCode: string) => void
+  currentReaction?: string
+  position?: { x: number, y: number }
+  isLoading?: boolean
+}
+```
+
+#### Features
+
+- **56 Emoji Options**: Organized in 7 themed rows (Original, Love/Warmth, Joy/Celebration, Encouragement, Nature/Peace, Affection, Expressions)
+- **Scrollable Grid**: Vertically scrollable with scroll containment to prevent background scrolling
+- **Cancel vs Confirm Behavior**:
+  - Clicking emoji: Sends reaction immediately, closes picker
+  - X button / Click outside / Escape: Cancels without sending reaction
+  - Scroll outside: Blocked entirely
+- **Current Reaction Highlight**: Shows purple ring around currently selected emoji
+- **Accessibility**: Full keyboard navigation, ARIA labels, focus trapping
+- **Mobile Optimized**: Touch-friendly with haptic feedback support
+
+#### Available Emojis (7 Rows)
+
+| Row | Theme | Emojis |
+|-----|-------|--------|
+| 1 | Original | 💜 😍 🤗 🥹 💪 🙏 🙌 👏 |
+| 2 | Love/Warmth | ⭐ 🔥 ✨ 🥰 💖 💝 💕 💗 |
+| 3 | Joy/Celebration | 🎉 🎊 🥳 😊 😄 😁 🤩 🙂 |
+| 4 | Encouragement | 💯 🏆 🌟 👑 💎 🎯 ✅ 💫 |
+| 5 | Nature/Peace | 🌈 🌻 🌸 🍀 🌺 🌷 🌼 🦋 |
+| 6 | Affection | 🫶 🤝 👐 🫂 💐 🎁 🕊️ ☀️ |
+| 7 | Expressions | 😇 🥲 😌 🤭 😎 🤗 😋 🫡 |
+
+#### Usage Example
+
+```typescript
+import EmojiPicker from '@/components/EmojiPicker'
+
+function PostCard() {
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+
+  const handleEmojiSelect = async (emojiCode: string) => {
+    await apiClient.post(`/posts/${postId}/reactions`, { emoji_code: emojiCode })
+    // Update local state...
+  }
+
+  return (
+    <>
+      <button onClick={(e) => {
+        setPosition({ x: e.clientX, y: e.clientY })
+        setShowEmojiPicker(true)
+      }}>
+        React
+      </button>
+
+      <EmojiPicker
+        isOpen={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onCancel={() => setShowEmojiPicker(false)}
+        onEmojiSelect={handleEmojiSelect}
+        currentReaction={currentUserReaction}
+        position={position}
+      />
+    </>
+  )
+}
+```
+
+#### API Integration
+
+- **Add Reaction**: `POST /api/v1/posts/{post_id}/reactions` with `{ emoji_code: string }`
+- **Remove Reaction**: `DELETE /api/v1/posts/{post_id}/reactions`
+- **Get Summary**: `GET /api/v1/posts/{post_id}/reactions/summary`
+
+---
+
+### ReactionViewer
+
+A modal component that displays all users who have reacted to a post, grouped by emoji type.
+
+**Location:** `apps/web/src/components/ReactionViewer.tsx`
+
+#### Props Interface
+
+```typescript
+interface ReactionViewerProps {
+  isOpen: boolean
+  onClose: () => void
+  postId: string
+  reactions: Array<{
+    id: string
+    emoji_code: string
+    user: { id: number, username: string, name: string, image?: string }
+  }>
+  onUserClick?: (userId: string) => void
+}
+```
+
+#### Features
+
+- **Grouped Display**: Reactions grouped by emoji type with counts
+- **User List**: Shows users who reacted with each emoji
+- **Profile Navigation**: Click user to view their profile
+- **Responsive Design**: Works on mobile and desktop
+
+---
+
 ## User Interface Components
 
 ### UserListItem

@@ -339,89 +339,67 @@ export default function PostCard({
     setShowEmojiPicker(true)
   }
 
-  const handleEmojiSelect = (emojiCode: string) => {
-    // Just update the pending reaction, don't send API request yet
-    setPendingReaction(emojiCode)
-    // Don't close the picker yet - let user see their selection
+  // Handle emoji selection - immediately sends reaction to backend
+  const handleEmojiSelect = async (emojiCode: string) => {
+    setIsReactionLoading(true)
+
+    // Track analytics event
+    if (currentUserId) {
+      const eventType = currentPost.currentUserReaction ? 'reaction_change' : 'reaction_add'
+      analyticsService.trackReactionEvent(
+        eventType,
+        post.id,
+        currentUserId,
+        emojiCode,
+        currentPost.currentUserReaction
+      )
+    }
+
+    try {
+      // Make API call to add/update reaction using optimized API client
+      await apiClient.post(`/posts/${post.id}/reactions`, { emoji_code: emojiCode })
+
+      // Get updated reaction summary from server
+      const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
+
+      // Update local state immediately for responsive UI
+      setCurrentPost(prev => ({
+        ...prev,
+        currentUserReaction: emojiCode,
+        reactionsCount: reactionSummary.total_count || 0,
+        isHearted: reactionSummary.is_hearted || false,
+        heartsCount: reactionSummary.hearts_count || 0
+      }))
+
+      // Call handler with updated server data
+      onReaction?.(post.id, emojiCode, reactionSummary)
+
+    } catch (apiError: any) {
+      showError(
+        'Reaction Failed',
+        apiError.message || 'Unable to add reaction. Please try again.',
+        {
+          label: 'Retry',
+          onClick: () => handleEmojiSelect(emojiCode)
+        }
+      )
+    } finally {
+      setIsReactionLoading(false)
+      setPendingReaction(null)
+    }
   }
 
-  const handleEmojiPickerClose = async () => {
+  // Handle emoji picker close after successful selection
+  const handleEmojiPickerClose = () => {
     setShowEmojiPicker(false)
-    
-    // If there's a pending reaction, send it to the API
-    if (pendingReaction) {
-      const reactionToSend = pendingReaction // Store it before clearing
-      setIsReactionLoading(true)
-      
-      // Track analytics event
-      if (currentUserId) {
-        const eventType = currentPost.currentUserReaction ? 'reaction_change' : 'reaction_add'
-        analyticsService.trackReactionEvent(
-          eventType,
-          post.id,
-          currentUserId,
-          reactionToSend,
-          currentPost.currentUserReaction
-        )
-      }
-      
-      try {
-        const token = localStorage.getItem("access_token")
-        
-        try {
-          // Make API call to add/update reaction using optimized API client
-          await apiClient.post(`/posts/${post.id}/reactions`, { emoji_code: reactionToSend })
-          
-          // Get updated reaction summary from server
-          const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
-          
-          // Update local state immediately for responsive UI
-          setCurrentPost(prev => ({
-            ...prev,
-            currentUserReaction: reactionToSend,
-            reactionsCount: reactionSummary.total_count || 0,
-            isHearted: reactionSummary.is_hearted || false,
-            heartsCount: reactionSummary.hearts_count || 0
-          }))
-          
-          // Call handler with updated server data
-          onReaction?.(post.id, reactionToSend, reactionSummary)
-          
-        } catch (apiError: any) {
-          showError(
-            'Reaction Failed',
-            apiError.message || 'Unable to add reaction. Please try again.',
-            {
-              label: 'Retry',
-              onClick: () => {
-                // Retry by setting the pending reaction and closing again
-                setPendingReaction(reactionToSend)
-                handleEmojiPickerClose()
-              }
-            }
-          )
-        }
-      } catch (error) {
-        console.error('Error updating reaction:', error)
-        showError(
-          'Network Error',
-          'Please check your connection and try again.',
-          {
-            label: 'Retry',
-            onClick: () => {
-              // Retry by setting the pending reaction and closing again
-              setPendingReaction(reactionToSend)
-              handleEmojiPickerClose()
-            }
-          }
-        )
-      } finally {
-        setIsReactionLoading(false)
-      }
-    }
-    
-    // Clear pending reaction after processing
     setPendingReaction(null)
+  }
+
+  // Handle emoji picker cancel (X button, click outside, Escape) - no API call
+  const handleEmojiPickerCancel = () => {
+    setShowEmojiPicker(false)
+    setPendingReaction(null)
+    // No API call - just close the picker
   }
 
   const handleReactionCountClick = async () => {
@@ -1198,8 +1176,9 @@ export default function PostCard({
       <EmojiPicker
         isOpen={showEmojiPicker}
         onClose={handleEmojiPickerClose}
+        onCancel={handleEmojiPickerCancel}
         onEmojiSelect={handleEmojiSelect}
-        currentReaction={pendingReaction || currentPost.currentUserReaction}
+        currentReaction={currentPost.currentUserReaction}
         position={emojiPickerPosition}
         isLoading={isReactionLoading}
       />
