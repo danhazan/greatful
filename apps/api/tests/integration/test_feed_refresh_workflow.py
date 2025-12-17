@@ -208,10 +208,10 @@ class TestFeedRefreshWorkflow:
             )
             db_session.add(heart)
         
-        # Add reactions to old post
+        # Add reactions to old post, using a different offset for user IDs
         for i in range(3):
             reaction = EmojiReaction(
-                user_id=workflow_user.id + i + 1,
+                user_id=workflow_user.id + i + 6,  # Use a different set of user IDs for reactions
                 post_id=high_engagement_old.id,
                 emoji_code="heart_eyes"
             )

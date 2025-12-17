@@ -140,7 +140,7 @@ class TestFeedAlgorithm:
         for i, post in enumerate(sample_posts):
             reactions_count = i + 1  # 1, 2, 3, 4, 5 reactions
             for j in range(reactions_count):
-                user_idx = (j + 1) % len(sample_users)
+                user_idx = (j + 5) % len(sample_users)  # Use a different offset for reactions
                 if sample_users[user_idx].id != post.author_id:
                     reaction = EmojiReaction(
                         user_id=sample_users[user_idx].id,
@@ -851,7 +851,7 @@ class TestFeedAlgorithm:
             for j in range(max_likes):
                 heart = EmojiReaction(
                     id=f"heart-{i}-{j}",
-                    user_id=sample_users[j].id,
+                    user_id=sample_users[j % len(sample_users)].id,
                     emoji_code='heart',
                     post_id=post.id
                 )
@@ -859,9 +859,13 @@ class TestFeedAlgorithm:
             
             max_reactions = min(post_data["reactions"], len(sample_users))
             for j in range(max_reactions):
+                reaction_user_idx = (j + max_likes + 1) % len(sample_users) # Use a different offset
+                if sample_users[reaction_user_idx].id == post.author_id:
+                    reaction_user_idx = (reaction_user_idx + 1) % len(sample_users)
+
                 reaction = EmojiReaction(
                     id=f"reaction-{i}-{j}",
-                    user_id=sample_users[j].id,
+                    user_id=sample_users[reaction_user_idx].id,
                     post_id=post.id,
                     emoji_code="heart_eyes"
                 )

@@ -84,7 +84,7 @@ class TestHeartsProfileImages:
             from app.api.v1.hearts import get_hearts_users
             
             # Verify the function exists and can be called
-            assert get_post_hearts_users is not None
+            assert get_hearts_users is not None
             
             # The actual functionality test would require proper auth setup
             # but the important change is in the API response structure

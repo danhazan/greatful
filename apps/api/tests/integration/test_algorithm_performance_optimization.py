@@ -105,11 +105,11 @@ class TestAlgorithmPerformanceOptimization:
                 heart = EmojiReaction(post_id=post.id, user_id=users[j % len(users)].id, emoji_code='heart')
                 db_session.add(heart)
             
-            # Add reactions
+            # Add reactions, using a different user offset to avoid conflicts
             for j in range(min(i % 8, 3)):  # 0-3 reactions per post
                 reaction = EmojiReaction(
                     post_id=post.id,
-                    user_id=users[j % len(users)].id,
+                    user_id=users[(j + 5) % len(users)].id, # Use a different offset for reactions
                     emoji_code="heart_eyes"
                 )
                 db_session.add(reaction)
@@ -475,8 +475,8 @@ class TestAlgorithmPerformanceOptimization:
         start_time = time.time()
         
         engagement_query = select(
-            func.count(Like.id).label('hearts_count')
-        ).where(Like.post_id == posts[0].id)
+            func.count(EmojiReaction.id).label('hearts_count')
+        ).where(EmojiReaction.post_id == posts[0].id)
         
         result = await db_session.execute(engagement_query)
         hearts_count = result.scalar()
