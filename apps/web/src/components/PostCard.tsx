@@ -597,6 +597,61 @@ export default function PostCard({
     }
   }
 
+  // Edit comment handler
+  const handleCommentEdit = async (commentId: string, content: string): Promise<any> => {
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        throw new Error('Please log in to edit comments.')
+      }
+
+      // Call the edit API
+      const updatedComment = await apiClient.put(`/comments/${commentId}`, {
+        content
+      }) as any
+
+      // Reload comments to ensure consistency
+      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, {
+        skipCache: true
+      }) as any
+      setComments(updatedComments)
+
+      return updatedComment
+    } catch (error: any) {
+      console.error('Failed to edit comment:', error)
+      throw new Error(error.message || 'Unable to edit comment. Please try again.')
+    }
+  }
+
+  // Delete comment handler
+  const handleCommentDelete = async (commentId: string): Promise<void> => {
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        throw new Error('Please log in to delete comments.')
+      }
+
+      // Call the delete API
+      await apiClient.delete(`/comments/${commentId}`) as any
+
+      // Reload comments to ensure consistency
+      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, {
+        skipCache: true
+      }) as any
+      setComments(updatedComments)
+
+      // Update comment count in post
+      const newCount = Math.max(0, (currentPost.commentsCount || 0) - 1)
+      setCurrentPost(prev => ({
+        ...prev,
+        commentsCount: newCount
+      }))
+    } catch (error: any) {
+      console.error('Failed to delete comment:', error)
+      throw new Error(error.message || 'Unable to delete comment. Please try again.')
+    }
+  }
+
   const handleMentionClick = async (username: string) => {
     try {
       // Get auth token
@@ -1224,9 +1279,12 @@ export default function PostCard({
         postId={post.id}
         comments={comments}
         totalCommentsCount={currentPost.commentsCount || 0}
+        currentUserId={currentUserId ? parseInt(currentUserId, 10) : undefined}
         onCommentSubmit={handleCommentSubmit}
         onReplySubmit={handleReplySubmit}
         onLoadReplies={handleLoadReplies}
+        onCommentEdit={handleCommentEdit}
+        onCommentDelete={handleCommentDelete}
         isSubmitting={isCommentSubmitting}
       />
 

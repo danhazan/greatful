@@ -78,11 +78,33 @@ class CommentResponse(BaseModel):
     parent_comment_id: Optional[str] = None
     created_at: str
     updated_at: Optional[str] = None
+    edited_at: Optional[str] = None  # Timestamp of when the comment was edited by user
     user: UserInfo
     is_reply: bool = Field(default=False, description="Whether this is a reply to another comment")
     reply_count: int = Field(default=0, description="Number of replies to this comment")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CommentUpdateRequest(BaseModel):
+    """Request model for updating/editing a comment."""
+    content: str = Field(..., min_length=1, max_length=500, description="Updated comment content (1-500 characters)")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "content": "This is my updated comment! 📝"
+            }
+        }
+    )
+
+    @field_validator('content')
+    @classmethod
+    def validate_content(cls, v):
+        """Validate content is not empty after stripping whitespace."""
+        if not v.strip():
+            raise ValueError('Content cannot be empty or only whitespace')
+        return v.strip()
 
 
 @router.post("/posts/{post_id}/comments", status_code=201)
@@ -233,18 +255,51 @@ async def get_comment_replies(
     
     # Get replies
     replies = await comment_service.get_comment_replies(comment_id)
-    
-    # Add is_reply flag to each reply
+
+    # Add is_reply flag to each reply (can_delete is included from service)
     for reply in replies:
         reply['is_reply'] = True
-        reply['reply_count'] = 0  # Replies cannot have replies
-    
+
     logger.info(
         f"Retrieved {len(replies)} replies for comment {comment_id}",
         extra={"comment_id": comment_id, "reply_count": len(replies)}
     )
     
     return success_response(replies, getattr(request.state, 'request_id', None))
+
+
+@router.put("/comments/{comment_id}", status_code=200)
+async def update_comment(
+    comment_id: str,
+    update_request: CommentUpdateRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Edit/update a comment (owner only).
+
+    - **comment_id**: ID of the comment to edit
+    - **content**: New comment content (1-500 characters)
+
+    Returns the updated comment with user information.
+    Only the comment owner can edit their comment.
+    Sets the edited_at timestamp to indicate the comment was modified.
+    """
+    comment_service = CommentService(db)
+
+    updated_comment = await comment_service.edit_comment(
+        comment_id=comment_id,
+        user_id=current_user_id,
+        content=update_request.content
+    )
+
+    logger.info(
+        f"Updated comment {comment_id} by user {current_user_id}",
+        extra={"comment_id": comment_id, "user_id": current_user_id}
+    )
+
+    return success_response(updated_comment, getattr(request.state, 'request_id', None))
 
 
 @router.delete("/comments/{comment_id}", status_code=200)
@@ -256,28 +311,30 @@ async def delete_comment(
 ):
     """
     Delete a comment (owner only).
-    
+
     - **comment_id**: ID of the comment to delete
-    
+
     Returns success message on deletion.
     Only the comment owner can delete their comment.
-    Deleting a comment will also delete all its replies (cascade).
+
+    **Important**: Deletion is blocked if the comment has replies.
+    Comments with replies cannot be deleted to prevent orphaned content.
     """
     comment_service = CommentService(db)
-    
+
     deleted = await comment_service.delete_comment(
         comment_id=comment_id,
         user_id=current_user_id
     )
-    
+
     if not deleted:
         raise NotFoundError("Comment", comment_id)
-    
+
     logger.info(
         f"Deleted comment {comment_id} by user {current_user_id}",
         extra={"comment_id": comment_id, "user_id": current_user_id}
     )
-    
+
     return success_response(
         {"message": "Comment deleted successfully"},
         getattr(request.state, 'request_id', None)

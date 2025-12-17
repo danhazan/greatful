@@ -451,7 +451,7 @@ class TestGetCommentReplies:
         db_session.add(parent_comment)
         await db_session.commit()
         await db_session.refresh(parent_comment)
-        
+
         # Create replies
         reply1 = Comment(
             post_id=test_post.id,
@@ -467,19 +467,21 @@ class TestGetCommentReplies:
         )
         db_session.add_all([reply1, reply2])
         await db_session.commit()
-        
+
         response = await async_client.get(
             f"/api/v1/comments/{parent_comment.id}/replies",
             headers=auth_headers
         )
-        
+
         assert response.status_code == 200
         data = response.json()["data"]
         assert len(data) == 2
         assert data[0]["content"] == "First reply"
         assert data[1]["content"] == "Second reply"
         assert all(r["is_reply"] is True for r in data)
-        assert all(r["reply_count"] == 0 for r in data)
+        # Only the last reply can be deleted (chronologically)
+        assert data[0]["can_delete"] is False  # First reply cannot be deleted
+        assert data[1]["can_delete"] is True   # Last reply can be deleted
 
     async def test_get_replies_nonexistent_comment(
         self,
@@ -566,7 +568,7 @@ class TestDeleteComment:
         
         assert response.status_code == 404
 
-    async def test_delete_comment_cascades_to_replies(
+    async def test_delete_comment_with_replies_blocked(
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
@@ -574,7 +576,7 @@ class TestDeleteComment:
         test_user: User,
         auth_headers: dict
     ):
-        """Test that deleting a comment also deletes its replies (cascade)."""
+        """Test that deleting a comment with replies is blocked."""
         # Create parent comment
         parent_comment = Comment(
             post_id=test_post.id,
@@ -585,7 +587,7 @@ class TestDeleteComment:
         await db_session.commit()
         await db_session.refresh(parent_comment)
         parent_id = parent_comment.id
-        
+
         # Create reply
         reply = Comment(
             post_id=test_post.id,
@@ -596,28 +598,377 @@ class TestDeleteComment:
         db_session.add(reply)
         await db_session.commit()
         await db_session.refresh(reply)
-        
-        # Verify we have 2 comments before deletion
+
+        # Verify we have 2 comments before deletion attempt
         from sqlalchemy import select, func
         count_query = select(func.count(Comment.id)).where(Comment.post_id == test_post.id)
         result = await db_session.execute(count_query)
         count_before = result.scalar()
         assert count_before == 2
-        
-        # Delete parent comment
+
+        # Attempt to delete parent comment - should be blocked
         response = await async_client.delete(
             f"/api/v1/comments/{parent_id}",
             headers=auth_headers
         )
-        
+
+        # Should return 400 Bad Request with business logic error
+        assert response.status_code == 400
+        data = response.json()
+        # The error structure is {success: false, error: {code, message, details}}
+        error_message = data.get("error", {}).get("message", "").lower()
+        assert "replies" in error_message
+
+        # Verify both comments still exist
+        result = await db_session.execute(count_query)
+        count_after = result.scalar()
+        assert count_after == 2
+
+    async def test_delete_reply_with_later_siblings_blocked(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        """Test that deleting a reply with later sibling replies is blocked.
+
+        Only the chronologically last reply in a thread can be deleted.
+        """
+        from datetime import datetime, timezone, timedelta
+
+        # Create top-level comment
+        top_comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Top level comment"
+        )
+        db_session.add(top_comment)
+        await db_session.commit()
+        await db_session.refresh(top_comment)
+
+        # Create first reply with explicit timestamp
+        earlier_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+        reply1 = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="First reply",
+            parent_comment_id=top_comment.id
+        )
+        db_session.add(reply1)
+        await db_session.commit()
+        await db_session.refresh(reply1)
+        reply1_id = reply1.id
+
+        # Update the first reply's created_at to be earlier
+        reply1.created_at = earlier_time
+        await db_session.commit()
+
+        # Create second reply (comes after chronologically - later timestamp)
+        reply2 = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Second reply",
+            parent_comment_id=top_comment.id
+        )
+        db_session.add(reply2)
+        await db_session.commit()
+        await db_session.refresh(reply2)
+
+        # Verify we have 3 comments
+        from sqlalchemy import select, func
+        count_query = select(func.count(Comment.id)).where(Comment.post_id == test_post.id)
+        result = await db_session.execute(count_query)
+        assert result.scalar() == 3
+
+        # Verify reply1 is earlier than reply2
+        await db_session.refresh(reply1)
+        await db_session.refresh(reply2)
+        assert reply1.created_at < reply2.created_at
+
+        # Try to delete the first reply (has later sibling) - should be blocked
+        response = await async_client.delete(
+            f"/api/v1/comments/{reply1_id}",
+            headers=auth_headers
+        )
+
+        # Should return 400 Bad Request with business logic error
+        assert response.status_code == 400
+        data = response.json()
+        error_message = data.get("error", {}).get("message", "").lower()
+        assert "later" in error_message or "sibling" in error_message or "replies" in error_message
+
+        # Verify all 3 comments still exist
+        result = await db_session.execute(count_query)
+        assert result.scalar() == 3
+
+    async def test_delete_last_reply_success(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        """Test that the last reply in a thread can be deleted successfully."""
+        # Create top-level comment
+        top_comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Top level comment"
+        )
+        db_session.add(top_comment)
+        await db_session.commit()
+        await db_session.refresh(top_comment)
+
+        # Create first reply
+        reply1 = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="First reply",
+            parent_comment_id=top_comment.id
+        )
+        db_session.add(reply1)
+        await db_session.commit()
+        await db_session.refresh(reply1)
+
+        # Create second reply (comes after chronologically)
+        reply2 = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Second reply",
+            parent_comment_id=top_comment.id
+        )
+        db_session.add(reply2)
+        await db_session.commit()
+        await db_session.refresh(reply2)
+        reply2_id = reply2.id
+
+        # Verify we have 3 comments
+        from sqlalchemy import select, func
+        count_query = select(func.count(Comment.id)).where(Comment.post_id == test_post.id)
+        result = await db_session.execute(count_query)
+        assert result.scalar() == 3
+
+        # Delete the last reply - should succeed
+        response = await async_client.delete(
+            f"/api/v1/comments/{reply2_id}",
+            headers=auth_headers
+        )
+
         assert response.status_code == 200
-        
-        # Close and create new session to see the cascade effect
-        await db_session.close()
-        from app.core.database import get_db
-        async for new_session in get_db():
-            # Verify all comments are deleted (cascade should delete reply too)
-            result = await new_session.execute(count_query)
-            count_after = result.scalar()
-            assert count_after == 0
-            break
+        data = response.json()["data"]
+        assert data["message"] == "Comment deleted successfully"
+
+        # Verify we now have 2 comments
+        result = await db_session.execute(count_query)
+        assert result.scalar() == 2
+
+    async def test_get_replies_can_delete_single_reply(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        """Test that a single reply in a thread can be deleted."""
+        # Create top-level comment
+        top_comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Top level comment"
+        )
+        db_session.add(top_comment)
+        await db_session.commit()
+        await db_session.refresh(top_comment)
+
+        # Create a single reply
+        reply = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Only reply",
+            parent_comment_id=top_comment.id
+        )
+        db_session.add(reply)
+        await db_session.commit()
+        await db_session.refresh(reply)
+
+        # Get replies for the top-level comment
+        response = await async_client.get(
+            f"/api/v1/comments/{top_comment.id}/replies",
+            headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert len(data) == 1
+
+        # The only reply should be deletable
+        reply_data = data[0]
+        assert reply_data["id"] == reply.id
+        assert reply_data["can_delete"] is True
+
+
+class TestUpdateComment:
+    """Tests for comment editing functionality."""
+
+    async def test_update_comment_success(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        """Test successful comment update."""
+        # Create a comment
+        comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Original content"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+        await db_session.refresh(comment)
+
+        # Update the comment
+        response = await async_client.put(
+            f"/api/v1/comments/{comment.id}",
+            json={"content": "Updated content"},
+            headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["content"] == "Updated content"
+        assert data["edited_at"] is not None
+
+    async def test_update_comment_not_owner(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        another_auth_headers: dict
+    ):
+        """Test that non-owner cannot update comment."""
+        # Create comment by test_user
+        comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Original content"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+        await db_session.refresh(comment)
+
+        # Try to update with another_user's credentials
+        response = await async_client.put(
+            f"/api/v1/comments/{comment.id}",
+            json={"content": "Hacked content"},
+            headers=another_auth_headers
+        )
+
+        assert response.status_code == 403
+
+    async def test_update_comment_empty_content(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        """Test that empty content is rejected."""
+        # Create a comment
+        comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Original content"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+        await db_session.refresh(comment)
+
+        # Try to update with empty content
+        response = await async_client.put(
+            f"/api/v1/comments/{comment.id}",
+            json={"content": "   "},
+            headers=auth_headers
+        )
+
+        assert response.status_code == 422
+
+    async def test_update_comment_too_long(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        """Test that content over 500 chars is rejected."""
+        # Create a comment
+        comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Original content"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+        await db_session.refresh(comment)
+
+        # Try to update with content too long
+        response = await async_client.put(
+            f"/api/v1/comments/{comment.id}",
+            json={"content": "x" * 501},
+            headers=auth_headers
+        )
+
+        assert response.status_code == 422
+
+    async def test_update_comment_nonexistent(
+        self,
+        async_client: AsyncClient,
+        auth_headers: dict
+    ):
+        """Test updating nonexistent comment fails."""
+        response = await async_client.put(
+            "/api/v1/comments/nonexistent-id",
+            json={"content": "Updated content"},
+            headers=auth_headers
+        )
+
+        assert response.status_code == 404
+
+    async def test_update_comment_with_emoji(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        """Test updating comment with emoji content."""
+        # Create a comment
+        comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Original content"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+        await db_session.refresh(comment)
+
+        # Update with emoji
+        response = await async_client.put(
+            f"/api/v1/comments/{comment.id}",
+            json={"content": "Updated with emojis! "},
+            headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert "" in data["content"]

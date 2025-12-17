@@ -25,6 +25,7 @@ class Comment(Base):
     content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    edited_at = Column(DateTime(timezone=True), nullable=True)  # Tracks when comment content was edited by user
 
     # Constraints
     __table_args__ = (

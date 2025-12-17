@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from app.core.service_base import BaseService
-from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError
+from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError, BusinessLogicError
 from app.models.comment import Comment
 from app.models.post import Post
 from app.models.user import User
@@ -139,6 +139,7 @@ class CommentService(BaseService):
             "content": comment.content,
             "created_at": comment.created_at.isoformat(),
             "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
+            "edited_at": comment.edited_at.isoformat() if comment.edited_at else None,
             "user": {
                 "id": user.id,
                 "username": user.username,
@@ -184,6 +185,7 @@ class CommentService(BaseService):
                 "content": comment.content,
                 "created_at": comment.created_at.isoformat(),
                 "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
+                "edited_at": comment.edited_at.isoformat() if comment.edited_at else None,
                 "user": {
                     "id": comment.user.id,
                     "username": comment.user.username,
@@ -206,24 +208,33 @@ class CommentService(BaseService):
     async def get_comment_replies(self, comment_id: str) -> List[Dict[str, Any]]:
         """
         Get replies for a specific comment.
-        
+
         Args:
             comment_id: ID of the parent comment
-            
+
         Returns:
-            List[Dict]: List of reply dictionaries with user data
+            List[Dict]: List of reply dictionaries with user data.
+                        Each reply includes 'can_delete' indicating if it can be deleted
+                        (only the chronologically last reply can be deleted).
         """
         query = select(Comment).where(
             Comment.parent_comment_id == comment_id
         ).options(
             selectinload(Comment.user)
         ).order_by(Comment.created_at.asc())
-        
+
         result = await self.db.execute(query)
-        replies = result.scalars().all()
-        
-        return [
-            {
+        replies = list(result.scalars().all())
+
+        # Build reply list - only the last reply can be deleted
+        reply_list = []
+        total_replies = len(replies)
+
+        for index, reply in enumerate(replies):
+            # Only the last reply (chronologically) can be deleted
+            is_last_reply = (index == total_replies - 1)
+
+            reply_list.append({
                 "id": reply.id,
                 "post_id": reply.post_id,
                 "user_id": reply.user_id,
@@ -231,33 +242,137 @@ class CommentService(BaseService):
                 "content": reply.content,
                 "created_at": reply.created_at.isoformat(),
                 "updated_at": reply.updated_at.isoformat() if reply.updated_at else None,
+                "edited_at": reply.edited_at.isoformat() if reply.edited_at else None,
                 "user": {
                     "id": reply.user.id,
                     "username": reply.user.username,
                     "display_name": reply.user.display_name,
                     "profile_image_url": reply.user.profile_image_url
-                }
-            }
-            for reply in replies
-        ]
+                },
+                "can_delete": is_last_reply  # Only the last reply can be deleted
+            })
+
+        return reply_list
+
+    async def edit_comment(
+        self,
+        comment_id: str,
+        user_id: int,
+        content: str
+    ) -> Dict[str, Any]:
+        """
+        Edit a comment (owner only).
+
+        Args:
+            comment_id: ID of the comment to edit
+            user_id: ID of the user attempting to edit
+            content: New comment content (1-500 characters)
+
+        Returns:
+            Dict: Updated comment data with user information
+
+        Raises:
+            NotFoundError: If comment doesn't exist
+            PermissionDeniedError: If user is not the comment owner
+            ValidationException: If content is invalid
+        """
+        from datetime import datetime, timezone
+
+        # Validate content length
+        self.validate_field_length(content.strip(), "content", max_length=500, min_length=1)
+
+        # Get the comment
+        comment = await self.get_by_id_or_404(Comment, comment_id, "Comment")
+
+        # Verify ownership
+        if comment.user_id != user_id:
+            raise PermissionDeniedError(
+                "Cannot edit other user's comment",
+                "Comment",
+                "edit"
+            )
+
+        # Get user for response
+        user = await self.get_by_id_or_404(User, user_id, "User")
+
+        # Update the comment
+        comment.content = content.strip()
+        comment.edited_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(comment)
+
+        logger.info(f"Edited comment {comment_id} by user {user_id}")
+
+        # Get reply count for this comment
+        from sqlalchemy import func
+        reply_count_query = select(func.count(Comment.id)).where(
+            Comment.parent_comment_id == comment_id
+        )
+        result = await self.db.execute(reply_count_query)
+        reply_count = result.scalar() or 0
+
+        # Return updated comment data
+        return {
+            "id": comment.id,
+            "post_id": comment.post_id,
+            "user_id": comment.user_id,
+            "parent_comment_id": comment.parent_comment_id,
+            "content": comment.content,
+            "created_at": comment.created_at.isoformat(),
+            "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
+            "edited_at": comment.edited_at.isoformat() if comment.edited_at else None,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "profile_image_url": user.profile_image_url
+            },
+            "is_reply": comment.parent_comment_id is not None,
+            "reply_count": reply_count
+        }
+
+    async def get_comment_reply_count(self, comment_id: str) -> int:
+        """
+        Get the number of replies for a comment.
+
+        Args:
+            comment_id: ID of the comment
+
+        Returns:
+            int: Number of replies
+        """
+        from sqlalchemy import func
+
+        reply_count_query = select(func.count(Comment.id)).where(
+            Comment.parent_comment_id == comment_id
+        )
+        result = await self.db.execute(reply_count_query)
+        return result.scalar() or 0
 
     async def delete_comment(self, comment_id: str, user_id: int) -> bool:
         """
         Delete a comment (owner only).
-        
+
+        Deletion rules:
+        - Top-level comments: Cannot be deleted if they have any replies
+        - Replies: Cannot be deleted if there are sibling replies created after this one
+          (only the chronologically last reply in a thread can be deleted)
+
         Args:
             comment_id: ID of the comment to delete
             user_id: ID of the user attempting to delete
-            
+
         Returns:
             bool: True if deleted successfully
-            
+
         Raises:
             NotFoundError: If comment doesn't exist
             PermissionDeniedError: If user is not the comment owner
+            BusinessLogicError: If deletion is blocked due to replies or later siblings
         """
         comment = await self.get_by_id_or_404(Comment, comment_id, "Comment")
-        
+
         # Verify ownership
         if comment.user_id != user_id:
             raise PermissionDeniedError(
@@ -265,26 +380,49 @@ class CommentService(BaseService):
                 "Comment",
                 "delete"
             )
-        
-        # Count replies to decrement properly
+
         from sqlalchemy import func
-        reply_count_query = select(func.count(Comment.id)).where(
-            Comment.parent_comment_id == comment_id
-        )
-        result = await self.db.execute(reply_count_query)
-        reply_count = result.scalar() or 0
-        
+
+        # Check deletion constraints based on comment type
+        if comment.parent_comment_id is None:
+            # Top-level comment: Check for any replies
+            reply_count_query = select(func.count(Comment.id)).where(
+                Comment.parent_comment_id == comment_id
+            )
+            result = await self.db.execute(reply_count_query)
+            reply_count = result.scalar() or 0
+
+            if reply_count > 0:
+                raise BusinessLogicError(
+                    "This comment has replies and cannot be deleted.",
+                    "comment_has_replies"
+                )
+        else:
+            # Reply: Check for later sibling replies (same parent, created after this one)
+            later_siblings_query = select(func.count(Comment.id)).where(
+                Comment.parent_comment_id == comment.parent_comment_id,
+                Comment.created_at > comment.created_at
+            )
+            result = await self.db.execute(later_siblings_query)
+            later_siblings_count = result.scalar() or 0
+
+            if later_siblings_count > 0:
+                raise BusinessLogicError(
+                    "This reply has later replies in the thread and cannot be deleted.",
+                    "reply_has_later_siblings"
+                )
+
         # Get the post to update comments_count
         post = await self.get_by_id(Post, comment.post_id)
         if post:
-            # Decrement by 1 (the comment) + reply_count
-            post.comments_count = max(0, (post.comments_count or 0) - (1 + reply_count))
+            # Decrement by 1 (just this comment, no replies since we blocked that)
+            post.comments_count = max(0, (post.comments_count or 0) - 1)
             await self.db.commit()
             await self.db.refresh(post)
-        
-        # Delete the comment (cascade will handle replies)
+
+        # Delete the comment
         await self.delete_entity(comment)
-        
+
         logger.info(f"Deleted comment {comment_id} by user {user_id}")
         return True
 
