@@ -113,24 +113,40 @@ export default function StackedImagePreview({
     >
       {/* Stacked cards container */}
       <div className="relative">
-        {/* Background stacked cards (shadow effect) */}
-        {visibleStackCount >= 3 && (
+        {/* Background stacked cards with actual thumbnails */}
+        {visibleStackCount >= 3 && sortedImages[2] && (
           <div
-            className="absolute inset-0 rounded-lg bg-gray-200 shadow-sm"
+            className="absolute inset-0 rounded-lg overflow-hidden shadow-sm"
             style={{
               transform: 'translateY(8px) translateX(4px) rotate(2deg)',
               zIndex: 1
             }}
-          />
+          >
+            <img
+              src={sortedImages[2].thumbnailUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+              aria-hidden="true"
+            />
+          </div>
         )}
-        {visibleStackCount >= 2 && (
+        {visibleStackCount >= 2 && sortedImages[1] && (
           <div
-            className="absolute inset-0 rounded-lg bg-gray-100 shadow-sm"
+            className="absolute inset-0 rounded-lg overflow-hidden shadow-sm"
             style={{
               transform: 'translateY(4px) translateX(2px) rotate(1deg)',
               zIndex: 2
             }}
-          />
+          >
+            <img
+              src={sortedImages[1].thumbnailUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+              aria-hidden="true"
+            />
+          </div>
         )}
 
         {/* Primary image card */}

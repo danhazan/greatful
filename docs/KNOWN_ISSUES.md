@@ -23,6 +23,7 @@
 - **🔄 Component State Synchronization**: Follow buttons and other interactive components don't update related UI elements
 
 - **🔐 Password Manager Not Triggered**: Password manager doesn't save new passwords when changed in profile settings
+- **🖼️ Draft Image Previews**: Draft images are not restored when reopening saved drafts (by design - blob URLs are ephemeral)
 
 ### ✅ Recently Resolved
 - **Toast Notification Focus Stealing**: ✅ COMPLETED - Toasts no longer interrupt typing when closing
@@ -1237,6 +1238,48 @@ The issue was fundamentally caused by React portal unmounting behavior interacti
 - Comments and replies appear immediately without focus loss
 - Error toasts still work correctly for failed submissions
 - All existing tests remain passing
+
+### Draft Image Previews Not Restored
+**Issue**: Draft image previews are not restored when reopening a saved draft
+**Status**: ⚠️ Known Limitation (By Design)
+**Priority**: Low
+**Impact**: User Experience (minor convenience)
+**Discovered**: December 18, 2025
+
+**Description**:
+When users create a post with images and close the modal before publishing (saving as draft), reopening the draft will not restore the image previews. The text content, post style, and other settings are restored, but images must be re-added.
+
+**Technical Details**:
+- Draft saving uses localStorage for persistence
+- Image previews use blob URLs (e.g., `blob:http://localhost:3000/...`)
+- Blob URLs are ephemeral and tied to the browser session/tab lifecycle
+- Blob URLs cannot be persisted across sessions or page reloads
+- Attempting to restore stale blob URLs would show broken images
+
+**Why This Happens**:
+Blob URLs are created by `URL.createObjectURL()` from File objects and are only valid in the browser context that created them. They:
+- Cannot be serialized to localStorage meaningfully
+- Become invalid after page reload or session end
+- Would require converting images to base64 (expensive for large images)
+- Would significantly increase localStorage usage (5-10MB limit)
+
+**Current Behavior**:
+- User adds images to a new post ✅
+- User closes modal without publishing (draft saved) ✅
+- Draft text content and settings are saved ✅
+- User reopens modal, draft content is restored ✅
+- Image previews are not restored (images field is empty) ❌
+
+**Why Not Implemented**:
+- Base64 encoding would be expensive for up to 7 images
+- localStorage has ~5MB limit, easily exceeded by images
+- IndexedDB would add complexity for marginal benefit
+- Users typically complete posts in one session
+- Image upload is quick and straightforward to redo
+
+**Workaround**: Users should complete and publish posts with images in one session, or re-add images when resuming drafts.
+
+**Priority**: Low - Minor convenience issue that doesn't affect core functionality.
 
 ### Password Manager Not Triggered
 **Issue**: Browser password manager doesn't save new passwords when changed in profile settings  

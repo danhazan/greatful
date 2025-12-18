@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { X, ChevronLeft, ChevronRight } from "lucide-react"
+import { X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react"
+import ImageModal from "./ImageModal"
 
 /**
  * Image data for multi-image posts.
@@ -48,6 +49,7 @@ export default function MultiImageModal({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isFading, setIsFading] = useState(false)
+  const [showExpandedView, setShowExpandedView] = useState(false)
 
   // Touch tracking for swipe
   const [touchStart, setTouchStart] = useState<number | null>(null)
@@ -70,6 +72,7 @@ export default function MultiImageModal({
       setPosition({ x: 0, y: 0 })
       setIsLoading(true)
       setIsFading(false)
+      setShowExpandedView(false)
     }
   }, [isOpen, initialIndex])
 
@@ -269,14 +272,26 @@ export default function MultiImageModal({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-20 p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-colors"
-        aria-label="Close image modal"
-      >
-        <X className="h-6 w-6" />
-      </button>
+      {/* Top right controls */}
+      <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
+        {/* Expand to full resolution button */}
+        <button
+          onClick={() => setShowExpandedView(true)}
+          className="p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-colors"
+          aria-label="View full resolution"
+          title="View full resolution"
+        >
+          <Maximize2 className="h-6 w-6" />
+        </button>
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-colors"
+          aria-label="Close image modal"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
 
       {/* Image counter */}
       <div className="absolute top-4 left-4 z-20 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
@@ -374,6 +389,14 @@ export default function MultiImageModal({
       <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 rounded-full px-4 py-2 md:hidden">
         Swipe to navigate • Pinch to zoom
       </div>
+
+      {/* Full resolution ImageModal - shared with single-image posts */}
+      <ImageModal
+        src={currentImage.originalUrl}
+        alt={`Full resolution image ${currentIndex + 1} of ${totalImages}`}
+        isOpen={showExpandedView}
+        onClose={() => setShowExpandedView(false)}
+      />
     </div>
   )
 }
