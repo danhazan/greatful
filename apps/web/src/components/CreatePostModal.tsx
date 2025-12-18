@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, GripVertical } from "lucide-react"
-import { validateImageFile, createImagePreview, revokeImagePreview, MAX_POST_IMAGES, validateMultipleImageFiles } from "@/utils/imageUpload"
+import { createImagePreview, revokeImagePreview, MAX_POST_IMAGES, prepareImageForUpload, prepareMultipleImagesForUpload } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
@@ -513,19 +513,19 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     // Clear any previous errors
     setError('')
 
-    // Validate the file
-    const validation = validateImageFile(file)
-    if (!validation.valid) {
-      setError(validation.error || 'Invalid image file')
-      return
-    }
-
     try {
+      // Prepare the image (validates type and compresses if needed)
+      const result = await prepareImageForUpload(file)
+      if (!result.success || !result.file) {
+        setError(result.error || 'Invalid image file')
+        return
+      }
+
       // Create a preview URL for immediate display
-      const previewUrl = createImagePreview(file)
+      const previewUrl = createImagePreview(result.file)
 
       // Store both the file and preview URL
-      setImageFile(file)
+      setImageFile(result.file)
       setPostData({
         ...postData,
         imageUrl: previewUrl
@@ -538,24 +538,24 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   }
 
   // Multi-image upload handler
-  const handleMultipleImageUpload = (files: File[]) => {
+  const handleMultipleImageUpload = async (files: File[]) => {
     setError('')
 
-    // Validate files against limit
-    const validation = validateMultipleImageFiles(files, images.length)
+    // Prepare files (validates type and compresses each)
+    const result = await prepareMultipleImagesForUpload(files, images.length)
 
-    if (!validation.valid && validation.validFiles.length === 0) {
-      setError(validation.error || 'No valid images to upload')
+    if (!result.success && result.preparedFiles.length === 0) {
+      setError(result.error || 'No valid images to upload')
       return
     }
 
     // Show warning if some files were rejected
-    if (validation.error && validation.validFiles.length > 0) {
-      setError(validation.error)
+    if (result.error && result.preparedFiles.length > 0) {
+      setError(result.error)
     }
 
-    // Create image states for valid files
-    const newImages: ImageUploadState[] = validation.validFiles.map((file, index) => ({
+    // Create image states for prepared files
+    const newImages: ImageUploadState[] = result.preparedFiles.map((file, index) => ({
       id: `img-${Date.now()}-${index}`,
       file,
       previewUrl: createImagePreview(file),

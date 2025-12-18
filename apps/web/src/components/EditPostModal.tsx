@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, Calendar, Loader2 } from "lucide-react"
-import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
+import { createImagePreview, revokeImagePreview, prepareImageForUpload } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
 import { htmlToPlainText } from "@/utils/htmlUtils"
 import { useToast } from "@/contexts/ToastContext"
@@ -435,19 +435,19 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     // Clear any previous errors
     setError('')
 
-    // Validate the file
-    const validation = validateImageFile(file)
-    if (!validation.valid) {
-      setError(validation.error || 'Invalid image file')
-      return
-    }
-
     try {
+      // Prepare the image (validates type and compresses if needed)
+      const result = await prepareImageForUpload(file)
+      if (!result.success || !result.file) {
+        setError(result.error || 'Invalid image file')
+        return
+      }
+
       // Create a preview URL for immediate display
-      const previewUrl = createImagePreview(file)
+      const previewUrl = createImagePreview(result.file)
 
       // Store both the file and preview URL
-      setImageFile(file)
+      setImageFile(result.file)
       setPostData({
         ...postData,
         imageUrl: previewUrl

@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { Camera, Upload, X, User, Trash2 } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
-import { validateImageFile, createImagePreview, revokeImagePreview } from '@/utils/imageUpload'
+import { prepareImageForUpload } from '@/utils/imageUpload'
 import { getImageUrl } from '@/utils/imageUtils'
 import CircularCropModal from './CircularCropModal'
 
@@ -116,15 +116,15 @@ export default function ProfilePhotoUpload({
     }
   }
 
-  const handleFileSelect = (file: File) => {
-    // Use existing validation utility
-    const validation = validateImageFile(file, profilePhotoOptions)
-    if (!validation.valid) {
-      showError(validation.error || 'Invalid file')
+  const handleFileSelect = async (file: File) => {
+    // Prepare image (validates type and compresses if needed)
+    const result = await prepareImageForUpload(file, profilePhotoOptions)
+    if (!result.success || !result.file) {
+      showError(result.error || 'Invalid file')
       return
     }
 
-    setSelectedFile(file)
+    setSelectedFile(result.file)
     setShowCropModal(true)
   }
 
