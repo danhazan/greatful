@@ -109,14 +109,49 @@ export async function POST(request: NextRequest) {
     }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      // Handle non-JSON error responses from backend/proxy
+      let errorMessage = 'Failed to create post'
+      try {
+        const contentType = response.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorData.error || errorMessage
+        } else {
+          const text = await response.text()
+          if (text.toLowerCase().includes('forbidden')) {
+            errorMessage = 'Upload blocked - the image may be too large or unsupported. Try a smaller image (under 5MB).'
+          } else if (text.toLowerCase().includes('too large') || response.status === 413) {
+            errorMessage = 'Image file is too large. Maximum size is 5MB per image.'
+          } else if (response.status === 403) {
+            errorMessage = 'Upload blocked by security rules. Try a different image.'
+          } else {
+            errorMessage = `Backend error (${response.status})`
+          }
+        }
+      } catch {
+        if (response.status === 413) {
+          errorMessage = 'Image file is too large. Maximum size is 5MB per image.'
+        } else if (response.status === 403) {
+          errorMessage = 'Upload blocked by security rules.'
+        }
+      }
       return NextResponse.json(
-        { error: errorData.detail || 'Failed to create post' },
+        { error: errorMessage },
         { status: response.status }
       )
     }
 
-    const createdPost = await response.json()
+    // Parse successful response with error handling
+    let createdPost
+    try {
+      createdPost = await response.json()
+    } catch {
+      console.error('Failed to parse backend response as JSON')
+      return NextResponse.json(
+        { error: 'Invalid response from backend' },
+        { status: 502 }
+      )
+    }
 
     // Helper function to transform relative image URLs to full URLs
     const transformImageUrl = (url: string | null): string | null => {

@@ -24,6 +24,7 @@
 
 - **🔐 Password Manager Not Triggered**: Password manager doesn't save new passwords when changed in profile settings
 - **🖼️ Draft Image Previews**: Draft images are not restored when reopening saved drafts (by design - blob URLs are ephemeral)
+- **📤 Image Upload Constraints**: Some images may be rejected by upstream proxies/WAF with "Forbidden" errors (documented behavior)
 
 ### ✅ Recently Resolved
 - **Toast Notification Focus Stealing**: ✅ COMPLETED - Toasts no longer interrupt typing when closing
@@ -1280,6 +1281,46 @@ Blob URLs are created by `URL.createObjectURL()` from File objects and are only 
 **Workaround**: Users should complete and publish posts with images in one session, or re-add images when resuming drafts.
 
 **Priority**: Low - Minor convenience issue that doesn't affect core functionality.
+
+### Image Upload Constraints and "Forbidden" Errors
+**Issue**: Some image uploads fail with "Forbidden" error
+**Status**: ⚠️ Known Constraint (Documented)
+**Priority**: Low
+**Impact**: Some images may not upload
+
+**Description**:
+Certain image uploads may be rejected with a "Forbidden" error. This can happen even when images appear to meet all documented constraints.
+
+**Image Constraints:**
+- **Maximum file size:** 5MB per image
+- **Allowed types:** JPEG, PNG, WebP only (GIF not supported)
+- **Maximum images per post:** 7
+
+**Possible Causes of "Forbidden" Errors:**
+1. **Upstream proxy/CDN limits** - Vercel, CloudFlare, or other proxies may have their own limits
+2. **WAF (Web Application Firewall)** - Security rules may block certain image content
+3. **Image metadata** - EXIF data or embedded content may trigger security rules
+4. **Actual file size mismatch** - Declared size vs actual size inconsistency
+
+**User-Facing Error Messages:**
+- "Upload blocked - the image may be too large or contain unsupported content. Try a smaller image (under 5MB)."
+- "Image file is too large. Maximum size is 5MB per image."
+- "Upload blocked by security rules. Try a different image."
+
+**Technical Details:**
+- Frontend validates file type and size before upload
+- Backend validates again with same constraints
+- Upstream proxies/WAF may apply additional rules beyond our control
+- Error handling gracefully converts non-JSON responses to user-friendly messages
+
+**Workaround:**
+If an image fails to upload:
+1. Try compressing the image further
+2. Try converting to JPEG format
+3. Try stripping EXIF metadata using an image editor
+4. Try a different image
+
+**Priority**: Low - Rare occurrence, clear error messages provided.
 
 ### Password Manager Not Triggered
 **Issue**: Browser password manager doesn't save new passwords when changed in profile settings  

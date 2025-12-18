@@ -33,8 +33,8 @@ export interface MultipleImageValidationResult {
 }
 
 const DEFAULT_OPTIONS: Required<ImageUploadOptions> = {
-  maxSizeBytes: 5 * 1024 * 1024, // 5MB
-  allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+  maxSizeBytes: 5 * 1024 * 1024, // 5MB - matches backend limit
+  allowedTypes: ['image/jpeg', 'image/png', 'image/webp'], // Must match backend allowed types
   quality: 0.8
 }
 
@@ -166,17 +166,41 @@ export async function uploadImage(
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      return { 
-        success: false, 
-        error: errorData.error || 'Upload failed' 
+      // Handle non-JSON error responses gracefully
+      let errorMessage = 'Upload failed'
+      try {
+        const contentType = response.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.detail || errorMessage
+        } else {
+          const text = await response.text()
+          if (text.toLowerCase().includes('forbidden')) {
+            errorMessage = 'Upload blocked - try a smaller image (under 5MB)'
+          } else if (response.status === 413) {
+            errorMessage = 'Image file is too large (max 5MB)'
+          } else if (response.status === 403) {
+            errorMessage = 'Upload blocked by security rules'
+          } else {
+            errorMessage = `Upload failed: ${response.status}`
+          }
+        }
+      } catch {
+        if (response.status === 413) {
+          errorMessage = 'Image file is too large (max 5MB)'
+        } else if (response.status === 403) {
+          errorMessage = 'Upload blocked by security rules'
+        }
       }
+      return { success: false, error: errorMessage }
     }
 
-    const result = await response.json()
-    return { 
-      success: true, 
-      imageUrl: result.imageUrl 
+    // Parse successful response
+    try {
+      const result = await response.json()
+      return { success: true, imageUrl: result.imageUrl }
+    } catch {
+      return { success: false, error: 'Invalid response from server' }
     }
 
   } catch (error) {

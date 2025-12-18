@@ -431,8 +431,37 @@ export default function FeedPage() {
       }
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create post')
+        // Handle non-JSON error responses gracefully (e.g., "Forbidden" from proxy/WAF)
+        let errorMessage = 'Failed to create post'
+        try {
+          const contentType = response.headers.get('content-type') || ''
+          if (contentType.includes('application/json')) {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorData.detail || errorMessage
+          } else {
+            // Non-JSON response (e.g., proxy error, WAF block)
+            const text = await response.text()
+            if (text.toLowerCase().includes('forbidden')) {
+              errorMessage = 'Upload blocked - the image may be too large or contain unsupported content. Try a smaller image (under 5MB).'
+            } else if (text.toLowerCase().includes('too large') || text.toLowerCase().includes('payload')) {
+              errorMessage = 'Image file is too large. Maximum size is 5MB per image.'
+            } else if (response.status === 413) {
+              errorMessage = 'Image file is too large. Maximum size is 5MB per image.'
+            } else if (response.status === 403) {
+              errorMessage = 'Upload blocked by security rules. Try a different image.'
+            } else {
+              errorMessage = `Upload failed (${response.status}): ${text.substring(0, 100)}`
+            }
+          }
+        } catch {
+          // If even reading the response fails, use status code
+          if (response.status === 413) {
+            errorMessage = 'Image file is too large. Maximum size is 5MB per image.'
+          } else if (response.status === 403) {
+            errorMessage = 'Upload blocked by security rules. Try a different image.'
+          }
+        }
+        throw new Error(errorMessage)
       }
 
       // Refresh the entire feed to get the latest data

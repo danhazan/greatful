@@ -14,6 +14,14 @@ Posts can contain up to 7 images with automatic variant generation for optimized
 
 **Important:** The backend configuration is authoritative. Frontend configuration mirrors these values for UX purposes (early validation, UI feedback) but does not override backend validation.
 
+### Image Constraints
+
+| Constraint | Value | Notes |
+|------------|-------|-------|
+| Max file size | 5MB per image | Validated on frontend and backend |
+| Allowed types | JPEG, PNG, WebP | GIF not supported |
+| Max images per post | 7 (configurable) | Set via `MAX_POST_IMAGES` env var |
+
 ### Image Variants
 
 Each uploaded image is processed into three variants:
