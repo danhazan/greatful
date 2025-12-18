@@ -211,8 +211,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
           return
         }
 
-        // ✅ Ignore clicks inside background selector if open
-        if (showBackgrounds && (target.closest('.background-selector') || target.closest('[data-backgrounds-modal]'))) {
+        // ✅ Ignore clicks inside background selector or its backdrop if open
+        if (showBackgrounds && (target.closest('.background-selector') || target.closest('[data-backgrounds-modal]') || target.closest('[data-backgrounds-backdrop]'))) {
           return
         }
 
@@ -231,6 +231,16 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen, onClose, showLocationModal, showBackgrounds])
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
 
   // Handle escape key and mention autocomplete navigation
   useEffect(() => {
@@ -781,7 +791,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                 )}
 
                 {/* Multi-Image Display (read-only - editing images not yet supported) */}
-                {post.images && post.images.length > 0 && !postData.imageUrl && (
+                {/* Prioritize multi-image array over legacy imageUrl */}
+                {post.images && post.images.length > 0 && (
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-700">
@@ -811,8 +822,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                   </div>
                 )}
 
-                {/* Legacy Single Image Preview */}
-                {postData.imageUrl && (
+                {/* Legacy Single Image Preview (only show if no multi-images) */}
+                {postData.imageUrl && !(post.images && post.images.length > 0) && (
                   <div className="mt-4">
                     <div className="relative inline-block group">
                       <img

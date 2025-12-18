@@ -110,15 +110,20 @@ export default function StackedImagePreview({
       tabIndex={0}
       onKeyDown={handleKeyDown}
       aria-label={`View ${totalImages} image${totalImages > 1 ? 's' : ''}`}
+      style={{
+        // Add padding to prevent clipping of offset cards
+        paddingBottom: visibleStackCount >= 3 ? '16px' : visibleStackCount >= 2 ? '8px' : '0',
+        paddingRight: visibleStackCount >= 3 ? '10px' : visibleStackCount >= 2 ? '6px' : '0'
+      }}
     >
       {/* Stacked cards container */}
       <div className="relative">
         {/* Background stacked cards with actual thumbnails */}
         {visibleStackCount >= 3 && sortedImages[2] && (
           <div
-            className="absolute inset-0 rounded-lg overflow-hidden shadow-sm"
+            className="absolute inset-0 rounded-lg overflow-hidden shadow-sm border border-gray-200/50"
             style={{
-              transform: 'translateY(8px) translateX(4px) rotate(2deg)',
+              transform: 'translateY(14px) translateX(8px) rotate(1.5deg)',
               zIndex: 1
             }}
           >
@@ -133,9 +138,9 @@ export default function StackedImagePreview({
         )}
         {visibleStackCount >= 2 && sortedImages[1] && (
           <div
-            className="absolute inset-0 rounded-lg overflow-hidden shadow-sm"
+            className="absolute inset-0 rounded-lg overflow-hidden shadow-sm border border-gray-200/50"
             style={{
-              transform: 'translateY(4px) translateX(2px) rotate(1deg)',
+              transform: 'translateY(7px) translateX(4px) rotate(0.75deg)',
               zIndex: 2
             }}
           >

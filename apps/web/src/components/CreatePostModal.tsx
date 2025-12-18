@@ -217,8 +217,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           return
         }
 
-        // ✅ Ignore clicks inside background selector if open
-        if (showBackgrounds && (target.closest('.background-selector') || target.closest('[data-backgrounds-modal]'))) {
+        // ✅ Ignore clicks inside background selector or its backdrop if open
+        if (showBackgrounds && (target.closest('.background-selector') || target.closest('[data-backgrounds-modal]') || target.closest('[data-backgrounds-backdrop]'))) {
           return
         }
 
@@ -273,6 +273,16 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   useEffect(() => {
     if (isOpen && textareaRef.current) {
       textareaRef.current.focus()
+    }
+  }, [isOpen])
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
     }
   }, [isOpen])
 
@@ -381,8 +391,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
       const payload: any = {
         content: contentToSubmit.trim(),
-        // Always include post_style (normalized) and rich_content (HTML from editor) explicitly
-        post_style: selectedStyle ? ({
+        // Always include postStyle (camelCase to match interface) and richContent
+        postStyle: selectedStyle ? ({
           id: selectedStyle.id,
           name: selectedStyle.name,
           backgroundColor: selectedStyle.backgroundColor,
@@ -392,7 +402,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           fontFamily: selectedStyle.fontFamily,
           textShadow: selectedStyle.textShadow
         }) : null,
-        rich_content: richContent || null,
+        richContent: richContent || null,
         // Multi-image support (new)
         ...(imageFilesArray.length > 0 ? { imageFiles: imageFilesArray } : {}),
         // Legacy single image support (deprecated)
