@@ -17,6 +17,8 @@ import DeleteConfirmationModal from "./DeleteConfirmationModal"
 import { apiClient } from "@/utils/apiClient"
 import LocationDisplayModal from "./LocationDisplayModal"
 import OptimizedPostImage from "./OptimizedPostImage"
+import StackedImagePreview from "./StackedImagePreview"
+import MultiImageModal from "./MultiImageModal"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
@@ -26,6 +28,17 @@ import { useToast } from "@/contexts/ToastContext"
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, hasMixedDirectionContent } from "@/utils/rtlUtils"
 import { usePostStateSynchronization } from "@/hooks/useStateSynchronization"
+
+// PostImage type for multi-image support
+interface PostImage {
+  id: string
+  position: number
+  thumbnailUrl: string
+  mediumUrl: string
+  originalUrl: string
+  width?: number
+  height?: number
+}
 
 interface Post {
   id: string
@@ -60,7 +73,8 @@ interface Post {
   createdAt: string
   updatedAt?: string
   postType: "daily" | "photo" | "spontaneous"
-  imageUrl?: string
+  imageUrl?: string  // Legacy single image, deprecated
+  images?: PostImage[]  // Multi-image support
   location?: string
   location_data?: {
     display_name: string
@@ -121,6 +135,8 @@ export default function PostCard({
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [showOptionsMenu, setShowOptionsMenu] = useState(false)
+  const [showMultiImageModal, setShowMultiImageModal] = useState(false)
+  const [multiImageInitialIndex, setMultiImageInitialIndex] = useState(0)
   const [isUserAuthenticated, setIsUserAuthenticated] = useState(false)
 
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
@@ -1068,7 +1084,17 @@ export default function PostCard({
             onMentionClick={handleMentionClick}
             validUsernames={validUsernames}
           />
-          {currentPost.imageUrl && (
+          {/* Multi-image display (new) - takes priority over legacy imageUrl */}
+          {currentPost.images && currentPost.images.length > 0 ? (
+            <StackedImagePreview
+              images={currentPost.images}
+              onImageClick={(index) => {
+                setMultiImageInitialIndex(index)
+                setShowMultiImageModal(true)
+              }}
+            />
+          ) : currentPost.imageUrl && (
+            /* Legacy single image display (deprecated) */
             <OptimizedPostImage
               src={getImageUrl(currentPost.imageUrl) || currentPost.imageUrl}
               alt="Post image"
@@ -1312,6 +1338,16 @@ export default function PostCard({
         onConfirm={handleDeletePost}
         isDeleting={isDeleting}
       />
+
+      {/* Multi-Image Modal */}
+      {currentPost.images && currentPost.images.length > 0 && (
+        <MultiImageModal
+          images={currentPost.images}
+          initialIndex={multiImageInitialIndex}
+          isOpen={showMultiImageModal}
+          onClose={() => setShowMultiImageModal(false)}
+        />
+      )}
     </>
   )
 }

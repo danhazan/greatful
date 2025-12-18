@@ -4,6 +4,31 @@
  * This utility primarily handles response wrappers and provides type safety
  */
 
+/** API image data from backend */
+export interface ApiPostImage {
+  id: string
+  position: number
+  thumbnailUrl?: string
+  thumbnail_url?: string  // Snake case from API
+  mediumUrl?: string
+  medium_url?: string
+  originalUrl?: string
+  original_url?: string
+  width?: number
+  height?: number
+}
+
+/** Normalized image data for frontend */
+export interface NormalizedPostImage {
+  id: string
+  position: number
+  thumbnailUrl: string
+  mediumUrl: string
+  originalUrl: string
+  width?: number
+  height?: number
+}
+
 export interface ApiPost {
   id: string
   authorId?: number
@@ -11,6 +36,7 @@ export interface ApiPost {
   postStyle?: any
   postType?: string
   imageUrl?: string
+  images?: ApiPostImage[]  // Multi-image support
   location?: string
   locationData?: any
   createdAt?: string
@@ -40,7 +66,8 @@ export interface NormalizedPost {
   createdAt: string
   updatedAt?: string
   postType: "daily" | "photo" | "spontaneous"
-  imageUrl?: string
+  imageUrl?: string  // Legacy single image, deprecated
+  images?: NormalizedPostImage[]  // Multi-image support
   location?: string
   location_data?: any
   heartsCount: number
@@ -74,20 +101,34 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
 
   const author = post.author ?? {} as any
 
+  // Normalize images array
+  const normalizedImages: NormalizedPostImage[] = post.images
+    ? post.images.map(img => ({
+        id: img.id,
+        position: img.position,
+        thumbnailUrl: img.thumbnailUrl ?? img.thumbnail_url ?? '',
+        mediumUrl: img.mediumUrl ?? img.medium_url ?? '',
+        originalUrl: img.originalUrl ?? img.original_url ?? '',
+        width: img.width,
+        height: img.height
+      })).sort((a, b) => a.position - b.position)
+    : []
+
   return {
     id: String(post.id),
     content: post.content ?? "",
     postStyle: post.postStyle ?? undefined,
-    
+
     // All fields are now in camelCase from API
     createdAt: post.createdAt ?? new Date().toISOString(),
     updatedAt: post.updatedAt ?? undefined,
-    
+
     postType: (post.postType ?? "spontaneous") as "daily" | "photo" | "spontaneous",
-    imageUrl: post.imageUrl ?? undefined,
+    imageUrl: post.imageUrl ?? undefined,  // Legacy single image
+    images: normalizedImages.length > 0 ? normalizedImages : undefined,  // Multi-image
     location: post.location ?? undefined,
     location_data: post.locationData ?? undefined,
-    
+
     heartsCount: post.heartsCount ?? 0,
     isHearted: post.isHearted ?? false,
     reactionsCount: post.reactionsCount ?? 0,
@@ -95,7 +136,7 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
     currentUserReaction: post.currentUserReaction ?? undefined,
     isRead: post.isRead ?? false,
     isUnread: post.isUnread ?? false,
-    
+
     author: {
       id: String(author.id ?? author.userId ?? ""),
       name: author.name ?? author.displayName ?? author.username ?? "",

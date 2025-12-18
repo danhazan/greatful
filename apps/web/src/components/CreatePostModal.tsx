@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush } from "lucide-react"
-import { validateImageFile, createImagePreview, revokeImagePreview } from "@/utils/imageUpload"
+import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, GripVertical } from "lucide-react"
+import { validateImageFile, createImagePreview, revokeImagePreview, MAX_POST_IMAGES, validateMultipleImageFiles } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
@@ -61,6 +61,14 @@ interface LocationResult {
   type?: string
 }
 
+/** Individual image in the upload state */
+interface ImageUploadState {
+  id: string
+  file: File
+  previewUrl: string
+  position: number
+}
+
 interface CreatePostModalProps {
   isOpen: boolean
   onClose: () => void
@@ -70,6 +78,7 @@ interface CreatePostModalProps {
     location?: string
     location_data?: LocationResult
     imageFile?: File
+    imageFiles?: File[]  // Multi-image support
     mentions?: string[]
     postStyle?: PostStyle
   }) => void
@@ -113,6 +122,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     imageUrl: '',
     location: ''
   })
+  // Multi-image state: array of images with files, previews, and positions
+  const [images, setImages] = useState<ImageUploadState[]>([])
+  // Legacy single image support (deprecated)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -155,7 +167,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     return { type: 'daily' as const }
   }
 
-  const hasImage = Boolean(postData.imageUrl)
+  const hasImage = images.length > 0 || Boolean(postData.imageUrl)
 
   // Always use plain text for analysis to avoid HTML tag length issues
   const getPlainTextContent = () => {
@@ -177,6 +189,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       postData.location ||
       postData.location_data ||
       richContent?.trim() ||
+      images.length > 0 ||
       imageFile
     )
   }
@@ -273,29 +286,53 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       if (draft) {
         try {
           const draftData = JSON.parse(draft)
+          // Clear any stale blob URLs from old drafts (they can't be restored)
+          if (draftData.imageUrl?.startsWith('blob:')) {
+            draftData.imageUrl = ''
+          }
           setPostData(draftData)
+          // Clear multi-image state when restoring draft (Files can't be serialized)
+          setImages([])
+          setImageFile(null)
         } catch (error) {
           console.error('Error loading draft:', error)
         }
+      } else {
+        // No draft - ensure clean state
+        setImages([])
+        setImageFile(null)
       }
     }
   }, [isOpen])
 
-  // Save draft to localStorage
+  // Save draft to localStorage (excluding blob URLs which can't be restored)
   useEffect(() => {
     if (postData.content.trim()) {
-      localStorage.setItem('grateful_post_draft', JSON.stringify(postData))
+      // Don't save blob URLs - they're ephemeral and can't be restored after page reload
+      const draftToSave = {
+        ...postData,
+        // Clear imageUrl if it's a blob URL (can't be restored)
+        imageUrl: postData.imageUrl?.startsWith('blob:') ? '' : postData.imageUrl
+      }
+      localStorage.setItem('grateful_post_draft', JSON.stringify(draftToSave))
     }
   }, [postData])
 
   // Cleanup blob URLs when modal closes
   useEffect(() => {
     return () => {
+      // Cleanup multi-image previews
+      images.forEach(img => {
+        if (img.previewUrl.startsWith('blob:')) {
+          revokeImagePreview(img.previewUrl)
+        }
+      })
+      // Legacy single image cleanup
       if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
         revokeImagePreview(postData.imageUrl)
       }
     }
-  }, [postData.imageUrl])
+  }, [images, postData.imageUrl])
 
   // Reset drag state when modal closes
   useEffect(() => {
@@ -311,7 +348,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
     const contentToSubmit = richContent || postData.content
     // Allow image-only posts (no content required if there's an image)
-    if (!contentToSubmit.trim() && !postData.imageUrl && !imageFile) {
+    const hasAnyImage = images.length > 0 || postData.imageUrl || imageFile
+    if (!contentToSubmit.trim() && !hasAnyImage) {
       setError('Please write something you\'re grateful for or add an image')
       return
     }
@@ -337,6 +375,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
 
       // Build payload with rich content support
+      // Prepare image files in order for multi-image upload
+      const sortedImages = [...images].sort((a, b) => a.position - b.position)
+      const imageFilesArray = sortedImages.map(img => img.file)
+
       const payload: any = {
         content: contentToSubmit.trim(),
         // Always include post_style (normalized) and rich_content (HTML from editor) explicitly
@@ -351,7 +393,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           textShadow: selectedStyle.textShadow
         }) : null,
         rich_content: richContent || null,
-        // include image if present
+        // Multi-image support (new)
+        ...(imageFilesArray.length > 0 ? { imageFiles: imageFilesArray } : {}),
+        // Legacy single image support (deprecated)
         ...(postData.imageUrl ? { imageUrl: postData.imageUrl } : {}),
         ...(postData.location ? { location: postData.location } : {}),
         ...(postData.location_data ? { location_data: postData.location_data } : {}),
@@ -369,6 +413,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       )
 
       // Clear form and draft on successful submission
+      // Cleanup multi-image previews
+      images.forEach(img => {
+        if (img.previewUrl.startsWith('blob:')) {
+          revokeImagePreview(img.previewUrl)
+        }
+      })
+      setImages([])
+      // Legacy single image cleanup
       if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
         revokeImagePreview(postData.imageUrl)
       }
@@ -437,10 +489,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
+    input.multiple = true  // Allow multiple file selection
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        handleImageUpload(file)
+      const files = Array.from((e.target as HTMLInputElement).files || [])
+      if (files.length > 0) {
+        handleMultipleImageUpload(files)
       }
     }
     input.click()
@@ -474,8 +527,116 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
   }
 
-  // Drag and drop handlers
+  // Multi-image upload handler
+  const handleMultipleImageUpload = (files: File[]) => {
+    setError('')
+
+    // Validate files against limit
+    const validation = validateMultipleImageFiles(files, images.length)
+
+    if (!validation.valid && validation.validFiles.length === 0) {
+      setError(validation.error || 'No valid images to upload')
+      return
+    }
+
+    // Show warning if some files were rejected
+    if (validation.error && validation.validFiles.length > 0) {
+      setError(validation.error)
+    }
+
+    // Create image states for valid files
+    const newImages: ImageUploadState[] = validation.validFiles.map((file, index) => ({
+      id: `img-${Date.now()}-${index}`,
+      file,
+      previewUrl: createImagePreview(file),
+      position: images.length + index
+    }))
+
+    setImages(prev => [...prev, ...newImages])
+  }
+
+  // Remove a single image from the list
+  const handleRemoveMultiImage = (imageId: string) => {
+    setImages(prev => {
+      const imageToRemove = prev.find(img => img.id === imageId)
+      if (imageToRemove && imageToRemove.previewUrl.startsWith('blob:')) {
+        revokeImagePreview(imageToRemove.previewUrl)
+      }
+      // Reindex remaining images
+      return prev
+        .filter(img => img.id !== imageId)
+        .map((img, index) => ({ ...img, position: index }))
+    })
+    setError('') // Clear any previous error
+  }
+
+  // Drag-and-drop reorder handler
+  const [draggedImageId, setDraggedImageId] = useState<string | null>(null)
+  const [isReorderDrag, setIsReorderDrag] = useState(false)
+
+  const handleImageDragStart = (e: React.DragEvent, imageId: string) => {
+    e.stopPropagation()
+    setDraggedImageId(imageId)
+    setIsReorderDrag(true)
+    e.dataTransfer.effectAllowed = 'move'
+    // Set custom data to identify this as a reorder drag (not file upload)
+    e.dataTransfer.setData('text/plain', `reorder:${imageId}`)
+  }
+
+  const handleImageDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (draggedImageId && draggedImageId !== targetId) {
+      e.dataTransfer.dropEffect = 'move'
+    }
+  }
+
+  const handleImageDragDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Check if this is a reorder drag (not a file upload)
+    const data = e.dataTransfer.getData('text/plain')
+    if (!data.startsWith('reorder:')) {
+      setDraggedImageId(null)
+      setIsReorderDrag(false)
+      return
+    }
+
+    const sourceId = data.replace('reorder:', '')
+    if (!sourceId || sourceId === targetId) {
+      setDraggedImageId(null)
+      setIsReorderDrag(false)
+      return
+    }
+
+    setImages(prev => {
+      const draggedIndex = prev.findIndex(img => img.id === sourceId)
+      const targetIndex = prev.findIndex(img => img.id === targetId)
+      if (draggedIndex === -1 || targetIndex === -1) return prev
+
+      // Create a new array to avoid mutation
+      const newImages = [...prev]
+      const [draggedItem] = newImages.splice(draggedIndex, 1)
+      newImages.splice(targetIndex, 0, draggedItem)
+
+      // Reindex positions immutably
+      return newImages.map((img, index) => ({ ...img, position: index }))
+    })
+    setDraggedImageId(null)
+    setIsReorderDrag(false)
+  }
+
+  const handleImageDragEnd = () => {
+    setDraggedImageId(null)
+    setIsReorderDrag(false)
+  }
+
+  // Drag and drop handlers (for file uploads)
   const handleDragEnter = (e: React.DragEvent) => {
+    // Ignore if this is an image reorder drag
+    if (isReorderDrag) return
+
     e.preventDefault()
     e.stopPropagation()
     setDragCounter(prev => prev + 1)
@@ -485,6 +646,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
+    // Ignore if this is an image reorder drag
+    if (isReorderDrag) return
+
     e.preventDefault()
     e.stopPropagation()
     const newCounter = dragCounter - 1
@@ -496,11 +660,20 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   }
 
   const handleDragOver = (e: React.DragEvent) => {
+    // Ignore if this is an image reorder drag
+    if (isReorderDrag) return
+
     e.preventDefault()
     e.stopPropagation()
   }
 
   const handleDrop = (e: React.DragEvent) => {
+    // Ignore if this is an image reorder drag (handled separately)
+    const data = e.dataTransfer.getData('text/plain')
+    if (data.startsWith('reorder:')) {
+      return
+    }
+
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(false)
@@ -509,7 +682,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     const files = Array.from(e.dataTransfer.files)
 
     if (files.length === 0) {
-      setError('No files were dropped')
+      // Not a file drop, could be something else - just ignore
       return
     }
 
@@ -521,14 +694,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       return
     }
 
-    if (imageFiles.length > 1) {
-      setError('Please drop only one image at a time')
-      return
-    }
-
-    // Handle the first image file (MVP supports single image)
-    const file = imageFiles[0]
-    handleImageUpload(file)
+    // Handle multiple images
+    handleMultipleImageUpload(imageFiles)
   }
 
   const handleRemoveImage = () => {
@@ -816,8 +983,76 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   </div>
                 )}
 
-                {/* Image Preview */}
-                {postData.imageUrl && (
+                {/* Multi-Image Preview Grid */}
+                {images.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Images ({images.length}/{MAX_POST_IMAGES})
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Drag to reorder
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {[...images].sort((a, b) => a.position - b.position).map((img, index) => (
+                        <div
+                          key={img.id}
+                          draggable
+                          onDragStart={(e) => handleImageDragStart(e, img.id)}
+                          onDragOver={(e) => handleImageDragOver(e, img.id)}
+                          onDrop={(e) => handleImageDragDrop(e, img.id)}
+                          onDragEnd={handleImageDragEnd}
+                          className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-move ${
+                            draggedImageId === img.id
+                              ? 'opacity-50 border-purple-400'
+                              : index === 0
+                                ? 'border-purple-300 ring-2 ring-purple-200'
+                                : 'border-gray-200 hover:border-purple-200'
+                          }`}
+                        >
+                          <img
+                            src={img.previewUrl}
+                            alt={`Image ${index + 1}`}
+                            className="w-full h-full object-cover pointer-events-none"
+                            draggable={false}
+                          />
+                          {/* Position indicator */}
+                          <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${
+                            index === 0
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-black bg-opacity-60 text-white'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          {/* Drag handle */}
+                          <div className="absolute top-1 right-1 p-0.5 bg-black bg-opacity-60 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                            <GripVertical className="h-3 w-3" />
+                          </div>
+                          {/* Remove button */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMultiImage(img.id)}
+                            className="absolute bottom-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-lg opacity-0 group-hover:opacity-100"
+                            title="Remove image"
+                            aria-label={`Remove image ${index + 1}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                          {/* First image label */}
+                          {index === 0 && (
+                            <div className="absolute bottom-1 left-1 bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded">
+                              Primary
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Legacy Single Image Preview (deprecated) */}
+                {postData.imageUrl && images.length === 0 && (
                   <div className="mt-4">
                     <div className="relative inline-block group">
                       <img
@@ -846,8 +1081,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
               {/* Additional Options */}
               <div className="px-4 pb-6 pt-0">
-                {/* Drag and Drop Zone (when no image) */}
-                {!postData.imageUrl && (
+                {/* Drag and Drop Zone (when can add more images) */}
+                {images.length < MAX_POST_IMAGES && !postData.imageUrl && (
                   <div
                     className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isDragOver
                         ? 'border-purple-400 bg-purple-50'
@@ -861,16 +1096,24 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     onKeyDown={handleDragZoneKeyDown}
                     tabIndex={0}
                     role="button"
-                    aria-label="Upload image by dragging and dropping or clicking to browse"
+                    aria-label="Upload images by dragging and dropping or clicking to browse"
                   >
                     <ImageIcon className={`h-8 w-8 mx-auto mb-2 ${isDragOver ? 'text-purple-600' : 'text-gray-400'
                       }`} />
                     <p className={`text-sm font-medium mb-1 ${isDragOver ? 'text-purple-700' : 'text-gray-600'
                       }`}>
-                      {isDragOver ? 'Drop your image here' : 'Drag and drop an image, or click to browse'}
+                      {isDragOver
+                        ? 'Drop your images here'
+                        : images.length === 0
+                          ? 'Drag and drop images, or click to browse'
+                          : `Add more images (${MAX_POST_IMAGES - images.length} remaining)`
+                      }
                     </p>
                     <p className="text-xs text-gray-500">
-                      Supports JPG, PNG, WebP up to 5MB
+                      {images.length === 0
+                        ? `Up to ${MAX_POST_IMAGES} images • JPG, PNG, WebP up to 5MB each`
+                        : 'JPG, PNG, WebP up to 5MB each'
+                      }
                     </p>
                   </div>
                 )}
@@ -904,7 +1147,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting || (!postData.content.trim() && !postData.imageUrl && !imageFile)}
+                    disabled={isSubmitting || (!postData.content.trim() && !postData.imageUrl && !imageFile && images.length === 0)}
                     className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
                   >
                     {isSubmitting ? 'Sharing...' : 'Share Gratitude'}
@@ -917,6 +1160,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     onClick={() => {
                       // Clear draft and form
                       localStorage.removeItem('grateful_post_draft')
+                      // Clear multi-images
+                      images.forEach(img => {
+                        if (img.previewUrl.startsWith('blob:')) {
+                          revokeImagePreview(img.previewUrl)
+                        }
+                      })
+                      setImages([])
+                      // Clear legacy single image
                       if (postData.imageUrl && postData.imageUrl.startsWith('blob:')) {
                         revokeImagePreview(postData.imageUrl)
                       }

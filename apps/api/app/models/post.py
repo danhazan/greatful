@@ -43,6 +43,15 @@ class Post(Base):
     # Relationships
     author = relationship("User", back_populates="posts")
     user_interactions = relationship("UserInteraction", back_populates="post", cascade="all, delete-orphan")
+
+    # Multi-image support: ordered collection of post images
+    # image_url field kept for backward compatibility during transition
+    images = relationship(
+        "PostImage",
+        back_populates="post",
+        cascade="all, delete-orphan",
+        order_by="PostImage.position"
+    )
     
     @classmethod
     async def get_by_id(cls, db, post_id: str):

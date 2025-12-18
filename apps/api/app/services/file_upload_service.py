@@ -127,10 +127,144 @@ class FileUploadService(BaseService):
             
             # Return the URL path (relative to the server)
             return f"/uploads/{subdirectory}/{unique_filename}"
-            
+
         except Exception as e:
             logger.error(f"Error saving uploaded file: {e}")
             raise BusinessLogicError(f"Failed to save uploaded file: {str(e)}")
+
+    async def save_post_image_variants(
+        self,
+        file: UploadFile,
+        position: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Save post image with thumbnail, medium, and original variants.
+
+        Creates three size variants optimized for different display contexts:
+        - thumbnail: For upload previews and reorder UI
+        - medium: For feed display and fullscreen viewer
+        - original: Preserved full quality, capped to prevent excessive storage
+
+        Args:
+            file: Uploaded image file
+            position: Position index for this image in the post (0-indexed)
+
+        Returns:
+            Dictionary containing:
+            - thumbnail_url: URL for thumbnail variant
+            - medium_url: URL for medium variant
+            - original_url: URL for original variant
+            - width: Original image width
+            - height: Original image height
+            - file_size: Original file size in bytes
+            - position: Position index
+
+        Raises:
+            ValidationException: If image file is invalid
+            BusinessLogicError: If processing fails
+        """
+        from app.config.image_config import get_variant_config
+
+        config = get_variant_config()
+
+        try:
+            # Create upload directory for post images
+            upload_dir = self.base_upload_dir / "posts"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+
+            # Read file content
+            content = await file.read()
+            file_size = len(content)
+
+            # Open and process image with PIL
+            try:
+                image = Image.open(io.BytesIO(content))
+
+                # Store original dimensions before any processing
+                original_width = image.width
+                original_height = image.height
+
+                # Convert to RGB if necessary (handles RGBA, P mode images)
+                if image.mode in ('RGBA', 'LA', 'P'):
+                    background = Image.new('RGB', image.size, (255, 255, 255))
+                    if image.mode == 'P':
+                        image = image.convert('RGBA')
+                    background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                    image = background
+                elif image.mode != 'RGB':
+                    image = image.convert('RGB')
+
+                # Auto-orient image based on EXIF data
+                image = ImageOps.exif_transpose(image)
+
+            except Exception as e:
+                raise ValidationException(f"Invalid image file: {str(e)}")
+
+            # Generate unique base filename for all variants
+            base_filename = str(uuid.uuid4())
+            variant_urls = {}
+
+            # Helper function to resize maintaining aspect ratio
+            def resize_to_max_width(img: Image.Image, max_width: int) -> Image.Image:
+                if img.width <= max_width:
+                    return img.copy()
+                ratio = max_width / img.width
+                new_height = int(img.height * ratio)
+                return img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+
+            # Create thumbnail variant
+            thumb_image = resize_to_max_width(image, config.thumbnail_width)
+            thumb_filename = f"{base_filename}_thumb.jpg"
+            thumb_path = upload_dir / thumb_filename
+            thumb_image.save(thumb_path, "JPEG", quality=config.jpeg_quality, optimize=True)
+            variant_urls['thumbnail_url'] = f"/uploads/posts/{thumb_filename}"
+
+            # Create medium variant
+            medium_image = resize_to_max_width(image, config.medium_width)
+            medium_filename = f"{base_filename}_medium.jpg"
+            medium_path = upload_dir / medium_filename
+            medium_image.save(medium_path, "JPEG", quality=config.jpeg_quality, optimize=True)
+            variant_urls['medium_url'] = f"/uploads/posts/{medium_filename}"
+
+            # Create original variant (capped to max width)
+            original_image = resize_to_max_width(image, config.original_max_width)
+            original_filename = f"{base_filename}_original.jpg"
+            original_path = upload_dir / original_filename
+            original_image.save(original_path, "JPEG", quality=config.jpeg_quality, optimize=True)
+            variant_urls['original_url'] = f"/uploads/posts/{original_filename}"
+
+            logger.info(
+                f"Created post image variants: {base_filename} "
+                f"(thumb={thumb_image.width}x{thumb_image.height}, "
+                f"medium={medium_image.width}x{medium_image.height}, "
+                f"original={original_image.width}x{original_image.height})"
+            )
+
+            return {
+                'position': position,
+                'width': original_width,
+                'height': original_height,
+                'file_size': file_size,
+                **variant_urls
+            }
+
+        except ValidationException:
+            raise
+        except Exception as e:
+            logger.error(f"Error creating post image variants: {e}")
+            raise BusinessLogicError(f"Failed to process post image: {str(e)}")
+
+    def cleanup_post_image_variants(self, thumbnail_url: str, medium_url: str, original_url: str) -> None:
+        """
+        Delete all variants of a post image.
+
+        Args:
+            thumbnail_url: URL of thumbnail variant
+            medium_url: URL of medium variant
+            original_url: URL of original variant
+        """
+        for url in [thumbnail_url, medium_url, original_url]:
+            self.cleanup_single_file(url)
 
     async def save_profile_photo_variants(
         self, 

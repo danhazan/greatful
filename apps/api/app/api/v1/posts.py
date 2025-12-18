@@ -65,6 +65,19 @@ class PostCreate(BaseModel):
 
 
 
+class PostImageResponse(BaseModel):
+    """Response model for individual post images."""
+    id: str
+    position: int
+    thumbnail_url: str
+    medium_url: str
+    original_url: str
+    width: Optional[int] = None
+    height: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PostResponse(BaseModel):
     """Post response model with rich content support."""
     id: str
@@ -73,7 +86,8 @@ class PostResponse(BaseModel):
     rich_content: Optional[str] = None
     post_style: Optional[dict] = None
     post_type: str
-    image_url: Optional[str] = None
+    image_url: Optional[str] = None  # Deprecated: kept for backward compatibility
+    images: List[PostImageResponse] = []  # Multi-image support
     location: Optional[str] = None
     location_data: Optional[dict] = None
     is_public: bool
@@ -242,13 +256,13 @@ async def get_optional_user_id(request: Request) -> Optional[int]:
 async def _save_uploaded_file(file: UploadFile, db: AsyncSession, uploader_id: int, force_upload: bool = False) -> Dict[str, Any]:
     """Save uploaded file with deduplication and return upload results."""
     from app.services.file_upload_service import FileUploadService
-    
+
     try:
         file_service = FileUploadService(db)
-        
+
         # Reset file pointer in case it was read before
         await file.seek(0)
-        
+
         # Save with deduplication (same approach as profile photos)
         upload_result = await file_service.save_with_deduplication(
             file=file,
@@ -257,21 +271,110 @@ async def _save_uploaded_file(file: UploadFile, db: AsyncSession, uploader_id: i
             uploader_id=uploader_id,
             force_upload=force_upload
         )
-        
+
         if not upload_result["success"]:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to save uploaded file"
             )
-        
+
         return upload_result
-        
+
     except Exception as e:
         logger.error(f"Error saving uploaded file: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save uploaded file"
         )
+
+
+async def _save_post_images(
+    files: List[UploadFile],
+    db: AsyncSession,
+    post_id: str,
+    uploader_id: int
+) -> List["PostImage"]:
+    """
+    Save multiple images for a post with variant generation.
+
+    Args:
+        files: List of uploaded image files
+        db: Database session
+        post_id: ID of the post to attach images to
+        uploader_id: ID of the user uploading
+
+    Returns:
+        List of created PostImage records
+    """
+    from app.services.file_upload_service import FileUploadService
+    from app.models.post_image import PostImage
+    from app.config.image_config import get_max_post_images
+
+    max_images = get_max_post_images()
+    if len(files) > max_images:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum {max_images} images allowed per post"
+        )
+
+    file_service = FileUploadService(db)
+    post_images = []
+
+    for position, file in enumerate(files):
+        try:
+            # Reset file pointer
+            await file.seek(0)
+
+            # Generate variants (thumbnail, medium, original)
+            variant_result = await file_service.save_post_image_variants(
+                file=file,
+                position=position
+            )
+
+            # Create PostImage record
+            post_image = PostImage(
+                post_id=post_id,
+                position=variant_result['position'],
+                thumbnail_url=variant_result['thumbnail_url'],
+                medium_url=variant_result['medium_url'],
+                original_url=variant_result['original_url'],
+                width=variant_result.get('width'),
+                height=variant_result.get('height'),
+                file_size=variant_result.get('file_size')
+            )
+
+            db.add(post_image)
+            post_images.append(post_image)
+
+        except Exception as e:
+            logger.error(f"Error processing image at position {position}: {e}")
+            # Clean up any already-created variants
+            for img in post_images:
+                file_service.cleanup_post_image_variants(
+                    img.thumbnail_url, img.medium_url, img.original_url
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to process image: {str(e)}"
+            )
+
+    return post_images
+
+
+def _serialize_post_images(images) -> List[Dict[str, Any]]:
+    """Convert PostImage models to response dictionaries."""
+    return [
+        {
+            "id": img.id,
+            "position": img.position,
+            "thumbnail_url": img.thumbnail_url,
+            "medium_url": img.medium_url,
+            "original_url": img.original_url,
+            "width": img.width,
+            "height": img.height
+        }
+        for img in sorted(images, key=lambda x: x.position)
+    ]
 
 
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
@@ -373,7 +476,7 @@ async def create_post_json(
             logger.error(f"Error processing mentions for post {db_post.id}: {e}")
             # Don't fail post creation if mention processing fails
         
-        # Format response
+        # Format response (JSON endpoint doesn't support image upload, so images=[] )
         return PostResponse(
             id=db_post.id,
             author_id=db_post.author_id,
@@ -382,6 +485,7 @@ async def create_post_json(
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
             image_url=db_post.image_url,
+            images=[],  # JSON endpoint doesn't support image upload
             location=db_post.location,
             location_data=db_post.location_data,
             is_public=db_post.is_public,
@@ -469,13 +573,23 @@ async def create_post_with_file(
     location_data: Optional[str] = Form(None),  # JSON string
     post_type_override: Optional[str] = Form(None),
     force_upload: bool = Form(False),
+    # Multi-image support: accepts multiple files via 'images' field
+    images: List[UploadFile] = File(default=[]),
+    # Backward compatibility: single image upload (deprecated)
     image: Optional[UploadFile] = File(None)
 ):
-    """Create a new gratitude post with automatic type detection and optional file upload."""
+    """
+    Create a new gratitude post with automatic type detection and optional file upload.
+
+    Supports multi-image uploads via the 'images' field. The single 'image' field
+    is deprecated but maintained for backward compatibility.
+    """
+    from app.config.image_config import get_max_post_images
+
     try:
         # Parse JSON fields if provided
         import json
-        
+
         parsed_location_data = None
         if location_data:
             try:
@@ -485,7 +599,7 @@ async def create_post_with_file(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Invalid location_data JSON format"
                 )
-        
+
         parsed_post_style = None
         if post_style:
             try:
@@ -506,7 +620,7 @@ async def create_post_with_file(
             "post_type_override": post_type_override,
             "is_public": True
         }
-        
+
         # This will trigger Pydantic validation and raise 422 if invalid
         post_data = PostCreate(**post_data_dict)
 
@@ -515,31 +629,48 @@ async def create_post_with_file(
         user_repo = UserRepository(db)
         user = await user_repo.get_by_id_or_404(current_user_id)
 
-        # Handle image upload if provided
-        image_url = None
+        # Collect all images (from both new multi-image and legacy single-image params)
+        all_images: List[UploadFile] = []
+
+        # Add images from multi-image field
+        for img in images:
+            if img and img.filename:
+                all_images.append(img)
+
+        # Add legacy single image if provided (for backward compatibility)
         if image and image.filename:
-            # Validate file type
-            allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-            file_extension = Path(image.filename).suffix.lower()
+            all_images.append(image)
+
+        # Validate image count
+        max_images = get_max_post_images()
+        if len(all_images) > max_images:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum {max_images} images allowed per post"
+            )
+
+        # Validate each image
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+        max_size = 5 * 1024 * 1024  # 5MB
+
+        for img in all_images:
+            file_extension = Path(img.filename).suffix.lower()
             if file_extension not in allowed_extensions:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}"
+                    detail=f"Invalid file type for '{img.filename}'. Allowed types: {', '.join(allowed_extensions)}"
                 )
-            
-            # Validate file size (max 5MB)
-            max_size = 5 * 1024 * 1024  # 5MB
-            if image.size and image.size > max_size:
+
+            if img.size and img.size > max_size:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="File too large. Maximum size is 5MB"
+                    detail=f"File '{img.filename}' too large. Maximum size is 5MB"
                 )
-            
-            upload_result = await _save_uploaded_file(image, db, current_user_id, force_upload)
-            image_url = upload_result["file_url"]
 
-        # Validate that either content or image is provided (after processing uploaded file)
-        if not post_data.content.strip() and not image_url:
+        has_images = len(all_images) > 0
+
+        # Validate that either content or image is provided
+        if not post_data.content.strip() and not has_images:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=[{
@@ -552,22 +683,21 @@ async def create_post_with_file(
 
         # Analyze content to determine post type automatically
         content_analysis_service = ContentAnalysisService(db)
-        has_image = bool(image_url)
-        
+
         analysis_result = content_analysis_service.analyze_content(
             content=post_data.content,
-            has_image=has_image
+            has_image=has_images
         )
-        
+
         # Use override if provided, otherwise use analyzed type
         final_post_type = PostType(post_data.post_type_override) if post_data.post_type_override else analysis_result.suggested_type
-        
+
         # Validate content length for the determined type
         validation_result = content_analysis_service.validate_content_for_type(
             content=post_data.content,
             post_type=final_post_type
         )
-        
+
         if not validation_result["is_valid"]:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -592,16 +722,34 @@ async def create_post_with_file(
             sanitized_content = sanitizer.sanitize_text(post_data.content, "post_content")
         else:
             sanitized_content = post_data.content
-        
+
+        # Generate post ID for image association
+        post_id = str(uuid.uuid4())
+
+        # Process multiple images with variants
+        post_images = []
+        primary_image_url = None  # For backward compatibility
+
+        if all_images:
+            post_images = await _save_post_images(
+                files=all_images,
+                db=db,
+                post_id=post_id,
+                uploader_id=current_user_id
+            )
+            # Set primary image URL for backward compatibility (first image's medium variant)
+            if post_images:
+                primary_image_url = post_images[0].medium_url
+
         # Create post with automatically determined type and rich content support
         db_post = Post(
-            id=str(uuid.uuid4()),
+            id=post_id,
             author_id=current_user_id,
             content=sanitized_content,
             rich_content=sanitize_html(post_data.rich_content),
             post_style=post_data.post_style,
             post_type=final_post_type,
-            image_url=image_url,
+            image_url=primary_image_url,  # Backward compatibility
             location=post_data.location,
             location_data=post_data.location_data,
             is_public=post_data.is_public,
@@ -624,7 +772,7 @@ async def create_post_with_file(
             logger.error(f"Error processing mentions for post {db_post.id}: {e}")
             # Don't fail post creation if mention processing fails
 
-        # Format response
+        # Format response with multi-image support
         return PostResponse(
             id=db_post.id,
             author_id=db_post.author_id,
@@ -632,7 +780,8 @@ async def create_post_with_file(
             rich_content=db_post.rich_content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
-            image_url=db_post.image_url,
+            image_url=db_post.image_url,  # Backward compatibility
+            images=_serialize_post_images(post_images),  # Multi-image support
             location=db_post.location,
             location_data=db_post.location_data,
             is_public=db_post.is_public,
@@ -754,6 +903,7 @@ async def get_feed(
                     post_style=post_data.get('post_style'),
                     post_type=post_data['post_type'],
                     image_url=post_data['image_url'],
+                    images=post_data.get('images', []),  # Multi-image support
                     location=post_data.get('location'),
                     location_data=post_data.get('location_data'),
                     is_public=post_data['is_public'],
@@ -889,6 +1039,7 @@ async def get_feed(
                     post_style=getattr(row, 'post_style', None),
                     post_type=row.post_type,
                     image_url=row.image_url,
+                    images=[],  # Will be populated by algorithm service
                     location=getattr(row, 'location', None),
                     location_data=getattr(row, 'location_data', None),
                     is_public=row.is_public,
@@ -1196,6 +1347,29 @@ async def get_post_by_id(
             except (json.JSONDecodeError, TypeError):
                 location_data = None
 
+        # Fetch post images
+        from sqlalchemy import text as sql_text
+        images_query = sql_text("""
+            SELECT id, position, thumbnail_url, medium_url, original_url, width, height
+            FROM post_images
+            WHERE post_id = :post_id
+            ORDER BY position
+        """)
+        images_result = await db.execute(images_query, {"post_id": post_id})
+        images_rows = images_result.fetchall()
+        images = [
+            {
+                "id": img_row.id,
+                "position": img_row.position,
+                "thumbnail_url": img_row.thumbnail_url,
+                "medium_url": img_row.medium_url,
+                "original_url": img_row.original_url,
+                "width": img_row.width,
+                "height": img_row.height
+            }
+            for img_row in images_rows
+        ]
+
         return PostResponse(
             id=row.id,
             author_id=row.author_id,
@@ -1204,6 +1378,7 @@ async def get_post_by_id(
             post_style=post_style,
             post_type=row.post_type,
             image_url=row.image_url,
+            images=images,  # Multi-image support
             location=row.location,
             location_data=location_data,
             is_public=row.is_public,
@@ -1494,7 +1669,30 @@ async def edit_post(
         from app.repositories.user_repository import UserRepository
         user_repo = UserRepository(db)
         user = await user_repo.get_by_id_or_404(current_user_id)
-        
+
+        # Fetch post images
+        from sqlalchemy import text as sql_text
+        images_query = sql_text("""
+            SELECT id, position, thumbnail_url, medium_url, original_url, width, height
+            FROM post_images
+            WHERE post_id = :post_id
+            ORDER BY position
+        """)
+        images_result = await db.execute(images_query, {"post_id": post.id})
+        images_rows = images_result.fetchall()
+        images = [
+            {
+                "id": img_row.id,
+                "position": img_row.position,
+                "thumbnail_url": img_row.thumbnail_url,
+                "medium_url": img_row.medium_url,
+                "original_url": img_row.original_url,
+                "width": img_row.width,
+                "height": img_row.height
+            }
+            for img_row in images_rows
+        ]
+
         # Format response
         return PostResponse(
             id=post.id,
@@ -1504,6 +1702,7 @@ async def edit_post(
             post_style=post.post_style,
             post_type=post.post_type.value,
             image_url=post.image_url,
+            images=images,  # Multi-image support
             location=post.location,
             location_data=post.location_data,
             is_public=post.is_public,

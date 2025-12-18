@@ -582,7 +582,8 @@ class OptimizedAlgorithmService(AlgorithmService):
                 posts_query = select(Post).where(
                     Post.is_public == True
                 ).options(
-                    selectinload(Post.author)
+                    selectinload(Post.author),
+                    selectinload(Post.images)  # Multi-image support
                 ).order_by(Post.created_at.desc()).limit(limit * 3)  # Get more for filtering
                 
                 posts_result = await self.db.execute(posts_query)
@@ -616,6 +617,20 @@ class OptimizedAlgorithmService(AlgorithmService):
                         read_status=read_status
                     )
                     
+                    # Serialize images for multi-image support
+                    images = [
+                        {
+                            'id': img.id,
+                            'position': img.position,
+                            'thumbnail_url': img.thumbnail_url,
+                            'medium_url': img.medium_url,
+                            'original_url': img.original_url,
+                            'width': img.width,
+                            'height': img.height
+                        }
+                        for img in sorted(post.images, key=lambda x: x.position)
+                    ] if post.images else []
+
                     scored_posts.append({
                         'id': post.id,
                         'author_id': post.author_id,
@@ -623,6 +638,7 @@ class OptimizedAlgorithmService(AlgorithmService):
                         'post_style': post.post_style,
                         'post_type': post.post_type.value,
                         'image_url': post.image_url,
+                        'images': images,  # Multi-image support
                         'location': post.location,
                         'location_data': post.location_data,
                         'is_public': post.is_public,

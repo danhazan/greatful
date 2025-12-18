@@ -35,6 +35,17 @@ interface LocationResult {
   type?: string
 }
 
+// PostImage for multi-image support
+interface PostImage {
+  id: string
+  position: number
+  thumbnailUrl: string
+  mediumUrl: string
+  originalUrl: string
+  width?: number
+  height?: number
+}
+
 interface Post {
   id: string
   content: string
@@ -43,7 +54,8 @@ interface Post {
   post_style?: PostStyle
   location?: string
   location_data?: LocationResult
-  imageUrl?: string
+  imageUrl?: string  // Legacy single image
+  images?: PostImage[]  // Multi-image support
   postType: "daily" | "photo" | "spontaneous"
   createdAt?: string
   updatedAt?: string
@@ -162,7 +174,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     return { type: 'daily' as const }
   }
 
-  const hasImage = Boolean(postData.imageUrl)
+  const hasImage = Boolean(postData.imageUrl) || Boolean(post.images && post.images.length > 0)
   
   // Always use plain text for analysis to avoid HTML tag length issues
   const getPlainTextContent = () => {
@@ -768,7 +780,38 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                   </div>
                 )}
 
-                {/* Image Preview */}
+                {/* Multi-Image Display (read-only - editing images not yet supported) */}
+                {post.images && post.images.length > 0 && !postData.imageUrl && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Attached Images ({post.images.length})
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Image editing coming soon
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {[...post.images].sort((a, b) => a.position - b.position).map((img, index) => (
+                        <div
+                          key={img.id}
+                          className="relative aspect-square rounded-lg overflow-hidden border border-gray-200"
+                        >
+                          <img
+                            src={img.thumbnailUrl || img.mediumUrl}
+                            alt={`Image ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black bg-opacity-60 flex items-center justify-center text-xs font-medium text-white">
+                            {index + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Legacy Single Image Preview */}
                 {postData.imageUrl && (
                   <div className="mt-4">
                     <div className="relative inline-block group">
@@ -798,8 +841,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
               {/* Additional Options */}
               <div className="px-4 pb-6 pt-0">
-                {/* Drag and Drop Zone (when no image) */}
-                {!postData.imageUrl && (
+                {/* Drag and Drop Zone (when no images - legacy single image support) */}
+                {!postData.imageUrl && !(post.images && post.images.length > 0) && (
                   <div
                     className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isDragOver
                         ? 'border-purple-400 bg-purple-50'

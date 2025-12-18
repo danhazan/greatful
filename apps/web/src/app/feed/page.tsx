@@ -356,12 +356,13 @@ export default function FeedPage() {
     location?: string
     location_data?: any
     imageFile?: File
+    imageFiles?: File[]  // Multi-image support
     richContent?: string
     postStyle?: any
     mentions?: string[]
   }) => {
     setIsCreatingPost(true)
-    
+
     try {
       const token = localStorage.getItem("access_token")
       if (!token) {
@@ -371,8 +372,29 @@ export default function FeedPage() {
 
       let response: Response
 
-      // If there's an image file, send as FormData to the upload endpoint
-      if (postData.imageFile) {
+      // If there are multiple image files, send as FormData with images array
+      if (postData.imageFiles && postData.imageFiles.length > 0) {
+        const formData = new FormData()
+        formData.append('content', postData.content.trim())
+        if (postData.richContent) formData.append('richContent', postData.richContent)
+        if (postData.postStyle) formData.append('postStyle', JSON.stringify(postData.postStyle))
+        if (postData.location) formData.append('location', postData.location)
+        if (postData.location_data) formData.append('location_data', JSON.stringify(postData.location_data))
+        // Append all images (backend expects 'images' field for multi-image)
+        postData.imageFiles.forEach(file => {
+          formData.append('images', file)
+        })
+
+        response = await fetch('/api/posts', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+            // Don't set Content-Type for FormData
+          },
+          body: formData
+        })
+      } else if (postData.imageFile) {
+        // Legacy single image support (deprecated)
         const formData = new FormData()
         formData.append('content', postData.content.trim())
         if (postData.richContent) formData.append('richContent', postData.richContent)

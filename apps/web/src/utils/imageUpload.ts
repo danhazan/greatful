@@ -2,6 +2,17 @@
  * Image upload utilities for handling file validation and upload
  */
 
+/**
+ * Maximum number of images allowed per post.
+ *
+ * IMPORTANT: This is for UX only (early validation, UI feedback).
+ * Backend (MAX_POST_IMAGES env var) is the authoritative source.
+ * Keep this in sync with the backend configuration.
+ */
+export const MAX_POST_IMAGES = parseInt(
+  process.env.NEXT_PUBLIC_MAX_POST_IMAGES || '7'
+)
+
 export interface ImageUploadOptions {
   maxSizeBytes?: number
   allowedTypes?: string[]
@@ -12,6 +23,13 @@ export interface ImageUploadResult {
   success: boolean
   imageUrl?: string
   error?: string
+}
+
+export interface MultipleImageValidationResult {
+  valid: boolean
+  error?: string
+  validFiles: File[]
+  rejectedCount: number
 }
 
 const DEFAULT_OPTIONS: Required<ImageUploadOptions> = {
@@ -176,5 +194,82 @@ export async function uploadImage(
 export function revokeImagePreview(url: string): void {
   if (url && url.startsWith('blob:')) {
     URL.revokeObjectURL(url)
+  }
+}
+
+/**
+ * Validates multiple image files for multi-image post upload.
+ *
+ * Checks:
+ * - Total count doesn't exceed MAX_POST_IMAGES
+ * - Each file passes individual validation
+ *
+ * @param files - Array of files to validate
+ * @param existingCount - Number of images already attached to the post
+ * @param options - Optional validation options
+ */
+export function validateMultipleImageFiles(
+  files: File[],
+  existingCount: number = 0,
+  options: ImageUploadOptions = {}
+): MultipleImageValidationResult {
+  const remaining = MAX_POST_IMAGES - existingCount
+
+  if (remaining <= 0) {
+    return {
+      valid: false,
+      error: `Maximum ${MAX_POST_IMAGES} images allowed per post`,
+      validFiles: [],
+      rejectedCount: files.length
+    }
+  }
+
+  if (files.length > remaining) {
+    // Take only what we can accept
+    const acceptableFiles = files.slice(0, remaining)
+    const validFiles: File[] = []
+
+    for (const file of acceptableFiles) {
+      const result = validateImageFile(file, options)
+      if (result.valid) {
+        validFiles.push(file)
+      }
+    }
+
+    return {
+      valid: validFiles.length > 0,
+      error: `You can only add ${remaining} more image${remaining !== 1 ? 's' : ''}. ${files.length - remaining} file(s) were not added.`,
+      validFiles,
+      rejectedCount: files.length - validFiles.length
+    }
+  }
+
+  // Validate each file
+  const validFiles: File[] = []
+  const errors: string[] = []
+
+  for (const file of files) {
+    const result = validateImageFile(file, options)
+    if (result.valid) {
+      validFiles.push(file)
+    } else {
+      errors.push(`${file.name}: ${result.error}`)
+    }
+  }
+
+  if (errors.length > 0 && validFiles.length === 0) {
+    return {
+      valid: false,
+      error: errors.join('; '),
+      validFiles: [],
+      rejectedCount: files.length
+    }
+  }
+
+  return {
+    valid: true,
+    error: errors.length > 0 ? `Some files were rejected: ${errors.join('; ')}` : undefined,
+    validFiles,
+    rejectedCount: files.length - validFiles.length
   }
 }

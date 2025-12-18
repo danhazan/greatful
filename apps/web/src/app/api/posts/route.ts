@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       // Handle FormData for file uploads
       const formData = await request.formData()
+      // Get all images (multi-image support)
+      const imageFiles = formData.getAll('images') as File[]
       body = {
         content: formData.get('content') as string,
         richContent: formData.get('richContent') as string,
@@ -29,7 +31,8 @@ export async function POST(request: NextRequest) {
         location: formData.get('location') as string,
         location_data: formData.get('location_data') as string,
         post_type_override: formData.get('post_type_override') as string,
-        image: formData.get('image') as File
+        image: formData.get('image') as File,  // Legacy single image
+        images: imageFiles.length > 0 ? imageFiles : undefined  // Multi-image
       }
       isFormData = true
     } else {
@@ -38,7 +41,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate that either content or image is provided
-    if (!body.content && !body.image_url && !body.image) {
+    const hasImages = body.images && body.images.length > 0
+    if (!body.content && !body.image_url && !body.image && !hasImages) {
       return NextResponse.json(
         { error: 'Either content or image must be provided' },
         { status: 400 }
@@ -60,7 +64,15 @@ export async function POST(request: NextRequest) {
       if (body.location) backendFormData.append('location', body.location)
       if (body.location_data) backendFormData.append('location_data', body.location_data)
       if (body.post_type_override) backendFormData.append('post_type_override', body.post_type_override)
-      if (body.image) backendFormData.append('image', body.image)
+      // Multi-image support: forward all images to backend
+      if (body.images && body.images.length > 0) {
+        body.images.forEach((file: File) => {
+          backendFormData.append('images', file)
+        })
+      } else if (body.image) {
+        // Legacy single image support (deprecated)
+        backendFormData.append('image', body.image)
+      }
 
       response = await fetch(`${API_BASE_URL}/api/v1/posts/upload`, {
         method: 'POST',
@@ -106,23 +118,39 @@ export async function POST(request: NextRequest) {
 
     const createdPost = await response.json()
 
-    // Helper function to transform profile image URL
-    const transformProfileImageUrl = (url: string | null): string | null => {
+    // Helper function to transform relative image URLs to full URLs
+    const transformImageUrl = (url: string | null): string | null => {
       if (!url) return null
       if (url.startsWith('http')) return url // Already a full URL
+      if (url.startsWith('blob:')) return url // Blob URL, keep as-is
       return `${API_BASE_URL}${url}` // Convert relative URL to full URL
     }
 
     // Automatically transform snake_case to camelCase
     const transformedPost = transformApiResponse(createdPost)
-    
+
     // Post-process: ensure author.id is string and fix profile image URLs
     if (transformedPost.author) {
       transformedPost.author.id = String(transformedPost.author.id)
       if (transformedPost.author.image || transformedPost.author.profileImageUrl) {
         const imageUrl = transformedPost.author.image || transformedPost.author.profileImageUrl
-        transformedPost.author.image = transformProfileImageUrl(imageUrl)
+        transformedPost.author.image = transformImageUrl(imageUrl)
       }
+    }
+
+    // Transform post images URLs (multi-image support)
+    if (transformedPost.images && Array.isArray(transformedPost.images)) {
+      transformedPost.images = transformedPost.images.map((img: any) => ({
+        ...img,
+        thumbnailUrl: transformImageUrl(img.thumbnailUrl),
+        mediumUrl: transformImageUrl(img.mediumUrl),
+        originalUrl: transformImageUrl(img.originalUrl)
+      }))
+    }
+
+    // Transform legacy single image URL
+    if (transformedPost.imageUrl) {
+      transformedPost.imageUrl = transformImageUrl(transformedPost.imageUrl)
     }
 
     return NextResponse.json(transformedPost, { status: 201 })
@@ -182,25 +210,41 @@ export async function GET(request: NextRequest) {
 
     const posts = await response.json()
 
-    // Helper function to transform profile image URL
-    const transformProfileImageUrl = (url: string | null): string | null => {
+    // Helper function to transform relative image URLs to full URLs
+    const transformImageUrl = (url: string | null): string | null => {
       if (!url) return null
       if (url.startsWith('http')) return url // Already a full URL
+      if (url.startsWith('blob:')) return url // Blob URL, keep as-is
       return `${API_BASE_URL}${url}` // Convert relative URL to full URL
     }
 
     // Automatically transform snake_case to camelCase
     const transformedPosts = transformApiResponse(posts)
-    
-    // Post-process: ensure author.id is string and fix profile image URLs
+
+    // Post-process: ensure author.id is string and fix image URLs
     if (Array.isArray(transformedPosts)) {
       transformedPosts.forEach((post: any) => {
         if (post.author) {
           post.author.id = String(post.author.id)
           if (post.author.image || post.author.profileImageUrl) {
             const imageUrl = post.author.image || post.author.profileImageUrl
-            post.author.image = transformProfileImageUrl(imageUrl)
+            post.author.image = transformImageUrl(imageUrl)
           }
+        }
+
+        // Transform post images URLs (multi-image support)
+        if (post.images && Array.isArray(post.images)) {
+          post.images = post.images.map((img: any) => ({
+            ...img,
+            thumbnailUrl: transformImageUrl(img.thumbnailUrl),
+            mediumUrl: transformImageUrl(img.mediumUrl),
+            originalUrl: transformImageUrl(img.originalUrl)
+          }))
+        }
+
+        // Transform legacy single image URL
+        if (post.imageUrl) {
+          post.imageUrl = transformImageUrl(post.imageUrl)
         }
       })
     }

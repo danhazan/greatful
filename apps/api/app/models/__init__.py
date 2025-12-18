@@ -5,6 +5,7 @@ Import all models to ensure they are registered with SQLAlchemy.
 
 from .user import User
 from .post import Post
+from .post_image import PostImage
 from .emoji_reaction import EmojiReaction
 from .notification import Notification
 from .share import Share
@@ -14,4 +15,4 @@ from .user_interaction import UserInteraction
 from .image_hash import ImageHash
 from .comment import Comment
 
-__all__ = ["User", "Post", "EmojiReaction", "Notification", "Share", "Mention", "Follow", "UserInteraction", "ImageHash", "Comment"]
+__all__ = ["User", "Post", "PostImage", "EmojiReaction", "Notification", "Share", "Mention", "Follow", "UserInteraction", "ImageHash", "Comment"]
