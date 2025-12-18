@@ -106,13 +106,13 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const [postData, setPostData] = useState<{
     content: string
     imageUrl?: string
-    location?: string
-    location_data?: LocationResult
+    location?: string | null
+    location_data?: LocationResult | null
   }>({
     content: post.content || '',
     imageUrl: post.imageUrl || '',
-    location: post.location || '',
-    location_data: post.location_data
+    location: post.location || null,
+    location_data: post.location_data || null
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -272,8 +272,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       setPostData({
         content: post.content || '',
         imageUrl: post.imageUrl || '',
-        location: post.location || '',
-        location_data: post.location_data
+        location: post.location || null,
+        location_data: post.location_data || null
       })
       
       // Initialize rich content - preserve existing HTML formatting
@@ -345,7 +345,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       const mentions = extractMentions(contentToSubmit.trim())
       const mentionUsernames = mentions.map(m => m.username)
 
-      // Build payload - only include changed fields to maintain existing data
+      // Build payload - always include location fields to ensure proper clearing
       const payload: any = {
         content: contentToSubmit.trim(),
         rich_content: richContent || null,
@@ -354,9 +354,9 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         // Include image information
         ...(postData.imageUrl !== undefined ? { imageUrl: postData.imageUrl } : {}),
         ...(imageFile ? { imageFile } : {}),
-        // Only include location if it exists or has been changed
-        ...(postData.location !== undefined ? { location: postData.location } : {}),
-        ...(postData.location_data !== undefined ? { location_data: postData.location_data } : {}),
+        // Always include location fields to allow clearing (null means clear)
+        location: postData.location || null,
+        location_data: postData.location_data || null,
         // Include mentions if present
         ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {})
       }
@@ -608,6 +608,13 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         location: location.display_name,
         location_data: location
       }))
+    } else {
+      // Clear location data when null is passed
+      setPostData(prev => ({
+        ...prev,
+        location: null,
+        location_data: null
+      }))
     }
     setShowLocationModal(false)
   }
@@ -615,8 +622,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const handleLocationClear = () => {
     setPostData(prev => ({
       ...prev,
-      location: '',
-      location_data: undefined
+      location: null,
+      location_data: null
     }))
   }
 

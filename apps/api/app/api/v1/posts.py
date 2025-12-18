@@ -1595,9 +1595,11 @@ async def edit_post(
         # Handle image_url explicitly - allow setting to None to remove image
         if hasattr(post_update, 'image_url'):
             update_data['image_url'] = post_update.image_url
-        if post_update.location is not None:
+        # Handle location fields - use model_fields_set to detect if field was explicitly provided
+        # This allows clearing location by sending null
+        if 'location' in post_update.model_fields_set:
             update_data['location'] = post_update.location
-        if post_update.location_data is not None:
+        if 'location_data' in post_update.model_fields_set:
             update_data['location_data'] = post_update.location_data
         
         # If content or image is being updated, re-analyze post type
