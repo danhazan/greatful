@@ -25,6 +25,8 @@
 - **🔐 Password Manager Not Triggered**: Password manager doesn't save new passwords when changed in profile settings
 - **🖼️ Draft Image Previews**: Draft images are not restored when reopening saved drafts (by design - blob URLs are ephemeral)
 - **📤 Image Upload Constraints**: Some images may be rejected by upstream proxies/WAF with "Forbidden" errors (documented behavior)
+- **📍 Feed Location Display**: Location displays as icon-only on mobile feed vs full text in location modal (responsive design tradeoff)
+- **👤 Navigation Avatar Initials**: Navigation bar avatar sometimes shows initials instead of profile image
 
 ### ✅ Recently Resolved
 - **Toast Notification Focus Stealing**: ✅ COMPLETED - Toasts no longer interrupt typing when closing
@@ -1322,11 +1324,84 @@ If an image fails to upload:
 
 **Priority**: Low - Rare occurrence, clear error messages provided.
 
+### Feed Location Display Inconsistency
+**Issue**: Location displays as icon-only on mobile feed vs full location text in modal
+**Status**: ⚠️ Active Issue (Acknowledged)
+**Priority**: Low
+**Impact**: User Experience - Visual Consistency
+**Discovered**: December 18, 2025
+
+**Description**:
+On mobile viewports (< 768px), the location on post cards displays as just a map pin icon. Users must tap the icon to see the full location name in a modal. On larger screens (≥ 768px), the location displays with both icon and truncated text. This is intentional responsive design to save space on mobile, but creates visual inconsistency between viewport sizes.
+
+**Current Behavior**:
+- Mobile (< 768px): Icon only, tap to see full location in modal ✅
+- Desktop (≥ 768px): Icon + truncated text, click for modal with full details ✅
+- Both open the same LocationDisplayModal with full information ✅
+
+**Why This Exists**:
+- Mobile screens have limited horizontal space
+- Location text can be long (e.g., "Central Park, New York City, NY, USA")
+- Icon-only approach saves space while maintaining functionality
+- Tapping icon reveals full location details in modal
+
+**Technical Details**:
+- PostCard.tsx uses `md:hidden` and `hidden md:flex` for responsive display
+- Breakpoint at 768px (Tailwind `md:` breakpoint)
+- Both versions share the same click handler and modal
+
+**Priority**: Low - Functional behavior is correct; this is a UX consistency observation.
+
+**Potential Future Enhancement**: Consider showing abbreviated location (city name only) on mobile instead of icon-only.
+
+---
+
+### Navigation Avatar Shows Initials Instead of Profile Image
+**Issue**: Navigation bar avatar sometimes displays user initials instead of their profile picture
+**Status**: ⚠️ Active Issue (Intermittent)
+**Priority**: Medium
+**Impact**: User Experience - Visual Polish
+**Discovered**: December 18, 2025
+
+**Description**:
+The navigation bar avatar occasionally shows the user's initials (e.g., "JD" for John Doe) instead of their actual profile picture, even when the user has uploaded a profile photo. The issue appears to be intermittent and may be related to image loading, caching, or data flow timing.
+
+**Technical Details**:
+- UserAvatar component checks `user.image || user.profile_image_url`
+- Profile image URL is normalized through `normalizeUserData()`
+- `getImageUrl()` converts relative URLs to absolute URLs
+- Image error handler falls back to initials display
+
+**Possible Causes**:
+1. **Image Load Failure**: Profile image URL returns 404 or fails to load
+2. **Data Flow Timing**: User data arrives before profile_image_url is populated
+3. **Caching**: Stale cache returning user data without image URL
+4. **URL Transformation**: Relative URL not properly converted to absolute URL
+
+**Architecture Flow** (verified correct):
+1. Backend returns `profile_image_url` (relative like `/uploads/profiles/xxx.jpg`)
+2. `normalizeUserData()` converts to absolute URL
+3. UserContext stores as `image` field
+4. Navbar passes to ProfileDropdown → UserAvatar
+5. UserAvatar uses `getImageUrl()` for final URL
+
+**Investigation Notes**:
+- Code architecture appears correct
+- Issue may be data-dependent (user without profile photo)
+- Could be image load error causing fallback to initials
+- Browser cache clearing may help in some cases
+
+**Workaround**: Refresh the page, or re-upload profile photo if it persists.
+
+**Priority**: Medium - Affects visual polish but doesn't break functionality.
+
+---
+
 ### Password Manager Not Triggered
-**Issue**: Browser password manager doesn't save new passwords when changed in profile settings  
-**Status**: ⚠️ Active Issue  
-**Priority**: Medium  
-**Impact**: User Experience & Password Management  
+**Issue**: Browser password manager doesn't save new passwords when changed in profile settings
+**Status**: ⚠️ Active Issue
+**Priority**: Medium
+**Impact**: User Experience & Password Management
 **Discovered**: January 13, 2025  
 
 **Description**:
@@ -1729,5 +1804,5 @@ export async function GET(request: NextRequest, params: any) {
 
 ---
 
-*Last Updated: August 28, 2025*  
-*Next Review: When notification deduplication and batching issues are resolved*
+*Last Updated: December 18, 2025*
+*Next Review: When location clearing and style background issues are resolved*

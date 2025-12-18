@@ -244,6 +244,30 @@ export function transformReactions(reactions: BackendReaction[]): FrontendReacti
 }
 
 // Extended post transformation for user posts with author info
+// Image type for multi-image posts
+export interface BackendPostImage {
+  id: string
+  position: number
+  thumbnail_url?: string
+  thumbnailUrl?: string  // camelCase variant
+  medium_url?: string
+  mediumUrl?: string
+  original_url?: string
+  originalUrl?: string
+  width?: number
+  height?: number
+}
+
+export interface FrontendPostImage {
+  id: string
+  position: number
+  thumbnailUrl: string
+  mediumUrl: string
+  originalUrl: string
+  width?: number
+  height?: number
+}
+
 export interface BackendUserPost {
   id: string
   content: string
@@ -262,6 +286,7 @@ export interface BackendUserPost {
   updated_at?: string
   post_type?: string
   image_url?: string
+  images?: BackendPostImage[]  // Multi-image support
   location?: string
   location_data?: {
     display_name: string
@@ -324,6 +349,7 @@ export interface FrontendUserPost {
   updatedAt?: string
   postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
+  images?: FrontendPostImage[]  // Multi-image support
   location?: string
   location_data?: {
     display_name: string
@@ -347,6 +373,22 @@ export interface FrontendUserPost {
 }
 
 /**
+ * Normalize a single image from backend format to frontend format
+ * Handles both snake_case and camelCase field names
+ */
+function normalizePostImage(img: BackendPostImage): FrontendPostImage {
+  return {
+    id: img.id,
+    position: img.position,
+    thumbnailUrl: img.thumbnailUrl ?? img.thumbnail_url ?? '',
+    mediumUrl: img.mediumUrl ?? img.medium_url ?? '',
+    originalUrl: img.originalUrl ?? img.original_url ?? '',
+    width: img.width,
+    height: img.height
+  }
+}
+
+/**
  * Transform backend user post to frontend format with author info
  * Handles both snake_case (direct backend) and camelCase (Next.js API proxy) formats
  */
@@ -363,7 +405,12 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
   const reactionsCount = post.reactionsCount ?? post.reactions_count ?? 0
   const commentsCount = post.commentsCount ?? post.comments_count ?? 0
   const currentUserReaction = post.currentUserReaction || post.current_user_reaction
-  
+
+  // Normalize images array for multi-image support
+  const images: FrontendPostImage[] | undefined = post.images && Array.isArray(post.images)
+    ? post.images.map(normalizePostImage).sort((a: FrontendPostImage, b: FrontendPostImage) => a.position - b.position)
+    : undefined
+
   return {
     id: post.id,
     content: post.content,
@@ -380,6 +427,7 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
     updatedAt: updatedAt ? ensureTimezoneIndicator(updatedAt) : undefined,
     postType: (postType as "daily" | "photo" | "spontaneous") || "daily",
     imageUrl: imageUrl,
+    images: images,  // Include normalized images array
     location: post.location,
     location_data: locationData,
     heartsCount: heartsCount,

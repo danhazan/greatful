@@ -88,9 +88,23 @@ export async function handleUserPostsRequest(request: any, userId?: string) {
             post.author.image = transformProfileImageUrl(imageUrl)
           }
         }
-        // Transform post image URL if present
+        // Transform legacy single image URL if present
         if (post.imageUrl && !post.imageUrl.startsWith('http')) {
           post.imageUrl = `${API_BASE_URL}${post.imageUrl}`
+        }
+        // Transform multi-image URLs if present
+        if (Array.isArray(post.images)) {
+          post.images.forEach((img: any) => {
+            if (img.thumbnailUrl && !img.thumbnailUrl.startsWith('http')) {
+              img.thumbnailUrl = `${API_BASE_URL}${img.thumbnailUrl}`
+            }
+            if (img.mediumUrl && !img.mediumUrl.startsWith('http')) {
+              img.mediumUrl = `${API_BASE_URL}${img.mediumUrl}`
+            }
+            if (img.originalUrl && !img.originalUrl.startsWith('http')) {
+              img.originalUrl = `${API_BASE_URL}${img.originalUrl}`
+            }
+          })
         }
       })
     }

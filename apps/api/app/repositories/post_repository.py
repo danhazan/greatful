@@ -220,6 +220,7 @@ class PostRepository(BaseRepository):
             rows = result.fetchall()
             
             posts = []
+            post_ids = []
             for row in rows:
                 # Normalize location_data safely
                 loc_data = row.location_data
@@ -228,7 +229,7 @@ class PostRepository(BaseRepository):
                         loc_data = json.loads(loc_data)
                     except Exception:
                         loc_data = None
-                
+
                 # Normalize post_style safely
                 post_style_data = row.post_style
                 if isinstance(post_style_data, str):
@@ -236,7 +237,7 @@ class PostRepository(BaseRepository):
                         post_style_data = json.loads(post_style_data)
                     except Exception:
                         post_style_data = None
-                
+
                 post_dict = {
                     "id": row.id,
                     "author_id": row.author_id,
@@ -244,6 +245,7 @@ class PostRepository(BaseRepository):
                     "post_style": post_style_data,
                     "post_type": row.post_type,
                     "image_url": row.image_url,
+                    "images": [],  # Will be populated below
                     "location": row.location,
                     "location_data": loc_data,
                     "is_public": row.is_public,
@@ -263,7 +265,39 @@ class PostRepository(BaseRepository):
                     "is_hearted": bool(row.is_hearted) if hasattr(row, 'is_hearted') else False
                 }
                 posts.append(post_dict)
-            
+                post_ids.append(row.id)
+
+            # Fetch images for all posts in a single query (multi-image support)
+            if post_ids:
+                images_query = text("""
+                    SELECT id, post_id, position, thumbnail_url, medium_url, original_url, width, height
+                    FROM post_images
+                    WHERE post_id = ANY(:post_ids)
+                    ORDER BY post_id, position
+                """)
+                images_result = await self.execute_raw_query(images_query, {"post_ids": post_ids})
+                images_rows = images_result.fetchall()
+
+                # Group images by post_id
+                images_by_post: Dict[str, List[Dict[str, Any]]] = {}
+                for img_row in images_rows:
+                    post_id = img_row.post_id
+                    if post_id not in images_by_post:
+                        images_by_post[post_id] = []
+                    images_by_post[post_id].append({
+                        "id": img_row.id,
+                        "position": img_row.position,
+                        "thumbnail_url": img_row.thumbnail_url,
+                        "medium_url": img_row.medium_url,
+                        "original_url": img_row.original_url,
+                        "width": img_row.width,
+                        "height": img_row.height
+                    })
+
+                # Assign images to their posts
+                for post in posts:
+                    post["images"] = images_by_post.get(post["id"], [])
+
             logger.debug(f"post_repo.get_posts_with_engagement - returning {len(posts)} posts")
             return posts
             

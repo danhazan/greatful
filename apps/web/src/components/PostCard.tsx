@@ -972,42 +972,39 @@ export default function PostCard({
                     })()}
                   </a>
                 </div>
-                {/* Location on mobile - separate line to avoid collision with follow button */}
+                {/* Location on small screens - icon only to save space, tap to see details */}
                 {(currentPost.location_data || currentPost.location) && (
-                  <div className="flex items-center space-x-1 sm:hidden">
+                  <button
+                    ref={locationButtonRef}
+                    onClick={(event) => {
+                      event.preventDefault()
+
+                      if (locationButtonRef.current) {
+                        const rect = locationButtonRef.current.getBoundingClientRect()
+                        setLocationModalPosition({
+                          x: rect.left + rect.width / 2,
+                          y: rect.top
+                        })
+                      }
+
+                      setShowLocationModal(true)
+                    }}
+                    className="flex md:hidden items-center text-gray-500 hover:text-purple-600 transition-colors p-1 min-w-[44px] min-h-[44px] justify-center"
+                    title={currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
+                  >
                     <MapPin className="h-4 w-4 flex-shrink-0" />
-                    <button
-                      ref={locationButtonRef}
-                      onClick={(event) => {
-                        event.preventDefault()
-                        
-                        if (locationButtonRef.current) {
-                          const rect = locationButtonRef.current.getBoundingClientRect()
-                          setLocationModalPosition({
-                            x: rect.left + rect.width / 2,
-                            y: rect.top
-                          })
-                        }
-                        
-                        setShowLocationModal(true)
-                      }}
-                      className="text-gray-500 hover:text-purple-600 hover:underline transition-colors text-xs truncate max-w-[200px]"
-                      title="View location details"
-                    >
-                      {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
-                    </button>
-                  </div>
+                  </button>
                 )}
               </div>
             </div>
             <div className="flex items-center space-x-2 flex-shrink-0 max-w-[40%]">
-              {/* Location on desktop - positioned in top-right corner */}
+              {/* Location on larger screens - shows icon + text */}
               {(currentPost.location_data || currentPost.location) && (
                 <button
                   ref={locationButtonRef}
                   onClick={(event) => {
                     event.preventDefault()
-                    
+
                     if (locationButtonRef.current) {
                       const rect = locationButtonRef.current.getBoundingClientRect()
                       setLocationModalPosition({
@@ -1015,14 +1012,14 @@ export default function PostCard({
                         y: rect.top
                       })
                     }
-                    
+
                     setShowLocationModal(true)
                   }}
-                  className="hidden sm:flex items-center gap-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-1 transition-all duration-200 min-w-[44px] min-h-[44px] max-w-full"
+                  className="hidden md:flex items-center gap-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-1 transition-all duration-200 min-w-[44px] min-h-[44px] max-w-full"
                   title="View location details"
                 >
                   <MapPin className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-xs truncate">
+                  <span className="text-xs truncate max-w-[150px]">
                     {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
                   </span>
                 </button>

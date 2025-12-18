@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { getImageUrl } from "@/utils/imageUtils"
 
 interface UserAvatarProps {
   user: {
@@ -40,7 +41,9 @@ export default function UserAvatar({
   
   // Get profile image URL - use same approach as ClickableProfilePicture
   // Support both image (from UserContext) and profile_image_url (direct API)
-  const profileImageUrl = user.image || user.profile_image_url
+  // Use getImageUrl to handle relative URLs from the backend
+  const rawImageUrl = user.image || user.profile_image_url
+  const profileImageUrl = getImageUrl(rawImageUrl)
   
   // Generate initials for fallback
   const getInitials = (name: string) => {

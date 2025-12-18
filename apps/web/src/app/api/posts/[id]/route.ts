@@ -36,7 +36,7 @@ export async function GET(
 
     // Automatically transform snake_case to camelCase
     const transformedPost = transformApiResponse(post)
-    
+
     // Post-process: ensure author.id is string and fix profile image URLs
     if (transformedPost.author) {
       transformedPost.author.id = String(transformedPost.author.id)
@@ -44,6 +44,26 @@ export async function GET(
         const imageUrl = transformedPost.author.image || transformedPost.author.profileImageUrl
         transformedPost.author.image = transformProfileImageUrl(imageUrl)
       }
+    }
+
+    // Transform legacy single image URL if present
+    if (transformedPost.imageUrl && !transformedPost.imageUrl.startsWith('http')) {
+      transformedPost.imageUrl = `${API_BASE_URL}${transformedPost.imageUrl}`
+    }
+
+    // Transform multi-image URLs if present
+    if (Array.isArray(transformedPost.images)) {
+      transformedPost.images.forEach((img: any) => {
+        if (img.thumbnailUrl && !img.thumbnailUrl.startsWith('http')) {
+          img.thumbnailUrl = `${API_BASE_URL}${img.thumbnailUrl}`
+        }
+        if (img.mediumUrl && !img.mediumUrl.startsWith('http')) {
+          img.mediumUrl = `${API_BASE_URL}${img.mediumUrl}`
+        }
+        if (img.originalUrl && !img.originalUrl.startsWith('http')) {
+          img.originalUrl = `${API_BASE_URL}${img.originalUrl}`
+        }
+      })
     }
 
     return NextResponse.json(transformedPost)
@@ -99,7 +119,7 @@ export async function PUT(
 
     // Automatically transform snake_case to camelCase
     const transformedPost = transformApiResponse(data)
-    
+
     // Post-process: ensure author.id is string and fix profile image URLs
     if (transformedPost.author) {
       transformedPost.author.id = String(transformedPost.author.id)
@@ -107,6 +127,26 @@ export async function PUT(
         const imageUrl = transformedPost.author.image || transformedPost.author.profileImageUrl
         transformedPost.author.image = transformProfileImageUrl(imageUrl)
       }
+    }
+
+    // Transform legacy single image URL if present
+    if (transformedPost.imageUrl && !transformedPost.imageUrl.startsWith('http')) {
+      transformedPost.imageUrl = `${API_BASE_URL}${transformedPost.imageUrl}`
+    }
+
+    // Transform multi-image URLs if present
+    if (Array.isArray(transformedPost.images)) {
+      transformedPost.images.forEach((img: any) => {
+        if (img.thumbnailUrl && !img.thumbnailUrl.startsWith('http')) {
+          img.thumbnailUrl = `${API_BASE_URL}${img.thumbnailUrl}`
+        }
+        if (img.mediumUrl && !img.mediumUrl.startsWith('http')) {
+          img.mediumUrl = `${API_BASE_URL}${img.mediumUrl}`
+        }
+        if (img.originalUrl && !img.originalUrl.startsWith('http')) {
+          img.originalUrl = `${API_BASE_URL}${img.originalUrl}`
+        }
+      })
     }
 
     return NextResponse.json(transformedPost)
