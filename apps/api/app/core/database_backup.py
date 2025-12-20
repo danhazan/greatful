@@ -21,6 +21,19 @@ logger = logging.getLogger(__name__)
 # Backup configuration with environment-specific defaults
 def get_default_backup_dir():
     """Get default backup directory based on environment."""
+    # Check if running in serverless/container environment
+    is_serverless = any([
+        os.getenv('LEAPCELL'),
+        os.getenv('RENDER'),
+        os.getenv('VERCEL'),
+        os.getenv('AWS_LAMBDA_FUNCTION_NAME'),
+        os.getenv('RAILWAY_ENVIRONMENT')
+    ])
+    
+    if is_serverless:
+        # Use /tmp for serverless environments (only writable directory)
+        return "/tmp/grateful_backups"
+    
     environment = os.getenv("ENVIRONMENT", "development")
     if environment == "production":
         return "/var/backups/grateful"
@@ -51,7 +64,16 @@ class DatabaseBackupManager:
     
     def __init__(self):
         self.backup_dir = Path(BACKUP_CONFIG["backup_dir"])
-        self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self.backup_enabled = True
+        
+        # Try to create backup directory, but don't fail if we can't
+        try:
+            self.backup_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Backup directory initialized: {self.backup_dir}")
+        except OSError as e:
+            logger.warning(f"Could not create backup directory {self.backup_dir}: {e}")
+            logger.warning("Backups will be disabled for this instance")
+            self.backup_enabled = False
         
     async def create_backup(
         self, 
@@ -70,6 +92,13 @@ class DatabaseBackupManager:
         Returns:
             Dict containing backup information
         """
+        if not self.backup_enabled:
+            return {
+                "success": False,
+                "error": "Backups are disabled (backup directory not writable)",
+                "backup_name": backup_name
+            }
+        
         try:
             # Generate backup name
             if not backup_name:
@@ -400,6 +429,10 @@ class DatabaseBackupManager:
     
     async def list_backups(self) -> List[Dict[str, Any]]:
         """List available backups."""
+        if not self.backup_enabled:
+            logger.warning("Backups are disabled - cannot list backups")
+            return []
+        
         backups = []
         
         try:
@@ -433,6 +466,12 @@ class DatabaseBackupManager:
     
     async def cleanup_old_backups(self) -> Dict[str, Any]:
         """Remove backups older than retention period."""
+        if not self.backup_enabled:
+            return {
+                "success": False,
+                "error": "Backups are disabled"
+            }
+        
         try:
             cutoff_date = datetime.now(datetime.UTC) - timedelta(days=BACKUP_CONFIG["retention_days"])
             removed_backups = []
@@ -471,6 +510,15 @@ class DatabaseBackupManager:
     
     async def get_backup_status(self) -> Dict[str, Any]:
         """Get overall backup system status."""
+        if not self.backup_enabled:
+            return {
+                "status": "disabled",
+                "message": "Backups are disabled (backup directory not writable)",
+                "backup_count": 0,
+                "last_backup": None,
+                "total_size_mb": 0
+            }
+        
         try:
             backups = await self.list_backups()
             

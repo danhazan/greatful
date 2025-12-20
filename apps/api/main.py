@@ -82,6 +82,41 @@ setup_structured_logging(
 logger = logging.getLogger(__name__)
 
 
+# Detect if we're in Leapcell or need object storage
+def is_serverless_with_readonly_fs():
+    """Check if we're in a serverless environment with read-only filesystem."""
+    return bool(os.getenv('LEAPCELL'))
+
+
+# Setup storage backend
+USE_S3_STORAGE = is_serverless_with_readonly_fs()
+
+if USE_S3_STORAGE:
+    try:
+        import boto3
+        from botocore.config import Config
+        
+        # Configure S3 client for Leapcell object storage
+        s3_client = boto3.client(
+            "s3",
+            region_name=os.getenv("S3_REGION"),
+            endpoint_url=os.getenv("S3_ENDPOINT_URL"),
+            aws_access_key_id=os.getenv("S3_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("S3_SECRET_ACCESS_KEY")
+        )
+        
+        S3_BUCKET = os.getenv("S3_BUCKET")
+        
+        logger.info(f"Using S3 object storage: {S3_BUCKET}")
+        
+    except ImportError:
+        logger.error("boto3 not installed but S3 storage is required!")
+        logger.error("Install with: pip install boto3")
+        raise
+else:
+    logger.info("Using local filesystem storage")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # on startup
@@ -215,43 +250,96 @@ app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(RequestIDMiddleware)  # Add request ID tracking
 
 # Add SessionMiddleware for OAuth state management (must be before CORS)
-# Enhanced security configuration for production OAuth
 session_secret = os.getenv("SESSION_SECRET", "dev-secret")
 if os.getenv("ENVIRONMENT") == "production" and session_secret == "dev-secret":
     logger.error("CRITICAL: SESSION_SECRET must be set to a secure value in production")
     raise ValueError("SESSION_SECRET must be configured for production OAuth")
+
+# Get cookie settings from env vars (Railway compatibility)
+cookie_samesite = os.getenv("COOKIE_SAMESITE", "lax").lower()
+
+# For production cross-origin setup, override to "none"
+is_production = os.getenv("ENVIRONMENT") == "production"
+if is_production:
+    # Cross-origin requires SameSite=None
+    cookie_samesite = "none"
+    logger.info("Production mode: Using SameSite=None for cross-origin cookies")
 
 app.add_middleware(
     SessionMiddleware,
     secret_key=session_secret,
     session_cookie="grateful_session",
     max_age=60*60*24*7,  # 7 days
-    https_only=(os.getenv("ENVIRONMENT") == "production"),
-    same_site="lax"  # Required for OAuth redirects
+    https_only=is_production,
+    same_site=cookie_samesite
 )
+
+logger.info(f"Session middleware configured: same_site={cookie_samesite}, https_only={is_production}")
 
 # Add CORS middleware with centralized configuration
 cors_config = security_config.get_cors_config()
 app.add_middleware(CORSMiddleware, **cors_config)
 
-# Mount static files for uploads with proper path handling
-uploads_path = os.getenv("UPLOAD_PATH", "uploads")
-# Ensure we use absolute path for Railway volume mounting
-if not os.path.isabs(uploads_path):
-    uploads_path = os.path.abspath(uploads_path)
+# Mount static files or setup S3 storage proxy
+if not USE_S3_STORAGE:
+    # Local filesystem storage
+    uploads_path = os.getenv("UPLOAD_PATH", "uploads")
+    # Ensure we use absolute path for Railway volume mounting
+    if not os.path.isabs(uploads_path):
+        uploads_path = os.path.abspath(uploads_path)
 
-uploads_dir = Path(uploads_path)
-uploads_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir = Path(uploads_path)
+    
+    try:
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        # Set proper permissions for Railway volume
+        os.chmod(uploads_path, 0o755)
+        logger.info(f"Upload directory configured at: {uploads_path}")
+        app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
+    except OSError as e:
+        logger.warning(f"Could not create local upload directory: {e}")
+        logger.warning("File uploads will not work without writable storage")
+else:
+    # S3 storage - create a simple proxy endpoint for serving files
+    from fastapi import HTTPException
+    from fastapi.responses import StreamingResponse
+    import io
+    
+    @app.get("/uploads/{file_path:path}")
+    async def serve_upload(file_path: str):
+        """Serve uploaded files from S3 storage."""
+        try:
+            response = s3_client.get_object(
+                Bucket=S3_BUCKET,
+                Key=file_path
+            )
+            
+            # Stream the file content
+            file_stream = io.BytesIO(response['Body'].read())
+            
+            # Get content type from S3 metadata
+            content_type = response.get('ContentType', 'application/octet-stream')
+            
+            return StreamingResponse(
+                file_stream,
+                media_type=content_type,
+                headers={
+                    "Content-Disposition": f"inline; filename={file_path.split('/')[-1]}"
+                }
+            )
+        except s3_client.exceptions.NoSuchKey:
+            raise HTTPException(status_code=404, detail="File not found")
+        except Exception as e:
+            logger.error(f"Error serving file from S3: {e}")
+            raise HTTPException(status_code=500, detail="Error retrieving file")
+    
+    logger.info("Using S3 storage proxy for /uploads endpoint")
 
-# Set proper permissions for Railway volume
-try:
-    os.chmod(uploads_path, 0o755)
-    logger.info(f"Upload directory configured at: {uploads_path}")
-except Exception as e:
-    logger.warning(f"Could not set permissions on upload directory: {e}")
-
-app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
-
+# Store storage config in app state for use in upload handlers
+app.state.use_s3_storage = USE_S3_STORAGE
+if USE_S3_STORAGE:
+    app.state.s3_client = s3_client
+    app.state.s3_bucket = S3_BUCKET
 
 
 # Include routers with security considerations
