@@ -38,6 +38,8 @@ async def get_current_user_simple(
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 
+@router.get("/kaithheathcheck")
+@router.get("/kaithhealth")
 @router.get("/health")
 async def get_database_health():
     """
