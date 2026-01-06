@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.service_base import BaseService
 from app.core.exceptions import ValidationException, BusinessLogicError
+from app.core.storage import storage  # Import the storage adapter
 from app.services.image_hash_service import ImageHashService
 from app.models.image_hash import ImageHash
 
@@ -32,22 +33,13 @@ class FileUploadService(BaseService):
         super().__init__(db)
         self.hash_service = ImageHashService(db)
         
-        # Use environment variable for upload path, default to relative path for development
+        # Keep for backward compatibility and local file operations
         upload_path = os.getenv("UPLOAD_PATH", "uploads")
-        
-        # Ensure we use absolute path for Railway volume mounting
         if not os.path.isabs(upload_path):
             upload_path = os.path.abspath(upload_path)
-            
         self.base_upload_dir = Path(upload_path)
-        self.base_upload_dir.mkdir(parents=True, exist_ok=True)
         
-        # Set proper permissions for Railway volume
-        try:
-            os.chmod(self.base_upload_dir, 0o755)
-            logger.info(f"FileUploadService initialized with upload directory: {self.base_upload_dir}")
-        except Exception as e:
-            logger.warning(f"Could not set permissions on upload directory: {e}")
+        logger.info(f"FileUploadService initialized with storage backend: {storage.storage_backend}")
 
     def validate_image_file(self, file: UploadFile, max_size_mb: int = 5) -> None:
         """
@@ -76,9 +68,6 @@ class FileUploadService(BaseService):
             file_ext = Path(file.filename).suffix.lower()
             if file_ext not in allowed_extensions:
                 raise ValidationException(f"File extension must be one of: {', '.join(allowed_extensions)}")
-        
-        # Basic validation - we'll validate the actual image content during processing
-        # This avoids issues with file pointer manipulation during validation
 
     def generate_unique_filename(self, original_filename: Optional[str], prefix: str = "") -> str:
         """
@@ -111,22 +100,23 @@ class FileUploadService(BaseService):
             BusinessLogicError: If save operation fails
         """
         try:
-            # Create upload directory
-            upload_dir = self.base_upload_dir / subdirectory
-            upload_dir.mkdir(parents=True, exist_ok=True)
-            
             # Generate unique filename
             file_extension = Path(file.filename).suffix if file.filename else '.jpg'
             unique_filename = f"{uuid.uuid4()}{file_extension}"
-            file_path = upload_dir / unique_filename
             
-            # Save the file
+            # Read file content
             content = await file.read()
-            with open(file_path, "wb") as buffer:
-                buffer.write(content)
             
-            # Return the URL path (relative to the server)
-            return f"/uploads/{subdirectory}/{unique_filename}"
+            # Upload using storage adapter
+            url = storage.upload_file(
+                file_data=content,
+                folder=subdirectory,
+                filename=unique_filename,
+                content_type=file.content_type
+            )
+            
+            logger.info(f"Saved simple file: {unique_filename} to {subdirectory}")
+            return url
 
         except Exception as e:
             logger.error(f"Error saving uploaded file: {e}")
@@ -168,10 +158,6 @@ class FileUploadService(BaseService):
         config = get_variant_config()
 
         try:
-            # Create upload directory for post images
-            upload_dir = self.base_upload_dir / "posts"
-            upload_dir.mkdir(parents=True, exist_ok=True)
-
             # Read file content
             content = await file.read()
             file_size = len(content)
@@ -214,24 +200,42 @@ class FileUploadService(BaseService):
 
             # Create thumbnail variant
             thumb_image = resize_to_max_width(image, config.thumbnail_width)
+            thumb_buffer = io.BytesIO()
+            thumb_image.save(thumb_buffer, "JPEG", quality=config.jpeg_quality, optimize=True)
             thumb_filename = f"{base_filename}_thumb.jpg"
-            thumb_path = upload_dir / thumb_filename
-            thumb_image.save(thumb_path, "JPEG", quality=config.jpeg_quality, optimize=True)
-            variant_urls['thumbnail_url'] = f"/uploads/posts/{thumb_filename}"
+            thumb_url = storage.upload_file(
+                file_data=thumb_buffer.getvalue(),
+                folder="posts",
+                filename=thumb_filename,
+                content_type="image/jpeg"
+            )
+            variant_urls['thumbnail_url'] = thumb_url
 
             # Create medium variant
             medium_image = resize_to_max_width(image, config.medium_width)
+            medium_buffer = io.BytesIO()
+            medium_image.save(medium_buffer, "JPEG", quality=config.jpeg_quality, optimize=True)
             medium_filename = f"{base_filename}_medium.jpg"
-            medium_path = upload_dir / medium_filename
-            medium_image.save(medium_path, "JPEG", quality=config.jpeg_quality, optimize=True)
-            variant_urls['medium_url'] = f"/uploads/posts/{medium_filename}"
+            medium_url = storage.upload_file(
+                file_data=medium_buffer.getvalue(),
+                folder="posts",
+                filename=medium_filename,
+                content_type="image/jpeg"
+            )
+            variant_urls['medium_url'] = medium_url
 
             # Create original variant (capped to max width)
             original_image = resize_to_max_width(image, config.original_max_width)
+            original_buffer = io.BytesIO()
+            original_image.save(original_buffer, "JPEG", quality=config.jpeg_quality, optimize=True)
             original_filename = f"{base_filename}_original.jpg"
-            original_path = upload_dir / original_filename
-            original_image.save(original_path, "JPEG", quality=config.jpeg_quality, optimize=True)
-            variant_urls['original_url'] = f"/uploads/posts/{original_filename}"
+            original_url = storage.upload_file(
+                file_data=original_buffer.getvalue(),
+                folder="posts",
+                filename=original_filename,
+                content_type="image/jpeg"
+            )
+            variant_urls['original_url'] = original_url
 
             logger.info(
                 f"Created post image variants: {base_filename} "
@@ -290,10 +294,6 @@ class FileUploadService(BaseService):
             BusinessLogicError: If processing fails
         """
         try:
-            # Create upload directory
-            upload_dir = self.base_upload_dir / "profile_photos"
-            upload_dir.mkdir(parents=True, exist_ok=True)
-            
             # Read and process the uploaded file
             content = await file.read()
             
@@ -361,18 +361,26 @@ class FileUploadService(BaseService):
                         y = (height - resized_image.height) // 2
                         final_image.paste(resized_image, (x, y))
                     
-                    # Save the image
+                    # Save the image to buffer
+                    buffer = io.BytesIO()
+                    final_image.save(buffer, "JPEG", quality=85, optimize=True)
+                    
+                    # Upload using storage adapter
                     filename = f"{filename_base}_{size_name}.jpg"
-                    file_path = upload_dir / filename
-                    final_image.save(file_path, "JPEG", quality=85, optimize=True)
+                    url = storage.upload_file(
+                        file_data=buffer.getvalue(),
+                        folder="profile_photos",
+                        filename=filename,
+                        content_type="image/jpeg"
+                    )
                     
                     # Store URL
-                    file_urls[size_name] = f"/uploads/profile_photos/{filename}"
+                    file_urls[size_name] = url
                     
                 except Exception as e:
                     logger.error(f"Error creating {size_name} variant: {e}")
                     # Clean up any files created so far
-                    self.cleanup_files("profile_photos", filename_base, list(sizes.keys()))
+                    self.cleanup_files("profile_photos", filename_base, list(file_urls.keys()))
                     raise BusinessLogicError(f"Failed to create image variant: {str(e)}")
             
             return file_urls
@@ -408,10 +416,6 @@ class FileUploadService(BaseService):
             BusinessLogicError: If processing fails
         """
         try:
-            # Create upload directory
-            upload_dir = self.base_upload_dir / subdirectory
-            upload_dir.mkdir(parents=True, exist_ok=True)
-            
             # Read and process the uploaded file
             content = await file.read()
             
@@ -479,18 +483,26 @@ class FileUploadService(BaseService):
                         y = (height - resized_image.height) // 2
                         final_image.paste(resized_image, (x, y))
                     
-                    # Save the image
+                    # Save the image to buffer
+                    buffer = io.BytesIO()
+                    final_image.save(buffer, "JPEG", quality=85, optimize=True)
+                    
+                    # Upload using storage adapter
                     filename = f"{filename_base}_{size_name}.jpg"
-                    file_path = upload_dir / filename
-                    final_image.save(file_path, "JPEG", quality=85, optimize=True)
+                    url = storage.upload_file(
+                        file_data=buffer.getvalue(),
+                        folder=subdirectory,
+                        filename=filename,
+                        content_type="image/jpeg"
+                    )
                     
                     # Store URL
-                    file_urls[size_name] = f"/uploads/{subdirectory}/{filename}"
+                    file_urls[size_name] = url
                     
                 except Exception as e:
                     logger.error(f"Error creating {size_name} variant: {e}")
                     # Clean up any files created so far
-                    self.cleanup_files(subdirectory, filename_base, list(sizes.keys()))
+                    self.cleanup_files(subdirectory, filename_base, list(file_urls.keys()))
                     raise BusinessLogicError(f"Failed to create image variant: {str(e)}")
             
             return file_urls
@@ -510,15 +522,12 @@ class FileUploadService(BaseService):
             filename_base: Base filename (without extension)
             size_names: List of size variant names
         """
-        upload_dir = self.base_upload_dir / subdirectory
-        
         for size_name in size_names:
-            file_path = upload_dir / f"{filename_base}_{size_name}.jpg"
+            filename = f"{filename_base}_{size_name}.jpg"
             try:
-                if file_path.exists():
-                    file_path.unlink()
+                storage.delete_file(folder=subdirectory, filename=filename)
             except Exception as e:
-                logger.warning(f"Failed to delete file {file_path}: {e}")
+                logger.warning(f"Failed to delete file {filename}: {e}")
 
     def cleanup_single_file(self, file_url: str) -> None:
         """
@@ -528,14 +537,15 @@ class FileUploadService(BaseService):
             file_url: URL path to the file (e.g., "/uploads/posts/filename.jpg")
         """
         try:
-            # Convert URL to file path
+            # Extract folder and filename from URL
             if file_url.startswith('/uploads/'):
                 relative_path = file_url[9:]  # Remove '/uploads/' prefix
-                file_path = self.base_upload_dir / relative_path
+                parts = relative_path.split('/', 1)
                 
-                if file_path.exists():
-                    file_path.unlink()
-                    logger.info(f"Deleted file: {file_path}")
+                if len(parts) == 2:
+                    folder, filename = parts
+                    storage.delete_file(folder=folder, filename=filename)
+                    logger.info(f"Deleted file: {file_url}")
             
         except Exception as e:
             logger.warning(f"Failed to delete file {file_url}: {e}")
@@ -697,30 +707,33 @@ class FileUploadService(BaseService):
             Dictionary with file information
         """
         try:
-            # Create upload directory
-            upload_dir = self.base_upload_dir / subdirectory
-            upload_dir.mkdir(parents=True, exist_ok=True)
-            
             # Generate unique filename
             file_extension = Path(file.filename).suffix if file.filename else '.jpg'
             unique_filename = f"{uuid.uuid4()}{file_extension}"
-            file_path = upload_dir / unique_filename
             
             # Read file content
             content = await file.read()
             
-            # Save the file
-            with open(file_path, "wb") as buffer:
-                buffer.write(content)
+            # Upload using storage adapter
+            file_url = storage.upload_file(
+                file_data=content,
+                folder=subdirectory,
+                filename=unique_filename,
+                content_type=file.content_type
+            )
             
             # Store hash information (skip for force uploads to avoid conflicts)
             image_hash_id = None
             if not force_upload:
                 try:
+                    # For hash storage, we need the full file path
+                    # In production (S3), we'll use the URL as the file path
+                    file_path = file_url if storage.is_production else str(self.base_upload_dir / subdirectory / unique_filename)
+                    
                     image_hash = await self.hash_service.store_image_hash(
                         file_content=content,
                         original_filename=file.filename or unique_filename,
-                        file_path=str(file_path),
+                        file_path=file_path,
                         mime_type=file.content_type or "image/jpeg",
                         upload_context=upload_context,
                         uploader_id=uploader_id
@@ -743,9 +756,6 @@ class FileUploadService(BaseService):
                     f"(size: {len(content)} bytes, context: {upload_context}, uploader: {uploader_id}) "
                     f"- skipped deduplication"
                 )
-            
-            # Return the URL path and metadata
-            file_url = f"/uploads/{subdirectory}/{unique_filename}"
             
             return {
                 "is_duplicate": False,
@@ -778,32 +788,37 @@ class FileUploadService(BaseService):
             True if file was actually deleted, False if still referenced
         """
         try:
-            # Convert URL to file path
-            if file_url.startswith('/uploads/'):
-                relative_path = file_url[9:]  # Remove '/uploads/' prefix
-                file_path = str(self.base_upload_dir / relative_path)
+            # Find the image hash record by URL
+            image_hash = await self.hash_service.get_hash_by_file_path(file_url)
+            
+            if not image_hash:
+                # Try to find by local file path if in development
+                if not storage.is_production and file_url.startswith('/uploads/'):
+                    relative_path = file_url[9:]
+                    file_path = str(self.base_upload_dir / relative_path)
+                    image_hash = await self.hash_service.get_hash_by_file_path(file_path)
+            
+            if image_hash:
+                # Decrement reference count
+                should_delete = await self.hash_service.decrement_reference_count(image_hash)
                 
-                # Find the image hash record
-                image_hash = await self.hash_service.get_hash_by_file_path(file_path)
-                
-                if image_hash:
-                    # Decrement reference count
-                    should_delete = await self.hash_service.decrement_reference_count(image_hash)
-                    
-                    if should_delete:
-                        # Actually delete the file
-                        path_obj = Path(file_path)
-                        if path_obj.exists():
-                            path_obj.unlink()
-                            logger.info(f"Deleted file: {file_path}")
-                        return True
-                    else:
-                        logger.info(f"File {file_path} still has {image_hash.reference_count} references, not deleting")
-                        return False
-                else:
-                    # No hash record found, delete file directly (legacy behavior)
-                    self.cleanup_single_file(file_url)
+                if should_delete:
+                    # Actually delete the file using storage adapter
+                    if file_url.startswith('/uploads/'):
+                        relative_path = file_url[9:]
+                        parts = relative_path.split('/', 1)
+                        if len(parts) == 2:
+                            folder, filename = parts
+                            storage.delete_file(folder=folder, filename=filename)
+                    logger.info(f"Deleted file: {file_url}")
                     return True
+                else:
+                    logger.info(f"File {file_url} still has {image_hash.reference_count} references, not deleting")
+                    return False
+            else:
+                # No hash record found, delete file directly (legacy behavior)
+                self.cleanup_single_file(file_url)
+                return True
             
             return False
             
@@ -863,12 +878,16 @@ class FileUploadService(BaseService):
         Convert absolute file path to URL path.
         
         Args:
-            file_path: Absolute file system path
+            file_path: Absolute file system path or S3 URL
             
         Returns:
-            URL path starting with /uploads/
+            URL path
         """
         try:
+            # If already a URL (starts with http or /uploads), return as-is
+            if file_path.startswith('http') or file_path.startswith('/uploads/'):
+                return file_path
+            
             # Convert absolute path to relative path from base_upload_dir
             path_obj = Path(file_path)
             base_path = Path(self.base_upload_dir)

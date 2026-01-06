@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, BusinessLogicError
+from app.core.storage import storage  # Import the storage adapter
 from app.models.user import User
 from app.services.file_upload_service import FileUploadService
 
@@ -168,8 +169,6 @@ class ProfilePhotoService(BaseService):
         logger.info(f"Profile photo and all variants deleted for user {user_id}")
         return True
 
-
-
     async def _create_individual_variants(self, file: UploadFile, user_id: int, crop_data: Dict[str, Any] = None) -> Dict[str, str]:
         """
         Create individual profile photo variants for a specific user.
@@ -220,7 +219,7 @@ class ProfilePhotoService(BaseService):
 
     async def _delete_profile_photo_variants(self, profile_image_url: str) -> None:
         """
-        Delete individual profile photo variants.
+        Delete individual profile photo variants using storage adapter.
         Since each user has individual variants, we delete all variants directly.
         
         Args:
@@ -230,18 +229,16 @@ class ProfilePhotoService(BaseService):
             # Extract base filename from the variant URL
             base_filename, extension = self._extract_base_filename_from_variant_url(profile_image_url)
             
-            # For individual variants, delete all size variants directly
+            # Delete all size variants using storage adapter
             logger.info(f"Deleting individual profile photo variants for {base_filename}")
-            upload_dir = Path(self.file_service.base_upload_dir) / "profile_photos"
             
             for size_name in self.sizes.keys():
                 variant_filename = f"{base_filename}_{size_name}{extension}"
-                variant_path = upload_dir / variant_filename
                 
                 try:
-                    if variant_path.exists():
-                        variant_path.unlink()
-                        logger.debug(f"Deleted profile photo variant from disk: {variant_filename}")
+                    # Use storage adapter to delete file
+                    storage.delete_file(folder="profile_photos", filename=variant_filename)
+                    logger.debug(f"Deleted profile photo variant: {variant_filename}")
                 except Exception as e:
                     logger.warning(f"Failed to delete variant {variant_filename}: {e}")
             
@@ -270,4 +267,3 @@ class ProfilePhotoService(BaseService):
         # For now, return a placeholder URL with the user's color
         # In production, this could generate actual avatar images
         return f"/api/avatar/{user_id}?color={color.replace('#', '')}"
-

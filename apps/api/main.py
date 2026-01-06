@@ -67,6 +67,7 @@ from app.core.responses import error_response
 from app.core.structured_logging import setup_structured_logging
 from app.core.uptime_monitoring import uptime_monitor
 from app.core.oauth_config import initialize_oauth_providers, get_oauth_config
+from app.core.storage import storage  # Import unified storage adapter
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
@@ -81,40 +82,12 @@ setup_structured_logging(
 )
 logger = logging.getLogger(__name__)
 
-
-# Detect if we're in Leapcell or need object storage
-def is_serverless_with_readonly_fs():
-    """Check if we're in a serverless environment with read-only filesystem."""
-    return bool(os.getenv('LEAPCELL'))
-
-
-# Setup storage backend
-USE_S3_STORAGE = is_serverless_with_readonly_fs()
-
-if USE_S3_STORAGE:
-    try:
-        import boto3
-        from botocore.config import Config
-        
-        # Configure S3 client for Leapcell object storage
-        s3_client = boto3.client(
-            "s3",
-            region_name=os.getenv("S3_REGION"),
-            endpoint_url=os.getenv("S3_ENDPOINT_URL"),
-            aws_access_key_id=os.getenv("S3_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("S3_SECRET_ACCESS_KEY")
-        )
-        
-        S3_BUCKET = os.getenv("S3_BUCKET")
-        
-        logger.info(f"Using S3 object storage: {S3_BUCKET}")
-        
-    except ImportError:
-        logger.error("boto3 not installed but S3 storage is required!")
-        logger.error("Install with: pip install boto3")
-        raise
+# Log storage backend being used
+logger.info(f"Storage backend initialized: {storage.storage_backend}")
+if storage.is_production:
+    logger.info(f"Using S3-compatible storage (bucket: {storage.bucket_name})")
 else:
-    logger.info("Using local filesystem storage")
+    logger.info(f"Using local filesystem storage (path: {storage.upload_path})")
 
 
 @asynccontextmanager
@@ -280,11 +253,12 @@ logger.info(f"Session middleware configured: same_site={cookie_samesite}, https_
 cors_config = security_config.get_cors_config()
 app.add_middleware(CORSMiddleware, **cors_config)
 
-# Mount static files or setup S3 storage proxy
-if not USE_S3_STORAGE:
-    # Local filesystem storage
+# Mount static files for local development only
+# In production, files are served directly from S3 URLs
+if not storage.is_production:
     uploads_path = os.getenv("UPLOAD_PATH", "uploads")
-    # Ensure we use absolute path for Railway volume mounting
+    
+    # Ensure we use absolute path
     if not os.path.isabs(uploads_path):
         uploads_path = os.path.abspath(uploads_path)
 
@@ -292,54 +266,15 @@ if not USE_S3_STORAGE:
     
     try:
         uploads_dir.mkdir(parents=True, exist_ok=True)
-        # Set proper permissions for Railway volume
+        # Set proper permissions
         os.chmod(uploads_path, 0o755)
-        logger.info(f"Upload directory configured at: {uploads_path}")
+        logger.info(f"Local upload directory configured at: {uploads_path}")
         app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
     except OSError as e:
         logger.warning(f"Could not create local upload directory: {e}")
-        logger.warning("File uploads will not work without writable storage")
+        logger.warning("File uploads may not work without writable storage")
 else:
-    # S3 storage - create a simple proxy endpoint for serving files
-    from fastapi import HTTPException
-    from fastapi.responses import StreamingResponse
-    import io
-    
-    @app.get("/uploads/{file_path:path}")
-    async def serve_upload(file_path: str):
-        """Serve uploaded files from S3 storage."""
-        try:
-            response = s3_client.get_object(
-                Bucket=S3_BUCKET,
-                Key=file_path
-            )
-            
-            # Stream the file content
-            file_stream = io.BytesIO(response['Body'].read())
-            
-            # Get content type from S3 metadata
-            content_type = response.get('ContentType', 'application/octet-stream')
-            
-            return StreamingResponse(
-                file_stream,
-                media_type=content_type,
-                headers={
-                    "Content-Disposition": f"inline; filename={file_path.split('/')[-1]}"
-                }
-            )
-        except s3_client.exceptions.NoSuchKey:
-            raise HTTPException(status_code=404, detail="File not found")
-        except Exception as e:
-            logger.error(f"Error serving file from S3: {e}")
-            raise HTTPException(status_code=500, detail="Error retrieving file")
-    
-    logger.info("Using S3 storage proxy for /uploads endpoint")
-
-# Store storage config in app state for use in upload handlers
-app.state.use_s3_storage = USE_S3_STORAGE
-if USE_S3_STORAGE:
-    app.state.s3_client = s3_client
-    app.state.s3_bucket = S3_BUCKET
+    logger.info("Production mode: Files served directly from S3-compatible storage")
 
 
 # Include routers with security considerations
