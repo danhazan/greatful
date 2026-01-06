@@ -1,6 +1,6 @@
 """
 Unified storage adapter - S3-compatible (works with Supabase, R2, AWS S3, etc.)
-Automatically uses S3 storage in production, local storage in development
+Stores relative paths in DB, generates URLs dynamically
 """
 import os
 import logging
@@ -17,6 +17,11 @@ class StorageAdapter:
     def __init__(self):
         self.environment = os.getenv("ENVIRONMENT", "development")
         self.is_production = self.environment == "production"
+        
+        # Log environment detection for debugging
+        logger.info(f"🔧 Storage initialization:")
+        logger.info(f"   ENVIRONMENT variable: {self.environment}")
+        logger.info(f"   is_production: {self.is_production}")
         
         if self.is_production:
             self._init_s3_storage()
@@ -36,6 +41,13 @@ class StorageAdapter:
             s3_secret_key = os.getenv("S3_SECRET_ACCESS_KEY")
             self.bucket_name = os.getenv("S3_BUCKET", "uploads")
             self.public_url_base = os.getenv("S3_PUBLIC_URL")  # Optional custom public URL
+            
+            # Debug logging
+            logger.info(f"   S3_ENDPOINT_URL: {s3_endpoint}")
+            logger.info(f"   S3_BUCKET: {self.bucket_name}")
+            logger.info(f"   S3_PUBLIC_URL: {self.public_url_base}")
+            logger.info(f"   S3_ACCESS_KEY_ID: {'✓ Set' if s3_access_key else '✗ Not set'}")
+            logger.info(f"   S3_SECRET_ACCESS_KEY: {'✓ Set' if s3_secret_key else '✗ Not set'}")
             
             if not s3_endpoint or not s3_access_key or not s3_secret_key:
                 raise ValueError(
@@ -79,7 +91,7 @@ class StorageAdapter:
         content_type: Optional[str] = None
     ) -> str:
         """
-        Upload file to storage (S3 in production, local in dev)
+        Upload file to storage.
         
         Args:
             file_data: File contents as bytes
@@ -88,54 +100,46 @@ class StorageAdapter:
             content_type: MIME type (optional)
         
         Returns:
-            URL to access the file
+            CLEAN relative path WITHOUT /uploads/ prefix (e.g., 'profile_photos/file.jpg')
+            This MUST be stored AS-IS in the database - DO NOT add /uploads/ prefix!
         """
+        # Ensure folder doesn't have /uploads/ prefix
+        folder = folder.lstrip('/').replace('uploads/', '', 1)
+        
+        # Construct clean relative path (no /uploads/ prefix)
+        relative_path = f"{folder}/{filename}"
+        
         if self.is_production:
-            return self._upload_to_s3(file_data, folder, filename, content_type)
+            self._upload_to_s3(file_data, relative_path, content_type)
         else:
-            return self._upload_to_local(file_data, folder, filename)
+            self._upload_to_local(file_data, folder, filename)
+        
+        # CRITICAL: Always return clean relative path for DB storage
+        # Services MUST save this exact value to the database
+        logger.info(f"📦 Uploaded file, DB path: {relative_path}")
+        return relative_path
     
-    def _upload_to_s3(
-        self, 
-        file_data: bytes, 
-        folder: str, 
-        filename: str,
-        content_type: Optional[str]
-    ) -> str:
+    def _upload_to_s3(self, file_data: bytes, relative_path: str, content_type: Optional[str]) -> None:
         """Upload to S3-compatible storage"""
         try:
-            # Construct path: folder/filename
-            file_path = f"{folder}/{filename}"
-            
-            # Upload to S3
             extra_args = {}
             if content_type:
                 extra_args['ContentType'] = content_type
             
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
-                Key=file_path,
+                Key=relative_path,
                 Body=file_data,
                 **extra_args
             )
             
-            # Get public URL
-            if self.public_url_base:
-                # Use custom public URL if provided
-                public_url = f"{self.public_url_base}/{file_path}"
-            else:
-                # Generate URL from endpoint
-                s3_endpoint = os.getenv("S3_ENDPOINT_URL")
-                public_url = f"{s3_endpoint}/{self.bucket_name}/{file_path}"
-            
-            logger.info(f"✓ Uploaded to S3: {file_path}")
-            return public_url
+            logger.info(f"✓ Uploaded to S3: {relative_path}")
             
         except Exception as e:
             logger.error(f"Failed to upload to S3: {e}")
             raise
     
-    def _upload_to_local(self, file_data: bytes, folder: str, filename: str) -> str:
+    def _upload_to_local(self, file_data: bytes, folder: str, filename: str) -> None:
         """Upload to local filesystem"""
         # Create folder if it doesn't exist
         folder_path = self.upload_path / folder
@@ -146,24 +150,41 @@ class StorageAdapter:
         with open(file_path, "wb") as f:
             f.write(file_data)
         
-        # Return relative URL
-        url = f"/uploads/{folder}/{filename}"
-        logger.info(f"✓ Uploaded locally: {url}")
-        return url
+        logger.info(f"✓ Uploaded locally: {folder}/{filename}")
     
-    def delete_file(self, folder: str, filename: str) -> bool:
-        """Delete file from storage"""
+    def delete_file(self, relative_path: str) -> bool:
+        """
+        Delete file from storage using relative path.
+        
+        Args:
+            relative_path: Path like 'profile_photos/file.jpg' or '/uploads/profile_photos/file.jpg'
+        
+        Returns:
+            True if deleted successfully
+        """
+        # Normalize path (remove /uploads/ prefix if present)
+        clean_path = self.normalize_path(relative_path)
+        
+        if not clean_path:
+            logger.warning("Empty path provided to delete_file")
+            return False
+        
         if self.is_production:
-            return self._delete_from_s3(folder, filename)
+            return self._delete_from_s3(clean_path)
         else:
-            return self._delete_from_local(folder, filename)
+            # Split into folder and filename for local storage
+            parts = clean_path.split('/', 1)
+            if len(parts) == 2:
+                folder, filename = parts
+                return self._delete_from_local(folder, filename)
+            logger.warning(f"Invalid path format for deletion: {clean_path}")
+            return False
     
-    def _delete_from_s3(self, folder: str, filename: str) -> bool:
+    def _delete_from_s3(self, relative_path: str) -> bool:
         """Delete from S3-compatible storage"""
         try:
-            file_path = f"{folder}/{filename}"
-            self.s3_client.delete_object(Bucket=self.bucket_name, Key=file_path)
-            logger.info(f"✓ Deleted from S3: {file_path}")
+            self.s3_client.delete_object(Bucket=self.bucket_name, Key=relative_path)
+            logger.info(f"✓ Deleted from S3: {relative_path}")
             return True
         except Exception as e:
             logger.error(f"Failed to delete from S3: {e}")
@@ -175,27 +196,132 @@ class StorageAdapter:
             file_path = self.upload_path / folder / filename
             if file_path.exists():
                 file_path.unlink()
-                logger.info(f"✓ Deleted locally: {file_path}")
+                logger.info(f"✓ Deleted locally: {folder}/{filename}")
                 return True
+            logger.warning(f"File not found for deletion: {folder}/{filename}")
             return False
         except Exception as e:
             logger.error(f"Failed to delete locally: {e}")
             return False
     
-    def get_file_url(self, folder: str, filename: str) -> str:
-        """Get URL to access a file"""
+    def normalize_path(self, path: str) -> str:
+        """
+        Convert any path format to clean relative path.
+        
+        Handles:
+        - Legacy paths with /uploads/ prefix
+        - Full URLs from S3/Supabase
+        - Already clean paths
+        
+        Examples:
+          /uploads/profile_photos/file.jpg -> profile_photos/file.jpg
+          https://example.com/.../profile_photos/file.jpg -> profile_photos/file.jpg
+          profile_photos/file.jpg -> profile_photos/file.jpg
+        
+        Args:
+            path: Any path format from DB or user input
+        
+        Returns:
+            Clean relative path without /uploads/ prefix
+        """
+        if not path:
+            return path
+        
+        # Remove any URL scheme and domain (for full S3 URLs in DB)
+        if path.startswith('http://') or path.startswith('https://'):
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(path)
+                path = parsed.path
+                # Remove bucket name if it's in the path
+                # e.g., /grateful-uploads/profile_photos/file.jpg -> profile_photos/file.jpg
+                if self.is_production and self.bucket_name and f"/{self.bucket_name}/" in path:
+                    path = path.split(f"/{self.bucket_name}/", 1)[1]
+                # Also handle Supabase path structure: /storage/v1/object/public/bucket/path
+                if "/object/public/" in path:
+                    parts = path.split("/object/public/")
+                    if len(parts) > 1:
+                        # Remove bucket name from the path
+                        remaining = parts[1]
+                        if "/" in remaining:
+                            path = remaining.split("/", 1)[1]
+            except Exception as e:
+                logger.warning(f"Error parsing URL in path: {e}")
+        
+        # Remove leading /uploads/ if present (legacy local format)
+        if path.startswith('/uploads/'):
+            path = path[9:]  # Remove '/uploads/'
+        elif path.startswith('uploads/'):
+            path = path[8:]  # Remove 'uploads/'
+        
+        # Remove leading slash
+        path = path.lstrip('/')
+        
+        return path
+    
+    def get_url(self, relative_path: str) -> str:
+        """
+        Convert relative path from DB to full URL for frontend.
+        
+        This is THE central place for URL generation. Call this when:
+        - Serializing API responses
+        - Returning data to frontend
+        
+        CRITICAL: This method expects clean relative paths from DB (no /uploads/ prefix)
+        but will handle legacy paths gracefully.
+        
+        Examples:
+          Production:  profile_photos/file.jpg -> https://supabase.co/.../grateful-uploads/profile_photos/file.jpg
+          Development: profile_photos/file.jpg -> /uploads/profile_photos/file.jpg
+          Legacy:      /uploads/profile_photos/file.jpg -> (normalized then converted)
+        
+        Args:
+            relative_path: Path from database (should be 'profile_photos/file.jpg')
+        
+        Returns:
+            Full URL for frontend to access the file
+        """
+        if not relative_path:
+            return relative_path
+        
+        # Normalize the path first (handles legacy /uploads/ prefix and full URLs)
+        clean_path = self.normalize_path(relative_path)
+        
+        if not clean_path:
+            logger.warning(f"Empty path after normalization: {relative_path}")
+            return relative_path
+        
         if self.is_production:
-            file_path = f"{folder}/{filename}"
+            # Return full S3 URL
             if self.public_url_base:
-                return f"{self.public_url_base}/{file_path}"
+                # Use custom public URL (e.g., Supabase public URL)
+                # Ensure no double slashes and proper joining
+                base_url = self.public_url_base.rstrip('/')
+                url = f"{base_url}/{clean_path}"
+                logger.debug(f"🔗 Generated S3 URL: {clean_path} -> {url}")
+                return url
             else:
-                s3_endpoint = os.getenv("S3_ENDPOINT_URL")
-                return f"{s3_endpoint}/{self.bucket_name}/{file_path}"
+                # Fallback to endpoint URL
+                s3_endpoint = os.getenv("S3_ENDPOINT_URL", "").rstrip('/')
+                url = f"{s3_endpoint}/{self.bucket_name}/{clean_path}"
+                logger.debug(f"🔗 Generated S3 URL (endpoint): {clean_path} -> {url}")
+                return url
         else:
-            return f"/uploads/{folder}/{filename}"
+            # Return local URL with /uploads/ prefix
+            url = f"/uploads/{clean_path}"
+            logger.debug(f"🔗 Generated local URL: {clean_path} -> {url}")
+            return url
     
     def generate_unique_filename(self, original_filename: str) -> str:
-        """Generate a unique filename"""
+        """
+        Generate a unique filename to prevent collisions.
+        
+        Args:
+            original_filename: Original filename with extension
+            
+        Returns:
+            Unique filename with preserved extension
+        """
         ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else ''
         unique_name = f"{uuid.uuid4()}"
         return f"{unique_name}.{ext}" if ext else unique_name

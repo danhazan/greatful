@@ -76,21 +76,28 @@ class ProfilePhotoService(BaseService):
                 sizes_result = await self._create_individual_variants(file, user_id, crop_data)
                 
                 # Update user's profile image URL (use medium size as default)
-                medium_url = sizes_result.get("medium")
-                if not medium_url:
+                medium_path = sizes_result.get("medium")
+                if not medium_path:
                     raise BusinessLogicError("Failed to create medium size variant")
-                    
-                user.profile_image_url = medium_url
+                
+                # Store clean relative path in database
+                user.profile_image_url = medium_path
                 await self.db.commit()
                 await self.db.refresh(user)
                 
-                logger.info(f"Profile photo uploaded successfully for user {user_id}")
+                logger.info(f"Profile photo uploaded successfully for user {user_id}, path: {medium_path}")
+                
+                # Convert all paths to URLs for API response
+                size_urls = {
+                    size_name: storage.get_url(path)
+                    for size_name, path in sizes_result.items()
+                }
                 
                 return {
                     "success": True,
                     "message": "Profile photo uploaded successfully",
-                    "profile_image_url": medium_url,
-                    "sizes": sizes_result,
+                    "profile_image_url": storage.get_url(medium_path),  # Convert to URL
+                    "sizes": size_urls,  # All URLs for frontend
                     "is_duplicate": False,
                     "similar_images": [],  # No similarity checking for profiles
                     "user_id": user_id
@@ -143,7 +150,7 @@ class ProfilePhotoService(BaseService):
 
     async def delete_profile_photo(self, user_id: int) -> bool:
         """
-        Delete user's profile photo and all variants with deduplication handling.
+        Delete user's profile photo and all variants.
         
         Args:
             user_id: ID of the user
@@ -180,7 +187,7 @@ class ProfilePhotoService(BaseService):
             crop_data: Optional circular crop parameters
             
         Returns:
-            Dict mapping size names to variant URLs
+            Dict mapping size names to clean relative paths (e.g., 'profile_photos/abc.jpg')
         """
         # Generate unique filename base for this user
         import uuid
@@ -188,64 +195,82 @@ class ProfilePhotoService(BaseService):
         filename_base = f"profile_{user_id}_{unique_id}"
         
         # Create variants using the dedicated profile photo method (no deduplication)
+        # Returns clean relative paths
         sizes_result = await self.file_service.save_profile_photo_variants(
             file, filename_base, self.sizes, crop_data
         )
         
         return sizes_result
 
-    def _extract_base_filename_from_variant_url(self, variant_url: str) -> tuple[str, str]:
+    def _extract_base_filename_from_variant_path(self, variant_path: str) -> tuple[str, str]:
         """
-        Extract base filename and extension from a variant URL.
+        Extract base filename and extension from a variant path.
         
         Args:
-            variant_url: URL like /uploads/profile_photos/profile_uuid_medium.jpg
+            variant_path: Path like 'profile_photos/profile_123_uuid_medium.jpg'
             
         Returns:
-            tuple: (base_filename, extension) like ("profile_uuid", ".jpg")
+            tuple: (base_filename, extension) like ("profile_123_uuid", ".jpg")
         """
-        url_path = Path(variant_url)
-        filename_with_size = url_path.stem  # profile_uuid_medium
-        extension = url_path.suffix  # .jpg
+        # Normalize the path first to handle legacy formats
+        clean_path = storage.normalize_path(variant_path)
+        
+        # Extract just the filename part (remove 'profile_photos/' prefix)
+        if '/' in clean_path:
+            filename = clean_path.split('/')[-1]
+        else:
+            filename = clean_path
+        
+        path = Path(filename)
+        filename_with_size = path.stem  # profile_123_uuid_medium
+        extension = path.suffix  # .jpg
         
         # Remove the size suffix to get base filename
         parts = filename_with_size.split('_')
         if len(parts) >= 2 and parts[-1] in self.sizes:
-            base_filename = '_'.join(parts[:-1])  # profile_uuid
+            base_filename = '_'.join(parts[:-1])  # profile_123_uuid
         else:
             base_filename = filename_with_size
             
         return base_filename, extension
 
-    async def _delete_profile_photo_variants(self, profile_image_url: str) -> None:
+    async def _delete_profile_photo_variants(self, profile_image_path: str) -> None:
         """
         Delete individual profile photo variants using storage adapter.
         Since each user has individual variants, we delete all variants directly.
         
         Args:
-            profile_image_url: URL of the main profile photo (usually the medium variant)
+            profile_image_path: Relative path of the main profile photo (usually the medium variant)
         """
         try:
-            # Extract base filename from the variant URL
-            base_filename, extension = self._extract_base_filename_from_variant_url(profile_image_url)
+            # Extract base filename from the variant path
+            base_filename, extension = self._extract_base_filename_from_variant_path(profile_image_path)
             
-            # Delete all size variants using storage adapter
             logger.info(f"Deleting individual profile photo variants for {base_filename}")
             
+            # Delete all size variants using storage adapter
             for size_name in self.sizes.keys():
                 variant_filename = f"{base_filename}_{size_name}{extension}"
+                relative_path = f"profile_photos/{variant_filename}"
                 
                 try:
                     # Use storage adapter to delete file
-                    storage.delete_file(folder="profile_photos", filename=variant_filename)
-                    logger.debug(f"Deleted profile photo variant: {variant_filename}")
+                    success = storage.delete_file(relative_path)
+                    if success:
+                        logger.debug(f"Deleted profile photo variant: {relative_path}")
+                    else:
+                        logger.debug(f"Variant not found (may have been deleted): {relative_path}")
                 except Exception as e:
-                    logger.warning(f"Failed to delete variant {variant_filename}: {e}")
+                    logger.warning(f"Failed to delete variant {relative_path}: {e}")
             
         except Exception as e:
-            logger.warning(f"Error deleting profile photo variants for {profile_image_url}: {e}")
+            logger.warning(f"Error deleting profile photo variants for {profile_image_path}: {e}")
             # Fallback: try to delete the main file directly
-            self.file_service.cleanup_single_file(profile_image_url)
+            try:
+                storage.delete_file(profile_image_path)
+                logger.info(f"Deleted main profile photo as fallback: {profile_image_path}")
+            except Exception as fallback_error:
+                logger.warning(f"Fallback deletion also failed: {fallback_error}")
 
     async def get_default_avatar_url(self, user_id: int) -> str:
         """

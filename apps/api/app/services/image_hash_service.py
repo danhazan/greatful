@@ -15,6 +15,7 @@ from sqlalchemy import and_, or_, func
 
 from app.core.service_base import BaseService
 from app.core.exceptions import ValidationException, BusinessLogicError
+from app.core.storage import storage  # Import storage adapter
 from app.models.image_hash import ImageHash
 
 try:
@@ -175,7 +176,7 @@ class ImageHashService(BaseService):
         Args:
             file_content: Raw file bytes
             original_filename: Original filename
-            file_path: Path where file is stored
+            file_path: Clean relative path where file is stored (e.g., 'posts/abc.jpg')
             mime_type: MIME type of the file
             upload_context: Context of upload ('profile', 'post', etc.)
             uploader_id: ID of user who uploaded the image
@@ -187,6 +188,9 @@ class ImageHashService(BaseService):
             BusinessLogicError: If hash calculation or storage fails
         """
         try:
+            # Normalize the file path (handles legacy formats)
+            clean_path = storage.normalize_path(file_path)
+            
             # Calculate file hash
             file_hash = await self.calculate_file_hash(file_content)
             
@@ -196,7 +200,7 @@ class ImageHashService(BaseService):
             if existing_hash:
                 if not existing_hash.is_active:
                     # Reactivate the existing inactive record with new file path
-                    existing_hash.file_path = file_path
+                    existing_hash.file_path = clean_path
                     existing_hash.original_filename = original_filename
                     existing_hash.mime_type = mime_type
                     existing_hash.file_size = len(file_content)
@@ -224,12 +228,12 @@ class ImageHashService(BaseService):
             metadata = await self.get_image_metadata(image)
             perceptual_hash = await self.calculate_perceptual_hash(image)
             
-            # Create ImageHash record
+            # Create ImageHash record with clean path
             image_hash = ImageHash(
                 file_hash=file_hash,
                 perceptual_hash=perceptual_hash,
                 original_filename=original_filename,
-                file_path=file_path,
+                file_path=clean_path,  # Store clean relative path
                 file_size=len(file_content),
                 mime_type=mime_type,
                 width=metadata["width"],
@@ -243,7 +247,7 @@ class ImageHashService(BaseService):
             await self.db.commit()
             await self.db.refresh(image_hash)
             
-            logger.info(f"Stored image hash: {file_hash[:8]}... for {original_filename}")
+            logger.info(f"Stored image hash: {file_hash[:8]}... for {original_filename}, path: {clean_path}")
             return image_hash
             
         except Exception as e:
@@ -296,19 +300,32 @@ class ImageHashService(BaseService):
         Get ImageHash by file path.
         
         Args:
-            file_path: Path to the file
+            file_path: Path to the file (can be legacy or clean format)
             
         Returns:
             ImageHash object if found, None otherwise
         """
+        # Normalize the path to handle both old and new formats
+        clean_path = storage.normalize_path(file_path)
+        
         result = await self.db.execute(
-            select(ImageHash).where(ImageHash.file_path == file_path)
+            select(ImageHash).where(ImageHash.file_path == clean_path)
         )
-        return result.scalar_one_or_none()
+        image_hash = result.scalar_one_or_none()
+        
+        # If not found with clean path, try original path (for transition period)
+        if not image_hash and clean_path != file_path:
+            result = await self.db.execute(
+                select(ImageHash).where(ImageHash.file_path == file_path)
+            )
+            image_hash = result.scalar_one_or_none()
+        
+        return image_hash
 
     async def cleanup_orphaned_hashes(self) -> int:
         """
         Clean up ImageHash records with reference_count = 0.
+        Uses storage adapter for cross-platform file deletion (local/S3).
         
         Returns:
             Number of records cleaned up
@@ -327,16 +344,17 @@ class ImageHashService(BaseService):
             
             count = 0
             for image_hash in orphaned_hashes:
-                # Check if file still exists and delete it
-                file_path = Path(image_hash.file_path)
-                if file_path.exists():
-                    try:
-                        file_path.unlink()
-                        logger.info(f"Deleted orphaned file: {file_path}")
-                    except Exception as e:
-                        logger.warning(f"Failed to delete file {file_path}: {e}")
+                # Delete file using storage adapter (works for both local and S3)
+                try:
+                    success = storage.delete_file(image_hash.file_path)
+                    if success:
+                        logger.info(f"Deleted orphaned file: {image_hash.file_path}")
+                    else:
+                        logger.warning(f"Orphaned file not found or already deleted: {image_hash.file_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete orphaned file {image_hash.file_path}: {e}")
                 
-                # Delete the hash record
+                # Delete the hash record from database
                 await self.db.delete(image_hash)
                 count += 1
             

@@ -94,7 +94,8 @@ class FileUploadService(BaseService):
             subdirectory: Subdirectory under uploads/
             
         Returns:
-            URL path to the saved file
+            Clean relative path (e.g., 'posts/abc.jpg') - NOT a URL!
+            Caller should use storage.get_url() to convert to URL for API responses.
             
         Raises:
             BusinessLogicError: If save operation fails
@@ -108,15 +109,16 @@ class FileUploadService(BaseService):
             content = await file.read()
             
             # Upload using storage adapter
-            url = storage.upload_file(
+            # Returns clean relative path: 'posts/abc.jpg'
+            relative_path = storage.upload_file(
                 file_data=content,
                 folder=subdirectory,
                 filename=unique_filename,
                 content_type=file.content_type
             )
             
-            logger.info(f"Saved simple file: {unique_filename} to {subdirectory}")
-            return url
+            logger.info(f"Saved simple file: {unique_filename} to {subdirectory}, path: {relative_path}")
+            return relative_path
 
         except Exception as e:
             logger.error(f"Error saving uploaded file: {e}")
@@ -141,13 +143,16 @@ class FileUploadService(BaseService):
 
         Returns:
             Dictionary containing:
-            - thumbnail_url: URL for thumbnail variant
-            - medium_url: URL for medium variant
-            - original_url: URL for original variant
+            - thumbnail_url: Clean relative path for thumbnail
+            - medium_url: Clean relative path for medium
+            - original_url: Clean relative path for original
             - width: Original image width
             - height: Original image height
             - file_size: Original file size in bytes
             - position: Position index
+            
+            NOTE: All URLs are clean relative paths (e.g., 'posts/abc.jpg')
+            Caller must use storage.get_url() to convert to full URLs for API responses.
 
         Raises:
             ValidationException: If image file is invalid
@@ -188,7 +193,7 @@ class FileUploadService(BaseService):
 
             # Generate unique base filename for all variants
             base_filename = str(uuid.uuid4())
-            variant_urls = {}
+            variant_paths = {}
 
             # Helper function to resize maintaining aspect ratio
             def resize_to_max_width(img: Image.Image, max_width: int) -> Image.Image:
@@ -203,39 +208,39 @@ class FileUploadService(BaseService):
             thumb_buffer = io.BytesIO()
             thumb_image.save(thumb_buffer, "JPEG", quality=config.jpeg_quality, optimize=True)
             thumb_filename = f"{base_filename}_thumb.jpg"
-            thumb_url = storage.upload_file(
+            thumb_path = storage.upload_file(
                 file_data=thumb_buffer.getvalue(),
                 folder="posts",
                 filename=thumb_filename,
                 content_type="image/jpeg"
             )
-            variant_urls['thumbnail_url'] = thumb_url
+            variant_paths['thumbnail_url'] = thumb_path
 
             # Create medium variant
             medium_image = resize_to_max_width(image, config.medium_width)
             medium_buffer = io.BytesIO()
             medium_image.save(medium_buffer, "JPEG", quality=config.jpeg_quality, optimize=True)
             medium_filename = f"{base_filename}_medium.jpg"
-            medium_url = storage.upload_file(
+            medium_path = storage.upload_file(
                 file_data=medium_buffer.getvalue(),
                 folder="posts",
                 filename=medium_filename,
                 content_type="image/jpeg"
             )
-            variant_urls['medium_url'] = medium_url
+            variant_paths['medium_url'] = medium_path
 
             # Create original variant (capped to max width)
             original_image = resize_to_max_width(image, config.original_max_width)
             original_buffer = io.BytesIO()
             original_image.save(original_buffer, "JPEG", quality=config.jpeg_quality, optimize=True)
             original_filename = f"{base_filename}_original.jpg"
-            original_url = storage.upload_file(
+            original_path = storage.upload_file(
                 file_data=original_buffer.getvalue(),
                 folder="posts",
                 filename=original_filename,
                 content_type="image/jpeg"
             )
-            variant_urls['original_url'] = original_url
+            variant_paths['original_url'] = original_path
 
             logger.info(
                 f"Created post image variants: {base_filename} "
@@ -249,7 +254,7 @@ class FileUploadService(BaseService):
                 'width': original_width,
                 'height': original_height,
                 'file_size': file_size,
-                **variant_urls
+                **variant_paths
             }
 
         except ValidationException:
@@ -263,12 +268,17 @@ class FileUploadService(BaseService):
         Delete all variants of a post image.
 
         Args:
-            thumbnail_url: URL of thumbnail variant
-            medium_url: URL of medium variant
-            original_url: URL of original variant
+            thumbnail_url: Relative path of thumbnail variant
+            medium_url: Relative path of medium variant
+            original_url: Relative path of original variant
         """
-        for url in [thumbnail_url, medium_url, original_url]:
-            self.cleanup_single_file(url)
+        for relative_path in [thumbnail_url, medium_url, original_url]:
+            if relative_path:
+                try:
+                    storage.delete_file(relative_path)
+                    logger.debug(f"Deleted post image variant: {relative_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete variant {relative_path}: {e}")
 
     async def save_profile_photo_variants(
         self, 
@@ -288,7 +298,8 @@ class FileUploadService(BaseService):
             crop_data: Optional circular crop parameters
             
         Returns:
-            Dict mapping size names to URL paths
+            Dict mapping size names to clean relative paths (e.g., 'profile_photos/abc.jpg')
+            Caller must use storage.get_url() to convert to URLs for API responses.
             
         Raises:
             BusinessLogicError: If processing fails
@@ -322,7 +333,7 @@ class FileUploadService(BaseService):
             if crop_data:
                 image = self._apply_circular_crop(image, crop_data)
             
-            file_urls = {}
+            file_paths = {}
             
             # Create and save each size variant
             for size_name, (width, height) in sizes.items():
@@ -367,23 +378,23 @@ class FileUploadService(BaseService):
                     
                     # Upload using storage adapter
                     filename = f"{filename_base}_{size_name}.jpg"
-                    url = storage.upload_file(
+                    relative_path = storage.upload_file(
                         file_data=buffer.getvalue(),
                         folder="profile_photos",
                         filename=filename,
                         content_type="image/jpeg"
                     )
                     
-                    # Store URL
-                    file_urls[size_name] = url
+                    # Store clean relative path
+                    file_paths[size_name] = relative_path
                     
                 except Exception as e:
                     logger.error(f"Error creating {size_name} variant: {e}")
                     # Clean up any files created so far
-                    self.cleanup_files("profile_photos", filename_base, list(file_urls.keys()))
+                    self.cleanup_profile_photo_files(filename_base, list(file_paths.keys()))
                     raise BusinessLogicError(f"Failed to create image variant: {str(e)}")
             
-            return file_urls
+            return file_paths
             
         except Exception as e:
             if isinstance(e, (ValidationException, BusinessLogicError)):
@@ -410,7 +421,7 @@ class FileUploadService(BaseService):
             crop_data: Optional circular crop parameters (x, y, radius)
             
         Returns:
-            Dict mapping size names to URL paths
+            Dict mapping size names to clean relative paths
             
         Raises:
             BusinessLogicError: If processing fails
@@ -444,7 +455,7 @@ class FileUploadService(BaseService):
             if crop_data:
                 image = self._apply_circular_crop(image, crop_data)
             
-            file_urls = {}
+            file_paths = {}
             
             # Create and save each size variant
             for size_name, (width, height) in sizes.items():
@@ -489,23 +500,23 @@ class FileUploadService(BaseService):
                     
                     # Upload using storage adapter
                     filename = f"{filename_base}_{size_name}.jpg"
-                    url = storage.upload_file(
+                    relative_path = storage.upload_file(
                         file_data=buffer.getvalue(),
                         folder=subdirectory,
                         filename=filename,
                         content_type="image/jpeg"
                     )
                     
-                    # Store URL
-                    file_urls[size_name] = url
+                    # Store clean relative path
+                    file_paths[size_name] = relative_path
                     
                 except Exception as e:
                     logger.error(f"Error creating {size_name} variant: {e}")
                     # Clean up any files created so far
-                    self.cleanup_files(subdirectory, filename_base, list(file_urls.keys()))
+                    self.cleanup_files(subdirectory, filename_base, list(file_paths.keys()))
                     raise BusinessLogicError(f"Failed to create image variant: {str(e)}")
             
-            return file_urls
+            return file_paths
             
         except Exception as e:
             if isinstance(e, (ValidationException, BusinessLogicError)):
@@ -524,38 +535,55 @@ class FileUploadService(BaseService):
         """
         for size_name in size_names:
             filename = f"{filename_base}_{size_name}.jpg"
+            relative_path = f"{subdirectory}/{filename}"
             try:
-                storage.delete_file(folder=subdirectory, filename=filename)
+                storage.delete_file(relative_path)
+                logger.debug(f"Deleted file: {relative_path}")
             except Exception as e:
-                logger.warning(f"Failed to delete file {filename}: {e}")
+                logger.warning(f"Failed to delete file {relative_path}: {e}")
 
-    def cleanup_single_file(self, file_url: str) -> None:
+    def cleanup_profile_photo_files(self, filename_base: str, size_names: List[str]) -> None:
         """
-        Delete a single file by its URL.
+        Delete profile photo files for all size variants.
         
         Args:
-            file_url: URL path to the file (e.g., "/uploads/posts/filename.jpg")
+            filename_base: Base filename (without extension)
+            size_names: List of size variant names
+        """
+        for size_name in size_names:
+            filename = f"{filename_base}_{size_name}.jpg"
+            relative_path = f"profile_photos/{filename}"
+            try:
+                storage.delete_file(relative_path)
+                logger.debug(f"Deleted profile photo: {relative_path}")
+            except Exception as e:
+                logger.warning(f"Failed to delete profile photo {relative_path}: {e}")
+
+    def cleanup_single_file(self, file_path: str) -> None:
+        """
+        Delete a single file by its path.
+        
+        Args:
+            file_path: Relative path or URL to the file
+                      (e.g., 'posts/filename.jpg' or '/uploads/posts/filename.jpg')
         """
         try:
-            # Extract folder and filename from URL
-            if file_url.startswith('/uploads/'):
-                relative_path = file_url[9:]  # Remove '/uploads/' prefix
-                parts = relative_path.split('/', 1)
-                
-                if len(parts) == 2:
-                    folder, filename = parts
-                    storage.delete_file(folder=folder, filename=filename)
-                    logger.info(f"Deleted file: {file_url}")
+            # Use storage adapter's delete which handles normalization
+            success = storage.delete_file(file_path)
+            if success:
+                logger.info(f"Deleted file: {file_path}")
+            else:
+                logger.warning(f"File not found or already deleted: {file_path}")
             
         except Exception as e:
-            logger.warning(f"Failed to delete file {file_url}: {e}")
+            logger.warning(f"Failed to delete file {file_path}: {e}")
 
     def extract_filename_from_url(self, url: str) -> str:
         """
         Extract base filename from URL.
         
         Args:
-            url: File URL (e.g., "/uploads/profile_photos/filename_medium.jpg")
+            url: File URL (e.g., "profile_photos/filename_medium.jpg")
             
         Returns:
             Base filename without size suffix and extension
@@ -714,8 +742,8 @@ class FileUploadService(BaseService):
             # Read file content
             content = await file.read()
             
-            # Upload using storage adapter
-            file_url = storage.upload_file(
+            # Upload using storage adapter - returns clean relative path
+            relative_path = storage.upload_file(
                 file_data=content,
                 folder=subdirectory,
                 filename=unique_filename,
@@ -726,14 +754,11 @@ class FileUploadService(BaseService):
             image_hash_id = None
             if not force_upload:
                 try:
-                    # For hash storage, we need the full file path
-                    # In production (S3), we'll use the URL as the file path
-                    file_path = file_url if storage.is_production else str(self.base_upload_dir / subdirectory / unique_filename)
-                    
+                    # Store the relative path for hash tracking
                     image_hash = await self.hash_service.store_image_hash(
                         file_content=content,
                         original_filename=file.filename or unique_filename,
-                        file_path=file_path,
+                        file_path=relative_path,  # Store clean relative path
                         mime_type=file.content_type or "image/jpeg",
                         upload_context=upload_context,
                         uploader_id=uploader_id
@@ -759,7 +784,7 @@ class FileUploadService(BaseService):
             
             return {
                 "is_duplicate": False,
-                "file_url": file_url,
+                "file_url": relative_path,  # Return clean relative path
                 "image_hash_id": image_hash_id,
                 "similar_images": [
                     {
@@ -777,26 +802,22 @@ class FileUploadService(BaseService):
             logger.error(f"Error saving new file: {e}")
             raise BusinessLogicError(f"Failed to save file: {str(e)}")
 
-    async def delete_with_deduplication(self, file_url: str) -> bool:
+    async def delete_with_deduplication(self, file_path: str) -> bool:
         """
         Delete file with deduplication handling.
         
         Args:
-            file_url: URL of the file to delete
+            file_path: Relative path or URL of the file to delete
             
         Returns:
             True if file was actually deleted, False if still referenced
         """
         try:
-            # Find the image hash record by URL
-            image_hash = await self.hash_service.get_hash_by_file_path(file_url)
+            # Normalize the path
+            clean_path = storage.normalize_path(file_path)
             
-            if not image_hash:
-                # Try to find by local file path if in development
-                if not storage.is_production and file_url.startswith('/uploads/'):
-                    relative_path = file_url[9:]
-                    file_path = str(self.base_upload_dir / relative_path)
-                    image_hash = await self.hash_service.get_hash_by_file_path(file_path)
+            # Find the image hash record by path
+            image_hash = await self.hash_service.get_hash_by_file_path(clean_path)
             
             if image_hash:
                 # Decrement reference count
@@ -804,26 +825,20 @@ class FileUploadService(BaseService):
                 
                 if should_delete:
                     # Actually delete the file using storage adapter
-                    if file_url.startswith('/uploads/'):
-                        relative_path = file_url[9:]
-                        parts = relative_path.split('/', 1)
-                        if len(parts) == 2:
-                            folder, filename = parts
-                            storage.delete_file(folder=folder, filename=filename)
-                    logger.info(f"Deleted file: {file_url}")
+                    storage.delete_file(clean_path)
+                    logger.info(f"Deleted file: {clean_path}")
                     return True
                 else:
-                    logger.info(f"File {file_url} still has {image_hash.reference_count} references, not deleting")
+                    logger.info(f"File {clean_path} still has {image_hash.reference_count} references, not deleting")
                     return False
             else:
                 # No hash record found, delete file directly (legacy behavior)
-                self.cleanup_single_file(file_url)
+                storage.delete_file(clean_path)
+                logger.info(f"Deleted file (no hash record): {clean_path}")
                 return True
             
-            return False
-            
         except Exception as e:
-            logger.warning(f"Failed to delete file with deduplication {file_url}: {e}")
+            logger.warning(f"Failed to delete file with deduplication {file_path}: {e}")
             return False
 
     def _apply_circular_crop(self, image: Image.Image, crop_data: Dict[str, Any]) -> Image.Image:
@@ -875,34 +890,12 @@ class FileUploadService(BaseService):
 
     def _convert_file_path_to_url(self, file_path: str) -> str:
         """
-        Convert absolute file path to URL path.
+        Convert file path to URL using storage adapter.
         
         Args:
-            file_path: Absolute file system path or S3 URL
+            file_path: Clean relative path or legacy path
             
         Returns:
-            URL path
+            Full URL for frontend
         """
-        try:
-            # If already a URL (starts with http or /uploads), return as-is
-            if file_path.startswith('http') or file_path.startswith('/uploads/'):
-                return file_path
-            
-            # Convert absolute path to relative path from base_upload_dir
-            path_obj = Path(file_path)
-            base_path = Path(self.base_upload_dir)
-            
-            # Get relative path from base upload directory
-            relative_path = path_obj.relative_to(base_path)
-            
-            # Return as URL path
-            return f"/uploads/{relative_path}"
-            
-        except Exception as e:
-            logger.warning(f"Failed to convert file path to URL: {file_path}, error: {e}")
-            # Fallback: if it's already a URL path, return as-is
-            if file_path.startswith('/uploads/'):
-                return file_path
-            # Otherwise, try to extract filename and guess subdirectory
-            filename = Path(file_path).name
-            return f"/uploads/posts/{filename}"  # Default to posts subdirectory
+        return storage.get_url(file_path)
