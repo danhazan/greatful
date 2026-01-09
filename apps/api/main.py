@@ -299,6 +299,32 @@ app.include_router(follows_router, prefix="/api/v1", tags=["follows"])
 app.include_router(comments_router, prefix="/api/v1", tags=["comments"])
 app.include_router(algorithm_performance_router, prefix="/api/v1/algorithm", tags=["algorithm-performance"])
 app.include_router(database_router, prefix="/api/v1/database", tags=["database"])
+
+
+from fastapi import APIRouter
+
+# Create debug router
+debug_router = APIRouter()
+
+@debug_router.get("/debug/storage-config")
+async def debug_storage_config():
+    """Debug endpoint to check storage configuration."""
+    from app.core.storage import storage
+    import os
+    
+    test_path = "profile_photos/test_image.jpg"
+    
+    return {
+        "environment": os.getenv("ENVIRONMENT", "NOT SET"),
+        "is_production": storage.is_production,
+        "storage_backend": storage.storage_backend,
+        "s3_public_url": os.getenv("S3_PUBLIC_URL", "NOT SET"),
+        "test_url_generation": storage.get_url(test_path)
+    }
+
+# Include the router
+app.include_router(debug_router, tags=["debug"])
+
 # Admin endpoints removed for security
 
 # Include test auth router only when load testing is enabled
