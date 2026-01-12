@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, desc, text, and_
 from app.core.repository_base import BaseRepository
+from app.core.storage import storage  # ← ADDED: Import storage adapter
 from app.models.post import Post, PostType
 from app.models.user import User
 
@@ -94,7 +95,7 @@ class PostRepository(BaseRepository):
             offset: Number of posts to skip
             
         Returns:
-            List[Dict]: List of posts with engagement data
+            List[Dict]: List of posts with engagement data and full URLs
         """
         import json
         import logging
@@ -238,14 +239,24 @@ class PostRepository(BaseRepository):
                     except Exception:
                         post_style_data = None
 
+                # ✅ FIXED: Convert author profile_image_url to full URL
+                author_profile_image_url = None
+                if row.author_profile_image_url:
+                    author_profile_image_url = storage.get_url(row.author_profile_image_url)
+
+                # ✅ FIXED: Convert legacy image_url to full URL (if present)
+                image_url = None
+                if row.image_url:
+                    image_url = storage.get_url(row.image_url)
+
                 post_dict = {
                     "id": row.id,
                     "author_id": row.author_id,
                     "content": row.content,
                     "post_style": post_style_data,
                     "post_type": row.post_type,
-                    "image_url": row.image_url,
-                    "images": [],  # Will be populated below
+                    "image_url": image_url,  # ← Full URL now!
+                    "images": [],  # Will be populated below with full URLs
                     "location": row.location,
                     "location_data": loc_data,
                     "is_public": row.is_public,
@@ -256,7 +267,7 @@ class PostRepository(BaseRepository):
                         "username": row.author_username,
                         "display_name": row.author_display_name,
                         "email": row.author_email,
-                        "profile_image_url": row.author_profile_image_url
+                        "profile_image_url": author_profile_image_url  # ← Full URL now!
                     },
                     "hearts_count": int(row.hearts_count) if row.hearts_count else 0,
                     "reactions_count": int(row.reactions_count) if row.reactions_count else 0,
@@ -284,12 +295,18 @@ class PostRepository(BaseRepository):
                     post_id = img_row.post_id
                     if post_id not in images_by_post:
                         images_by_post[post_id] = []
+                    
+                    # ✅ FIXED: Convert all image URLs to full URLs
+                    thumbnail_url = storage.get_url(img_row.thumbnail_url) if img_row.thumbnail_url else None
+                    medium_url = storage.get_url(img_row.medium_url) if img_row.medium_url else None
+                    original_url = storage.get_url(img_row.original_url) if img_row.original_url else None
+                    
                     images_by_post[post_id].append({
                         "id": img_row.id,
                         "position": img_row.position,
-                        "thumbnail_url": img_row.thumbnail_url,
-                        "medium_url": img_row.medium_url,
-                        "original_url": img_row.original_url,
+                        "thumbnail_url": thumbnail_url,  # ← Full URL now!
+                        "medium_url": medium_url,        # ← Full URL now!
+                        "original_url": original_url,    # ← Full URL now!
                         "width": img_row.width,
                         "height": img_row.height
                     })
@@ -422,7 +439,7 @@ class PostRepository(BaseRepository):
             hours: Number of hours to look back for trending calculation
             
         Returns:
-            List[Dict]: List of trending posts with engagement scores
+            List[Dict]: List of trending posts with engagement scores and full URLs
         """
         query = text("""
             SELECT 
@@ -454,11 +471,16 @@ class PostRepository(BaseRepository):
         
         trending_posts = []
         for row in rows:
+            # ✅ FIXED: Convert image_url to full URL
+            image_url = None
+            if row.image_url:
+                image_url = storage.get_url(row.image_url)
+            
             trending_posts.append({
                 "id": row.id,
                 "content": row.content,
                 "post_type": row.post_type,
-                "image_url": row.image_url,
+                "image_url": image_url,  # ← Full URL now!
                 "created_at": str(row.created_at),
                 "author_username": row.author_username,
                 "recent_hearts": int(row.recent_hearts) if row.recent_hearts else 0,

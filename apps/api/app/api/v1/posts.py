@@ -22,6 +22,7 @@ from app.core.security import decode_token
 from app.models.post import Post, PostType
 from app.models.user import User
 from app.services.share_service import ShareService
+from app.core.storage import storage
 from app.services.mention_service import MentionService
 from app.services.algorithm_service import AlgorithmService
 from app.services.content_analysis_service import ContentAnalysisService
@@ -362,18 +363,48 @@ async def _save_post_images(
 
 
 def _serialize_post_images(images) -> List[Dict[str, Any]]:
-    """Convert PostImage models to response dictionaries."""
+    """Convert PostImage models to response dictionaries with full URLs."""
     return [
         {
             "id": img.id,
             "position": img.position,
-            "thumbnail_url": img.thumbnail_url,
-            "medium_url": img.medium_url,
-            "original_url": img.original_url,
+            "thumbnail_url": storage.get_url(img.thumbnail_url) if img.thumbnail_url else None,
+            "medium_url": storage.get_url(img.medium_url) if img.medium_url else None,
+            "original_url": storage.get_url(img.original_url) if img.original_url else None,
             "width": img.width,
             "height": img.height
         }
         for img in sorted(images, key=lambda x: x.position)
+    ]
+
+
+async def _fetch_post_images(db: AsyncSession, post_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetch and serialize post images with full URLs.
+    Centralized helper to avoid code duplication.
+    """
+    from sqlalchemy import text as sql_text
+    
+    images_query = sql_text("""
+        SELECT id, position, thumbnail_url, medium_url, original_url, width, height
+        FROM post_images
+        WHERE post_id = :post_id
+        ORDER BY position
+    """)
+    images_result = await db.execute(images_query, {"post_id": post_id})
+    images_rows = images_result.fetchall()
+    
+    return [
+        {
+            "id": img_row.id,
+            "position": img_row.position,
+            "thumbnail_url": storage.get_url(img_row.thumbnail_url) if img_row.thumbnail_url else None,
+            "medium_url": storage.get_url(img_row.medium_url) if img_row.medium_url else None,
+            "original_url": storage.get_url(img_row.original_url) if img_row.original_url else None,
+            "width": img_row.width,
+            "height": img_row.height
+        }
+        for img_row in images_rows
     ]
 
 
@@ -1347,28 +1378,8 @@ async def get_post_by_id(
             except (json.JSONDecodeError, TypeError):
                 location_data = None
 
-        # Fetch post images
-        from sqlalchemy import text as sql_text
-        images_query = sql_text("""
-            SELECT id, position, thumbnail_url, medium_url, original_url, width, height
-            FROM post_images
-            WHERE post_id = :post_id
-            ORDER BY position
-        """)
-        images_result = await db.execute(images_query, {"post_id": post_id})
-        images_rows = images_result.fetchall()
-        images = [
-            {
-                "id": img_row.id,
-                "position": img_row.position,
-                "thumbnail_url": img_row.thumbnail_url,
-                "medium_url": img_row.medium_url,
-                "original_url": img_row.original_url,
-                "width": img_row.width,
-                "height": img_row.height
-            }
-            for img_row in images_rows
-        ]
+        # Fetch post images with full URLs
+        images = await _fetch_post_images(db, post_id)
 
         return PostResponse(
             id=row.id,
@@ -1672,28 +1683,8 @@ async def edit_post(
         user_repo = UserRepository(db)
         user = await user_repo.get_by_id_or_404(current_user_id)
 
-        # Fetch post images
-        from sqlalchemy import text as sql_text
-        images_query = sql_text("""
-            SELECT id, position, thumbnail_url, medium_url, original_url, width, height
-            FROM post_images
-            WHERE post_id = :post_id
-            ORDER BY position
-        """)
-        images_result = await db.execute(images_query, {"post_id": post.id})
-        images_rows = images_result.fetchall()
-        images = [
-            {
-                "id": img_row.id,
-                "position": img_row.position,
-                "thumbnail_url": img_row.thumbnail_url,
-                "medium_url": img_row.medium_url,
-                "original_url": img_row.original_url,
-                "width": img_row.width,
-                "height": img_row.height
-            }
-            for img_row in images_rows
-        ]
+        # Fetch post images with full URLs
+        images = await _fetch_post_images(db, post.id)
 
         # Format response
         return PostResponse(
