@@ -551,23 +551,14 @@ class OptimizedAlgorithmService(AlgorithmService):
     ) -> Tuple[List[Dict[str, Any]], int]:
         """
         Optimized personalized feed with performance monitoring and <300ms target.
-        
-        Args:
-            user_id: ID of the user requesting the feed
-            limit: Maximum number of posts to return
-            offset: Number of posts to skip for pagination
-            algorithm_enabled: Whether to use algorithm scoring
-            consider_read_status: Whether to deprioritize read posts
-            refresh_mode: Whether to prioritize unread posts
-            
-        Returns:
-            Tuple[List[Dict[str, Any]], int]: (posts with scores, total_count)
         """
+        from app.repositories.post_repository import PostRepository
+        
         start_time = time.time()
         
         try:
             async with performance_monitoring("optimized_feed_generation"):
-                # Load user data sequentially to avoid concurrent database operations
+                # Load user data
                 user = await self.get_by_id(User, user_id)
                 user_preference_data = await self._load_user_preference_data(user_id)
                 
@@ -583,8 +574,8 @@ class OptimizedAlgorithmService(AlgorithmService):
                     Post.is_public == True
                 ).options(
                     selectinload(Post.author),
-                    selectinload(Post.images)  # Multi-image support
-                ).order_by(Post.created_at.desc()).limit(limit * 3)  # Get more for filtering
+                    selectinload(Post.images)
+                ).order_by(Post.created_at.desc()).limit(limit * 3)
                 
                 posts_result = await self.db.execute(posts_query)
                 posts = posts_result.scalars().all()
@@ -602,7 +593,7 @@ class OptimizedAlgorithmService(AlgorithmService):
                 ) if consider_read_status else {}
                 
                 # Calculate scores in batch
-                scored_posts = []
+                algorithm_scores = {}
                 for post in posts:
                     engagement_data = engagement_data_dict.get(post.id)
                     read_status = read_status_dict.get(post.id) if consider_read_status else None
@@ -617,62 +608,36 @@ class OptimizedAlgorithmService(AlgorithmService):
                         read_status=read_status
                     )
                     
-                    # Serialize images for multi-image support
-                    images = [
-                        {
-                            'id': img.id,
-                            'position': img.position,
-                            'thumbnail_url': img.thumbnail_url,
-                            'medium_url': img.medium_url,
-                            'original_url': img.original_url,
-                            'width': img.width,
-                            'height': img.height
-                        }
-                        for img in sorted(post.images, key=lambda x: x.position)
-                    ] if post.images else []
-
-                    scored_posts.append({
-                        'id': post.id,
-                        'author_id': post.author_id,
-                        'content': post.content,
-                        'post_style': post.post_style,
-                        'post_type': post.post_type.value,
-                        'image_url': post.image_url,
-                        'images': images,  # Multi-image support
-                        'location': post.location,
-                        'location_data': post.location_data,
-                        'is_public': post.is_public,
-                        'created_at': post.created_at.isoformat() if post.created_at else None,
-                        'updated_at': post.updated_at.isoformat() if post.updated_at else None,
-                        'author': {
-                            'id': post.author.id,
-                            'username': post.author.username,
-                            'display_name': post.author.display_name,
-                            'name': post.author.display_name or post.author.username,
-                            'email': post.author.email,
-                            'profile_image_url': post.author.profile_image_url,
-                            'bio': post.author.bio,
-                            'city': post.author.city,
-                            'institutions': post.author.institutions,
-                            'websites': post.author.websites,
-                            'profile_photo_filename': post.author.profile_photo_filename
-                        },
-                        'hearts_count': engagement_data.hearts_count if engagement_data else 0,
-                        'reactions_count': engagement_data.reactions_count if engagement_data else 0,
-                        'shares_count': engagement_data.shares_count if engagement_data else 0,
-                        'comments_count': post.comments_count or 0,
-                        'algorithm_score': score,
-                        'is_read': read_status if consider_read_status else False,
-                        'is_unread': not read_status if consider_read_status and read_status is not None else False
-                    })
+                    algorithm_scores[post.id] = score
                 
-                # Sort by score first
+                # Convert engagement_data_dict to standard format
+                engagement_counts = {
+                    post_id: {
+                        'hearts': data.hearts_count,
+                        'reactions': data.reactions_count,
+                        'shares': data.shares_count,
+                        'comments': 0  # TODO: Add if available
+                    }
+                    for post_id, data in engagement_data_dict.items()
+                }
+                
+                # Use PostRepository to serialize with proper URL conversion
+                post_repo = PostRepository(self.db)
+                scored_posts = await post_repo.serialize_posts_for_feed(
+                    posts=posts,
+                    user_id=user_id,
+                    engagement_counts=engagement_counts,
+                    algorithm_scores=algorithm_scores,
+                    read_statuses=read_status_dict if consider_read_status else None
+                )
+                
+                # Sort by score
                 scored_posts.sort(key=lambda x: x['algorithm_score'], reverse=True)
                 
-                # Apply spacing rules to prevent consecutive posts from same author
+                # Apply spacing rules
                 spaced_posts = self._apply_spacing_rules(scored_posts)
                 
-                # Apply pagination after spacing
+                # Apply pagination
                 final_posts = spaced_posts[offset:offset + limit]
                 
                 # Get total count
@@ -681,7 +646,7 @@ class OptimizedAlgorithmService(AlgorithmService):
                 )
                 total_count = total_count_result.scalar() or 0
                 
-                execution_time = (time.time() - start_time) * 1000  # Convert to ms
+                execution_time = (time.time() - start_time) * 1000
                 
                 logger.info(
                     f"Optimized feed generated for user {user_id}: "
@@ -689,7 +654,6 @@ class OptimizedAlgorithmService(AlgorithmService):
                     f"(target: {self._performance_target_ms}ms)"
                 )
                 
-                # Log performance warning if target exceeded
                 if execution_time > self._performance_target_ms:
                     logger.warning(
                         f"Feed generation exceeded performance target: "

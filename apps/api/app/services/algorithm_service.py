@@ -153,7 +153,7 @@ class AlgorithmService(BaseService):
         user_last_feed_view: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
         """Calculate scores for multiple posts efficiently with batch optimizations."""
-        scored_posts = []
+        from app.repositories.post_repository import PostRepository
         
         # Get read status for all posts in batch if needed
         read_statuses = {}
@@ -167,11 +167,11 @@ class AlgorithmService(BaseService):
         second_tier_follows = {}
         
         if author_ids:
-            # Get direct follow relationships
             follow_relationships = await self._get_follow_relationships_batch(user_id, author_ids)
-            # Get second-tier follow relationships  
             second_tier_follows = await self._get_second_tier_follows_batch(user_id, author_ids)
         
+        # Calculate algorithm scores
+        algorithm_scores = {}
         for post in posts:
             counts = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
             
@@ -182,34 +182,17 @@ class AlgorithmService(BaseService):
                 follow_relationships, second_tier_follows
             )
             
-            is_read = read_statuses.get(post.id, False) if consider_read_status else False
-
-            scored_posts.append({
-                'id': post.id,
-                'author_id': post.author_id,
-                'content': post.content,
-                'post_style': post.post_style,
-                'post_type': post.post_type.value,
-                'image_url': post.image_url,
-                'location': post.location,
-                'location_data': post.location_data,
-                'is_public': post.is_public,
-                'created_at': post.created_at.isoformat() if post.created_at else None,
-                'updated_at': post.updated_at.isoformat() if post.updated_at else None,
-                'author': {
-                    'id': post.author.id,
-                    'username': post.author.username,
-                    'display_name': post.author.display_name,
-                    'name': post.author.display_name or post.author.username,
-                    'email': post.author.email,
-                    'profile_image_url': post.author.profile_image_url
-                } if post.author else None,
-                'hearts_count': counts['hearts'],
-                'reactions_count': counts['reactions'],
-                'shares_count': counts['shares'],
-                'algorithm_score': score,
-                'is_read': is_read
-            })
+            algorithm_scores[post.id] = score
+        
+        # Use PostRepository to serialize with proper URL conversion
+        post_repo = PostRepository(self.db)
+        scored_posts = await post_repo.serialize_posts_for_feed(
+            posts=posts,
+            user_id=user_id,
+            engagement_counts=engagement_counts,
+            algorithm_scores=algorithm_scores,
+            read_statuses=read_statuses if consider_read_status else None
+        )
         
         return scored_posts
 
@@ -1001,53 +984,39 @@ class AlgorithmService(BaseService):
         user_last_feed_view: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
         """Get recent posts excluding specified IDs."""
+        from app.repositories.post_repository import PostRepository
+        
         query = select(Post).where(
             and_(
                 Post.is_public == True,
                 ~Post.id.in_(exclude_ids) if exclude_ids else True
             )
         ).order_by(Post.created_at.desc()).options(
-            selectinload(Post.author)
+            selectinload(Post.author),
+            selectinload(Post.images)
         ).limit(limit).offset(offset)
 
         result = await self.db.execute(query)
         posts = result.scalars().all()
 
-        # Get engagement counts for all posts in batch to avoid N+1 queries
+        # Get engagement counts in batch
         post_ids = [post.id for post in posts]
         engagement_counts = await self._get_engagement_counts_batch(post_ids)
         
-        # Convert to dict format with engagement counts
-        recent_posts = []
-        for post in posts:
-            counts = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
-
-            recent_posts.append({
-                'id': post.id,
-                'author_id': post.author_id,
-                'content': post.content,
-                'post_style': post.post_style,
-                'post_type': post.post_type.value,
-                'image_url': post.image_url,
-                'location': post.location,
-                'location_data': post.location_data,
-                'is_public': post.is_public,
-                'created_at': post.created_at.isoformat() if post.created_at else None,
-                'updated_at': post.updated_at.isoformat() if post.updated_at else None,
-                'author': {
-                    'id': post.author.id,
-                    'username': post.author.username,
-                    'display_name': post.author.display_name,
-                    'name': post.author.display_name or post.author.username,
-                    'email': post.author.email,
-                    'profile_image_url': post.author.profile_image_url
-                } if post.author else None,
-                'hearts_count': counts['hearts'],
-                'reactions_count': counts['reactions'],
-                'shares_count': counts['shares'],
-                'algorithm_score': 0.0,  # Recent posts don't get algorithm scoring
-                'is_read': self.is_post_read(user_id, post.id) if consider_read_status else False
-            })
+        # Get read status in batch
+        read_statuses = {}
+        if consider_read_status:
+            read_statuses = await self._get_read_status_batch(user_id, post_ids)
+        
+        # Use PostRepository to serialize with proper URL conversion
+        post_repo = PostRepository(self.db)
+        recent_posts = await post_repo.serialize_posts_for_feed(
+            posts=posts,
+            user_id=user_id,
+            engagement_counts=engagement_counts,
+            algorithm_scores={post.id: 0.0 for post in posts},  # No scoring for recent
+            read_statuses=read_statuses if consider_read_status else None
+        )
 
         return recent_posts
 
@@ -1079,9 +1048,12 @@ class AlgorithmService(BaseService):
         consider_read_status: bool = True
     ) -> List[Dict[str, Any]]:
         """Get posts that are unread based on user's last feed view timestamp."""
+        from app.repositories.post_repository import PostRepository
+        
         if not user_last_feed_view:
-            # If no last feed view, all posts are considered "unread"
-            return await self._get_recent_posts_excluding(user_id, limit, offset, set(), consider_read_status, user_last_feed_view)
+            return await self._get_recent_posts_excluding(
+                user_id, limit, offset, set(), consider_read_status, user_last_feed_view
+            )
         
         # Get posts created after user's last feed view
         query = select(Post).where(
@@ -1090,53 +1062,39 @@ class AlgorithmService(BaseService):
                 Post.created_at > user_last_feed_view
             )
         ).order_by(Post.created_at.desc()).options(
-            selectinload(Post.author)
+            selectinload(Post.author),
+            selectinload(Post.images)
         ).limit(limit).offset(offset)
 
         result = await self.db.execute(query)
         posts = result.scalars().all()
 
-        # Get engagement counts for all posts in batch to avoid N+1 queries
+        # Get engagement counts in batch
         post_ids = [post.id for post in posts]
         engagement_counts = await self._get_engagement_counts_batch(post_ids)
         
-        # Convert to dict format with engagement counts and unread boost
-        unread_posts = []
+        # Calculate scores with unread boost
+        algorithm_scores = {}
         for post in posts:
             counts = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
-
-            # Calculate score with unread boost
             score = await self.calculate_post_score(
-                post, user_id, counts['hearts'], counts['reactions'], counts['shares'], consider_read_status, user_last_feed_view
+                post, user_id, counts['hearts'], counts['reactions'], counts['shares'], 
+                consider_read_status, user_last_feed_view
             )
-
-            unread_posts.append({
-                'id': post.id,
-                'author_id': post.author_id,
-                'content': post.content,
-                'post_style': post.post_style,
-                'post_type': post.post_type.value,
-                'image_url': post.image_url,
-                'location': post.location,
-                'location_data': post.location_data,
-                'is_public': post.is_public,
-                'created_at': post.created_at.isoformat() if post.created_at else None,
-                'updated_at': post.updated_at.isoformat() if post.updated_at else None,
-                'author': {
-                    'id': post.author.id,
-                    'username': post.author.username,
-                    'display_name': post.author.display_name,
-                    'name': post.author.display_name or post.author.username,
-                    'email': post.author.email,
-                    'profile_image_url': post.author.profile_image_url
-                } if post.author else None,
-                'hearts_count': counts['hearts'],
-                'reactions_count': counts['reactions'],
-                'shares_count': counts['shares'],
-                'algorithm_score': score,
-                'is_read': False,  # These are unread by definition
-                'is_unread': True  # Mark as unread for frontend
-            })
+            algorithm_scores[post.id] = score
+        
+        # All posts are unread by definition
+        read_statuses = {post.id: False for post in posts}
+        
+        # Use PostRepository to serialize with proper URL conversion
+        post_repo = PostRepository(self.db)
+        unread_posts = await post_repo.serialize_posts_for_feed(
+            posts=posts,
+            user_id=user_id,
+            engagement_counts=engagement_counts,
+            algorithm_scores=algorithm_scores,
+            read_statuses=read_statuses
+        )
 
         # Sort by algorithm score (which includes unread boost)
         unread_posts.sort(key=lambda x: x['algorithm_score'], reverse=True)

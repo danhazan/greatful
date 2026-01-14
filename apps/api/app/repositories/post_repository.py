@@ -489,3 +489,207 @@ class PostRepository(BaseRepository):
             })
         
         return trending_posts
+    
+
+    async def serialize_posts_for_feed(
+        self,
+        posts: List[Post],
+        user_id: int,
+        engagement_counts: Optional[Dict[str, Dict[str, int]]] = None,
+        algorithm_scores: Optional[Dict[str, float]] = None,
+        read_statuses: Optional[Dict[str, bool]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Serialize posts for feed with proper URL conversion.
+        Reuses existing logic from get_posts_with_engagement but works with Post objects.
+        
+        Args:
+            posts: List of Post objects to serialize
+            user_id: Current user ID
+            engagement_counts: Optional pre-calculated engagement data
+            algorithm_scores: Optional algorithm scores for each post
+            read_statuses: Optional read status for each post
+            
+        Returns:
+            List[Dict]: Serialized posts with full URLs
+        """
+        import json
+        import logging
+        from sqlalchemy import text
+        
+        logger = logging.getLogger(__name__)
+        
+        if not posts:
+            return []
+        
+        # Get post IDs for batch queries
+        post_ids = [post.id for post in posts]
+        
+        # Get engagement counts if not provided
+        if engagement_counts is None:
+            engagement_counts = {}
+            # Query for engagement data in batch
+            engagement_query = text("""
+                SELECT 
+                    p.id,
+                    COALESCE(hearts.hearts_count, 0) as hearts_count,
+                    COALESCE(reactions.reactions_count, 0) as reactions_count,
+                    COALESCE(comments.comments_count, 0) as comments_count
+                FROM posts p
+                LEFT JOIN (
+                    SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
+                    FROM emoji_reactions
+                    WHERE emoji_code = 'heart' AND post_id = ANY(:post_ids)
+                    GROUP BY post_id
+                ) hearts ON hearts.post_id = p.id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
+                    FROM emoji_reactions
+                    WHERE post_id = ANY(:post_ids)
+                    GROUP BY post_id
+                ) reactions ON reactions.post_id = p.id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) as comments_count
+                    FROM comments
+                    WHERE post_id = ANY(:post_ids)
+                    GROUP BY post_id
+                ) comments ON comments.post_id = p.id
+                WHERE p.id = ANY(:post_ids)
+            """)
+            
+            result = await self.execute_raw_query(engagement_query, {"post_ids": post_ids})
+            for row in result.fetchall():
+                engagement_counts[row.id] = {
+                    'hearts': int(row.hearts_count or 0),
+                    'reactions': int(row.reactions_count or 0),
+                    'comments': int(row.comments_count or 0)
+                }
+        
+        # Get user's reactions in batch
+        reactions_query = text("""
+            SELECT post_id, emoji_code
+            FROM emoji_reactions
+            WHERE post_id = ANY(:post_ids) AND user_id = :user_id
+        """)
+        reactions_result = await self.execute_raw_query(reactions_query, {
+            "post_ids": post_ids,
+            "user_id": user_id
+        })
+        user_reactions = {row.post_id: row.emoji_code for row in reactions_result.fetchall()}
+        
+        # Get user's hearts in batch
+        hearts_query = text("""
+            SELECT post_id
+            FROM emoji_reactions
+            WHERE post_id = ANY(:post_ids) AND user_id = :user_id AND emoji_code = 'heart'
+        """)
+        hearts_result = await self.execute_raw_query(hearts_query, {
+            "post_ids": post_ids,
+            "user_id": user_id
+        })
+        user_hearts = {row.post_id for row in hearts_result.fetchall()}
+        
+        # Get images for all posts in batch
+        images_query = text("""
+            SELECT id, post_id, position, thumbnail_url, medium_url, original_url, width, height
+            FROM post_images
+            WHERE post_id = ANY(:post_ids)
+            ORDER BY post_id, position
+        """)
+        images_result = await self.execute_raw_query(images_query, {"post_ids": post_ids})
+        images_by_post: Dict[str, List[Dict[str, Any]]] = {}
+        
+        for img_row in images_result.fetchall():
+            post_id = img_row.post_id
+            if post_id not in images_by_post:
+                images_by_post[post_id] = []
+            
+            # ✅ Convert all image URLs to full URLs
+            images_by_post[post_id].append({
+                "id": img_row.id,
+                "position": img_row.position,
+                "thumbnail_url": storage.get_url(img_row.thumbnail_url) if img_row.thumbnail_url else None,
+                "medium_url": storage.get_url(img_row.medium_url) if img_row.medium_url else None,
+                "original_url": storage.get_url(img_row.original_url) if img_row.original_url else None,
+                "width": img_row.width,
+                "height": img_row.height
+            })
+        
+        # Serialize posts
+        serialized_posts = []
+        for post in posts:
+            # Get engagement data
+            engagement = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'comments': 0})
+            
+            # Normalize location_data
+            loc_data = post.location_data
+            if isinstance(loc_data, str):
+                try:
+                    loc_data = json.loads(loc_data)
+                except Exception:
+                    loc_data = None
+            
+            # Normalize post_style
+            post_style_data = post.post_style
+            if isinstance(post_style_data, str):
+                try:
+                    post_style_data = json.loads(post_style_data)
+                except Exception:
+                    post_style_data = None
+            
+            # ✅ Convert author profile image URL
+            author_profile_image_url = None
+            if post.author and post.author.profile_image_url:
+                author_profile_image_url = storage.get_url(post.author.profile_image_url)
+            
+            # ✅ Convert legacy image_url
+            image_url = None
+            if post.image_url:
+                image_url = storage.get_url(post.image_url)
+            
+            # Build post dict
+            post_dict = {
+                "id": post.id,
+                "author_id": post.author_id,
+                "content": post.content,
+                "rich_content": post.rich_content,
+                "post_style": post_style_data,
+                "post_type": post.post_type.value if hasattr(post.post_type, 'value') else post.post_type,
+                "image_url": image_url,
+                "images": images_by_post.get(post.id, []),
+                "location": post.location,
+                "location_data": loc_data,
+                "is_public": post.is_public,
+                "created_at": post.created_at.isoformat() if post.created_at else None,
+                "updated_at": post.updated_at.isoformat() if post.updated_at else None,
+                "author": {
+                    "id": post.author.id,
+                    "username": post.author.username,
+                    "display_name": post.author.display_name,
+                    "name": post.author.display_name or post.author.username,
+                    "email": post.author.email,
+                    "profile_image_url": author_profile_image_url,
+                    "bio": getattr(post.author, 'bio', None),
+                    "city": getattr(post.author, 'city', None),
+                    "institutions": getattr(post.author, 'institutions', None),
+                    "websites": getattr(post.author, 'websites', None),
+                    "profile_photo_filename": getattr(post.author, 'profile_photo_filename', None)
+                } if post.author else None,
+                "hearts_count": engagement['hearts'],
+                "reactions_count": engagement['reactions'],
+                "comments_count": engagement['comments'],
+                "current_user_reaction": user_reactions.get(post.id),
+                "is_hearted": post.id in user_hearts
+            }
+            
+            # Add optional fields
+            if algorithm_scores and post.id in algorithm_scores:
+                post_dict['algorithm_score'] = algorithm_scores[post.id]
+            
+            if read_statuses and post.id in read_statuses:
+                post_dict['is_read'] = read_statuses[post.id]
+                post_dict['is_unread'] = not read_statuses[post.id]
+            
+            serialized_posts.append(post_dict)
+        
+        return serialized_posts
