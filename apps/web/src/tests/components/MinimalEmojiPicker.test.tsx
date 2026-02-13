@@ -29,7 +29,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -46,7 +46,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={false}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -59,7 +59,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -76,7 +76,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -94,7 +94,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -109,7 +109,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -126,7 +126,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -140,13 +140,13 @@ describe('MinimalEmojiPicker', () => {
 
   it('shows recently used section when there are recent emojis', () => {
     localStorageMock.getItem.mockReturnValue(JSON.stringify(['😀', '❤️', '👍']))
-    
+
     render(
       <MinimalEmojiPicker
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -155,13 +155,13 @@ describe('MinimalEmojiPicker', () => {
 
   it('does not show recently used section when there are no recent emojis', () => {
     localStorageMock.getItem.mockReturnValue(null)
-    
+
     render(
       <MinimalEmojiPicker
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -170,13 +170,13 @@ describe('MinimalEmojiPicker', () => {
 
   it('saves emoji to recently used when selected', () => {
     localStorageMock.getItem.mockReturnValue(JSON.stringify(['❤️']))
-    
+
     render(
       <MinimalEmojiPicker
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -196,7 +196,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -210,7 +210,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -225,18 +225,18 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const searchInput = screen.getByPlaceholderText('Search emojis...')
-    
+
     // Type "heart" to search for heart emojis
     fireEvent.change(searchInput, { target: { value: 'heart' } })
 
     // Should show search results section
     expect(screen.getByText(/Search Results/)).toBeInTheDocument()
-    
+
     // Should hide category sections when searching
     expect(screen.queryByText('Smileys & Happiness')).not.toBeInTheDocument()
     expect(screen.queryByText('Hearts & Love')).not.toBeInTheDocument()
@@ -248,12 +248,12 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const searchInput = screen.getByPlaceholderText('Search emojis...')
-    
+
     // Type something that won't match any emojis
     fireEvent.change(searchInput, { target: { value: 'xyz123' } })
 
@@ -267,12 +267,12 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const searchInput = screen.getByPlaceholderText('Search emojis...')
-    
+
     // Type to search
     fireEvent.change(searchInput, { target: { value: 'heart' } })
     expect(searchInput).toHaveValue('heart')
@@ -280,10 +280,10 @@ describe('MinimalEmojiPicker', () => {
     // Press escape - should clear search first
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(searchInput).toHaveValue('')
-    
+
     // Should show categories again
     expect(screen.getByText('Smileys & Happiness')).toBeInTheDocument()
-    
+
     // Press escape again - should close modal
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(mockOnClose).toHaveBeenCalled()
@@ -295,24 +295,24 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const sectionHeader = screen.getByText('Smileys & Happiness')
-    
+
     // Initially expanded - should show emojis
     expect(screen.getByTitle('grinning face')).toBeInTheDocument()
-    
+
     // Click to collapse
     fireEvent.click(sectionHeader)
-    
+
     // Should hide emojis when collapsed
     expect(screen.queryByTitle('Insert 😀')).not.toBeInTheDocument()
-    
+
     // Click to expand again
     fireEvent.click(sectionHeader)
-    
+
     // Should show emojis when expanded
     expect(screen.getByTitle('grinning face')).toBeInTheDocument()
   })
@@ -323,7 +323,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -331,36 +331,36 @@ describe('MinimalEmojiPicker', () => {
     const emojiButtons = screen.getAllByRole('button').filter(button => {
       const title = button.getAttribute('title')
       // Filter for emoji buttons (exclude section headers and category buttons)
-      return title && !title.includes('&') && title !== 'More categories' && 
-             button.textContent && /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(button.textContent)
+      return title && !title.includes('&') && title !== 'More categories' &&
+        button.textContent && /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(button.textContent)
     })
-    
+
     // Should have many more emojis now (exact count will vary)
     expect(emojiButtons.length).toBeGreaterThan(50)
   })
 
   it('prevents focus changes when clicking emoji buttons', () => {
     const mockPreventDefault = jest.fn()
-    
+
     render(
       <MinimalEmojiPicker
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const emojiButton = screen.getByTitle('grinning face')
-    
+
     // Mock the mousedown event
     const mouseDownEvent = new MouseEvent('mousedown', { bubbles: true })
     Object.defineProperty(mouseDownEvent, 'preventDefault', {
       value: mockPreventDefault
     })
-    
+
     emojiButton.dispatchEvent(mouseDownEvent)
-    
+
     // Should have called preventDefault to prevent focus change
     expect(mockPreventDefault).toHaveBeenCalled()
   })
@@ -377,7 +377,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -395,12 +395,12 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const searchInput = screen.getByPlaceholderText('Search emojis...')
-    
+
     // Type to search
     fireEvent.change(searchInput, { target: { value: 'heart' } })
 
@@ -428,13 +428,13 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const picker = document.querySelector('.fixed.z-50.bg-white')
     expect(picker).toBeInTheDocument()
-    
+
     // Should use mobile height (35% of viewport height, max 240px)
     const expectedHeight = Math.min(240, 800 * 0.35) // 240px
     expect(picker).toHaveStyle(`maxHeight: ${expectedHeight}px`)
@@ -446,18 +446,18 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const searchInput = screen.getByPlaceholderText('Search emojis...')
-    
+
     // Type "pizza" to search
     fireEvent.change(searchInput, { target: { value: 'pizza' } })
 
     // Should show search results section
     expect(screen.getByText(/Search Results/)).toBeInTheDocument()
-    
+
     // Pizza emoji should be in the results (🍕)
     expect(screen.getByText('🍕')).toBeInTheDocument()
   })
@@ -468,7 +468,7 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
@@ -484,20 +484,20 @@ describe('MinimalEmojiPicker', () => {
         isOpen={true}
         onClose={mockOnClose}
         onEmojiSelect={mockOnEmojiSelect}
-        position={{ x: 100, y: 200 }}
+        position={{ x: 100, y: 500 }}
       />
     )
 
     const searchInput = screen.getByPlaceholderText('Search emojis...')
-    
+
     // Search by emoji name
     fireEvent.change(searchInput, { target: { value: 'grinning face' } })
     expect(screen.getByText('😀')).toBeInTheDocument()
-    
+
     // Clear and search by keyword
     fireEvent.change(searchInput, { target: { value: 'happy' } })
     expect(screen.getByText('😀')).toBeInTheDocument()
-    
+
     // Clear and search for heart
     fireEvent.change(searchInput, { target: { value: 'heart' } })
     expect(screen.getByText('❤️')).toBeInTheDocument()

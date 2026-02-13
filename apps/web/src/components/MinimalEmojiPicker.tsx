@@ -16,7 +16,7 @@ const EMOJI_GROUPS = [
     name: 'Smileys & Happiness',
     icon: Smile,
     emojis: [
-      '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', 
+      '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩',
       '😘', '😗', '☺️', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
       '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷',
       '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕',
@@ -27,7 +27,7 @@ const EMOJI_GROUPS = [
     name: 'Hearts & Love',
     icon: Heart,
     emojis: [
-      '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', 
+      '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖',
       '💘', '💝', '💟', '♥️', '💌', '💋', '💍', '💎', '🔥', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬',
       '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤', '👋🏻', '🤚🏻', '🖐🏻', '✋🏻', '🖖🏻', '👌🏻', '🤏🏻', '✌🏻', '🤞🏻',
       '🤟🏻', '🤘🏻', '🤙🏻', '👈🏻', '👉🏻', '👆🏻', '🖕🏻', '👇🏻', '☝🏻', '👍🏻', '👎🏻', '👊🏻', '✊🏻', '🤛🏻'
@@ -37,7 +37,7 @@ const EMOJI_GROUPS = [
     name: 'Hand Gestures',
     icon: Hand,
     emojis: [
-      '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', 
+      '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️',
       '👋', '🤚', '🖐️', '✋', '🖖', '👏', '🙌', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿',
       '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄', '👶', '🧒',
       '👦', '👧', '🧑', '👱', '👨', '🧔', '👨‍🦰', '👨‍🦱', '👨‍🦳', '👨‍🦲', '👩', '👩‍🦰', '👩‍🦱', '👩‍🦳', '👩‍🦲', '🧓'
@@ -47,9 +47,9 @@ const EMOJI_GROUPS = [
     name: 'Nature & Weather',
     icon: Flower,
     emojis: [
-      '🌸', '🌺', '🌻', '🌷', '🌹', '🌼', '🌿', '🍀', '🌱', '🌳', '🌲', '🌴', '🌵', '🌾', '🌈', '☀️', 
+      '🌸', '🌺', '🌻', '🌷', '🌹', '🌼', '🌿', '🍀', '🌱', '🌳', '🌲', '🌴', '🌵', '🌾', '🌈', '☀️',
       '🌙', '⭐', '🌟', '💫', '✨', '🔥', '💧', '🌊', '🌍', '🌎', '🌏', '🌑', '🌒', '🌓', '🌔', '🌕',
-      '🌖', '🌗', '🌘', '🌚', '🌝', '🌛', '🌜', '🌞', '⚡', '☄️', '💥', '🌪️', '☁️', '⛅', '⛈️', '🌤️', 
+      '🌖', '🌗', '🌘', '🌚', '🌝', '🌛', '🌜', '🌞', '⚡', '☄️', '💥', '🌪️', '☁️', '⛅', '⛈️', '🌤️',
       '🌦️', '🌧️', '🌩️', '🌨️', '❄️', '☃️', '⛄', '🌬️', '💨'
     ]
   },
@@ -57,7 +57,7 @@ const EMOJI_GROUPS = [
     name: 'Celebration & Success',
     icon: PartyPopper,
     emojis: [
-      '🎉', '🎊', '🥳', '🎈', '🎁', '🎀', '🎂', '🍰', '🧁', '🥂', '🍾', '🎆', '🎇', '🎪', '🎭', '🎨', 
+      '🎉', '🎊', '🥳', '🎈', '🎁', '🎀', '🎂', '🍰', '🧁', '🥂', '🍾', '🎆', '🎇', '🎪', '🎭', '🎨',
       '🎵', '🎶', '🎼', '🏆', '🥇', '🎯', '🎲', '🎮', '🎳', '🎱', '🏀', '⚽', '🏈', '⚾', '🥎', '🎾',
       '🏐', '🏉', '🥏', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹',
       '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️‍♀️', '🏋️‍♂️', '🤸‍♀️'
@@ -140,7 +140,7 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
   '🤭': { name: 'face with hand over mouth', keywords: ['whoops', 'shock', 'surprise'] },
   '🤫': { name: 'shushing face', keywords: ['quiet', 'shush', 'secret'] },
   '🤔': { name: 'thinking face', keywords: ['face', 'thinking', 'hmm'] },
-  
+
   // Hearts & Love
   '❤️': { name: 'red heart', keywords: ['heart', 'love', 'red'] },
   '🧡': { name: 'orange heart', keywords: ['heart', 'love', 'orange'] },
@@ -166,7 +166,7 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
   '💋': { name: 'kiss mark', keywords: ['kiss', 'lips', 'love', 'romance'] },
   '💍': { name: 'ring', keywords: ['diamond', 'engagement', 'ring', 'wedding'] },
   '💎': { name: 'gem stone', keywords: ['diamond', 'gem', 'jewel', 'precious'] },
-  
+
   // Hand Gestures
   '👍': { name: 'thumbs up', keywords: ['thumbs', 'up', 'good', 'yes', 'approve'] },
   '👎': { name: 'thumbs down', keywords: ['thumbs', 'down', 'bad', 'no', 'disapprove'] },
@@ -198,7 +198,7 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
   '💅': { name: 'nail polish', keywords: ['care', 'cosmetics', 'manicure', 'nail', 'polish'] },
   '🤳': { name: 'selfie', keywords: ['camera', 'phone'] },
   '💪': { name: 'flexed biceps', keywords: ['biceps', 'comic', 'flex', 'muscle', 'strength'] },
-  
+
   // Food & Treats
   '🍰': { name: 'shortcake', keywords: ['cake', 'dessert', 'pastry', 'slice', 'sweet'] },
   '🧁': { name: 'cupcake', keywords: ['bakery', 'cupcake', 'dessert', 'fairy cake', 'sweet'] },
@@ -264,7 +264,7 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
   '🍜': { name: 'steaming bowl', keywords: ['bowl', 'noodle', 'ramen', 'steaming'] },
   '🍲': { name: 'pot of food', keywords: ['pot', 'stew'] },
   '🍛': { name: 'curry rice', keywords: ['curry', 'rice'] },
-  
+
   // Nature & Weather
   '🌸': { name: 'cherry blossom', keywords: ['blossom', 'cherry', 'flower', 'spring'] },
   '🌺': { name: 'hibiscus', keywords: ['flower', 'hibiscus'] },
@@ -290,7 +290,7 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
   '🔥': { name: 'fire', keywords: ['fire', 'flame', 'hot'] },
   '💧': { name: 'droplet', keywords: ['comic', 'drop', 'sweat', 'water'] },
   '🌊': { name: 'water wave', keywords: ['ocean', 'water', 'wave'] },
-  
+
   // Celebration & Success
   '🎉': { name: 'party popper', keywords: ['celebration', 'party', 'popper', 'tada'] },
   '🎊': { name: 'confetti ball', keywords: ['ball', 'celebration', 'confetti'] },
@@ -312,7 +312,7 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
   '🏆': { name: 'trophy', keywords: ['prize', 'trophy', 'winner'] },
   '🥇': { name: '1st place medal', keywords: ['first', 'gold', 'medal'] },
   '🎯': { name: 'direct hit', keywords: ['bull', 'bullseye', 'dart', 'direct', 'eye', 'hit', 'target'] },
-  
+
   // Animals & Pets
   '🐶': { name: 'dog face', keywords: ['dog', 'face', 'pet'] },
   '🐱': { name: 'cat face', keywords: ['cat', 'face', 'pet'] },
@@ -330,7 +330,7 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
   '🐷': { name: 'pig face', keywords: ['face', 'pig'] },
   '🐽': { name: 'pig nose', keywords: ['face', 'nose', 'pig'] },
   '🐸': { name: 'frog', keywords: ['face', 'frog'] },
-  
+
   // Travel & Places
   '🚗': { name: 'automobile', keywords: ['car', 'automobile'] },
   '🚕': { name: 'taxi', keywords: ['car', 'taxi', 'vehicle'] },
@@ -363,7 +363,7 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
   '🛳️': { name: 'passenger ship', keywords: ['passenger', 'ship'] },
   '⛴️': { name: 'ferry', keywords: ['boat', 'ferry'] },
   '🚢': { name: 'ship', keywords: ['ship', 'vehicle'] },
-  
+
   // Objects & Symbols
   '⌚': { name: 'watch', keywords: ['clock', 'watch'] },
   '📱': { name: 'mobile phone', keywords: ['cell', 'mobile', 'phone', 'telephone'] },
@@ -433,15 +433,15 @@ const EMOJI_DATA: Record<string, { name: string, keywords: string[] }> = {
 // Create a searchable emoji database with comprehensive keywords
 const createEmojiDatabase = () => {
   const database: Array<{ emoji: string, name: string, keywords: string[], category: string }> = []
-  
+
   EMOJI_GROUPS.forEach(group => {
     group.emojis.forEach(emoji => {
       const emojiData = EMOJI_DATA[emoji]
       const keywords = [...(emojiData?.keywords || [])]
-      
+
       // Add category name as keyword
       keywords.push(group.name.toLowerCase())
-      
+
       // Add generic keywords based on category
       if (group.name.includes('Hearts')) keywords.push('love', 'heart')
       if (group.name.includes('Smileys')) keywords.push('happy', 'smile', 'face')
@@ -452,7 +452,7 @@ const createEmojiDatabase = () => {
       if (group.name.includes('Animals')) keywords.push('animal', 'pet')
       if (group.name.includes('Travel')) keywords.push('travel', 'transport')
       if (group.name.includes('Objects')) keywords.push('object', 'thing')
-      
+
       database.push({
         emoji,
         name: emojiData?.name || emoji,
@@ -461,7 +461,7 @@ const createEmojiDatabase = () => {
       })
     })
   })
-  
+
   return database
 }
 
@@ -524,7 +524,7 @@ export default function MinimalEmojiPicker({
     }
 
     const query = searchQuery.toLowerCase().trim()
-    const matches = EMOJI_DATABASE.filter(item => 
+    const matches = EMOJI_DATABASE.filter(item =>
       item.name.toLowerCase().includes(query) ||
       item.keywords.some(keyword => keyword.toLowerCase().includes(query)) ||
       item.category.toLowerCase().includes(query)
@@ -561,14 +561,14 @@ export default function MinimalEmojiPicker({
   // Scroll to category section with proper positioning
   const scrollToCategory = (categoryName: string) => {
     if (!contentRef.current) return
-    
+
     const categoryElement = contentRef.current.querySelector(`[data-category="${categoryName}"]`)
     if (categoryElement && contentRef.current) {
       // Calculate the position relative to the scrollable container
       const containerRect = contentRef.current.getBoundingClientRect()
       const elementRect = categoryElement.getBoundingClientRect()
       const relativeTop = elementRect.top - containerRect.top + contentRef.current.scrollTop
-      
+
       // Scroll to position with some padding from the top
       contentRef.current.scrollTo({
         top: Math.max(0, relativeTop - 8), // 8px padding from top
@@ -582,26 +582,26 @@ export default function MinimalEmojiPicker({
   // Calculate responsive modal height - increased slightly to cover toolbar
   const getModalHeight = () => {
     if (typeof window === 'undefined') return '280px'
-    
+
     const isMobile = window.innerWidth < 768
     const viewportHeight = window.innerHeight
-    
+
     if (isMobile) {
       // On mobile, limit height to 35% of viewport to cover toolbar but not text area
       const maxMobileHeight = Math.min(240, viewportHeight * 0.35)
       return `${maxMobileHeight}px`
     }
-    
+
     // On desktop, use height that covers toolbar
     return '280px'
   }
 
   const getContentHeight = () => {
     if (typeof window === 'undefined') return '216px'
-    
+
     const isMobile = window.innerWidth < 768
     const modalHeight = parseInt(getModalHeight())
-    
+
     // Account for search bar (32px) and compressed category toolbar (32px)
     const contentHeight = modalHeight - 32 - 32
     return `${contentHeight}px`
@@ -648,7 +648,7 @@ export default function MinimalEmojiPicker({
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 z-50" onClick={onClose} />
-      
+
       {/* Emoji Picker - responsive height for mobile */}
       <div
         ref={pickerRef}
@@ -656,9 +656,9 @@ export default function MinimalEmojiPicker({
         style={{
           left: '50%',
           transform: 'translateX(-50%)',
-          top: Math.max(16, position.y - parseInt(getModalHeight()) + 20), // Responsive positioning with reduced height
+          bottom: typeof window !== 'undefined' ? window.innerHeight - position.y + 8 : 0, // Anchor to bottom (button bottom) + 8px gap
           width: 'min(calc(100vw - 32px), 672px)', // Same as max-w-2xl (672px) with 16px padding on each side
-          maxHeight: getModalHeight(), // Responsive height
+          maxHeight: typeof window !== 'undefined' ? Math.min(parseInt(getModalHeight()), position.y - 16) : getModalHeight(), // Prevent top cropping
         }}
         onMouseDown={(e) => {
           // Prevent focus from moving to the modal - this fixes the cursor issue
@@ -691,7 +691,7 @@ export default function MinimalEmojiPicker({
             <div className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {EMOJI_GROUPS.map((group) => {
                 const IconComponent = group.icon
-                
+
                 return (
                   <button
                     key={group.name}
@@ -714,9 +714,9 @@ export default function MinimalEmojiPicker({
         )}
 
         {/* Scrollable content - Compressed */}
-        <div 
+        <div
           ref={contentRef}
-          className="overflow-y-auto px-2 py-1" 
+          className="overflow-y-auto px-2 py-1"
           style={{ maxHeight: getContentHeight() }}
         >
           {/* Search Results */}

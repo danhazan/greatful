@@ -103,9 +103,9 @@ interface PostCardProps {
   post: Post
   currentUserId?: string
   hideFollowButton?: boolean // New prop to hide follow button in profile context
-  onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => void
-  onReaction?: (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => void
-  onRemoveReaction?: (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => void
+  onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: { hearts_count: number, is_hearted: boolean }) => void
+  onReaction?: (postId: string, emojiCode: string, reactionSummary?: { total_count: number, reactions: { [key: string]: number }, user_reaction: string | null }) => void
+  onRemoveReaction?: (postId: string, reactionSummary?: { total_count: number, reactions: { [key: string]: number }, user_reaction: string | null }) => void
   onShare?: (postId: string) => void
   onUserClick?: (userId: string) => void
   onEdit?: (postId: string, updatedPost: Post) => void
@@ -114,11 +114,11 @@ interface PostCardProps {
 
 // Removed local emoji mapping - now using utility function
 
-export default function PostCard({ 
-  post, 
+export default function PostCard({
+  post,
   currentUserId,
   hideFollowButton = false,
-  onHeart, 
+  onHeart,
   onReaction,
   onRemoveReaction,
   onShare,
@@ -158,7 +158,7 @@ export default function PostCard({
   usePostStateSynchronization(currentPost, (updatedPost) => {
     setCurrentPost(updatedPost)
   })
-  
+
   // Loading states
   const [isHeartLoading, setIsHeartLoading] = useState(false)
   const [isReactionLoading, setIsReactionLoading] = useState(false)
@@ -168,7 +168,7 @@ export default function PostCard({
   const [isCommentsLoading, setIsCommentsLoading] = useState(false)
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  
+
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const shareButtonRef = useRef<HTMLButtonElement>(null)
   const locationButtonRef = useRef<HTMLButtonElement>(null)
@@ -257,18 +257,18 @@ export default function PostCard({
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Unknown date"
-    
+
     const date = new Date(dateString)
-    
+
     // Check if date is valid
     if (isNaN(date.getTime())) {
       console.warn('Invalid date string:', dateString)
       return "Invalid date"
     }
-    
+
     const now = new Date()
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    
+
     if (diffInHours < 1) return "Just now"
     if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`
     return date.toLocaleDateString()
@@ -279,7 +279,7 @@ export default function PostCard({
     // Show updated date if post was edited, otherwise show created date
     const dateToShow = currentPost.updatedAt || currentPost.createdAt
     const wasEdited = currentPost.updatedAt && currentPost.updatedAt !== currentPost.createdAt
-    
+
     return {
       dateString: dateToShow,
       wasEdited
@@ -288,13 +288,13 @@ export default function PostCard({
 
   const handleReactionButtonClick = async (event: React.MouseEvent) => {
     event.preventDefault()
-    
+
     if (!isUserAuthenticated) {
       // Call the onReaction handler which will handle the redirect
       onReaction?.(post.id, 'heart_eyes') // Use a default emoji for the redirect
       return
     }
-    
+
     // If user already has a reaction, remove it immediately
     if (currentPost.currentUserReaction && onRemoveReaction) {
       // Track analytics event for reaction removal
@@ -307,18 +307,18 @@ export default function PostCard({
           currentPost.currentUserReaction
         )
       }
-      
+
       try {
         const token = getAccessToken()
-        
+
         // Make API call to remove reaction
         try {
           // Use optimized API client for reaction removal
           await apiClient.delete(`/posts/${post.id}/reactions`)
-          
+
           // Get updated reaction summary from server
           const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
-          
+
           // Update local state immediately for responsive UI
           setCurrentPost(prev => ({
             ...prev,
@@ -327,7 +327,7 @@ export default function PostCard({
             isHearted: reactionSummary.is_hearted || false,
             heartsCount: reactionSummary.hearts_count || 0
           }))
-          
+
           // Call handler with updated server data
           onRemoveReaction(post.id, reactionSummary)
         } catch (error) {
@@ -340,10 +340,10 @@ export default function PostCard({
       }
       return
     }
-    
+
     // Set pending reaction to heart (show purple heart immediately in UI)
     setPendingReaction('heart')
-    
+
     if (reactionButtonRef.current) {
       const rect = reactionButtonRef.current.getBoundingClientRect()
       setEmojiPickerPosition({
@@ -351,7 +351,7 @@ export default function PostCard({
         y: rect.top - 8 // Position above button with 8px spacing to avoid covering
       })
     }
-    
+
     setShowEmojiPicker(true)
   }
 
@@ -420,9 +420,9 @@ export default function PostCard({
 
   const handleReactionCountClick = async () => {
     if (isReactionsViewerLoading) return
-    
+
     setIsReactionsViewerLoading(true)
-    
+
     // Fetch reactions from API
     try {
       const token = localStorage.getItem("access_token")
@@ -431,7 +431,7 @@ export default function PostCard({
           'Authorization': `Bearer ${token}`
         }
       })
-      
+
       if (response.ok) {
         const reactionsData = await response.json()
         setReactions(reactionsData)
@@ -449,9 +449,9 @@ export default function PostCard({
 
   const handleHeartsCountClick = async () => {
     if (isHeartsViewerLoading) return
-    
+
     setIsHeartsViewerLoading(true)
-    
+
     // Fetch hearts from API
     try {
       const token = localStorage.getItem("access_token")
@@ -485,9 +485,9 @@ export default function PostCard({
     }
 
     if (isCommentsLoading) return
-    
+
     setIsCommentsLoading(true)
-    
+
     // Fetch top-level comments from API
     try {
       const token = getAccessToken()
@@ -524,8 +524,8 @@ export default function PostCard({
 
       // Reload comments to show the new comment
       // Use skipCache to ensure we get fresh data
-      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, { 
-        skipCache: true 
+      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, {
+        skipCache: true
       }) as any
       console.log('PostCard: Reloaded comments after creation', {
         commentsCount: updatedComments.length,
@@ -565,8 +565,8 @@ export default function PostCard({
 
       // Reload all comments to show the new reply (same pattern as regular comments)
       // Use skipCache to ensure we get fresh data
-      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, { 
-        skipCache: true 
+      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, {
+        skipCache: true
       }) as any
       console.log('PostCard: Reloaded comments after reply creation', {
         commentsCount: updatedComments.length,
@@ -679,7 +679,7 @@ export default function PostCard({
 
       // URL encode the username to handle special characters
       const encodedUsername = encodeURIComponent(username)
-      
+
       // Fetch user by username
       const response = await fetch(`/api/users/username/${encodedUsername}`, {
         headers: {
@@ -691,7 +691,7 @@ export default function PostCard({
       if (response.ok) {
         const result = await response.json()
         const userData = result.data
-        
+
         // Navigate to user profile
         router.push(`/profile/${userData.id}`)
       } else {
@@ -764,11 +764,11 @@ export default function PostCard({
       try {
         // Use optimized API client for post update
         const raw = await apiClient.put(`/posts/${post.id}`, updateData) as any
-        
+
         hideToast(loadingToastId)
-        
+
         debugApiResponse(raw, "PUT /api/posts/:id response")
-        
+
         const normalized = normalizePostFromApi(raw)
         if (!normalized) {
           console.warn("Could not normalize post response:", raw)
@@ -780,24 +780,24 @@ export default function PostCard({
 
         showSuccess('Post Updated', 'Your post has been updated successfully.')
         setShowEditModal(false)
-        
+
         // Merge updated fields into local post state (safe)
         // Use specialized merge function to preserve author fields like profile image
         setCurrentPost(prev => mergePostUpdate(prev, normalized))
-        
+
         // Call the onEdit callback if provided
         if (onEdit) {
           onEdit(post.id, normalized)
         }
       } catch (error: any) {
         hideToast(loadingToastId)
-        
+
         // Handle API client errors
         let errorMessage = 'Unable to update post. Please try again.'
         if (error.message) {
           errorMessage = error.message
         }
-        
+
         showError(
           'Update Failed',
           errorMessage,
@@ -843,7 +843,7 @@ export default function PostCard({
       if (response.ok) {
         showSuccess('Post Deleted', 'Your post has been deleted successfully.')
         setShowDeleteModal(false)
-        
+
         // Call the onDelete callback if provided
         if (onDelete) {
           onDelete(post.id)
@@ -880,7 +880,7 @@ export default function PostCard({
   // Get styling based on post type - now standardized with consistent dimensions
   const getPostStyling = () => {
     const isUnread = currentPost.isUnread
-    
+
     // Standardized styling for all post types - same base size and spacing
     const baseStyle = {
       container: `bg-white rounded-lg shadow-md border ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'} overflow-hidden mb-6`,
@@ -893,7 +893,7 @@ export default function PostCard({
       iconSize: 'h-5 w-5',
       textSize: 'text-sm'
     }
-    
+
     // Visual distinction through content styling rather than card size
     switch (currentPost.postType) {
       case 'daily':
@@ -937,7 +937,7 @@ export default function PostCard({
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-4">
-                <div 
+                <div
                   className="cursor-pointer hover:text-purple-700 transition-colors flex-shrink-0"
                   onClick={() => onUserClick?.(currentPost.author.id)}
                 >
@@ -946,21 +946,21 @@ export default function PostCard({
                   </h3>
                 </div>
                 {/* Follow button positioned next to the user display name */}
-                {currentUserId && 
-                 currentUserId !== currentPost.author.id && 
-                 !isNaN(parseInt(currentPost.author.id)) &&
-                 !hideFollowButton && (
-                  <FollowButton 
-                    userId={parseInt(currentPost.author.id)} 
-                    size="xxs"
-                    variant="outline"
-                  />
-                )}
+                {currentUserId &&
+                  currentUserId !== currentPost.author.id &&
+                  !isNaN(parseInt(currentPost.author.id)) &&
+                  !hideFollowButton && (
+                    <FollowButton
+                      userId={parseInt(currentPost.author.id)}
+                      size="xxs"
+                      variant="outline"
+                    />
+                  )}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-sm text-gray-500">
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-4 w-4" />
-                  <a 
+                  <a
                     href={`/post/${post.id}`}
                     className="hover:text-purple-600 hover:underline transition-colors cursor-pointer"
                     title="View post details"
@@ -1035,7 +1035,7 @@ export default function PostCard({
                   >
                     <MoreHorizontal className="h-4 w-4 text-gray-500" />
                   </button>
-                  
+
                   {/* Options Dropdown */}
                   {showOptionsMenu && (
                     <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
@@ -1068,37 +1068,61 @@ export default function PostCard({
         </div>
 
         {/* Post Content */}
-        <div 
-          className={`${styling.content} post-content-area`}
-          dir={getDirectionAttribute(currentPost.content)}
-        >
-          {/* Always use RichContentRenderer for consistency */}
-          <RichContentRenderer
-            content={currentPost.content}
-            postStyle={currentPost.postStyle}
-            post_style={currentPost.post_style}
-            className={`${styling.text} text-gray-900 ${getTextAlignmentClass(currentPost.content)}`}
-            onMentionClick={handleMentionClick}
-            validUsernames={validUsernames}
-          />
-          {/* Multi-image display (new) - takes priority over legacy imageUrl */}
-          {currentPost.images && currentPost.images.length > 0 ? (
-            <StackedImagePreview
-              images={currentPost.images}
-              onImageClick={(index) => {
-                setMultiImageInitialIndex(index)
-                setShowMultiImageModal(true)
-              }}
-            />
-          ) : currentPost.imageUrl && (
-            /* Legacy single image display (deprecated) */
-            <OptimizedPostImage
-              src={getImageUrl(currentPost.imageUrl) || currentPost.imageUrl}
-              alt="Post image"
-              postType={currentPost.postType}
-            />
-          )}
-        </div>
+        {(() => {
+          const style = currentPost.postStyle || currentPost.post_style
+
+          const backgroundStyle: React.CSSProperties | undefined = style
+            ? {
+              background: style.backgroundGradient || style.backgroundColor,
+              color: style.textColor || undefined,
+              fontFamily: style.fontFamily || undefined,
+            }
+            : undefined
+
+          return (
+            <div
+              className={`
+        ${styling.content}
+        post-content-area
+        rounded-lg
+        overflow-hidden
+      `}
+              style={backgroundStyle}
+              dir={getDirectionAttribute(currentPost.content)}
+            >
+              {/* Inner padding wrapper so background fills fully */}
+              <div className="p-5 space-y-4">
+                {/* Text */}
+                <RichContentRenderer
+                  content={currentPost.content}
+                  className={`
+            ${styling.text}
+            ${getTextAlignmentClass(currentPost.content)}
+          `}
+                  onMentionClick={handleMentionClick}
+                  validUsernames={validUsernames}
+                />
+
+                {/* Images */}
+                {currentPost.images && currentPost.images.length > 0 ? (
+                  <StackedImagePreview
+                    images={currentPost.images}
+                    onImageClick={(index) => {
+                      setMultiImageInitialIndex(index)
+                      setShowMultiImageModal(true)
+                    }}
+                  />
+                ) : currentPost.imageUrl && (
+                  <OptimizedPostImage
+                    src={getImageUrl(currentPost.imageUrl) || currentPost.imageUrl}
+                    alt="Post image"
+                    postType={currentPost.postType}
+                  />
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Post Actions */}
         <div className={styling.actions}>
@@ -1143,7 +1167,7 @@ export default function PostCard({
               </div>
             </div>
           )}
-          
+
           {/* Post Actions Toolbar - Three main buttons in single horizontal line */}
           <div className="flex items-center justify-center gap-4 sm:gap-8">
             {/* Unified Heart/Reaction Button */}
@@ -1151,13 +1175,12 @@ export default function PostCard({
               ref={reactionButtonRef}
               onClick={handleReactionButtonClick}
               disabled={isReactionLoading}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
-                !isUserAuthenticated
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
                   ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
                   : (pendingReaction || currentPost.currentUserReaction || currentPost.isHearted)
                     ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
                     : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
-              } ${((post.reactionsCount || 0) + (post.heartsCount || 0)) > 0 ? 'ring-1 ring-purple-200' : ''}`}
+                } ${((post.reactionsCount || 0) + (post.heartsCount || 0)) > 0 ? 'ring-1 ring-purple-200' : ''}`}
               title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
             >
               {isReactionLoading ? (
@@ -1172,16 +1195,16 @@ export default function PostCard({
                   {getEmojiFromCode(currentPost.currentUserReaction)}
                 </span>
               ) : currentPost.isHearted ? (
-                <Heart 
+                <Heart
                   className={`${styling.iconSize} flex-shrink-0 fill-purple-500 text-purple-500`}
                 />
               ) : (
                 // Show empty heart icon when no interaction exists
-                <Heart 
+                <Heart
                   className={`${styling.iconSize} flex-shrink-0 text-gray-500`}
                 />
               )}
-              <span 
+              <span
                 className={`${styling.textSize} font-medium ${(isUserAuthenticated && !isReactionsViewerLoading && !isHeartsViewerLoading) ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -1207,11 +1230,10 @@ export default function PostCard({
             <button
               onClick={handleCommentsButtonClick}
               disabled={isCommentsLoading}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${
-                !isUserAuthenticated
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
                   ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
                   : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
-              } ${(currentPost.commentsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
+                } ${(currentPost.commentsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
               title={!isUserAuthenticated ? 'Login to comment on posts' : 'View and add comments'}
             >
               {isCommentsLoading ? (
@@ -1225,11 +1247,11 @@ export default function PostCard({
             </button>
 
             {/* Share Button */}
-            <button 
+            <button
               ref={shareButtonRef}
               onClick={(event) => {
                 event.preventDefault()
-                
+
                 if (shareButtonRef.current) {
                   const rect = shareButtonRef.current.getBoundingClientRect()
                   setShareModalPosition({
@@ -1237,7 +1259,7 @@ export default function PostCard({
                     y: rect.top
                   })
                 }
-                
+
                 setShowShareModal(true)
               }}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 min-w-[44px] min-h-[44px] ${styling.textSize}`}

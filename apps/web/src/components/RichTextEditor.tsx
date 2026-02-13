@@ -80,7 +80,7 @@ function getNodeForCharacterOffset(root: HTMLElement, index: number) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
   let current = walker.nextNode() as Text | null;
   let accumulated = 0;
-  
+
   while (current) {
     const len = (current.textContent || "").length;
     if (accumulated + len >= index) {
@@ -89,7 +89,7 @@ function getNodeForCharacterOffset(root: HTMLElement, index: number) {
     accumulated += len;
     current = walker.nextNode() as Text | null;
   }
-  
+
   // If index is at or beyond end, return null to handle it in caller
   return null;
 }
@@ -104,7 +104,7 @@ function getPlainText(root: HTMLElement): string {
 function getTextUpToCursor(root: HTMLElement): string {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) return "";
-  
+
   const range = document.createRange();
   try {
     range.setStart(root, 0);
@@ -139,7 +139,8 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   const [showTextSizePicker, setShowTextSizePicker] = useState(false)
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [overflowItems, setOverflowItems] = useState<string[]>([])
-  
+  const lastRangeRef = useRef<Range | null>(null)
+
   // Position tracking for portal dropdowns
   const [dropdownPositions, setDropdownPositions] = useState({
     textSize: { x: 0, y: 0 },
@@ -147,21 +148,21 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
     background: { x: 0, y: 0 },
     overflow: { x: 0, y: 0 }
   })
-  
+
   // Formatting state tracking
   const [formatState, setFormatState] = useState({
     bold: false,
     italic: false,
     underline: false
   })
-  
+
   const toolbarRef = useRef<HTMLDivElement>(null)
   const primaryToolbarRef = useRef<HTMLDivElement>(null)
-  
+
   // Check current formatting state
   const updateFormatState = useCallback(() => {
     if (!editableRef.current || typeof document.queryCommandState !== 'function') return
-    
+
     try {
       setFormatState({
         bold: document.queryCommandState('bold'),
@@ -172,7 +173,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       // Ignore errors in test environments or unsupported browsers
     }
   }, [])
-  
+
   // Prevent controlled component race conditions
   const typingRef = useRef(false)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -195,16 +196,16 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
     const primaryToolbar = primaryToolbarRef.current;
     const toolbarWidth = toolbar.clientWidth;
     const primaryWidth = primaryToolbar.scrollWidth;
-    
+
     // Calculate available width (subtract padding and overflow button space)
     const availableWidth = toolbarWidth - 60; // 60px buffer for overflow button and padding
-    
+
     // If content overflows, progressively move items to overflow menu
     if (primaryWidth > availableWidth) {
       // Priority order for hiding (least important first): background, color, textSize, underline, italic, emoji (emoji is now more important)
       const hideOrder = ['background', 'color', 'textSize', 'underline', 'italic', 'emoji'];
       const newOverflowItems: string[] = [];
-      
+
       // Start with current overflow items and add more if needed
       for (const item of hideOrder) {
         if (!overflowItems.includes(item)) {
@@ -213,7 +214,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           if (newOverflowItems.length >= 3) break; // Don't hide too many at once
         }
       }
-      
+
       setOverflowItems(prev => {
         const combined = [...prev, ...newOverflowItems];
         return Array.from(new Set(combined));
@@ -223,7 +224,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       if (overflowItems.length > 0) {
         const showOrder = ['emoji', 'italic', 'underline', 'textSize', 'color', 'background'];
         const itemsToShow = showOrder.filter(item => overflowItems.includes(item));
-        
+
         if (itemsToShow.length > 0) {
           // Show the most important item that's currently hidden
           const itemToShow = itemsToShow[0];
@@ -236,18 +237,18 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   // Check overflow on mount and resize with debouncing
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-    
+
     const debouncedCheck = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(checkToolbarOverflow, 100);
     };
-    
+
     // Initial check
     debouncedCheck();
-    
+
     const handleResize = debouncedCheck;
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
       window.removeEventListener('resize', handleResize);
       clearTimeout(timeoutId);
@@ -261,11 +262,15 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       const selection = window.getSelection();
       if (selection && editableRef.current && editableRef.current.contains(selection.anchorNode)) {
         updateFormatState();
+        // Save the valid range for later restoration (e.g. after emoji search)
+        if (selection.rangeCount > 0) {
+          lastRangeRef.current = selection.getRangeAt(0).cloneRange();
+        }
       }
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);
-    
+
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
@@ -296,7 +301,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       // This prevents minor typing changes from triggering content overwrites
       const currentText = editableRef.current.textContent || "";
       const newText = value || "";
-      
+
       if (Math.abs(currentText.length - newText.length) > 5) {
         if (htmlValue) {
           editableRef.current.innerHTML = sanitizeHtml(htmlValue)
@@ -309,11 +314,11 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
   const emitChange = () => {
     if (!editableRef.current || isComposing || typeof window === 'undefined') return
-    
+
     const rawHtml = editableRef.current.innerHTML
     const clean = sanitizeHtml(rawHtml)
     const plain = mentionsToPlainText(clean)
-    
+
     onChange?.(plain, clean)
   }
 
@@ -375,7 +380,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         mentionSpan.className = "mention";
         mentionSpan.setAttribute("data-username", username);
         mentionSpan.setAttribute("contenteditable", "false"); // prevents caret entering the mention
-        
+
         // The mention span should always show @username, regardless of what was replaced
         mentionSpan.textContent = `@${username}`;
 
@@ -405,14 +410,14 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
     },
     clear: () => {
       if (!editableRef.current) return
-      
+
       // Force clear the editor content
       editableRef.current.innerHTML = ''
       editableRef.current.textContent = ''
-      
+
       // Reset initialization flag so next value prop will be applied
       initializedRef.current = false
-      
+
       // Emit change to notify parent
       emitChange()
     }
@@ -422,42 +427,42 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   const handleCompositionStart = () => {
     setIsComposing(true)
   }
-  
-  const handleCompositionEnd = () => { 
-    setIsComposing(false) 
-    emitChange() 
+
+  const handleCompositionEnd = () => {
+    setIsComposing(false)
+    emitChange()
   }
 
   const handleInput = () => {
     if (!editableRef.current) return
-    
+
     // Set typing flag to prevent external overwrites during user input
     typingRef.current = true;
-    
+
     // Clear previous timeout and set new one
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       typingRef.current = false;
     }, 500);
-    
+
     // Detect text direction and apply appropriate styling
     const currentText = editableRef.current.textContent || '';
     const direction = getDirectionAttribute(currentText);
     const alignmentClass = getTextAlignmentClass(currentText);
-    
+
     editableRef.current.dir = direction;
     editableRef.current.style.direction = direction;
     editableRef.current.style.textAlign = direction === 'rtl' ? 'right' : 'left';
-    
+
     // Update CSS classes for text alignment
     editableRef.current.className = editableRef.current.className
       .replace(/text-(left|right|center)/g, '')
       .trim() + ` ${alignmentClass}`;
-    
-    
+
+
     // Update format state
     updateFormatState()
-    
+
     // Enhanced mention detection using range-based approach
     if (onMentionTrigger || onMentionHide) {
       try {
@@ -466,10 +471,10 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           // Check if cursor is inside a mention span (improved logic)
           let currentNode: Node | null = selection.anchorNode
           let isInsideMentionSpan = false
-          
+
           while (currentNode && currentNode !== editableRef.current) {
             if (currentNode.nodeType === Node.ELEMENT_NODE &&
-                (currentNode as Element).classList?.contains('mention')) {
+              (currentNode as Element).classList?.contains('mention')) {
               // if selection.anchorNode is the mention's text node and the anchorOffset < textLength,
               // then we are inside mention. If anchorOffset is at end, it's after mention: don't hide.
               const mentionEl = currentNode as Element;
@@ -487,17 +492,17 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
             }
             currentNode = currentNode.parentNode
           }
-          
+
           // If we're inside a mention span, hide the dropdown and return
           if (isInsideMentionSpan) {
             onMentionHide?.();
             return;
           }
-          
+
           // Use range-based text extraction for robust mention detection
           const textUpToCursor = getTextUpToCursor(editableRef.current);
           const mentionMatch = textUpToCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/);
-          
+
           if (mentionMatch && onMentionTrigger) {
             const cursorPosition = textUpToCursor.length;
             const rect = editableRef.current.getBoundingClientRect();
@@ -511,7 +516,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         console.warn('Mention detection error:', error)
       }
     }
-    
+
     emitChange()
   }
 
@@ -523,26 +528,26 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       document.execCommand('styleWithCSS', false, 'true')
       document.execCommand(command, false, value)
     }
-    
+
     // Maintain proper text direction after formatting
     if (editableRef.current) {
       const currentText = editableRef.current.textContent || '';
       const direction = getDirectionAttribute(currentText);
       const alignmentClass = getTextAlignmentClass(currentText);
-      
+
       editableRef.current.dir = direction;
       editableRef.current.style.direction = direction;
       editableRef.current.style.textAlign = direction === 'rtl' ? 'right' : 'left';
-      
+
       // Update CSS classes for text alignment
       editableRef.current.className = editableRef.current.className
         .replace(/text-(left|right|center)/g, '')
         .trim() + ` ${alignmentClass}`;
     }
-    
+
     // Update format state after command execution
     setTimeout(updateFormatState, 0)
-    
+
     emitChange()
     editableRef.current?.focus()
   }
@@ -550,19 +555,44 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   const insertEmoji = (emoji: string) => {
     if (!editableRef.current) return
 
-    const selection = window.getSelection()
-    if (selection && selection.rangeCount > 0) {
+    let selection = window.getSelection()
+
+    // Check if we have focus in the editor
+    const hasEditorFocus = selection &&
+      selection.rangeCount > 0 &&
+      editableRef.current.contains(selection.anchorNode)
+
+    // If focus is elsewhere (e.g. search bar), try to restore last valid range
+    if (!hasEditorFocus && lastRangeRef.current) {
+      selection?.removeAllRanges()
+      selection?.addRange(lastRangeRef.current)
+      // Refresh selection object after restoration
+      selection = window.getSelection()
+    }
+
+    if (selection && selection.rangeCount > 0 && editableRef.current.contains(selection.anchorNode)) {
       const range = selection.getRangeAt(0)
       range.deleteContents()
       range.insertNode(document.createTextNode(emoji))
       range.collapse(false)
       selection.removeAllRanges()
       selection.addRange(range)
+
+      // Update lastRangeRef after insertion
+      lastRangeRef.current = range.cloneRange()
     } else {
       // Fallback: append to end
       editableRef.current.appendChild(document.createTextNode(emoji))
+
+      // Move cursor to end
+      const range = document.createRange()
+      range.selectNodeContents(editableRef.current)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+      lastRangeRef.current = range.cloneRange()
     }
-    
+
     emitChange()
     editableRef.current.focus()
   }
@@ -580,7 +610,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   e.preventDefault()
                   e.stopPropagation()
                   const rect = e.currentTarget.getBoundingClientRect()
-                  setEmojiPickerPosition({ x: rect.left + rect.width / 2, y: rect.top })
+                  setEmojiPickerPosition({ x: rect.left + rect.width / 2, y: rect.bottom })
                   setShowEmojiPicker(!showEmojiPicker)
                 }}
                 className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
@@ -598,15 +628,14 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           )}
 
           {/* Always visible: Bold */}
-          <button 
-            type="button" 
-            onMouseDown={(e)=>e.preventDefault()} 
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => exec('bold')}
-            className={`p-2 rounded transition-colors flex-shrink-0 ${
-              formatState.bold 
-                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
-                : 'text-gray-600 hover:bg-gray-200'
-            }`}
+            className={`p-2 rounded transition-colors flex-shrink-0 ${formatState.bold
+              ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+              : 'text-gray-600 hover:bg-gray-200'
+              }`}
             style={{ color: formatState.bold ? '#7c3aed' : '#4b5563' }}
             title="Bold"
           >
@@ -615,15 +644,14 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
           {/* Conditionally visible based on overflow */}
           {!overflowItems.includes('italic') && (
-            <button 
-              type="button" 
-              onMouseDown={(e)=>e.preventDefault()} 
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => exec('italic')}
-              className={`p-2 rounded transition-colors flex-shrink-0 ${
-                formatState.italic 
-                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`p-2 rounded transition-colors flex-shrink-0 ${formatState.italic
+                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                : 'text-gray-600 hover:bg-gray-200'
+                }`}
               style={{ color: formatState.italic ? '#7c3aed' : '#4b5563' }}
               title="Italic"
             >
@@ -632,15 +660,14 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           )}
 
           {!overflowItems.includes('underline') && (
-            <button 
-              type="button" 
-              onMouseDown={(e)=>e.preventDefault()} 
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => exec('underline')}
-              className={`p-2 rounded transition-colors flex-shrink-0 ${
-                formatState.underline 
-                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`p-2 rounded transition-colors flex-shrink-0 ${formatState.underline
+                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                : 'text-gray-600 hover:bg-gray-200'
+                }`}
               style={{ color: formatState.underline ? '#7c3aed' : '#4b5563' }}
               title="Underline"
             >
@@ -819,11 +846,11 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
       {/* Portal-based Dropdowns */}
       {typeof document !== 'undefined' && showTextSizePicker && createPortal(
-        <div 
-          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]" 
-          style={{ 
-            left: dropdownPositions.textSize.x, 
-            top: dropdownPositions.textSize.y 
+        <div
+          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]"
+          style={{
+            left: dropdownPositions.textSize.x,
+            top: dropdownPositions.textSize.y
           }}
           data-rich-text-modal
         >
@@ -832,7 +859,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
               <button
                 key={size.value}
                 type="button"
-                onMouseDown={(e)=>e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -853,11 +880,11 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       )}
 
       {typeof document !== 'undefined' && showColorPicker && createPortal(
-        <div 
-          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]" 
-          style={{ 
-            left: dropdownPositions.color.x, 
-            top: dropdownPositions.color.y 
+        <div
+          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]"
+          style={{
+            left: dropdownPositions.color.x,
+            top: dropdownPositions.color.y
           }}
           data-rich-text-modal
         >
@@ -866,7 +893,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
               <button
                 key={color.value}
                 type="button"
-                onMouseDown={(e)=>e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -884,11 +911,11 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       )}
 
       {typeof document !== 'undefined' && showBackgroundPicker && createPortal(
-        <div 
-          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]" 
-          style={{ 
-            left: dropdownPositions.background.x, 
-            top: dropdownPositions.background.y 
+        <div
+          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]"
+          style={{
+            left: dropdownPositions.background.x,
+            top: dropdownPositions.background.y
           }}
           data-rich-text-modal
         >
@@ -897,7 +924,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
               <button
                 key={color.value}
                 type="button"
-                onMouseDown={(e)=>e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -905,7 +932,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   setShowBackgroundPicker(false)
                 }}
                 className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
-                style={{ 
+                style={{
                   backgroundColor: color.value === 'transparent' ? '#ffffff' : color.value,
                   border: color.value === 'transparent' ? '2px dashed #d1d5db' : '1px solid #d1d5db'
                 }}
@@ -918,28 +945,27 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       )}
 
       {typeof document !== 'undefined' && showOverflowMenu && createPortal(
-        <div 
-          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] min-w-[150px]" 
-          style={{ 
-            left: dropdownPositions.overflow.x, 
-            top: dropdownPositions.overflow.y 
+        <div
+          className="fixed p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] min-w-[150px]"
+          style={{
+            left: dropdownPositions.overflow.x,
+            top: dropdownPositions.overflow.y
           }}
           data-rich-text-modal
         >
           <div className="flex flex-col gap-1">
             {overflowItems.includes('italic') && (
-              <button 
-                type="button" 
-                onMouseDown={(e)=>e.preventDefault()} 
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   exec('italic')
                   setShowOverflowMenu(false)
                 }}
-                className={`flex items-center gap-2 px-3 py-2 text-left rounded transition-colors ${
-                  formatState.italic 
-                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
-                    : 'hover:bg-gray-100'
-                }`}
+                className={`flex items-center gap-2 px-3 py-2 text-left rounded transition-colors ${formatState.italic
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                  : 'hover:bg-gray-100'
+                  }`}
                 title="Italic"
               >
                 <Italic className="h-4 w-4" />
@@ -947,18 +973,17 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
               </button>
             )}
             {overflowItems.includes('underline') && (
-              <button 
-                type="button" 
-                onMouseDown={(e)=>e.preventDefault()} 
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   exec('underline')
                   setShowOverflowMenu(false)
                 }}
-                className={`flex items-center gap-2 px-3 py-2 text-left rounded transition-colors ${
-                  formatState.underline 
-                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
-                    : 'hover:bg-gray-100'
-                }`}
+                className={`flex items-center gap-2 px-3 py-2 text-left rounded transition-colors ${formatState.underline
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                  : 'hover:bg-gray-100'
+                  }`}
                 title="Underline"
               >
                 <Underline className="h-4 w-4" />
@@ -1035,7 +1060,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   e.preventDefault()
                   e.stopPropagation()
                   const rect = e.currentTarget.getBoundingClientRect()
-                  setEmojiPickerPosition({ x: rect.left + rect.width / 2, y: rect.top })
+                  setEmojiPickerPosition({ x: rect.left + rect.width / 2, y: rect.bottom })
                   setShowOverflowMenu(false)
                   setShowEmojiPicker(true)
                 }}
