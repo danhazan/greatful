@@ -152,6 +152,9 @@ temp/
 
 # Security test reports
 security_test_report_*.json
+production_config_report_*.json
+deployment_checklist_*.json
+production_security_validation_*.json
 security_validation_report.json
 
 # Redis dump
