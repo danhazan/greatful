@@ -5,7 +5,7 @@ User repository with specialized query methods.
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, text
+from sqlalchemy import func, text, or_
 from app.core.repository_base import BaseRepository
 from app.models.user import User
 from app.models.post import Post
@@ -43,7 +43,10 @@ class UserRepository(BaseRepository):
             List[User]: List of matching users
         """
         builder = self.query().filter(
-            User.username.ilike(f"%{query}%")
+            or_(
+                User.username.ilike(f"%{query}%"),
+                User.display_name.ilike(f"%{query}%")
+            )
         ).order_by(User.username).limit(limit)
         
         if exclude_user_ids:

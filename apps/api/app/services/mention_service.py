@@ -210,6 +210,7 @@ class MentionService(BaseService):
             {
                 "id": user.id,
                 "username": user.username,
+                "display_name": user.display_name,
                 "profile_image_url": user.profile_image_url,
                 "bio": user.bio
             }

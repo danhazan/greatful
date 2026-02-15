@@ -37,7 +37,7 @@ export default function UserSearchBar({
 
   const [hasSearched, setHasSearched] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
-  
+
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
@@ -70,7 +70,7 @@ export default function UserSearchBar({
   const debouncedSearch = useCallback(
     async (query: string) => {
       const cleanQuery = query.trim()
-      
+
       if (!cleanQuery || cleanQuery.length < 1) {
         setUsers([])
         setLoading(false)
@@ -80,7 +80,7 @@ export default function UserSearchBar({
 
       setLoading(true)
       setIsDropdownOpen(true)
-      
+
       try {
         const token = localStorage.getItem('access_token')
         if (!token) {
@@ -108,7 +108,7 @@ export default function UserSearchBar({
         }
 
         const data = await response.json()
-        
+
         if (data.success && Array.isArray(data.data)) {
           setUsers(data.data)
           setSelectedIndex(0) // Reset selection to first item
@@ -137,7 +137,7 @@ export default function UserSearchBar({
     }
 
     const cleanQuery = searchQuery.trim()
-    
+
     if (!cleanQuery || cleanQuery.length < 1) {
       setUsers([])
       setLoading(false)
@@ -212,7 +212,7 @@ export default function UserSearchBar({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        dropdownRef.current && 
+        dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node) &&
         inputRef.current &&
         !inputRef.current.contains(event.target as Node)
@@ -230,7 +230,7 @@ export default function UserSearchBar({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setSearchQuery(value)
-    
+
     if (value.trim()) {
       setIsDropdownOpen(true)
     }
@@ -313,7 +313,7 @@ export default function UserSearchBar({
                       onBlur={handleInputBlur}
                       placeholder="Search users..."
                       className={`block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors min-h-[44px] touch-manipulation shadow-xl ${getCompleteInputStyling().className}`}
-                      style={getCompleteInputStyling().style}
+                      style={{ ...getCompleteInputStyling().style, backgroundColor: 'white' }}
                       aria-label="Search for users"
                       aria-expanded={isDropdownOpen}
                       aria-haspopup="listbox"
@@ -367,9 +367,8 @@ export default function UserSearchBar({
                               type="button"
                               role="option"
                               aria-selected={index === selectedIndex}
-                              className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
-                                index === selectedIndex ? 'bg-purple-50' : ''
-                              }`}
+                              className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${index === selectedIndex ? 'bg-purple-50' : ''
+                                }`}
                               onMouseDown={(e) => {
                                 // Prevent blur from firing when clicking on result
                                 e.preventDefault()
@@ -437,7 +436,7 @@ export default function UserSearchBar({
               onBlur={handleInputBlur}
               placeholder={placeholder}
               className={`block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-colors h-9 touch-manipulation ${getCompleteInputStyling().className}`}
-              style={getCompleteInputStyling().style}
+              style={{ ...getCompleteInputStyling().style, backgroundColor: 'white' }}
               aria-label="Search for users"
               aria-expanded={isDropdownOpen}
               aria-haspopup="listbox"
@@ -490,9 +489,8 @@ export default function UserSearchBar({
                   type="button"
                   role="option"
                   aria-selected={index === selectedIndex}
-                  className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
-                    index === selectedIndex ? 'bg-purple-50' : ''
-                  }`}
+                  className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${index === selectedIndex ? 'bg-purple-50' : ''
+                    }`}
                   onMouseDown={(e) => {
                     // Prevent blur from firing when clicking on result
                     e.preventDefault()
