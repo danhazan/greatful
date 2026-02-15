@@ -23,6 +23,7 @@ from collections import defaultdict
 
 from app.services.algorithm_service import AlgorithmService
 from app.models.post import Post, PostType
+from app.models.comment import Comment
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
@@ -51,6 +52,7 @@ class EngagementData:
     hearts_count: int
     reactions_count: int
     shares_count: int
+    comments_count: int
 
 
 @dataclass
@@ -220,6 +222,17 @@ class OptimizedAlgorithmService(AlgorithmService):
         
         shares_result = await self.db.execute(shares_query)
         shares_counts = {row.post_id: row.shares_count for row in shares_result.fetchall()}
+
+        # Batch query for comments
+        comments_query = select(
+            Comment.post_id,
+            func.count(Comment.id).label('comments_count')
+        ).where(
+            Comment.post_id.in_(post_ids)
+        ).group_by(Comment.post_id)
+        
+        comments_result = await self.db.execute(comments_query)
+        comments_counts = {row.post_id: row.comments_count for row in comments_result.fetchall()}
         
         # Combine data
         for post_id in post_ids:
@@ -227,7 +240,8 @@ class OptimizedAlgorithmService(AlgorithmService):
                 post_id=post_id,
                 hearts_count=hearts_counts.get(post_id, 0),
                 reactions_count=reactions_counts.get(post_id, 0),
-                shares_count=shares_counts.get(post_id, 0)
+                shares_count=shares_counts.get(post_id, 0),
+                comments_count=comments_counts.get(post_id, 0)
             )
         
         logger.debug(f"Loaded engagement data for {len(post_ids)} posts in batch")
@@ -616,7 +630,7 @@ class OptimizedAlgorithmService(AlgorithmService):
                         'hearts': data.hearts_count,
                         'reactions': data.reactions_count,
                         'shares': data.shares_count,
-                        'comments': 0  # TODO: Add if available
+                        'comments': data.comments_count
                     }
                     for post_id, data in engagement_data_dict.items()
                 }
