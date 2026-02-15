@@ -104,14 +104,14 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
   // Normalize images array
   const normalizedImages: NormalizedPostImage[] = post.images
     ? post.images.map(img => ({
-        id: img.id,
-        position: img.position,
-        thumbnailUrl: img.thumbnailUrl ?? img.thumbnail_url ?? '',
-        mediumUrl: img.mediumUrl ?? img.medium_url ?? '',
-        originalUrl: img.originalUrl ?? img.original_url ?? '',
-        width: img.width,
-        height: img.height
-      })).sort((a, b) => a.position - b.position)
+      id: img.id,
+      position: img.position,
+      thumbnailUrl: img.thumbnailUrl ?? img.thumbnail_url ?? '',
+      mediumUrl: img.mediumUrl ?? img.medium_url ?? '',
+      originalUrl: img.originalUrl ?? img.original_url ?? '',
+      width: img.width,
+      height: img.height
+    })).sort((a, b) => a.position - b.position)
     : []
 
   return {

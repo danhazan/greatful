@@ -57,6 +57,66 @@ shared/types/             # Shared type definitions (TypeScript/Python)
 └── python/models.py     # Python equivalents of TypeScript types
 ```
 
+## 🔌 Adding New API Endpoints
+
+When adding a new API endpoint to the Grateful project, you must create routes in **both** the backend and frontend:
+
+### Step-by-Step Guide
+
+1. **Create FastAPI Backend Route** (`apps/api/app/api/v1/`)
+   - Add route to appropriate file (e.g., `users.py`, `posts.py`, `follows.py`)
+   - Define request/response models with Pydantic
+   - Implement endpoint logic with proper error handling
+   - Test with curl or Postman
+
+2. **Create Next.js Proxy Route** (`apps/web/src/app/api/`)
+   - Create `route.ts` file matching the endpoint path
+   - Export HTTP method function (GET, POST, PUT, DELETE)
+   - Forward request to backend with authorization headers
+   - Handle errors and return appropriate responses
+
+3. **Add API Client Method** (optional, `apps/web/src/utils/apiClient.ts`)
+   - Add typed method for the new endpoint
+   - Use appropriate caching strategy
+   - Include proper TypeScript types
+
+4. **Test End-to-End**
+   - Verify backend responds correctly: `curl http://localhost:8000/api/v1/endpoint`
+   - Verify frontend proxy works: Check network tab for `/api/endpoint`
+   - Test with actual frontend component
+
+### Example
+
+**Backend** (`apps/api/app/api/v1/users.py`):
+```python
+@router.post("/users/batch-profiles", status_code=200)
+async def get_batch_user_profiles(request: BatchRequest):
+    # Implementation
+```
+
+**Frontend Proxy** (`apps/web/src/app/api/users/batch-profiles/route.ts`):
+```typescript
+export async function POST(request: NextRequest) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/batch-profiles`, {
+    method: 'POST',
+    headers: { /* ... */ },
+    body: JSON.stringify(await request.json())
+  })
+  return NextResponse.json(await response.json())
+}
+```
+
+**API Client** (`apps/web/src/utils/apiClient.ts`):
+```typescript
+async getBatchUserProfiles(userIds: string[]) {
+  return this.post('/users/batch-profiles', { user_ids: userIds })
+}
+```
+
+See **[Common Fixes](COMMON_FIXES.md#fastapi-route-registration-with-nextjs-proxy)** for detailed documentation.
+
+---
+
 ## 🚀 Features Implemented
 
 ### ✅ **Option 2 Complete: FastAPI Backend with Comprehensive Testing**

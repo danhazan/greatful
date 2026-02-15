@@ -1176,10 +1176,10 @@ export default function PostCard({
               onClick={handleReactionButtonClick}
               disabled={isReactionLoading}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
-                  ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
-                  : (pendingReaction || currentPost.currentUserReaction || currentPost.isHearted)
-                    ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
-                    : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
+                ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
+                : (pendingReaction || currentPost.currentUserReaction || currentPost.isHearted)
+                  ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
+                  : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
                 } ${((post.reactionsCount || 0) + (post.heartsCount || 0)) > 0 ? 'ring-1 ring-purple-200' : ''}`}
               title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
             >
@@ -1231,8 +1231,8 @@ export default function PostCard({
               onClick={handleCommentsButtonClick}
               disabled={isCommentsLoading}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
-                  ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
-                  : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
+                ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
+                : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
                 } ${(currentPost.commentsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
               title={!isUserAuthenticated ? 'Login to comment on posts' : 'View and add comments'}
             >

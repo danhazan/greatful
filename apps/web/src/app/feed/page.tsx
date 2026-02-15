@@ -63,7 +63,7 @@ interface Post {
 
 export default function FeedPage() {
   const router = useRouter()
-  const { currentUser, isLoading: userLoading, logout } = useUser()
+  const { currentUser, isLoading: userLoading, logout, updateUserProfile, updateFollowState, markDataAsFresh } = useUser()
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -72,7 +72,7 @@ export default function FeedPage() {
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  
+
   // Pull-to-refresh state
   const [isPullToRefresh, setIsPullToRefresh] = useState(false)
   const [pullDistance, setPullDistance] = useState(0)
@@ -84,7 +84,7 @@ export default function FeedPage() {
   const loadPosts = async (token: string, refresh: boolean = false) => {
     try {
       setError(null)
-      
+
       // Use optimized API client instead of direct fetch
       const postsData = await apiClient.getPosts({
         skipCache: refresh // Skip cache on refresh
@@ -98,25 +98,83 @@ export default function FeedPage() {
         console.error('Posts data is not an array:', posts)
         throw new Error('Invalid posts data format')
       }
-      
+
       // Normalize posts to ensure consistent field naming
       const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
-      
+
       // Count unread posts
       const unreadPostsCount = normalizedPosts.filter(post => post.isUnread).length
       setUnreadCount(unreadPostsCount)
-      
+
       setPosts(normalizedPosts)
+
+      // ✅ OPTIMIZATION: Batch fetch user profiles and follow statuses
+      // Extract unique author IDs from posts
+      const authorIds = Array.from(new Set(
+        normalizedPosts
+          .map(post => post.author?.id)
+          .filter(id => id && id !== currentUser?.id) // Exclude current user
+      ))
+
+      if (authorIds.length > 0) {
+        console.log(`Batch fetching data for ${authorIds.length} unique authors`)
+
+        try {
+          // Batch fetch profiles and follow statuses in parallel
+          const [profilesData, followStatusData] = await Promise.all([
+            apiClient.getBatchUserProfiles(authorIds),
+            apiClient.getBatchFollowStatuses(authorIds)
+          ])
+
+          console.log('Batch profiles fetched:', profilesData)
+          console.log('Batch follow statuses fetched:', followStatusData)
+
+          // Populate UserContext cache with profiles
+          const profiles = (profilesData as any)?.data || profilesData || []
+          profiles.forEach((profile: any) => {
+            if (profile && profile.id) {
+              updateUserProfile(profile.id.toString(), {
+                id: profile.id.toString(),
+                name: profile.display_name || profile.name || profile.username,
+                username: profile.username,
+                email: profile.email,
+                image: profile.profile_image_url || profile.image,
+                display_name: profile.display_name,
+                follower_count: profile.followers_count || profile.follower_count || 0,
+                following_count: profile.following_count || 0,
+                posts_count: profile.posts_count || 0
+              })
+              // Mark data as fresh to prevent individual refetching
+              markDataAsFresh(profile.id.toString())
+            }
+          })
+
+          // Populate UserContext cache with follow statuses
+          const followStatuses = (followStatusData as any)?.data || followStatusData || {}
+          Object.entries(followStatuses).forEach(([userId, status]: [string, any]) => {
+            const isFollowing = status?.is_following || status?.isFollowing || false
+            updateFollowState(userId, isFollowing)
+            // Mark data as fresh to prevent individual refetching
+            markDataAsFresh(userId)
+          })
+
+          console.log('UserContext cache populated for feed optimization')
+        } catch (batchError) {
+          console.error('Error batch fetching user data:', batchError)
+          // Don't fail the entire feed load if batch fetch fails
+          // Individual components will fall back to fetching as needed
+        }
+      }
     } catch (error) {
       console.error('Error loading posts:', error)
-      
+
       // Handle auth errors
       if (error instanceof Error && error.message.includes('401')) {
         localStorage.removeItem("access_token")
         router.push("/auth/login")
         return
       }
-      
+
       setError(error instanceof Error ? error.message : 'Failed to load posts')
       setPosts([]) // Set empty array on error
     }
@@ -155,7 +213,7 @@ export default function FeedPage() {
     const initializePage = async () => {
       try {
         await loadPosts(token)
-        
+
         // Update user's last feed view timestamp using optimized client
         try {
           await apiClient.post('/posts/update-feed-view')
@@ -177,15 +235,15 @@ export default function FeedPage() {
   const handleLogout = () => {
     // Clear local posts state
     setPosts([])
-    
+
     // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
     logout()
-    
+
     // Redirect to home page
     router.push("/")
   }
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {
+  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { hearts_count: number, is_hearted: boolean }) => {
     // Update post state with server response data
     setPosts(posts.map(post => {
       if (post.id === postId) {
@@ -243,7 +301,7 @@ export default function FeedPage() {
 
   const handleEditPost = (postId: string, updatedPost: Post) => {
     // Update the post in the local state
-    setPosts(posts.map(post => 
+    setPosts(posts.map(post =>
       post.id === postId ? updatedPost : post
     ))
   }
@@ -259,10 +317,10 @@ export default function FeedPage() {
       if (useRefreshMode) {
         setIsRefreshing(true)
       }
-      
+
       try {
         await loadPosts(token, useRefreshMode)
-        
+
         // Update user's last feed view timestamp after refresh
         if (useRefreshMode) {
           try {
@@ -290,7 +348,7 @@ export default function FeedPage() {
     if (scrollContainerRef.current?.scrollTop === 0 && !isPullToRefresh) {
       const currentY = e.touches[0].clientY
       const distance = Math.max(0, currentY - touchStartY.current)
-      
+
       if (distance > 0) {
         setPullDistance(Math.min(distance * 0.5, 100)) // Damping effect
       }
@@ -311,21 +369,21 @@ export default function FeedPage() {
   const checkForNewPosts = useCallback(async () => {
     const now = Date.now()
     if (now - lastRefreshTime.current < 60000) return // Minimum 1 minute between checks (increased from 30s)
-    
+
     const token = localStorage.getItem("access_token")
     if (!token) return
-    
+
     try {
       // Use optimized API client with cache skipping for refresh
       const postsData = await apiClient.getPosts({ skipCache: true })
       const posts = postsData.data || postsData
-      
+
       if (Array.isArray(posts)) {
         const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
         const unreadPostsCount = normalizedPosts.filter(post => post.isUnread).length
         setUnreadCount(unreadPostsCount)
       }
-      
+
       lastRefreshTime.current = now
     } catch (error) {
       console.error('Error checking for new posts:', error)
@@ -343,7 +401,7 @@ export default function FeedPage() {
   useEffect(() => {
     const interval = setInterval(checkForNewPosts, 2 * 60 * 1000) // Every 2 minutes
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    
+
     return () => {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
@@ -466,10 +524,10 @@ export default function FeedPage() {
 
       // Refresh the entire feed to get the latest data
       await refreshPosts()
-      
+
       // Close the modal
       setIsCreateModalOpen(false)
-      
+
     } catch (error) {
       console.error('Error creating post:', error)
       // The error will be handled by the CreatePostModal component
@@ -521,7 +579,7 @@ export default function FeedPage() {
       } : undefined} onLogout={handleLogout} />
 
       {/* Main Content */}
-      <main 
+      <main
         className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-20 relative"
         ref={scrollContainerRef}
         onTouchStart={handleTouchStart}
@@ -530,11 +588,11 @@ export default function FeedPage() {
       >
         {/* Pull-to-refresh indicator */}
         {pullDistance > 0 && (
-          <div 
+          <div
             className="absolute top-0 left-0 right-0 flex items-center justify-center bg-purple-50 border-b border-purple-200 transition-all duration-200 z-10"
-            style={{ 
+            style={{
               height: `${Math.min(pullDistance, 80)}px`,
-              opacity: pullDistance / 60 
+              opacity: pullDistance / 60
             }}
           >
             <div className="flex items-center gap-2 text-purple-600">

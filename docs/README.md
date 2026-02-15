@@ -45,6 +45,8 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 2. Check **[Useful Commands](USEFUL_COMMANDS.md)** for deployment commands
 3. Review **[Architecture and Setup Guide](ARCHITECTURE_AND_SETUP.md)** for infrastructure
 
+---
+
 ## 📝 Documentation Standards
 
 ### File Organization

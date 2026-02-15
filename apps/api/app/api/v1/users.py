@@ -363,6 +363,56 @@ async def validate_usernames_batch(
     
     return success_response(result, getattr(request.state, 'request_id', None))
 
+
+class BatchProfilesRequest(BaseModel):
+    """Batch profiles request model."""
+    user_ids: List[int]
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+@router.post("/batch-profiles")
+async def get_batch_user_profiles(
+    batch_request: BatchProfilesRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get multiple user profiles in a single request.
+    
+    - **user_ids**: List of user IDs to fetch (max 50)
+    
+    Returns a list of public user profiles for the specified user IDs.
+    This prevents N+1 API calls when loading feed pages.
+    """
+    # Validate input
+    if not batch_request.user_ids:
+        return success_response([], getattr(request.state, 'request_id', None))
+    
+    # Limit to 50 users to prevent abuse
+    user_ids = batch_request.user_ids[:50]
+    
+    # Remove duplicates while preserving order
+    unique_user_ids = list(dict.fromkeys(user_ids))
+    
+    user_service = UserService(db)
+    
+    # Fetch all profiles
+    profiles = []
+    for user_id in unique_user_ids:
+        try:
+            profile = await user_service.get_public_user_profile(user_id)
+            profiles.append(profile)
+        except NotFoundError:
+            # Skip users that don't exist
+            logger.warning(f"User {user_id} not found in batch profile request")
+            continue
+    
+    logger.info(f"Batch fetched {len(profiles)} user profiles")
+    
+    return success_response(profiles, getattr(request.state, 'request_id', None))
+
 @router.post("/me/profile/photo/check-duplicate")
 async def check_profile_photo_duplicate(
     request: Request,

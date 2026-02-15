@@ -16,7 +16,7 @@ interface UserStateHook {
   followState: boolean
   isLoading: boolean
   error: string | null
-  
+
   // Actions with optimistic updates
   updateProfile: (updates: any) => Promise<void>
   toggleFollow: () => Promise<void>
@@ -24,7 +24,6 @@ interface UserStateHook {
 }
 
 // Optimized cache settings - longer durations to reduce API calls
-const lastFetchTime = new Map<string, number>()
 const CACHE_DURATION = 120000 // 2 minutes (increased from 30 seconds)
 
 export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
@@ -34,7 +33,9 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     getFollowState,
     updateUserProfile,
     updateFollowState,
-    subscribeToStateUpdates
+    subscribeToStateUpdates,
+    getLastFetchTime,
+    markDataAsFresh
   } = useUser()
 
   const [isLoading, setIsLoading] = useState(false)
@@ -57,21 +58,21 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   // Check if we have cached data
   const getCachedData = useCallback(() => {
     if (!userId) return { hasProfile: false, hasFollowState: false }
-    
+
     const cachedProfile = getUserProfile(userId)
     const cachedFollowState = getFollowState(userId)
-    
+
     if (cachedProfile) {
       setLocalUserProfile(cachedProfile)
       setIsLoading(false)
     }
-    
+
     // Only update local state if we have a definitive cached state
     // Don't override initialFollowState with undefined
     if (cachedFollowState !== undefined) {
       setLocalFollowState(cachedFollowState)
     }
-    
+
     return { hasProfile: !!cachedProfile, hasFollowState: cachedFollowState !== undefined }
   }, [userId, getUserProfile, getFollowState])
 
@@ -81,15 +82,23 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
 
     console.log('useUserState fetchUserData called for userId:', targetUserId)
 
-    // Check cache first
+    // Check cache first - if we have recent data, use it regardless of autoFetch
+    // This prevents redundant calls after batch fetching
     const { hasProfile, hasFollowState } = getCachedData()
-    const cacheKey = `${targetUserId}`
-    const lastFetch = lastFetchTime.get(cacheKey)
+    const lastFetch = getLastFetchTime(targetUserId)
     const now = Date.now()
-    
-    // If we have recent cached data, don't fetch again
+
+    // If we have cached data that's still fresh, don't fetch again
+    // This is critical for preventing N+1 queries after batch fetching
     if (hasProfile && hasFollowState && lastFetch && (now - lastFetch) < CACHE_DURATION) {
-      console.log('Using cached data for userId:', targetUserId)
+      console.log('✅ Using fresh cached data for userId:', targetUserId, '- skipping individual fetch')
+      setIsLoading(false)
+      return
+    }
+
+    // If autoFetch is disabled and we don't have cached data, don't fetch
+    if (!autoFetch) {
+      console.log('⚠️ autoFetch disabled and no cached data for userId:', targetUserId)
       setIsLoading(false)
       return
     }
@@ -109,7 +118,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       // Use Promise.allSettled to fetch both profile and follow status concurrently
       // This reduces the number of sequential API calls
       const promises = []
-      
+
       // Fetch user profile only if not cached or stale
       if (!hasProfile || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
         promises.push(
@@ -125,12 +134,13 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       }
 
       if (promises.length > 0) {
+        console.log(`🔄 Fetching ${promises.length} individual data points for userId:`, targetUserId)
         const results = await Promise.allSettled(promises)
-        
+
         results.forEach((result, index) => {
           if (result.status === 'fulfilled') {
             const { type, data } = result.value
-            
+
             if (type === 'profile') {
               // Update context state with correct field mapping
               updateUserProfile(targetUserId, {
@@ -155,11 +165,12 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
             console.warn(`Failed to fetch ${result.reason}:`, result.reason)
           }
         })
-        
-        // Update last fetch time only if we actually made requests
-        lastFetchTime.set(cacheKey, now)
+
+        // Mark data as fresh globally
+        markDataAsFresh(targetUserId)
+      } else {
+        setIsLoading(false)
       }
-      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user data'
       setError(errorMessage)
@@ -167,7 +178,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     } finally {
       setIsLoading(false)
     }
-  }, [updateUserProfile, updateFollowState, getCachedData])
+  }, [updateUserProfile, updateFollowState, getCachedData, getLastFetchTime, markDataAsFresh])
 
   // Auto-fetch user data when userId changes
   useEffect(() => {
@@ -179,13 +190,12 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
         setIsLoading(false)
         return
       }
-      
+
       // Check if we already have recent cached data
       const { hasProfile, hasFollowState } = getCachedData()
-      const cacheKey = `${userId}`
-      const lastFetch = lastFetchTime.get(cacheKey)
+      const lastFetch = getLastFetchTime(userId)
       const now = Date.now()
-      
+
       // Only fetch if we don't have cached data or it's stale
       if (!hasProfile || !hasFollowState || !lastFetch || (now - lastFetch) >= CACHE_DURATION) {
         fetchUserData(userId)

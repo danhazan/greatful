@@ -3,9 +3,10 @@ Follow API endpoints for user follow/unfollow functionality.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
 from app.core.responses import success_response, error_response
@@ -16,6 +17,64 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+class BatchFollowStatusRequest(BaseModel):
+    """Batch follow status request model."""
+    user_ids: List[int]
+
+
+@router.post("/follows/batch-status", status_code=200)
+async def get_batch_follow_status(
+    batch_request: BatchFollowStatusRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get follow status for multiple users in a single request.
+    
+    - **user_ids**: List of user IDs to check follow status with (max 50)
+    
+    Returns a dict mapping user_id to follow status information.
+    This prevents N+1 API calls when loading feed pages.
+    """
+    try:
+        # Validate input
+        if not batch_request.user_ids:
+            return success_response({}, getattr(request.state, 'request_id', None))
+        
+        # Limit to 50 users to prevent abuse
+        user_ids = batch_request.user_ids[:50]
+        
+        # Remove duplicates while preserving order
+        unique_user_ids = list(dict.fromkeys(user_ids))
+        
+        follow_service = FollowService(db)
+        
+        # Get batch follow status
+        status_map = await follow_service.bulk_check_following(
+            follower_id=current_user_id,
+            user_ids=unique_user_ids
+        )
+        
+        logger.info(f"Batch checked follow status for {len(unique_user_ids)} users")
+        
+        return success_response(
+            status_map,
+            getattr(request.state, 'request_id', None)
+        )
+        
+    except Exception as e:
+        logger.error(
+            f"Unexpected error in get_batch_follow_status: {str(e)}",
+            extra={
+                "follower_id": current_user_id,
+                "error": str(e)
+            },
+            exc_info=True
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/follows/{user_id}", status_code=201)
@@ -167,6 +226,64 @@ async def unfollow_user(
             extra={
                 "follower_id": current_user_id,
                 "followed_id": user_id,
+                "error": str(e)
+            },
+            exc_info=True
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+class BatchFollowStatusRequest(BaseModel):
+    """Batch follow status request model."""
+    user_ids: List[int]
+
+
+@router.post("/follows/batch-status", status_code=200)
+async def get_batch_follow_status(
+    batch_request: BatchFollowStatusRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get follow status for multiple users in a single request.
+    
+    - **user_ids**: List of user IDs to check follow status with (max 50)
+    
+    Returns a dict mapping user_id to follow status information.
+    This prevents N+1 API calls when loading feed pages.
+    """
+    try:
+        # Validate input
+        if not batch_request.user_ids:
+            return success_response({}, getattr(request.state, 'request_id', None))
+        
+        # Limit to 50 users to prevent abuse
+        user_ids = batch_request.user_ids[:50]
+        
+        # Remove duplicates while preserving order
+        unique_user_ids = list(dict.fromkeys(user_ids))
+        
+        follow_service = FollowService(db)
+        
+        # Get batch follow status
+        status_map = await follow_service.bulk_check_following(
+            follower_id=current_user_id,
+            user_ids=unique_user_ids
+        )
+        
+        logger.info(f"Batch checked follow status for {len(unique_user_ids)} users")
+        
+        return success_response(
+            status_map,
+            getattr(request.state, 'request_id', None)
+        )
+        
+    except Exception as e:
+        logger.error(
+            f"Unexpected error in get_batch_follow_status: {str(e)}",
+            extra={
+                "follower_id": current_user_id,
                 "error": str(e)
             },
             exc_info=True

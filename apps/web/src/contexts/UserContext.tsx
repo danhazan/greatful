@@ -41,7 +41,7 @@ interface FollowStateUpdate {
 }
 
 // Event types for state synchronization
-type StateEvent = 
+type StateEvent =
   | { type: 'USER_PROFILE_UPDATE'; payload: UserStateUpdate }
   | { type: 'FOLLOW_STATE_UPDATE'; payload: FollowStateUpdate }
   | { type: 'CURRENT_USER_UPDATE'; payload: Partial<User> }
@@ -50,22 +50,26 @@ interface UserContextType {
   currentUser: User | null
   setCurrentUser: (user: User | null) => void
   isLoading: boolean
-  
+
   // Enhanced state management
   userProfiles: { [userId: string]: UserProfile }
   followStates: FollowState
-  
+
   // State update methods
   updateUserProfile: (userId: string, updates: Partial<UserProfile>) => void
   updateFollowState: (userId: string, isFollowing: boolean) => void
   updateCurrentUser: (updates: Partial<User>) => void
   getUserProfile: (userId: string) => UserProfile | null
   getFollowState: (userId: string) => boolean
-  
+
+  // Cache management
+  markDataAsFresh: (userId: string) => void
+  getLastFetchTime: (userId: string) => number | undefined
+
   // Authentication methods
   logout: () => void
   reloadUser: () => Promise<void>
-  
+
   // Event subscription for components
   subscribeToStateUpdates: (callback: (event: StateEvent) => void) => () => void
 }
@@ -77,6 +81,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true)
   const [userProfiles, setUserProfiles] = useState<{ [userId: string]: UserProfile }>({})
   const [followStates, setFollowStates] = useState<FollowState>({})
+  const [lastFetchTimes, setLastFetchTimes] = useState<{ [userId: string]: number }>({})
   const [stateEventListeners, setStateEventListeners] = useState<Set<(event: StateEvent) => void>>(new Set())
 
   // Event emission helper
@@ -114,7 +119,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Validate token and fetch user data using optimized API client with deduplication
       const userData = await apiClient.getCurrentUserProfile()
       console.log('[UserContext] getCurrentUserProfile response:', userData && userData.id ? 'OK id=' + userData.id : 'NO_ID', userData)
-          
+
       // Safely handle user data and ensure id exists before converting
       if (userData && userData.id) {
         const user: User = {
@@ -125,10 +130,10 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           image: userData.profile_image_url,
           display_name: userData.display_name
         }
-        
+
         setCurrentUser(user)
         console.log('[UserContext] User profile loaded')
-        
+
         // Also store in user profiles for consistency
         const userProfile: UserProfile = {
           id: user.id,
@@ -141,7 +146,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           following_count: userData.following_count,
           posts_count: userData.posts_count
         }
-        
+
         setUserProfiles(prev => ({
           ...prev,
           [user.id]: userProfile
@@ -154,7 +159,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('[UserContext] getCurrentUserProfile error', error)
-      
+
       // Only logout on authentication errors (401), not on network errors
       const errorMessage = error instanceof Error ? error.message : String(error)
       if (errorMessage.includes('HTTP 401') || errorMessage.includes('401')) {
@@ -163,7 +168,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         console.log('[UserContext] Network or other error, keeping token for retry')
       }
-      
+
       setCurrentUser(null)
     } finally {
       console.log('[UserContext] finished loading user (isLoading will be false)')
@@ -178,7 +183,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       newSet.add(callback)
       return newSet
     })
-    
+
     // Return unsubscribe function
     return () => {
       setStateEventListeners(prev => {
@@ -216,7 +221,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (updates.username !== undefined) currentUserUpdates.username = updates.username
       if (updates.email !== undefined) currentUserUpdates.email = updates.email
       if (updates.image !== undefined) currentUserUpdates.image = updates.image
-      
+
       if (Object.keys(currentUserUpdates).length > 0) {
         setCurrentUser(prev => prev ? { ...prev, ...currentUserUpdates } : null)
         emitStateEvent({
@@ -247,7 +252,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Update current user
   const updateCurrentUser = useCallback((updates: Partial<User>) => {
     setCurrentUser(prev => prev ? { ...prev, ...updates } : null)
-    
+
     // Emit state update event
     emitStateEvent({
       type: 'CURRENT_USER_UPDATE',
@@ -261,7 +266,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (updates.username !== undefined) profileUpdates.username = updates.username
       if (updates.email !== undefined) profileUpdates.email = updates.email
       if (updates.image !== undefined) profileUpdates.image = updates.image
-      
+
       if (Object.keys(profileUpdates).length > 0) {
         updateUserProfile(currentUser.id, profileUpdates)
       }
@@ -278,27 +283,40 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return followStates[userId] || false
   }, [followStates])
 
+  // Mark data as fresh
+  const markDataAsFresh = useCallback((userId: string) => {
+    setLastFetchTimes(prev => ({
+      ...prev,
+      [userId]: Date.now()
+    }))
+  }, [])
+
+  // Get last fetch time
+  const getLastFetchTime = useCallback((userId: string): number | undefined => {
+    return lastFetchTimes[userId]
+  }, [lastFetchTimes])
+
   // Comprehensive logout function
   const logout = useCallback(() => {
     console.log('[UserContext] Logging out user...')
-    
+
     // 1. Use auth utility to clean up tokens and stop polling
     auth.logout()
-    
+
     // 2. Clear all user-related state
     setCurrentUser(null)
     setUserProfiles({})
     setFollowStates({})
-    
+
     // 3. Clear API client cache to prevent stale data
     apiClient.clearCache()
-    
+
     // 4. Emit logout event to notify components
     emitStateEvent({
       type: 'CURRENT_USER_UPDATE',
       payload: { id: '', name: '', username: '', email: '' }
     })
-    
+
     console.log('[UserContext] Logout completed')
   }, [emitStateEvent])
 
@@ -318,6 +336,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateCurrentUser,
     getUserProfile,
     getFollowState,
+    markDataAsFresh,
+    getLastFetchTime,
     logout,
     reloadUser: loadUser,
     subscribeToStateUpdates

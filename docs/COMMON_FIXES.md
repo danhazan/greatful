@@ -4,11 +4,152 @@ This document contains common fixes and solutions that can be applied to similar
 
 ## 📋 Table of Contents
 
+- [FastAPI Route Registration with Next.js Proxy](#fastapi-route-registration-with-nextjs-proxy)
 - [API Response Field Mapping Issues](#api-response-field-mapping-issues)
 - [Text Input Visibility Fixes](#text-input-visibility-fixes)
 - [Dropdown Positioning Fixes](#dropdown-positioning-fixes)
 - [Responsive Design Patterns](#responsive-design-patterns)
 - [Mobile Optimization Techniques](#mobile-optimization-techniques)
+
+---
+
+## FastAPI Route Registration with Next.js Proxy
+
+### Missing Next.js API Proxy Routes for Backend Endpoints
+
+**Problem**: Backend FastAPI routes work when called directly (e.g., via curl or Postman) but fail when called from the Next.js frontend, resulting in 404 errors or requests being misrouted.
+
+**Root Cause**: The Next.js frontend uses an API proxy layer (`apps/web/src/app/api/`) that forwards requests to the FastAPI backend. When a new backend endpoint is created, a corresponding Next.js proxy route must also be created. Without this proxy route, frontend requests fail even though the backend endpoint exists.
+
+#### Symptoms:
+- Backend endpoint works when tested directly with curl/Postman
+- Frontend requests to the same endpoint fail with 404 or 422 errors
+- Network tab shows requests going to `/api/endpoint` but no matching route exists
+- Error logs show "route not found" or validation errors
+
+#### Example Case: Missing Batch Endpoints
+
+**Problem**: Batch endpoints `/api/v1/users/batch-profiles` and `/api/v1/follows/batch-status` worked on the backend but failed from the frontend.
+
+**Investigation Steps**:
+1. ✅ Verified backend routes exist in `apps/api/app/api/v1/users.py` and `follows.py`
+2. ✅ Tested backend routes directly with curl - they worked correctly
+3. ✅ Checked frontend `apiClient.ts` - methods were calling correct paths
+4. ❌ Found that Next.js proxy routes were missing in `apps/web/src/app/api/`
+
+#### Solution: Create Matching Next.js API Proxy Routes
+
+For every FastAPI backend endpoint, create a corresponding Next.js proxy route that forwards requests to the backend.
+
+#### Implementation:
+
+**1. Identify the backend endpoint:**
+```python
+# apps/api/app/api/v1/users.py
+@router.post("/users/batch-profiles", status_code=200)
+async def get_batch_user_profiles(...):
+    # Backend logic
+```
+
+**2. Create the Next.js proxy route:**
+
+Create file: `apps/web/src/app/api/users/batch-profiles/route.ts`
+
+```typescript
+import { NextRequest, NextResponse } from 'next/server'
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const authHeader = request.headers.get('authorization')
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/users/batch-profiles`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { 'Authorization': authHeader } : {})
+      },
+      body: JSON.stringify(body)
+    })
+
+    const data = await response.json()
+    
+    return NextResponse.json(data, { status: response.status })
+  } catch (error) {
+    console.error('Error in batch-profiles proxy:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch batch profiles' },
+      { status: 500 }
+    )
+  }
+}
+```
+
+**3. Path mapping:**
+- Backend route: `/api/v1/users/batch-profiles`
+- Next.js proxy file: `apps/web/src/app/api/users/batch-profiles/route.ts`
+- Frontend calls: `/api/users/batch-profiles` (which Next.js proxies to backend)
+
+#### Key Points:
+
+- **HTTP Method**: Export the appropriate function (`GET`, `POST`, `PUT`, `DELETE`, etc.)
+- **Path Structure**: Next.js uses file-based routing - the file path determines the URL
+- **Authorization**: Always forward the `Authorization` header from the request
+- **Error Handling**: Catch errors and return appropriate error responses
+- **Environment Variable**: Use `NEXT_PUBLIC_API_BASE_URL` for the backend URL
+
+#### Benefits:
+- ✅ Frontend can call backend endpoints through the proxy layer
+- ✅ Centralized request handling and error management
+- ✅ Proper CORS handling
+- ✅ Authorization token forwarding
+- ✅ Consistent API interface for frontend
+
+#### How to Prevent This Issue:
+
+**Checklist for Adding New API Endpoints:**
+
+1. **Create Backend Route** (`apps/api/app/api/v1/`)
+   ```python
+   @router.post("/endpoint-name", status_code=200)
+   async def endpoint_function(...):
+       # Implementation
+   ```
+
+2. **Create Next.js Proxy Route** (`apps/web/src/app/api/`)
+   - File path: `apps/web/src/app/api/[path]/route.ts`
+   - Export HTTP method function (GET, POST, etc.)
+   - Forward to backend with proper headers
+
+3. **Add Method to API Client** (if needed)
+   ```typescript
+   // apps/web/src/utils/apiClient.ts
+   async newEndpoint(data: any) {
+     return this.post('/endpoint-name', data)
+   }
+   ```
+
+4. **Test Both Layers**
+   - Test backend directly: `curl http://localhost:8000/api/v1/endpoint-name`
+   - Test through proxy: Check network tab shows `/api/endpoint-name` succeeds
+
+#### Testing Checklist:
+- [ ] Backend route responds correctly when called directly
+- [ ] Next.js proxy route file exists at correct path
+- [ ] Frontend request succeeds through proxy
+- [ ] Authorization headers are forwarded correctly
+- [ ] Error responses are handled properly
+
+#### Applied To:
+- **Batch user profiles** - `/api/users/batch-profiles` (February 2026)
+- **Batch follow status** - `/api/follows/batch-status` (February 2026)
+
+#### Related Files:
+- Backend routes: `apps/api/app/api/v1/*.py`
+- Next.js proxy routes: `apps/web/src/app/api/**/route.ts`
+- API client: `apps/web/src/utils/apiClient.ts`
 
 ---
 
