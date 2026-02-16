@@ -65,14 +65,12 @@ async def get_batch_follow_status(
             getattr(request.state, 'request_id', None)
         )
         
-    except Exception as e:
-        logger.error(
-            f"Unexpected error in get_batch_follow_status: {str(e)}",
+    except Exception:
+        logger.exception(
+            "Unexpected error in get_batch_follow_status",
             extra={
-                "follower_id": current_user_id,
-                "error": str(e)
-            },
-            exc_info=True
+                "follower_id": current_user_id
+            }
         )
         raise HTTPException(status_code=500, detail="Internal server error")
 
@@ -233,62 +231,6 @@ async def unfollow_user(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-class BatchFollowStatusRequest(BaseModel):
-    """Batch follow status request model."""
-    user_ids: List[int]
-
-
-@router.post("/follows/batch-status", status_code=200)
-async def get_batch_follow_status(
-    batch_request: BatchFollowStatusRequest,
-    request: Request,
-    current_user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Get follow status for multiple users in a single request.
-    
-    - **user_ids**: List of user IDs to check follow status with (max 50)
-    
-    Returns a dict mapping user_id to follow status information.
-    This prevents N+1 API calls when loading feed pages.
-    """
-    try:
-        # Validate input
-        if not batch_request.user_ids:
-            return success_response({}, getattr(request.state, 'request_id', None))
-        
-        # Limit to 50 users to prevent abuse
-        user_ids = batch_request.user_ids[:50]
-        
-        # Remove duplicates while preserving order
-        unique_user_ids = list(dict.fromkeys(user_ids))
-        
-        follow_service = FollowService(db)
-        
-        # Get batch follow status
-        status_map = await follow_service.bulk_check_following(
-            follower_id=current_user_id,
-            user_ids=unique_user_ids
-        )
-        
-        logger.info(f"Batch checked follow status for {len(unique_user_ids)} users")
-        
-        return success_response(
-            status_map,
-            getattr(request.state, 'request_id', None)
-        )
-        
-    except Exception as e:
-        logger.error(
-            f"Unexpected error in get_batch_follow_status: {str(e)}",
-            extra={
-                "follower_id": current_user_id,
-                "error": str(e)
-            },
-            exc_info=True
-        )
-        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/follows/{user_id}/status", status_code=200)

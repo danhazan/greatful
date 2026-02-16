@@ -5,7 +5,7 @@ User repository with specialized query methods.
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, text, or_
+from sqlalchemy import func, text, or_, and_
 from app.core.repository_base import BaseRepository
 from app.models.user import User
 from app.models.post import Post
@@ -66,42 +66,76 @@ class UserRepository(BaseRepository):
         Returns:
             Dict containing user statistics
         """
-        # Get posts count
-        posts_count_query = select(func.count(Post.id)).where(Post.author_id == user_id)
-        posts_result = await self._execute_query(posts_count_query, "get user posts count")
-        posts_count = posts_result.scalar() or 0
+        batch_stats = await self.get_user_stats_batch([user_id])
+        return batch_stats.get(user_id, {
+            "posts_count": 0,
+            "public_posts_count": 0,
+            "followers_count": 0,
+            "following_count": 0
+        })
+
+    async def get_user_stats_batch(self, user_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """
+        Get comprehensive user statistics for multiple users at once.
         
-        # Get public posts count
-        public_posts_query = select(func.count(Post.id)).where(
-            Post.author_id == user_id,
-            Post.is_public == True
-        )
-        public_result = await self._execute_query(public_posts_query, "get user public posts count")
-        public_posts_count = public_result.scalar() or 0
-        
-        # Get followers count
+        Args:
+            user_ids: List of user IDs
+            
+        Returns:
+            Dict mapping user_id to statistics dictionary
+        """
+        if not user_ids:
+            return {}
+
         from app.models.follow import Follow
-        followers_count_query = select(func.count(Follow.id)).where(
-            Follow.followed_id == user_id,
-            Follow.status == "active"
-        )
-        followers_result = await self._execute_query(followers_count_query, "get user followers count")
-        followers_count = followers_result.scalar() or 0
         
-        # Get following count
-        following_count_query = select(func.count(Follow.id)).where(
-            Follow.follower_id == user_id,
-            Follow.status == "active"
+        # 1. Get total posts count per user
+        posts_query = (
+            select(Post.author_id, func.count(Post.id))
+            .where(Post.author_id.in_(user_ids))
+            .group_by(Post.author_id)
         )
-        following_result = await self._execute_query(following_count_query, "get user following count")
-        following_count = following_result.scalar() or 0
+        posts_result = await self._execute_query(posts_query, "batch get user posts count")
+        posts_counts = {row[0]: row[1] for row in posts_result.fetchall()}
         
-        return {
-            "posts_count": posts_count,
-            "public_posts_count": public_posts_count,
-            "followers_count": followers_count,
-            "following_count": following_count
-        }
+        # 2. Get public posts count per user
+        public_query = (
+            select(Post.author_id, func.count(Post.id))
+            .where(and_(Post.author_id.in_(user_ids), Post.is_public == True))
+            .group_by(Post.author_id)
+        )
+        public_result = await self._execute_query(public_query, "batch get user public posts count")
+        public_counts = {row[0]: row[1] for row in public_result.fetchall()}
+        
+        # 3. Get followers count per user
+        followers_query = (
+            select(Follow.followed_id, func.count(Follow.id))
+            .where(and_(Follow.followed_id.in_(user_ids), Follow.status == "active"))
+            .group_by(Follow.followed_id)
+        )
+        followers_result = await self._execute_query(followers_query, "batch get user followers count")
+        followers_counts = {row[0]: row[1] for row in followers_result.fetchall()}
+        
+        # 4. Get following count per user
+        following_query = (
+            select(Follow.follower_id, func.count(Follow.id))
+            .where(and_(Follow.follower_id.in_(user_ids), Follow.status == "active"))
+            .group_by(Follow.follower_id)
+        )
+        following_result = await self._execute_query(following_query, "batch get user following count")
+        following_counts = {row[0]: row[1] for row in following_result.fetchall()}
+        
+        # Compile result dictionary
+        result = {}
+        for user_id in user_ids:
+            result[user_id] = {
+                "posts_count": posts_counts.get(user_id, 0),
+                "public_posts_count": public_counts.get(user_id, 0),
+                "followers_count": followers_counts.get(user_id, 0),
+                "following_count": following_counts.get(user_id, 0)
+            }
+            
+        return result
     
     async def check_username_availability(
         self, 

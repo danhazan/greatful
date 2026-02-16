@@ -152,6 +152,37 @@ class BaseRepository:
         
         return entity
     
+    async def get_by_ids(
+        self, 
+        entity_ids: List[Any], 
+        load_relationships: Optional[List[str]] = None
+    ) -> List[T]:
+        """
+        Get entities by multiple IDs with optional relationship loading.
+        
+        Args:
+            entity_ids: List of IDs of the entities
+            load_relationships: List of relationship names to load
+            
+        Returns:
+            List[T]: List of entities found
+        """
+        if not entity_ids:
+            return []
+            
+        builder = self.query().filter(self.model_class.id.in_(entity_ids))
+        
+        if load_relationships:
+            builder = builder.load_relationships(*load_relationships)
+        
+        query = builder.build()
+        result = await self._execute_query(query, f"get {self.model_class.__name__} by ids")
+        entities = result.scalars().all()
+        
+        self.logger.debug(f"Found {len(entities)} {self.model_class.__name__} entities for {len(entity_ids)} IDs")
+        
+        return entities
+    
     async def get_by_id_or_404(
         self, 
         entity_id: Any, 

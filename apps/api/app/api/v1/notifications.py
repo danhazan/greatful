@@ -408,8 +408,8 @@ async def get_batch_children(
         
         return response_notifications
         
-    except Exception as e:
-        logger.error(f"Error getting batch children: {e}")
+    except Exception:
+        logger.exception("Error getting batch children")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get batch children"

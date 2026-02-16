@@ -3,7 +3,7 @@ User service with standardized patterns using repository layer.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ConflictError, ValidationException
@@ -72,7 +72,7 @@ class UserService(BaseService):
             "oauth_provider": user.oauth_provider
         }
 
-    async def get_public_user_profile(self, user_id: int) -> Dict[str, any]:
+    async def get_public_user_profile(self, user_id: int) -> Dict[str, Any]:
         """
         Get public user profile (no email).
         
@@ -89,6 +89,64 @@ class UserService(BaseService):
         # Remove email from public profile
         profile.pop("email", None)
         return profile
+
+    async def get_public_user_profiles_batch(self, user_ids: List[int]) -> List[Dict[str, Any]]:
+        """
+        Get multiple public user profiles in batch efficiently.
+        
+        Args:
+            user_ids: List of user IDs
+            
+        Returns:
+            List[Dict] containing public user profiles
+        """
+        if not user_ids:
+            return []
+            
+        # 1. Fetch all users in one query
+        users = await self.user_repo.get_by_ids(user_ids)
+        if not users:
+            return []
+            
+        # 2. Fetch all stats in one batch query
+        found_ids = [user.id for user in users]
+        batch_stats = await self.user_repo.get_user_stats_batch(found_ids)
+        
+        from app.core.storage import storage
+        
+        # 3. Compile profiles
+        profiles = []
+        for user in users:
+            stats = batch_stats.get(user.id, {
+                "posts_count": 0,
+                "public_posts_count": 0,
+                "followers_count": 0,
+                "following_count": 0
+            })
+            
+            profile_image_url = None
+            if user.profile_image_url:
+                profile_image_url = storage.get_url(user.profile_image_url)
+                
+            profile = {
+                "id": user.id,
+                "username": user.username,
+                "bio": user.bio,
+                "profile_image_url": profile_image_url,
+                "display_name": user.display_name,
+                "city": user.city,
+                "location": user.location,
+                "institutions": user.institutions or [],
+                "websites": user.websites or [],
+                "created_at": user.created_at.isoformat(),
+                "posts_count": stats["posts_count"],
+                "followers_count": stats["followers_count"],
+                "following_count": stats["following_count"],
+                "oauth_provider": user.oauth_provider
+            }
+            profiles.append(profile)
+            
+        return profiles
 
     async def get_user_by_username(self, username: str) -> User:
         """

@@ -386,32 +386,31 @@ async def get_batch_user_profiles(
     Returns a list of public user profiles for the specified user IDs.
     This prevents N+1 API calls when loading feed pages.
     """
-    # Validate input
-    if not batch_request.user_ids:
-        return success_response([], getattr(request.state, 'request_id', None))
-    
-    # Limit to 50 users to prevent abuse
-    user_ids = batch_request.user_ids[:50]
-    
-    # Remove duplicates while preserving order
-    unique_user_ids = list(dict.fromkeys(user_ids))
-    
-    user_service = UserService(db)
-    
-    # Fetch all profiles
-    profiles = []
-    for user_id in unique_user_ids:
-        try:
-            profile = await user_service.get_public_user_profile(user_id)
-            profiles.append(profile)
-        except NotFoundError:
-            # Skip users that don't exist
-            logger.warning(f"User {user_id} not found in batch profile request")
-            continue
-    
-    logger.info(f"Batch fetched {len(profiles)} user profiles")
-    
-    return success_response(profiles, getattr(request.state, 'request_id', None))
+    try:
+        # Validate input
+        if not batch_request.user_ids:
+            return success_response([], getattr(request.state, 'request_id', None))
+        
+        # Limit to 50 users to prevent abuse
+        user_ids = batch_request.user_ids[:50]
+        
+        # Remove duplicates while preserving order
+        unique_user_ids = list(dict.fromkeys(user_ids))
+        
+        user_service = UserService(db)
+        
+        # Optimized: Fetch all profiles in batch
+        profiles = await user_service.get_public_user_profiles_batch(unique_user_ids)
+        
+        logger.info(f"Batch fetched {len(profiles)} user profiles")
+        
+        return success_response(profiles, getattr(request.state, 'request_id', None))
+    except Exception:
+        logger.exception("Unexpected error in get_batch_user_profiles")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error while fetching batch profiles"
+        )
 
 @router.post("/me/profile/photo/check-duplicate")
 async def check_profile_photo_duplicate(
