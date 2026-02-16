@@ -50,8 +50,8 @@ POOL_SETTINGS = {
         "echo": False,
     },
     "production": {
-        "pool_size": 20,
-        "max_overflow": 30,
+        "pool_size": 3,      # Conservative limit for Supabase free tier
+        "max_overflow": 0,    # Disable overflow to prevent exceeding 60-connection limit
         "pool_timeout": 30,
         "pool_recycle": 1800,  # 30 minutes
         "pool_pre_ping": True,
@@ -112,12 +112,20 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 @event.listens_for(engine.sync_engine, "checkout")
 def receive_checkout(dbapi_connection, connection_record, connection_proxy):
     """Log connection checkout for monitoring."""
-    logger.debug(f"Connection checked out from pool. Pool size: {engine.pool.size()}")
+    pool = engine.pool
+    logger.info(
+        f"DB Connection Checkout | Pool: {pool.size()} | "
+        f"CheckedOut: {pool.checkedout()} | CheckedIn: {pool.checkedin()} | Overflow: {pool.overflow()}"
+    )
 
 @event.listens_for(engine.sync_engine, "checkin")
 def receive_checkin(dbapi_connection, connection_record):
     """Log connection checkin for monitoring."""
-    logger.debug(f"Connection checked in to pool. Pool size: {engine.pool.size()}")
+    pool = engine.pool
+    logger.info(
+        f"DB Connection Checkin  | Pool: {pool.size()} | "
+        f"CheckedOut: {pool.checkedout()} | CheckedIn: {pool.checkedin()} | Overflow: {pool.overflow()}"
+    )
 
 async def get_db() -> AsyncSession:
     """
