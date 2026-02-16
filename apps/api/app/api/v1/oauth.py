@@ -68,7 +68,7 @@ async def get_oauth_providers(request: Request):
         
     except Exception as e:
         logger.error(f"Error getting OAuth provider status: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get OAuth provider status")
+        raise HTTPException(status_code=500, detail="Failed to get OAuth provider status") from e
 
 @router.get("/login/{provider}")
 async def oauth_login(
@@ -148,7 +148,7 @@ async def oauth_login(
     except Exception as e:
         logger.error(f"Error initiating OAuth login for {provider}: {e}")
         log_oauth_security_event('login_error', provider, details={'error': str(e)})
-        raise HTTPException(status_code=500, detail="Failed to initiate OAuth login")
+        raise HTTPException(status_code=500, detail="Failed to initiate OAuth login") from e
 
 @router.post("/callback/{provider}", response_model=OAuthLoginResponse)
 async def oauth_callback(
@@ -283,7 +283,7 @@ async def oauth_callback(
                     else:
                         detail = f"OAuth error: {error_type} - {error_desc}"
                     
-                    raise HTTPException(status_code=400, detail=detail)
+                    raise HTTPException(status_code=400, detail=detail) from e
                 
                 token = response.json()
                 logger.info("Token exchange succeeded")
@@ -352,7 +352,7 @@ async def oauth_callback(
                 pass
         
         log_oauth_security_event('callback_error', provider, details={'error': str(e)})
-        raise HTTPException(status_code=500, detail="OAuth authentication failed")
+        raise HTTPException(status_code=500, detail="OAuth authentication failed") from e
 
 @router.delete("/unlink")
 async def unlink_oauth_account(
@@ -390,7 +390,7 @@ async def unlink_oauth_account(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error unlinking OAuth account: {e}")
-        raise HTTPException(status_code=500, detail="Failed to unlink OAuth account")
+        raise HTTPException(status_code=500, detail="Failed to unlink OAuth account") from e
 
 @router.get("/stats")
 async def get_oauth_stats(
@@ -427,4 +427,4 @@ async def get_oauth_stats(
         raise
     except Exception as e:
         logger.error(f"Error getting OAuth stats: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get OAuth statistics")
+        raise HTTPException(status_code=500, detail="Failed to get OAuth statistics") from e

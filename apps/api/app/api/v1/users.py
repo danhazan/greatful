@@ -405,12 +405,12 @@ async def get_batch_user_profiles(
         logger.info(f"Batch fetched {len(profiles)} user profiles")
         
         return success_response(profiles, getattr(request.state, 'request_id', None))
-    except Exception:
+    except Exception as e:
         logger.exception("Unexpected error in get_batch_user_profiles")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error while fetching batch profiles"
-        )
+            status_code=500,
+            detail="Internal server error"
+        ) from e
 
 @router.post("/me/profile/photo/check-duplicate")
 async def check_profile_photo_duplicate(
@@ -437,7 +437,7 @@ async def check_profile_photo_duplicate(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
-        )
+        ) from e
 
 @router.post("/me/profile/photo")
 async def upload_profile_photo(
@@ -479,7 +479,7 @@ async def upload_profile_photo(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
-        )
+        ) from e
 
 
 @router.delete("/me/profile/photo")
@@ -504,7 +504,7 @@ async def delete_profile_photo(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
-        )
+        ) from e
 
 
 @router.get("/me/profile/photo/default")

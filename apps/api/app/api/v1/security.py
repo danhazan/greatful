@@ -77,7 +77,7 @@ async def validate_security_config(
         raise HTTPException(
             status_code=500,
             detail="Failed to validate security configuration"
-        )
+        ) from e
 
 
 @router.get("/status")
@@ -130,7 +130,7 @@ async def get_security_status(
         raise HTTPException(
             status_code=500,
             detail="Failed to retrieve security status"
-        )
+        ) from e
 
 
 @router.get("/alerts")
@@ -218,7 +218,7 @@ async def get_security_alerts(
         raise HTTPException(
             status_code=500,
             detail="Failed to retrieve security alerts"
-        )
+        ) from e
 
 
 @router.get("/metrics")
@@ -273,7 +273,7 @@ async def get_security_metrics(
         raise HTTPException(
             status_code=500,
             detail="Failed to retrieve security metrics"
-        )
+        ) from e
 
 
 @router.post("/test-alert")
@@ -335,7 +335,7 @@ async def create_test_security_alert(
         raise HTTPException(
             status_code=500,
             detail="Failed to create test security alert"
-        )
+        ) from e
 
 
 @router.get("/monitoring/config")
@@ -391,7 +391,7 @@ async def get_monitoring_config(
         raise HTTPException(
             status_code=500,
             detail="Failed to retrieve monitoring configuration"
-        )
+        ) from e
 
 
 # Helper functions

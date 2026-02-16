@@ -35,7 +35,7 @@ async def get_current_user_simple(
         return user_info
         
     except Exception as e:
-        raise HTTPException(status_code=401, detail="Authentication failed")
+        raise HTTPException(status_code=401, detail="Authentication failed") from e
 
 
 @router.get("/health")
@@ -85,7 +85,7 @@ async def get_index_analysis():
         analysis_data = await analyze_database_indexes()
         return success_response(analysis_data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Index analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Index analysis failed: {str(e)}") from e
 
 
 @router.get("/indexes/recommendations")
@@ -119,7 +119,7 @@ async def get_index_recommendations(db: AsyncSession = Depends(get_db)):
         })
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get index recommendations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get index recommendations: {str(e)}") from e
 
 
 @router.get("/indexes/unused")
@@ -144,7 +144,7 @@ async def get_unused_indexes(
         })
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get unused indexes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get unused indexes: {str(e)}") from e
 
 
 @router.get("/backups")
@@ -164,7 +164,7 @@ async def list_backups():
         })
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list backups: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list backups: {str(e)}") from e
 
 
 @router.post("/backups")
@@ -196,7 +196,7 @@ async def create_backup(
             raise HTTPException(status_code=500, detail=backup_result.get("error", "Backup failed"))
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Backup creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Backup creation failed: {str(e)}") from e
 
 
 @router.get("/backups/status")
@@ -212,7 +212,7 @@ async def get_backup_status():
         return success_response(status)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get backup status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get backup status: {str(e)}") from e
 
 
 @router.delete("/backups/cleanup")
@@ -228,7 +228,7 @@ async def cleanup_old_backups():
         return success_response(cleanup_result)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Backup cleanup failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Backup cleanup failed: {str(e)}") from e
 
 
 @router.get("/migrations/status")
@@ -244,7 +244,7 @@ async def get_migration_status():
         return success_response(status)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get migration status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get migration status: {str(e)}") from e
 
 
 @router.get("/migrations/history")
@@ -263,7 +263,7 @@ async def get_migration_history():
         })
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get migration history: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get migration history: {str(e)}") from e
 
 
 @router.post("/migrations/test-rollback")
@@ -279,7 +279,7 @@ async def test_migration_rollback():
         return success_response(test_result)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Migration rollback test failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Migration rollback test failed: {str(e)}") from e
 
 
 # Admin-only endpoints (would need proper admin authentication in production)
@@ -316,7 +316,7 @@ async def upgrade_database(
             raise HTTPException(status_code=500, detail=upgrade_result.get("error", "Upgrade failed"))
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database upgrade failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database upgrade failed: {str(e)}") from e
 
 
 @router.post("/migrations/rollback")
@@ -355,4 +355,4 @@ async def rollback_database(
             raise HTTPException(status_code=500, detail=rollback_result.get("error", "Rollback failed"))
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database rollback failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database rollback failed: {str(e)}") from e

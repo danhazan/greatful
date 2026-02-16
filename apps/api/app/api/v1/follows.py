@@ -65,14 +65,14 @@ async def get_batch_follow_status(
             getattr(request.state, 'request_id', None)
         )
         
-    except Exception:
+    except Exception as e:
         logger.exception(
             "Unexpected error in get_batch_follow_status",
             extra={
                 "follower_id": current_user_id
             }
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/follows/{user_id}", status_code=201)
@@ -167,7 +167,7 @@ async def follow_user(
             },
             exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/follows/{user_id}", status_code=200)
@@ -228,7 +228,7 @@ async def unfollow_user(
             },
             exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 
@@ -271,7 +271,7 @@ async def get_follow_status(
             },
             exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/users/{user_id}/followers", status_code=200)
@@ -327,7 +327,7 @@ async def get_user_followers(
             },
             exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/users/{user_id}/following", status_code=200)
@@ -383,7 +383,7 @@ async def get_user_following(
             },
             exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/users/{user_id}/follow-stats", status_code=200)
@@ -430,7 +430,7 @@ async def get_user_follow_stats(
             },
             exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/follows/suggestions", status_code=200)
@@ -480,4 +480,4 @@ async def get_follow_suggestions(
             },
             exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e

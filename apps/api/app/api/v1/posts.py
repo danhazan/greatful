@@ -233,7 +233,7 @@ async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(secur
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token"
-        )
+        ) from e
 
 
 async def get_optional_user_id(request: Request) -> Optional[int]:
@@ -286,7 +286,7 @@ async def _save_uploaded_file(file: UploadFile, db: AsyncSession, uploader_id: i
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save uploaded file"
-        )
+        ) from e
 
 
 async def _save_post_images(
@@ -357,7 +357,7 @@ async def _save_post_images(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to process image: {str(e)}"
-            )
+            ) from e
 
     return post_images
 
@@ -543,7 +543,7 @@ async def create_post_json(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create post"
-        )
+        ) from e
 
 
 @router.post("/check-image-duplicate")
@@ -590,7 +590,7 @@ async def check_post_image_duplicate(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to check for duplicates"
-        )
+        ) from e
 
 @router.post("/upload", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_with_file(
@@ -838,7 +838,7 @@ async def create_post_with_file(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create post"
-        )
+        ) from e
 
 
 @router.get("/feed", response_model=List[PostResponse])
@@ -1100,7 +1100,7 @@ async def get_feed(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get feed"
-        )
+        ) from e
 
 
 @router.post("/read-status", response_model=ReadStatusResponse)
@@ -1152,7 +1152,7 @@ async def mark_posts_as_read(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to mark posts as read"
-        )
+        ) from e
 
 
 @router.get("/read-status/summary")
@@ -1181,7 +1181,7 @@ async def get_read_status_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get read status summary"
-        )
+        ) from e
 
 
 @router.delete("/read-status")
@@ -1209,7 +1209,7 @@ async def clear_read_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear read status"
-        )
+        ) from e
 
 
 @router.post("/update-feed-view", response_model=dict)
@@ -1240,7 +1240,7 @@ async def update_feed_view(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update feed view timestamp"
-        )
+        ) from e
 
 
 @router.get("/{post_id}", response_model=PostResponse)
@@ -1417,7 +1417,7 @@ async def get_post_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get post"
-        )
+        ) from e
 
 
 @router.post("/{post_id}/share", response_model=ShareResponse, status_code=status.HTTP_201_CREATED)
@@ -1571,7 +1571,7 @@ async def share_post(
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Failed to share post"
-                )
+                ) from e
 
 
 @router.put("/{post_id}", response_model=PostResponse)
@@ -1722,7 +1722,7 @@ async def edit_post(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to edit post"
-        )
+        ) from e
 
 
 @router.delete("/{post_id}", response_model=DeleteResponse)
@@ -1801,6 +1801,6 @@ async def delete_post(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete post"
-        )
+        ) from e
 
 

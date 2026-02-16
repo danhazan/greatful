@@ -78,7 +78,7 @@ async def get_monitoring_dashboard(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get monitoring dashboard: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/monitoring/alerts")
@@ -138,7 +138,7 @@ async def get_alerts(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get alerts: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/monitoring/incidents")
@@ -177,7 +177,7 @@ async def get_incidents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get incidents: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/monitoring/performance")
@@ -222,7 +222,7 @@ async def get_performance_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get performance metrics: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/monitoring/alerts/{alert_id}/resolve")
@@ -271,7 +271,7 @@ async def resolve_alert(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to resolve alert: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/monitoring/clear-metrics")
@@ -314,7 +314,7 @@ async def clear_monitoring_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to clear monitoring metrics: {str(e)}"
-        )
+        ) from e
 
 
 def _determine_overall_status(current_metrics: Dict[str, Any], active_incidents: list) -> str:

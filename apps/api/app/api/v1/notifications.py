@@ -66,7 +66,7 @@ async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(secur
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token"
-        )
+        ) from e
 
 
 async def resolve_user_profile_data(
@@ -249,7 +249,7 @@ async def get_notifications(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get notifications"
-        )
+        ) from e
 
 
 @router.get("/notifications/summary", response_model=NotificationSummary)
@@ -283,7 +283,7 @@ async def get_notification_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get notification summary"
-        )
+        ) from e
 
 
 @router.post("/notifications/{notification_id}/read", status_code=status.HTTP_200_OK)
@@ -321,7 +321,7 @@ async def mark_notification_as_read(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to mark notification as read"
-        )
+        ) from e
 
 
 @router.post("/notifications/read-all", status_code=status.HTTP_200_OK)
@@ -347,7 +347,7 @@ async def mark_all_notifications_as_read(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to mark all notifications as read"
-        )
+        ) from e
 
 
 @router.get("/notifications/{batch_id}/children", response_model=List[NotificationResponse])
@@ -408,12 +408,12 @@ async def get_batch_children(
         
         return response_notifications
         
-    except Exception:
+    except Exception as e:
         logger.exception("Error getting batch children")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get batch children"
-        )
+        ) from e
 
 
 @router.get("/notifications/stats")
@@ -443,4 +443,4 @@ async def get_notification_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get notification statistics"
-        )
+        ) from e

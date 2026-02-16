@@ -50,10 +50,10 @@ POOL_SETTINGS = {
         "echo": False,
     },
     "production": {
-        "pool_size": 3,      # Conservative limit for Supabase free tier
-        "max_overflow": 0,    # Disable overflow to prevent exceeding 60-connection limit
+        "pool_size": 5,
+        "max_overflow": 10,
         "pool_timeout": 30,
-        "pool_recycle": 1800,  # 30 minutes
+        "pool_recycle": 1800,
         "pool_pre_ping": True,
         "echo": False,
         "connect_args": {

@@ -254,7 +254,7 @@ async def login(
             username=user.email,
             failure_reason=f"Unexpected error: {str(e)}"
         )
-        raise
+        raise e
 
 
 @router.get("/session")
@@ -405,7 +405,7 @@ async def reset_password(
         await auth_service.reset_password_with_token(reset_request.token, reset_request.new_password)
         return success_response({"message": "Password has been reset successfully."}, getattr(request.state, 'request_id', None))
     except AuthenticationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 # OAuth Authentication Endpoints
@@ -488,7 +488,7 @@ async def oauth_google_login(
     except Exception as e:
         logger.error(f"Error initiating Google OAuth login: {e}")
         log_oauth_security_event('login_error', 'google', details={'error': str(e)})
-        raise HTTPException(status_code=500, detail="Failed to initiate Google OAuth login")
+        raise HTTPException(status_code=500, detail="Failed to initiate Google OAuth login") from e
 
 
 @router.post("/oauth/facebook")
@@ -569,7 +569,7 @@ async def oauth_facebook_login(
     except Exception as e:
         logger.error(f"Error initiating Facebook OAuth login: {e}")
         log_oauth_security_event('login_error', 'facebook', details={'error': str(e)})
-        raise HTTPException(status_code=500, detail="Failed to initiate Facebook OAuth login")
+        raise HTTPException(status_code=500, detail="Failed to initiate Facebook OAuth login") from e
 
 
 @router.get("/oauth/callback", response_model=OAuthLoginResponse)
@@ -680,7 +680,7 @@ async def _handle_oauth_callback(
     except Exception as e:
         logger.error(f"Error in OAuth callback for {provider}: {e}")
         log_oauth_security_event('callback_error', provider, details={'error': str(e)})
-        raise HTTPException(status_code=500, detail="OAuth authentication failed")
+        raise HTTPException(status_code=500, detail="OAuth authentication failed") from e
 
 
 @router.post("/oauth/check-linking-eligibility", response_model=AccountLinkingEligibilityResponse)
@@ -737,7 +737,7 @@ async def check_oauth_linking_eligibility(
             severity="ERROR",
             success=False
         )
-        raise HTTPException(status_code=500, detail="Failed to check account linking eligibility")
+        raise HTTPException(status_code=500, detail="Failed to check account linking eligibility") from e
 
 
 @router.post("/oauth/prepare-linking-confirmation", response_model=AccountLinkingConfirmationResponse)
@@ -801,7 +801,7 @@ async def prepare_oauth_linking_confirmation(
             severity="ERROR",
             success=False
         )
-        raise HTTPException(status_code=500, detail="Failed to prepare account linking confirmation")
+        raise HTTPException(status_code=500, detail="Failed to prepare account linking confirmation") from e
 
 
 @router.post("/oauth/confirm-linking")
@@ -868,7 +868,7 @@ async def confirm_oauth_account_linking(
             severity="ERROR",
             success=False
         )
-        raise HTTPException(status_code=500, detail="Failed to confirm account linking")
+        raise HTTPException(status_code=500, detail="Failed to confirm account linking") from e
 
 
 @router.get("/oauth/providers")
@@ -958,4 +958,4 @@ async def get_oauth_security_audit(
         
     except Exception as e:
         logger.error(f"Error getting OAuth security audit: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get OAuth security audit data")
+        raise HTTPException(status_code=500, detail="Failed to get OAuth security audit data") from e

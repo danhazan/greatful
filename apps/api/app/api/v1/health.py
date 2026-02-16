@@ -243,7 +243,7 @@ async def metrics_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate metrics: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/health/database")
@@ -279,7 +279,7 @@ async def database_health_check(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database health check failed: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/health/algorithm")
@@ -333,7 +333,7 @@ async def algorithm_health_check() -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Algorithm health check failed: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/health/detailed")
@@ -447,7 +447,7 @@ async def detailed_health_check(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Health check failed: {str(e)}"
-        )
+        ) from e
 
 
 def _is_algorithm_healthy(performance_metrics: Dict[str, Any]) -> bool:

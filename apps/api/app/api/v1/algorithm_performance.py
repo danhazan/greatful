@@ -57,7 +57,7 @@ async def get_performance_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate performance report: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/performance/metrics")
@@ -98,7 +98,7 @@ async def get_performance_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get performance metrics: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/performance/cache-stats")
@@ -121,7 +121,7 @@ async def get_cache_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get cache statistics: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/performance/clear-cache")
@@ -156,7 +156,7 @@ async def clear_algorithm_cache(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to clear cache: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/performance/reset-metrics")
@@ -180,7 +180,7 @@ async def reset_performance_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to reset performance metrics: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/performance/health")

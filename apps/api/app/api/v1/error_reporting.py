@@ -140,7 +140,7 @@ async def report_errors(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process error reports"
-        )
+        ) from e
 
 
 @router.get("/errors/stats")
@@ -178,7 +178,7 @@ async def get_error_stats(request: Request) -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get error statistics"
-        )
+        ) from e
 
 
 def _get_client_ip(request: Request) -> str:
