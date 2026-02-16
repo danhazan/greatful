@@ -47,7 +47,8 @@ class OAuthService(BaseService):
         provider: str, 
         oauth_token: Dict[str, Any],
         state: Optional[str] = None,
-        request: Optional[Any] = None
+        request: Optional[Any] = None,
+        oauth_user_info: Optional[Dict[str, Any]] = None
     ) -> Tuple[Dict[str, Any], bool]:
         """
         Authenticate user via OAuth provider with enhanced account management.
@@ -57,14 +58,10 @@ class OAuthService(BaseService):
             oauth_token: OAuth token from provider
             state: OAuth state parameter for CSRF protection
             request: FastAPI request object for security logging
+            oauth_user_info: Optional pre-fetched user info to avoid external calls while holding DB session
             
         Returns:
             Tuple of (user_data, is_new_user)
-            
-        Raises:
-            AuthenticationError: If OAuth authentication fails
-            ValidationException: If user data is invalid
-            ConflictError: If account linking conflicts occur
         """
         try:
             # Enhanced security logging for OAuth authentication attempt
@@ -80,21 +77,14 @@ class OAuthService(BaseService):
                     severity="INFO"
                 )
             
-            # Get user info from OAuth provider
-            oauth_user_info = await get_oauth_user_info(provider, oauth_token)
+            # Get user info if not provided
+            if not oauth_user_info:
+                oauth_user_info = await get_oauth_user_info(provider, oauth_token)
             
-            # Debug: Log what we received from get_oauth_user_info
-            logger.info(f"=== OAUTH SERVICE DEBUG ===")
-            logger.info(f"Received oauth_user_info: {oauth_user_info}")
-            logger.info(f"oauth_user_info type: {type(oauth_user_info)}")
-            if oauth_user_info:
-                logger.info(f"oauth_user_info keys: {list(oauth_user_info.keys())}")
-                logger.info(f"ID field: {oauth_user_info.get('id', 'NOT_FOUND')}")
-                logger.info(f"Email field: {oauth_user_info.get('email', 'NOT_FOUND')}")
-            else:
-                logger.error("oauth_user_info is None or empty!")
+            # Debug: Log what we received
+            logger.info("OAuth user info validated for authentication")
             
-            # Enhanced validation with security logging
+            # Enhanced validation
             validation_errors = []
             if not oauth_user_info.get('id'):
                 validation_errors.append('missing_oauth_id')
@@ -103,19 +93,8 @@ class OAuthService(BaseService):
             
             if validation_errors:
                 log_oauth_security_event('invalid_user_data', provider, details={'errors': validation_errors})
-                if request:
-                    SecurityAuditor.log_security_event(
-                        event_type=SecurityEventType.OAUTH_LOGIN_FAILURE,
-                        request=request,
-                        details={
-                            'provider': provider,
-                            'validation_errors': validation_errors,
-                            'oauth_user_id': oauth_user_info.get('id', 'unknown')
-                        },
-                        severity="WARNING",
-                        success=False
-                    )
                 raise AuthenticationError("Invalid user data from OAuth provider")
+
             
             # Check if user exists by OAuth credentials
             existing_user = await User.get_by_oauth(

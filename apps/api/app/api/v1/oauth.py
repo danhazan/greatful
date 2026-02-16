@@ -154,80 +154,42 @@ async def oauth_login(
 async def oauth_callback(
     provider: str,
     callback_data: OAuthCallbackRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    request: Request
 ):
     """
     Handle OAuth callback and authenticate user.
-    
-    Args:
-        provider: OAuth provider name ('google' or 'facebook')
-        callback_data: OAuth callback data including authorization code
-        db: Database session
-        
-    Returns:
-        User information and JWT tokens
+    Uses late-binding database session to avoid holding connections during external HTTP calls.
     """
     import traceback
-    import json
+    from app.core.database import async_session
+    from app.core.oauth_config import get_oauth_user_info
     
     try:
-        # Step 2: Enhanced logging for debugging OAuth callback flow
-        logger.info("OAuth callback invoked", extra={
-            "provider": provider, 
-            "incoming_code_len": len(callback_data.code or ""), 
-            "incoming_state_len": len(callback_data.state or "")
-        })
-        
-        # Log presence of session keys (do not log secret values)
-        session_keys = list(request.session.keys()) if hasattr(request, 'session') else None
-        logger.info("Session keys snapshot", extra={"session_keys": session_keys})
-        
-        # If you store state in session, log the stored key presence
-        if session_keys and "oauth_state" in session_keys:
-            logger.info("oauth_state present in session")
-        else:
-            logger.info("oauth_state not present in session")
+        logger.info(f"OAuth callback starting for {provider}")
         
         oauth_config = getattr(request.app.state, 'oauth_config', None)
-        oauth_instance = getattr(request.app.state, 'oauth', None)
-        
-        if not oauth_config or not oauth_instance:
-            log_oauth_security_event('oauth_not_configured', provider)
-            raise HTTPException(status_code=503, detail="OAuth service not available")
-        
-        if not oauth_config.is_provider_available(provider):
-            log_oauth_security_event('provider_not_available', provider)
+        if not oauth_config or not oauth_config.is_provider_available(provider):
             raise HTTPException(status_code=400, detail=f"OAuth provider '{provider}' is not available")
         
-        # Validate state parameter for CSRF protection
+        # Validate state
         if callback_data.state and not validate_oauth_state(callback_data.state):
-            log_oauth_security_event('invalid_state', provider, details={'state': callback_data.state})
             raise HTTPException(status_code=400, detail="Invalid state parameter")
         
-        # Get OAuth client for provider
-        oauth_client = oauth_config.get_oauth_client(provider)
-        
-        # Exchange authorization code for access token
+        # 1. Exchange code for token (External HTTP - NO DB HELD)
         callback_uri = get_oauth_redirect_uri(provider)
-        logger.info("Using redirect_uri for exchange", extra={"redirect_uri": callback_uri})
+        token = None
         
         try:
-            # For SPA flow, we need to manually exchange the code since session state is not available
-            # Instead of using authorize_access_token which expects session state, use fetch_token directly
-            import httpx
-            
-            # Get token endpoint URL for Google
             if provider == 'google':
                 token_url = 'https://oauth2.googleapis.com/token'
+                client_id = os.getenv('GOOGLE_CLIENT_ID')
+                client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
             elif provider == 'facebook':
                 token_url = 'https://graph.facebook.com/v18.0/oauth/access_token'
+                client_id = os.getenv('FACEBOOK_CLIENT_ID')
+                client_secret = os.getenv('FACEBOOK_CLIENT_SECRET')
             else:
                 raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
-            
-            # Prepare token exchange data
-            client_id = os.getenv('GOOGLE_CLIENT_ID') if provider == 'google' else os.getenv('FACEBOOK_CLIENT_ID')
-            client_secret = os.getenv('GOOGLE_CLIENT_SECRET') if provider == 'google' else os.getenv('FACEBOOK_CLIENT_SECRET')
             
             token_data = {
                 'client_id': client_id,
@@ -237,83 +199,44 @@ async def oauth_callback(
                 'redirect_uri': callback_uri
             }
             
-            # Enhanced logging for debugging
-            logger.info("=== OAUTH TOKEN EXCHANGE DEBUG ===")
-            logger.info(f"Provider: {provider}")
-            logger.info(f"Token URL: {token_url}")
-            logger.info(f"Code length: {len(callback_data.code or '')}")
-            logger.info(f"Code first 10 chars: {callback_data.code[:10] if callback_data.code else 'None'}...")
-            logger.info(f"Client ID: {client_id[:12] + '...' + client_id[-12:] if client_id else 'None'}")
-            logger.info(f"Client Secret: ***{client_secret[-4:] if client_secret else 'None'}")
-            logger.info(f"Redirect URI: {callback_uri}")
-            logger.info(f"Grant Type: authorization_code")
-            logger.info(f"State: {callback_data.state}")
-            
-            # Log exact request payload (mask secrets)
-            masked_payload = {
-                'client_id': client_id[:12] + '...' + client_id[-12:] if client_id else 'None',
-                'client_secret': '***' + client_secret[-4:] if client_secret else 'None',
-                'code': callback_data.code[:10] + '...' if callback_data.code else 'None',
-                'grant_type': 'authorization_code',
-                'redirect_uri': callback_uri
-            }
-            logger.info(f"Request payload (masked): {masked_payload}")
-            
             async with httpx.AsyncClient() as client:
                 response = await client.post(token_url, data=token_data, timeout=20.0)
-                
-                # Enhanced response logging
-                logger.info(f"Response status: {response.status_code}")
-                logger.info(f"Response headers: {dict(response.headers)}")
-                logger.info(f"Response body: {response.text[:1000]}")
-                logger.info("=== END OAUTH DEBUG ===")
-                
                 if response.status_code != 200:
-                    error_data = response.json() if response.text else {}
-                    error_type = error_data.get('error', 'unknown_error')
-                    error_desc = error_data.get('error_description', 'Unknown error')
-                    
-                    # Provide specific error messages
-                    if error_type == 'redirect_uri_mismatch':
-                        detail = "OAuth redirect URI mismatch. Please check Google Console configuration."
-                    elif error_type == 'invalid_grant':
-                        detail = "Invalid or expired authorization code. Please try logging in again."
-                    elif error_type == 'invalid_client':
-                        detail = "OAuth client configuration error. Please check credentials."
-                    else:
-                        detail = f"OAuth error: {error_type} - {error_desc}"
-                    
-                    raise HTTPException(status_code=400, detail=detail) from e
-                
+                    logger.error(f"Token exchange failed: {response.text}")
+                    raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
                 token = response.json()
-                logger.info("Token exchange succeeded")
-                
-        except HTTPException:
-            raise
-        except Exception as token_ex:
-            logger.error("Token exchange failed: %s", token_ex)
-            # If token_ex has .response, attempt to log response status/text snippet
-            if hasattr(token_ex, "response"):
-                try:
-                    logger.error("Provider response status: %s", getattr(token_ex.response, "status_code", None))
-                    # Only log small snippet and avoid secrets
-                    response_text = getattr(token_ex.response, "text", "") or ""
-                    logger.error("Provider response text (snippet): %s", response_text[:1000])
-                except Exception:
-                    pass
-            raise
+        except Exception as e:
+            if isinstance(e, HTTPException): raise
+            logger.error(f"OAuth token exchange error: {str(e)}")
+            raise HTTPException(status_code=400, detail="Token exchange failed")
+
+        # 2. Get user info (External HTTP - NO DB HELD)
+        oauth_user_info = await get_oauth_user_info(provider, token)
         
-        if not token:
-            log_oauth_security_event('token_exchange_failed', provider)
-            raise HTTPException(status_code=400, detail="Failed to exchange authorization code for token")
-        
-        # Authenticate user with OAuth service
-        oauth_service = OAuthService(db)
-        user_data, is_new_user = await oauth_service.authenticate_oauth_user(
-            provider, 
-            token, 
-            callback_data.state
-        )
+        # 3. Authenticate with DB (OPEN DB SESSION ONLY NOW)
+        async with async_session() as db:
+            oauth_service = OAuthService(db)
+            user_data, is_new_user = await oauth_service.authenticate_oauth_user(
+                provider, 
+                token, 
+                callback_data.state,
+                request=request,
+                oauth_user_info=oauth_user_info
+            )
+            
+            return {
+                'user': user_data['user'],
+                'tokens': user_data['tokens'],
+                'is_new_user': is_new_user
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"OAuth callback fatal error: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
         
         response_data = {
             'user': user_data['user'],

@@ -126,7 +126,7 @@ def receive_checkout(dbapi_connection, connection_record, connection_proxy):
     """Log connection checkout for monitoring."""
     pool = engine.pool
     logger.info(
-        f"DB Connection Checkout | Pool: {pool.size()} | "
+        f"LIFECYCLE-CHECKOUT | Pool: {pool.size()} | "
         f"CheckedOut: {pool.checkedout()} | CheckedIn: {pool.checkedin()} | Overflow: {pool.overflow()}"
     )
 
@@ -135,9 +135,10 @@ def receive_checkin(dbapi_connection, connection_record):
     """Log connection checkin for monitoring."""
     pool = engine.pool
     logger.info(
-        f"DB Connection Checkin  | Pool: {pool.size()} | "
+        f"LIFECYCLE-CHECKIN  | Pool: {pool.size()} | "
         f"CheckedOut: {pool.checkedout()} | CheckedIn: {pool.checkedin()} | Overflow: {pool.overflow()}"
     )
+
 
 async def get_db() -> AsyncSession:
     """
