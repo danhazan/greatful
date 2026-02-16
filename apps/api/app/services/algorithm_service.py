@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, desc
 
 from app.core.service_base import BaseService
 from app.models.post import Post, PostType
@@ -17,6 +17,8 @@ from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
 from app.models.user import User
+from app.models.mention import Mention
+from app.models.user_interaction import UserInteraction
 from app.config.algorithm_config import get_algorithm_config
 
 logger = logging.getLogger(__name__)
@@ -148,7 +150,7 @@ class AlgorithmService(BaseService):
         self, 
         posts: List[Post], 
         user_id: int, 
-        engagement_counts: Dict[str, Dict[str, int]],
+        post_engagement_counts: Dict[str, Dict[str, int]],
         consider_read_status: bool = True,
         user_last_feed_view: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
@@ -162,24 +164,35 @@ class AlgorithmService(BaseService):
             read_statuses = await self._get_read_status_batch(user_id, post_ids)
         
         # Pre-fetch follow relationships in batch to avoid N+1 queries
-        author_ids = [post.author_id for post in posts if post.author_id != user_id]
+        author_ids = list(set(post.author_id for post in posts if post.author_id != user_id))
         follow_relationships = {}
         second_tier_follows = {}
+        mutual_follows = {}
+        engagement_counts = {}
         
         if author_ids:
+            # Fetch relationships and interactions in parallel where possible (or sequentially if session restricted)
+            # Note: We keep them sequential for safety with a single AsyncSession
             follow_relationships = await self._get_follow_relationships_batch(user_id, author_ids)
             second_tier_follows = await self._get_second_tier_follows_batch(user_id, author_ids)
+            mutual_follows = await self._get_mutual_follows_batch(user_id, author_ids)
+            engagement_counts = await self._get_engagement_counts_batch(user_id, author_ids)
+        
+        # Pre-fetch mentions for all posts in batch
+        post_ids = [post.id for post in posts]
+        mentions_map = await self._get_mentions_batch(user_id, post_ids)
         
         # Calculate algorithm scores
         algorithm_scores = {}
         for post in posts:
-            counts = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
+            counts = post_engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'shares': 0})
             
             # Calculate score using pre-fetched relationship data
             score = await self._calculate_post_score_with_cached_relationships(
                 post, user_id, counts['hearts'], counts['reactions'], counts['shares'], 
                 consider_read_status, user_last_feed_view,
-                follow_relationships, second_tier_follows
+                follow_relationships, second_tier_follows,
+                mutual_follows, engagement_counts, mentions_map
             )
             
             algorithm_scores[post.id] = score
@@ -189,7 +202,7 @@ class AlgorithmService(BaseService):
         scored_posts = await post_repo.serialize_posts_for_feed(
             posts=posts,
             user_id=user_id,
-            engagement_counts=engagement_counts,
+            engagement_counts=post_engagement_counts,
             algorithm_scores=algorithm_scores,
             read_statuses=read_statuses if consider_read_status else None
         )
@@ -513,7 +526,7 @@ class AlgorithmService(BaseService):
         
         if direct_follow:
             # Calculate graduated follow bonus based on follow age and engagement
-            return await self._calculate_direct_follow_bonus(user_id, post_author_id, direct_follow)
+            return await self._calculate_direct_follow_bonus_with_cache(user_id, post_author_id, direct_follow)
         
         # Check for second-tier follow relationship (users followed by your follows)
         second_tier_multiplier = await self._calculate_second_tier_follow_bonus(user_id, post_author_id)
@@ -522,18 +535,15 @@ class AlgorithmService(BaseService):
         
         return 1.0  # No relationship bonus
 
-    async def _calculate_direct_follow_bonus(self, user_id: int, post_author_id: int, follow: Follow) -> float:
-        """
-        Calculate direct follow bonus with graduated bonuses, recency, and engagement factors.
-        
-        Args:
-            user_id: ID of the follower
-            post_author_id: ID of the followed user
-            follow: Follow relationship object
-            
-        Returns:
-            float: Direct follow multiplier
-        """
+    async def _calculate_direct_follow_bonus_with_cache(
+        self, 
+        user_id: int, 
+        post_author_id: int, 
+        follow: Follow,
+        is_mutual: Optional[bool] = None,
+        interaction_count: Optional[int] = None
+    ) -> float:
+        """Calculate direct follow bonus using cached data."""
         follow_bonuses = self.config.follow_bonuses
         current_time = datetime.now(timezone.utc)
         
@@ -547,44 +557,39 @@ class AlgorithmService(BaseService):
         # Determine follow age category and base bonus
         base_multiplier = follow_bonuses.base_multiplier
         if days_following <= follow_bonuses.new_follow_threshold_days:
-            # New follow bonus
             base_multiplier = follow_bonuses.new_follow_bonus
         elif days_following <= follow_bonuses.established_follow_threshold_days:
-            # Established follow bonus
             base_multiplier = follow_bonuses.established_follow_bonus
         
-        # Check for mutual follow relationship
-        mutual_follow_result = await self.db.execute(
-            select(Follow.id).where(
-                and_(
-                    Follow.follower_id == post_author_id,
-                    Follow.followed_id == user_id,
-                    Follow.status == "active"
+        # Use cached mutual follow status if provided
+        if is_mutual is None:
+            mutual_follow_result = await self.db.execute(
+                select(Follow.id).where(
+                    and_(
+                        Follow.follower_id == post_author_id,
+                        Follow.followed_id == user_id,
+                        Follow.status == "active"
+                    )
                 )
             )
-        )
-        if mutual_follow_result.scalar_one_or_none():
-            # Apply mutual follow bonus (highest priority)
+            is_mutual = mutual_follow_result.scalar_one_or_none() is not None
+        
+        if is_mutual:
             base_multiplier = follow_bonuses.mutual_follow_bonus
         
-        # Apply recent follow boost if within recent follow days
         recency_multiplier = 1.0
         if days_following <= follow_bonuses.recent_follow_days:
             recency_multiplier = 1.0 + follow_bonuses.recent_follow_boost
         
-        # Calculate engagement bonus based on user interactions
-        engagement_multiplier = await self._calculate_follow_engagement_bonus(user_id, post_author_id)
-        
-        # Combine all factors
+        # Use cached engagement count if provided
+        if interaction_count is None:
+            engagement_multiplier = await self._calculate_follow_engagement_bonus(user_id, post_author_id)
+        else:
+            engagement_multiplier = 1.0
+            if interaction_count >= follow_bonuses.high_engagement_threshold:
+                engagement_multiplier = follow_bonuses.high_engagement_bonus
+                
         final_multiplier = base_multiplier * recency_multiplier * engagement_multiplier
-        
-        logger.debug(
-            f"Direct follow bonus for user {user_id} -> {post_author_id}: "
-            f"days_following={days_following}, base={base_multiplier:.2f}, "
-            f"recency={recency_multiplier:.2f}, engagement={engagement_multiplier:.2f}, "
-            f"final={final_multiplier:.2f}"
-        )
-        
         return final_multiplier
 
     async def _calculate_follow_engagement_bonus(self, user_id: int, target_user_id: int) -> float:
@@ -696,6 +701,62 @@ class AlgorithmService(BaseService):
         # Return mapping of all author_ids to their second-tier status
         return {author_id: author_id in second_tier_authors for author_id in author_ids}
 
+    async def _get_mutual_follows_batch(self, user_id: int, author_ids: List[int]) -> Dict[int, bool]:
+        """Get mutual follow status for multiple authors in batch."""
+        if not author_ids:
+            return {}
+            
+        mutual_result = await self.db.execute(
+            select(Follow.follower_id).where(
+                and_(
+                    Follow.followed_id == user_id,
+                    Follow.follower_id.in_(author_ids),
+                    Follow.status == "active"
+                )
+            )
+        )
+        mutual_ids = {row[0] for row in mutual_result}
+        return {author_id: author_id in mutual_ids for author_id in author_ids}
+
+    async def _get_engagement_counts_batch(self, user_id: int, author_ids: List[int]) -> Dict[int, int]:
+        """Get interaction counts for multiple authors in batch."""
+        if not author_ids:
+            return {}
+            
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        
+        engagement_result = await self.db.execute(
+            select(
+                UserInteraction.target_user_id,
+                func.count(UserInteraction.id)
+            ).where(
+                and_(
+                    UserInteraction.user_id == user_id,
+                    UserInteraction.target_user_id.in_(author_ids),
+                    UserInteraction.created_at >= thirty_days_ago
+                )
+            ).group_by(UserInteraction.target_user_id)
+        )
+        
+        counts = {row[0]: row[1] for row in engagement_result}
+        return {author_id: counts.get(author_id, 0) for author_id in author_ids}
+
+    async def _get_mentions_batch(self, user_id: int, post_ids: List[str]) -> Dict[str, bool]:
+        """Get mention status for multiple posts in batch."""
+        if not post_ids:
+            return {}
+            
+        mention_result = await self.db.execute(
+            select(Mention.post_id).where(
+                and_(
+                    Mention.mentioned_user_id == user_id,
+                    Mention.post_id.in_(post_ids)
+                )
+            )
+        )
+        mention_post_ids = {row[0] for row in mention_result}
+        return {post_id: post_id in mention_post_ids for post_id in post_ids}
+
     async def _calculate_second_tier_follow_bonus(self, user_id: int, post_author_id: int) -> float:
         """
         Calculate second-tier follow bonus for users followed by your follows.
@@ -733,62 +794,54 @@ class AlgorithmService(BaseService):
         consider_read_status: bool = True,
         user_last_feed_view: Optional[datetime] = None,
         follow_relationships: Dict[int, Optional[Follow]] = None,
-        second_tier_follows: Dict[int, bool] = None
+        second_tier_follows: Dict[int, bool] = None,
+        mutual_follows: Dict[int, bool] = None,
+        engagement_counts: Dict[int, int] = None,
+        mentions_map: Dict[str, bool] = None
     ) -> float:
-        """
-        Calculate post score using pre-fetched relationship data to avoid N+1 queries.
+        """Calculate post score using cached relationship data to avoid N+1 queries."""
+        # Content type multipliers
+        type_multipliers = {
+            PostType.daily: self.config.type_multipliers.daily,
+            PostType.photo: self.config.type_multipliers.photo,
+            PostType.spontaneous: self.config.type_multipliers.spontaneous,
+        }
         
-        This is an optimized version of calculate_post_score that uses cached relationship data.
-        """
-        # Use the regular method if no cached data provided
-        if follow_relationships is None or second_tier_follows is None:
-            return await self.calculate_post_score(
-                post, user_id, hearts_count, reactions_count, shares_count,
-                consider_read_status, user_last_feed_view
-            )
+        base_score = type_multipliers.get(post.post_type, 1.0)
         
-        # Get engagement counts if not provided
-        if hearts_count is None or reactions_count is None or shares_count is None:
-            hearts_count = await self._get_hearts_count(post.id)
-            reactions_count = await self._get_reactions_count(post.id)
-            shares_count = await self._get_shares_count(post.id)
-
-        # Base engagement score using configurable weights
-        scoring_weights = self.config.scoring_weights
-        base_score = (
-            (hearts_count * scoring_weights.hearts) +
-            (reactions_count * scoring_weights.reactions) +
-            (shares_count * scoring_weights.shares)
-        )
-
-        # Content type bonuses
-        scoring_weights = self.config.scoring_weights
-        if post.post_type == PostType.daily:
-            base_score *= scoring_weights.daily_gratitude_bonus
-        elif post.image_url:
-            base_score *= scoring_weights.photo_bonus
-
-        # Time factor
-        time_factor = self._calculate_time_factor(post)
-        base_score *= time_factor
-
+        # Engagement multipliers
+        engagement_factors = self.config.engagement_factors
+        
+        if hearts_count is not None:
+            base_score *= (1.0 + (hearts_count * engagement_factors.heart_weight))
+            
+        if reactions_count is not None:
+            base_score *= (1.0 + (reactions_count * engagement_factors.reaction_weight))
+            
+        if shares_count is not None:
+            base_score *= (1.0 + (shares_count * engagement_factors.share_weight))
+            
         # Follow relationship multiplier using cached data
         follow_multiplier = 1.0
-        direct_follow = follow_relationships.get(post.author_id)
-        
+        direct_follow = follow_relationships.get(post.author_id) if follow_relationships else None
+
         if direct_follow:
-            follow_multiplier = await self._calculate_direct_follow_bonus(user_id, post.author_id, direct_follow)
-        elif second_tier_follows.get(post.author_id, False):
+            follow_multiplier = await self._calculate_direct_follow_bonus_with_cache(
+                user_id, post.author_id, direct_follow, 
+                mutual_follows.get(post.author_id, False) if mutual_follows else None,
+                engagement_counts.get(post.author_id, 0) if engagement_counts else None
+            )
+        elif second_tier_follows and second_tier_follows.get(post.author_id, False):
             follow_bonuses = self.config.follow_bonuses
             follow_multiplier = follow_bonuses.second_tier_multiplier
 
         base_score *= follow_multiplier
 
         # Mention bonus
-        mention_bonus = await self._calculate_mention_bonus(user_id, post.id)
         mention_multiplier = 1.0
-        if mention_bonus > 0:
-            mention_multiplier = 1.0 + mention_bonus  # Convert bonus to multiplier
+        is_mentioned = mentions_map.get(post.id, False) if mentions_map else False
+        if is_mentioned:
+            mention_multiplier = 1.0 + self.config.mention_bonuses.direct_mention
         base_score *= mention_multiplier
 
         # Own post bonus

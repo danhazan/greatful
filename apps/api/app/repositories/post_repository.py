@@ -42,6 +42,9 @@ class PostRepository(BaseRepository):
         if public_only:
             builder = builder.filter(Post.is_public == True)
         
+        # Eager load author and images to avoid N+1
+        builder = builder.load_relationships("author", "images")
+        
         builder = builder.order_by(desc(Post.created_at)).limit(limit).offset(offset)
         
         query = builder.build()
@@ -69,6 +72,9 @@ class PostRepository(BaseRepository):
         
         if post_types:
             builder = builder.filter(Post.post_type.in_(post_types))
+        
+        # Eager load author and images to avoid N+1
+        builder = builder.load_relationships("author", "images")
         
         builder = builder.order_by(desc(Post.created_at)).limit(limit).offset(offset)
         
@@ -339,10 +345,16 @@ class PostRepository(BaseRepository):
         Returns:
             List[Post]: List of posts of the specified type
         """
-        return await self.find_all(
-            filters={"post_type": post_type, "is_public": True},
-            order_by=desc(Post.created_at)
-        )
+        builder = self.query().filter(Post.post_type == post_type, Post.is_public == True)
+        
+        # Eager load author and images to avoid N+1
+        builder = builder.load_relationships("author", "images")
+        
+        builder = builder.order_by(desc(Post.created_at)).limit(limit).offset(offset)
+        
+        query = builder.build()
+        result = await self._execute_query(query, f"get posts by type: {post_type}")
+        return result.scalars().all()
     
     async def search_posts(
         self, 
@@ -366,7 +378,12 @@ class PostRepository(BaseRepository):
                 Post.is_public == True,
                 Post.content.ilike(f"%{query}%")
             )
-        ).order_by(desc(Post.created_at)).limit(limit).offset(offset)
+        )
+        
+        # Eager load author and images to avoid N+1
+        builder = builder.load_relationships("author", "images")
+        
+        builder = builder.order_by(desc(Post.created_at)).limit(limit).offset(offset)
         
         query_obj = builder.build()
         result = await self._execute_query(query_obj, "search posts")

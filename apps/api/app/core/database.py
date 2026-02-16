@@ -28,6 +28,18 @@ if DATABASE_URL.startswith("postgresql://"):
 else:
     logger.info(f"Using DATABASE_URL as-is: {DATABASE_URL[:50] if DATABASE_URL else 'None'}...")
 
+# --- ARCHITECTURAL RULES: DATABASE CONCURRENCY ---
+# 1. ONE SESSION PER REQUEST: Each FastAPI request uses a single AsyncSession.
+# 2. NO PARALLEL AWAITS ON SAME SESSION: Never use asyncio.gather() or any 
+#    concurrency tool that executes multiple awaits on the same AsyncSession 
+#    simultaneously. This causes "Task <T> got Future <F> attached to a different loop" 
+#    or session state corruption.
+# 3. USE BATCH QUERIES: Instead of parallelizing individual calls (N round-trips), 
+#    refactor the repository to use WHERE IN or specialized JOINs (1 round-trip).
+# 4. EAGER LOADING: Always use selectinload() or joinedload() for relationships 
+#    in list endpoints to prevent N+1 lazy-loading issues.
+# ------------------------------------------------
+
 # Production database configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 

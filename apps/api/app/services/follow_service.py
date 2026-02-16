@@ -192,26 +192,27 @@ class FollowService(BaseService):
             user_id, limit=limit, offset=offset
         )
         
+        # Batch check following status for all followers if current_user_id is provided
+        following_status = {}
+        if current_user_id:
+            follower_ids = [f.id for f in followers if f.id != current_user_id]
+            if follower_ids:
+                following_status = await self.follow_repo.bulk_check_following_status(
+                    current_user_id, follower_ids
+                )
+        
         # Format follower data
         followers_data = []
         for follower in followers:
+            status = following_status.get(follower.id)
             follower_data = {
                 "id": follower.id,
                 "username": follower.username,
                 "bio": follower.bio,
                 "profile_image_url": follower.profile_image_url,
-                "created_at": follower.created_at.isoformat()
+                "created_at": follower.created_at.isoformat(),
+                "is_following": status == "active"
             }
-            
-            # Add follow status if current user is provided
-            if current_user_id and current_user_id != follower.id:
-                is_following = await self.follow_repo.is_following(
-                    current_user_id, follower.id
-                )
-                follower_data["is_following"] = is_following
-            else:
-                follower_data["is_following"] = False
-            
             followers_data.append(follower_data)
         
         logger.info(f"Retrieved {len(followers)} followers for user {user_id}")
@@ -255,26 +256,27 @@ class FollowService(BaseService):
             user_id, limit=limit, offset=offset
         )
         
+        # Batch check following status for all followed users if current_user_id is provided
+        following_status = {}
+        if current_user_id:
+            followed_ids = [f.id for f in following if f.id != current_user_id]
+            if followed_ids:
+                following_status = await self.follow_repo.bulk_check_following_status(
+                    current_user_id, followed_ids
+                )
+        
         # Format following data
         following_data = []
         for followed_user in following:
+            status = following_status.get(followed_user.id)
             followed_data = {
                 "id": followed_user.id,
                 "username": followed_user.username,
                 "bio": followed_user.bio,
                 "profile_image_url": followed_user.profile_image_url,
-                "created_at": followed_user.created_at.isoformat()
+                "created_at": followed_user.created_at.isoformat(),
+                "is_following": status == "active"
             }
-            
-            # Add follow status if current user is provided
-            if current_user_id and current_user_id != followed_user.id:
-                is_following = await self.follow_repo.is_following(
-                    current_user_id, followed_user.id
-                )
-                followed_data["is_following"] = is_following
-            else:
-                followed_data["is_following"] = False
-            
             following_data.append(followed_data)
         
         logger.info(f"Retrieved {len(following)} following for user {user_id}")

@@ -181,11 +181,22 @@ class UserPreferenceService(BaseService):
         result = await self.db.execute(query)
         preferences = result.fetchall()
         
+        if not preferences:
+            return []
+            
+        # Extract target user IDs
+        target_user_ids = [pref.target_user_id for pref in preferences]
+        
+        # Get all users in one batch call
+        from app.repositories.user_repository import UserRepository
+        user_repo = UserRepository(self.db)
+        users = await user_repo.get_by_ids(target_user_ids)
+        user_map = {user.id: user for user in users}
+        
         # Convert to list of dictionaries with user information
         preference_list = []
         for pref in preferences:
-            # Get user information
-            user = await self.get_by_id(User, pref.target_user_id)
+            user = user_map.get(pref.target_user_id)
             if user:
                 preference_list.append({
                     'user_id': pref.target_user_id,
