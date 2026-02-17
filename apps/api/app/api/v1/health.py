@@ -357,9 +357,12 @@ async def detailed_health_check(
     start_time = time.time()
     
     try:
-        # Run all health checks sequentially to minimize connection footprint (Supabase free tier optimization)
-        db_health = await get_db_health()
-        db_stats = await get_db_stats()
+        # Run all health checks in parallel
+        db_health_task = asyncio.create_task(get_db_health())
+        db_stats_task = asyncio.create_task(get_db_stats())
+        
+        # Wait for database checks
+        db_health, db_stats = await asyncio.gather(db_health_task, db_stats_task)
         
         # Get algorithm performance
         algorithm_report = get_algorithm_performance_report()

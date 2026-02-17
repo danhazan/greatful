@@ -50,12 +50,13 @@ POOL_SETTINGS = {
         "echo": False,
     },
     "production": {
-        "pool_size": 5,
-        "max_overflow": 10,
+        "pool_size": 20,
+        "max_overflow": 30,
         "pool_timeout": 30,
         "pool_recycle": 1800,
         "pool_pre_ping": True,
         "echo": False,
+
         "connect_args": {
             "server_settings": {
                 "application_name": "grateful_api",
@@ -112,20 +113,12 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 @event.listens_for(engine.sync_engine, "checkout")
 def receive_checkout(dbapi_connection, connection_record, connection_proxy):
     """Log connection checkout for monitoring."""
-    pool = engine.pool
-    logger.info(
-        f"DB Connection Checkout | Pool: {pool.size()} | "
-        f"CheckedOut: {pool.checkedout()} | CheckedIn: {pool.checkedin()} | Overflow: {pool.overflow()}"
-    )
+    logger.debug(f"Connection checked out from pool. Pool size: {engine.pool.size()}")
 
 @event.listens_for(engine.sync_engine, "checkin")
 def receive_checkin(dbapi_connection, connection_record):
     """Log connection checkin for monitoring."""
-    pool = engine.pool
-    logger.info(
-        f"DB Connection Checkin  | Pool: {pool.size()} | "
-        f"CheckedOut: {pool.checkedout()} | CheckedIn: {pool.checkedin()} | Overflow: {pool.overflow()}"
-    )
+    logger.debug(f"Connection checked in to pool. Pool size: {engine.pool.size()}")
 
 async def get_db() -> AsyncSession:
     """
