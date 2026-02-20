@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom'
 
 // Mock environment variables for testing
-process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000'
+process.env['NEXT_PUBLIC_API_URL'] = 'http://localhost:8000'
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({

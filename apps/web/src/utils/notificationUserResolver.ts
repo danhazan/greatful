@@ -8,28 +8,43 @@
 
 interface NotificationData {
   // Reaction notifications
-  reactor_username?: string
-  
+  reactorUsername?: string
+  reactorUserId?: string
+  reactorId?: string
+
   // Share notifications  
-  sharer_username?: string
-  
+  sharerUsername?: string
+  sharerUserId?: string
+  sharerId?: string
+
   // Mention notifications
-  author_username?: string
-  
+  authorUsername?: string
+  authorUserId?: string
+  authorId?: string
+
   // Like notifications
-  liker_username?: string
-  
+  likerUsername?: string
+  likerUserId?: string
+  likerId?: string
+
   // Follow notifications
-  follower_username?: string
-  
+  followerUsername?: string
+  followerUserId?: string
+  followerId?: string
+
   // Comment notifications
-  commenter_username?: string
-  
+  commenterUsername?: string
+  commenterUserId?: string
+  commenterId?: string
+
   // Generic username fields (for future notification types)
-  sender_username?: string
+  senderUsername?: string
+  senderUserId?: string
   username?: string
-  user_name?: string
-  
+  displayName?: string
+  userId?: string | number
+  id?: string | number
+
   // Other data
   [key: string]: any
 }
@@ -37,12 +52,12 @@ interface NotificationData {
 interface NotificationUser {
   id?: number | string
   username?: string
-  profile_image_url?: string
-  image?: string  // Backend sends this field
+  profileImageUrl?: string
 }
 
 interface Notification {
-  from_user?: NotificationUser | null
+  fromUser?: NotificationUser | null
+  from_user?: NotificationUser | null // Legacy
   data?: NotificationData
   type?: string
 }
@@ -57,53 +72,58 @@ interface Notification {
  * 4. 'Unknown User' fallback
  */
 export function extractNotificationUsername(notification: Notification): string {
-  // First priority: from_user relation
+  // First priority: fromUser relation
+  if (notification.fromUser?.username) {
+    return notification.fromUser.username
+  }
+
+  // Fallback: legacy from_user
   if (notification.from_user?.username) {
     return notification.from_user.username
   }
-  
+
   // Second priority: notification-type-specific fields
   const data = notification.data
   if (!data) {
     return 'Unknown User'
   }
-  
+
   // Try notification-type-specific fields first
   const typeSpecificFields = [
-    data.reactor_username,    // reactions
-    data.sharer_username,     // shares
-    data.author_username,     // mentions
-    data.liker_username,      // likes
-    data.follower_username,   // follows
-    data.commenter_username,  // comments
+    data.reactorUsername,    // reactions
+    data.sharerUsername,     // shares
+    data.authorUsername,     // mentions
+    data.likerUsername,      // likes
+    data.followerUsername,   // follows
+    data.commenterUsername,  // comments
   ]
-  
+
   for (const username of typeSpecificFields) {
     if (username && typeof username === 'string' && username.trim() !== '') {
       return username
     }
   }
-  
+
   // Try generic username fields
   const genericFields = [
-    data.sender_username,
+    data.senderUsername,
     data.username,
-    data.user_name,
+    data.displayName,
   ]
-  
+
   for (const username of genericFields) {
     if (username && typeof username === 'string' && username.trim() !== '') {
       return username
     }
   }
-  
-  // Try any field ending with 'username' (for future notification types)
+
+  // Try any field ending with 'username' or 'Username'
   for (const [key, value] of Object.entries(data)) {
-    if (key.endsWith('username') && typeof value === 'string' && value.trim() !== '') {
+    if ((key.endsWith('username') || key.endsWith('Username')) && typeof value === 'string' && value.trim() !== '') {
       return value
     }
   }
-  
+
   return 'Unknown User'
 }
 
@@ -111,35 +131,41 @@ export function extractNotificationUsername(notification: Notification): string 
  * Extracts user ID from notification using intelligent pattern matching.
  */
 export function extractNotificationUserId(notification: Notification): string {
-  // First priority: from_user relation
+  // First priority: fromUser relation
+  if (notification.fromUser?.id) {
+    return String(notification.fromUser.id)
+  }
+
+  // Fallback: legacy from_user
   if (notification.from_user?.id) {
     return String(notification.from_user.id)
   }
-  
+
   // Second priority: try to extract from username fields by removing '_username' suffix
   const data = notification.data
   if (!data) {
     return 'unknown'
   }
-  
+
   // Look for corresponding ID fields
   const idFields = [
-    data.reactor_id || data.reactor_user_id,
-    data.sharer_id || data.sharer_user_id,
-    data.author_id || data.author_user_id,
-    data.liker_id || data.liker_user_id,
-    data.follower_id || data.follower_user_id,
-    data.commenter_id || data.commenter_user_id,
-    data.sender_id || data.sender_user_id,
-    data.user_id,
+    data.reactorUserId || data.reactorId,
+    data.sharerUserId || data.sharerId,
+    data.authorUserId || data.authorId,
+    data.likerUserId || data.likerId,
+    data.followerUserId || data.followerId,
+    data.commenterUserId || data.commenterId,
+    data.senderUsername || data.senderUserId, // Fallback to username for IDs if needed
+    data.userId,
+    data.id
   ]
-  
+
   for (const id of idFields) {
     if (id !== undefined && id !== null) {
       return String(id)
     }
   }
-  
+
   // Fallback: use username as ID
   const username = extractNotificationUsername(notification)
   return username !== 'Unknown User' ? username : 'unknown'
@@ -151,13 +177,20 @@ export function extractNotificationUserId(notification: Notification): string {
  * This function handles both mapped and raw backend formats for compatibility.
  */
 export function extractNotificationUserImage(notification: any): string | undefined {
-  // After API mapping, the image should be on fromUser.image
+  // Prefer frontend format
+  if (notification.fromUser?.profileImageUrl) {
+    return notification.fromUser.profileImageUrl
+  }
+
   if (notification.fromUser?.image) {
     return notification.fromUser.image
   }
-  
-  // Fallback for raw backend format (before mapping)
-  return notification.from_user?.image || notification.from_user?.profile_image_url || undefined
+
+  // Fallback for raw backend format
+  return notification.from_user?.profileImageUrl ||
+    notification.from_user?.profile_image_url ||
+    notification.from_user?.image ||
+    undefined
 }
 
 /**
@@ -169,13 +202,13 @@ export function resolveNotificationUser(notification: any) {
   if (notification.fromUser) {
     return notification.fromUser
   }
-  
+
   // Otherwise, resolve from raw backend format
-  const img = notification.from_user?.image ?? 
-              notification.from_user?.profile_image_url ?? 
-              notification.data?.from_user?.image ?? 
-              notification.data?.from_user?.profile_image_url ?? 
-              null
+  const img = notification.from_user?.image ??
+    notification.from_user?.profile_image_url ??
+    notification.data?.from_user?.image ??
+    notification.data?.from_user?.profile_image_url ??
+    null
 
   return {
     id: extractNotificationUserId(notification),
@@ -197,22 +230,22 @@ export function validateNotificationUserData(notification: Notification): {
   issues: string[]
 } {
   const issues: string[] = []
-  const hasFromUser = !!notification.from_user?.username
+  const hasFromUser = !!(notification.fromUser?.username || notification.from_user?.username)
   const detectedUsername = extractNotificationUsername(notification)
   const hasUsernameInData = detectedUsername !== 'Unknown User'
-  
+
   if (!hasFromUser && !hasUsernameInData) {
     issues.push('No username found in from_user or data fields')
   }
-  
+
   if (detectedUsername === 'Unknown User') {
     issues.push('Username resolved to "Unknown User" - check notification data structure')
   }
-  
+
   if (!notification.data) {
     issues.push('No data object found in notification')
   }
-  
+
   return {
     isValid: hasFromUser || hasUsernameInData,
     hasFromUser,

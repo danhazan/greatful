@@ -28,21 +28,21 @@ describe('notificationMapping', () => {
     })
 
     it('should convert relative URLs to absolute using NEXT_PUBLIC_API_BASE_URL', () => {
-      process.env.NEXT_PUBLIC_API_BASE_URL = 'https://api.example.com'
+      process.env['NEXT_PUBLIC_API_BASE_URL'] = 'https://api.example.com'
       
       expect(toAbsoluteUrl('/uploads/image.jpg')).toBe('https://api.example.com/uploads/image.jpg')
       expect(toAbsoluteUrl('uploads/image.jpg')).toBe('https://api.example.com/uploads/image.jpg')
     })
 
     it('should fallback to NEXT_PUBLIC_API_URL if NEXT_PUBLIC_API_BASE_URL is not set', () => {
-      process.env.NEXT_PUBLIC_API_URL = 'https://api.example.com'
+      process.env['NEXT_PUBLIC_API_URL'] = 'https://api.example.com'
       
       expect(toAbsoluteUrl('/uploads/image.jpg')).toBe('https://api.example.com/uploads/image.jpg')
     })
 
     it('should use default localhost if no env vars are set', () => {
-      delete process.env.NEXT_PUBLIC_API_BASE_URL
-      delete process.env.NEXT_PUBLIC_API_URL
+      delete process.env['NEXT_PUBLIC_API_BASE_URL']
+      delete process.env['NEXT_PUBLIC_API_URL']
       
       expect(toAbsoluteUrl('/uploads/image.jpg')).toBe('http://localhost:8000/uploads/image.jpg')
     })

@@ -11,11 +11,10 @@ interface NavbarProps {
   user?: {
     id: string | number
     name: string
-    display_name?: string
-    username: string  // Required - all users have usernames
+    displayName?: string
+    username: string
     email: string
-    profile_image_url?: string
-    profile_photo_filename?: string
+    profileImageUrl?: string
   }
   onLogout?: () => void
 }
@@ -48,9 +47,9 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
   }
 
   return (
-    <nav 
-      className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 sticky top-0 z-40" 
-      role="navigation" 
+    <nav
+      className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 sticky top-0 z-40"
+      role="navigation"
       aria-label="Main navigation"
     >
       <div className="max-w-4xl mx-auto flex items-center gap-2 sm:gap-4 relative">
@@ -77,7 +76,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
             </div>
           )}
         </div>
-        
+
         {/* Middle section: Search bar - Responsive layout */}
         {user && (
           <div className="flex-1 min-w-0 max-w-md mx-auto relative overflow-visible">
@@ -91,7 +90,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
             </div>
           </div>
         )}
-        
+
         {/* Right section: Feed icon + Notifications + Profile */}
         <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0 relative z-10">
           {/* Purple Heart Feed Icon */}
@@ -105,9 +104,9 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
               <span className="text-xl sm:text-2xl" aria-hidden="true">💜</span>
             </button>
           )}
-          
+
           {user && <NotificationSystem userId={user.id} />}
-          
+
           {/* Profile Dropdown - Responsive for both desktop and mobile */}
           {user && (
             <ProfileDropdown

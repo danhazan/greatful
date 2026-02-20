@@ -12,9 +12,12 @@ import FollowingModal from "@/components/FollowingModal"
 import { transformUserPosts } from "@/lib/transformers"
 import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
+import { Post, Author } from '@/types/post'
+
+// Redundant local interfaces removed - using Post and Author from @/types/post
 
 interface UserProfile {
-  id: number
+  id: string
   username: string
   email: string
   bio?: string
@@ -26,55 +29,10 @@ interface UserProfile {
   followingCount?: number
 }
 
-interface Post {
-  id: string
-  content: string
-  richContent?: string
-  postStyle?: {
-    id: string
-    name: string
-    backgroundColor: string
-    backgroundGradient?: string
-    textColor: string
-    borderStyle?: string
-    fontFamily?: string
-    textShadow?: string
-  }
-  author: {
-    id: string
-    name: string
-    username?: string
-    image?: string
-  }
-  createdAt: string
-  postType: "daily" | "photo" | "spontaneous"
-  imageUrl?: string
-  location?: string
-  location_data?: {
-    display_name: string
-    lat: number
-    lon: number
-    place_id?: string
-    address: {
-      city?: string
-      state?: string
-      country?: string
-      country_code?: string
-    }
-    importance?: number
-    type?: string
-  }
-  heartsCount: number
-  isHearted: boolean
-  reactionsCount: number
-  commentsCount: number
-  currentUserReaction?: string
-}
-
 export default function UserProfilePage() {
   const router = useRouter()
   const params = useParams()
-  const userId = params.userId as string
+  const userId = params['userId'] as string
   const { currentUser, isLoading: userLoading, logout } = useUser()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -91,8 +49,8 @@ export default function UserProfilePage() {
       if (profile && e.detail.userId === profile.id.toString()) {
         setProfile(prev => prev ? {
           ...prev,
-          followersCount: e.detail.isFollowing 
-            ? (prev.followersCount || 0) + 1 
+          followersCount: e.detail.isFollowing
+            ? (prev.followersCount || 0) + 1
             : Math.max(0, (prev.followersCount || 0) - 1)
         } : null)
       }
@@ -138,27 +96,25 @@ export default function UserProfilePage() {
         console.log('Profile data received:', profileData)
 
         // Ensure we use the correct field names from API response
-        const followersCount = profileData.followers_count ?? profileData.followersCount ?? 0
-        const followingCount = profileData.following_count ?? profileData.followingCount ?? 0
+        const followersCount = profileData.followersCount || 0
+        const followingCount = profileData.followingCount || 0
 
         console.log('API Response - Setting profile with follower counts:', {
-          raw_followers_count: profileData.followers_count,
-          raw_following_count: profileData.following_count,
-          finalFollowersCount: followersCount,
-          finalFollowingCount: followingCount,
+          followersCount,
+          followingCount,
           userId: profileData.id,
           username: profileData.username
         })
 
         setProfile({
-          id: profileData.id,
+          id: profileData.id.toString(),
           username: profileData.username,
           email: profileData.email,
           bio: profileData.bio,
           profileImageUrl: profileData.profileImageUrl,
           displayName: profileData.displayName,
           createdAt: profileData.createdAt,
-          postsCount: profileData.posts_count || 0,
+          postsCount: profileData.postsCount || 0,
           followersCount: followersCount,
           followingCount: followingCount
         })
@@ -219,10 +175,10 @@ export default function UserProfilePage() {
     }
   }, [userId, router, currentUser, userLoading])
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { hearts_count: number, is_hearted: boolean }) => {
+  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
     // If we have server data, use it; otherwise fallback to optimistic update
-    const newHearted = heartInfo ? heartInfo.is_hearted : !isCurrentlyHearted
-    const newCount = heartInfo ? heartInfo.hearts_count : (isCurrentlyHearted ? (posts.find(p => p.id === postId)?.heartsCount || 1) - 1 : (posts.find(p => p.id === postId)?.heartsCount || 0) + 1)
+    const newHearted = heartInfo ? heartInfo.isHearted : !isCurrentlyHearted
+    const newCount = heartInfo ? heartInfo.heartsCount : (isCurrentlyHearted ? (posts.find(p => p.id === postId)?.heartsCount || 1) - 1 : (posts.find(p => p.id === postId)?.heartsCount || 0) + 1)
 
     // Update both the user's individual heart state AND the global count from server
     setPosts(posts.map(post => {
@@ -239,10 +195,10 @@ export default function UserProfilePage() {
     }))
   }
 
-  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: { total_count: number, reactions: { [key: string]: number }, user_reaction: string | null }) => {
+  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
     // If we have server data, use it; otherwise fallback to optimistic update
-    const newReaction = reactionSummary ? reactionSummary.user_reaction : emojiCode
-    const newCount = reactionSummary ? reactionSummary.total_count : (posts.find(p => p.id === postId)?.reactionsCount || 0) + 1
+    const newReaction = reactionSummary ? reactionSummary.userReaction : emojiCode
+    const newCount = reactionSummary ? reactionSummary.totalCount : (posts.find(p => p.id === postId)?.reactionsCount || 0) + 1
 
     // Update both the user's individual reaction state AND the global count from server
     setPosts(posts.map(post => {
@@ -259,10 +215,10 @@ export default function UserProfilePage() {
     }) as typeof posts)
   }
 
-  const handleRemoveReaction = async (postId: string, reactionSummary?: { total_count: number, reactions: { [key: string]: number }, user_reaction: string | null }) => {
+  const handleRemoveReaction = async (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
     // If we have server data, use it; otherwise fallback to optimistic update
-    const newReaction = reactionSummary ? reactionSummary.user_reaction : undefined
-    const newCount = reactionSummary ? reactionSummary.total_count : Math.max((posts.find(p => p.id === postId)?.reactionsCount || 1) - 1, 0)
+    const newReaction = reactionSummary ? reactionSummary.userReaction : undefined
+    const newCount = reactionSummary ? reactionSummary.totalCount : Math.max((posts.find(p => p.id === postId)?.reactionsCount || 1) - 1, 0)
 
     // Update both the user's individual reaction state AND the global count from server
     setPosts(posts.map(post => {
@@ -358,11 +314,11 @@ export default function UserProfilePage() {
       <Navbar
         user={currentUser ? {
           id: currentUser.id,
-          name: currentUser.display_name || currentUser.name,
-          display_name: currentUser.display_name,
+          name: currentUser.displayName || currentUser.name,
+          displayName: currentUser.displayName,
           username: currentUser.username,
           email: currentUser.email,
-          profile_image_url: currentUser.image
+          profileImageUrl: currentUser.profileImageUrl
         } : undefined}
         onLogout={() => {
           // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
@@ -416,8 +372,8 @@ export default function UserProfilePage() {
                       size="md"
                       variant="primary"
                       autoFetch={true}
-                      // Enable auto-fetch so the button can manage its own follow state
-                      // This ensures the button updates properly after follow/unfollow actions
+                    // Enable auto-fetch so the button can manage its own follow state
+                    // This ensures the button updates properly after follow/unfollow actions
                     />
                   </div>
                 )}

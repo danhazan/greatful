@@ -15,7 +15,7 @@ export async function POST(
     })
 
     // Forward the request to the backend OAuth callback endpoint
-    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/oauth/callback/${provider}`
+    const backendUrl = `${process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'}/api/v1/oauth/callback/${provider}`
     
     const backendResponse = await fetch(backendUrl, {
       method: 'POST',

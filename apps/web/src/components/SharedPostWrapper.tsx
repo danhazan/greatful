@@ -6,23 +6,7 @@ import PostCard from "./PostCard"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { useUser } from "@/contexts/UserContext"
 
-interface Post {
-  id: string
-  content: string
-  author: {
-    id: string
-    name: string
-    image?: string
-  }
-  createdAt: string
-  postType: "daily" | "photo" | "spontaneous"
-  imageUrl?: string
-  location?: string
-  heartsCount: number
-  isHearted: boolean
-  reactionsCount: number
-  currentUserReaction?: string
-}
+import { Post } from '@/types/post'
 
 interface SharedPostWrapperProps {
   post: Post
@@ -32,7 +16,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
   const router = useRouter()
   const [post, setPost] = useState(initialPost)
   const { currentUser, isLoading } = useUser()
-  
+
   // Derive authentication state from UserContext
   const isUserAuthenticated = !!currentUser
   const currentUserId = currentUser?.id
@@ -46,7 +30,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
 
       try {
         const token = getAccessToken()
-        
+
         // Fetch user-specific post data (hearts and reactions)
         const postResponse = await fetch(`/api/posts/${post.id}`, {
           headers: {
@@ -56,14 +40,14 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
 
         if (postResponse.ok) {
           const postData = await postResponse.json()
-          
+
           // Update post with user-specific data
           setPost(prevPost => ({
             ...prevPost,
-            isHearted: postData.is_hearted || false,
-            currentUserReaction: postData.current_user_reaction || undefined,
-            heartsCount: postData.hearts_count || 0,
-            reactionsCount: postData.reactions_count || prevPost.reactionsCount || 0,
+            isHearted: postData.isHearted || false,
+            currentUserReaction: postData.currentUserReaction || undefined,
+            heartsCount: postData.heartsCount || 0,
+            reactionsCount: postData.reactionsCount || prevPost.reactionsCount || 0,
           }))
         }
       } catch (error) {
@@ -78,7 +62,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
   }, [post.id, isUserAuthenticated, currentUserId, isLoading])
 
   // Handle heart interaction
-  const handleHeart = async (postId: string, isCurrentlyHearted: boolean, heartInfo?: {hearts_count: number, is_hearted: boolean}) => {
+  const handleHeart = async (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
     if (!isUserAuthenticated) {
       // Redirect to login if not authenticated
       router.push('/auth/login')
@@ -89,8 +73,8 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
     if (heartInfo) {
       setPost(prevPost => ({
         ...prevPost,
-        heartsCount: heartInfo.hearts_count,
-        isHearted: heartInfo.is_hearted,
+        heartsCount: heartInfo.heartsCount,
+        isHearted: heartInfo.isHearted,
       }))
     } else {
       // Fallback optimistic update
@@ -103,7 +87,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
   }
 
   // Handle reaction interaction
-  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
     if (!isUserAuthenticated) {
       // Redirect to login if not authenticated
       router.push('/auth/login')
@@ -114,8 +98,8 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
     if (reactionSummary) {
       setPost(prevPost => ({
         ...prevPost,
-        reactionsCount: reactionSummary.total_count,
-        currentUserReaction: reactionSummary.user_reaction || undefined,
+        reactionsCount: reactionSummary.totalCount,
+        currentUserReaction: reactionSummary.userReaction || undefined,
       }))
     } else {
       // Fallback optimistic update
@@ -129,7 +113,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
   }
 
   // Handle reaction removal
-  const handleRemoveReaction = async (postId: string, reactionSummary?: {total_count: number, reactions: {[key: string]: number}, user_reaction: string | null}) => {
+  const handleRemoveReaction = async (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
     if (!isUserAuthenticated) {
       // Redirect to login if not authenticated
       router.push('/auth/login')
@@ -140,8 +124,8 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
     if (reactionSummary) {
       setPost(prevPost => ({
         ...prevPost,
-        reactionsCount: reactionSummary.total_count,
-        currentUserReaction: reactionSummary.user_reaction || undefined,
+        reactionsCount: reactionSummary.totalCount,
+        currentUserReaction: reactionSummary.userReaction || undefined,
       }))
     } else {
       // Fallback optimistic update
@@ -165,7 +149,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
   }
 
   return (
-    <PostCard 
+    <PostCard
       post={post}
       currentUserId={isUserAuthenticated ? currentUserId : undefined}
       onHeart={handleHeart}

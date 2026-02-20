@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward to backend
-    const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/location/search`, {
+    const backendResponse = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/users/location/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

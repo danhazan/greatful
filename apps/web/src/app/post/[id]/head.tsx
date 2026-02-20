@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
 
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
 interface PageProps {
   params: { id: string }
@@ -37,12 +37,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   }
 
-  const title = post.title 
-    ? `${post.title} - Grateful` 
-    : `Gratitude post by ${post.author?.name || post.author?.username} - Grateful`
-  
-  const description = post.content?.length > 160 
-    ? `${post.content.substring(0, 157)}...` 
+  const title = post.title
+    ? `${post.title} - Grateful`
+    : `Gratitude post by ${post.author?.displayName || post.author?.name || post.author?.username} - Grateful`
+
+  const description = post.content?.length > 160
+    ? `${post.content.substring(0, 157)}...`
     : post.content
 
   return {
@@ -52,22 +52,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: 'article',
-      authors: [post.author?.name || post.author?.username],
-      publishedTime: post.created_at,
-      images: post.image_url ? [
+      authors: [post.author?.displayName || post.author?.name || post.author?.username],
+      publishedTime: post.createdAt || post.created_at,
+      images: post.imageUrl || post.image_url ? [
         {
-          url: post.image_url,
+          url: post.imageUrl || post.image_url,
           width: 1200,
           height: 630,
-          alt: `Gratitude post by ${post.author?.name || post.author?.username}`,
+          alt: `Gratitude post by ${post.author?.displayName || post.author?.name || post.author?.username}`,
         }
       ] : undefined,
     },
     twitter: {
-      card: post.image_url ? 'summary_large_image' : 'summary',
+      card: post.imageUrl || post.image_url ? 'summary_large_image' : 'summary',
       title,
       description,
-      images: post.image_url ? [post.image_url] : undefined,
+      images: post.imageUrl || post.image_url ? [post.imageUrl || post.image_url] : undefined,
     },
     alternates: {
       canonical: `/post/${post.id}`,

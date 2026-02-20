@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     // Forward the request to the backend API
-    const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/reset-password`, {
+    const backendResponse = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/reset-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

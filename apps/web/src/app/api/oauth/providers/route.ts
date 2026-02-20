@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
 export async function GET() {
   try {
@@ -32,8 +32,8 @@ export async function GET() {
               google: true,  // Always show Google button
               facebook: false  // Facebook not implemented yet
             },
-            redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
-            environment: process.env.NODE_ENV || 'development',
+            redirect_uri: `${process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'}/auth/callback`,
+            environment: process.env['NODE_ENV'] || 'development',
             initialized: true  // Always show as initialized
           }
         })
@@ -47,8 +47,8 @@ export async function GET() {
             google: true,
             facebook: false
           },
-          redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
-          environment: process.env.NODE_ENV || 'development',
+          redirect_uri: `${process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'}/auth/callback`,
+          environment: process.env['NODE_ENV'] || 'development',
           initialized: true
         }
       })
@@ -62,8 +62,8 @@ export async function GET() {
             google: true,
             facebook: false
           },
-          redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
-          environment: process.env.NODE_ENV || 'development',
+          redirect_uri: `${process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'}/auth/callback`,
+          environment: process.env['NODE_ENV'] || 'development',
           initialized: true
         }
       })
@@ -78,8 +78,8 @@ export async function GET() {
           google: true,
           facebook: false
         },
-        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
-        environment: process.env.NODE_ENV || 'development',
+        redirect_uri: `${process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'}/auth/callback`,
+        environment: process.env['NODE_ENV'] || 'development',
         initialized: true
       }
     })

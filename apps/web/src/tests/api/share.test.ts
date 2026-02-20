@@ -10,7 +10,7 @@ import { NextRequest } from 'next/server'
 describe('Share API Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.BACKEND_URL = 'http://localhost:8000'
+    process.env['BACKEND_URL'] = 'http://localhost:8000'
     // Mock successful backend response
     ;(fetch as jest.Mock).mockResolvedValue({
       ok: true,

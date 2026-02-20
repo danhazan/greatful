@@ -19,7 +19,7 @@ export async function POST(
     }
 
     // Forward request to FastAPI backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    const backendUrl = process.env['BACKEND_URL'] || 'http://localhost:8000'
     const response = await fetch(`${backendUrl}/api/v1/posts/${postId}/share`, {
       method: 'POST',
       headers: {

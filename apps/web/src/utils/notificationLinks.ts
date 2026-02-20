@@ -8,19 +8,12 @@ export interface NotificationLinkData {
   shouldCloseDropdown?: boolean
 }
 
+import { Notification } from '@/types/notification'
+
 /**
  * Generate appropriate link for a notification based on its type and data
  */
-export function generateNotificationLink(notification: {
-  type: string
-  postId?: string
-  fromUser?: {
-    id: string
-    name: string
-  }
-  isBatch?: boolean
-  data?: any
-}): NotificationLinkData | null {
+export function generateNotificationLink(notification: Notification): NotificationLinkData | null {
   // For batch notifications, don't navigate - just expand/collapse
   if (notification.isBatch) {
     return null
@@ -38,7 +31,7 @@ export function generateNotificationLink(notification: {
   // For user-related notifications (follows), link to user profile
   if (['new_follower', 'follow'].includes(notification.type)) {
     // Try to use follower_id first, fallback to fromUser.id
-    const userId = notification.data?.follower_id || notification.fromUser?.id
+    const userId = notification.data?.['follower_id'] || notification.fromUser?.id
     if (userId) {
       return {
         type: 'user',
@@ -56,18 +49,7 @@ export function generateNotificationLink(notification: {
  * Handle notification click with proper navigation
  */
 export function handleNotificationClick(
-  notification: {
-    id: string
-    type: string
-    postId?: string
-    fromUser?: {
-      id: string
-      name: string
-    }
-    isBatch?: boolean
-    read: boolean
-    data?: any
-  },
+  notification: Notification,
   callbacks: {
     markAsRead: (id: string) => void
     toggleBatchExpansion: (id: string) => void
@@ -120,7 +102,7 @@ export async function navigateToUserProfile(
 ) {
   // Import the validation function
   const { validProfileId } = await import('./idGuards')
-  
+
   // Try to use ID directly if it's valid
   if (userInfo.id && validProfileId(userInfo.id)) {
     const profileUrl = getUserProfileLink(userInfo.id)

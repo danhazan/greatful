@@ -10,8 +10,12 @@
  * Keep this in sync with the backend configuration.
  */
 export const MAX_POST_IMAGES = parseInt(
-  process.env.NEXT_PUBLIC_MAX_POST_IMAGES || '7'
+  process.env['NEXT_PUBLIC_MAX_POST_IMAGES'] || '7'
 )
+
+export const getApiBaseUrl = (): string => {
+  return process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
+}
 
 export interface ImageUploadOptions {
   maxSizeBytes?: number
@@ -279,7 +283,7 @@ function compressImageWithQuality(
  * Compresses an image file to reduce size while maintaining quality
  */
 export function compressImage(
-  file: File, 
+  file: File,
   quality: number = 0.8
 ): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -304,7 +308,7 @@ export function compressImage(
 
       // Draw and compress
       ctx?.drawImage(img, 0, 0, width, height)
-      
+
       canvas.toBlob(
         (blob) => {
           if (blob) {
@@ -338,7 +342,7 @@ export function createImagePreview(file: File): string {
  * Uploads an image file to the server
  */
 export async function uploadImage(
-  file: File, 
+  file: File,
   options: ImageUploadOptions = {}
 ): Promise<ImageUploadResult> {
   try {
@@ -411,9 +415,9 @@ export async function uploadImage(
 
   } catch (error) {
     console.error('Image upload error:', error)
-    return { 
-      success: false, 
-      error: 'Network error during upload' 
+    return {
+      success: false,
+      error: 'Network error during upload'
     }
   }
 }

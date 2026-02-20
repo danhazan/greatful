@@ -84,12 +84,12 @@ const mockPost = {
 describe('PostCard Follow Button Tests', () => {
   beforeEach(() => {
     // Reset NODE_ENV to development for these tests
-    process.env.NODE_ENV = 'development'
+    process.env['NODE_ENV'] = 'development'
   })
 
   afterEach(() => {
     // Reset NODE_ENV back to test
-    process.env.NODE_ENV = 'test'
+    process.env['NODE_ENV'] = 'test'
   })
 
   it('should render follow button when viewing another user\'s post', () => {

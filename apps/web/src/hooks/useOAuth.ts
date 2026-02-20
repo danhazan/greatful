@@ -26,19 +26,19 @@ export const useOAuth = (): UseOAuthReturn => {
       setProviders(status)
     } catch (err: any) {
       console.error('Error loading OAuth providers:', err)
-      
+
       // Don't show error messages for OAuth not being configured
       const errorMessage = oauthService.getErrorMessage(err)
-      if (!errorMessage.includes('Failed to get OAuth providers') && 
-          !errorMessage.includes('OAuth not configured') &&
-          !errorMessage.includes('Internal server error')) {
+      if (!errorMessage.includes('Failed to get OAuth providers') &&
+        !errorMessage.includes('OAuth not configured') &&
+        !errorMessage.includes('Internal server error')) {
         setError(oauthService.handleOAuthError(err))
       }
-      
+
       // Set default providers state when OAuth is not configured
       setProviders({
         providers: { google: false, facebook: false },
-        redirect_uri: window.location.origin + '/auth/callback/google',
+        redirectUri: window.location.origin + '/auth/callback/google',
         environment: 'development',
         initialized: false
       })
@@ -56,7 +56,7 @@ export const useOAuth = (): UseOAuthReturn => {
   const handleOAuthLogin = useCallback(async (provider: 'google' | 'facebook') => {
     try {
       setError(null)
-      
+
       // Check if provider is available
       if (!providers?.providers[provider]) {
         throw new Error(`${provider} login is not available at the moment`)
@@ -78,7 +78,7 @@ export const useOAuth = (): UseOAuthReturn => {
 
   // Check if OAuth is available
   const isAvailable = Boolean(
-    providers?.initialized && 
+    providers?.initialized &&
     (providers.providers.google || providers.providers.facebook)
   )
 

@@ -12,7 +12,7 @@ export function truncateLocationName(displayName: string, maxLength: number = 15
   if (!displayName || displayName.length <= maxLength) {
     return displayName
   }
-  
+
   return displayName.substring(0, maxLength - 3) + '...'
 }
 
@@ -25,14 +25,14 @@ export function createShortLocationSummary(address: {
   city?: string
   state?: string
   country?: string
-  country_code?: string
+  countryCode?: string
 }): string {
   const parts = [
     address.city,
     address.state,
     address.country
   ].filter(Boolean)
-  
+
   return parts.slice(0, 2).join(', ')
 }
 

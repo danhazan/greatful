@@ -28,79 +28,16 @@ import { useToast } from "@/contexts/ToastContext"
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, hasMixedDirectionContent } from "@/utils/rtlUtils"
 import { usePostStateSynchronization } from "@/hooks/useStateSynchronization"
+import { Post, Author, PostImage } from "@/types/post"
 
-// PostImage type for multi-image support
-interface PostImage {
-  id: string
-  position: number
-  thumbnailUrl: string
-  mediumUrl: string
-  originalUrl: string
-  width?: number
-  height?: number
-}
-
-interface Post {
-  id: string
-  content: string
-  postStyle?: {
-    id: string
-    name: string
-    backgroundColor: string
-    backgroundGradient?: string
-    textColor: string
-    borderStyle?: string
-    fontFamily?: string
-    textShadow?: string
-  }
-  post_style?: any // Keep for backward compatibility 
-  author: {
-    id: string
-    name: string
-    username?: string
-    display_name?: string
-    image?: string
-    follower_count?: number
-    following_count?: number
-    posts_count?: number
-    is_following?: boolean
-  }
-  createdAt: string
-  updatedAt?: string
-  postType: "daily" | "photo" | "spontaneous"
-  imageUrl?: string  // Legacy single image, deprecated
-  images?: PostImage[]  // Multi-image support
-  location?: string
-  location_data?: {
-    display_name: string
-    lat: number
-    lon: number
-    place_id?: string
-    address: {
-      city?: string
-      state?: string
-      country?: string
-      country_code?: string
-    }
-    importance?: number
-    type?: string
-  }
-  heartsCount: number
-  isHearted: boolean
-  reactionsCount: number
-  currentUserReaction?: string
-  isRead?: boolean
-  isUnread?: boolean
-  commentsCount?: number
-}
 
 interface PostCardProps {
   post: Post
   currentUserId?: string
   hideFollowButton?: boolean // New prop to hide follow button in profile context
-  onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: { hearts_count: number, is_hearted: boolean }) => void
-  onReaction?: (postId: string, emojiCode: string, reactionSummary?: { total_count: number, reactions: { [key: string]: number }, user_reaction: string | null }) => void
-  onRemoveReaction?: (postId: string, reactionSummary?: { total_count: number, reactions: { [key: string]: number }, user_reaction: string | null }) => void
+  onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => void
+  onReaction?: (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => void
+  onRemoveReaction?: (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => void
   onShare?: (postId: string) => void
   onUserClick?: (userId: string) => void
   onEdit?: (postId: string, updatedPost: Post) => void
@@ -240,7 +177,7 @@ export default function PostCard({
         setValidUsernames(result.data?.validUsernames || result.validUsernames || [])
       } catch (error) {
         // Only log errors in development
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env['NODE_ENV'] === 'development') {
           console.error('Error validating usernames:', error)
         }
         setValidUsernames([])
@@ -318,9 +255,9 @@ export default function PostCard({
           setCurrentPost(prev => ({
             ...prev,
             currentUserReaction: undefined,
-            reactionsCount: reactionSummary.total_count || 0,
-            isHearted: reactionSummary.is_hearted || false,
-            heartsCount: reactionSummary.hearts_count || 0
+            reactionsCount: reactionSummary.totalCount || 0,
+            isHearted: reactionSummary.isHearted || false,
+            heartsCount: reactionSummary.heartsCount || 0
           }))
 
           // Call handler with updated server data
@@ -368,7 +305,7 @@ export default function PostCard({
 
     try {
       // Make API call to add/update reaction using optimized API client
-      await apiClient.post(`/posts/${post.id}/reactions`, { emoji_code: emojiCode })
+      await apiClient.post(`/posts/${post.id}/reactions`, { emojiCode: emojiCode })
 
       // Get updated reaction summary from server
       const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
@@ -377,9 +314,9 @@ export default function PostCard({
       setCurrentPost(prev => ({
         ...prev,
         currentUserReaction: emojiCode,
-        reactionsCount: reactionSummary.total_count || 0,
-        isHearted: reactionSummary.is_hearted || false,
-        heartsCount: reactionSummary.hearts_count || 0
+        reactionsCount: reactionSummary.totalCount || 0,
+        isHearted: reactionSummary.isHearted || false,
+        heartsCount: reactionSummary.heartsCount || 0
       }))
 
       // Call handler with updated server data
@@ -924,7 +861,7 @@ export default function PostCard({
         <div className={styling.header}>
           <div className="flex items-start space-x-6">
             <ProfilePhotoDisplay
-              photoUrl={currentPost.author.image}
+              photoUrl={currentPost.author.profileImageUrl || currentPost.author.image}
               username={currentPost.author.username || currentPost.author.name}
               size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
               className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all flex-shrink-0"
@@ -937,7 +874,7 @@ export default function PostCard({
                   onClick={() => onUserClick?.(currentPost.author.id)}
                 >
                   <h3 className={`${styling.name} text-gray-900 font-bold`}>
-                    {currentPost.author.display_name || currentPost.author.name}
+                    {currentPost.author.displayName || currentPost.author.name}
                   </h3>
                 </div>
                 {/* Follow button positioned next to the user display name */}
@@ -947,7 +884,7 @@ export default function PostCard({
                   !hideFollowButton && (
                     <div className="flex items-center">
                       {(() => {
-                        const isFollowing = currentPost.author.is_following ?? false;
+                        const isFollowing = currentPost.author.isFollowing ?? false;
                         console.debug("Follow state for user", currentPost.author.id, isFollowing);
                         return (
                           <FollowButton
@@ -978,7 +915,7 @@ export default function PostCard({
                   </a>
                 </div>
                 {/* Location on small screens - icon only to save space, tap to see details */}
-                {(currentPost.location_data || currentPost.location) && (
+                {(currentPost.locationData || currentPost.location) && (
                   <button
                     ref={locationButtonRef}
                     onClick={(event) => {
@@ -995,7 +932,7 @@ export default function PostCard({
                       setShowLocationModal(true)
                     }}
                     className="flex md:hidden items-center text-gray-500 hover:text-purple-600 transition-colors p-1 min-w-[44px] min-h-[44px] justify-center"
-                    title={currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
+                    title={currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
                   >
                     <MapPin className="h-4 w-4 flex-shrink-0" />
                   </button>
@@ -1004,7 +941,7 @@ export default function PostCard({
             </div>
             <div className="flex items-center space-x-2 flex-shrink-0 max-w-[40%]">
               {/* Location on larger screens - shows icon + text */}
-              {(currentPost.location_data || currentPost.location) && (
+              {(currentPost.locationData || currentPost.location) && (
                 <button
                   ref={locationButtonRef}
                   onClick={(event) => {
@@ -1025,7 +962,7 @@ export default function PostCard({
                 >
                   <MapPin className="h-4 w-4 flex-shrink-0" />
                   <span className="text-xs truncate max-w-[150px]">
-                    {currentPost.location_data ? currentPost.location_data.display_name : currentPost.location}
+                    {currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
                   </span>
                 </button>
               )}
@@ -1074,7 +1011,7 @@ export default function PostCard({
 
         {/* Post Content */}
         {(() => {
-          const style = currentPost.postStyle || currentPost.post_style
+          const style = currentPost.postStyle
 
           const backgroundStyle: React.CSSProperties | undefined = style
             ? {
@@ -1343,7 +1280,7 @@ export default function PostCard({
         isOpen={showLocationModal}
         onClose={() => setShowLocationModal(false)}
         location={currentPost.location}
-        locationData={currentPost.location_data}
+        locationData={currentPost.locationData}
         position={locationModalPosition}
       />
 

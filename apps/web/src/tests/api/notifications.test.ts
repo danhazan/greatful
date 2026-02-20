@@ -13,7 +13,7 @@ import { POST as MarkAllAsRead } from '@/app/api/notifications/read-all/route'
 describe('/api/notifications', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.API_BASE_URL = 'http://localhost:8000'
+    process.env['API_BASE_URL'] = 'http://localhost:8000'
   })
 
   describe('GET /api/notifications', () => {

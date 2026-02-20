@@ -11,7 +11,7 @@ import { GET, POST, DELETE } from '@/app/api/posts/[id]/reactions/route'
 describe('/api/posts/[id]/reactions', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.API_BASE_URL = 'http://localhost:8000'
+    process.env['API_BASE_URL'] = 'http://localhost:8000'
   })
 
   describe('GET /api/posts/[id]/reactions', () => {

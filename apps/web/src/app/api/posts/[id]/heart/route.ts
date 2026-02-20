@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { transformApiResponse } from '@/lib/caseTransform'
 
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
 export async function POST(
   request: NextRequest,

@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward the request to the backend API
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const backendUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
     const response = await fetch(`${backendUrl}/api/v1/users/validate-batch`, {
       method: 'POST',
       headers: {

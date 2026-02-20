@@ -5,15 +5,15 @@ import { X, MapPin } from "lucide-react"
 import LocationAutocomplete from "./LocationAutocomplete"
 
 interface LocationResult {
-  display_name: string
+  displayName: string
   lat: number
   lon: number
-  place_id?: string
+  placeId?: string
   address: {
     city?: string
     state?: string
     country?: string
-    country_code?: string
+    countryCode?: string
   }
   importance?: number
   type?: string
@@ -66,7 +66,7 @@ export default function LocationModal({
   }
 
   return (
-    <div 
+    <div
       data-location-modal
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
       onClick={(e) => {
@@ -76,7 +76,7 @@ export default function LocationModal({
         }
       }}
     >
-      <div 
+      <div
         className="bg-white rounded-lg shadow-xl w-full max-w-md"
         onClick={(e) => {
           // Prevent clicks inside the modal from bubbling up

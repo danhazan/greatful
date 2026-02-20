@@ -15,21 +15,21 @@ import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
 interface UserInfo {
   id: number
   username: string
-  profile_image_url?: string
+  profileImageUrl?: string
   bio?: string
 }
 
 // Location result type from LocationAutocomplete
 interface LocationResult {
-  display_name: string
+  displayName: string
   lat: number
   lon: number
-  place_id?: string
+  placeId?: string
   address: {
     city?: string
     state?: string
     country?: string
-    country_code?: string
+    countryCode?: string
   }
   importance?: number
   type?: string
@@ -49,11 +49,10 @@ interface PostImage {
 interface Post {
   id: string
   content: string
-  rich_content?: string
+  richContent?: string
   postStyle?: PostStyle
-  post_style?: PostStyle
   location?: string
-  location_data?: LocationResult
+  locationData?: LocationResult
   imageUrl?: string  // Legacy single image
   images?: PostImage[]  // Multi-image support
   postType: "daily" | "photo" | "spontaneous"
@@ -67,10 +66,10 @@ interface EditPostModalProps {
   post: Post
   onSubmit: (postData: {
     content: string
-    rich_content?: string
+    richContent?: string
     postStyle?: PostStyle
     location?: string
-    location_data?: LocationResult
+    locationData?: LocationResult
     mentions?: string[]
   }) => void
 }
@@ -90,7 +89,7 @@ const POST_TYPE_INFO = {
     prominence: '3x larger display'
   },
   photo: {
-    name: 'Photo Gratitude', 
+    name: 'Photo Gratitude',
     description: 'Image with caption',
     prominence: '2x boost display'
   },
@@ -107,12 +106,12 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     content: string
     imageUrl?: string
     location?: string | null
-    location_data?: LocationResult | null
+    locationData?: LocationResult | null
   }>({
     content: post.content || '',
     imageUrl: post.imageUrl || '',
     location: post.location || null,
-    location_data: post.location_data || null
+    locationData: post.locationData || null
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -124,20 +123,20 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   // Rich text and styling state (always enabled)
   const [richContent, setRichContent] = useState('')
   const [formattedContent, setFormattedContent] = useState('')
-  
+
   // Filter out font properties from post style to maintain consistency
   const filterPostStyleProperties = (style: PostStyle): PostStyle => {
     if (!style) return POST_STYLES[0]
-    
+
     const filtered = { ...style }
     // Remove font properties as per task requirements
     delete filtered.fontFamily
-    
+
     return filtered
   }
-  
+
   const [selectedStyle, setSelectedStyle] = useState<PostStyle>(
-    filterPostStyleProperties(post.postStyle || post.post_style || POST_STYLES[0])
+    filterPostStyleProperties(post.postStyle || POST_STYLES[0])
   )
   const [showBackgrounds, setShowBackgrounds] = useState(false)
   const [backgroundsPosition, setBackgroundsPosition] = useState({ x: 0, y: 0 })
@@ -160,22 +159,22 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const analyzeContent = (content: string, hasImage: boolean) => {
     const trimmed = content.trim()
     const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
-    
+
     if (hasImage && wordCount === 0) {
       return { type: 'photo' as const } // image only
     }
-    
+
     // Predicted spontaneous if very short; this is only a UI hint
     if (!hasImage && wordCount < 20) {
       return { type: 'spontaneous' as const }
     }
-    
+
     // Otherwise predicted as daily (longer text)
     return { type: 'daily' as const }
   }
 
   const hasImage = Boolean(postData.imageUrl) || Boolean(post.images && post.images.length > 0)
-  
+
   // Always use plain text for analysis to avoid HTML tag length issues
   const getPlainTextContent = () => {
     if (richTextEditorRef.current) {
@@ -183,14 +182,14 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     }
     return postData.content
   }
-  
+
   const contentForAnalysis = getPlainTextContent()
   const trimmed = contentForAnalysis.trim()
   const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
-  
+
   // predicted type only for display
   const predicted = analyzeContent(contentForAnalysis, hasImage)
-  
+
   // Input max: photo-only -> 0, else text -> 5000
   const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
   const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
@@ -200,12 +199,12 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         const target = event.target as Element
-        
+
         // ✅ Ignore clicks inside LocationModal if open
         if (showLocationModal && target.closest('[data-location-modal]')) {
           return
         }
-        
+
         // ✅ Ignore clicks inside mention autocomplete dropdown
         if (target.closest('[data-mention-autocomplete]')) {
           return
@@ -220,7 +219,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         if (target.closest('.rich-text-toolbar') || target.closest('[data-rich-text-modal]')) {
           return
         }
-        
+
         // Otherwise close post modal
         onClose()
       }
@@ -249,7 +248,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       if (showMentionAutocomplete && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
         return // Let MentionAutocomplete handle these
       }
-      
+
       if (event.key === 'Escape') {
         if (showMentionAutocomplete) {
           handleMentionClose()
@@ -273,20 +272,20 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         content: post.content || '',
         imageUrl: post.imageUrl || '',
         location: post.location || null,
-        location_data: post.location_data || null
+        locationData: post.locationData || null
       })
-      
+
       // Initialize rich content - preserve existing HTML formatting
-      setRichContent(post.rich_content || '')
+      setRichContent(post.richContent || '')
       setFormattedContent('')
-      
+
       // Filter and set post style
-      setSelectedStyle(filterPostStyleProperties(post.postStyle || post.post_style || POST_STYLES[0]))
-      
+      setSelectedStyle(filterPostStyleProperties(post.postStyle || POST_STYLES[0]))
+
       setError('')
       setIsSubmitting(false)
       setImageFile(null) // Reset image file since we're editing existing post
-      
+
       // Focus on content editor after a short delay
       setTimeout(() => {
         if (richTextEditorRef.current) {
@@ -320,7 +319,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     // Get content from the rich text editor
     const contentToSubmit = richContent || postData.content
     const finalPlainText = richTextEditorRef.current?.getPlainText() || ''
-    
+
     // Allow image-only posts (no content required if there's an image)
     if (!contentToSubmit.trim() && !postData.imageUrl && !imageFile) {
       setError('Please write something you\'re grateful for or add an image')
@@ -348,7 +347,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       // Build payload - always include location fields to ensure proper clearing
       const payload: any = {
         content: contentToSubmit.trim(),
-        rich_content: richContent || null,
+        richContent: richContent || null,
         // Always include post_style (filtered) explicitly
         postStyle: filterPostStyleProperties(selectedStyle),
         // Include image information
@@ -356,7 +355,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         ...(imageFile ? { imageFile } : {}),
         // Always include location fields to allow clearing (null means clear)
         location: postData.location || null,
-        location_data: postData.location_data || null,
+        locationData: postData.locationData || null,
         // Include mentions if present
         ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {})
       }
@@ -372,15 +371,15 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
       // Close modal on successful submission
       onClose()
-      
+
     } catch (error: any) {
       // Hide loading toast and show error
       hideToast(loadingToastId)
       console.error('Post update error:', error)
-      
+
       // Better error message extraction
       let errorMessage = 'Failed to update post. Please try again.'
-      
+
       if (error?.message) {
         errorMessage = error.message
       } else if (typeof error === 'string') {
@@ -402,7 +401,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
           errorMessage = 'Validation error occurred'
         }
       }
-      
+
       setError(errorMessage)
       showError(
         'Update Failed',
@@ -605,15 +604,15 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     if (location) {
       setPostData(prev => ({
         ...prev,
-        location: location.display_name,
-        location_data: location
+        location: location.displayName,
+        locationData: location
       }))
     } else {
       // Clear location data when null is passed
       setPostData(prev => ({
         ...prev,
         location: null,
-        location_data: null
+        locationData: null
       }))
     }
     setShowLocationModal(false)
@@ -623,7 +622,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     setPostData(prev => ({
       ...prev,
       location: null,
-      location_data: null
+      locationData: null
     }))
   }
 
@@ -703,7 +702,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                     <RichTextEditor
                       ref={richTextEditorRef}
                       value={postData.content}
-                      htmlValue={post.rich_content || post.content || null}
+                      htmlValue={post.richContent || post.content || null}
                       onChange={handleRichTextChange}
                       placeholder="Share what you're grateful for today... (Use @username to mention someone)"
                       maxLength={maxChars}
@@ -734,8 +733,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                       type="button"
                       onClick={handleAddPhoto}
                       className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${postData.imageUrl
-                          ? 'text-purple-600 bg-purple-50'
-                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                        ? 'text-purple-600 bg-purple-50'
+                        : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
                         }`}
                     >
                       <Camera className="h-4 w-4" />
@@ -758,14 +757,14 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                     <button
                       type="button"
                       onClick={() => setShowLocationModal(true)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${postData.location_data
-                          ? 'text-purple-600 bg-purple-50'
-                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${postData.locationData
+                        ? 'text-purple-600 bg-purple-50'
+                        : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
                         }`}
                     >
                       <MapPin className="h-4 w-4" />
                       <span className="text-sm font-medium">
-                        {postData.location_data ? 'Location Added' : 'Location'}
+                        {postData.locationData ? 'Location Added' : 'Location'}
                       </span>
                     </button>
                   </div>
@@ -780,11 +779,11 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                 </div>
 
                 {/* Location Display */}
-                {postData.location_data && (
+                {postData.locationData && (
                   <div className="flex items-center space-x-2 mt-2 p-2 bg-purple-50 rounded-lg">
                     <MapPin className="h-4 w-4 text-purple-600" />
                     <div className="text-sm text-purple-700 font-medium truncate flex-1">
-                      {postData.location_data.display_name}
+                      {postData.locationData.displayName}
                     </div>
                     <button
                       type="button"
@@ -863,8 +862,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                 {!postData.imageUrl && !(post.images && post.images.length > 0) && (
                   <div
                     className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isDragOver
-                        ? 'border-purple-400 bg-purple-50'
-                        : 'border-gray-300 hover:border-purple-300 hover:bg-purple-50'
+                      ? 'border-purple-400 bg-purple-50'
+                      : 'border-gray-300 hover:border-purple-300 hover:bg-purple-50'
                       }`}
                     onDragEnter={handleDragEnter}
                     onDragLeave={handleDragLeave}

@@ -22,7 +22,7 @@ interface CropData {
 interface UploadResponse {
   success: boolean
   data?: {
-    profile_image_url: string
+    profileImageUrl: string
     urls: {
       thumbnail: string
       small: string
@@ -33,10 +33,10 @@ interface UploadResponse {
   error?: string
 }
 
-export default function ProfilePhotoUpload({ 
-  currentPhotoUrl, 
-  onPhotoUpdate, 
-  className = '' 
+export default function ProfilePhotoUpload({
+  currentPhotoUrl,
+  onPhotoUpdate,
+  className = ''
 }: ProfilePhotoUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -71,7 +71,7 @@ export default function ProfilePhotoUpload({
       const result: UploadResponse = await response.json()
 
       if (response.ok && result.success && result.data) {
-        onPhotoUpdate(result.data.profile_image_url)
+        onPhotoUpdate(result.data.profileImageUrl)
         showSuccess('Profile photo updated successfully!')
       } else {
         throw new Error(result.error || 'Upload failed')
@@ -230,8 +230,8 @@ export default function ProfilePhotoUpload({
       <div
         className={`
           border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200
-          ${dragActive 
-            ? 'border-purple-500 bg-purple-50' 
+          ${dragActive
+            ? 'border-purple-500 bg-purple-50'
             : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50'
           }
           ${isUploading ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}

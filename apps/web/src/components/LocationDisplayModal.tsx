@@ -2,21 +2,7 @@
 
 import { useRef, useEffect } from "react"
 import { X, MapPin } from "lucide-react"
-
-interface LocationData {
-  display_name: string
-  lat: number
-  lon: number
-  place_id?: string
-  address: {
-    city?: string
-    state?: string
-    country?: string
-    country_code?: string
-  }
-  importance?: number
-  type?: string
-}
+import { LocationData } from "@/types/post"
 
 interface LocationDisplayModalProps {
   isOpen: boolean
@@ -26,9 +12,9 @@ interface LocationDisplayModalProps {
   position?: { x: number, y: number }
 }
 
-export default function LocationDisplayModal({ 
-  isOpen, 
-  onClose, 
+export default function LocationDisplayModal({
+  isOpen,
+  onClose,
   location,
   locationData,
   position = { x: 0, y: 0 }
@@ -69,16 +55,16 @@ export default function LocationDisplayModal({
 
   if (!isOpen) return null
 
-  // Get the display text - prefer locationData.display_name over location string
-  const displayText = locationData?.display_name || location || "Unknown location"
+  // Get the display text - prefer locationData.displayName over location string
+  const displayText = locationData?.displayName || location || "Unknown location"
 
   return (
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-gray-900 bg-opacity-20 z-40" onClick={onClose} />
-      
+
       {/* Small Popup Modal */}
-      <div 
+      <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
@@ -109,8 +95,8 @@ export default function LocationDisplayModal({
             <MapPin className="h-4 w-4 text-purple-600" />
           </div>
           <div className="text-left flex-1">
-            <p 
-              id="location-modal-description" 
+            <p
+              id="location-modal-description"
               className="text-sm text-gray-900 leading-relaxed break-words"
             >
               {displayText}

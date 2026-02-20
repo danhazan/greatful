@@ -46,7 +46,7 @@ class ErrorBoundary extends Component<Props, State> {
     });
 
     // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env['NODE_ENV'] === 'development') {
       console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
   }
@@ -86,7 +86,7 @@ class ErrorBoundary extends Component<Props, State> {
               We're sorry, but something unexpected happened. The error has been reported and we're working to fix it.
             </p>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {process.env['NODE_ENV'] === 'development' && this.state.error && (
               <details className="mb-4">
                 <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
                   Error Details (Development)

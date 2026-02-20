@@ -12,8 +12,8 @@ import { getCompleteInputStyling } from '@/utils/inputStyles'
 interface UserSearchResult {
   id: number
   username: string
-  display_name?: string
-  profile_image_url?: string
+  displayName?: string
+  profileImageUrl?: string
   bio?: string
 }
 
@@ -378,13 +378,13 @@ export default function UserSearchBar({
                                 handleUserSelect(user)
                               }}
                               onMouseEnter={() => setSelectedIndex(index)}
-                              aria-label={`Go to ${user.display_name || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`}
+                              aria-label={`Go to ${user.displayName || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`}
                               {...createTouchHandlers(undefined, 'light')}
                             >
                               <div className="flex items-center space-x-3">
                                 <div className="flex-shrink-0">
                                   <ProfilePhotoDisplay
-                                    photoUrl={user.profile_image_url}
+                                    photoUrl={user.profileImageUrl}
                                     username={user.username}
                                     size="sm"
                                     className="border-0 shadow-none"
@@ -392,7 +392,7 @@ export default function UserSearchBar({
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-sm font-medium text-gray-900 truncate">
-                                    {user.display_name || user.username}
+                                    {user.displayName || user.username}
                                   </div>
                                   <div className="text-xs text-gray-500 truncate">
                                     @{user.username}
@@ -500,13 +500,13 @@ export default function UserSearchBar({
                     handleUserSelect(user)
                   }}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  aria-label={`Go to ${user.display_name || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`}
+                  aria-label={`Go to ${user.displayName || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`}
                   {...createTouchHandlers(undefined, 'light')}
                 >
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0">
                       <ProfilePhotoDisplay
-                        photoUrl={user.profile_image_url}
+                        photoUrl={user.profileImageUrl}
                         username={user.username}
                         size="sm"
                         className="border-0 shadow-none"
@@ -514,7 +514,7 @@ export default function UserSearchBar({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 truncate">
-                        {user.display_name || user.username}
+                        {user.displayName || user.username}
                       </div>
                       <div className="text-xs text-gray-500 truncate">
                         @{user.username}

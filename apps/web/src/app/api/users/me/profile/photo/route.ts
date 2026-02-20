@@ -7,7 +7,7 @@ import {
   hasValidAuth
 } from '@/lib/api-utils'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
 export async function POST(request: NextRequest) {
   try {

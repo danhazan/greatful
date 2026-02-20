@@ -5,13 +5,13 @@
 import { getImageUrl } from '@/utils/imageUtils'
 
 // Mock environment variable
-const originalEnv = process.env.NEXT_PUBLIC_API_URL
+const originalEnv = process.env['NEXT_PUBLIC_API_URL']
 beforeEach(() => {
-  process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000'
+  process.env['NEXT_PUBLIC_API_URL'] = 'http://localhost:8000'
 })
 
 afterEach(() => {
-  process.env.NEXT_PUBLIC_API_URL = originalEnv
+  process.env['NEXT_PUBLIC_API_URL'] = originalEnv
 })
 
 describe('getImageUrl', () => {
@@ -56,14 +56,14 @@ describe('getImageUrl', () => {
   })
 
   it('should use fallback URL when NEXT_PUBLIC_API_URL is not set', () => {
-    delete process.env.NEXT_PUBLIC_API_URL
+    delete process.env['NEXT_PUBLIC_API_URL']
     const relativeUrl = '/uploads/test.jpg'
     const expected = 'http://localhost:8000/uploads/test.jpg'
     expect(getImageUrl(relativeUrl)).toBe(expected)
   })
 
   it('should use custom API URL when NEXT_PUBLIC_API_URL is set', () => {
-    process.env.NEXT_PUBLIC_API_URL = 'https://api.example.com'
+    process.env['NEXT_PUBLIC_API_URL'] = 'https://api.example.com'
     const relativeUrl = '/uploads/test.jpg'
     const expected = 'https://api.example.com/uploads/test.jpg'
     expect(getImageUrl(relativeUrl)).toBe(expected)

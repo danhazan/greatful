@@ -12,7 +12,7 @@ import { describe, it, beforeEach, expect } from '@jest/globals'
 describe('/api/posts', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.API_BASE_URL = 'http://localhost:8000'
+    process.env['API_BASE_URL'] = 'http://localhost:8000'
   })
 
   describe('POST /api/posts', () => {

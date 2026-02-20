@@ -9,57 +9,10 @@ import { normalizePostFromApi } from "@/utils/normalizePost"
 import { normalizeUserData } from "@/utils/userDataMapping"
 import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
-
 import Navbar from "@/components/Navbar"
+import { Post, Author } from '@/types/post'
 
-// Post interface matching the API response
-interface Post {
-  id: string
-  content: string
-  richContent?: string
-  postStyle?: {
-    id: string
-    name: string
-    backgroundColor: string
-    backgroundGradient?: string
-    textColor: string
-    borderStyle?: string
-    fontFamily?: string
-    textShadow?: string
-  }
-  author: {
-    id: string
-    name: string
-    username?: string
-    display_name?: string
-    image?: string
-  }
-  createdAt: string
-  updatedAt?: string // Add missing updatedAt field
-  postType: "daily" | "photo" | "spontaneous"
-  imageUrl?: string
-  location?: string
-  location_data?: {
-    display_name: string
-    lat: number
-    lon: number
-    place_id?: string
-    address: {
-      city?: string
-      state?: string
-      country?: string
-      country_code?: string
-    }
-    importance?: number
-    type?: string
-  }
-  heartsCount: number
-  isHearted: boolean
-  reactionsCount: number
-  currentUserReaction?: string
-  isRead?: boolean
-  isUnread?: boolean
-}
+// Redundant local interface removed - using Post from @/types/post
 
 export default function FeedPage() {
   const router = useRouter()
@@ -124,18 +77,18 @@ export default function FeedPage() {
           // Update profile cache
           updateUserProfile(authorId, {
             id: authorId,
-            name: author.display_name || author.name || author.username,
+            name: author.displayName || author.name || author.username,
             username: author.username,
-            image: author.image,
-            display_name: author.display_name,
-            follower_count: author.follower_count || 0,
-            following_count: author.following_count || 0,
-            posts_count: author.posts_count || 0
+            profileImageUrl: author.profileImageUrl,
+            displayName: author.displayName,
+            followerCount: author.followerCount || 0,
+            followingCount: author.followingCount || 0,
+            postsCount: author.postsCount || 0
           });
 
           // Update follow state cache
-          if (author.is_following !== undefined) {
-            updateFollowState(authorId, author.is_following);
+          if (author.isFollowing !== undefined) {
+            updateFollowState(authorId, author.isFollowing);
           }
 
           // Mark data as fresh to prevent individual refetching
@@ -220,27 +173,37 @@ export default function FeedPage() {
     router.push("/")
   }
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { hearts_count: number, is_hearted: boolean }) => {
+  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
     // Update post state with server response data
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          heartsCount: heartInfo ? heartInfo.hearts_count : (isCurrentlyHearted ? post.heartsCount - 1 : post.heartsCount + 1),
-          isHearted: heartInfo ? heartInfo.is_hearted : !isCurrentlyHearted
+          heartsCount: heartInfo ? heartInfo.heartsCount : (isCurrentlyHearted ? post.heartsCount - 1 : post.heartsCount + 1),
+          isHearted: heartInfo ? heartInfo.isHearted : !isCurrentlyHearted
         }
       }
       return post
     }))
   }
 
-  const handleReaction = (postId: string, emojiCode: string) => {
+  const handleReaction = (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
+        // Use reactionSummary if provided by PostCard/API optimization
+        if (reactionSummary) {
+          return {
+            ...post,
+            reactionsCount: reactionSummary.totalCount,
+            currentUserReaction: reactionSummary.userReaction || undefined
+          }
+        }
+
+        // Fallback optimistic update
         const wasReacted = !!post.currentUserReaction
         return {
           ...post,
-          reactionsCount: wasReacted ? post.reactionsCount || 1 : (post.reactionsCount || 0) + 1,
+          reactionsCount: wasReacted ? post.reactionsCount : post.reactionsCount + 1,
           currentUserReaction: emojiCode
         }
       }
@@ -248,12 +211,22 @@ export default function FeedPage() {
     }))
   }
 
-  const handleRemoveReaction = (postId: string) => {
+  const handleRemoveReaction = (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
+        // Use reactionSummary if provided
+        if (reactionSummary) {
+          return {
+            ...post,
+            reactionsCount: reactionSummary.totalCount,
+            currentUserReaction: reactionSummary.userReaction || undefined
+          }
+        }
+
+        // Fallback optimistic update
         return {
           ...post,
-          reactionsCount: Math.max(0, (post.reactionsCount || 1) - 1),
+          reactionsCount: Math.max(0, post.reactionsCount - 1),
           currentUserReaction: undefined
         }
       }
@@ -456,9 +429,9 @@ export default function FeedPage() {
           },
           body: JSON.stringify({
             content: postData.content.trim(),
-            rich_content: postData.richContent,
-            post_style: postData.postStyle,
-            image_url: postData.imageUrl,
+            richContent: postData.richContent,
+            postStyle: postData.postStyle,
+            imageUrl: postData.imageUrl,
             location: postData.location,
             location_data: postData.location_data
           })
@@ -548,11 +521,11 @@ export default function FeedPage() {
       {/* Navbar */}
       <Navbar user={currentUser ? {
         id: currentUser.id,
-        name: currentUser.display_name || currentUser.name,
-        display_name: currentUser.display_name,
+        name: currentUser.displayName || currentUser.name,
+        displayName: currentUser.displayName,
         username: currentUser.username,
         email: currentUser.email,
-        profile_image_url: currentUser.image
+        profileImageUrl: currentUser.profileImageUrl
       } : undefined} onLogout={handleLogout} />
 
       {/* Main Content */}

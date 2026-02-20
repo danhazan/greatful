@@ -15,15 +15,15 @@ interface PostPageProps {
 export default function PostPage({ params }: PostPageProps) {
   const router = useRouter()
   const { currentUser, isLoading, logout } = useUser()
-  
+
   // Convert UserContext user to the format expected by Navbar
   const user = currentUser ? {
     id: currentUser.id,
-    name: currentUser.display_name || currentUser.name,
-    display_name: currentUser.display_name,
+    name: currentUser.displayName || currentUser.name,
+    displayName: currentUser.displayName,
     username: currentUser.username,
     email: currentUser.email,
-    profile_image_url: currentUser.image
+    profileImageUrl: currentUser.profileImageUrl
   } : undefined
 
   const handleLogout = () => {
@@ -55,11 +55,11 @@ export default function PostPage({ params }: PostPageProps) {
           <div className="bg-white rounded-lg shadow-sm">
             <SinglePostView postId={params.id} />
           </div>
-          
+
           {/* Back to feed/home link */}
           <div className="mt-6 text-center">
-            <a 
-              href={user ? "/feed" : "/"} 
+            <a
+              href={user ? "/feed" : "/"}
               className="text-purple-600 hover:text-purple-700 font-medium"
             >
               ← Back to {user ? "Feed" : "Home"}

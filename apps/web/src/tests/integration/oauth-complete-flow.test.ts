@@ -36,9 +36,9 @@ describe('Complete OAuth Demo Flow', () => {
   beforeEach(() => {
     jest.resetModules()
     process.env = { ...originalEnv }
-    process.env.NODE_ENV = 'development'
-    delete process.env.GOOGLE_CLIENT_ID
-    delete process.env.FACEBOOK_APP_ID
+    process.env['NODE_ENV'] = 'development'
+    delete process.env['GOOGLE_CLIENT_ID']
+    delete process.env['FACEBOOK_APP_ID']
     global.fetch = jest.fn()
     jest.clearAllMocks()
   })
@@ -177,7 +177,7 @@ describe('Complete OAuth Demo Flow', () => {
   })
 
   it('should disable OAuth in production mode without credentials', async () => {
-    process.env.NODE_ENV = 'production'
+    process.env['NODE_ENV'] = 'production'
     
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     

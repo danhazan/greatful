@@ -6,15 +6,15 @@ import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 interface LocationResult {
-  display_name: string
+  displayName: string
   lat: number
   lon: number
-  place_id?: string
+  placeId?: string
   address: {
     city?: string
     state?: string
     country?: string
-    country_code?: string
+    countryCode?: string
   }
   importance?: number
   type?: string
@@ -42,7 +42,7 @@ export default function LocationAutocomplete({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  
+
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout>()
@@ -116,7 +116,7 @@ export default function LocationAutocomplete({
   // Handle location selection
   const handleLocationSelect = (location: LocationResult) => {
     isSelectingRef.current = true
-    onChange(location.display_name)
+    onChange(location.displayName)
     onLocationSelect(location)
     setIsOpen(false)
     setResults([])
@@ -134,16 +134,16 @@ export default function LocationAutocomplete({
     if (isSelectingRef.current) {
       return
     }
-    
+
     // Delay to allow click events on dropdown items to register first
     setTimeout(() => {
       // Don't clear if user selected something
       if (isSelectingRef.current) {
         return
       }
-      
+
       // If there's text but no valid location selected, clear the input
-      if (value && value.trim() && !results.find(r => r.display_name === value)) {
+      if (value && value.trim() && !results.find(r => r.displayName === value)) {
         onChange("")
         onLocationSelect(null)
       }
@@ -223,7 +223,7 @@ export default function LocationAutocomplete({
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <MapPin className="h-4 w-4 text-gray-400" />
         </div>
-        
+
         <input
           ref={inputRef}
           type="text"
@@ -290,7 +290,7 @@ export default function LocationAutocomplete({
         >
           {results.map((location, index) => (
             <button
-              key={`${location.place_id}-${index}`}
+              key={`${location.placeId}-${index}`}
               ref={setItemRef(index)}
               type="button"
               role="option"
@@ -305,15 +305,14 @@ export default function LocationAutocomplete({
                 border-b border-gray-100 last:border-b-0 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset
                 ${index === selectedIndex ? 'bg-purple-50 text-purple-700' : 'text-gray-900'}
               `}
-              aria-label={`Select location: ${location.display_name}`}
+              aria-label={`Select location: ${location.displayName}`}
             >
               <div className="flex items-start space-x-3">
-                <MapPin className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
-                  index === selectedIndex ? 'text-purple-500' : 'text-gray-400'
-                }`} />
+                <MapPin className={`h-4 w-4 mt-0.5 flex-shrink-0 ${index === selectedIndex ? 'text-purple-500' : 'text-gray-400'
+                  }`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium break-words line-clamp-2">
-                    {location.display_name}
+                    {location.displayName}
                   </p>
                   {location.address.country && (
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -328,7 +327,7 @@ export default function LocationAutocomplete({
               </div>
             </button>
           ))}
-          
+
           {results.length === 0 && !isLoading && (
             <div className="px-4 py-3 text-sm text-gray-500 text-center">
               No locations found. Try a different search term.

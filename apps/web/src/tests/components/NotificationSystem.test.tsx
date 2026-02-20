@@ -271,8 +271,8 @@ describe.skip('NotificationSystem', () => {
 
   it('handles API errors gracefully', async () => {
     // Set NODE_ENV to development to enable error logging
-    const originalEnv = process.env.NODE_ENV
-    process.env.NODE_ENV = 'development'
+    const originalEnv = process.env['NODE_ENV']
+    process.env['NODE_ENV'] = 'development'
     
     ;(fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'))
 
@@ -286,7 +286,7 @@ describe.skip('NotificationSystem', () => {
     }, { timeout: 3000 })
 
     consoleSpy.mockRestore()
-    process.env.NODE_ENV = originalEnv
+    process.env['NODE_ENV'] = originalEnv
   })
 
   it('does not show unread badge when count is 0', async () => {

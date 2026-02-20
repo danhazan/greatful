@@ -16,6 +16,7 @@ import { getCompleteInputStyling } from "@/utils/inputStyles"
 import { apiClient } from "@/utils/apiClient"
 import { stateSyncUtils } from "@/utils/stateSynchronization"
 import { useUser } from "@/contexts/UserContext"
+import { Post, Author } from '@/types/post'
 
 interface UserProfile {
   id: number
@@ -26,7 +27,7 @@ interface UserProfile {
   displayName?: string
   city?: string
   location?: {
-    display_name: string
+    displayName: string
     lat: number
     lon: number
     address?: any
@@ -37,51 +38,10 @@ interface UserProfile {
   postsCount: number
   followersCount: number
   followingCount: number
-  oauth_provider?: string | null
+  oauthProvider?: string | null
 }
 
-interface Post {
-  id: string
-  content: string
-  richContent?: string
-  postStyle?: {
-    id: string
-    name: string
-    backgroundColor: string
-    backgroundGradient?: string
-    textColor: string
-    borderStyle?: string
-    fontFamily?: string
-    textShadow?: string
-  }
-  author: {
-    id: string
-    name: string
-    image?: string
-  }
-  createdAt: string
-  postType: "daily" | "photo" | "spontaneous"
-  imageUrl?: string
-  location?: string
-  location_data?: {
-    display_name: string
-    lat: number
-    lon: number
-    place_id?: string
-    address: {
-      city?: string
-      state?: string
-      country?: string
-      country_code?: string
-    }
-    importance?: number
-    type?: string
-  }
-  heartsCount: number
-  isHearted: boolean
-  reactionsCount: number
-  currentUserReaction?: string
-}
+// Redundant local Post interface removed - now using canonical Post from @/types/post
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -106,7 +66,7 @@ export default function ProfilePage() {
   })
   const [selectedLocation, setSelectedLocation] = useState<any>(null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
-  
+
   // State for managing pending institutions and websites
   const [pendingInstitution, setPendingInstitution] = useState("")
   const [pendingWebsite, setPendingWebsite] = useState("")
@@ -132,8 +92,8 @@ export default function ProfilePage() {
       if (user && e.detail.userId === user.id.toString()) {
         setUser(prev => prev ? {
           ...prev,
-          followersCount: e.detail.isFollowing 
-            ? (prev.followersCount || 0) + 1 
+          followersCount: e.detail.isFollowing
+            ? (prev.followersCount || 0) + 1
             : Math.max(0, (prev.followersCount || 0) - 1)
         } : null)
       }
@@ -159,13 +119,13 @@ export default function ProfilePage() {
     const loadProfileData = async () => {
       try {
         console.log('[Profile] Loading profile data from UserContext...')
-        
+
         // Get additional profile data from UserContext if available
         const userProfile = getUserProfile(contextUser.id)
-        
+
         // If we don't have complete profile data, fetch it
         let profileData
-        if (!userProfile || !userProfile.follower_count) {
+        if (!userProfile || !userProfile.followerCount) {
           console.log('[Profile] Fetching additional profile data...')
           const rawProfileData = await apiClient.getCurrentUserProfile()
           profileData = normalizeUserData(rawProfileData)
@@ -175,21 +135,21 @@ export default function ProfilePage() {
             id: contextUser.id,
             username: contextUser.username,
             email: contextUser.email,
-            display_name: contextUser.display_name || contextUser.name,
-            profile_image_url: contextUser.image,
-            followers_count: userProfile.follower_count,
-            following_count: userProfile.following_count,
-            posts_count: userProfile.posts_count,
+            displayName: contextUser.displayName || contextUser.name,
+            profileImageUrl: contextUser.profileImageUrl,
+            followersCount: userProfile.followerCount,
+            followingCount: userProfile.followingCount,
+            postsCount: userProfile.postsCount,
             bio: (userProfile as any)?.bio || undefined,
             city: (userProfile as any)?.city || undefined,
             location: (userProfile as any)?.location || undefined,
             institutions: (userProfile as any)?.institutions || undefined,
             websites: (userProfile as any)?.websites || undefined,
-            created_at: (userProfile as any)?.created_at || undefined,
-            oauth_provider: (userProfile as any)?.oauth_provider || undefined
+            createdAt: (userProfile as any)?.joinDate || (userProfile as any)?.createdAt || undefined,
+            oauthProvider: (userProfile as any)?.oauthProvider || undefined
           }
         }
-          
+
         const userProfileData: UserProfile = {
           id: parseInt(profileData.id),
           username: profileData.username || 'Unknown User',
@@ -205,7 +165,7 @@ export default function ProfilePage() {
           postsCount: profileData.postsCount || 0,
           followersCount: profileData.followersCount || 0,
           followingCount: profileData.followingCount || 0,
-          oauth_provider: profileData.oauthProvider || null
+          oauthProvider: profileData.oauthProvider || null
         }
 
         setUser(userProfileData)
@@ -232,7 +192,7 @@ export default function ProfilePage() {
           // Transform posts from backend format to frontend format
           const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
           // Sort posts by creation date (newest first) as a backup
-          const sortedPosts = transformedPosts.sort((a, b) => 
+          const sortedPosts = transformedPosts.sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           )
           setPosts(sortedPosts)
@@ -283,7 +243,7 @@ export default function ProfilePage() {
       setSelectedLocation(originalLocation)
       setProfileEditForm({
         ...profileEditForm,
-        city: originalLocation ? originalLocation.display_name : ""
+        city: originalLocation ? originalLocation.displayName : ""
       })
       alert("Please select a location from the dropdown or leave the field empty")
       return
@@ -292,63 +252,48 @@ export default function ProfilePage() {
     try {
       // Build request body, only including fields that have valid values
       const requestBody: any = {}
-      
+
       // Bio can be empty
       requestBody.bio = profileEditForm.bio || ""
-      
+
       // Display name must be at least 1 character if provided
       if (profileEditForm.displayName && profileEditForm.displayName.trim().length >= 1) {
-        requestBody.display_name = profileEditForm.displayName.trim()
+        requestBody.displayName = profileEditForm.displayName.trim()
       }
-      
-      // City can be empty
-      if (profileEditForm.city && profileEditForm.city.trim()) {
-        requestBody.city = profileEditForm.city.trim()
-      }
-      
-      // Location data
-      if (locationToSave) {
-        requestBody.location_data = locationToSave
-      }
-      
-      // Institutions and websites
-      requestBody.institutions = Array.isArray(profileEditForm.institutions) ? profileEditForm.institutions.filter(inst => inst && inst.trim()) : []
-      requestBody.websites = Array.isArray(profileEditForm.websites) ? profileEditForm.websites.filter(url => url && url.trim()) : []
-      
-      console.log('Sending profile update request:', requestBody)
-      
-      const response = await apiClient.put('/users/me/profile', requestBody) as any
 
-      const updatedProfileData = response.data || response
-        if (user) {
-          const updatedUser = {
-            ...user,
-            bio: updatedProfileData.bio || "",
-            displayName: updatedProfileData.display_name,
-            city: updatedProfileData.city,
-            location: updatedProfileData.location,
-            institutions: updatedProfileData.institutions || [],
-            websites: updatedProfileData.websites || []
-          }
-          setUser(updatedUser)
-          
-          // Emit global state synchronization event
-          stateSyncUtils.updateUserProfile(user.id.toString(), {
-            display_name: updatedProfileData.display_name,
-            name: updatedProfileData.display_name,
-            bio: updatedProfileData.bio,
-            city: updatedProfileData.city,
-            location: updatedProfileData.location,
-            institutions: updatedProfileData.institutions,
-            websites: updatedProfileData.websites
-          })
-        }
-        setIsEditingProfile(false)
-        // Clear pending fields
-        setPendingInstitution("")
-        setPendingWebsite("")
-        setInstitutionError("")
-        setWebsiteError("")
+      requestBody.city = profileEditForm.city
+      requestBody.location = selectedLocation
+      requestBody.institutions = profileEditForm.institutions
+      requestBody.websites = profileEditForm.websites
+
+      console.log('Sending profile update request:', requestBody)
+
+      const response = await apiClient.patch('/users/me', requestBody) as any
+      const updatedProfileData = response.data || response // Handle both wrapped and unwrapped responses
+
+      // Update local user state
+      setUser({
+        ...user!,
+        bio: updatedProfileData.bio,
+        displayName: updatedProfileData.displayName,
+        city: updatedProfileData.city,
+        location: updatedProfileData.location,
+        institutions: updatedProfileData.institutions,
+        websites: updatedProfileData.websites
+      })
+
+      // Update context user via UserContext state sync if needed
+      stateSyncUtils.updateUserProfile(user!.id.toString(), {
+        displayName: updatedProfileData.displayName,
+        name: updatedProfileData.displayName,
+        profileImageUrl: updatedProfileData.profileImageUrl
+      })
+      setIsEditingProfile(false)
+      // Clear pending fields
+      setPendingInstitution("")
+      setPendingWebsite("")
+      setInstitutionError("")
+      setWebsiteError("")
     } catch (error) {
       console.error('Error updating profile:', error)
       alert("Failed to update profile")
@@ -375,17 +320,17 @@ export default function ProfilePage() {
         usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         hasErrors = true
       } else {
-      try {
-        const updatedData = await apiClient.put('/users/me/profile', { username: accountEditForm.username }) as any
-        if (user) {
-          const updatedUser = { ...user, username: updatedData.username }
-          setUser(updatedUser)
+        try {
+          const updatedData = await apiClient.put('/users/me/profile', { username: accountEditForm.username }) as any
+          if (user) {
+            const updatedUser = { ...user, username: updatedData.username }
+            setUser(updatedUser)
+          }
+        } catch (error: any) {
+          setUsernameError(error.message || "Failed to update username")
+          usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          hasErrors = true
         }
-      } catch (error: any) {
-        setUsernameError(error.message || "Failed to update username")
-        usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        hasErrors = true
-      }
       }
     }
 
@@ -397,13 +342,13 @@ export default function ProfilePage() {
         passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         return
       }
-      
+
       if (accountEditForm.newPassword.length < 6) {
         setPasswordError("New password must be at least 6 characters long")
         passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         return
       }
-      
+
       if (accountEditForm.newPassword !== accountEditForm.confirmPassword) {
         setPasswordError("New passwords do not match")
         passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -559,7 +504,7 @@ export default function ProfilePage() {
 
   const handleEditPost = (postId: string, updatedPost: any) => {
     // Update the post in the local state
-    setPosts(posts.map(post => 
+    setPosts(posts.map(post =>
       post.id === postId ? updatedPost : post
     ))
   }
@@ -573,9 +518,9 @@ export default function ProfilePage() {
     if (!dateString) return 'Unknown'
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return 'Invalid Date'
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long' 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long'
     })
   }
 
@@ -603,7 +548,7 @@ export default function ProfilePage() {
   const handleLogout = () => {
     // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
     logout()
-    
+
     // Redirect to home page
     router.push("/")
   }
@@ -614,7 +559,7 @@ export default function ProfilePage() {
         ...user,
         profileImage: photoUrl || undefined
       })
-      
+
       // Emit global state synchronization event for profile image update
       stateSyncUtils.updateUserProfile(user.id.toString(), {
         image: photoUrl || undefined
@@ -626,11 +571,11 @@ export default function ProfilePage() {
   const handlePostsClick = () => {
     const postsSection = document.getElementById('posts-section')
     if (postsSection) {
-      postsSection.scrollIntoView({ 
+      postsSection.scrollIntoView({
         behavior: 'smooth',
         block: 'start'
       })
-      
+
       // Add visual feedback with highlight animation
       setPostsHighlighted(true)
       setTimeout(() => {
@@ -646,7 +591,7 @@ export default function ProfilePage() {
       setInstitutionError("Institution name cannot be empty")
       return
     }
-    
+
     const institutions = Array.isArray(profileEditForm.institutions) ? profileEditForm.institutions : []
     if (institutions.length >= 10) {
       setInstitutionError("Maximum 10 institutions allowed")
@@ -687,7 +632,7 @@ export default function ProfilePage() {
 
     // Strict URL validation to match backend requirements
     const urlPattern = /^https?:\/\/(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::\d+)?(?:\/?|[\/\?]\S+)$/i
-    
+
     if (!urlPattern.test(normalizedUrl)) {
       setWebsiteError("Please enter a valid website URL (e.g., example.com or https://example.com)")
       return
@@ -704,7 +649,7 @@ export default function ProfilePage() {
       setWebsiteError("Please enter a valid website URL (e.g., example.com or https://example.com)")
       return
     }
-    
+
     const websites = Array.isArray(profileEditForm.websites) ? profileEditForm.websites : []
     if (websites.length >= 5) {
       setWebsiteError("Maximum 5 websites allowed")
@@ -738,11 +683,11 @@ export default function ProfilePage() {
       {/* Navbar */}
       <Navbar user={contextUser ? {
         id: contextUser.id,
-        name: contextUser.display_name || contextUser.name,
-        display_name: contextUser.display_name,
+        name: contextUser.displayName || contextUser.name,
+        displayName: contextUser.displayName,
         username: contextUser.username,
         email: contextUser.email,
-        profile_image_url: contextUser.image
+        profileImageUrl: contextUser.profileImageUrl
       } : undefined} onLogout={handleLogout} />
 
       {/* Profile Content */}
@@ -767,7 +712,7 @@ export default function ProfilePage() {
                   {isEditingAccount ? (
                     <div className="space-y-4 max-w-2xl">
                       <h2 className="text-xl font-bold text-gray-900 border-b pb-2">Account Settings</h2>
-                      
+
                       {/* Email Display */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -789,11 +734,10 @@ export default function ProfilePage() {
                             value={accountEditForm.username}
                             readOnly={!isUsernameEditable}
                             onChange={(e) => setAccountEditForm({ ...accountEditForm, username: e.target.value })}
-                            className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                              isUsernameEditable
-                                ? 'border-gray-300'
-                                : 'border-gray-200 bg-gray-100 cursor-not-allowed'
-                            }`}
+                            className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isUsernameEditable
+                              ? 'border-gray-300'
+                              : 'border-gray-200 bg-gray-100 cursor-not-allowed'
+                              }`}
                             maxLength={50}
                             autoComplete="username"
                             name="username"
@@ -818,33 +762,30 @@ export default function ProfilePage() {
                             readOnly
                             className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed"
                           />
+                          {/* Change Password Button */}
                           <button
                             onClick={() => {
-                              if (user?.oauth_provider) return
-                              if (isPasswordSectionOpen) {
-                                handleCancelPasswordEdit()
-                              } else {
-                                setIsPasswordSectionOpen(true)
-                              }
+                              if (user?.oauthProvider) return
+                              setIsPasswordSectionOpen(!isPasswordSectionOpen)
                             }}
-                            disabled={user?.oauth_provider ? true : false}
-                            title={user?.oauth_provider ? `Password management is not available for accounts created with ${user.oauth_provider} login` : undefined}
-                            className={`px-4 py-2 text-sm border border-gray-300 rounded-lg relative ${
-                              user?.oauth_provider 
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed group' 
-                                : 'hover:bg-gray-50'
-                            }`}
+                            disabled={user?.oauthProvider ? true : false}
+                            title={user?.oauthProvider ? `Password management is not available for accounts created with ${user.oauthProvider} login` : undefined}
+                            className={`px-4 py-2 text-sm border border-gray-300 rounded-lg relative ${user?.oauthProvider
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "text-gray-700 hover:bg-gray-50 bg-white"}`}
                           >
-                            {isPasswordSectionOpen ? 'Cancel' : 'Change'}
-                            {user?.oauth_provider && (
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 hidden sm:block">
-                                Password management is not available for {user.oauth_provider} accounts
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                              </div>
-                            )}
+                            {isPasswordSectionOpen ? "Cancel Change" : "Change Password"}
                           </button>
+
+                          {user?.oauthProvider && (
+                            <p className="mt-2 text-xs text-blue-600 flex items-center">
+                              <Shield className="w-3 h-3 mr-1" />
+                              Password management is not available for {user.oauthProvider} accounts
+                            </p>
+                          )}
                         </div>
-                        {isPasswordSectionOpen && !user?.oauth_provider && (
+
+                        {isPasswordSectionOpen && !user?.oauthProvider && (
                           <div className="space-y-2 mt-2 pl-2 border-l-2 border-gray-200">
                             <div>
                               <label className="block text-xs font-medium text-gray-600 mb-1">Current Password</label>
@@ -934,11 +875,10 @@ export default function ProfilePage() {
                         <button
                           onClick={handleSaveAccount}
                           disabled={!isUsernameEditable && !isPasswordSectionOpen}
-                          className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                            isUsernameEditable || isPasswordSectionOpen
-                              ? 'bg-purple-600 text-white hover:bg-purple-700'
-                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          }`}
+                          className={`px-4 py-2 rounded-lg text-sm transition-colors ${isUsernameEditable || isPasswordSectionOpen
+                            ? 'bg-purple-600 text-white hover:bg-purple-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
                         >
                           Save Changes
                         </button>
@@ -947,7 +887,7 @@ export default function ProfilePage() {
                   ) : isEditingProfile ? (
                     <div className="space-y-4 max-w-2xl">
                       <h2 className="text-xl font-bold text-gray-900 border-b pb-2">Profile Information</h2>
-                      
+
                       {/* Display Name */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1038,7 +978,7 @@ export default function ProfilePage() {
                               </button>
                             </div>
                           ))}
-                          
+
                           {/* Add new institution */}
                           {Array.isArray(profileEditForm.institutions) && profileEditForm.institutions.length < 10 && (
                             <div className="space-y-2">
@@ -1069,7 +1009,7 @@ export default function ProfilePage() {
                                   title="Save institution"
                                 >
                                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" />
                                   </svg>
                                 </button>
                               </div>
@@ -1104,7 +1044,7 @@ export default function ProfilePage() {
                               </button>
                             </div>
                           ))}
-                          
+
                           {/* Add new website */}
                           {Array.isArray(profileEditForm.websites) && profileEditForm.websites.length < 5 && (
                             <div className="space-y-2">
@@ -1134,7 +1074,7 @@ export default function ProfilePage() {
                                   title="Save website"
                                 >
                                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" />
                                   </svg>
                                 </button>
                               </div>
@@ -1159,12 +1099,12 @@ export default function ProfilePage() {
                           {user.bio}
                         </p>
                       )}
-                      
+
                       {/* Location Display */}
-                      {user.location && user.location.display_name && (
+                      {user.location && user.location.displayName && (
                         <div className="flex items-center space-x-2 mb-2">
-                          <MapPin className="h-4 w-4 text-gray-500" />
-                          <span className="text-gray-600 text-sm">{user.location.display_name}</span>
+                          <MapPin className="h-4 w-4 text-gray-500 mr-2" />
+                          <span className="text-gray-600 text-sm">{user.location.displayName}</span>
                         </div>
                       )}
 
@@ -1253,7 +1193,7 @@ export default function ProfilePage() {
 
             {/* Stats */}
             <div className="flex items-center justify-center sm:justify-start space-x-6 sm:space-x-8 mt-6 pt-6 border-t border-gray-200">
-              <button 
+              <button
                 className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
                 onClick={handlePostsClick}
                 aria-label={`View your ${user.postsCount} posts`}
@@ -1262,7 +1202,7 @@ export default function ProfilePage() {
                 <div className="text-xl sm:text-2xl font-bold text-gray-900">{user.postsCount}</div>
                 <div className="text-xs sm:text-sm text-gray-500">Posts</div>
               </button>
-              <button 
+              <button
                 className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
                 onClick={() => setShowFollowersModal(true)}
                 aria-label={`View your ${user.followersCount} followers`}
@@ -1270,7 +1210,7 @@ export default function ProfilePage() {
                 <div className="text-xl sm:text-2xl font-bold text-gray-900">{user.followersCount}</div>
                 <div className="text-xs sm:text-sm text-gray-500">Followers</div>
               </button>
-              <button 
+              <button
                 className="text-center hover:bg-gray-50 rounded-lg p-2 transition-colors min-h-[44px] touch-manipulation"
                 onClick={() => setShowFollowingModal(true)}
                 aria-label={`View ${user.followingCount} users you're following`}
@@ -1282,16 +1222,15 @@ export default function ProfilePage() {
           </div>
 
           {/* Posts Section */}
-          <div 
-            id="posts-section" 
-            className={`space-y-6 transition-all duration-500 ${
-              postsHighlighted 
-                ? 'bg-purple-50 border-2 border-purple-200 rounded-xl p-4 -m-4' 
-                : ''
-            }`}
+          <div
+            id="posts-section"
+            className={`space-y-6 transition-all duration-500 ${postsHighlighted
+              ? 'bg-purple-50 border-2 border-purple-200 rounded-xl p-4 -m-4'
+              : ''
+              }`}
           >
             <h2 className="text-xl font-semibold text-gray-900">Your Posts</h2>
-            
+
             {posts.length === 0 ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                 <Heart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -1340,7 +1279,7 @@ export default function ProfilePage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <ProfilePhotoUpload
               currentPhotoUrl={user.profileImage}
               onPhotoUpdate={handlePhotoUpdate}
@@ -1356,30 +1295,30 @@ export default function ProfilePage() {
         userId={user.id}
         username={user.displayName || user.username}
       />
-      
+
       <FollowingModal
         isOpen={showFollowingModal}
         onClose={() => setShowFollowingModal(false)}
         userId={user.id}
         username={user.displayName || user.username}
       />
-      
+
       {/* Hidden form to trigger browser password manager */}
-      <form 
-        id="password-manager-form" 
-        style={{ display: 'none' }} 
-        action="#" 
+      <form
+        id="password-manager-form"
+        style={{ display: 'none' }}
+        action="#"
         method="post"
         onSubmit={(e) => e.preventDefault()}
       >
-        <input 
-          type="text" 
-          name="username" 
+        <input
+          type="text"
+          name="username"
           autoComplete="username"
         />
-        <input 
-          type="password" 
-          name="password" 
+        <input
+          type="password"
+          name="password"
           autoComplete="new-password"
         />
       </form>

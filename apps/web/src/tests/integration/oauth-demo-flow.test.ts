@@ -18,9 +18,9 @@ describe('OAuth Demo Flow Integration', () => {
 
   it('should enable OAuth providers in development mode without credentials', async () => {
     // Set development environment without OAuth credentials
-    process.env.NODE_ENV = 'development'
-    delete process.env.GOOGLE_CLIENT_ID
-    delete process.env.FACEBOOK_APP_ID
+    process.env['NODE_ENV'] = 'development'
+    delete process.env['GOOGLE_CLIENT_ID']
+    delete process.env['FACEBOOK_APP_ID']
 
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
@@ -50,9 +50,9 @@ describe('OAuth Demo Flow Integration', () => {
   })
 
   it('should handle demo OAuth login flow', async () => {
-    process.env.NODE_ENV = 'development'
-    delete process.env.GOOGLE_CLIENT_ID
-    delete process.env.FACEBOOK_APP_ID
+    process.env['NODE_ENV'] = 'development'
+    delete process.env['GOOGLE_CLIENT_ID']
+    delete process.env['FACEBOOK_APP_ID']
 
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
@@ -95,9 +95,9 @@ describe('OAuth Demo Flow Integration', () => {
   })
 
   it('should disable OAuth providers in production without credentials', async () => {
-    process.env.NODE_ENV = 'production'
-    delete process.env.GOOGLE_CLIENT_ID
-    delete process.env.FACEBOOK_APP_ID
+    process.env['NODE_ENV'] = 'production'
+    delete process.env['GOOGLE_CLIENT_ID']
+    delete process.env['FACEBOOK_APP_ID']
 
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     

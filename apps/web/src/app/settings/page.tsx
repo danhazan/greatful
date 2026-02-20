@@ -2,32 +2,21 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  User, 
-  Shield, 
-  Bell, 
-  Share2, 
-  AtSign, 
-  Eye, 
-  EyeOff, 
-  Users, 
+import {
+  User,
+  Shield,
+  Bell,
+  Share2,
+  AtSign,
+  Eye,
+  EyeOff,
+  Users,
   Globe,
   Lock,
   Save
 } from 'lucide-react'
 
-interface UserPreferences {
-  user_id: number
-  allow_sharing: boolean
-  allow_mentions: boolean
-  privacy_level: 'public' | 'followers' | 'private'
-  notification_settings: {
-    share_notifications: boolean
-    mention_notifications: boolean
-    reaction_notifications: boolean
-    follow_notifications: boolean
-  }
-}
+import { UserPreferences } from '@/types/user'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -89,10 +78,10 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          allow_sharing: preferences.allow_sharing,
-          allow_mentions: preferences.allow_mentions,
-          privacy_level: preferences.privacy_level,
-          notification_settings: preferences.notification_settings,
+          allowSharing: preferences.allowSharing,
+          allowMentions: preferences.allowMentions,
+          privacyLevel: preferences.privacyLevel,
+          notificationSettings: preferences.notificationSettings,
         }),
       })
 
@@ -117,12 +106,12 @@ export default function SettingsPage() {
     setPreferences({ ...preferences, [key]: value })
   }
 
-  const updateNotificationSetting = (key: string, value: boolean) => {
+  const updateNotificationSetting = (key: keyof UserPreferences['notificationSettings'], value: boolean) => {
     if (!preferences) return
     setPreferences({
       ...preferences,
-      notification_settings: {
-        ...preferences.notification_settings,
+      notificationSettings: {
+        ...preferences.notificationSettings,
         [key]: value,
       },
     })
@@ -144,7 +133,7 @@ export default function SettingsPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600">Failed to load preferences</p>
-          <button 
+          <button
             onClick={loadPreferences}
             className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
           >
@@ -205,10 +194,10 @@ export default function SettingsPage() {
                   <label className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="radio"
-                      name="privacy_level"
+                      name="privacyLevel"
                       value="public"
-                      checked={preferences.privacy_level === 'public'}
-                      onChange={(e) => updatePreference('privacy_level', e.target.value)}
+                      checked={preferences.privacyLevel === 'public'}
+                      onChange={(e) => updatePreference('privacyLevel', e.target.value as any)}
                       className="text-purple-600 focus:ring-purple-500"
                     />
                     <Globe className="h-5 w-5 text-green-600" />
@@ -221,10 +210,10 @@ export default function SettingsPage() {
                   <label className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="radio"
-                      name="privacy_level"
+                      name="privacyLevel"
                       value="followers"
-                      checked={preferences.privacy_level === 'followers'}
-                      onChange={(e) => updatePreference('privacy_level', e.target.value)}
+                      checked={preferences.privacyLevel === 'followers'}
+                      onChange={(e) => updatePreference('privacyLevel', e.target.value as any)}
                       className="text-purple-600 focus:ring-purple-500"
                     />
                     <Users className="h-5 w-5 text-blue-600" />
@@ -237,10 +226,10 @@ export default function SettingsPage() {
                   <label className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="radio"
-                      name="privacy_level"
+                      name="privacyLevel"
                       value="private"
-                      checked={preferences.privacy_level === 'private'}
-                      onChange={(e) => updatePreference('privacy_level', e.target.value)}
+                      checked={preferences.privacyLevel === 'private'}
+                      onChange={(e) => updatePreference('privacyLevel', e.target.value as any)}
                       className="text-purple-600 focus:ring-purple-500"
                     />
                     <Lock className="h-5 w-5 text-red-600" />
@@ -265,8 +254,8 @@ export default function SettingsPage() {
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={preferences.allow_sharing}
-                      onChange={(e) => updatePreference('allow_sharing', e.target.checked)}
+                      checked={preferences.allowSharing}
+                      onChange={(e) => updatePreference('allowSharing', e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
@@ -287,8 +276,8 @@ export default function SettingsPage() {
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={preferences.allow_mentions}
-                      onChange={(e) => updatePreference('allow_mentions', e.target.checked)}
+                      checked={preferences.allowMentions}
+                      onChange={(e) => updatePreference('allowMentions', e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
@@ -307,23 +296,23 @@ export default function SettingsPage() {
 
             <div className="space-y-4">
               {Object.entries({
-                share_notifications: 'Share Notifications',
-                mention_notifications: 'Mention Notifications',
-                reaction_notifications: 'Reaction Notifications',
-                follow_notifications: 'Follow Notifications',
+                shareNotifications: 'Share Notifications',
+                mentionNotifications: 'Mention Notifications',
+                reactionNotifications: 'Reaction Notifications',
+                followNotifications: 'Follow Notifications',
               }).map(([key, label]) => (
                 <div key={key} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
                   <div>
                     <p className="font-medium text-gray-900">{label}</p>
                     <p className="text-sm text-gray-600">
-                      Get notified when someone {key.replace('_notifications', 's').replace('_', ' ')} your content
+                      Get notified when someone {key.replace('Notifications', 's').replace(/[A-Z]/g, (m) => ` ${m.toLowerCase()}`)} your content
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={preferences.notification_settings[key as keyof typeof preferences.notification_settings]}
-                      onChange={(e) => updateNotificationSetting(key, e.target.checked)}
+                      checked={preferences.notificationSettings[key as keyof typeof preferences.notificationSettings]}
+                      onChange={(e) => updateNotificationSetting(key as keyof typeof preferences.notificationSettings, e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>

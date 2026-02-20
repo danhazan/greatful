@@ -13,7 +13,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Forward the request to the backend API
-    const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/me/password`, {
+    const backendResponse = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/users/me/password`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

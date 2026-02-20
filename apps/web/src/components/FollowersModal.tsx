@@ -9,16 +9,16 @@ import { getAccessToken } from '@/utils/auth'
 interface FollowerUser {
   id: number
   username: string
-  display_name?: string
+  displayName?: string
   bio?: string
-  profile_image_url?: string
-  created_at: string
+  profileImageUrl?: string
+  createdAt: string
 }
 
 interface FollowersModalProps {
   isOpen: boolean
   onClose: () => void
-  userId: number
+  userId: string | number
   username: string
 }
 
@@ -82,10 +82,10 @@ export default function FollowersModal({
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50" />
-      
+
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div 
+        <div
           ref={modalRef}
           className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[80vh] flex flex-col"
         >
@@ -137,9 +137,9 @@ export default function FollowersModal({
                     key={follower.id}
                     user={{
                       id: follower.id,
-                      name: follower.display_name || follower.username,
+                      name: follower.displayName || follower.username,
                       username: follower.username,
-                      image: follower.profile_image_url,
+                      profileImageUrl: follower.profileImageUrl,
                       bio: follower.bio
                     }}
                     onClick={() => {

@@ -2,15 +2,17 @@ import React from 'react'
 import ClickableUsername from '@/components/ClickableUsername'
 
 interface NotificationUser {
-  id: string | number
-  name: string        // This is the display name from backend
+  id?: string | number
+  name?: string        // This is the display name from backend
   username?: string   // This is the actual username for navigation
   image?: string
 }
 
 interface NotificationData {
-  actor_user_id?: string
-  actor_username?: string
+  actorUserId?: string
+  actorUsername?: string
+  actor_user_id?: string // For fallback
+  actor_username?: string // For fallback
   [key: string]: any
 }
 
@@ -30,8 +32,10 @@ export function parseNotificationMessage(
 
   // Split message by the username to make it clickable
   const username = fromUser.name
+  if (!username) return message
+
   const parts = message.split(username)
-  
+
   if (parts.length === 1) {
     // Username not found in message, return as-is
     return message
@@ -39,13 +43,13 @@ export function parseNotificationMessage(
 
   // Reconstruct message with clickable username
   const result: React.ReactNode[] = []
-  
+
   for (let i = 0; i < parts.length; i++) {
     // Add the text part
     if (parts[i]) {
       result.push(parts[i])
     }
-    
+
     // Add clickable username between parts (except after the last part)
     if (i < parts.length - 1) {
       result.push(
@@ -59,7 +63,7 @@ export function parseNotificationMessage(
       )
     }
   }
-  
+
   return result
 }
 
@@ -92,17 +96,12 @@ export function formatNotificationWithClickableUser(
   )
 }
 
+import { Notification } from "@/types/notification"
+
 /**
- * Enhanced format function that accepts notification data
+ * Enhanced data formatting for notification messages
  */
-export function formatNotificationWithEnhancedData(
-  notification: {
-    message: string
-    fromUser?: NotificationUser
-    data?: NotificationData
-    isBatch?: boolean
-  }
-): React.ReactNode {
+export function formatNotificationWithEnhancedData(notification: Notification): React.ReactNode {
   if (notification.isBatch || !notification.fromUser) {
     return notification.message
   }
@@ -111,7 +110,7 @@ export function formatNotificationWithEnhancedData(
   // The message contains the display name (fromUser.name), not the username
   const displayNameInMessage = notification.fromUser?.name
   let actionPart = notification.message
-  
+
   if (displayNameInMessage && notification.message.startsWith(displayNameInMessage)) {
     // Remove the display name from the beginning and trim any leading space
     actionPart = notification.message.substring(displayNameInMessage.length).replace(/^\s+/, '')

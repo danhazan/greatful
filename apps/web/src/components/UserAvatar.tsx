@@ -7,11 +7,10 @@ interface UserAvatarProps {
   user: {
     id: string | number
     name: string
-    display_name?: string
-    username: string  // Required - all users have usernames
-    profile_image_url?: string
-    profile_photo_filename?: string
-    image?: string  // For compatibility with UserContext
+    displayName?: string
+    username: string
+    profileImageUrl?: string
+    image?: string // Still keep for backward compatibility during transition
   }
   size?: 'sm' | 'md' | 'lg'
   className?: string
@@ -19,38 +18,36 @@ interface UserAvatarProps {
   onClick?: () => void
 }
 
-export default function UserAvatar({ 
-  user, 
-  size = 'md', 
-  className = '', 
+export default function UserAvatar({
+  user,
+  size = 'md',
+  className = '',
   showTooltip = false,
-  onClick 
+  onClick
 }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false)
-  
+
   // Size mappings
   const sizeClasses = {
     sm: 'h-6 w-6 text-xs',
     md: 'h-8 w-8 text-sm',
     lg: 'h-12 w-12 text-lg'
   }
-  
+
   // Get display name or fallback to name
-  const displayName = user.display_name || user.name || 'User'
-  const username = user.username  // Username is always present
-  
+  const displayName = user.displayName || user.name || 'User'
+  const username = user.username
+
   // Get profile image URL - use same approach as ClickableProfilePicture
-  // Support both image (from UserContext) and profile_image_url (direct API)
-  // Use getImageUrl to handle relative URLs from the backend
-  const rawImageUrl = user.image || user.profile_image_url
+  const rawImageUrl = user.profileImageUrl || user.image
   const profileImageUrl = getImageUrl(rawImageUrl)
-  
+
   // Generate initials for fallback
   const getInitials = (name: string) => {
     if (!name || typeof name !== 'string') {
       return 'U'
     }
-    
+
     const words = name.trim().split(/\s+/)
     if (words.length === 1) {
       // Single word: take first two characters
@@ -63,14 +60,14 @@ export default function UserAvatar({
         .toUpperCase()
     }
   }
-  
+
   const initials = getInitials(displayName)
-  
+
   // Handle image load error
   const handleImageError = () => {
     setImageError(true)
   }
-  
+
   const avatarContent = profileImageUrl && !imageError ? (
     <div className={`${sizeClasses[size]} rounded-full overflow-hidden bg-gray-100`}>
       <img
@@ -82,17 +79,17 @@ export default function UserAvatar({
       />
     </div>
   ) : (
-    <div 
+    <div
       className={`${sizeClasses[size]} rounded-full bg-purple-600 text-white font-medium flex items-center justify-center`}
       aria-label={`${displayName}'s avatar`}
     >
       {initials}
     </div>
   )
-  
+
   const baseClasses = `inline-flex items-center justify-center ${className}`
   const interactiveClasses = onClick ? 'cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-full' : ''
-  
+
   if (showTooltip) {
     return (
       <div className="relative group">
@@ -109,7 +106,7 @@ export default function UserAvatar({
       </div>
     )
   }
-  
+
   if (onClick) {
     return (
       <button
@@ -121,7 +118,7 @@ export default function UserAvatar({
       </button>
     )
   }
-  
+
   return (
     <div className={baseClasses}>
       {avatarContent}

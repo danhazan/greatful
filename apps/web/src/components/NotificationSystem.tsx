@@ -11,30 +11,7 @@ import { getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
 import { smartNotificationPoller } from "@/utils/smartNotificationPoller"
 import { apiClient } from "@/utils/apiClient"
 
-interface Notification {
-  id: string
-  type: 'reaction' | 'comment' | 'share' | 'new_follower' | 'follow' | 'mention' | 'like'
-  message: string
-  postId: string
-  fromUser: {
-    id: string
-    name: string
-    username?: string
-    image?: string
-  }
-  data?: {
-    actor_user_id?: string
-    actor_username?: string
-    [key: string]: any
-  }
-  createdAt?: string
-  lastUpdatedAt?: string
-  read: boolean
-  // Batching fields
-  isBatch?: boolean
-  batchCount?: number
-  parentId?: string | null
-}
+import { Notification } from "@/types/notification"
 
 interface NotificationSystemProps {
   userId: string | number
@@ -86,7 +63,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     const interval = setInterval(() => {
       setCurrentTime(new Date())
     }, 60000) // Update every minute
-    
+
     return () => clearInterval(interval)
   }, [])
 
@@ -128,8 +105,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
   const markAsRead = async (notificationId: string) => {
     // Update local state immediately
-    setNotifications(prev => 
-      prev.map(n => 
+    setNotifications(prev =>
+      prev.map(n =>
         n.id === notificationId ? { ...n, read: true } : n
       )
     )
@@ -138,12 +115,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     // Try to sync with backend using optimized API client
     try {
       await apiClient.post(`/notifications/${notificationId}/read`)
-      
+
       // Invalidate notification cache to ensure fresh data on next fetch
       apiClient.invalidateCache('/notifications')
     } catch (error) {
       // Silently handle errors - local state is already updated
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env['NODE_ENV'] === 'development') {
         console.debug('Backend unavailable for notification sync:', error)
       }
     }
@@ -157,12 +134,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
     // Try to sync with backend using optimized API client
     try {
       await apiClient.post('/notifications/read-all')
-      
+
       // Invalidate notification cache to ensure fresh data on next fetch
       apiClient.invalidateCache('/notifications')
     } catch (error) {
       // Silently handle errors - local state is already updated
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env['NODE_ENV'] === 'development') {
         console.debug('Backend unavailable for notification sync:', error)
       }
     }
@@ -170,7 +147,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
   const toggleBatchExpansion = async (batchId: string) => {
     const isExpanded = expandedBatches.has(batchId)
-    
+
     if (isExpanded) {
       // Collapse the batch
       setExpandedBatches(prev => {
@@ -189,13 +166,13 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
             [batchId]: children
           }))
         } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
+          if (process.env['NODE_ENV'] === 'development') {
             console.debug('Failed to fetch batch children:', error)
           }
           return // Don't expand if we can't fetch children
         }
       }
-      
+
       // Expand the batch
       setExpandedBatches(prev => {
         const newSet = new Set(prev)
@@ -209,13 +186,13 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
   const formatTime = (dateString: string | undefined) => {
     if (!dateString) return "Unknown time"
-    
+
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return "Invalid date"
-    
+
     // Use currentTime state instead of new Date() for live updates
     const diffInMinutes = (currentTime.getTime() - date.getTime()) / (1000 * 60)
-    
+
     if (diffInMinutes < 1) return "Just now"
     if (diffInMinutes < 60) return `${Math.floor(diffInMinutes)}m ago`
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
@@ -246,10 +223,10 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
               d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
             />
           </svg>
-          
+
           {/* Unread Badge */}
           {unreadCount > 0 && (
-            <span 
+            <span
               className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
               aria-label={`${unreadCount} unread notifications`}
             >
@@ -260,8 +237,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
         {/* Notifications Dropdown */}
         {showNotifications && (
-          <div 
-            className="fixed top-16 left-1/2 transform -translate-x-1/2 w-80 sm:w-96 max-w-[calc(100vw-16px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden sm:absolute sm:top-full sm:mt-2 sm:left-auto sm:right-0 sm:transform-none" 
+          <div
+            className="fixed top-16 left-1/2 transform -translate-x-1/2 w-80 sm:w-96 max-w-[calc(100vw-16px)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-96 overflow-hidden sm:absolute sm:top-full sm:mt-2 sm:left-auto sm:right-0 sm:transform-none"
             role="region"
             aria-label="Notifications panel"
             aria-live="polite"
@@ -290,7 +267,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
             </div>
 
             {/* Notifications List */}
-            <div 
+            <div
               data-notifications-list
               className="max-h-[50vh] sm:max-h-80 overflow-y-auto custom-scrollbar"
               role="list"
@@ -310,9 +287,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                       <div
                         ref={setItemRef(index)}
                         data-notification-item
-                        className={`p-4 sm:p-5 hover:bg-gray-50 cursor-pointer transition-colors min-h-[60px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
-                          !notification.read ? 'bg-purple-50' : ''
-                        } ${index === selectedIndex ? 'bg-gray-100' : ''}`}
+                        className={`p-4 sm:p-5 hover:bg-gray-50 cursor-pointer transition-colors min-h-[60px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${!notification.read ? 'bg-purple-50' : ''
+                          } ${index === selectedIndex ? 'bg-gray-100' : ''}`}
                         onClick={() => {
                           handleNotificationClick(notification, {
                             markAsRead,
@@ -344,7 +320,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                             ) : (
                               <ClickableProfilePicture
                                 userId={notification.fromUser?.id}
-                                username={notification.fromUser?.username || notification.data?.actor_username || notification.fromUser?.name}
+                                username={(notification.fromUser?.username as string) || (notification.data?.['actorUsername'] as string) || (notification.data?.['actor_username'] as string) || (notification.fromUser?.name as string)}
                                 imageUrl={notification.fromUser?.image}
                                 displayName={notification.fromUser?.name}
                                 size="medium"
@@ -353,12 +329,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                           </div>
 
                           {/* Notification Content */}
-                          <div 
+                          <div
                             className="flex-1 min-w-0"
                             dir={getDirectionAttribute(notification.message)}
                           >
                             <p className={`text-sm text-gray-900 ${getTextAlignmentClass(notification.message)}`}>
-                              {formatNotificationWithEnhancedData(notification)}
+                              {formatNotificationWithEnhancedData(notification as any)}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
                               {formatTime(notification.lastUpdatedAt || notification.createdAt)}
@@ -369,9 +345,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                           {notification.isBatch && (
                             <div className="flex-shrink-0">
                               <svg
-                                className={`w-4 h-4 text-gray-400 transition-transform ${
-                                  expandedBatches.has(notification.id) ? 'rotate-180' : ''
-                                }`}
+                                className={`w-4 h-4 text-gray-400 transition-transform ${expandedBatches.has(notification.id) ? 'rotate-180' : ''
+                                  }`}
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -425,12 +400,12 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                 </div>
 
                                 {/* Child Content */}
-                                <div 
+                                <div
                                   className="flex-1 min-w-0"
                                   dir={getDirectionAttribute(child.message)}
                                 >
                                   <p className={`text-sm text-gray-700 ${getTextAlignmentClass(child.message)}`}>
-                                    {formatNotificationWithEnhancedData(child)}
+                                    {formatNotificationWithEnhancedData(child as any)}
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
                                     {formatTime(child.lastUpdatedAt || child.createdAt)}

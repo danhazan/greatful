@@ -11,7 +11,11 @@ export default function PostCardLayoutDemo() {
       id: '123',
       name: 'Demo User',
       username: 'demouser',
-      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+      profileImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+      followerCount: 10,
+      followingCount: 20,
+      postsCount: 5,
+      isFollowing: false
     },
     createdAt: new Date().toISOString(),
     postType: 'daily' as const,
@@ -50,8 +54,8 @@ export default function PostCardLayoutDemo() {
 
       <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">New Layout (with FollowButton)</h3>
-        <PostCard 
-          post={mockPost} 
+        <PostCard
+          post={mockPost}
           currentUserId="current-user-456" // Different from post author to show follow button
           {...mockHandlers}
         />
@@ -59,8 +63,8 @@ export default function PostCardLayoutDemo() {
 
       <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Same User's Post (no FollowButton)</h3>
-        <PostCard 
-          post={mockPost} 
+        <PostCard
+          post={mockPost}
           currentUserId="123" // Same as post author, so no follow button
           {...mockHandlers}
         />

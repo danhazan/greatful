@@ -9,16 +9,16 @@ import { getAccessToken } from '@/utils/auth'
 interface FollowingUser {
   id: number
   username: string
-  display_name?: string
+  displayName?: string
   bio?: string
-  profile_image_url?: string
-  created_at: string
+  profileImageUrl?: string
+  createdAt: string
 }
 
 interface FollowingModalProps {
   isOpen: boolean
   onClose: () => void
-  userId: number
+  userId: string | number
   username: string
 }
 
@@ -82,10 +82,10 @@ export default function FollowingModal({
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50" />
-      
+
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div 
+        <div
           ref={modalRef}
           className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[80vh] flex flex-col"
         >
@@ -137,9 +137,9 @@ export default function FollowingModal({
                     key={user.id}
                     user={{
                       id: user.id,
-                      name: user.display_name || user.username,
+                      name: user.displayName || user.username,
                       username: user.username,
-                      image: user.profile_image_url,
+                      profileImageUrl: user.profileImageUrl,
                       bio: user.bio
                     }}
                     onClick={() => {

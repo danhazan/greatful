@@ -22,11 +22,11 @@ export default function GoogleOAuthCallbackPage() {
         const state = searchParams.get('state')
         const error = searchParams.get('error')
         const errorDescription = searchParams.get('error_description')
-        
+
         // Handle OAuth errors from provider
         if (error) {
           let errorMessage = 'Authentication failed'
-          
+
           if (error === 'access_denied') {
             errorMessage = 'You cancelled the login process. Please try again.'
           } else if (errorDescription) {
@@ -34,7 +34,7 @@ export default function GoogleOAuthCallbackPage() {
           } else {
             errorMessage = oauthService.handleOAuthError(error)
           }
-          
+
           setStatus('error')
           setMessage(errorMessage)
           return
@@ -55,28 +55,28 @@ export default function GoogleOAuthCallbackPage() {
         // Get tokens from the response
         const tokens = result.tokens
         console.log('resolved tokens', tokens)
-        
+
         // Store access token using centralized auth utility
-        if (tokens?.access_token) {
+        if (tokens?.accessToken) {
           // Use the centralized login function to store token
           const { login } = await import('@/utils/auth')
-          login(tokens.access_token)
-          
+          login(tokens.accessToken)
+
           // Trigger UserContext to reload user data
           await reloadUser()
-          
+
           // optional: save refresh token too
-          if (tokens.refresh_token) localStorage.setItem('refresh_token', tokens.refresh_token)
-          console.log('Stored access_token via auth utility and reloaded user context, length:', tokens.access_token.length)
+          if (tokens.refreshToken) localStorage.setItem('refresh_token', tokens.refreshToken)
+          console.log('Stored access_token via auth utility and reloaded user context, length:', tokens.accessToken.length)
         } else {
           console.warn('No access_token in callback response; full result:', result)
         }
 
-        setIsNewUser(result.is_new_user)
+        setIsNewUser(result.isNewUser)
         setStatus('success')
         setMessage(
-          result.is_new_user 
-            ? 'Account created successfully! Welcome to Grateful.' 
+          result.isNewUser
+            ? 'Account created successfully! Welcome to Grateful.'
             : 'Login successful! Welcome back.'
         )
 
@@ -143,13 +143,13 @@ export default function GoogleOAuthCallbackPage() {
             <p className={`text-lg ${getStatusColor()}`}>
               {message || 'Processing your Google login...'}
             </p>
-            
+
             {status === 'loading' && (
               <p className="text-gray-600 text-sm mt-2">
                 Please wait while we complete your authentication.
               </p>
             )}
-            
+
             {status === 'success' && (
               <p className="text-gray-600 text-sm mt-2">
                 You will be redirected to your feed shortly.

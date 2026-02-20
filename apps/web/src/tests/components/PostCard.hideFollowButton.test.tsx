@@ -73,18 +73,18 @@ const mockPost = {
 }
 
 describe('PostCard hideFollowButton prop', () => {
-  const originalEnv = process.env.NODE_ENV
+  const originalEnv = process.env['NODE_ENV']
 
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks()
     // Set NODE_ENV to development to allow follow button to show
-    process.env.NODE_ENV = 'development'
+    process.env['NODE_ENV'] = 'development'
   })
 
   afterEach(() => {
     // Restore original NODE_ENV
-    process.env.NODE_ENV = originalEnv
+    process.env['NODE_ENV'] = originalEnv
   })
 
   it('shows follow button by default when conditions are met', () => {

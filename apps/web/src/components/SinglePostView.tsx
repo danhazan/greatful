@@ -6,53 +6,10 @@ import PostCard from './PostCard'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
+import { Post } from '@/types/post'
 
 interface SinglePostViewProps {
   postId: string
-}
-
-interface Post {
-  id: string
-  content: string
-  postStyle?: {
-    id: string
-    name: string
-    backgroundColor: string
-    backgroundGradient?: string
-    textColor: string
-    borderStyle?: string
-    fontFamily?: string
-    textShadow?: string
-  }
-  author: {
-    id: string
-    name: string
-    username?: string
-    display_name?: string
-    image?: string
-  }
-  createdAt: string
-  postType: "daily" | "photo" | "spontaneous"
-  imageUrl?: string
-  location?: string
-  location_data?: {
-    display_name: string
-    lat: number
-    lon: number
-    place_id?: string
-    address: {
-      city?: string
-      state?: string
-      country?: string
-      country_code?: string
-    }
-    importance?: number
-    type?: string
-  }
-  heartsCount: number
-  isHearted: boolean
-  reactionsCount: number
-  currentUserReaction?: string
 }
 
 export default function SinglePostView({ postId }: SinglePostViewProps) {
@@ -134,10 +91,10 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
           {error === 'Post not found'
             ? 'This post may have been deleted or you may not have permission to view it.'
             : error === 'This post is private'
-            ? 'This post is private and can only be viewed by the author.'
-            : error === 'Authentication required to view this post'
-            ? 'Please log in to view this post.'
-            : 'Please try again or check your internet connection.'
+              ? 'This post is private and can only be viewed by the author.'
+              : error === 'Authentication required to view this post'
+                ? 'Please log in to view this post.'
+                : 'Please try again or check your internet connection.'
           }
         </p>
         <div className="space-x-4">
@@ -187,12 +144,12 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
           router.push('/auth/login')
           return
         }
-        
+
         if (heartInfo) {
           setPost(prev => prev ? {
             ...prev,
-            heartsCount: heartInfo.hearts_count,
-            isHearted: heartInfo.is_hearted
+            heartsCount: heartInfo.heartsCount,
+            isHearted: heartInfo.isHearted
           } : null)
         }
       }}
@@ -202,12 +159,12 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
           router.push('/auth/login')
           return
         }
-        
+
         if (reactionSummary) {
           setPost(prev => prev ? {
             ...prev,
-            reactionsCount: reactionSummary.total_count,
-            currentUserReaction: reactionSummary.user_reaction || undefined
+            reactionsCount: reactionSummary.totalCount,
+            currentUserReaction: reactionSummary.userReaction || undefined
           } : null)
         }
       }}
@@ -217,12 +174,12 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
           router.push('/auth/login')
           return
         }
-        
+
         if (reactionSummary) {
           setPost(prev => prev ? {
             ...prev,
-            reactionsCount: reactionSummary.total_count,
-            currentUserReaction: reactionSummary.user_reaction || undefined
+            reactionsCount: reactionSummary.totalCount,
+            currentUserReaction: reactionSummary.userReaction || undefined
           } : null)
         }
       }}

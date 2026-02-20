@@ -12,8 +12,12 @@ const mockPosts = [
       id: "1",
       name: "Alice Johnson",
       username: "alice",
-      display_name: "Alice Johnson",
-      image: "/api/placeholder/40/40"
+      displayName: "Alice Johnson",
+      profileImageUrl: "/api/placeholder/40/40",
+      followerCount: 50,
+      followingCount: 30,
+      postsCount: 15,
+      isFollowing: true
     },
     createdAt: new Date().toISOString(),
     postType: "daily" as const,
@@ -41,7 +45,11 @@ const mockPosts = [
       id: "2",
       name: "Bob Smith",
       username: "bob",
-      display_name: "Bob Smith"
+      displayName: "Bob Smith",
+      followerCount: 20,
+      followingCount: 10,
+      postsCount: 5,
+      isFollowing: false
     },
     createdAt: new Date(Date.now() - 3600000).toISOString(),
     postType: "photo" as const,
@@ -58,7 +66,11 @@ const mockPosts = [
       id: "3",
       name: "Carol Davis",
       username: "carol",
-      display_name: "Carol"
+      displayName: "Carol",
+      followerCount: 100,
+      followingCount: 50,
+      postsCount: 25,
+      isFollowing: false
     },
     createdAt: new Date(Date.now() - 7200000).toISOString(),
     postType: "spontaneous" as const,
@@ -73,7 +85,11 @@ const mockPosts = [
       id: "4",
       name: "David Wilson",
       username: "david",
-      display_name: "David Wilson"
+      displayName: "David Wilson",
+      followerCount: 15,
+      followingCount: 40,
+      postsCount: 2,
+      isFollowing: true
     },
     createdAt: new Date(Date.now() - 10800000).toISOString(),
     postType: "daily" as const,
@@ -89,7 +105,11 @@ const mockPosts = [
       id: "5",
       name: "שרה כהן",
       username: "sarah_hebrew",
-      display_name: "שרה כהן"
+      displayName: "שרה כהן",
+      followerCount: 120,
+      followingCount: 80,
+      postsCount: 12,
+      isFollowing: false
     },
     createdAt: new Date(Date.now() - 14400000).toISOString(),
     postType: "daily" as const,
@@ -105,7 +125,11 @@ const mockPosts = [
       id: "6",
       name: "Mixed User",
       username: "mixed_content",
-      display_name: "Mixed User"
+      displayName: "Mixed User",
+      followerCount: 45,
+      followingCount: 15,
+      postsCount: 8,
+      isFollowing: true
     },
     createdAt: new Date(Date.now() - 18000000).toISOString(),
     postType: "photo" as const,
@@ -121,7 +145,11 @@ const mockPosts = [
       id: "7",
       name: "أحمد محمد",
       username: "ahmed_arabic",
-      display_name: "أحمد محمد"
+      displayName: "أحمد محمد",
+      followerCount: 60,
+      followingCount: 30,
+      postsCount: 22,
+      isFollowing: false
     },
     createdAt: new Date(Date.now() - 21600000).toISOString(),
     postType: "spontaneous" as const,
@@ -136,37 +164,37 @@ export default function TestToolbarPage() {
   const [posts, setPosts] = useState(mockPosts)
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            isHearted: !isCurrentlyHearted,
-            heartsCount: isCurrentlyHearted ? post.heartsCount - 1 : post.heartsCount + 1
-          } as typeof post
+    setPosts(prev => prev.map(post =>
+      post.id === postId
+        ? {
+          ...post,
+          isHearted: !isCurrentlyHearted,
+          heartsCount: isCurrentlyHearted ? post.heartsCount - 1 : post.heartsCount + 1
+        } as typeof post
         : post
     ))
   }
 
   const handleReaction = (postId: string, emojiCode: string) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            currentUserReaction: emojiCode,
-            reactionsCount: post.currentUserReaction ? post.reactionsCount : post.reactionsCount + 1
-          } as typeof post
+    setPosts(prev => prev.map(post =>
+      post.id === postId
+        ? {
+          ...post,
+          currentUserReaction: emojiCode,
+          reactionsCount: post.currentUserReaction ? post.reactionsCount : post.reactionsCount + 1
+        } as typeof post
         : post
     ))
   }
 
   const handleRemoveReaction = (postId: string) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            currentUserReaction: undefined,
-            reactionsCount: Math.max(0, post.reactionsCount - 1)
-          } as typeof post
+    setPosts(prev => prev.map(post =>
+      post.id === postId
+        ? {
+          ...post,
+          currentUserReaction: undefined,
+          reactionsCount: Math.max(0, post.reactionsCount - 1)
+        } as typeof post
         : post
     ))
   }

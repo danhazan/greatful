@@ -9,7 +9,8 @@ interface UserListItemProps {
     id: string | number
     name: string
     username?: string
-    image?: string
+    profileImageUrl?: string
+    image?: string // legacy fallback
     bio?: string
     createdAt?: string
   }
@@ -35,7 +36,7 @@ export default function UserListItem({
   onKeyDown
 }: UserListItemProps) {
   return (
-    <div 
+    <div
       className={`flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer ${className}`}
       onClick={onClick}
       role={role}
@@ -52,7 +53,7 @@ export default function UserListItem({
           className="border-0 shadow-none"
         />
       </div>
-      
+
       {/* User Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900 truncate">
@@ -72,7 +73,7 @@ export default function UserListItem({
           </p>
         ) : null}
       </div>
-      
+
       {/* Right Element (Follow button, emoji, etc.) */}
       {rightElement && (
         <div className="flex-shrink-0">

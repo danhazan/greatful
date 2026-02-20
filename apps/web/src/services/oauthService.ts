@@ -9,7 +9,7 @@ export interface OAuthProvider {
 
 export interface OAuthProviderStatus {
   providers: OAuthProvider
-  redirect_uri: string
+  redirectUri: string
   environment: string
   initialized: boolean
 }
@@ -19,15 +19,15 @@ export interface OAuthLoginResponse {
     id: string
     username: string
     email: string
-    display_name?: string
-    profile_image_url?: string
+    displayName?: string
+    profileImageUrl?: string
   }
   tokens: {
-    access_token: string
-    token_type: string
-    refresh_token?: string
+    accessToken: string
+    tokenType: string
+    refreshToken?: string
   }
-  is_new_user: boolean
+  isNewUser: boolean
 }
 
 export interface OAuthError {
@@ -41,7 +41,7 @@ class OAuthService {
 
   constructor() {
     // Use backend API URL for OAuth endpoints
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const backendUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
     this.baseUrl = `${backendUrl}/api/v1/oauth`
   }
 
@@ -75,7 +75,7 @@ class OAuthService {
       }
 
       const url = `${this.baseUrl}/login/${provider}${params.toString() ? `?${params.toString()}` : ''}`
-      
+
       // Redirect to OAuth provider
       window.location.href = url
     } catch (error) {

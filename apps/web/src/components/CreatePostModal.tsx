@@ -41,21 +41,21 @@ const getRandomGratitudePrompt = () => {
 interface UserInfo {
   id: number
   username: string
-  profile_image_url?: string
+  profileImageUrl?: string
   bio?: string
 }
 
 // Location result type from LocationAutocomplete
 interface LocationResult {
-  display_name: string
+  displayName: string
   lat: number
   lon: number
-  place_id?: string
+  placeId?: string
   address: {
     city?: string
     state?: string
     country?: string
-    country_code?: string
+    countryCode?: string
   }
   importance?: number
   type?: string
@@ -76,7 +76,7 @@ interface CreatePostModalProps {
     content: string
     imageUrl?: string
     location?: string
-    location_data?: LocationResult
+    locationData?: LocationResult
     imageFile?: File
     imageFiles?: File[]  // Multi-image support
     mentions?: string[]
@@ -116,7 +116,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     content: string
     imageUrl?: string
     location?: string
-    location_data?: LocationResult
+    locationData?: LocationResult
   }>({
     content: '',
     imageUrl: '',
@@ -176,7 +176,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
     return postData.content
   }
-  
+
   const contentForAnalysis = getPlainTextContent()
   const trimmed = contentForAnalysis.trim()
   const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
@@ -187,7 +187,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       postData.content.trim() ||
       postData.imageUrl ||
       postData.location ||
-      postData.location_data ||
+      postData.locationData ||
       richContent?.trim() ||
       images.length > 0 ||
       imageFile
@@ -291,7 +291,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     if (isOpen) {
       // Set a random gratitude prompt each time the modal opens
       setGratitudePrompt(getRandomGratitudePrompt())
-      
+
       const draft = localStorage.getItem('grateful_post_draft')
       if (draft) {
         try {
@@ -408,7 +408,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         // Legacy single image support (deprecated)
         ...(postData.imageUrl ? { imageUrl: postData.imageUrl } : {}),
         ...(postData.location ? { location: postData.location } : {}),
-        ...(postData.location_data ? { location_data: postData.location_data } : {}),
+        ...(postData.locationData ? { locationData: postData.locationData } : {}),
         ...(imageFile ? { imageFile } : {}),
         ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {})
       }
@@ -449,10 +449,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       // Hide loading toast and show error
       hideToast(loadingToastId)
       console.error('Post creation error:', error)
-      
+
       // Better error message extraction
       let errorMessage = 'Failed to create post. Please try again.'
-      
+
       if (error?.message) {
         errorMessage = error.message
       } else if (typeof error === 'string') {
@@ -474,7 +474,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           errorMessage = 'Validation error occurred'
         }
       }
-      
+
       setError(errorMessage)
       showError(
         'Post Failed',
@@ -728,14 +728,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     if (location) {
       setPostData({
         ...postData,
-        location: location.display_name,
-        location_data: location
+        location: location.displayName,
+        locationData: location
       })
     } else {
       setPostData({
         ...postData,
         location: '',
-        location_data: undefined
+        locationData: undefined
       })
     }
   }
@@ -954,14 +954,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     <button
                       type="button"
                       onClick={handleAddLocation}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${postData.location_data
-                          ? 'text-purple-600 bg-purple-50'
-                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${postData.locationData
+                        ? 'text-purple-600 bg-purple-50'
+                        : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
                         }`}
                     >
                       <MapPin className="h-4 w-4" />
                       <span className="text-sm font-medium">
-                        {postData.location_data ? 'Location Added' : 'Location'}
+                        {postData.locationData ? 'Location Added' : 'Location'}
                       </span>
                     </button>
                   </div>
@@ -976,11 +976,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 </div>
 
                 {/* Location Display */}
-                {postData.location_data && (
+                {postData.locationData && (
                   <div className="flex items-center space-x-2 mt-2 p-2 bg-purple-50 rounded-lg">
                     <MapPin className="h-4 w-4 text-purple-600" />
                     <div className="text-sm text-purple-700 font-medium truncate flex-1">
-                      {postData.location_data.display_name}
+                      {postData.locationData.displayName}
                     </div>
                     <button
                       type="button"
@@ -1013,13 +1013,12 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                           onDragOver={(e) => handleImageDragOver(e, img.id)}
                           onDrop={(e) => handleImageDragDrop(e, img.id)}
                           onDragEnd={handleImageDragEnd}
-                          className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-move ${
-                            draggedImageId === img.id
-                              ? 'opacity-50 border-purple-400'
-                              : index === 0
-                                ? 'border-purple-300 ring-2 ring-purple-200'
-                                : 'border-gray-200 hover:border-purple-200'
-                          }`}
+                          className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-move ${draggedImageId === img.id
+                            ? 'opacity-50 border-purple-400'
+                            : index === 0
+                              ? 'border-purple-300 ring-2 ring-purple-200'
+                              : 'border-gray-200 hover:border-purple-200'
+                            }`}
                         >
                           <img
                             src={img.previewUrl}
@@ -1028,11 +1027,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                             draggable={false}
                           />
                           {/* Position indicator */}
-                          <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${
-                            index === 0
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-black bg-opacity-60 text-white'
-                          }`}>
+                          <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${index === 0
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-black bg-opacity-60 text-white'
+                            }`}>
                             {index + 1}
                           </div>
                           {/* Drag handle */}
@@ -1095,8 +1093,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 {images.length < MAX_POST_IMAGES && !postData.imageUrl && (
                   <div
                     className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isDragOver
-                        ? 'border-purple-400 bg-purple-50'
-                        : 'border-gray-300 hover:border-purple-300 hover:bg-purple-50'
+                      ? 'border-purple-400 bg-purple-50'
+                      : 'border-gray-300 hover:border-purple-300 hover:bg-purple-50'
                       }`}
                     onDragEnter={handleDragEnter}
                     onDragLeave={handleDragLeave}
@@ -1225,7 +1223,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         isOpen={showLocationModal}
         onClose={() => setShowLocationModal(false)}
         onLocationSelect={handleLocationSelect}
-        initialValue={postData.location_data?.display_name || postData.location || ''}
+        initialValue={postData.locationData?.displayName || postData.location || ''}
       />
 
       {/* Background Selector */}

@@ -10,12 +10,11 @@ interface ProfileDropdownProps {
   user: {
     id: string | number
     name: string
-    display_name?: string
-    username: string  // Required - all users have usernames
+    displayName?: string
+    username: string
     email: string
-    profile_image_url?: string
-    profile_photo_filename?: string
-    image?: string  // For compatibility with UserContext
+    profileImageUrl?: string
+    image?: string // Still keep for backward compatibility during transition
   }
   isOpen: boolean
   onToggle: () => void
@@ -117,16 +116,15 @@ export default function ProfileDropdown({
             onClick={handleProfileClick}
             onMouseEnter={() => setSelectedIndex(0)}
             role="menuitem"
-            className={`w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 active:bg-purple-100 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] touch-manipulation ${
-              selectedIndex === 0 ? 'bg-purple-50' : ''
-            }`}
+            className={`w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 active:bg-purple-100 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] touch-manipulation ${selectedIndex === 0 ? 'bg-purple-50' : ''
+              }`}
             aria-label="Go to profile page"
           >
             <div className="flex items-center space-x-3">
               <UserAvatar user={user} size="sm" />
               <div className="min-w-0 flex-1 text-left">
                 <p className="text-sm font-medium text-gray-900 truncate hover:text-purple-700 transition-colors">
-                  {user.display_name || user.name}
+                  {user.displayName || user.name}
                 </p>
                 <p className="text-xs text-gray-500 truncate hover:text-purple-600 transition-colors">
                   @{user.username}
@@ -141,9 +139,8 @@ export default function ProfileDropdown({
               ref={setItemRef(1)}
               onClick={handleLogoutClick}
               onMouseEnter={() => setSelectedIndex(1)}
-              className={`w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 active:bg-purple-100 active:text-purple-800 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] sm:min-h-auto touch-manipulation ${
-                selectedIndex === 1 ? 'bg-purple-50 text-purple-700' : ''
-              }`}
+              className={`w-full flex items-center px-3 sm:px-4 py-3 sm:py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 active:bg-purple-100 active:text-purple-800 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] sm:min-h-auto touch-manipulation ${selectedIndex === 1 ? 'bg-purple-50 text-purple-700' : ''
+                }`}
               role="menuitem"
               aria-label="Log out of account"
             >
