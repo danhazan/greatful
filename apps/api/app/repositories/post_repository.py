@@ -522,8 +522,19 @@ class PostRepository(BaseRepository):
         if not posts:
             return []
         
-        # Get post IDs for batch queries
+        # Get post IDs and author IDs for batch queries
         post_ids = [post.id for post in posts]
+        author_ids = list({post.author_id for post in posts if post.author_id})
+        
+        # 1. Batch get Author profile stats (1 optimized SQL query)
+        from app.repositories.user_repository import UserRepository
+        user_repo = UserRepository(self.db)
+        author_stats = await user_repo.get_user_stats_batch(author_ids)
+        
+        # 2. Batch get Follow statuses (1 optimized SQL query)
+        from app.repositories.follow_repository import FollowRepository
+        follow_repo = FollowRepository(self.db)
+        follow_statuses = await follow_repo.bulk_check_following_status(user_id, author_ids) if user_id else {}
         
         # Get engagement counts if not provided
         if engagement_counts is None:
@@ -637,11 +648,22 @@ class PostRepository(BaseRepository):
                 except Exception:
                     post_style_data = None
             
-            # ✅ Convert author profile image URL
-            author_profile_image_url = None
-            if post.author and post.author.profile_image_url:
-                author_profile_image_url = storage.get_url(post.author.profile_image_url)
-            
+            # ✅ Build author data incorporating batch-loaded stats and follow status
+            author_data = None
+            if post.author:
+                stats = author_stats.get(post.author_id, {})
+                author_data = {
+                    "id": post.author.id,
+                    "username": post.author.username,
+                    "display_name": post.author.display_name,
+                    "name": post.author.display_name or post.author.username or post.author.name,
+                    "image": storage.get_url(post.author.profile_image_url) if post.author.profile_image_url else None,
+                    "follower_count": stats.get("followers_count", 0),
+                    "following_count": stats.get("following_count", 0),
+                    "posts_count": stats.get("posts_count", 0),
+                    "is_following": follow_statuses.get(post.author_id, False)
+                }
+
             # ✅ Convert legacy image_url
             image_url = None
             if post.image_url:
@@ -662,33 +684,16 @@ class PostRepository(BaseRepository):
                 "is_public": post.is_public,
                 "created_at": post.created_at.isoformat() if post.created_at else None,
                 "updated_at": post.updated_at.isoformat() if post.updated_at else None,
-                "author": {
-                    "id": post.author.id,
-                    "username": post.author.username,
-                    "display_name": post.author.display_name,
-                    "name": post.author.display_name or post.author.username,
-                    "email": post.author.email,
-                    "profile_image_url": author_profile_image_url,
-                    "bio": getattr(post.author, 'bio', None),
-                    "city": getattr(post.author, 'city', None),
-                    "institutions": getattr(post.author, 'institutions', None),
-                    "websites": getattr(post.author, 'websites', None),
-                    "profile_photo_filename": getattr(post.author, 'profile_photo_filename', None)
-                } if post.author else None,
+                "author": author_data,
                 "hearts_count": engagement['hearts'],
                 "reactions_count": engagement['reactions'],
                 "comments_count": engagement['comments'],
                 "current_user_reaction": user_reactions.get(post.id),
-                "is_hearted": post.id in user_hearts
+                "is_hearted": post.id in user_hearts,
+                "algorithm_score": algorithm_scores.get(post.id, 0.0) if algorithm_scores else 0.0,
+                "is_read": read_statuses.get(post.id, False) if read_statuses else False, # is_read is true if in read_statuses
+                "is_unread": not read_statuses.get(post.id, False) if read_statuses else True # is_unread is true if not in read_statuses
             }
-            
-            # Add optional fields
-            if algorithm_scores and post.id in algorithm_scores:
-                post_dict['algorithm_score'] = algorithm_scores[post.id]
-            
-            if read_statuses and post.id in read_statuses:
-                post_dict['is_read'] = read_statuses[post.id]
-                post_dict['is_unread'] = not read_statuses[post.id]
             
             serialized_posts.append(post_dict)
         

@@ -207,15 +207,52 @@ async def get_notifications(
         )
         
         response_notifications = []
+        
+        # Batch resolve all users from notifications to avoid N+1
+        actor_ids = set()
+        for n in notifications:
+            if n.data and n.data.get('actor_user_id'):
+                try:
+                    actor_ids.add(int(n.data['actor_user_id']))
+                except (ValueError, TypeError):
+                    pass
+            # Also check for other potential user ID fields based on type
+            for field in ['reactor_user_id', 'liker_user_id', 'author_user_id', 'follower_user_id']:
+                if n.data and n.data.get(field):
+                    try:
+                        actor_ids.add(int(n.data[field]))
+                    except (ValueError, TypeError):
+                        pass
+
+        # Fetch all profiles in one go
+        resolved_profiles = {}
+        if actor_ids:
+            user_service = UserService(db)
+            profiles_list = await user_service.get_public_user_profiles_batch(list(actor_ids))
+            for p in profiles_list:
+                resolved_profiles[str(p['id'])] = {
+                    'id': str(p['id']),
+                    'name': p.get('display_name') or p['username'],
+                    'username': p['username'],
+                    'image': p.get('profile_image_url')
+                }
+
         for notification in notifications:
             # Extract post_id and from_user from data if available
             post_id = notification.data.get('post_id') if notification.data else None
             
-            # Use shared function to resolve user profile data
-            from_user = await resolve_notification_user(
-                db=db,
-                notification_data=notification.data or {}
-            )
+            # Use batch-resolved profile if available
+            from_user = None
+            actor_user_id = notification.data.get('actor_user_id') if notification.data else None
+            if actor_user_id and str(actor_user_id) in resolved_profiles:
+                from_user = resolved_profiles[str(actor_user_id)]
+            else:
+                # Fallback to resolver (which will use cache if available or do single fetch)
+                # But mostly we already resolved it above
+                from_user = await resolve_notification_user(
+                    db=db,
+                    notification_data=notification.data or {}
+                )
             
             # Default fallback if no user found
             if not from_user:

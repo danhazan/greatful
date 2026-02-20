@@ -35,17 +35,24 @@ export default function FollowButton({
   const [error, setError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
   const { showSuccess, showError, showLoading, hideToast } = useToast()
-  
+
+  // Debug logging for follow state initialization
+  useEffect(() => {
+    if (initialFollowState === undefined && !autoFetch) {
+      console.warn(`[FollowButton] User ${userId} has no initial follow state and autoFetch is disabled. Falling back to false.`);
+    }
+  }, [userId, initialFollowState, autoFetch]);
+
   // Use centralized state management with initial state
   const { followState: isFollowing, toggleFollow, isLoading } = useUserState({
     userId: userId.toString(),
     autoFetch: autoFetch,
-    initialFollowState: initialFollowState
+    initialFollowState: initialFollowState ?? false
   })
 
   // Don't show loading state if we have an initial follow state
   const shouldShowLoading = isLoading && initialFollowState === undefined
-  
+
   // Use the state from useUserState if available, otherwise fall back to initial state
   // This ensures the button updates after successful follow/unfollow actions
   const effectiveFollowState = isFollowing !== undefined ? isFollowing : (initialFollowState ?? false)
@@ -127,7 +134,7 @@ export default function FollowButton({
     try {
       // Use centralized state management with optimistic updates
       await toggleFollow()
-      
+
       // Success - update toast
       hideToast(loadingToastId)
       showSuccess(
@@ -137,7 +144,7 @@ export default function FollowButton({
     } catch (error) {
       // Error handling - rollback is handled by useUserState
       hideToast(loadingToastId)
-      
+
       let errorMessage = 'Failed to update follow status'
       if (error instanceof Error) {
         if (error.message.includes('401')) {
@@ -187,7 +194,7 @@ export default function FollowButton({
         {shouldShowLoading ? (
           <Loader2 className={`${heartSizes[size]} animate-spin`} />
         ) : (
-          <Heart 
+          <Heart
             className={`${heartSizes[size]} ${!effectiveFollowState ? 'fill-current' : ''} flex-shrink-0`}
             strokeWidth={2}
           />
@@ -196,7 +203,7 @@ export default function FollowButton({
       </button>
 
       {error && (
-        <div 
+        <div
           ref={errorRef}
           id={`follow-error-${userId}`}
           role="alert"

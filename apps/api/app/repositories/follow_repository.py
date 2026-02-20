@@ -335,7 +335,7 @@ class FollowRepository(BaseRepository):
         self, 
         follower_id: int, 
         user_ids: List[int]
-    ) -> Dict[int, Optional[str]]:
+    ) -> Dict[int, bool]:
         """
         Check following status for multiple users at once.
         
@@ -344,17 +344,20 @@ class FollowRepository(BaseRepository):
             user_ids: List of user IDs to check
             
         Returns:
-            Dict mapping user_id to follow status (None if not following)
+            Dict mapping user_id to boolean follow status (active only)
         """
         if not user_ids:
             return {}
         
+        # Use SELECT followed_id ... WHERE status = 'active'
+        # This keeps the result set small and the mapping simple
         query = (
-            select(Follow.followed_id, Follow.status)
+            select(Follow.followed_id)
             .where(
                 and_(
                     Follow.follower_id == follower_id,
-                    Follow.followed_id.in_(user_ids)
+                    Follow.followed_id.in_(user_ids),
+                    Follow.status == "active"
                 )
             )
         )
@@ -362,9 +365,6 @@ class FollowRepository(BaseRepository):
         result = await self._execute_query(query, "bulk check following status")
         rows = result.fetchall()
         
-        # Create mapping of user_id to status
-        status_map = {user_id: None for user_id in user_ids}
-        for row in rows:
-            status_map[row.followed_id] = row.status
-        
-        return status_map
+        # Create mapping where a user is counted as 'following' only if relationship is active
+        following_ids = {row[0] for row in rows}
+        return {user_id: user_id in following_ids for user_id in user_ids}

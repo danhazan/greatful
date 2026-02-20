@@ -53,22 +53,17 @@ interface Post {
     fontFamily?: string
     textShadow?: string
   }
-  post_style?: {  // Backend field name
-    id: string
-    name: string
-    backgroundColor: string
-    backgroundGradient?: string
-    textColor: string
-    borderStyle?: string
-    fontFamily?: string
-    textShadow?: string
-  }
+  post_style?: any // Keep for backward compatibility 
   author: {
     id: string
     name: string
     username?: string
     display_name?: string
     image?: string
+    follower_count?: number
+    following_count?: number
+    posts_count?: number
+    is_following?: boolean
   }
   createdAt: string
   updatedAt?: string
@@ -950,11 +945,21 @@ export default function PostCard({
                   currentUserId !== currentPost.author.id &&
                   !isNaN(parseInt(currentPost.author.id)) &&
                   !hideFollowButton && (
-                    <FollowButton
-                      userId={parseInt(currentPost.author.id)}
-                      size="xxs"
-                      variant="outline"
-                    />
+                    <div className="flex items-center">
+                      {(() => {
+                        const isFollowing = currentPost.author.is_following ?? false;
+                        console.debug("Follow state for user", currentPost.author.id, isFollowing);
+                        return (
+                          <FollowButton
+                            userId={parseInt(currentPost.author.id)}
+                            size="xxs"
+                            variant="outline"
+                            autoFetch={false}
+                            initialFollowState={isFollowing}
+                          />
+                        );
+                      })()}
+                    </div>
                   )}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-sm text-gray-500">

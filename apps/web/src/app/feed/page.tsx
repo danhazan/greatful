@@ -108,62 +108,39 @@ export default function FeedPage() {
 
       setPosts(normalizedPosts)
 
-      // ✅ OPTIMIZATION: Batch fetch user profiles and follow statuses
-      // Extract unique author IDs from posts
-      const authorIds = Array.from(new Set(
-        normalizedPosts
-          .map(post => post.author?.id)
-          .filter(id => id && id !== currentUser?.id) // Exclude current user
-      ))
-
-      if (authorIds.length > 0) {
-        console.log(`Batch fetching data for ${authorIds.length} unique authors`)
-
-        try {
-          // Batch fetch profiles and follow statuses in parallel
-          const [profilesData, followStatusData] = await Promise.all([
-            apiClient.getBatchUserProfiles(authorIds),
-            apiClient.getBatchFollowStatuses(authorIds)
-          ])
-
-          console.log('Batch profiles fetched:', profilesData)
-          console.log('Batch follow statuses fetched:', followStatusData)
-
-          // Populate UserContext cache with profiles
-          const profiles = (profilesData as any)?.data || profilesData || []
-          profiles.forEach((profile: any) => {
-            if (profile && profile.id) {
-              updateUserProfile(profile.id.toString(), {
-                id: profile.id.toString(),
-                name: profile.display_name || profile.name || profile.username,
-                username: profile.username,
-                email: profile.email,
-                image: profile.profile_image_url || profile.image,
-                display_name: profile.display_name,
-                follower_count: profile.followers_count || profile.follower_count || 0,
-                following_count: profile.following_count || 0,
-                posts_count: profile.posts_count || 0
-              })
-              // Mark data as fresh to prevent individual refetching
-              markDataAsFresh(profile.id.toString())
-            }
-          })
-
-          // Populate UserContext cache with follow statuses
-          const followStatuses = (followStatusData as any)?.data || followStatusData || {}
-          Object.entries(followStatuses).forEach(([userId, status]: [string, any]) => {
-            const isFollowing = status?.is_following || status?.isFollowing || false
-            updateFollowState(userId, isFollowing)
-            // Mark data as fresh to prevent individual refetching
-            markDataAsFresh(userId)
-          })
-
-          console.log('UserContext cache populated for feed optimization')
-        } catch (batchError) {
-          console.error('Error batch fetching user data:', batchError)
-          // Don't fail the entire feed load if batch fetch fails
-          // Individual components will fall back to fetching as needed
+      // ✅ ULTIMATE OPTIMIZATION: Populate UserContext cache directly from post data
+      // This eliminates the need for separate /batch-profiles and /batch-follow-status calls
+      // achieving the target of 1 DB session and minimal SQL queries per feed load.
+      const uniqueAuthors = new Map<string, any>();
+      normalizedPosts.forEach(post => {
+        if (post.author && post.author.id && post.author.id !== currentUser?.id) {
+          uniqueAuthors.set(post.author.id.toString(), post.author);
         }
+      });
+
+      if (uniqueAuthors.size > 0) {
+        console.log(`Populating UserContext cache for ${uniqueAuthors.size} authors from feed data`);
+        uniqueAuthors.forEach((author, authorId) => {
+          // Update profile cache
+          updateUserProfile(authorId, {
+            id: authorId,
+            name: author.display_name || author.name || author.username,
+            username: author.username,
+            image: author.image,
+            display_name: author.display_name,
+            follower_count: author.follower_count || 0,
+            following_count: author.following_count || 0,
+            posts_count: author.posts_count || 0
+          });
+
+          // Update follow state cache
+          if (author.is_following !== undefined) {
+            updateFollowState(authorId, author.is_following);
+          }
+
+          // Mark data as fresh to prevent individual refetching
+          markDataAsFresh(authorId);
+        });
       }
     } catch (error) {
       console.error('Error loading posts:', error)

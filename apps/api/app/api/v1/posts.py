@@ -894,69 +894,12 @@ async def get_feed(
                     refresh_mode=refresh
                 )
             
-            # Get current user's reactions and hearts for each post
-            posts_with_user_data = []
-            for post_data in posts_data:
-                # Get current user's reaction
-                current_user_reaction = None
-                is_hearted = False
-                
-                if has_likes_table:
-                    # Check for user's heart (using emoji reactions with 'heart' emoji_code)
-                    heart_query = text("""
-                        SELECT 1 FROM emoji_reactions 
-                        WHERE post_id = :post_id AND user_id = :user_id AND emoji_code = 'heart'
-                    """)
-                    heart_result = await db.execute(heart_query, {
-                        "post_id": post_data['id'],
-                        "user_id": current_user_id
-                    })
-                    is_hearted = heart_result.fetchone() is not None
-                
-                # Check for user's emoji reaction
-                reaction_query = text("""
-                    SELECT emoji_code FROM emoji_reactions 
-                    WHERE post_id = :post_id AND user_id = :user_id
-                """)
-                reaction_result = await db.execute(reaction_query, {
-                    "post_id": post_data['id'],
-                    "user_id": current_user_id
-                })
-                reaction_row = reaction_result.fetchone()
-                if reaction_row:
-                    current_user_reaction = reaction_row.emoji_code
-                
-                posts_with_user_data.append(PostResponse(
-                    id=post_data['id'],
-                    author_id=post_data['author_id'],
-                    content=post_data['content'],
-                    rich_content=post_data.get('rich_content'),
-                    post_style=post_data.get('post_style'),
-                    post_type=post_data['post_type'],
-                    image_url=post_data['image_url'],
-                    images=post_data.get('images', []),  # Multi-image support
-                    location=post_data.get('location'),
-                    location_data=post_data.get('location_data'),
-                    is_public=post_data['is_public'],
-                    created_at=post_data['created_at'],
-                    updated_at=post_data['updated_at'],
-                    author=post_data['author'] or {
-                        "id": post_data['author_id'],
-                        "username": "Unknown",
-                        "name": "Unknown"
-                    },
-                    hearts_count=post_data['hearts_count'],
-                    reactions_count=post_data['reactions_count'],
-                    comments_count=post_data['comments_count'],
-                    current_user_reaction=current_user_reaction,
-                    is_hearted=is_hearted,
-                    is_read=post_data.get('is_read', False),
-                    is_unread=post_data.get('is_unread', False),
-                    algorithm_score=post_data.get('algorithm_score')
-                ))
-            
-            logger.debug(f"Retrieved {len(posts_with_user_data)} algorithm-ranked posts for user {current_user_id}")
-            return posts_with_user_data
+            # OptimizedAlgorithmService.get_personalized_feed_optimized already handles
+            # batch fetching for engagement, reactions, hearts, and author stats via serialize_posts_for_feed.
+            # We can directly return the processed results.
+            logger.debug(f"Retrieved {len(posts_data)} algorithm-ranked posts for user {current_user_id}")
+            # Note: serialize_posts_for_feed returns dicts that match PostResponse structure
+            return posts_data
         
         # Fallback to original chronological feed (backward compatibility)
         else:

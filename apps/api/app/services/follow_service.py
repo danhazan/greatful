@@ -397,7 +397,7 @@ class FollowService(BaseService):
         self, 
         follower_id: int, 
         user_ids: List[int]
-    ) -> Dict[int, Dict[str, Any]]:
+    ) -> Dict[int, bool]:
         """
         Check following status for multiple users at once.
         
@@ -406,25 +406,12 @@ class FollowService(BaseService):
             user_ids: List of user IDs to check
             
         Returns:
-            Dict mapping user_id to follow status info
+            Dict mapping user_id to boolean follow status (active ONLY)
         """
         if not user_ids:
             return {}
         
-        # Get bulk following status
-        status_map = await self.follow_repo.bulk_check_following_status(
+        # Get bulk following status (boolean map from repository)
+        return await self.follow_repo.bulk_check_following_status(
             follower_id, user_ids
         )
-        
-        # Format response
-        result = {}
-        for user_id in user_ids:
-            status = status_map.get(user_id)
-            result[user_id] = {
-                "is_following": status == "active",
-                "status": status
-            }
-        
-        logger.info(f"Bulk checked following status for {len(user_ids)} users")
-        
-        return result

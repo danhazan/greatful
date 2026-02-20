@@ -4,6 +4,7 @@ Database configuration and session management with production optimizations.
 
 import os
 import logging
+import contextvars
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, AsyncEngine
 from sqlalchemy.orm import declarative_base
@@ -98,6 +99,9 @@ async_session = sessionmaker(
 # Create declarative base
 Base = declarative_base()
 
+# Global statement counter for instrumentation
+statement_count_var = contextvars.ContextVar("statement_count", default=0)
+
 # Connection pool monitoring
 @event.listens_for(engine.sync_engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -110,29 +114,41 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
             cursor.execute("SET lock_timeout = '30s'")
             cursor.execute("SET idle_in_transaction_session_timeout = '300s'")
 
+@event.listens_for(engine.sync_engine, "before_cursor_execute")
+def receive_before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    """Increment statement counter for the current context."""
+    count = statement_count_var.get()
+    statement_count_var.set(count + 1)
+
 @event.listens_for(engine.sync_engine, "checkout")
 def receive_checkout(dbapi_connection, connection_record, connection_proxy):
     """Log connection checkout for monitoring."""
-    logger.debug(f"Connection checked out from pool. Pool size: {engine.pool.size()}")
+    logger.info(f"Connection checked out from pool. Pool size: {engine.pool.size()}")
 
 @event.listens_for(engine.sync_engine, "checkin")
 def receive_checkin(dbapi_connection, connection_record):
     """Log connection checkin for monitoring."""
-    logger.debug(f"Connection checked in to pool. Pool size: {engine.pool.size()}")
+    logger.info(f"Connection checked in to pool. Pool size: {engine.pool.size()}")
 
 async def get_db() -> AsyncSession:
     """
     Dependency to get database session with proper error handling.
     """
+    token = statement_count_var.set(0)
     async with async_session() as session:
+        session_id = id(session)
+        logger.info(f"DB session {session_id} created")
         try:
             yield session
         except Exception as e:
-            logger.exception(f"Database session error: {e}")
+            logger.exception(f"Database session {session_id} error: {e}")
             await session.rollback()
             raise
         finally:
+            count = statement_count_var.get()
+            logger.info(f"DB session {session_id} closing. Total SQL statements: {count}")
             await session.close()
+            statement_count_var.reset(token)
 
 async def init_db():
     """

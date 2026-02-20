@@ -53,9 +53,14 @@ export interface ApiPost {
     userId?: string | number
     name?: string
     username?: string
-    displayName?: string
+    display_name?: string
     image?: string
     profileImageUrl?: string
+    isFollowing?: boolean
+    is_following?: boolean
+    followerCount?: number
+    followingCount?: number
+    postsCount?: number
   }
 }
 
@@ -83,6 +88,10 @@ export interface NormalizedPost {
     username?: string
     display_name?: string
     image?: string
+    is_following?: boolean
+    follower_count?: number
+    following_count?: number
+    posts_count?: number
   }
 }
 
@@ -141,8 +150,12 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
       id: String(author.id ?? author.userId ?? ""),
       name: author.name ?? author.displayName ?? author.username ?? "",
       username: author.username ?? undefined,
-      display_name: author.displayName ?? undefined,
-      image: author.image ?? author.profileImageUrl ?? undefined
+      display_name: author.displayName ?? author.display_name ?? undefined,
+      image: author.image ?? author.profileImageUrl ?? author.profile_image_url ?? undefined,
+      is_following: author.isFollowing ?? author.is_following ?? undefined,
+      follower_count: author.followerCount ?? author.follower_count ?? 0,
+      following_count: author.followingCount ?? author.following_count ?? 0,
+      posts_count: author.postsCount ?? author.posts_count ?? 0
     }
   }
 }
