@@ -27,7 +27,7 @@ export async function handleUserProfileGetRequest(request: any, userId?: string)
         };
         
         // Debug logging in development
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env['NODE_ENV'] === 'development') {
           console.log('User profile API - Original user data:', responseData.data);
           console.log('User profile API - Normalized user data:', normalizedUserData);
         }
@@ -40,7 +40,7 @@ export async function handleUserProfileGetRequest(request: any, userId?: string)
         // If no 'data' field, normalize the entire response (fallback)
         const normalizedData = normalizeUserData(responseData);
         
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env['NODE_ENV'] === 'development') {
           console.log('User profile API - Fallback normalization:', normalizedData);
         }
         

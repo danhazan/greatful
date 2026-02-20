@@ -137,13 +137,13 @@ export function useStateSyncSubscription(
 // Performance monitoring for state sync
 export const stateSyncMonitor = {
   logEvent: (event: StateSyncEvent) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env['NODE_ENV'] === 'development') {
       console.log('State Sync Event:', event.type, event.payload)
     }
   },
 
   logListenerCount: () => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env['NODE_ENV'] === 'development') {
       console.log('State Sync Listeners:', {
         USER_PROFILE_UPDATED: stateSyncEmitter.getListenerCount('USER_PROFILE_UPDATED'),
         FOLLOW_STATE_CHANGED: stateSyncEmitter.getListenerCount('FOLLOW_STATE_CHANGED'),

@@ -10,6 +10,7 @@ from app.core.database import async_session
 from app.repositories.user_repository import UserRepository
 from app.repositories.follow_repository import FollowRepository
 from app.repositories.post_repository import PostRepository
+from app.services.optimized_algorithm_service import OptimizedAlgorithmService
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.models.post import Post
@@ -112,6 +113,29 @@ async def verify_optimizations():
                 logger.info(f"From user keys: {res[0].from_user.keys()}")
         except Exception as e:
             logger.exception(f"Error testing notifications: {e}")
+
+    # 5. Test Optimized Feed (Expected: ~2-3 statements total)
+    logger.info("--- PHASE 5: Testing get_personalized_feed_optimized ---")
+    async for session in get_db():
+        try:
+            # Use an existing user for testing the feed
+            feed_test_user_id = author_ids[0] if author_ids else 1
+            logger.info(f"Testing optimized feed for User ID: {feed_test_user_id}")
+
+            service = OptimizedAlgorithmService(session)
+            
+            # Test algorithm feed
+            feed_posts, total = await service.get_personalized_feed_optimized(
+                user_id=feed_test_user_id,
+                limit=5,
+                offset=0
+            )
+            logger.info(f"Generated {len(feed_posts)} posts out of {total} total.")
+            if feed_posts:
+                logger.info("Feed post sample keys: " + str(feed_posts[0].keys()))
+                
+        except Exception as e:
+            logger.exception(f"Error testing optimized feed: {e}")
 
     logger.info("=== Verification Complete. Analyze logs above for Session IDs and Statement Counts ===")
 

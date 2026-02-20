@@ -41,7 +41,7 @@ class OptimizedAPIClient {
     options: RequestInit & RequestOptions = {}
   ): Promise<T> {
     const { skipCache, cacheTTL, retries = 1, ...fetchOptions } = options
-    
+
     const url = `${this.baseURL}${endpoint}`
     const authHeaders = this.getAuthHeaders()
     const requestOptions: RequestInit = {
@@ -82,7 +82,7 @@ class OptimizedAPIClient {
           if (response && typeof response === 'object' && 'data' in response) {
             return response.data
           }
-          
+
           return response as T
         },
         requestOptions,
@@ -102,7 +102,7 @@ class OptimizedAPIClient {
       if (response && typeof response === 'object' && 'data' in response) {
         return response.data
       }
-      
+
       return response as T
     } catch (error) {
       if (retries > 0) {
@@ -124,8 +124,8 @@ class OptimizedAPIClient {
    * POST request
    */
   async post<T>(
-    endpoint: string, 
-    data?: any, 
+    endpoint: string,
+    data?: any,
     options: RequestOptions = {}
   ): Promise<T> {
     return this.request<T>(endpoint, {
@@ -140,8 +140,8 @@ class OptimizedAPIClient {
    * PUT request
    */
   async put<T>(
-    endpoint: string, 
-    data?: any, 
+    endpoint: string,
+    data?: any,
     options: RequestOptions = {}
   ): Promise<T> {
     return this.request<T>(endpoint, {
@@ -149,6 +149,22 @@ class OptimizedAPIClient {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
       skipCache: true // PUT requests shouldn't be cached
+    })
+  }
+
+  /**
+   * PATCH request
+   */
+  async patch<T>(
+    endpoint: string,
+    data?: any,
+    options: RequestOptions = {}
+  ): Promise<T> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+      skipCache: true // PATCH requests shouldn't be cached
     })
   }
 
@@ -197,7 +213,7 @@ class OptimizedAPIClient {
     postsCache.clear()
     notificationCache.clear()
     batchDataCache.clear()
-    
+
     // Also cancel any pending requests
     requestDeduplicator.cancelAll()
   }
@@ -252,10 +268,10 @@ class OptimizedAPIClient {
     // Smart cache invalidation for related data
     this.invalidateRelatedCache(`/follows/${userId}`)
     this.invalidateRelatedCache(`/users/${userId}/profile`)
-    
+
     // Also invalidate current user's profile (following count changes)
     this.invalidateCache('/users/me/profile')
-    
+
     return result
   }
 

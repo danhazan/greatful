@@ -8,7 +8,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useUserState } from '@/hooks/useUserState'
 
 interface FollowButtonProps {
-  userId: number
+  userId: string | number
   initialFollowState?: boolean
   onFollowChange?: (isFollowing: boolean) => void
   className?: string

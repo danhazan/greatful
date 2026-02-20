@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // Centralized API configuration
 export const API_CONFIG = {
-  BASE_URL: process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  BASE_URL: process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000',
   TIMEOUT: 10000, // 10 seconds
 } as const
 
@@ -33,22 +33,22 @@ export function handleApiError(
   defaultMessage: string = 'An unexpected error occurred'
 ): NextResponse<ApiErrorResponse> {
   console.error(`Error in ${context}:`, error)
-  
+
   // Handle different error types
   if (error instanceof Error) {
     return NextResponse.json(
-      { 
-        error: 'Internal Server Error', 
-        message: error.message 
+      {
+        error: 'Internal Server Error',
+        message: error.message
       },
       { status: 500 }
     )
   }
-  
+
   return NextResponse.json(
-    { 
-      error: 'Internal Server Error', 
-      message: defaultMessage 
+    {
+      error: 'Internal Server Error',
+      message: defaultMessage
     },
     { status: 500 }
   )
@@ -73,11 +73,11 @@ export function createAuthHeaders(request: NextRequest): Record<string, string> 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
-  
+
   return headers
 }
 
@@ -96,9 +96,9 @@ export async function makeBackendRequest(
   options: RequestInit & { authHeaders?: HeadersInit } = {}
 ): Promise<Response> {
   const { authHeaders, ...fetchOptions } = options
-  
+
   const url = `${API_CONFIG.BASE_URL}${endpoint}`
-  
+
   const requestOptions: RequestInit = {
     ...fetchOptions,
     headers: {
@@ -107,7 +107,7 @@ export async function makeBackendRequest(
       ...fetchOptions.headers,
     },
   }
-  
+
   return fetch(url, requestOptions)
 }
 

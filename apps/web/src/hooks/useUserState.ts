@@ -145,14 +145,14 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
               // Update context state with correct field mapping
               updateUserProfile(targetUserId, {
                 id: targetUserId,
-                name: data.display_name || data.name || data.username,
+                name: data.displayName || data.name || data.username,
                 username: data.username,
                 email: data.email,
-                image: data.profile_image_url || data.image,
-                display_name: data.display_name,
-                follower_count: data.followers_count || data.follower_count || 0,
-                following_count: data.following_count || data.following_count || 0,
-                posts_count: data.posts_count || 0
+                profileImageUrl: data.profileImageUrl || data.profile_image_url || data.image,
+                displayName: data.displayName || data.display_name,
+                followerCount: data.followerCount || data.followers_count || data.follower_count || 0,
+                followingCount: data.followingCount || data.following_count || 0,
+                postsCount: data.postsCount || data.posts_count || 0
               })
               setLocalUserProfile(data)
             } else if (type === 'follow') {
@@ -264,14 +264,14 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       // Update with server response
       updateUserProfile(userId, {
         id: userId,
-        name: updatedProfile.display_name || updatedProfile.name || updatedProfile.username,
+        name: updatedProfile.displayName || updatedProfile.name || updatedProfile.username,
         username: updatedProfile.username,
         email: updatedProfile.email,
-        image: updatedProfile.profile_image_url || updatedProfile.image,
-        display_name: updatedProfile.display_name,
-        follower_count: updatedProfile.follower_count,
-        following_count: updatedProfile.following_count,
-        posts_count: updatedProfile.posts_count
+        profileImageUrl: updatedProfile.profileImageUrl || updatedProfile.image,
+        displayName: updatedProfile.displayName,
+        followerCount: updatedProfile.followerCount,
+        followingCount: updatedProfile.followingCount,
+        postsCount: updatedProfile.postsCount
       })
 
       setLocalUserProfile(updatedProfile)

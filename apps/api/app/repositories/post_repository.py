@@ -661,7 +661,7 @@ class PostRepository(BaseRepository):
                     "follower_count": stats.get("followers_count", 0),
                     "following_count": stats.get("following_count", 0),
                     "posts_count": stats.get("posts_count", 0),
-                    "is_following": follow_statuses.get(post.author_id, False)
+                    "is_following": follow_statuses.get(post.author_id, False) if user_id and user_id != post.author_id else None
                 }
 
             # ✅ Convert legacy image_url

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
+from app.schemas.user import AuthorResponse
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.post import Post, PostType
@@ -79,6 +80,9 @@ class PostImageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PostResponse(BaseModel):
     """Post response model with rich content support."""
     id: str
@@ -94,7 +98,7 @@ class PostResponse(BaseModel):
     is_public: bool
     created_at: str
     updated_at: Optional[str] = None
-    author: dict
+    author: AuthorResponse
     hearts_count: int = 0
     reactions_count: int = 0
     comments_count: int = 0
@@ -104,7 +108,28 @@ class PostResponse(BaseModel):
     is_unread: Optional[bool] = False
     algorithm_score: Optional[float] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        alias_generator=lambda s: ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(s.split('_')))
+    )
+
+    @model_validator(mode='before')
+    @classmethod
+    def check_duplicate_follow_state(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            top_level = data.get('is_following') or data.get('isFollowing')
+            author = data.get('author')
+            if top_level is not None and author and isinstance(author, dict):
+                author_follow = author.get('is_following') or author.get('isFollowing')
+                if author_follow is not None:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        "ARCHITECTURE VIOLATION: Duplicate follow indicators detected. "
+                        "Follow state should be strictly nested under 'author'."
+                    )
+        return data
 
     @field_validator('post_type')
     @classmethod
@@ -1228,7 +1253,8 @@ async def get_post_by_id(
                        COALESCE(hearts.hearts_count, 0) as hearts_count,
                        COALESCE(reactions.reactions_count, 0) as reactions_count,
                        user_reactions.emoji_code as current_user_reaction,
-                       CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
+                       CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted,
+                       CASE WHEN user_follows.follower_id IS NOT NULL THEN true ELSE false END as is_following
                 FROM posts p
                 LEFT JOIN users u ON u.id = p.author_id
                 LEFT JOIN (
@@ -1247,6 +1273,8 @@ async def get_post_by_id(
                     AND user_reactions.user_id = :current_user_id AND user_reactions.emoji_code != 'heart'
                 LEFT JOIN emoji_reactions user_hearts ON user_hearts.post_id = p.id 
                     AND user_hearts.user_id = :current_user_id AND user_hearts.emoji_code = 'heart'
+                LEFT JOIN follows user_follows ON user_follows.followed_id = p.author_id
+                    AND user_follows.follower_id = :current_user_id AND user_follows.status = 'active'
                 WHERE p.id = :post_id
             """)
         else:
@@ -1273,7 +1301,8 @@ async def get_post_by_id(
                        0 as hearts_count,
                        COALESCE(reactions.reactions_count, 0) as reactions_count,
                        user_reactions.emoji_code as current_user_reaction,
-                       false as is_hearted
+                       false as is_hearted,
+                       CASE WHEN user_follows.follower_id IS NOT NULL THEN true ELSE false END as is_following
                 FROM posts p
                 LEFT JOIN users u ON u.id = p.author_id
                 LEFT JOIN (
@@ -1283,6 +1312,8 @@ async def get_post_by_id(
                 ) reactions ON reactions.post_id = p.id
                 LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
                     AND user_reactions.user_id = :current_user_id
+                LEFT JOIN follows user_follows ON user_follows.followed_id = p.author_id
+                    AND user_follows.follower_id = :current_user_id AND user_follows.status = 'active'
                 WHERE p.id = :post_id
             """)
 
@@ -1324,6 +1355,12 @@ async def get_post_by_id(
         # Fetch post images with full URLs
         images = await _fetch_post_images(db, post_id)
 
+        # Fetch author stats
+        from app.repositories.user_repository import UserRepository
+        user_repo = UserRepository(db)
+        author_stats = await user_repo.get_user_stats_batch([row.author_id])
+        stats = author_stats.get(row.author_id, {})
+
         return PostResponse(
             id=row.id,
             author_id=row.author_id,
@@ -1343,7 +1380,11 @@ async def get_post_by_id(
                 "username": row.author_username,
                 "display_name": row.author_display_name,
                 "name": row.author_display_name or row.author_username,
-                "image": row.author_profile_image
+                "image": storage.get_url(row.author_profile_image) if getattr(row, 'author_profile_image', None) else None,
+                "follower_count": stats.get("followers_count", 0),
+                "following_count": stats.get("following_count", 0),
+                "posts_count": stats.get("posts_count", 0),
+                "is_following": bool(row.is_following) if current_user_id and current_user_id != row.author_id else None
             },
             hearts_count=int(row.hearts_count) if row.hearts_count else 0,
             reactions_count=int(row.reactions_count) if row.reactions_count else 0,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { transformApiResponse } from './caseTransform';
 
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
 // Helper function to read headers from different request types
 function readHeader(request: any, key: string): string | undefined {
@@ -27,14 +27,14 @@ const transformProfileImageUrl = (url: string | null): string | null => {
 
 // Helper function to get profile image URL from author object
 const getAuthorImageUrl = (author: any): string | null => {
-  return author.image || author.profile_image_url || null
+  return author.profileImageUrl || author.image || author.profile_image_url || null
 }
 
 export async function handleUserPostsRequest(request: any, userId?: string) {
   try {
     const authHeader = readHeader(request, 'authorization')
     const requireAuth = typeof userId === "undefined" || userId === null
-    
+
     if (requireAuth && !authHeader) {
       return NextResponse.json(
         { error: 'Authorization header required' },
@@ -43,7 +43,7 @@ export async function handleUserPostsRequest(request: any, userId?: string) {
     }
 
     const path = userId ? `/api/v1/users/${userId}/posts` : `/api/v1/users/me/posts`;
-    
+
     // Forward the request to the FastAPI backend
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method: 'GET',
@@ -62,10 +62,10 @@ export async function handleUserPostsRequest(request: any, userId?: string) {
     }
 
     const responseData = await response.json()
-    
+
     // Handle wrapped response format
     const posts = responseData.data || responseData
-    
+
     // Check if posts is an array
     if (!Array.isArray(posts)) {
       console.error('Expected posts to be an array, got:', typeof posts, posts)
@@ -77,15 +77,16 @@ export async function handleUserPostsRequest(request: any, userId?: string) {
 
     // Automatically transform snake_case to camelCase
     const transformedPosts = transformApiResponse(posts)
-    
+
     // Post-process: ensure author.id is string and fix profile image URLs
     if (Array.isArray(transformedPosts)) {
       transformedPosts.forEach((post: any) => {
         if (post.author) {
           post.author.id = String(post.author.id)
-          if (post.author.image || post.author.profileImageUrl) {
-            const imageUrl = post.author.image || post.author.profileImageUrl
-            post.author.image = transformProfileImageUrl(imageUrl)
+          if (post.author.profileImageUrl || post.author.image) {
+            const imageUrl = post.author.profileImageUrl || post.author.image
+            post.author.profileImageUrl = transformProfileImageUrl(imageUrl)
+            post.author.image = post.author.profileImageUrl
           }
         }
         // Transform legacy single image URL if present

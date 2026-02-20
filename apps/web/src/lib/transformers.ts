@@ -82,12 +82,12 @@ export function transformNotifications(notifications: BackendNotification[]): Fr
  */
 export function ensureTimezoneIndicator(timestamp: string): string {
   if (!timestamp) return timestamp
-  
+
   // If timestamp already has timezone info, return as is
   if (timestamp.includes('Z') || timestamp.includes('+') || timestamp.includes('-')) {
     return timestamp
   }
-  
+
   // Add Z suffix to indicate UTC
   return `${timestamp}Z`
 }
@@ -342,8 +342,13 @@ export interface FrontendUserPost {
     id: string
     name: string
     username: string
-    display_name?: string
+    displayName?: string
+    profileImageUrl?: string
     image?: string
+    followerCount: number
+    followingCount: number
+    postsCount: number
+    isFollowing: boolean | null
   }
   createdAt: string
   updatedAt?: string
@@ -420,8 +425,13 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
       id: post.author.id.toString(),
       name: post.author.display_name || post.author.name || post.author.username || 'Unknown User',
       username: post.author.username || 'unknown',
-      display_name: post.author.display_name || post.author.username,
-      image: post.author.image || post.author.profile_image_url
+      displayName: post.author.display_name || post.author.username,
+      profileImageUrl: post.author.profile_image_url || post.author.image,
+      image: post.author.image || post.author.profile_image_url,
+      followerCount: post.author.follower_count || 0,
+      followingCount: post.author.following_count || 0,
+      postsCount: post.author.posts_count || 0,
+      isFollowing: post.author.is_following ?? null
     },
     createdAt: ensureTimezoneIndicator(createdAt),
     updatedAt: updatedAt ? ensureTimezoneIndicator(updatedAt) : undefined,

@@ -15,6 +15,7 @@ from app.core.security import decode_token
 from app.models.notification import Notification
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
+from app.schemas.user import AuthorResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -32,7 +33,7 @@ class NotificationResponse(BaseModel):
     created_at: str
     last_updated_at: str | None = None
     post_id: str | None = None
-    from_user: dict | None = None
+    from_user: AuthorResponse | None = None
     # Batching fields
     is_batch: bool = False
     batch_count: int = 1
@@ -229,12 +230,31 @@ async def get_notifications(
         if actor_ids:
             user_service = UserService(db)
             profiles_list = await user_service.get_public_user_profiles_batch(list(actor_ids))
+            
+            # 1. Batch get Author profile stats
+            from app.repositories.user_repository import UserRepository
+            user_repo = UserRepository(db)
+            author_stats = await user_repo.get_user_stats_batch(list(actor_ids))
+            
+            # 2. Batch get Follow statuses
+            from app.repositories.follow_repository import FollowRepository
+            follow_repo = FollowRepository(db)
+            follow_statuses = await follow_repo.bulk_check_following_status(current_user_id, list(actor_ids)) if current_user_id else {}
+            
+            from app.core.storage import storage
             for p in profiles_list:
-                resolved_profiles[str(p['id'])] = {
-                    'id': str(p['id']),
+                p_id = p['id']
+                stats = author_stats.get(p_id, {})
+                resolved_profiles[str(p_id)] = {
+                    'id': str(p_id),
                     'name': p.get('display_name') or p['username'],
                     'username': p['username'],
-                    'image': p.get('profile_image_url')
+                    'display_name': p.get('display_name'),
+                    'image': storage.get_url(p.get('profile_image_url')) if p.get('profile_image_url') else None,
+                    'follower_count': stats.get('followers_count', 0),
+                    'following_count': stats.get('following_count', 0),
+                    'posts_count': stats.get('posts_count', 0),
+                    'is_following': follow_statuses.get(p_id, False) if current_user_id and current_user_id != p_id else None
                 }
 
         for notification in notifications:

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { transformApiResponse } from './caseTransform';
 
-const API_BASE_URL = (process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+export const API_CONFIG = {
+  BASE_URL: (process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000').replace(/\/$/, ""),
+  TIMEOUT: 10000, // 10 seconds
+} as const;
 
 type ProxyOptions = {
   requireAuth?: boolean;       // if true -> return 401 early when no auth header
@@ -80,7 +83,7 @@ export async function proxyApiRequest(request: any, backendPath: string, opts: P
   }
 
   // Build backend URL
-  const url = `${API_BASE_URL}${backendPath.startsWith("/") ? backendPath : `/${backendPath}`}`;
+  const url = `${API_CONFIG.BASE_URL}${backendPath.startsWith("/") ? backendPath : `/${backendPath}`}`;
 
   // Prepare request body for non-GET/HEAD
   let body: BodyInit | undefined = undefined;
@@ -116,7 +119,7 @@ export async function proxyApiRequest(request: any, backendPath: string, opts: P
 
   // Return backend response body and status back to client
   const respText = await resp.text();
-  
+
   // Transform response if requested
   if (transform) {
     try {
@@ -134,7 +137,7 @@ export async function proxyApiRequest(request: any, backendPath: string, opts: P
       });
     }
   }
-  
+
   return new NextResponse(respText, {
     status: resp.status,
     headers: { "content-type": resp.headers.get("content-type") ?? "application/json" },
@@ -143,7 +146,7 @@ export async function proxyApiRequest(request: any, backendPath: string, opts: P
 
 // Legacy compatibility - keep the old function name but use new implementation
 export async function handleApiProxy(
-  request: any, 
+  request: any,
   backendPath: string,
   options: { requireAuth?: boolean; method?: string } = {}
 ) {
