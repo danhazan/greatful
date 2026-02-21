@@ -18,7 +18,7 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const { showError } = useToast()
-  const { currentUser } = useUser()
+  const { currentUser, loading: userLoading } = useUser()
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -62,10 +62,11 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
       }
     }
 
-    if (postId) {
-      fetchPost()
-    }
-  }, [postId, showError])
+    if (!postId) return
+    if (userLoading) return
+
+    fetchPost()
+  }, [postId, userLoading])
 
   if (loading) {
     return (

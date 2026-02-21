@@ -43,6 +43,7 @@ export type StateEvent =
 interface UserContextType {
   currentUser: User | null
   setCurrentUser: (user: User | null) => void
+  loading: boolean
   isLoading: boolean
 
   // Enhanced state management
@@ -283,6 +284,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value: UserContextType = {
     currentUser,
     setCurrentUser,
+    loading: isLoading,
     isLoading,
     userProfiles,
     followStates,
