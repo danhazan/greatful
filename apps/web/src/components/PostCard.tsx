@@ -891,8 +891,6 @@ export default function PostCard({
                             userId={parseInt(currentPost.author.id)}
                             size="xxs"
                             variant="outline"
-                            autoFetch={false}
-                            initialFollowState={isFollowing}
                           />
                         );
                       })()}

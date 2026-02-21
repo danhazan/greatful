@@ -43,17 +43,25 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   const [localUserProfile, setLocalUserProfile] = useState<any | null>(null)
   const [localFollowState, setLocalFollowState] = useState(initialFollowState)
 
+
+  // Get current state from context, with proper fallback to initial state
+  const userProfile = userId ? getUserProfile(userId) || localUserProfile : null
+  const lastFetch = userId ? getLastFetchTime(userId) : null
+  const isFresh = lastFetch && (Date.now() - lastFetch) < CACHE_DURATION
+
+  const contextFollowState =
+    userId && isFresh
+      ? getFollowState(userId)
+      : undefined
+
+  const followState = contextFollowState !== undefined ? contextFollowState : localFollowState
+
   // Debug logging to track which users are being processed
   React.useEffect(() => {
     if (userId) {
       console.log('useUserState hook initialized for userId:', userId)
     }
-  }, [userId])
-
-  // Get current state from context, with proper fallback to initial state
-  const userProfile = userId ? getUserProfile(userId) || localUserProfile : null
-  const contextFollowState = userId ? getFollowState(userId) : undefined
-  const followState = contextFollowState !== undefined ? contextFollowState : localFollowState
+  }, [userId, contextFollowState, initialFollowState])
 
   // Check if we have cached data
   const getCachedData = useCallback(() => {
@@ -178,7 +186,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     } finally {
       setIsLoading(false)
     }
-  }, [updateUserProfile, updateFollowState, getCachedData, getLastFetchTime, markDataAsFresh])
+  }, [updateUserProfile, updateFollowState, getCachedData, getLastFetchTime, markDataAsFresh, autoFetch])
 
   // Auto-fetch user data when userId changes
   useEffect(() => {
@@ -207,8 +215,8 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       // If autoFetch is disabled, don't show loading state
       setIsLoading(false)
     }
-  }, [userId, autoFetch]) // Remove fetchUserData from dependencies to prevent loops
-
+  }, [userId, autoFetch, fetchUserData])
+  
   // Subscribe to state updates for real-time synchronization
   useEffect(() => {
     const unsubscribe = subscribeToStateUpdates((event) => {
