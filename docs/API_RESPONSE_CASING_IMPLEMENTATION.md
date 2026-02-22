@@ -1,12 +1,22 @@
 # API Response Casing Implementation
 
-## Implementation Complete (December 2024)
+## Current Status (February 2026)
 
 ### Overview
-The project has **standardized on camelCase** for all API responses:
-- All endpoints now return **camelCase** (transformed by Next.js API routes using humps library)
-- Backend continues to use **snake_case** (Python convention)
-- Automatic transformation layer handles the conversion
+The project standard is:
+- Backend (FastAPI/Python) uses **snake_case**
+- Frontend (React/TypeScript) uses **camelCase**
+
+The conversion boundary is implemented in frontend API/proxy/service layers, not in backend models.
+
+### Important Contract Note: OAuth Endpoints
+- Backend OAuth responses still use snake_case (for example: `is_new_user`, `access_token`, `refresh_token`).
+- Frontend callback pages consume camelCase (`isNewUser`, `accessToken`, `refreshToken`).
+- The normalization now happens in `apps/web/src/services/oauthService.ts` using `transformApiResponse()` so OAuth consumers always receive camelCase.
+
+### Practical Rule
+- If data is read directly from backend responses in frontend code, apply `transformApiResponse()` first.
+- If using an API route that already goes through `proxyApiRequest` with default options, response keys are already transformed to camelCase.
 
 ### Backend (FastAPI)
 - **Standard**: snake_case (Python convention)
@@ -17,6 +27,40 @@ The project has **standardized on camelCase** for all API responses:
 - **Standard**: camelCase (JavaScript/TypeScript convention)
 - React components expect camelCase
 - Examples: `commentsCount`, `heartsCount`, `reactionsCount`, `createdAt`, `profileImageUrl`
+
+### OAuth Example (Current)
+
+Backend payload shape (snake_case):
+```json
+{
+  "user": {
+    "id": 1,
+    "profile_image_url": "https://example.com/avatar.jpg"
+  },
+  "tokens": {
+    "access_token": "jwt",
+    "refresh_token": "refresh-jwt",
+    "token_type": "bearer"
+  },
+  "is_new_user": false
+}
+```
+
+Frontend shape after normalization in `oauthService` (camelCase):
+```json
+{
+  "user": {
+    "id": 1,
+    "profileImageUrl": "https://example.com/avatar.jpg"
+  },
+  "tokens": {
+    "accessToken": "jwt",
+    "refreshToken": "refresh-jwt",
+    "tokenType": "bearer"
+  },
+  "isNewUser": false
+}
+```
 
 ---
 
@@ -324,11 +368,12 @@ return NextResponse.json(transformedPosts)
 
 ---
 
-## Current Status (Updated: December 2024)
+## Historical Notes (December 2024 Draft)
 
 ### ✅ IMPLEMENTATION COMPLETE
 
-All API endpoints now use automated snake_case to camelCase transformation via the `humps` library.
+The section below reflects a December 2024 rollout snapshot and is kept for context.
+For current behavior, use the "Current Status (February 2026)" section at the top of this document.
 
 **Latest Updates (December 8, 2024):**
 - Fixed remaining endpoints that were missing transformation:
@@ -386,9 +431,9 @@ All API endpoints now use automated snake_case to camelCase transformation via t
 
 ---
 
-## Decision Required
+## Historical Decision Record
 
-**Question for Team**: Which approach should we take?
+This decision section is historical context from the rollout period.
 
 1. **Option 1 (Recommended)**: Standardize on camelCase with automated transformation
    - Effort: Medium (1-2 days)
@@ -402,7 +447,7 @@ All API endpoints now use automated snake_case to camelCase transformation via t
    - Effort: Low (ongoing)
    - Benefit: None (continues current issues)
 
-**Recommendation**: Implement Option 1 (camelCase with automated transformation)
+**Historical recommendation**: Option 1 (camelCase with automated transformation)
 
 ---
 

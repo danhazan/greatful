@@ -32,7 +32,12 @@ describe('OAuthService', () => {
       const result = await oauthService.getProviders()
 
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/api/v1/oauth/providers')
-      expect(result).toEqual(mockResponse.data)
+      expect(result).toEqual({
+        providers: { google: true, facebook: false },
+        redirectUri: 'http://localhost:3000/auth/callback',
+        environment: 'development',
+        initialized: true
+      })
     })
 
     it('handles API errors', async () => {
@@ -93,6 +98,29 @@ describe('OAuthService', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: 'auth_code_123', state: 'state_456' })
       })
+      expect(result).toEqual({
+        user: { id: '1', username: 'testuser', email: 'test@example.com' },
+        tokens: { accessToken: 'token123', tokenType: 'Bearer' },
+        isNewUser: false
+      })
+    })
+
+    it('keeps camelCase callback responses compatible', async () => {
+      const mockResponse = {
+        data: {
+          user: { id: '1', username: 'testuser', email: 'test@example.com' },
+          tokens: { accessToken: 'token123', tokenType: 'Bearer' },
+          isNewUser: true
+        }
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse
+      } as Response)
+
+      const result = await oauthService.handleCallback('google', 'auth_code_123', 'state_456')
+
       expect(result).toEqual(mockResponse.data)
     })
 

@@ -1,6 +1,7 @@
 /**
  * OAuth Service for handling social authentication flows
  */
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export interface OAuthProvider {
   google: boolean
@@ -57,7 +58,7 @@ class OAuthService {
         throw new Error(data.detail || 'Failed to get OAuth providers')
       }
 
-      return data.data || data
+      return transformApiResponse<OAuthProviderStatus>(data.data || data)
     } catch (error) {
       console.error('Error getting OAuth providers:', error)
       throw error
@@ -115,7 +116,7 @@ class OAuthService {
         throw error
       }
 
-      return data.data || data
+      return transformApiResponse<OAuthLoginResponse>(data.data || data)
     } catch (error) {
       console.error(`Error handling ${provider} OAuth callback:`, error)
       throw error
