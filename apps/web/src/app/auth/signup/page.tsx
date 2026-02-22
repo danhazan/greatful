@@ -75,8 +75,8 @@ export default function SignupPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Store the access token if returned (backend wraps response in data field)
-        const accessToken = data.data?.access_token || data.access_token
+        // Store the access token if returned (normalized camelCase response)
+        const accessToken = data.data?.accessToken || data.accessToken
         if (accessToken) {
           localStorage.setItem("access_token", accessToken)
         }

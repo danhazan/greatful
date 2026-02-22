@@ -5,7 +5,7 @@ import {
   makeBackendRequest, 
   createErrorResponse,
   validateRequiredParams,
-  proxyBackendResponse,
+  proxyBackendJsonResponse,
   hasValidAuth
 } from '@/lib/api-utils'
 
@@ -35,7 +35,7 @@ export async function GET(
       authHeaders,
     })
 
-    return proxyBackendResponse(response)
+    return proxyBackendJsonResponse(response)
 
   } catch (error) {
     return handleApiError(error, 'getting hearts users')

@@ -49,8 +49,8 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Store the access token (backend wraps response in data field)
-        const accessToken = data.data?.access_token || data.access_token
+        // Store the access token from normalized camelCase response
+        const accessToken = data.data?.accessToken || data.accessToken
         localStorage.setItem("access_token", accessToken)
         
         // Trigger UserContext to reload user data with the new token

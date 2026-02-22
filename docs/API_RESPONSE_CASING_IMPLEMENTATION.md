@@ -18,6 +18,20 @@ The conversion boundary is implemented in frontend API/proxy/service layers, not
 - If data is read directly from backend responses in frontend code, apply `transformApiResponse()` first.
 - If using an API route that already goes through `proxyApiRequest` with default options, response keys are already transformed to camelCase.
 
+### Allowed Boundary Patterns
+- `apps/web/src/lib/api-proxy.ts` via `proxyApiRequest(...)` (default `transform: true`)
+- `apps/web/src/lib/api-utils.ts` via `proxyBackendJsonResponse(...)`
+- Service-level normalization only when bypassing Next API routes (example: `apps/web/src/services/oauthService.ts`)
+
+### Disallowed Pattern
+- Returning raw backend JSON from frontend API routes without normalization, unless the route includes an explicit passthrough comment and test coverage.
+
+### New API Route Checklist
+1. Normalize response keys to camelCase (`proxyApiRequest` or `proxyBackendJsonResponse`).
+2. Keep snake_case only for backend request payload fields where required.
+3. Add/adjust tests to assert no snake_case keys in frontend-facing response payloads.
+4. Avoid snake_case property access in frontend UI/service code.
+
 ### Backend (FastAPI)
 - **Standard**: snake_case (Python convention)
 - All Pydantic models use snake_case field names

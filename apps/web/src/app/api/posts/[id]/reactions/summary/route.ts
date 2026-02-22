@@ -7,6 +7,7 @@ import {
   validateRequiredParams,
   hasValidAuth
 } from '@/lib/api-utils'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export async function GET(
   request: NextRequest,
@@ -43,7 +44,7 @@ export async function GET(
     }
 
     const summaryResponse = await response.json()
-    const summary = summaryResponse.data || summaryResponse
+    const summary = transformApiResponse(summaryResponse.data || summaryResponse)
 
     return NextResponse.json(summary)
 

@@ -57,3 +57,14 @@ export function assertNoSnakeCase(data: any, context: string = 'API Response'): 
 export function validateCamelCase(data: any): boolean {
     return hasSnakeCaseKeys(data).length === 0
 }
+
+/**
+ * Strict assertion intended for tests/CI checks.
+ * Throws when snake_case keys are present.
+ */
+export function assertNoSnakeCaseInTest(data: any, context: string = 'API Response'): void {
+    const violations = hasSnakeCaseKeys(data)
+    if (violations.length > 0) {
+        throw new Error(`Contract violation in ${context}: snake_case keys found (${violations.join(', ')})`)
+    }
+}

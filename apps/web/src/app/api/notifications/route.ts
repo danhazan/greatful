@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mapBackendNotificationToFrontend } from '@/utils/notificationMapping'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 const API_BASE_URL = process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const notifications = await response.json()
+    const notifications = transformApiResponse(await response.json())
 
     // Transform the notifications to match the frontend format using the dedicated mapper
     const transformedNotifications = notifications.map(mapBackendNotificationToFrontend)
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const data = await response.json()
+    const data = transformApiResponse(await response.json())
     return NextResponse.json(data)
 
   } catch (error) {

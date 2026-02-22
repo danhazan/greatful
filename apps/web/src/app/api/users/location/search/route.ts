@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,12 +39,13 @@ export async function POST(request: NextRequest) {
     })
 
     const data = await backendResponse.json()
+    const transformedData = transformApiResponse(data)
 
     if (!backendResponse.ok) {
-      return NextResponse.json(data, { status: backendResponse.status })
+      return NextResponse.json(transformedData, { status: backendResponse.status })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(transformedData)
   } catch (error) {
     console.error('Location search API error:', error)
     return NextResponse.json(

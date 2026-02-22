@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export async function POST(
   request: NextRequest,
@@ -31,12 +32,20 @@ export async function POST(
       }),
     })
 
-    const responseData = await backendResponse.text()
+    const responseText = await backendResponse.text()
     console.log(`Backend response status: ${backendResponse.status}`)
-    console.log(`Backend response data:`, responseData)
+    console.log(`Backend response data:`, responseText)
+
+    let responseBody = responseText
+    try {
+      const parsed = JSON.parse(responseText)
+      responseBody = JSON.stringify(transformApiResponse(parsed))
+    } catch {
+      // Non-JSON responses are passed through as-is.
+    }
 
     // Return the backend response with the same status and headers
-    return new NextResponse(responseData, {
+    return new NextResponse(responseBody, {
       status: backendResponse.status,
       headers: {
         'Content-Type': 'application/json',

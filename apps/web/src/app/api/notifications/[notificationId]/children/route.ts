@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mapBackendNotificationToFrontend } from '@/utils/notificationMapping'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 const API_BASE_URL = process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
@@ -35,7 +36,7 @@ export async function GET(
       )
     }
 
-    const children = await response.json()
+    const children = transformApiResponse(await response.json())
 
     // Transform the children using the same unified mapper as regular notifications
     const transformedChildren = children.map(mapBackendNotificationToFrontend)

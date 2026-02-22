@@ -3,7 +3,7 @@ import {
   handleApiError, 
   makeBackendRequest, 
   createErrorResponse,
-  proxyBackendResponse 
+  proxyBackendJsonResponse
 } from '@/lib/api-utils'
 
 export async function POST(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       }),
     })
 
-    return proxyBackendResponse(response)
+    return proxyBackendJsonResponse(response)
   } catch (error) {
     return handleApiError(error, 'login')
   }

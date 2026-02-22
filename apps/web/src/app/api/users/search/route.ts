@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { normalizeUserDataArray } from '@/utils/userDataMapping'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     })
 
-    const data = await response.json()
+    const data = transformApiResponse(await response.json())
 
     if (!response.ok) {
       return NextResponse.json(data, { status: response.status })

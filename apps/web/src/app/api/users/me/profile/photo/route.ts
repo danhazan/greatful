@@ -6,6 +6,7 @@ import {
   createSuccessResponse,
   hasValidAuth
 } from '@/lib/api-utils'
+import { transformApiResponse } from '@/lib/caseTransform'
 
 const API_BASE_URL = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       body: backendFormData
     })
 
-    const result = await response.json()
+    const result = transformApiResponse(await response.json())
 
     if (!response.ok) {
       return createErrorResponse(
@@ -78,7 +79,7 @@ export async function DELETE(request: NextRequest) {
       }
     })
 
-    const result = await response.json()
+    const result = transformApiResponse(await response.json())
 
     if (!response.ok) {
       return createErrorResponse(

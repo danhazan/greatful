@@ -3,6 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { transformApiResponse } from './caseTransform'
 
 // Centralized API configuration
 export const API_CONFIG = {
@@ -22,6 +23,10 @@ export interface ApiSuccessResponse<T = any> {
   data?: T
   success?: boolean
   message?: string
+}
+
+type ProxyJsonOptions = {
+  transform?: boolean
 }
 
 /**
@@ -114,11 +119,37 @@ export async function makeBackendRequest(
 /**
  * Proxy response from backend to frontend
  */
+export async function proxyBackendJsonResponse(
+  response: Response,
+  opts: ProxyJsonOptions = {}
+): Promise<NextResponse> {
+  const { transform = true } = opts
+  const data = await response.json()
+  const payload = transform ? transformApiResponse(data) : data
+  return NextResponse.json(payload, { status: response.status })
+}
+
+/**
+ * @deprecated Use proxyBackendJsonResponse(response, { transform }) instead.
+ */
 export async function proxyBackendResponse(
   response: Response
 ): Promise<NextResponse> {
-  const data = await response.json()
-  return NextResponse.json(data, { status: response.status })
+  return proxyBackendJsonResponse(response)
+}
+
+/**
+ * Extract a human-readable error message from backend error payloads.
+ */
+export function getBackendErrorMessage(
+  errorData: any,
+  fallback: string
+): string {
+  if (!errorData || typeof errorData !== 'object') return fallback
+  if (typeof errorData.detail === 'string') return errorData.detail
+  if (typeof errorData.message === 'string') return errorData.message
+  if (typeof errorData.error === 'string') return errorData.error
+  return fallback
 }
 
 /**

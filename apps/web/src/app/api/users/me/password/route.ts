@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { transformApiResponse } from '@/lib/caseTransform'
 
 export async function PUT(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function PUT(request: NextRequest) {
       body: JSON.stringify(body),
     })
 
-    const responseData = await backendResponse.json()
+    const responseData = transformApiResponse(await backendResponse.json())
 
     if (!backendResponse.ok) {
       return NextResponse.json(responseData, { status: backendResponse.status })

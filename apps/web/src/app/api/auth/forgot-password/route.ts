@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getBackendErrorMessage, proxyBackendJsonResponse } from '@/lib/api-utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,17 +14,19 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     })
 
-    const data = await backendResponse.json()
-
     if (!backendResponse.ok) {
-      return NextResponse.json(data, { status: backendResponse.status })
+      const data = await backendResponse.json().catch(() => ({}))
+      return NextResponse.json(
+        { error: getBackendErrorMessage(data, 'Forgot password request failed') },
+        { status: backendResponse.status }
+      )
     }
 
-    return NextResponse.json(data)
+    return proxyBackendJsonResponse(backendResponse)
   } catch (error) {
     console.error('Forgot password API error:', error)
     return NextResponse.json(
-      { detail: 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
