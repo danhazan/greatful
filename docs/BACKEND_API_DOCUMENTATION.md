@@ -1098,6 +1098,10 @@ DELETE /api/v1/posts/{post_id}/heart     # Remove heart from post
 POST   /api/v1/posts/mark-read           # Mark posts as read for algorithm optimization
 ```
 
+Post deletion behavior:
+- Uses explicit cleanup flow in a single transaction.
+- Deletes related comments (including direct replies) before deleting the post to avoid integrity errors.
+
 #### Automatic Post Type Detection System
 
 The post creation system includes intelligent automatic type detection that categorizes posts based on content characteristics:
@@ -1735,7 +1739,8 @@ Authorization: Bearer <token>
 - **Emoji Support**: Full Unicode emoji support in comment content
 - **Single-Level Nesting**: Comments can have replies, but replies cannot have replies (prevents deep nesting)
 - **Performance Optimization**: Replies are fetched separately via lazy loading when user clicks "X replies" button
-- **Cascade Delete**: Deleting a comment automatically deletes all its replies
+- **Parent Cascade Delete**: Deleting a top-level comment deletes its direct replies
+- **Reply Deletion Guard**: Only the chronologically last reply in a thread can be deleted
 - **Owner-Only Delete**: Only the comment author can delete their comment
 - **Notifications**: Automatic notifications for comment authors when they receive replies, and post authors when they receive comments
 - **Content Validation**: 1-500 character limit with whitespace trimming
@@ -1862,7 +1867,10 @@ class CommentService(BaseService):
         
         Authorization:
         - Verifies user ownership before deletion
-        - Cascade deletes all replies automatically
+        
+        Deletion behavior:
+        - Top-level comments: deletes the parent and its direct replies
+        - Replies: only the last chronological reply in the thread is deletable
         """
     
     async def get_comment_count(self, post_id: str) -> int:
@@ -1873,7 +1881,8 @@ class CommentService(BaseService):
 - **Single-Level Nesting**: Prevents replies to replies (only one level of nesting allowed)
 - **Content Validation**: Enforces 1-500 character limit using BaseService validation
 - **Self-Notification Prevention**: Users don't receive notifications for their own comments/replies
-- **Cascade Deletion**: Deleting a comment automatically removes all its replies
+- **Parent Cascade Deletion**: Deleting a top-level comment removes its direct replies
+- **Reply Order Constraint**: Non-last replies cannot be deleted
 - **Post Verification**: Ensures post exists before allowing comments
 - **Parent Validation**: Verifies parent comment belongs to the same post for replies
 

@@ -248,12 +248,13 @@ class MentionRepository(BaseRepository):
             "avg_mentions_per_day": float(row.avg_mentions_per_day) if row.avg_mentions_per_day else 0.0
         }
     
-    async def delete_post_mentions(self, post_id: str) -> int:
+    async def delete_post_mentions(self, post_id: str, commit: bool = True) -> int:
         """
         Delete all mentions for a specific post.
         
         Args:
             post_id: ID of the post
+            commit: Whether to commit the deletion immediately
             
         Returns:
             int: Number of mentions deleted
@@ -265,7 +266,8 @@ class MentionRepository(BaseRepository):
         result = await self.db.execute(query, {"post_id": post_id})
         count = result.rowcount
         
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
         return count
     
     async def bulk_create_mentions(

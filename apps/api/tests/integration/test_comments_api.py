@@ -568,7 +568,7 @@ class TestDeleteComment:
         
         assert response.status_code == 404
 
-    async def test_delete_comment_with_replies_blocked(
+    async def test_delete_comment_with_replies_cascades(
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
@@ -576,7 +576,7 @@ class TestDeleteComment:
         test_user: User,
         auth_headers: dict
     ):
-        """Test that deleting a comment with replies is blocked."""
+        """Test that deleting a parent comment also deletes its replies."""
         # Create parent comment
         parent_comment = Comment(
             post_id=test_post.id,
@@ -606,23 +606,20 @@ class TestDeleteComment:
         count_before = result.scalar()
         assert count_before == 2
 
-        # Attempt to delete parent comment - should be blocked
+        # Delete parent comment
         response = await async_client.delete(
             f"/api/v1/comments/{parent_id}",
             headers=auth_headers
         )
 
-        # Should return 400 Bad Request with business logic error
-        assert response.status_code == 400
-        data = response.json()
-        # The error structure is {success: false, error: {code, message, details}}
-        error_message = data.get("error", {}).get("message", "").lower()
-        assert "replies" in error_message
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["message"] == "Comment deleted successfully"
 
-        # Verify both comments still exist
+        # Verify both parent and reply were deleted
         result = await db_session.execute(count_query)
         count_after = result.scalar()
-        assert count_after == 2
+        assert count_after == 0
 
     async def test_delete_reply_with_later_siblings_blocked(
         self,

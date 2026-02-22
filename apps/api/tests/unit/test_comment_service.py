@@ -8,7 +8,7 @@ from app.services.comment_service import CommentService
 from app.models.comment import Comment
 from app.models.post import Post
 from app.models.user import User
-from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError
+from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError, BusinessLogicError
 from datetime import datetime
 
 
@@ -422,12 +422,11 @@ class TestDeleteComment:
         """Test successful comment deletion by owner."""
         comment_service.get_by_id_or_404 = AsyncMock(return_value=sample_comment)
         comment_service.get_by_id = AsyncMock(return_value=sample_post)
-        comment_service.delete_entity = AsyncMock(return_value=True)
-        
-        # Mock database execute for reply count query
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 0  # No replies
-        comment_service.db.execute = AsyncMock(return_value=mock_result)
+
+        # Mock delete query result
+        delete_result = MagicMock()
+        delete_result.rowcount = 1
+        comment_service.db.execute = AsyncMock(return_value=delete_result)
         comment_service.db.commit = AsyncMock()
         comment_service.db.refresh = AsyncMock()
         
@@ -437,9 +436,45 @@ class TestDeleteComment:
         result = await comment_service.delete_comment("comment-123", user_id=1)
         
         assert result is True
-        comment_service.delete_entity.assert_called_once_with(sample_comment)
-        # Verify comments_count was decremented (5 - 1 = 4, since no replies)
+        # Verify comments_count was decremented by deleted rows
         assert sample_post.comments_count == 4
+
+    @pytest.mark.asyncio
+    async def test_delete_top_level_comment_cascades_direct_replies(
+        self,
+        comment_service,
+        sample_comment,
+        sample_post
+    ):
+        """Deleting a parent comment removes it and its direct replies."""
+        comment_service.get_by_id_or_404 = AsyncMock(return_value=sample_comment)
+        comment_service.get_by_id = AsyncMock(return_value=sample_post)
+
+        delete_result = MagicMock()
+        delete_result.rowcount = 2  # parent + one reply
+        comment_service.db.execute = AsyncMock(return_value=delete_result)
+        comment_service.db.commit = AsyncMock()
+        comment_service.db.refresh = AsyncMock()
+        sample_post.comments_count = 5
+
+        result = await comment_service.delete_comment("comment-123", user_id=1)
+
+        assert result is True
+        assert sample_post.comments_count == 3
+
+    @pytest.mark.asyncio
+    async def test_delete_reply_with_later_siblings_blocked(self, comment_service, sample_comment):
+        """Deleting a non-last reply is blocked."""
+        sample_comment.parent_comment_id = "parent-1"
+        sample_comment.created_at = datetime.utcnow()
+        comment_service.get_by_id_or_404 = AsyncMock(return_value=sample_comment)
+
+        count_result = MagicMock()
+        count_result.scalar.return_value = 1  # later sibling exists
+        comment_service.db.execute = AsyncMock(return_value=count_result)
+
+        with pytest.raises(BusinessLogicError):
+            await comment_service.delete_comment("comment-123", user_id=1)
 
     @pytest.mark.asyncio
     async def test_delete_comment_not_owner(self, comment_service, sample_comment):
@@ -460,6 +495,24 @@ class TestDeleteComment:
         
         with pytest.raises(NotFoundError):
             await comment_service.delete_comment("nonexistent", user_id=1)
+
+
+class TestDeleteCommentsForPost:
+    """Tests for delete_comments_for_post method."""
+
+    @pytest.mark.asyncio
+    async def test_delete_comments_for_post_set_based(self, comment_service):
+        """Bulk delete for a post uses one set-based delete and no commit by default."""
+        delete_result = MagicMock()
+        delete_result.rowcount = 4
+        comment_service.db.execute = AsyncMock(return_value=delete_result)
+        comment_service.db.commit = AsyncMock()
+
+        deleted_count = await comment_service.delete_comments_for_post("post-123")
+
+        assert deleted_count == 4
+        comment_service.db.execute.assert_awaited_once()
+        comment_service.db.commit.assert_not_called()
 
 
 class TestGetCommentCount:

@@ -1729,20 +1729,23 @@ async def delete_post(
                 detail="You can only delete your own posts"
             )
         
-        # Delete related data first (cascade delete)
+        # Delete comments/replies first to avoid ORM attempting post_id NULL updates.
+        from app.services.comment_service import CommentService
+        comment_service = CommentService(db)
+        await comment_service.delete_comments_for_post(post.id, commit=False)
+
+        # Delete other related data first
         try:
             # Delete mentions
             mention_service = MentionService(db)
-            await mention_service.delete_post_mentions(post.id)
+            await mention_service.delete_post_mentions(post.id, commit=False)
             
             # Delete reactions
             from app.services.reaction_service import ReactionService
             reaction_service = ReactionService(db)
             await reaction_service.delete_all_post_reactions(post.id)
-            
-            # Delete hearts (emoji reactions with 'heart' emoji_code)
+
             from sqlalchemy import text
-            await db.execute(text("DELETE FROM emoji_reactions WHERE post_id = :post_id AND emoji_code = 'heart'"), {"post_id": post.id})
             
             # Delete shares
             await db.execute(text("DELETE FROM shares WHERE post_id = :post_id"), {"post_id": post.id})
@@ -1781,10 +1784,9 @@ async def delete_post(
     except HTTPException:
         raise
     except Exception as e:
+        await db.rollback()
         logger.error(f"Error deleting post: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete post"
         ) from e
-
-

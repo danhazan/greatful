@@ -317,8 +317,9 @@ async def delete_comment(
     Returns success message on deletion.
     Only the comment owner can delete their comment.
 
-    **Important**: Deletion is blocked if the comment has replies.
-    Comments with replies cannot be deleted to prevent orphaned content.
+    **Important**:
+    - Deleting a top-level comment also deletes its direct replies.
+    - For replies, only the chronologically last reply in a thread can be deleted.
     """
     comment_service = CommentService(db)
 

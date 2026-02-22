@@ -7,6 +7,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import delete, or_
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError, BusinessLogicError
 from app.core.storage import storage  # ← ADDED: Import storage adapter
@@ -371,12 +372,42 @@ class CommentService(BaseService):
         result = await self.db.execute(reply_count_query)
         return result.scalar() or 0
 
+    async def _bulk_delete_comments_by_condition(self, condition, commit: bool = False) -> int:
+        """
+        Delete comments using a set-based SQL DELETE condition.
+
+        Args:
+            condition: SQLAlchemy condition expression for filtering comments to delete
+            commit: Whether to commit after deletion
+
+        Returns:
+            int: Number of rows deleted
+        """
+        result = await self.db.execute(delete(Comment).where(condition))
+        deleted_count = result.rowcount or 0
+        if commit:
+            await self.db.commit()
+        return deleted_count
+
+    async def delete_comments_for_post(self, post_id: str, commit: bool = False) -> int:
+        """
+        Delete all comments (top-level + replies) for a post in one set-based query.
+
+        Args:
+            post_id: ID of the post whose comments should be deleted
+            commit: Whether to commit after deletion
+
+        Returns:
+            int: Number of deleted comments
+        """
+        return await self._bulk_delete_comments_by_condition(Comment.post_id == post_id, commit=commit)
+
     async def delete_comment(self, comment_id: str, user_id: int) -> bool:
         """
         Delete a comment (owner only).
 
         Deletion rules:
-        - Top-level comments: Cannot be deleted if they have any replies
+        - Top-level comments: Deleting parent deletes all direct replies
         - Replies: Cannot be deleted if there are sibling replies created after this one
           (only the chronologically last reply in a thread can be deleted)
 
@@ -406,18 +437,11 @@ class CommentService(BaseService):
 
         # Check deletion constraints based on comment type
         if comment.parent_comment_id is None:
-            # Top-level comment: Check for any replies
-            reply_count_query = select(func.count(Comment.id)).where(
+            # Top-level comment: delete parent and direct replies in one operation.
+            delete_condition = or_(
+                Comment.id == comment_id,
                 Comment.parent_comment_id == comment_id
             )
-            result = await self.db.execute(reply_count_query)
-            reply_count = result.scalar() or 0
-
-            if reply_count > 0:
-                raise BusinessLogicError(
-                    "This comment has replies and cannot be deleted.",
-                    "comment_has_replies"
-                )
         else:
             # Reply: Check for later sibling replies (same parent, created after this one)
             later_siblings_query = select(func.count(Comment.id)).where(
@@ -432,19 +456,20 @@ class CommentService(BaseService):
                     "This reply has later replies in the thread and cannot be deleted.",
                     "reply_has_later_siblings"
                 )
+            delete_condition = Comment.id == comment_id
+
+        deleted_count = await self._bulk_delete_comments_by_condition(delete_condition, commit=False)
 
         # Get the post to update comments_count
         post = await self.get_by_id(Post, comment.post_id)
         if post:
-            # Decrement by 1 (just this comment, no replies since we blocked that)
-            post.comments_count = max(0, (post.comments_count or 0) - 1)
-            await self.db.commit()
+            post.comments_count = max(0, (post.comments_count or 0) - deleted_count)
+
+        await self.db.commit()
+        if post:
             await self.db.refresh(post)
 
-        # Delete the comment
-        await self.delete_entity(comment)
-
-        logger.info(f"Deleted comment {comment_id} by user {user_id}")
+        logger.info(f"Deleted comment {comment_id} by user {user_id} (removed {deleted_count} rows)")
         return True
 
     async def get_comment_count(self, post_id: str) -> int:
