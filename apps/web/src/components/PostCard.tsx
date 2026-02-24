@@ -859,7 +859,7 @@ export default function PostCard({
       <article className={styling.container} data-post-id={post.id}>
         {/* Post Header */}
         <div className={styling.header}>
-          <div className="flex items-start space-x-6">
+          <div className="flex items-start gap-3">
             <ProfilePhotoDisplay
               photoUrl={currentPost.author.profileImageUrl || currentPost.author.image}
               username={currentPost.author.username || currentPost.author.name}
@@ -867,22 +867,24 @@ export default function PostCard({
               className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all flex-shrink-0"
               onClick={() => onUserClick?.(currentPost.author.id)}
             />
+            {/* Content Column */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-4">
+              {/* Row 1: Name + Follow + Options */}
+              <div className="flex items-center gap-2">
                 <div
-                  className="cursor-pointer hover:text-purple-700 transition-colors flex-shrink-0"
+                  className="flex-1 min-w-0 cursor-pointer hover:text-purple-700 transition-colors"
                   onClick={() => onUserClick?.(currentPost.author.id)}
                 >
-                  <h3 className={`${styling.name} text-gray-900 font-bold`}>
+                  <h3 className={`${styling.name} text-gray-900 font-bold truncate`}>
                     {currentPost.author.displayName || currentPost.author.name}
                   </h3>
                 </div>
-                {/* Follow button positioned next to the user display name */}
+                {/* Follow button */}
                 {currentUserId &&
                   currentUserId !== currentPost.author.id &&
                   !isNaN(parseInt(currentPost.author.id)) &&
                   !hideFollowButton && (
-                    <div className="flex items-center">
+                    <div className="flex-shrink-0">
                       {(() => {
                         const isFollowing = currentPost.author.isFollowing ?? false;
                         console.debug("Follow state for user", currentPost.author.id, isFollowing);
@@ -896,113 +898,62 @@ export default function PostCard({
                       })()}
                     </div>
                   )}
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-sm text-gray-500">
-                <div className="flex items-center space-x-2">
-                  <Calendar className="h-4 w-4" />
-                  <a
-                    href={`/post/${post.id}`}
-                    className="hover:text-purple-600 hover:underline transition-colors cursor-pointer"
-                    title="View post details"
-                  >
-                    {(() => {
-                      const { dateString, wasEdited } = getDisplayDate()
-                      const formattedDate = formatDate(dateString)
-                      return wasEdited ? `${formattedDate} (edited)` : formattedDate
-                    })()}
-                  </a>
-                </div>
-                {/* Location on small screens - icon only to save space, tap to see details */}
-                {(currentPost.locationData || currentPost.location) && (
-                  <button
-                    ref={locationButtonRef}
-                    onClick={(event) => {
-                      event.preventDefault()
+                {/* Options Menu for Post Author */}
+                {isPostAuthor && (
+                  <div className="relative flex-shrink-0">
+                    <button
+                      ref={optionsButtonRef}
+                      onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                      className="p-1 hover:bg-gray-100 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                      title="Post options"
+                    >
+                      <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                    </button>
 
-                      if (locationButtonRef.current) {
-                        const rect = locationButtonRef.current.getBoundingClientRect()
-                        setLocationModalPosition({
-                          x: rect.left + rect.width / 2,
-                          y: rect.top
-                        })
-                      }
-
-                      setShowLocationModal(true)
-                    }}
-                    className="flex md:hidden items-center text-gray-500 hover:text-purple-600 transition-colors p-1 min-w-[44px] min-h-[44px] justify-center"
-                    title={currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
-                  >
-                    <MapPin className="h-4 w-4 flex-shrink-0" />
-                  </button>
+                    {/* Options Dropdown */}
+                    {showOptionsMenu && (
+                      <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                        <button
+                          onClick={() => {
+                            setShowEditModal(true)
+                            setShowOptionsMenu(false)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                          <span>Edit post</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowDeleteModal(true)
+                            setShowOptionsMenu(false)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>Delete post</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
-            <div className="flex items-center space-x-2 flex-shrink-0 max-w-[40%]">
-              {/* Location on larger screens - shows icon + text */}
-              {(currentPost.locationData || currentPost.location) && (
-                <button
-                  ref={locationButtonRef}
-                  onClick={(event) => {
-                    event.preventDefault()
-
-                    if (locationButtonRef.current) {
-                      const rect = locationButtonRef.current.getBoundingClientRect()
-                      setLocationModalPosition({
-                        x: rect.left + rect.width / 2,
-                        y: rect.top
-                      })
-                    }
-
-                    setShowLocationModal(true)
-                  }}
-                  className="hidden md:flex items-center gap-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full px-2 py-1 transition-all duration-200 min-w-[44px] min-h-[44px] max-w-full"
-                  title="View location details"
-                >
-                  <MapPin className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-xs truncate max-w-[150px]">
-                    {currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
-                  </span>
-                </button>
-              )}
-              {/* Options Menu for Post Author */}
-              {isPostAuthor && (
-                <div className="relative flex-shrink-0">
-                  <button
-                    ref={optionsButtonRef}
-                    onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                    className="p-1 hover:bg-gray-100 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                    title="Post options"
+              {/* Row 2: Date */}
+              <div className="flex items-center gap-2 mt-1 text-sm text-gray-500 min-w-0">
+                <div className="flex items-center gap-1 min-w-0">
+                  <Calendar className="h-4 w-4 flex-shrink-0" />
+                  <a
+                    href={`/post/${post.id}`}
+                    className="whitespace-nowrap hover:text-purple-600 hover:underline transition-colors cursor-pointer"
+                    title="View post details"
                   >
-                    <MoreHorizontal className="h-4 w-4 text-gray-500" />
-                  </button>
-
-                  {/* Options Dropdown */}
-                  {showOptionsMenu && (
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-                      <button
-                        onClick={() => {
-                          setShowEditModal(true)
-                          setShowOptionsMenu(false)
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                        <span>Edit post</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowDeleteModal(true)
-                          setShowOptionsMenu(false)
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span>Delete post</span>
-                      </button>
-                    </div>
+                    {formatDate(getDisplayDate().dateString)}
+                  </a>
+                  {getDisplayDate().wasEdited && (
+                    <span className="text-gray-400 text-xs">(edited)</span>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
