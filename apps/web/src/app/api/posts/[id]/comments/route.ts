@@ -76,6 +76,7 @@ export async function POST(
     const authHeaders = createAuthHeaders(request)
 
     const body = await request.json()
+    const parentCommentId = body.parentCommentId ?? body.parent_comment_id
 
     // Validate required fields
     if (!body.content) {
@@ -88,7 +89,7 @@ export async function POST(
       authHeaders,
       body: JSON.stringify({
         content: body.content,
-        parent_comment_id: body.parent_comment_id || null
+        parent_comment_id: parentCommentId || null
       })
     })
 

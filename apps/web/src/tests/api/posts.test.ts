@@ -176,11 +176,66 @@ describe('/api/posts', () => {
       expect(data.postType).toBe('photo')
     })
 
+    it('maps camelCase request fields to backend snake_case payload', async () => {
+      ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          id: 'post-camel-123',
+          content: 'camel payload',
+          post_type: 'daily',
+          author: { id: 1, username: 'testuser', profile_image_url: null },
+          created_at: '2025-01-08T12:00:00Z',
+          image_url: 'https://example.com/test.png'
+        })
+      } as Response)
+
+      const request = new NextRequest('http://localhost:3000/api/posts', {
+        method: 'POST',
+        headers: {
+          'authorization': 'Bearer test-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: 'camel payload',
+          richContent: '<p>rich</p>',
+          postStyle: 'sunset',
+          imageUrl: 'https://example.com/test.png',
+          locationData: '{"city":"Tel Aviv"}',
+          postTypeOverride: 'daily',
+          isPublic: false
+        })
+      })
+
+      const response = await POST(request)
+      expect(response.status).toBe(201)
+
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:8000/api/v1/posts',
+        expect.objectContaining({
+          body: JSON.stringify({
+            content: 'camel payload',
+            rich_content: '<p>rich</p>',
+            post_style: 'sunset',
+            title: null,
+            image_url: 'https://example.com/test.png',
+            location: null,
+            location_data: '{"city":"Tel Aviv"}',
+            post_type_override: 'daily',
+            is_public: false
+          })
+        })
+      )
+    })
+
     it('validates post type override', async () => {
       // Mock backend response for invalid post type override
       ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
         ok: false,
         status: 422,
+        headers: {
+          get: () => 'application/json'
+        },
         json: async () => ({
           detail: 'Invalid post type override. Must be one of: daily, photo, spontaneous'
         })
@@ -209,6 +264,9 @@ describe('/api/posts', () => {
       ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
         ok: false,
         status: 422,
+        headers: {
+          get: () => 'application/json'
+        },
         json: async () => ({
           detail: 'Content too long. Maximum 5000 characters allowed. Current: 5001 characters.'
         })
@@ -236,6 +294,9 @@ describe('/api/posts', () => {
       ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
         ok: false,
         status: 422,
+        headers: {
+          get: () => 'application/json'
+        },
         json: async () => ({
           detail: 'Content too long. Maximum 5000 characters allowed. Current: 5001 characters.'
         })
@@ -263,6 +324,9 @@ describe('/api/posts', () => {
       ;(fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 500,
+        headers: {
+          get: () => 'application/json'
+        },
         json: async () => ({ detail: 'Internal server error' })
       })
 

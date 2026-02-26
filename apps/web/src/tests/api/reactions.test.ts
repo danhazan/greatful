@@ -136,7 +136,7 @@ describe('/api/posts/[id]/reactions', () => {
           'content-type': 'application/json'
         },
         body: JSON.stringify({
-          emoji_code: 'heart_eyes'
+          emojiCode: 'heart_eyes'
         })
       })
 
@@ -165,6 +165,45 @@ describe('/api/posts/[id]/reactions', () => {
             emoji_code: 'heart_eyes'
           })
         }
+      )
+    })
+
+    it('accepts snake_case emoji_code for backward compatibility', async () => {
+      ;(fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'reaction-compat',
+          user_id: 1,
+          emoji_code: 'pray',
+          created_at: '2025-01-08T12:00:00Z',
+          user: {
+            username: 'testuser',
+            profile_image_url: null
+          }
+        })
+      })
+
+      const request = new NextRequest('http://localhost:3000/api/posts/post-123/reactions', {
+        method: 'POST',
+        headers: {
+          'authorization': 'Bearer test-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          emoji_code: 'pray'
+        })
+      })
+
+      const response = await POST(request, { params: { id: 'post-123' } })
+
+      expect(response.status).toBe(201)
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:8000/api/v1/posts/post-123/reactions',
+        expect.objectContaining({
+          body: JSON.stringify({
+            emoji_code: 'pray'
+          })
+        })
       )
     })
 

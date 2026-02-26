@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
         postStyle: formData.get('postStyle') as string,
         title: formData.get('title') as string,
         location: formData.get('location') as string,
-        location_data: formData.get('location_data') as string,
-        post_type_override: formData.get('post_type_override') as string,
+        locationData: (formData.get('locationData') || formData.get('location_data')) as string,
+        postTypeOverride: (formData.get('postTypeOverride') || formData.get('post_type_override')) as string,
         image: formData.get('image') as File,  // Legacy single image
         images: imageFiles.length > 0 ? imageFiles : undefined  // Multi-image
       }
@@ -40,9 +40,16 @@ export async function POST(request: NextRequest) {
       body = await request.json()
     }
 
+    const imageUrl = body.imageUrl ?? body.image_url
+    const richContent = body.richContent ?? body.rich_content
+    const postStyle = body.postStyle ?? body.post_style
+    const locationData = body.locationData ?? body.location_data
+    const postTypeOverride = body.postTypeOverride ?? body.post_type_override
+    const isPublic = body.isPublic ?? body.is_public
+
     // Validate that either content or image is provided
     const hasImages = body.images && body.images.length > 0
-    if (!body.content && !body.image_url && !body.image && !hasImages) {
+    if (!body.content && !imageUrl && !body.image && !hasImages) {
       return NextResponse.json(
         { error: 'Either content or image must be provided' },
         { status: 400 }
@@ -58,12 +65,12 @@ export async function POST(request: NextRequest) {
       // Forward FormData to backend for file upload
       const backendFormData = new FormData()
       backendFormData.append('content', body.content.trim())
-      if (body.richContent) backendFormData.append('rich_content', body.richContent)
-      if (body.postStyle) backendFormData.append('post_style', body.postStyle)
+      if (richContent) backendFormData.append('rich_content', richContent)
+      if (postStyle) backendFormData.append('post_style', postStyle)
       if (body.title) backendFormData.append('title', body.title)
       if (body.location) backendFormData.append('location', body.location)
-      if (body.location_data) backendFormData.append('location_data', body.location_data)
-      if (body.post_type_override) backendFormData.append('post_type_override', body.post_type_override)
+      if (locationData) backendFormData.append('location_data', locationData)
+      if (postTypeOverride) backendFormData.append('post_type_override', postTypeOverride)
       // Multi-image support: forward all images to backend
       if (body.images && body.images.length > 0) {
         body.images.forEach((file: File) => {
@@ -86,14 +93,14 @@ export async function POST(request: NextRequest) {
       // Transform the request to match the backend API format for JSON
       const postData = {
         content: body.content.trim(),
-        rich_content: body.rich_content || null,
-        post_style: body.post_style || null,
+        rich_content: richContent || null,
+        post_style: postStyle || null,
         title: body.title || null,
-        image_url: body.image_url || null,
+        image_url: imageUrl || null,
         location: body.location || null,
-        location_data: body.location_data || null,
-        post_type_override: body.postTypeOverride || null,
-        is_public: body.isPublic !== false // Default to true
+        location_data: locationData || null,
+        post_type_override: postTypeOverride || null,
+        is_public: isPublic !== false // Default to true
       }
 
 

@@ -78,8 +78,10 @@ export async function POST(
 
     const body = await request.json()
 
+    const emojiCode = body.emojiCode ?? body.emoji_code
+
     // Validate required fields
-    if (!body.emoji_code) {
+    if (!emojiCode) {
       return createErrorResponse('Emoji code is required', 400)
     }
 
@@ -88,7 +90,7 @@ export async function POST(
       method: 'POST',
       authHeaders,
       body: JSON.stringify({
-        emoji_code: body.emoji_code
+        emoji_code: emojiCode
       })
     })
 
