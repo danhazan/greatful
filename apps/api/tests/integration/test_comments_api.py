@@ -969,3 +969,135 @@ class TestUpdateComment:
         assert response.status_code == 200
         data = response.json()["data"]
         assert "" in data["content"]
+
+
+class TestPostUpdatedAtIsolation:
+    """Regression tests for post updated_at isolation from comment activity."""
+
+    async def test_create_comment_does_not_update_post_updated_at(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        auth_headers: dict
+    ):
+        baseline_updated_at = test_post.updated_at
+
+        response = await async_client.post(
+            f"/api/v1/posts/{test_post.id}/comments",
+            json={"content": "Isolation check comment"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+
+        await db_session.refresh(test_post)
+        assert test_post.updated_at == baseline_updated_at
+
+    async def test_create_reply_does_not_update_post_updated_at(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        parent_comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Parent for reply isolation"
+        )
+        db_session.add(parent_comment)
+        await db_session.commit()
+        await db_session.refresh(parent_comment)
+
+        await db_session.refresh(test_post)
+        baseline_updated_at = test_post.updated_at
+
+        response = await async_client.post(
+            f"/api/v1/comments/{parent_comment.id}/replies",
+            json={"content": "Isolation check reply"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+
+        await db_session.refresh(test_post)
+        assert test_post.updated_at == baseline_updated_at
+
+    async def test_edit_comment_does_not_update_post_updated_at(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Original isolation edit content"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+        await db_session.refresh(comment)
+        await db_session.refresh(test_post)
+        baseline_updated_at = test_post.updated_at
+
+        response = await async_client.put(
+            f"/api/v1/comments/{comment.id}",
+            json={"content": "Edited isolation content"},
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["data"]["edited_at"] is not None
+
+        await db_session.refresh(test_post)
+        assert test_post.updated_at == baseline_updated_at
+
+    async def test_delete_comment_does_not_update_post_updated_at(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        auth_headers: dict
+    ):
+        comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Comment to delete for isolation"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+        await db_session.refresh(comment)
+        await db_session.refresh(test_post)
+        baseline_updated_at = test_post.updated_at
+
+        response = await async_client.delete(
+            f"/api/v1/comments/{comment.id}",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        await db_session.refresh(test_post)
+        assert test_post.updated_at == baseline_updated_at
+
+    async def test_post_edit_updates_post_updated_at(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        auth_headers: dict
+    ):
+        baseline_updated_at = test_post.updated_at
+
+        response = await async_client.put(
+            f"/api/v1/posts/{test_post.id}",
+            json={"content": "Intentional post edit for updated_at"},
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        await db_session.refresh(test_post)
+        assert test_post.updated_at is not None
+        if baseline_updated_at is not None:
+            assert test_post.updated_at > baseline_updated_at

@@ -29,7 +29,9 @@ class Post(Base):
     location_data = Column(JSON, nullable=True)  # New structured location data (JSON for SQLite compatibility)
     is_public = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    # Represents intentional author edits to post content/state.
+    # Engagement/system maintenance updates (e.g., comments_count) must not modify this field.
+    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Engagement count columns for performance optimization
     hearts_count = Column(Integer, nullable=False, server_default="0")
