@@ -23,15 +23,12 @@ export default function FeedPage() {
   const [isCreatingPost, setIsCreatingPost] = useState(false)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
 
   // Pull-to-refresh state
   const [isPullToRefresh, setIsPullToRefresh] = useState(false)
   const [pullDistance, setPullDistance] = useState(0)
   const touchStartY = useRef(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const lastRefreshTime = useRef(0)
 
   // Load posts from API using optimized API client
   const loadPosts = async (token: string, refresh: boolean = false) => {
@@ -54,10 +51,6 @@ export default function FeedPage() {
 
       // Normalize posts to ensure consistent field naming
       const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
-
-      // Count unread posts
-      const unreadPostsCount = normalizedPosts.filter(post => post.isUnread).length
-      setUnreadCount(unreadPostsCount)
 
       setPosts(normalizedPosts)
 
@@ -261,27 +254,23 @@ export default function FeedPage() {
     setPosts(posts.filter(post => post.id !== postId))
   }
 
-  const refreshPosts = async (useRefreshMode: boolean = false) => {
+  // NOTE: The "X new posts" feed refresher banner was removed intentionally.
+  // The previous implementation treated `isUnread` from full feed fetches as a
+  // new-post detector, but there is no cursor/delta/push mechanism in the current
+  // feed model. That caused false positives (including after local post creation).
+  // Reintroduce only with an authoritative signal (cursor watermark, SSE/WebSocket,
+  // or polling against stable server-side deltas).
+  const refreshPosts = async (skipCache: boolean = false, updateFeedView: boolean = false) => {
     const token = localStorage.getItem("access_token")
     if (token) {
-      if (useRefreshMode) {
-        setIsRefreshing(true)
-      }
+      await loadPosts(token, skipCache)
 
-      try {
-        await loadPosts(token, useRefreshMode)
-
-        // Update user's last feed view timestamp after refresh
-        if (useRefreshMode) {
-          try {
-            await apiClient.post('/posts/update-feed-view')
-          } catch (error) {
-            console.error('Error updating feed view timestamp:', error)
-          }
-        }
-      } finally {
-        if (useRefreshMode) {
-          setIsRefreshing(false)
+      // Update user's last feed view timestamp after refresh
+      if (updateFeedView) {
+        try {
+          await apiClient.post('/posts/update-feed-view')
+        } catch (error) {
+          console.error('Error updating feed view timestamp:', error)
         }
       }
     }
@@ -308,55 +297,12 @@ export default function FeedPage() {
   const handleTouchEnd = useCallback(async () => {
     if (pullDistance > 60 && !isPullToRefresh) {
       setIsPullToRefresh(true)
-      await refreshPosts(true)
+      await refreshPosts(true, true)
       setIsPullToRefresh(false)
     }
     setPullDistance(0)
     touchStartY.current = 0
   }, [pullDistance, isPullToRefresh, refreshPosts])
-
-  // Check for new posts silently with debouncing
-  const checkForNewPosts = useCallback(async () => {
-    const now = Date.now()
-    if (now - lastRefreshTime.current < 60000) return // Minimum 1 minute between checks (increased from 30s)
-
-    const token = localStorage.getItem("access_token")
-    if (!token) return
-
-    try {
-      // Use optimized API client with cache skipping for refresh
-      const postsData = await apiClient.getPosts({ skipCache: true })
-      const posts = postsData.data || postsData
-
-      if (Array.isArray(posts)) {
-        const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
-        const unreadPostsCount = normalizedPosts.filter(post => post.isUnread).length
-        setUnreadCount(unreadPostsCount)
-      }
-
-      lastRefreshTime.current = now
-    } catch (error) {
-      console.error('Error checking for new posts:', error)
-    }
-  }, [])
-
-  // Handle page visibility changes
-  const handleVisibilityChange = useCallback(() => {
-    if (!document.hidden) {
-      setTimeout(checkForNewPosts, 1000) // Delay to allow page to fully load
-    }
-  }, [checkForNewPosts])
-
-  // Set up periodic checks and visibility change listener
-  useEffect(() => {
-    const interval = setInterval(checkForNewPosts, 2 * 60 * 1000) // Every 2 minutes
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [router, handleVisibilityChange])
 
   const handleCreatePost = async (postData: {
     content: string
@@ -472,8 +418,8 @@ export default function FeedPage() {
         throw new Error(errorMessage)
       }
 
-      // Refresh the entire feed to get the latest data
-      await refreshPosts()
+      // Refresh feed with a network read so the newly created post is visible immediately
+      await refreshPosts(true, false)
 
       // Close the modal
       setIsCreateModalOpen(false)
@@ -564,29 +510,6 @@ export default function FeedPage() {
         )}
 
         <div className="max-w-2xl mx-auto">
-          {/* Refresh Button */}
-          {unreadCount > 0 && (
-            <div className="mb-4 text-center">
-              <button
-                onClick={() => refreshPosts(true)}
-                disabled={isRefreshing}
-                className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Refreshing...' : `${unreadCount} new post${unreadCount > 1 ? 's' : ''}`}
-              </button>
-            </div>
-          )}
-
-          {/* Background refresh indicator */}
-          {isRefreshing && unreadCount === 0 && (
-            <div className="mb-4 text-center">
-              <div className="inline-flex items-center gap-2 bg-gray-100 text-gray-600 px-3 py-2 rounded-lg">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Checking for new posts...</span>
-              </div>
-            </div>
-          )}
           {/* Posts */}
           <div className="space-y-6">
             {posts.length === 0 ? (
