@@ -870,37 +870,40 @@ export default function PostCard({
             {/* Content Column */}
             <div className="flex-1 min-w-0">
               {/* Row 1: Name + Follow + Options */}
-              <div className="flex items-center gap-2 space-x-3">
-                <div
-                  className="min-w-0 cursor-pointer hover:text-purple-700 transition-colors space-x-20"
-                  onClick={() => onUserClick?.(currentPost.author.id)}
-                >
-                  <h3 className={`${styling.name} text-gray-900 font-bold truncate`}>
-                    {currentPost.author.displayName || currentPost.author.name}
-                  </h3>
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className="min-w-0 cursor-pointer hover:text-purple-700 transition-colors"
+                    onClick={() => onUserClick?.(currentPost.author.id)}
+                  >
+                    <h3 className={`${styling.name} text-gray-900 font-bold truncate`}>
+                      {currentPost.author.displayName || currentPost.author.name}
+                    </h3>
+                  </div>
+                  {/* Follow button */}
+                  {currentUserId &&
+                    currentUserId !== currentPost.author.id &&
+                    !isNaN(parseInt(currentPost.author.id)) &&
+                    !hideFollowButton && (
+                      <div className="flex-shrink-0">
+                        {(() => {
+                          const isFollowing = currentPost.author.isFollowing ?? false;
+                          console.debug("Follow state for user", currentPost.author.id, isFollowing);
+                          return (
+                            <FollowButton
+                              userId={parseInt(currentPost.author.id)}
+                              size="xxs"
+                              variant="outline"
+                            />
+                          );
+                        })()}
+                      </div>
+                    )}
                 </div>
-                {/* Follow button */}
-                {currentUserId &&
-                  currentUserId !== currentPost.author.id &&
-                  !isNaN(parseInt(currentPost.author.id)) &&
-                  !hideFollowButton && (
-                    <div className="flex-shrink-0">
-                      {(() => {
-                        const isFollowing = currentPost.author.isFollowing ?? false;
-                        console.debug("Follow state for user", currentPost.author.id, isFollowing);
-                        return (
-                          <FollowButton
-                            userId={parseInt(currentPost.author.id)}
-                            size="xxs"
-                            variant="outline"
-                          />
-                        );
-                      })()}
-                    </div>
-                  )}
+
                 {/* Options Menu for Post Author */}
                 {isPostAuthor && (
-                  <div className="relative flex-shrink-0 ml-auto">
+                  <div className="relative flex-shrink-0">
                     <button
                       ref={optionsButtonRef}
                       onClick={() => setShowOptionsMenu(!showOptionsMenu)}
