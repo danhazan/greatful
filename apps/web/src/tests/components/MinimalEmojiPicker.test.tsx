@@ -120,6 +120,22 @@ describe('MinimalEmojiPicker', () => {
     expect(picker).toHaveStyle('maxHeight: 280px')
   })
 
+  it('supports custom anchor gap for placement', () => {
+    render(
+      <MinimalEmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onEmojiSelect={mockOnEmojiSelect}
+        position={{ x: 100, y: 500 }}
+        anchorGap={0}
+      />
+    )
+
+    const picker = document.querySelector('.fixed.z-50.bg-white')
+    expect(picker).toBeInTheDocument()
+    expect(picker).toHaveStyle('bottom: 268px')
+  })
+
   it('contains all expected emoji groups', () => {
     render(
       <MinimalEmojiPicker

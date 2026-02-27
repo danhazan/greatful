@@ -18,6 +18,20 @@ const renderWithToast = (ui: React.ReactElement) => {
   return render(<ToastProvider>{ui}</ToastProvider>)
 }
 
+function StatefulCommentsModal(props: any) {
+  const [open, setOpen] = React.useState(true)
+  return (
+    <>
+      <button onClick={() => setOpen(true)} aria-label="Reopen comments">Reopen</button>
+      <CommentsModal
+        {...props}
+        isOpen={open}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  )
+}
+
 describe('CommentsModal', () => {
   const mockComments = [
     {
@@ -85,6 +99,14 @@ describe('CommentsModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    Object.defineProperty(window, 'scrollTo', {
+      writable: true,
+      value: jest.fn()
+    })
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      writable: true,
+      value: jest.fn()
+    })
   })
 
   it('renders modal when open', () => {
@@ -322,6 +344,181 @@ describe('CommentsModal', () => {
     
     // Check that emoji is displayed in comment content
     expect(screen.getByText(/😊/)).toBeInTheDocument()
+  })
+
+  it('inserts emoji into main comment input and keeps focus', () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const textarea = screen.getByLabelText('Add a comment') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'Hello' } })
+    textarea.focus()
+    textarea.setSelectionRange(5, 5)
+    fireEvent.select(textarea)
+
+    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for comment/i }))
+    fireEvent.click(screen.getByTitle('grinning face'))
+
+    expect((screen.getByLabelText('Add a comment') as HTMLTextAreaElement).value).toBe('Hello😀')
+    expect(document.activeElement).toBe(screen.getByLabelText('Add a comment'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search emojis...')).toBeInTheDocument()
+  })
+
+  it('clicking inside modal while picker is open closes only picker, not modal', () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for comment/i }))
+    expect(screen.getByPlaceholderText('Search emojis...')).toBeInTheDocument()
+
+    fireEvent.mouseDown(screen.getByLabelText('Add a comment'))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Search emojis...')).not.toBeInTheDocument()
+  })
+
+  it('clicking outside modal still triggers modal close', () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const backdrop = document.querySelector('.absolute.inset-0.bg-black.bg-opacity-50') as HTMLElement
+    fireEvent.mouseDown(backdrop)
+
+    expect(defaultProps.onClose).toHaveBeenCalled()
+  })
+
+  it('preserves main comment draft across modal close and reopen', async () => {
+    const statefulProps = {
+      ...defaultProps,
+      onClose: jest.fn()
+    }
+
+    renderWithToast(<StatefulCommentsModal {...statefulProps} />)
+
+    const input = screen.getByLabelText('Add a comment') as HTMLTextAreaElement
+    fireEvent.change(input, { target: { value: 'draft text 💜' } })
+
+    const backdrop = document.querySelector('.absolute.inset-0.bg-black.bg-opacity-50') as HTMLElement
+    fireEvent.mouseDown(backdrop)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Reopen comments/i }))
+
+    expect((screen.getByLabelText('Add a comment') as HTMLTextAreaElement).value).toBe('draft text 💜')
+  })
+
+  it('inserts emoji into reply input', async () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
+    fireEvent.click(replyButtons[0])
+
+    const replyTextarea = screen.getByPlaceholderText(/Reply to Test User.../i) as HTMLTextAreaElement
+    fireEvent.change(replyTextarea, { target: { value: 'Reply' } })
+    replyTextarea.focus()
+    replyTextarea.setSelectionRange(5, 5)
+    fireEvent.select(replyTextarea)
+
+    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for reply/i }))
+    fireEvent.click(screen.getByTitle('grinning face'))
+
+    await waitFor(() => {
+      expect((screen.getByPlaceholderText(/Reply to Test User.../i) as HTMLTextAreaElement).value).toBe('Reply😀')
+    })
+  })
+
+  it('inserts emoji into edit input', async () => {
+    const propsWithEdit = {
+      ...defaultProps,
+      currentUserId: 1,
+      onCommentEdit: jest.fn().mockResolvedValue({
+        ...mockComments[0],
+        editedAt: new Date().toISOString()
+      })
+    }
+
+    renderWithToast(<CommentsModal {...propsWithEdit} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit comment/i }))
+    const editTextarea = screen.getByLabelText('Edit comment') as HTMLTextAreaElement
+    editTextarea.focus()
+    editTextarea.setSelectionRange(editTextarea.value.length, editTextarea.value.length)
+    fireEvent.select(editTextarea)
+
+    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for edit comment/i }))
+    fireEvent.click(screen.getByTitle('grinning face'))
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Edit comment') as HTMLTextAreaElement).value).toContain('😀')
+    })
+  })
+
+  it('keeps keyboard inset logic mobile-gated', () => {
+    const originalMatchMedia = window.matchMedia
+    const originalVisualViewport = (window as any).visualViewport
+
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: query === '(max-width: 767px)',
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn()
+      }))
+    })
+
+    Object.defineProperty(window, 'visualViewport', {
+      writable: true,
+      configurable: true,
+      value: {
+        height: 600,
+        offsetTop: 80,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn()
+      }
+    })
+
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const dialog = screen.getByRole('dialog')
+    const overlay = dialog.parentElement as HTMLElement
+    expect(overlay.className).toContain('items-end')
+    expect(overlay.className).toContain('sm:items-center')
+    expect(overlay.style.paddingBottom).toBe('88px')
+
+    Object.defineProperty(window, 'matchMedia', { writable: true, value: originalMatchMedia })
+    Object.defineProperty(window, 'visualViewport', {
+      writable: true,
+      configurable: true,
+      value: originalVisualViewport
+    })
+  })
+
+  it('does not apply keyboard inset on desktop viewport', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn()
+      }))
+    })
+
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const dialog = screen.getByRole('dialog')
+    const overlay = dialog.parentElement as HTMLElement
+    expect(overlay.style.paddingBottom).toBe('')
   })
 
   it('indents replies visually', async () => {

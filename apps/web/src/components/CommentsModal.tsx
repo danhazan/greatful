@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Send, Loader2, MessageCircle, Pencil, Trash2 } from "lucide-react"
+import { X, Send, Loader2, MessageCircle, Pencil, Trash2, Smile } from "lucide-react"
 import { formatTimeAgo } from "@/utils/timeAgo"
 import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
-import ClickableUsername from "./ClickableUsername"
 import { useToast } from "@/contexts/ToastContext"
+import MinimalEmojiPicker from "./MinimalEmojiPicker"
+import { insertEmojiIntoTextarea } from "@/utils/insertEmojiIntoTextarea"
 
 interface CommentUser {
   id: number
@@ -58,6 +59,8 @@ export default function CommentsModal({
   onCommentDelete,
   isSubmitting = false
 }: CommentsModalProps) {
+  type ActiveEmojiInput = 'comment' | 'reply' | 'edit'
+
   const modalRef = useRef<HTMLDivElement>(null)
   const replyInputRef = useRef<HTMLTextAreaElement>(null)
   const editInputRef = useRef<HTMLTextAreaElement>(null)
@@ -80,6 +83,16 @@ export default function CommentsModal({
   // Delete state
   const [deleteConfirmCommentId, setDeleteConfirmCommentId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
+  const [activeEmojiInput, setActiveEmojiInput] = useState<ActiveEmojiInput>('comment')
+  const [textareaSelections, setTextareaSelections] = useState<Record<ActiveEmojiInput, { start: number; end: number }>>({
+    comment: { start: 0, end: 0 },
+    reply: { start: 0, end: 0 },
+    edit: { start: 0, end: 0 }
+  })
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0)
 
   const MAX_CHARS = 500
 
@@ -121,7 +134,6 @@ export default function CommentsModal({
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setCommentText("")
       setReplyText("")
       setReplyingTo(null)
       setExpandedComments(new Set())
@@ -131,8 +143,53 @@ export default function CommentsModal({
       setEditingCommentId(null)
       setEditText("")
       setDeleteConfirmCommentId(null)
+      setShowEmojiPicker(false)
+      setMobileKeyboardInset(0)
     }
   }, [isOpen])
+
+  // Mobile-only viewport tracking for keyboard adjustments
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const handleViewportMode = () => {
+      setIsMobileViewport(mediaQuery.matches)
+    }
+
+    handleViewportMode()
+    mediaQuery.addEventListener('change', handleViewportMode)
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleViewportMode)
+    }
+  }, [isOpen])
+
+  // Apply keyboard inset only on mobile to avoid desktop regressions
+  useEffect(() => {
+    if (!isOpen || !isMobileViewport || typeof window === 'undefined') return
+
+    if (!window.visualViewport) {
+      setMobileKeyboardInset(0)
+      return
+    }
+
+    const viewport = window.visualViewport
+    const updateInset = () => {
+      const inset = Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop))
+      setMobileKeyboardInset(inset)
+    }
+
+    updateInset()
+    viewport.addEventListener('resize', updateInset)
+    viewport.addEventListener('scroll', updateInset)
+
+    return () => {
+      viewport.removeEventListener('resize', updateInset)
+      viewport.removeEventListener('scroll', updateInset)
+      setMobileKeyboardInset(0)
+    }
+  }, [isOpen, isMobileViewport])
 
   // Auto-scroll to reply input when replying
   useEffect(() => {
@@ -166,8 +223,34 @@ export default function CommentsModal({
   // Handle click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+      const target = event.target as Element
+      const isInsidePicker = !!target.closest('[data-minimal-emoji-picker]')
+      const modalElement = modalRef.current
+      const modalContainsTarget = !!modalElement?.contains(event.target as Node)
+      const modalRect = modalElement?.getBoundingClientRect()
+      // Geometry fallback is only valid when layout is measurable.
+      // In test/edge rendering states, zero-sized rects can misclassify inside clicks.
+      const hasMeasurableModalRect = !!modalRect && modalRect.width > 0 && modalRect.height > 0
+      const pointInsideModal = hasMeasurableModalRect &&
+        event.clientX >= modalRect.left &&
+        event.clientX <= modalRect.right &&
+        event.clientY >= modalRect.top &&
+        event.clientY <= modalRect.bottom
+      const isInsideModal = modalContainsTarget || pointInsideModal
+
+      // Click-scope precedence:
+      // 1) outside modal => close modal
+      // 2) inside modal but outside picker => close picker only
+      // 3) inside picker => keep both open
+      // Modal boundary is authoritative. Only true outside clicks close the modal.
+      if (!isInsideModal) {
         onClose()
+        return
+      }
+
+      // Clicking inside modal but outside picker closes picker only.
+      if (showEmojiPicker && !isInsidePicker) {
+        setShowEmojiPicker(false)
       }
     }
 
@@ -175,7 +258,7 @@ export default function CommentsModal({
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, showEmojiPicker])
 
   // Handle escape key and keyboard navigation
   useEffect(() => {
@@ -250,6 +333,65 @@ export default function CommentsModal({
       // Error is handled by parent component
       console.error('CommentsModal: Comment submission failed', error)
     }
+  }
+
+  const updateTextareaSelection = (inputType: ActiveEmojiInput, target: HTMLTextAreaElement) => {
+    setTextareaSelections(prev => ({
+      ...prev,
+      [inputType]: {
+        start: target.selectionStart ?? 0,
+        end: target.selectionEnd ?? 0
+      }
+    }))
+  }
+
+  const openEmojiPickerForInput = (inputType: ActiveEmojiInput, textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return
+
+    updateTextareaSelection(inputType, textarea)
+    const rect = textarea.getBoundingClientRect()
+    setActiveEmojiInput(inputType)
+    setEmojiPickerPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top
+    })
+    setShowEmojiPicker(true)
+  }
+
+  const insertEmojiIntoActiveInput = (emoji: string) => {
+    const inputMap: Record<ActiveEmojiInput, { ref: { current: HTMLTextAreaElement | null }; value: string; setValue: (value: string) => void }> = {
+      comment: { ref: commentInputRef, value: commentText, setValue: setCommentText },
+      reply: { ref: replyInputRef, value: replyText, setValue: setReplyText },
+      edit: { ref: editInputRef, value: editText, setValue: setEditText }
+    }
+
+    const target = inputMap[activeEmojiInput]
+    const currentSelection = textareaSelections[activeEmojiInput]
+    const textLengthAfterReplace = target.value.length - (currentSelection.end - currentSelection.start) + emoji.length
+    if (textLengthAfterReplace > MAX_CHARS) {
+      setShowEmojiPicker(false)
+      return
+    }
+
+    const result = insertEmojiIntoTextarea(
+      target.value,
+      emoji,
+      currentSelection.start,
+      currentSelection.end
+    )
+
+    target.setValue(result.value)
+    setTextareaSelections(prev => ({
+      ...prev,
+      [activeEmojiInput]: { start: result.cursor, end: result.cursor }
+    }))
+
+    requestAnimationFrame(() => {
+      const element = target.ref.current
+      if (!element) return
+      element.focus()
+      element.setSelectionRange(result.cursor, result.cursor)
+    })
   }
 
   const handleReplySubmit = async (commentId: string) => {
@@ -525,6 +667,10 @@ export default function CommentsModal({
                       e.target.style.height = 'auto'
                       e.target.style.height = e.target.scrollHeight + 'px'
                     }}
+                    onFocus={(e) => updateTextareaSelection('edit', e.currentTarget)}
+                    onClick={(e) => updateTextareaSelection('edit', e.currentTarget)}
+                    onKeyUp={(e) => updateTextareaSelection('edit', e.currentTarget)}
+                    onSelect={(e) => updateTextareaSelection('edit', e.currentTarget)}
                     className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm overflow-hidden text-gray-900 bg-white"
                     rows={1}
                     maxLength={MAX_CHARS}
@@ -554,9 +700,20 @@ export default function CommentsModal({
                   >
                     Cancel
                   </button>
-                  <span className="text-xs text-gray-400">
-                    {editText.length}/{MAX_CHARS}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => openEmojiPickerForInput('edit', editInputRef.current)}
+                      className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      aria-label="Open emoji picker for edit comment"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </button>
+                    <span className="text-xs text-gray-400">
+                      {editText.length}/{MAX_CHARS}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -701,6 +858,10 @@ export default function CommentsModal({
                       e.target.style.height = 'auto'
                       e.target.style.height = e.target.scrollHeight + 'px'
                     }}
+                    onFocus={(e) => updateTextareaSelection('reply', e.currentTarget)}
+                    onClick={(e) => updateTextareaSelection('reply', e.currentTarget)}
+                    onKeyUp={(e) => updateTextareaSelection('reply', e.currentTarget)}
+                    onSelect={(e) => updateTextareaSelection('reply', e.currentTarget)}
                     placeholder={`Reply to ${comment.user.displayName || comment.user.username}...`}
                     className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm overflow-hidden text-gray-900 bg-white"
                     rows={1}
@@ -723,8 +884,19 @@ export default function CommentsModal({
                   </button>
                 </div>
                 {/* Character count below textarea */}
-                <div className="text-xs text-gray-400 mt-1 text-right">
-                  {replyText.length}/{MAX_CHARS}
+                <div className="mt-1 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => openEmojiPickerForInput('reply', replyInputRef.current)}
+                    className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    aria-label="Open emoji picker for reply"
+                  >
+                    <Smile className="h-4 w-4" />
+                  </button>
+                  <div className="text-xs text-gray-400 text-right">
+                    {replyText.length}/{MAX_CHARS}
+                  </div>
                 </div>
               </div>
             )}
@@ -749,7 +921,10 @@ export default function CommentsModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-6"
+      style={{ paddingBottom: isMobileViewport ? `${mobileKeyboardInset}px` : undefined }}
+    >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black bg-opacity-50" aria-hidden="true" onClick={onClose} />
 
@@ -761,6 +936,7 @@ export default function CommentsModal({
         aria-labelledby="comments-modal-title"
         aria-describedby="comments-modal-description"
         className="relative bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl max-h-[85vh] sm:max-h-[80vh] flex flex-col touch-manipulation z-10"
+        style={{ maxHeight: isMobileViewport ? '85dvh' : undefined }}
         tabIndex={-1}
       >
           {/* Header */}
@@ -813,6 +989,10 @@ export default function CommentsModal({
                   e.target.style.height = 'auto'
                   e.target.style.height = e.target.scrollHeight + 'px'
                 }}
+                onFocus={(e) => updateTextareaSelection('comment', e.currentTarget)}
+                onClick={(e) => updateTextareaSelection('comment', e.currentTarget)}
+                onKeyUp={(e) => updateTextareaSelection('comment', e.currentTarget)}
+                onSelect={(e) => updateTextareaSelection('comment', e.currentTarget)}
                 placeholder="Add a comment..."
                 className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden text-gray-900 bg-white"
                 rows={1}
@@ -838,13 +1018,31 @@ export default function CommentsModal({
             {/* Character count below textarea */}
             <div
               id="comment-char-count"
-              className="text-xs text-gray-400 mt-1 text-right"
+              className="mt-1 flex items-center justify-between"
               aria-live="polite"
             >
-              {commentText.length}/{MAX_CHARS}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => openEmojiPickerForInput('comment', commentInputRef.current)}
+                className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                aria-label="Open emoji picker for comment"
+              >
+                <Smile className="h-4 w-4" />
+              </button>
+              <div className="text-xs text-gray-400 text-right">
+                {commentText.length}/{MAX_CHARS}
+              </div>
             </div>
           </div>
         </div>
+        <MinimalEmojiPicker
+          isOpen={showEmojiPicker}
+          onClose={() => setShowEmojiPicker(false)}
+          onEmojiSelect={insertEmojiIntoActiveInput}
+          position={emojiPickerPosition}
+          anchorGap={0}
+        />
       </div>
   )
 }

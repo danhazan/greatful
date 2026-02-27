@@ -8,6 +8,7 @@ interface MinimalEmojiPickerProps {
   onClose: () => void
   onEmojiSelect: (emoji: string) => void
   position?: { x: number, y: number }
+  anchorGap?: number
 }
 
 // Enhanced emoji groups with extensive positive emojis for gratitude posts
@@ -495,7 +496,8 @@ export default function MinimalEmojiPicker({
   isOpen,
   onClose,
   onEmojiSelect,
-  position = { x: 0, y: 0 }
+  position = { x: 0, y: 0 },
+  anchorGap = 8
 }: MinimalEmojiPickerProps) {
   const pickerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -652,17 +654,19 @@ export default function MinimalEmojiPicker({
       {/* Emoji Picker - responsive height for mobile */}
       <div
         ref={pickerRef}
+        data-minimal-emoji-picker
         className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden"
         style={{
           left: '50%',
           transform: 'translateX(-50%)',
-          bottom: typeof window !== 'undefined' ? window.innerHeight - position.y + 8 : 0, // Anchor to bottom (button bottom) + 8px gap
+          bottom: typeof window !== 'undefined' ? window.innerHeight - position.y + anchorGap : 0, // Anchor to bottom (button edge) + configurable gap
           width: 'min(calc(100vw - 32px), 672px)', // Same as max-w-2xl (672px) with 16px padding on each side
           maxHeight: typeof window !== 'undefined' ? Math.min(parseInt(getModalHeight()), position.y - 16) : getModalHeight(), // Prevent top cropping
         }}
         onMouseDown={(e) => {
           // Prevent focus from moving to the modal - this fixes the cursor issue
           e.preventDefault()
+          e.stopPropagation()
         }}
       >
         {/* Search Bar - Compressed */}
