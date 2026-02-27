@@ -870,9 +870,9 @@ export default function PostCard({
             {/* Content Column */}
             <div className="flex-1 min-w-0">
               {/* Row 1: Name + Follow + Options */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 space-x-3">
                 <div
-                  className="flex-1 min-w-0 cursor-pointer hover:text-purple-700 transition-colors"
+                  className="min-w-0 cursor-pointer hover:text-purple-700 transition-colors space-x-20"
                   onClick={() => onUserClick?.(currentPost.author.id)}
                 >
                   <h3 className={`${styling.name} text-gray-900 font-bold truncate`}>
@@ -900,7 +900,7 @@ export default function PostCard({
                   )}
                 {/* Options Menu for Post Author */}
                 {isPostAuthor && (
-                  <div className="relative flex-shrink-0">
+                  <div className="relative flex-shrink-0 ml-auto">
                     <button
                       ref={optionsButtonRef}
                       onClick={() => setShowOptionsMenu(!showOptionsMenu)}
@@ -1160,6 +1160,35 @@ export default function PostCard({
               <span className="font-medium">Share</span>
             </button>
           </div>
+
+          {/* Location Metadata Row */}
+          {(currentPost.locationData || currentPost.location) && (
+            <div className="flex justify-end min-w-0 mt-1">
+              <button
+                ref={locationButtonRef}
+                onClick={(event) => {
+                  event.preventDefault()
+
+                  if (locationButtonRef.current) {
+                    const rect = locationButtonRef.current.getBoundingClientRect()
+                    setLocationModalPosition({
+                      x: rect.left + rect.width / 2,
+                      y: rect.top
+                    })
+                  }
+
+                  setShowLocationModal(true)
+                }}
+                className="flex items-center justify-end gap-1 flex-1 min-w-0 overflow-hidden text-gray-500 hover:text-purple-600 transition-colors"
+                title={currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
+              >
+                <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="text-xs truncate min-w-0">
+                  {currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       </article>
 
