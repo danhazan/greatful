@@ -35,6 +35,9 @@ export default function MentionAutocomplete({
   const [selectedIndex, setSelectedIndex] = useState(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const normalizeMentionQuery = useCallback((query: string) => query.replace('@', ''), [])
+  const getMentionResultAriaLabel = useCallback((user: UserSearchResult) => {
+    return `Select ${user.displayName || user.username}${user.bio ? `. ${user.bio}` : ''}`
+  }, [])
 
   const { users, loading, hasSearched } = useUserSearch({
     query: searchQuery,
@@ -110,6 +113,7 @@ export default function MentionAutocomplete({
       onSelect={handleUserSelect}
       onIndexChange={setSelectedIndex}
       setItemRef={setItemRef}
+      getResultAriaLabel={getMentionResultAriaLabel}
     />
   )
 }

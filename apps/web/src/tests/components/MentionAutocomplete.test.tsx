@@ -95,4 +95,12 @@ describe('MentionAutocomplete', () => {
       expect(screen.getByText('Test bio')).toBeInTheDocument()
     }, { timeout: 1000 })
   })
+
+  it('uses selection-oriented aria labels for mention context', async () => {
+    render(<MentionAutocomplete {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /Select Test User\. Test bio/ })).toBeInTheDocument()
+    })
+  })
 })

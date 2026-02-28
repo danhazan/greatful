@@ -17,6 +17,7 @@ interface UserSearchResultItemProps {
   onSelect: (user: UserSearchResult) => void
   onMouseEnter: (index: number) => void
   setItemRef: (index: number) => (el: HTMLElement | null) => void
+  getAriaLabel?: (user: UserSearchResult) => string
 }
 
 export default function UserSearchResultItem({
@@ -26,7 +27,12 @@ export default function UserSearchResultItem({
   onSelect,
   onMouseEnter,
   setItemRef,
+  getAriaLabel,
 }: UserSearchResultItemProps) {
+  const ariaLabel = getAriaLabel
+    ? getAriaLabel(user)
+    : `Go to ${user.displayName || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`
+
   return (
     <button
       key={user.id}
@@ -43,7 +49,7 @@ export default function UserSearchResultItem({
         onSelect(user)
       }}
       onMouseEnter={() => onMouseEnter(index)}
-      aria-label={`Go to ${user.displayName || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`}
+      aria-label={ariaLabel}
       {...createTouchHandlers(undefined, 'light')}
     >
       <div className="flex items-center space-x-3">

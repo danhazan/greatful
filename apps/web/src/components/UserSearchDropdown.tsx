@@ -21,6 +21,7 @@ interface UserSearchDropdownProps {
   style?: React.CSSProperties
   dir?: React.HTMLAttributes<HTMLDivElement>['dir']
   dataMentionAutocomplete?: boolean
+  getResultAriaLabel?: (user: UserSearchResult) => string
 }
 
 export default function UserSearchDropdown({
@@ -38,6 +39,7 @@ export default function UserSearchDropdown({
   style,
   dir,
   dataMentionAutocomplete = false,
+  getResultAriaLabel,
 }: UserSearchDropdownProps) {
   return (
     <div
@@ -74,6 +76,7 @@ export default function UserSearchDropdown({
               onSelect={onSelect}
               onMouseEnter={onIndexChange}
               setItemRef={setItemRef}
+              getAriaLabel={getResultAriaLabel}
             />
           ))}
         </div>
