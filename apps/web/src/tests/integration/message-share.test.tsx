@@ -57,7 +57,13 @@ describe('Message Share Integration Tests', () => {
       json: async () => ({
         success: true,
         data: [
-          { id: 1, username: 'testuser', profile_image_url: null, bio: 'Test user' }
+          {
+            id: 1,
+            username: 'testuser',
+            display_name: 'Test User',
+            profile_image_url: null,
+            bio: 'Test user'
+          }
         ]
       })
     })
@@ -93,6 +99,12 @@ describe('Message Share Integration Tests', () => {
           limit: 10
         })
       }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Test User')).toBeInTheDocument()
+      expect(screen.getByText('@testuser')).toBeInTheDocument()
+      expect(screen.getByText('Test user')).toBeInTheDocument()
     })
 
     // Send button should still show (0) since no user selected yet

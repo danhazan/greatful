@@ -5,17 +5,11 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
-import ProfilePhotoDisplay from './ProfilePhotoDisplay'
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { getCompleteInputStyling } from '@/utils/inputStyles'
-
-interface UserSearchResult {
-  id: number
-  username: string
-  displayName?: string
-  profileImageUrl?: string
-  bio?: string
-}
+import { useUserSearch } from '@/hooks/useUserSearch'
+import { UserSearchDropdown } from '@/components/user-search'
+import { UserSearchResult } from '@/types/userSearch'
 
 interface UserSearchBarProps {
   placeholder?: string
@@ -30,18 +24,18 @@ export default function UserSearchBar({
 }: UserSearchBarProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const [users, setUsers] = useState<UserSearchResult[]>([])
-  const [loading, setLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-
-  const [hasSearched, setHasSearched] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
   const portalContainerRef = useRef<HTMLElement | null>(null)
+
+  const { users, loading, hasSearched, resetSearch } = useUserSearch({
+    query: searchQuery,
+    isOpen: true,
+  })
 
   // Create portal container on mount for mobile search
   useEffect(() => {
@@ -66,101 +60,16 @@ export default function UserSearchBar({
     }
   }, [isMobile])
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    async (query: string) => {
-      const cleanQuery = query.trim()
-
-      if (!cleanQuery || cleanQuery.length < 1) {
-        setUsers([])
-        setLoading(false)
-        setIsDropdownOpen(false)
-        return
-      }
-
-      setLoading(true)
-      setIsDropdownOpen(true)
-
-      try {
-        const token = localStorage.getItem('access_token')
-        if (!token) {
-          console.error('No auth token found')
-          setUsers([])
-          setLoading(false)
-          setIsDropdownOpen(false)
-          return
-        }
-
-        const response = await fetch('/api/users/search', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            query: cleanQuery,
-            limit: 10
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error(`Search failed: ${response.status}`)
-        }
-
-        const data = await response.json()
-
-        if (data.success && Array.isArray(data.data)) {
-          setUsers(data.data)
-          setSelectedIndex(0) // Reset selection to first item
-        } else if (Array.isArray(data)) {
-          // Handle direct array response
-          setUsers(data)
-          setSelectedIndex(0)
-        } else {
-          setUsers([])
-        }
-      } catch (error) {
-        console.error('User search error:', error)
-        setUsers([])
-      } finally {
-        setLoading(false)
-      }
-    },
-    []
-  )
-
-  // Effect to handle debounced search
+  // Close dropdown when query is empty, preserving existing navbar behavior
   useEffect(() => {
-    // Clear existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    const cleanQuery = searchQuery.trim()
-
-    if (!cleanQuery || cleanQuery.length < 1) {
-      setUsers([])
-      setLoading(false)
+    if (!searchQuery.trim()) {
       setIsDropdownOpen(false)
-      setHasSearched(true)
-      return
     }
+  }, [searchQuery])
 
-    setLoading(true)
-    setHasSearched(false)
-
-    // Set new timeout for debounced search (300ms)
-    searchTimeoutRef.current = setTimeout(async () => {
-      await debouncedSearch(searchQuery)
-      setHasSearched(true)
-    }, 300)
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
-  }, [searchQuery, debouncedSearch])
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [users])
 
   // Handle focus when expanded (better than setTimeout)
   useEffect(() => {
@@ -177,21 +86,19 @@ export default function UserSearchBar({
     router.push(`/profile/${user.id}`)
     setIsDropdownOpen(false)
     setSearchQuery('')
-    setUsers([])
     setSelectedIndex(0)
-    setHasSearched(false)
+    resetSearch()
     inputRef.current?.blur()
-  }, [router])
+  }, [router, resetSearch])
 
   const handleClose = useCallback(() => {
     setIsDropdownOpen(false)
     setSearchQuery('')
-    setUsers([])
     setSelectedIndex(0)
-    setHasSearched(false)
+    resetSearch()
     setIsExpanded(false)
     inputRef.current?.blur()
-  }, [])
+  }, [resetSearch])
 
   // Handle keyboard navigation with scrolling
   const { setItemRef } = useKeyboardNavigation({
@@ -260,10 +167,9 @@ export default function UserSearchBar({
 
   const handleClearSearch = () => {
     setSearchQuery('')
-    setUsers([])
     setIsDropdownOpen(false)
     setSelectedIndex(0)
-    setHasSearched(false)
+    resetSearch()
     if (isMobile) {
       setIsExpanded(false)
       inputRef.current?.blur()
@@ -338,83 +244,19 @@ export default function UserSearchBar({
 
                   {/* Search Results Dropdown - also portal-level */}
                   {isDropdownOpen && (
-                    <div
+                    <UserSearchDropdown
                       id="mobile-search-results"
-                      ref={dropdownRef}
+                      dropdownRef={dropdownRef}
                       className="mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto"
-                      role="listbox"
-                      aria-label="User search results"
-                    >
-                      {loading && (
-                        <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
-                          <div className="animate-spin inline-block w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full mr-2" aria-hidden="true"></div>
-                          Searching...
-                        </div>
-                      )}
-
-                      {!loading && hasSearched && users.length === 0 && searchQuery && (
-                        <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
-                          No users found for "{searchQuery}"
-                        </div>
-                      )}
-
-                      {!loading && users.length > 0 && (
-                        <div className="py-1" role="group" aria-label="Search results">
-                          {users.map((user, index) => (
-                            <button
-                              key={user.id}
-                              ref={setItemRef(index)}
-                              type="button"
-                              role="option"
-                              aria-selected={index === selectedIndex}
-                              className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${index === selectedIndex ? 'bg-purple-50' : ''
-                                }`}
-                              onMouseDown={(e) => {
-                                // Prevent blur from firing when clicking on result
-                                e.preventDefault()
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleUserSelect(user)
-                              }}
-                              onMouseEnter={() => setSelectedIndex(index)}
-                              aria-label={`Go to ${user.displayName || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`}
-                              {...createTouchHandlers(undefined, 'light')}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <div className="flex-shrink-0">
-                                  <ProfilePhotoDisplay
-                                    photoUrl={user.profileImageUrl}
-                                    username={user.username}
-                                    size="sm"
-                                    className="border-0 shadow-none"
-                                  />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-gray-900 truncate">
-                                    {user.displayName || user.username}
-                                  </div>
-                                  <div className="text-xs text-gray-500 truncate">
-                                    @{user.username}
-                                  </div>
-                                  {user.bio && (
-                                    <div className="text-xs text-gray-400 truncate mt-0.5">
-                                      {user.bio}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {!loading && hasSearched && !searchQuery && (
-                        <div className="p-3 text-center text-gray-500 text-sm" role="status">
-                          Type to search for users...
-                        </div>
-                      )}
-                    </div>
+                      users={users}
+                      loading={loading}
+                      hasSearched={hasSearched}
+                      searchQuery={searchQuery}
+                      selectedIndex={selectedIndex}
+                      onSelect={handleUserSelect}
+                      onIndexChange={setSelectedIndex}
+                      setItemRef={setItemRef}
+                    />
                   )}
                 </div>
               </div>,
@@ -461,82 +303,18 @@ export default function UserSearchBar({
 
       {/* Search Results Dropdown - Desktop only (mobile handles its own in portal) */}
       {!isMobile && isDropdownOpen && (
-        <div
-          ref={dropdownRef}
+        <UserSearchDropdown
+          dropdownRef={dropdownRef}
           className="absolute top-full mt-1 w-full max-w-sm bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto"
-          role="listbox"
-          aria-label="User search results"
-        >
-          {loading && (
-            <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
-              <div className="animate-spin inline-block w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full mr-2" aria-hidden="true"></div>
-              Searching...
-            </div>
-          )}
-
-          {!loading && hasSearched && users.length === 0 && searchQuery && (
-            <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
-              No users found for "{searchQuery}"
-            </div>
-          )}
-
-          {!loading && users.length > 0 && (
-            <div className="py-1" role="group" aria-label="Search results">
-              {users.map((user, index) => (
-                <button
-                  key={user.id}
-                  ref={setItemRef(index)}
-                  type="button"
-                  role="option"
-                  aria-selected={index === selectedIndex}
-                  className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${index === selectedIndex ? 'bg-purple-50' : ''
-                    }`}
-                  onMouseDown={(e) => {
-                    // Prevent blur from firing when clicking on result
-                    e.preventDefault()
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleUserSelect(user)
-                  }}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  aria-label={`Go to ${user.displayName || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`}
-                  {...createTouchHandlers(undefined, 'light')}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <ProfilePhotoDisplay
-                        photoUrl={user.profileImageUrl}
-                        username={user.username}
-                        size="sm"
-                        className="border-0 shadow-none"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">
-                        {user.displayName || user.username}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate">
-                        @{user.username}
-                      </div>
-                      {user.bio && (
-                        <div className="text-xs text-gray-400 truncate mt-0.5">
-                          {user.bio}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {!loading && hasSearched && !searchQuery && (
-            <div className="p-3 text-center text-gray-500 text-sm" role="status">
-              Type to search for users...
-            </div>
-          )}
-        </div>
+          users={users}
+          loading={loading}
+          hasSearched={hasSearched}
+          searchQuery={searchQuery}
+          selectedIndex={selectedIndex}
+          onSelect={handleUserSelect}
+          onIndexChange={setSelectedIndex}
+          setItemRef={setItemRef}
+        />
       )}
     </div>
   )

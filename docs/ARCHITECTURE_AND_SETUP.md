@@ -203,6 +203,10 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **Error Handling**: Graceful error handling with user-friendly messages
 - **Performance**: Debounced searches, efficient re-renders, lazy loading
 - **Lazy Loading Strategy**: Comments modal implements lazy loading for replies - only fetches reply data when user expands a comment thread
+- **User Search Dropdown Contract**: Single shared architecture for all user-search surfaces:
+  - `useUserSearch` for state/fetch/debounce
+  - `UserSearchDropdown` for shared dropdown body
+  - `UserSearchResultItem` as the canonical row renderer (navbar is source of truth)
 
 #### Backend Architecture
 - **Service Layer**: Clean separation of business logic (UserService, ReactionService, NotificationService, FollowService)
