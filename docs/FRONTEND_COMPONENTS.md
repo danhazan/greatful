@@ -410,6 +410,31 @@ interface UserListItemProps {
 
 ---
 
+### User Search Dropdown Architecture
+
+User-search dropdowns are standardized around one shared composition:
+
+- **Shared search hook**: `apps/web/src/hooks/useUserSearch.ts`
+- **Shared dropdown body**: `apps/web/src/components/UserSearchDropdown.tsx`
+- **Canonical row renderer**: `apps/web/src/components/UserSearchResultItem.tsx`
+
+Source of truth rule:
+
+- Navbar search defines the visual and interaction contract.
+- Mentions and message-share compose the same shared primitives.
+- `UserSearchResultItem` is the only allowed row renderer for user-search results.
+
+Extension rule:
+
+- New user-search surfaces must reuse these shared pieces.
+- Do not create feature-specific dropdown row markup.
+
+Public primitive exports:
+
+- `apps/web/src/components/user-search/index.ts`
+
+---
+
 ## Component Architecture Patterns
 
 ### Modal Design Patterns

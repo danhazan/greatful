@@ -465,6 +465,21 @@ Throughout the application, user-related elements are consistently clickable and
 
 ## Interaction Patterns
 
+### User Search Dropdown Consistency Rule
+
+All user-search dropdown surfaces must share the same row structure and behavior contract:
+
+- Avatar
+- Display name (primary)
+- `@username`
+- Bio (secondary text)
+
+Implementation rule:
+
+- Reuse `apps/web/src/components/UserSearchDropdown.tsx` and `apps/web/src/components/UserSearchResultItem.tsx`.
+- Reuse `apps/web/src/hooks/useUserSearch.ts` for search state/debounce/loading semantics.
+- Do not implement feature-specific user-search row markup.
+
 ### Button States
 
 **Primary Button States:**

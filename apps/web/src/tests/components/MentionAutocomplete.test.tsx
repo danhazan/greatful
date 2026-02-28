@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import MentionAutocomplete from '@/components/MentionAutocomplete'
 
@@ -40,7 +40,15 @@ describe('MentionAutocomplete', () => {
       status: 200,
       json: async () => ({
         success: true,
-        data: [],
+        data: [
+          {
+            id: 1,
+            username: 'testuser',
+            display_name: 'Test User',
+            profile_image_url: 'https://example.com/test.jpg',
+            bio: 'Test bio'
+          }
+        ],
       }),
     } as Response)
   })
@@ -52,10 +60,12 @@ describe('MentionAutocomplete', () => {
     expect(screen.queryByText('Searching...')).not.toBeInTheDocument()
   })
 
-  it('renders loading state when open', () => {
+  it('renders loading state when open', async () => {
     render(<MentionAutocomplete {...defaultProps} />)
-    
-    expect(screen.getByText('Searching...')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByText('Searching...')).toBeInTheDocument()
+    })
   })
 
   it('applies correct positioning styles', () => {
@@ -74,5 +84,15 @@ describe('MentionAutocomplete', () => {
     
     const dropdown = container.querySelector('.custom-class')
     expect(dropdown).toBeInTheDocument()
+  })
+
+  it('renders canonical user search row fields', async () => {
+    render(<MentionAutocomplete {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test User')).toBeInTheDocument()
+      expect(screen.getByText('@testuser')).toBeInTheDocument()
+      expect(screen.getByText('Test bio')).toBeInTheDocument()
+    }, { timeout: 1000 })
   })
 })
