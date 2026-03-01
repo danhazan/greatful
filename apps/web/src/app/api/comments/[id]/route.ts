@@ -7,6 +7,7 @@ import {
   validateRequiredParams,
   hasValidAuth
 } from '@/lib/api-utils'
+import { normalizeImageUrls } from '@/utils/proxyImageUrlNormalization'
 
 // PUT /api/comments/{id} - Edit a comment
 export async function PUT(
@@ -59,8 +60,7 @@ export async function PUT(
     // Transform snake_case to camelCase
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedComment = transformApiResponse(comment)
-
-    return NextResponse.json(transformedComment)
+    return NextResponse.json(normalizeImageUrls(transformedComment))
 
   } catch (error) {
     return handleApiError(error, 'updating comment')

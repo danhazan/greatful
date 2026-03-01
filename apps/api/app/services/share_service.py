@@ -14,6 +14,7 @@ from app.models.share import Share, ShareMethod
 from app.models.user import User
 from app.models.post import Post
 from app.core.notification_factory import NotificationFactory
+from app.core.image_urls import serialize_image_url
 import logging
 import os
 
@@ -428,7 +429,7 @@ class ShareService(BaseService):
                 "user": {
                     "id": share.user.id,
                     "username": share.user.username,
-                    "profile_image_url": share.user.profile_image_url
+                    "profile_image_url": serialize_image_url(share.user.profile_image_url)
                 }
             }
             for share in shares

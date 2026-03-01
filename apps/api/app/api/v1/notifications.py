@@ -241,7 +241,6 @@ async def get_notifications(
             follow_repo = FollowRepository(db)
             follow_statuses = await follow_repo.bulk_check_following_status(current_user_id, list(actor_ids)) if current_user_id else {}
             
-            from app.core.storage import storage
             for p in profiles_list:
                 p_id = p['id']
                 stats = author_stats.get(p_id, {})
@@ -250,7 +249,7 @@ async def get_notifications(
                     'name': p.get('display_name') or p['username'],
                     'username': p['username'],
                     'display_name': p.get('display_name'),
-                    'image': storage.get_url(p.get('profile_image_url')) if p.get('profile_image_url') else None,
+                    'image': p.get('profile_image_url'),
                     'follower_count': stats.get('followers_count', 0),
                     'following_count': stats.get('following_count', 0),
                     'posts_count': stats.get('posts_count', 0),

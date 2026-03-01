@@ -12,6 +12,7 @@ from app.repositories.follow_repository import FollowRepository
 from app.repositories.user_repository import UserRepository
 from app.models.follow import Follow
 from app.models.user import User
+from app.core.image_urls import serialize_image_url
 
 logger = logging.getLogger(__name__)
 
@@ -118,12 +119,12 @@ class FollowService(BaseService):
             "follower": {
                 "id": follower.id,
                 "username": follower.username,
-                "profile_image_url": follower.profile_image_url
+                "profile_image_url": serialize_image_url(follower.profile_image_url)
             },
             "followed": {
                 "id": followed.id,
                 "username": followed.username,
-                "profile_image_url": followed.profile_image_url
+                "profile_image_url": serialize_image_url(followed.profile_image_url)
             }
         }
 
@@ -199,7 +200,7 @@ class FollowService(BaseService):
                 "id": follower.id,
                 "username": follower.username,
                 "bio": follower.bio,
-                "profile_image_url": follower.profile_image_url,
+                "profile_image_url": serialize_image_url(follower.profile_image_url),
                 "created_at": follower.created_at.isoformat()
             }
             
@@ -262,7 +263,7 @@ class FollowService(BaseService):
                 "id": followed_user.id,
                 "username": followed_user.username,
                 "bio": followed_user.bio,
-                "profile_image_url": followed_user.profile_image_url,
+                "profile_image_url": serialize_image_url(followed_user.profile_image_url),
                 "created_at": followed_user.created_at.isoformat()
             }
             
@@ -384,7 +385,7 @@ class FollowService(BaseService):
                 "id": user.id,
                 "username": user.username,
                 "bio": user.bio,
-                "profile_image_url": user.profile_image_url,
+                "profile_image_url": serialize_image_url(user.profile_image_url),
                 "created_at": user.created_at.isoformat()
             })
         

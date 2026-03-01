@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { normalizeUserDataArray } from '@/utils/userDataMapping'
 import { transformApiResponse } from '@/lib/caseTransform'
+import { normalizeImageUrls } from '@/utils/proxyImageUrlNormalization'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,10 +33,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(data, { status: response.status })
     }
 
-    // Normalize user data in search results
-    const normalizedData = Array.isArray(data) ? normalizeUserDataArray(data) : data
+    // Normalize user data in search results.
+    // Backend may return either a raw array or wrapped success payload: { data: [...] }.
+    let normalizedData = data
+    if (Array.isArray(data)) {
+      normalizedData = normalizeUserDataArray(data)
+    } else if (data && Array.isArray(data.data)) {
+      normalizedData = {
+        ...data,
+        data: normalizeUserDataArray(data.data),
+      }
+    }
 
-    return NextResponse.json(normalizedData)
+    return NextResponse.json(normalizeImageUrls(normalizedData))
   } catch (error) {
     console.error('User search API error:', error)
     return NextResponse.json(

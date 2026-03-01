@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import delete, or_
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError, BusinessLogicError
-from app.core.storage import storage  # ← ADDED: Import storage adapter
+from app.core.image_urls import serialize_image_url
 from app.models.comment import Comment
 from app.models.post import Post
 from app.models.user import User
@@ -132,11 +132,6 @@ class CommentService(BaseService):
             logger.error(f"Failed to create notification for comment: {e}")
             # Don't fail the comment creation if notification fails
         
-        # ✅ FIXED: Convert profile_image_url to full URL
-        profile_image_url = None
-        if user.profile_image_url:
-            profile_image_url = storage.get_url(user.profile_image_url)
-        
         # Return comment data with user information
         return {
             "id": comment.id,
@@ -151,7 +146,7 @@ class CommentService(BaseService):
                 "id": user.id,
                 "username": user.username,
                 "display_name": user.display_name,
-                "profile_image_url": profile_image_url  # ← Full URL now!
+                "profile_image_url": serialize_image_url(user.profile_image_url)
             }
         }
 
@@ -184,11 +179,6 @@ class CommentService(BaseService):
         # Convert to dictionaries
         comment_list = []
         for comment in comments:
-            # ✅ FIXED: Convert profile_image_url to full URL
-            profile_image_url = None
-            if comment.user.profile_image_url:
-                profile_image_url = storage.get_url(comment.user.profile_image_url)
-            
             comment_dict = {
                 "id": comment.id,
                 "post_id": comment.post_id,
@@ -202,7 +192,7 @@ class CommentService(BaseService):
                     "id": comment.user.id,
                     "username": comment.user.username,
                     "display_name": comment.user.display_name,
-                    "profile_image_url": profile_image_url  # ← Full URL now!
+                    "profile_image_url": serialize_image_url(comment.user.profile_image_url)
                 }
             }
             
@@ -246,11 +236,6 @@ class CommentService(BaseService):
             # Only the last reply (chronologically) can be deleted
             is_last_reply = (index == total_replies - 1)
 
-            # ✅ FIXED: Convert profile_image_url to full URL
-            profile_image_url = None
-            if reply.user.profile_image_url:
-                profile_image_url = storage.get_url(reply.user.profile_image_url)
-
             reply_list.append({
                 "id": reply.id,
                 "post_id": reply.post_id,
@@ -264,7 +249,7 @@ class CommentService(BaseService):
                     "id": reply.user.id,
                     "username": reply.user.username,
                     "display_name": reply.user.display_name,
-                    "profile_image_url": profile_image_url  # ← Full URL now!
+                    "profile_image_url": serialize_image_url(reply.user.profile_image_url)
                 },
                 "can_delete": is_last_reply  # Only the last reply can be deleted
             })
@@ -329,11 +314,6 @@ class CommentService(BaseService):
         result = await self.db.execute(reply_count_query)
         reply_count = result.scalar() or 0
 
-        # ✅ FIXED: Convert profile_image_url to full URL
-        profile_image_url = None
-        if user.profile_image_url:
-            profile_image_url = storage.get_url(user.profile_image_url)
-
         # Return updated comment data
         return {
             "id": comment.id,
@@ -348,7 +328,7 @@ class CommentService(BaseService):
                 "id": user.id,
                 "username": user.username,
                 "display_name": user.display_name,
-                "profile_image_url": profile_image_url  # ← Full URL now!
+                "profile_image_url": serialize_image_url(user.profile_image_url)
             },
             "is_reply": comment.parent_comment_id is not None,
             "reply_count": reply_count

@@ -13,6 +13,13 @@ import datetime
 from datetime import timezone
 
 
+def _assert_serialized_image_url(image_url: str | None) -> None:
+    if image_url is None:
+        return
+    assert image_url.startswith("/uploads/") or image_url.startswith("http://") or image_url.startswith("https://")
+    assert not image_url.startswith("uploads/")
+
+
 class TestNotificationsAPI:
     """Test notification API endpoints."""
 
@@ -67,6 +74,40 @@ class TestNotificationsAPI:
         assert "read" in notification
         assert "created_at" in notification
         assert notification["read"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_notifications_serializes_actor_image(self, client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_user: User):
+        """Test that notification from_user image is serialized through the image URL utility."""
+        actor = User(
+            email="notifactor@example.com",
+            username="notifactor",
+            hashed_password="hashed",
+            profile_image_url="profile_photos/notifactor.jpg",
+        )
+        db_session.add(actor)
+        await db_session.commit()
+        await db_session.refresh(actor)
+
+        notification_service = NotificationService(db_session)
+        await notification_service.create_notification(
+            user_id=test_user.id,
+            notification_type="emoji_reaction",
+            title="New Reaction",
+            message="Someone reacted to your post",
+            data={
+                "post_id": "notif-post",
+                "actor_user_id": str(actor.id),
+                "actor_username": actor.username,
+            },
+        )
+
+        response = client.get("/api/v1/notifications", headers=auth_headers)
+        assert response.status_code == 200
+        notifications = response.json()
+        assert len(notifications) == 1
+        from_user = notifications[0]["from_user"]
+        assert from_user["username"] == actor.username
+        _assert_serialized_image_url(from_user.get("image"))
 
     @pytest.mark.asyncio
     async def test_get_notifications_with_pagination(self, client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_user: User):

@@ -136,6 +136,11 @@ See **[Common Fixes](COMMON_FIXES.md#fastapi-route-registration-with-nextjs-prox
 - **NotificationService**: Real-time notifications with batching logic and rate limiting
 - **FollowService**: User follow relationships with mutual follow detection and suggestions
 
+#### 2.1 **Image URL Serialization Invariant**
+- API response mappers **must** serialize display image paths with `app.core.image_urls.serialize_image_url`.
+- API responses **must never** return raw/relative stored image paths (for example `profile_photos/x.jpg` or `posts/x.jpg`).
+- `serialize_image_url` input is the stored DB path and **must** be applied exactly once at response-mapping boundaries.
+
 #### 3. **Shared Type System**
 - **TypeScript Contracts**: Comprehensive API contracts defined in `shared/types/`
 - **Runtime Validation**: Request/response validation using shared type definitions

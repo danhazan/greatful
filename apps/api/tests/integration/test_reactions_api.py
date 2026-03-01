@@ -12,13 +12,22 @@ from app.models.post import Post, PostType
 import uuid
 
 
+def _assert_serialized_image_url(image_url: str | None) -> None:
+    if image_url is None:
+        return
+    assert image_url.startswith("/uploads/") or image_url.startswith("http://") or image_url.startswith("https://")
+    assert not image_url.startswith("uploads/")
+
+
 class TestReactionsAPI:
     """Test reactions API endpoints."""
 
     @pytest.mark.asyncio
-    async def test_add_reaction_success(self, client, test_user_and_post):
+    async def test_add_reaction_success(self, client, test_user_and_post, db_session):
         """Test successful reaction addition."""
         user_data = test_user_and_post
+        user_data["user"].profile_image_url = "profile_photos/reactor.jpg"
+        await db_session.commit()
         
         response = client.post(
             f"/api/v1/posts/{user_data['post'].id}/reactions",
@@ -30,6 +39,7 @@ class TestReactionsAPI:
         response_data = response.json()
         data = response_data["data"]
         assert data["emoji_code"] == "heart_eyes"
+        _assert_serialized_image_url(data["user"]["profile_image_url"])
 
     @pytest.mark.asyncio
     async def test_add_reaction_invalid_emoji(self, client, test_user_and_post):
@@ -113,9 +123,11 @@ class TestReactionsAPI:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_post_reactions(self, client, test_user_and_post):
+    async def test_get_post_reactions(self, client, test_user_and_post, db_session):
         """Test getting reactions for a post."""
         user_data = test_user_and_post
+        user_data["user"].profile_image_url = "profile_photos/reactor-list.jpg"
+        await db_session.commit()
         
         # Add a reaction first
         client.post(
@@ -130,8 +142,10 @@ class TestReactionsAPI:
         )
         
         assert response.status_code == 200
-        data = response.json()
-        assert len(data) >= 1
+        response_data = response.json()
+        reactions = response_data["data"]
+        assert len(reactions) >= 1
+        _assert_serialized_image_url(reactions[0]["user"]["profile_image_url"])
 
     @pytest.mark.asyncio
     async def test_get_reaction_summary(self, client, test_user_and_post):

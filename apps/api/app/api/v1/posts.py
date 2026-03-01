@@ -29,6 +29,7 @@ from app.services.algorithm_service import AlgorithmService
 from app.services.content_analysis_service import ContentAnalysisService
 from app.utils.html_sanitizer import sanitize_html
 from app.core.responses import success_response
+from app.core.image_urls import serialize_image_url
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -393,9 +394,9 @@ def _serialize_post_images(images) -> List[Dict[str, Any]]:
         {
             "id": img.id,
             "position": img.position,
-            "thumbnail_url": storage.get_url(img.thumbnail_url) if img.thumbnail_url else None,
-            "medium_url": storage.get_url(img.medium_url) if img.medium_url else None,
-            "original_url": storage.get_url(img.original_url) if img.original_url else None,
+            "thumbnail_url": serialize_image_url(img.thumbnail_url),
+            "medium_url": serialize_image_url(img.medium_url),
+            "original_url": serialize_image_url(img.original_url),
             "width": img.width,
             "height": img.height
         }
@@ -423,9 +424,9 @@ async def _fetch_post_images(db: AsyncSession, post_id: str) -> List[Dict[str, A
         {
             "id": img_row.id,
             "position": img_row.position,
-            "thumbnail_url": storage.get_url(img_row.thumbnail_url) if img_row.thumbnail_url else None,
-            "medium_url": storage.get_url(img_row.medium_url) if img_row.medium_url else None,
-            "original_url": storage.get_url(img_row.original_url) if img_row.original_url else None,
+            "thumbnail_url": serialize_image_url(img_row.thumbnail_url),
+            "medium_url": serialize_image_url(img_row.medium_url),
+            "original_url": serialize_image_url(img_row.original_url),
             "width": img_row.width,
             "height": img_row.height
         }
@@ -540,7 +541,7 @@ async def create_post_json(
             rich_content=db_post.rich_content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
-            image_url=db_post.image_url,
+            image_url=serialize_image_url(db_post.image_url),
             images=[],  # JSON endpoint doesn't support image upload
             location=db_post.location,
             location_data=db_post.location_data,
@@ -836,7 +837,7 @@ async def create_post_with_file(
             rich_content=db_post.rich_content,
             post_style=db_post.post_style,
             post_type=db_post.post_type.value,
-            image_url=db_post.image_url,  # Backward compatibility
+            image_url=serialize_image_url(db_post.image_url),  # Backward compatibility
             images=_serialize_post_images(post_images),  # Multi-image support
             location=db_post.location,
             location_data=db_post.location_data,
@@ -1037,7 +1038,7 @@ async def get_feed(
                     rich_content=getattr(row, 'rich_content', None),
                     post_style=getattr(row, 'post_style', None),
                     post_type=row.post_type,
-                    image_url=row.image_url,
+                    image_url=serialize_image_url(row.image_url),
                     images=[],  # Will be populated by algorithm service
                     location=getattr(row, 'location', None),
                     location_data=getattr(row, 'location_data', None),
@@ -1368,7 +1369,7 @@ async def get_post_by_id(
             rich_content=getattr(row, 'rich_content', None),
             post_style=post_style,
             post_type=row.post_type,
-            image_url=row.image_url,
+            image_url=serialize_image_url(row.image_url),
             images=images,  # Multi-image support
             location=row.location,
             location_data=location_data,
@@ -1380,7 +1381,7 @@ async def get_post_by_id(
                 "username": row.author_username,
                 "display_name": row.author_display_name,
                 "name": row.author_display_name or row.author_username,
-                "image": storage.get_url(row.author_profile_image) if getattr(row, 'author_profile_image', None) else None,
+                "image": serialize_image_url(getattr(row, 'author_profile_image', None)),
                 "follower_count": stats.get("followers_count", 0),
                 "following_count": stats.get("following_count", 0),
                 "posts_count": stats.get("posts_count", 0),
@@ -1678,7 +1679,7 @@ async def edit_post(
             rich_content=post.rich_content,
             post_style=post.post_style,
             post_type=post.post_type.value,
-            image_url=post.image_url,
+            image_url=serialize_image_url(post.image_url),
             images=images,  # Multi-image support
             location=post.location,
             location_data=post.location_data,
@@ -1691,7 +1692,7 @@ async def edit_post(
                 "display_name": user.display_name,
                 "name": user.display_name or user.username,
                 "email": user.email,
-                "profile_image_url": user.profile_image_url
+                "profile_image_url": serialize_image_url(user.profile_image_url)
             },
             hearts_count=post.hearts_count or 0,
             reactions_count=post.reactions_count or 0,

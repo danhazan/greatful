@@ -14,6 +14,7 @@ from app.models.emoji_reaction import EmojiReaction
 from app.models.user import User
 from app.models.post import Post
 from app.core.notification_factory import NotificationFactory
+from app.core.image_urls import serialize_image_url
 import logging
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ class ReactionService(BaseService):
                 "user": {
                     "id": user.id,
                     "username": user.username,
-                    "profile_image_url": user.profile_image_url
+                    "profile_image_url": serialize_image_url(user.profile_image_url)
                 }
             }
         else:
@@ -160,7 +161,7 @@ class ReactionService(BaseService):
                 "user": {
                     "id": user.id,
                     "username": user.username,
-                    "profile_image_url": user.profile_image_url
+                    "profile_image_url": serialize_image_url(user.profile_image_url)
                 }
             }
 
@@ -207,7 +208,7 @@ class ReactionService(BaseService):
                 "user": {
                     "id": reaction.user.id,
                     "username": reaction.user.username,
-                    "profile_image_url": reaction.user.profile_image_url
+                    "profile_image_url": serialize_image_url(reaction.user.profile_image_url)
                 }
             }
             for reaction in reactions

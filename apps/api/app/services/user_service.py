@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ConflictError, ValidationException
 from app.core.query_monitor import monitor_query
-from app.core.storage import storage  # ← ADDED: Import storage adapter
+from app.core.image_urls import serialize_image_url
 from app.repositories.user_repository import UserRepository
 from app.repositories.post_repository import PostRepository
 from app.models.user import User
@@ -49,17 +49,12 @@ class UserService(BaseService):
             logger.error(f"Error in get_user_profile: {e}")
             raise
         
-        # ✅ FIXED: Convert profile_image_url to full URL
-        profile_image_url = None
-        if user.profile_image_url:
-            profile_image_url = storage.get_url(user.profile_image_url)
-        
         return {
             "id": user.id,
             "username": user.username,
             "email": user.email,
             "bio": user.bio,
-            "profile_image_url": profile_image_url,  # ← Full URL now!
+            "profile_image_url": serialize_image_url(user.profile_image_url),
             "display_name": user.display_name,
             "city": user.city,
             "location": user.location,
@@ -112,8 +107,6 @@ class UserService(BaseService):
         found_ids = [user.id for user in users]
         batch_stats = await self.user_repo.get_user_stats_batch(found_ids)
         
-        from app.core.storage import storage
-        
         # 3. Compile profiles
         profiles = []
         for user in users:
@@ -124,15 +117,11 @@ class UserService(BaseService):
                 "following_count": 0
             })
             
-            profile_image_url = None
-            if user.profile_image_url:
-                profile_image_url = storage.get_url(user.profile_image_url)
-                
             profile = {
                 "id": user.id,
                 "username": user.username,
                 "bio": user.bio,
-                "profile_image_url": profile_image_url,
+                "profile_image_url": serialize_image_url(user.profile_image_url),
                 "display_name": user.display_name,
                 "city": user.city,
                 "location": user.location,
@@ -352,24 +341,6 @@ class UserService(BaseService):
             limit=limit,
             offset=offset
         )
-
-        # ✅ FIXED: Convert image URLs to full URLs
-        for post in posts:
-            # Convert author profile image
-            if post.get('author') and post['author'].get('profile_image_url'):
-                post['author']['profile_image_url'] = storage.get_url(
-                    post['author']['profile_image_url']
-                )
-            
-            # Convert post images if present
-            if post.get('images'):
-                for image in post['images']:
-                    if image.get('thumbnail_url'):
-                        image['thumbnail_url'] = storage.get_url(image['thumbnail_url'])
-                    if image.get('medium_url'):
-                        image['medium_url'] = storage.get_url(image['medium_url'])
-                    if image.get('original_url'):
-                        image['original_url'] = storage.get_url(image['original_url'])
 
         # Add logging to trace data shape
         from fastapi.encoders import jsonable_encoder

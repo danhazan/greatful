@@ -7,6 +7,7 @@ import {
   validateRequiredParams,
   hasValidAuth
 } from '@/lib/api-utils'
+import { normalizeImageUrls } from '@/utils/proxyImageUrlNormalization'
 
 export async function GET(
   request: NextRequest,
@@ -48,8 +49,9 @@ export async function GET(
     // Transform snake_case to camelCase
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedReplies = transformApiResponse(replies)
+    const normalizedReplies = normalizeImageUrls(transformedReplies)
 
-    return NextResponse.json(transformedReplies)
+    return NextResponse.json(normalizedReplies)
 
   } catch (error) {
     return handleApiError(error, 'fetching replies')
@@ -106,8 +108,9 @@ export async function POST(
     // Transform snake_case to camelCase
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedReply = transformApiResponse(reply)
+    const normalizedReply = normalizeImageUrls(transformedReply)
 
-    return NextResponse.json(transformedReply, { status: 201 })
+    return NextResponse.json(normalizedReply, { status: 201 })
 
   } catch (error) {
     return handleApiError(error, 'adding reply')

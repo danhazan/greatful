@@ -4,6 +4,14 @@ import pytest_asyncio
 from app.models.user import User
 import uuid
 
+
+def _assert_serialized_image_url(image_url: str | None) -> None:
+    if image_url is None:
+        return
+    assert image_url.startswith("/uploads/") or image_url.startswith("http://") or image_url.startswith("https://")
+    assert not image_url.startswith("uploads/")
+
+
 @pytest.mark.asyncio
 class TestUserSearchIntegration:
     """Integration tests for user search functionality."""
@@ -16,7 +24,8 @@ class TestUserSearchIntegration:
             email="findme@example.com",
             username="findme_user",
             hashed_password=get_password_hash("password"),
-            display_name="Hidden Name"
+            display_name="Hidden Name",
+            profile_image_url="profile_photos/findme_user.jpg",
         )
         db_session.add(user)
         await db_session.commit()
@@ -32,6 +41,8 @@ class TestUserSearchIntegration:
         assert len(data) >= 1
         found = any(u["username"] == "findme_user" for u in data)
         assert found
+        target = next(u for u in data if u["username"] == "findme_user")
+        _assert_serialized_image_url(target.get("profile_image_url"))
 
     async def test_search_by_display_name_partial(self, client, test_user, auth_headers, db_session):
         """Test searching by partial display name."""
@@ -41,7 +52,8 @@ class TestUserSearchIntegration:
             email="display@example.com",
             username="random_username",
             hashed_password=get_password_hash("password"),
-            display_name="Unique Display Name"
+            display_name="Unique Display Name",
+            profile_image_url="profile_photos/random_username.jpg",
         )
         db_session.add(user)
         await db_session.commit()
@@ -67,7 +79,8 @@ class TestUserSearchIntegration:
             email="result@example.com",
             username="result_user",
             hashed_password=get_password_hash("password"),
-            display_name="Result Name"
+            display_name="Result Name",
+            profile_image_url="profile_photos/result_user.jpg",
         )
         db_session.add(user)
         await db_session.commit()
@@ -86,3 +99,4 @@ class TestUserSearchIntegration:
         # This assertion is expected to fail before the fix
         assert "display_name" in target_user
         assert target_user["display_name"] == "Result Name"
+        _assert_serialized_image_url(target_user.get("profile_image_url"))

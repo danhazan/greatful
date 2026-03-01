@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, BusinessLogicError
 from app.core.storage import storage  # Import the storage adapter
+from app.core.image_urls import serialize_image_url
 from app.models.user import User
 from app.services.file_upload_service import FileUploadService
 
@@ -89,14 +90,14 @@ class ProfilePhotoService(BaseService):
                 
                 # Convert all paths to URLs for API response
                 size_urls = {
-                    size_name: storage.get_url(path)
+                    size_name: serialize_image_url(path)
                     for size_name, path in sizes_result.items()
                 }
                 
                 return {
                     "success": True,
                     "message": "Profile photo uploaded successfully",
-                    "profile_image_url": storage.get_url(medium_path),  # Convert to URL
+                    "profile_image_url": serialize_image_url(medium_path),
                     "sizes": size_urls,  # All URLs for frontend
                     "is_duplicate": False,
                     "similar_images": [],  # No similarity checking for profiles

@@ -15,6 +15,7 @@ from app.models.mention import Mention
 from app.models.user import User
 from app.models.post import Post
 from app.core.notification_factory import NotificationFactory
+from app.core.image_urls import serialize_image_url
 import logging
 
 logger = logging.getLogger(__name__)
@@ -163,7 +164,7 @@ class MentionService(BaseService):
                 "mentioned_user": {
                     "id": user.id,
                     "username": user.username,
-                    "profile_image_url": user.profile_image_url
+                    "profile_image_url": serialize_image_url(user.profile_image_url)
                 }
             }
             for mention, user in zip(mentions, valid_users)
@@ -211,7 +212,7 @@ class MentionService(BaseService):
                 "id": user.id,
                 "username": user.username,
                 "display_name": user.display_name,
-                "profile_image_url": user.profile_image_url,
+                "profile_image_url": serialize_image_url(user.profile_image_url),
                 "bio": user.bio
             }
             for user in users
@@ -243,12 +244,12 @@ class MentionService(BaseService):
                 "author": {
                     "id": mention.author.id,
                     "username": mention.author.username,
-                    "profile_image_url": mention.author.profile_image_url
+                    "profile_image_url": serialize_image_url(mention.author.profile_image_url)
                 },
                 "mentioned_user": {
                     "id": mention.mentioned_user.id,
                     "username": mention.mentioned_user.username,
-                    "profile_image_url": mention.mentioned_user.profile_image_url
+                    "profile_image_url": serialize_image_url(mention.mentioned_user.profile_image_url)
                 }
             }
             for mention in mentions
@@ -289,7 +290,7 @@ class MentionService(BaseService):
                 "author": {
                     "id": mention.author.id,
                     "username": mention.author.username,
-                    "profile_image_url": mention.author.profile_image_url
+                    "profile_image_url": serialize_image_url(mention.author.profile_image_url)
                 },
                 "post": {
                     "id": mention.post.id,

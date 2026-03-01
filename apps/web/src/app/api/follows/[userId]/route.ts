@@ -7,6 +7,7 @@ import {
   hasValidAuth
 } from '@/lib/api-utils'
 import { transformApiResponse } from '@/lib/caseTransform'
+import { normalizeImageUrls } from '@/utils/proxyImageUrlNormalization'
 
 export async function POST(
   request: NextRequest,
@@ -38,7 +39,7 @@ export async function POST(
     const result = await response.json()
     // Transform snake_case to camelCase
     const transformedResult = transformApiResponse(result)
-    return NextResponse.json(transformedResult)
+    return NextResponse.json(normalizeImageUrls(transformedResult))
 
   } catch (error) {
     return handleApiError(error, 'following user')
@@ -75,7 +76,7 @@ export async function DELETE(
     const result = await response.json()
     // Transform snake_case to camelCase
     const transformedResult = transformApiResponse(result)
-    return NextResponse.json(transformedResult)
+    return NextResponse.json(normalizeImageUrls(transformedResult))
 
   } catch (error) {
     return handleApiError(error, 'unfollowing user')

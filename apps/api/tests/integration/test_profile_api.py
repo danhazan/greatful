@@ -12,6 +12,13 @@ from app.models.post import Post, PostType
 import uuid
 
 
+def _assert_serialized_image_url(image_url: str | None) -> None:
+    if image_url is None:
+        return
+    assert image_url.startswith("/uploads/") or image_url.startswith("http://") or image_url.startswith("https://")
+    assert not image_url.startswith("uploads/")
+
+
 class TestGetMyProfile:
     """Test cases for GET /api/v1/users/me/profile endpoint."""
 
@@ -322,7 +329,8 @@ class TestUserSearch:
                 email=f"searchuser{i}@example.com",
                 username=f"searchuser{i}",
                 hashed_password=get_password_hash("testpassword"),
-                bio=f"Bio for search user {i}"
+                bio=f"Bio for search user {i}",
+                profile_image_url=f"profile_photos/searchuser{i}.jpg",
             )
             db_session.add(user)
             users.append(user)
@@ -349,6 +357,7 @@ class TestUserSearch:
             assert "username" in user_result
             assert "profile_image_url" in user_result
             assert "bio" in user_result
+            _assert_serialized_image_url(user_result["profile_image_url"])
             # Should not include email in search results
             assert "email" not in user_result
 

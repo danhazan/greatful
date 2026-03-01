@@ -11,6 +11,13 @@ from app.services.follow_service import FollowService
 from app.core.security import create_access_token
 
 
+def _assert_serialized_image_url(image_url: str | None) -> None:
+    if image_url is None:
+        return
+    assert image_url.startswith("/uploads/") or image_url.startswith("http://") or image_url.startswith("https://")
+    assert not image_url.startswith("uploads/")
+
+
 class TestFollowAPI:
     """Test follow API endpoints integration."""
 
@@ -25,6 +32,9 @@ class TestFollowAPI:
         # Use existing test users to avoid unique constraint violations
         user1 = test_user
         user2 = test_user_2
+        user1.profile_image_url = "profile_photos/user1.jpg"
+        user2.profile_image_url = "profile_photos/user2.jpg"
+        await db_session.commit()
         
         # Follow user2 as user1
         response = await http_client.post(
@@ -40,6 +50,8 @@ class TestFollowAPI:
         assert data["data"]["status"] == "active"
         assert data["data"]["follower"]["username"] == user1.username
         assert data["data"]["followed"]["username"] == user2.username
+        _assert_serialized_image_url(data["data"]["follower"]["profile_image_url"])
+        _assert_serialized_image_url(data["data"]["followed"]["profile_image_url"])
 
     @pytest.mark.asyncio
     async def test_follow_user_self_follow_error(self, http_client: AsyncClient, test_user, db_session: AsyncSession):
@@ -161,6 +173,10 @@ class TestFollowAPI:
     @pytest.mark.asyncio
     async def test_get_user_followers_success(self, http_client: AsyncClient, test_user, test_user_2, test_user_3, auth_headers, db_session: AsyncSession):
         """Test getting user followers."""
+        test_user_2.profile_image_url = "profile_photos/follower2.jpg"
+        test_user_3.profile_image_url = "profile_photos/follower3.jpg"
+        await db_session.commit()
+
         # Create follow relationships (user2 and user3 follow user1)
         follow_service = FollowService(db_session)
         await follow_service.follow_user(test_user_2.id, test_user.id)
@@ -182,6 +198,8 @@ class TestFollowAPI:
         follower_usernames = [f["username"] for f in data["data"]["followers"]]
         assert test_user_2.username in follower_usernames
         assert test_user_3.username in follower_usernames
+        for follower in data["data"]["followers"]:
+            _assert_serialized_image_url(follower.get("profile_image_url"))
 
     @pytest.mark.asyncio
     async def test_get_user_following_success(self, http_client: AsyncClient, test_user, test_user_2, test_user_3, auth_headers, db_session: AsyncSession):

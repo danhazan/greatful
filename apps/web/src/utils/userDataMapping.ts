@@ -5,6 +5,11 @@
 
 const API_BASE_URL = process.env['NEXT_PUBLIC_API_URL'] || "http://localhost:8000"
 
+export function toAbsoluteImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  return url.startsWith("http") ? url : `${API_BASE_URL}${url}`
+}
+
 /**
  * Normalizes user data from backend to frontend format with consistent field names.
  * Maps profileImageUrl to image field for compatibility with components.
@@ -17,11 +22,7 @@ export function normalizeUserData(user: any) {
   const rawImage = user.profileImageUrl || user.image || user.profile_image_url || null
 
   // Convert relative URLs to absolute URLs
-  const absoluteImage = rawImage && rawImage.startsWith("http")
-    ? rawImage
-    : rawImage
-      ? `${API_BASE_URL}${rawImage}`
-      : null
+  const absoluteImage = toAbsoluteImageUrl(rawImage)
 
   return {
     ...user,

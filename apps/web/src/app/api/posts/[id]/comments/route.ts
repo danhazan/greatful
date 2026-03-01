@@ -7,6 +7,7 @@ import {
   validateRequiredParams,
   hasValidAuth
 } from '@/lib/api-utils'
+import { normalizeImageUrls } from '@/utils/proxyImageUrlNormalization'
 
 export async function GET(
   request: NextRequest,
@@ -47,8 +48,10 @@ export async function GET(
 
     // Transform snake_case to camelCase
     const { transformApiResponse } = await import('@/lib/caseTransform')
+    // Missing before: this route only transformed key casing, leaving relative user image URLs untouched.
     const transformedComments = transformApiResponse(comments)
-    return NextResponse.json(transformedComments)
+    const normalizedComments = normalizeImageUrls(transformedComments)
+    return NextResponse.json(normalizedComments)
 
   } catch (error) {
     return handleApiError(error, 'fetching comments')
@@ -106,8 +109,10 @@ export async function POST(
 
     // Transform snake_case to camelCase
     const { transformApiResponse } = await import('@/lib/caseTransform')
+    // Missing before: POST response path also skipped user image URL normalization.
     const transformedComment = transformApiResponse(comment)
-    return NextResponse.json(transformedComment, { status: 201 })
+    const normalizedComment = normalizeImageUrls(transformedComment)
+    return NextResponse.json(normalizedComment, { status: 201 })
 
   } catch (error) {
     return handleApiError(error, 'adding comment')
