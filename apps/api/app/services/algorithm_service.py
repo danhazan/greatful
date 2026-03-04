@@ -324,9 +324,10 @@ class AlgorithmService(BaseService):
         base_score = 1.0
         
         # Engagement multiplier using configurable weights with cap to prevent explosive growth
+        # Note: reactions_count now includes all reactions (including hearts).
+        # We use reactions_count for all reaction scoring to avoid double-counting hearts.
         scoring_weights = self.config.scoring_weights
         engagement_points = (
-            (hearts_count * scoring_weights.hearts) + 
             (reactions_count * scoring_weights.reactions) + 
             (shares_count * scoring_weights.shares)
         )

@@ -328,3 +328,34 @@ class ReactionService(BaseService):
             bool: True if interaction was removed, False if no interaction existed
         """
         return await self.remove_reaction(user_id, post_id)
+    @monitor_query("get_reaction_summary")
+    async def get_reaction_summary(self, post_id: str) -> Dict[str, Any]:
+        """
+        Get a comprehensive summary of reactions for a post.
+        Enforces invariant: total_count === sum(emoji_counts.values())
+        """
+        # Fetch counts from repository (which should now return unified counts)
+        emoji_counts = await self.get_reaction_counts(post_id)
+        
+        # Calculate total directly from the map to guarantee the invariant
+        calculated_total = sum(emoji_counts.values())
+        
+        # We can fetch the raw total just to verify integrity
+        raw_total = await self.get_total_reaction_count(post_id)
+        
+        # Strictly enforce the invariant
+        if calculated_total != raw_total:
+            logger.error(
+                f"[REACTION INTEGRITY ERROR] Invariant violated for post {post_id}: "
+                f"calculated_total ({calculated_total}) != raw_total ({raw_total}). "
+                f"Emoji counts: {emoji_counts}"
+            )
+            # User specifically requested this not silently proceed
+            from app.core.exceptions import InternalServerError
+            raise InternalServerError("Reaction count integrity violation")
+            
+        return {
+            "post_id": post_id,
+            "total_count": calculated_total,
+            "emoji_counts": emoji_counts
+        }

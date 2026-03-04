@@ -53,6 +53,7 @@ class EngagementData:
     reactions_count: int
     shares_count: int
     comments_count: int
+    reaction_emoji_codes: List[str]
 
 
 @dataclass
@@ -198,15 +199,12 @@ class OptimizedAlgorithmService(AlgorithmService):
         hearts_result = await self.db.execute(hearts_query)
         hearts_counts = {row.post_id: row.hearts_count for row in hearts_result.fetchall()}
         
-        # Batch query for reactions (excluding heart reactions which are counted separately)
+        # Batch query for reactions (count of all unique reacting users, including hearts)
         reactions_query = select(
             EmojiReaction.post_id,
             func.count(EmojiReaction.id).label('reactions_count')
         ).where(
-            and_(
-                EmojiReaction.post_id.in_(post_ids),
-                EmojiReaction.emoji_code != 'heart'
-            )
+            EmojiReaction.post_id.in_(post_ids)
         ).group_by(EmojiReaction.post_id)
         
         reactions_result = await self.db.execute(reactions_query)
@@ -230,9 +228,20 @@ class OptimizedAlgorithmService(AlgorithmService):
         ).where(
             Comment.post_id.in_(post_ids)
         ).group_by(Comment.post_id)
-        
+
         comments_result = await self.db.execute(comments_query)
         comments_counts = {row.post_id: row.comments_count for row in comments_result.fetchall()}
+        
+        # Batch query for emoji codes (all unique emojis including hearts)
+        emoji_codes_query = select(
+            EmojiReaction.post_id,
+            func.array_agg(EmojiReaction.emoji_code.distinct()).label('emoji_codes')
+        ).where(
+            EmojiReaction.post_id.in_(post_ids)
+        ).group_by(EmojiReaction.post_id)
+        
+        emoji_codes_result = await self.db.execute(emoji_codes_query)
+        emoji_codes = {row.post_id: list(row.emoji_codes or []) for row in emoji_codes_result.fetchall()}
         
         # Combine data
         for post_id in post_ids:
@@ -241,7 +250,8 @@ class OptimizedAlgorithmService(AlgorithmService):
                 hearts_count=hearts_counts.get(post_id, 0),
                 reactions_count=reactions_counts.get(post_id, 0),
                 shares_count=shares_counts.get(post_id, 0),
-                comments_count=comments_counts.get(post_id, 0)
+                comments_count=comments_counts.get(post_id, 0),
+                reaction_emoji_codes=emoji_codes.get(post_id, [])
             )
         
         logger.debug(f"Loaded engagement data for {len(post_ids)} posts in batch")
@@ -532,9 +542,10 @@ class OptimizedAlgorithmService(AlgorithmService):
             shares_count = 0
             
         # Base engagement score using configurable weights
+        # Note: reactions_count now includes all reactions (including hearts).
+        # We use reactions_count for all reaction scoring to avoid double-counting hearts.
         scoring_weights = self.config.scoring_weights
         base_score = (
-            (hearts_count * scoring_weights.hearts) + 
             (reactions_count * scoring_weights.reactions) + 
             (shares_count * scoring_weights.shares)
         )
@@ -762,7 +773,8 @@ class OptimizedAlgorithmService(AlgorithmService):
                         'hearts': data.hearts_count,
                         'reactions': data.reactions_count,
                         'shares': data.shares_count,
-                        'comments': data.comments_count
+                        'comments': data.comments_count,
+                        'reaction_emoji_codes': data.reaction_emoji_codes
                     }
                     for p_id, data in engagement_data.items()
                 }

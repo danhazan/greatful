@@ -112,100 +112,55 @@ class PostRepository(BaseRepository):
         
         where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
         
-        # Hearts are implemented as emoji reactions with emoji_code='heart'
-        has_likes_table = True  # Hearts available through emoji reactions system
-        
         try:
-            if has_likes_table:
-                query = text(f"""
-                    SELECT p.id,
-                           p.author_id,
-                           p.content,
-                           p.post_style,
-                           p.post_type,
-                           p.image_url,
-                           p.location,
-                           p.location_data,
-                           p.is_public,
-                           p.created_at,
-                           p.updated_at,
-                           u.id as author_user_id,
-                           u.username as author_username,
-                           u.display_name as author_display_name,
-                           u.email as author_email,
-                           u.profile_image_url as author_profile_image_url,
-                           COALESCE(hearts.hearts_count, 0) as hearts_count,
-                           COALESCE(reactions.reactions_count, 0) as reactions_count,
-                           COALESCE(comments.comments_count, 0) as comments_count,
-                           user_reactions.emoji_code as current_user_reaction,
-                           CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
-                    FROM posts p
-                    LEFT JOIN users u ON u.id = p.author_id
-                    LEFT JOIN (
-                        SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
-                        FROM emoji_reactions
-                        WHERE emoji_code = 'heart'
-                        GROUP BY post_id
-                    ) hearts ON hearts.post_id = p.id
-                    LEFT JOIN (
-                        SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
-                        FROM emoji_reactions
-                        GROUP BY post_id
-                    ) reactions ON reactions.post_id = p.id
-                    LEFT JOIN (
-                        SELECT post_id, COUNT(*) as comments_count
-                        FROM comments
-                        GROUP BY post_id
-                    ) comments ON comments.post_id = p.id
-                    LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                        AND user_reactions.user_id = :user_id
-                    LEFT JOIN emoji_reactions user_hearts ON user_hearts.post_id = p.id 
-                        AND user_hearts.user_id = :user_id AND user_hearts.emoji_code = 'heart'
-                    {where_clause}
-                    ORDER BY p.created_at DESC
-                    LIMIT :limit OFFSET :offset
-                """)
-            else:
-                query = text(f"""
-                    SELECT p.id,
-                           p.author_id,
-                           p.content,
-                           p.post_style,
-                           p.post_type,
-                           p.image_url,
-                           p.location,
-                           p.location_data,
-                           p.is_public,
-                           p.created_at,
-                           p.updated_at,
-                           u.id as author_user_id,
-                           u.username as author_username,
-                           u.display_name as author_display_name,
-                           u.email as author_email,
-                           u.profile_image_url as author_profile_image_url,
-                           0 as hearts_count,
-                           COALESCE(reactions.reactions_count, 0) as reactions_count,
-                           COALESCE(comments.comments_count, 0) as comments_count,
-                           user_reactions.emoji_code as current_user_reaction,
-                           false as is_hearted
-                    FROM posts p
-                    LEFT JOIN users u ON u.id = p.author_id
-                    LEFT JOIN (
-                        SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
-                        FROM emoji_reactions
-                        GROUP BY post_id
-                    ) reactions ON reactions.post_id = p.id
-                    LEFT JOIN (
-                        SELECT post_id, COUNT(*) as comments_count
-                        FROM comments
-                        GROUP BY post_id
-                    ) comments ON comments.post_id = p.id
-                    LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                        AND user_reactions.user_id = :user_id
-                    {where_clause}
-                    ORDER BY p.created_at DESC
-                    LIMIT :limit OFFSET :offset
-                """)
+            query = text(f"""
+                SELECT p.id,
+                       p.author_id,
+                       p.content,
+                       p.post_style,
+                       p.post_type,
+                       p.image_url,
+                       p.location,
+                       p.location_data,
+                       p.is_public,
+                       p.created_at,
+                       p.updated_at,
+                       u.id as author_user_id,
+                       u.username as author_username,
+                       u.display_name as author_display_name,
+                       u.email as author_email,
+                       u.profile_image_url as author_profile_image_url,
+                       COALESCE(engagement.hearts_count, 0) as hearts_count,
+                       COALESCE(engagement.reactions_count, 0) as reactions_count,
+                       COALESCE(engagement.reaction_emoji_codes, ARRAY[]::text[]) as reaction_emoji_codes,
+                       COALESCE(comments.comments_count, 0) as comments_count,
+                       user_reactions.emoji_code as current_user_reaction,
+                       CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
+                FROM posts p
+                LEFT JOIN users u ON u.id = p.author_id
+                LEFT JOIN (
+                    SELECT post_id, 
+                           COUNT(DISTINCT CASE WHEN emoji_code = 'heart' THEN user_id END) as hearts_count,
+                           COUNT(DISTINCT user_id) as reactions_count,
+                           ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code) as reaction_emoji_codes
+                    FROM emoji_reactions
+                    GROUP BY post_id
+                ) engagement ON engagement.post_id = p.id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) as comments_count
+                    FROM comments
+                    GROUP BY post_id
+                ) comments ON comments.post_id = p.id
+                LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
+                    AND user_reactions.user_id = :user_id
+                LEFT JOIN emoji_reactions user_hearts ON user_hearts.post_id = p.id 
+                    AND user_hearts.user_id = :user_id AND user_hearts.emoji_code = 'heart'
+                {where_clause}
+                ORDER BY p.created_at DESC
+                LIMIT :limit OFFSET :offset
+            """)
+
+
             
             params = {
                 "user_id": user_id,
@@ -273,7 +228,8 @@ class PostRepository(BaseRepository):
                     "reactions_count": int(row.reactions_count) if row.reactions_count else 0,
                     "comments_count": int(row.comments_count) if row.comments_count else 0,
                     "current_user_reaction": row.current_user_reaction,
-                    "is_hearted": bool(row.is_hearted) if hasattr(row, 'is_hearted') else False
+                    "is_hearted": bool(row.is_hearted) if hasattr(row, 'is_hearted') else False,
+                    "reaction_emoji_codes": list(getattr(row, 'reaction_emoji_codes', None) or [])
                 }
                 posts.append(post_dict)
                 post_ids.append(row.id)
@@ -390,7 +346,7 @@ class PostRepository(BaseRepository):
                 SELECT 
                     p.id,
                     COUNT(DISTINCT CASE WHEN er.emoji_code = 'heart' THEN er.id END) as hearts_count,
-                    COUNT(DISTINCT CASE WHEN er.emoji_code != 'heart' THEN er.id END) as reactions_count,
+                    COUNT(DISTINCT er.id) as reactions_count,
                     COUNT(DISTINCT er.emoji_code) as unique_emoji_count
                 FROM posts p
                 LEFT JOIN emoji_reactions er ON er.post_id = p.id
@@ -449,13 +405,11 @@ class PostRepository(BaseRepository):
                 p.image_url,
                 p.created_at,
                 u.username as author_username,
-                COUNT(DISTINCT l.id) as recent_hearts,
+                COUNT(DISTINCT CASE WHEN er.emoji_code = 'heart' THEN er.id END) as recent_hearts,
                 COUNT(DISTINCT er.id) as recent_reactions,
-                (COUNT(DISTINCT l.id) * 1.0 + COUNT(DISTINCT er.id) * 1.5) as engagement_score
+                (COUNT(DISTINCT er.id) * 1.5) as engagement_score
             FROM posts p
             LEFT JOIN users u ON u.id = p.author_id
-            LEFT JOIN likes l ON l.post_id = p.id 
-                AND l.created_at >= NOW() - INTERVAL :hours HOUR
             LEFT JOIN emoji_reactions er ON er.post_id = p.id 
                 AND er.created_at >= NOW() - INTERVAL :hours HOUR
             WHERE p.is_public = true
@@ -545,16 +499,20 @@ class PostRepository(BaseRepository):
                     p.id,
                     COALESCE(hearts.hearts_count, 0) as hearts_count,
                     COALESCE(reactions.reactions_count, 0) as reactions_count,
+                    COALESCE(reactions.reaction_emoji_codes, ARRAY[]::text[]) as reaction_emoji_codes,
                     COALESCE(comments.comments_count, 0) as comments_count
                 FROM posts p
                 LEFT JOIN (
-                    SELECT post_id, COUNT(DISTINCT user_id) as hearts_count
+                    SELECT post_id, 
+                           COUNT(DISTINCT user_id) as hearts_count
                     FROM emoji_reactions
                     WHERE emoji_code = 'heart' AND post_id = ANY(:post_ids)
                     GROUP BY post_id
                 ) hearts ON hearts.post_id = p.id
                 LEFT JOIN (
-                    SELECT post_id, COUNT(DISTINCT user_id) as reactions_count
+                    SELECT post_id,
+                           COUNT(DISTINCT user_id) as reactions_count,
+                           ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code) as reaction_emoji_codes
                     FROM emoji_reactions
                     WHERE post_id = ANY(:post_ids)
                     GROUP BY post_id
@@ -573,7 +531,8 @@ class PostRepository(BaseRepository):
                 engagement_counts[row.id] = {
                     'hearts': int(row.hearts_count or 0),
                     'reactions': int(row.reactions_count or 0),
-                    'comments': int(row.comments_count or 0)
+                    'comments': int(row.comments_count or 0),
+                    'reaction_emoji_codes': list(row.reaction_emoji_codes or [])
                 }
         
         # Get user's reactions in batch
@@ -690,6 +649,7 @@ class PostRepository(BaseRepository):
                 "comments_count": engagement['comments'],
                 "current_user_reaction": user_reactions.get(post.id),
                 "is_hearted": post.id in user_hearts,
+                "reaction_emoji_codes": engagement.get('reaction_emoji_codes', []),
                 "algorithm_score": algorithm_scores.get(post.id, 0.0) if algorithm_scores else 0.0,
                 "is_read": read_statuses.get(post.id, False) if read_statuses else False, # is_read is true if in read_statuses
                 "is_unread": not read_statuses.get(post.id, False) if read_statuses else True # is_unread is true if not in read_statuses

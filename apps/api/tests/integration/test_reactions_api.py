@@ -167,8 +167,8 @@ class TestReactionsAPI:
         assert response.status_code == 200
         response_data = response.json()
         data = response_data["data"]
-        assert "total_count" in data
-        assert "emoji_counts" in data  # API returns emoji_counts instead of reactions
+        assert "totalCount" in data
+        assert "emojiCounts" in data  # API returns emojiCounts instead of reactions
 
     @pytest.mark.asyncio
     async def test_get_reactions_nonexistent_post(self, client, auth_headers):

@@ -22,19 +22,32 @@ class ReactionRequest(BaseModel):
     emoji_code: str = Field(..., description="Emoji code (e.g., 'heart_eyes', 'pray')")
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=lambda s: ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(s.split('_'))),
         json_schema_extra={
             "example": {
-                "emoji_code": "heart_eyes"
+                "emojiCode": "heart_eyes"
             }
         }
     )
 
-    @field_validator('emoji_code')
+    @field_validator('emoji_code', mode='before')
     @classmethod
     def validate_emoji_code(cls, v):
+        if not v or not isinstance(v, str):
+            logger.warning("Invalid emoji payload rejected: null or empty", extra={"invalid_payload": v})
+            raise ValueError("emoji_code must be a non-empty string")
+            
         from app.models.emoji_reaction import EmojiReaction
         if not EmojiReaction.is_valid_emoji(v):
             valid_emojis = list(EmojiReaction.VALID_EMOJIS.keys())
+            
+            # Log structured error for invalid emoji code
+            logger.warning(
+                f"Invalid emoji code rejected: '{v}'",
+                extra={"invalid_emoji_code": v, "expected_codes": valid_emojis}
+            )
+            
             raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
         return v
 
@@ -66,6 +79,11 @@ class ReactionSummary(BaseModel):
     total_count: int
     emoji_counts: dict
     user_reaction: str | None = None  # Current user's reaction emoji_code
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=lambda s: ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(s.split('_')))
+    )
 
 
 
@@ -158,21 +176,19 @@ async def get_reaction_summary(
     
     Returns total count, emoji counts, and current user's reaction.
     """
-    # Get total count and emoji counts
     reaction_service = ReactionService(db)
-    total_count = await reaction_service.get_total_reaction_count(post_id=post_id)
-    emoji_counts = await reaction_service.get_reaction_counts(post_id=post_id)
+    summary_data = await reaction_service.get_reaction_summary(post_id=post_id)
     
-    # Get current user's reaction
+    # Get current user's reaction separately for the summary
     user_reaction = await reaction_service.get_user_reaction(
         user_id=current_user_id, 
         post_id=post_id
     )
     
-    summary = {
-        "total_count": total_count,
-        "emoji_counts": emoji_counts,
-        "user_reaction": user_reaction.emoji_code if user_reaction else None
-    }
+    summary = ReactionSummary(
+        total_count=summary_data["total_count"],
+        emoji_counts=summary_data["emoji_counts"],
+        user_reaction=user_reaction.emoji_code if user_reaction else None
+    )
     
-    return success_response(summary, getattr(request.state, 'request_id', None))
+    return success_response(summary.model_dump(by_alias=True), getattr(request.state, 'request_id', None))
