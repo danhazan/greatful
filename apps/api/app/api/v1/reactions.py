@@ -76,13 +76,12 @@ class ReactionResponse(BaseModel):
 
 class ReactionSummary(BaseModel):
     """Summary of reactions for a post."""
-    total_count: int
-    emoji_counts: dict
-    user_reaction: str | None = None  # Current user's reaction emoji_code
+    total_count: int = Field(alias="totalCount")
+    emoji_counts: dict = Field(alias="emojiCounts")
+    user_reaction: str | None = Field(default=None, alias="userReaction")  # Current user's reaction emoji_code
 
     model_config = ConfigDict(
-        populate_by_name=True,
-        alias_generator=lambda s: ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(s.split('_')))
+        populate_by_name=True
     )
 
 

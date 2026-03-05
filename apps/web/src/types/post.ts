@@ -65,10 +65,11 @@ export interface Post {
     images?: PostImage[]
     location?: string
     locationData?: LocationData
-    heartsCount: number
-    isHearted: boolean
+    heartsCount?: number   // @deprecated — unified into reactionsCount
+    isHearted?: boolean    // @deprecated — unified into currentUserReaction
     reactionsCount: number
-    currentUserReaction?: string
+    currentUserReaction?: string | null
+    reactionEmojiCodes?: string[]
     isRead?: boolean
     isUnread?: boolean
     commentsCount?: number

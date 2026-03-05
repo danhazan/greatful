@@ -1,31 +1,67 @@
-import { camelizeKeys, decamelizeKeys } from 'humps'
+import { camelize, decamelizeKeys } from 'humps'
+
+/**
+ * Keys whose children should NOT be transformed to camelCase.
+ * 
+ * IMPORTANT: These keys contain domain-specific identifiers (like emoji codes
+ * such as 'heart_eyes') that must remain in snake_case to match database values
+ * and frontend mappings. Removing or modifying these will break reaction rendering.
+ */
+const PROTECTED_KEYS = ['emojiCounts', 'emoji_counts', 'reactionEmojiCodes'];
+
+/**
+ * Recursively transforms keys to camelCase, skipping protected branches.
+ */
+function deepCamelize(obj: any, isProtected = false): any {
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map(item => deepCamelize(item, isProtected));
+  }
+
+  // Handle objects
+  if (obj !== null && typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      // 1. Determine the key to use. If protected, use as-is.
+      const camelKey = isProtected ? key : humpsCamelize(key);
+
+      // 2. Check if this specific key marks the START of a protected branch.
+      // Use case-insensitive check to be resilient to upstream casing changes.
+      const normalizedKey = camelKey.toLowerCase();
+      const shouldProtect = PROTECTED_KEYS.some(k => k.toLowerCase() === normalizedKey);
+
+      // 3. Transform the value. 
+      // If we are already protected, or this key starts a protection, pass true.
+      newObj[camelKey] = deepCamelize(obj[key], isProtected || shouldProtect);
+    }
+    return newObj;
+  }
+
+  // Handle primitive values
+  // If we are in a protected branch and it's a string, we return it as-is
+  // (This handles reactionEmojiCodes array which is string[])
+  return obj;
+}
+
+// Wrapper to use humps.camelize safely
+function humpsCamelize(key: string): string {
+  // humps.camelize can handle some edge cases
+  return camelize(key);
+}
 
 /**
  * Transform API response from snake_case to camelCase
  * 
  * This utility automatically converts all keys in the response object
- * from Python's snake_case convention to JavaScript's camelCase convention.
+ * from Python's snake_case convention to JavaScript's camelCase convention,
+ * while preserving dynamic keys (like emoji codes) in protected fields.
  * 
  * @param data - The API response data to transform
  * @returns The transformed data with camelCase keys
- * 
- * @example
- * // Backend returns: { hearts_count: 5, created_at: "2024-01-01" }
- * // Frontend receives: { heartsCount: 5, createdAt: "2024-01-01" }
- * const response = await fetch('/api/posts')
- * const data = await response.json()
- * const transformed = transformApiResponse(data)
  */
 export function transformApiResponse<T = any>(data: any): T {
   if (!data) return data
-  
-  return camelizeKeys(data, (key, convert) => {
-    // Apply standard camelCase conversion to all keys
-    // If specific keys need to be excluded from transformation in the future,
-    // add conditions here. For example:
-    // if (key === 'oauth_provider') return key
-    return convert(key)
-  }) as T
+  return deepCamelize(data);
 }
 
 /**
@@ -46,6 +82,6 @@ export function transformApiResponse<T = any>(data: any): T {
  */
 export function transformApiRequest<T = any>(data: any): T {
   if (!data) return data
-  
+
   return decamelizeKeys(data) as T
 }

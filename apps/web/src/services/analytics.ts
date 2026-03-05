@@ -9,7 +9,7 @@ export interface EngagementEvent {
   userId: string
   metadata?: {
     emojiCode?: string
-    previousEmoji?: string
+    previousEmoji?: string | null
     shareMethod?: string
     viewDuration?: number
   }
@@ -49,7 +49,7 @@ class AnalyticsService {
     postId: string,
     userId: string,
     emojiCode?: string,
-    previousEmoji?: string
+    previousEmoji?: string | null
   ): Promise<void> {
     const event: EngagementEvent = {
       type,
@@ -62,7 +62,7 @@ class AnalyticsService {
     this.events.push(event)
     await this.updatePostEngagementScore(postId)
     await this.updateUserMetrics(userId, type, emojiCode)
-    
+
     // Backend API calls are disabled to prevent UI interference
     // this.sendToBackend(event) - commented out
   }
@@ -82,7 +82,7 @@ class AnalyticsService {
     this.events.push(event)
     await this.updatePostEngagementScore(postId)
     await this.updateUserMetrics(userId, 'heart')
-    
+
     // Backend API calls are disabled to prevent UI interference
     // this.sendToBackend(event) - commented out
   }
@@ -91,8 +91,8 @@ class AnalyticsService {
    * Track a share event
    */
   async trackShareEvent(
-    postId: string, 
-    userId: string, 
+    postId: string,
+    userId: string,
     shareMethod: 'url' | 'message' | 'whatsapp'
   ): Promise<void> {
     const event: EngagementEvent = {
@@ -106,7 +106,7 @@ class AnalyticsService {
     this.events.push(event)
     await this.updatePostEngagementScore(postId)
     await this.updateUserMetrics(userId, 'share')
-    
+
     // Backend API calls are disabled to prevent UI interference
     // this.sendToBackend(event) - commented out
   }
@@ -125,7 +125,7 @@ class AnalyticsService {
 
     this.events.push(event)
     await this.updatePostEngagementScore(postId)
-    
+
     // Backend API calls are disabled to prevent UI interference
     // this.sendToBackend(event) - commented out
   }
@@ -136,28 +136,28 @@ class AnalyticsService {
    */
   private async updatePostEngagementScore(postId: string): Promise<void> {
     const postEvents = this.events.filter(e => e.postId === postId)
-    
-    const heartsCount = postEvents.filter(e => 
+
+    const heartsCount = postEvents.filter(e =>
       e.type === 'heart' && e.metadata?.emojiCode === 'heart'
     ).length
-    
-    const reactionsCount = postEvents.filter(e => 
+
+    const reactionsCount = postEvents.filter(e =>
       e.type === 'reaction_add'
     ).length
-    
-    const sharesCount = postEvents.filter(e => 
+
+    const sharesCount = postEvents.filter(e =>
       e.type === 'share'
     ).length
-    
-    const viewsCount = postEvents.filter(e => 
+
+    const viewsCount = postEvents.filter(e =>
       e.type === 'view'
     ).length
 
     // Calculate engagement score using the algorithm from requirements
-    const engagementScore = (heartsCount * 1.0) + 
-                           (reactionsCount * 1.5) + 
-                           (sharesCount * 4.0) + 
-                           (viewsCount * 0.1)
+    const engagementScore = (heartsCount * 1.0) +
+      (reactionsCount * 1.5) +
+      (sharesCount * 4.0) +
+      (viewsCount * 0.1)
 
     const score: PostEngagementScore = {
       postId,
@@ -176,8 +176,8 @@ class AnalyticsService {
    * Update user engagement metrics
    */
   private async updateUserMetrics(
-    userId: string, 
-    eventType: string, 
+    userId: string,
+    eventType: string,
     emojiCode?: string
   ): Promise<void> {
     let metrics = this.userMetrics.get(userId) || {
@@ -304,7 +304,7 @@ class AnalyticsService {
     const userEvents = this.events.filter(e => e.userId === userId)
     if (userEvents.length === 0) return 0
 
-    const firstEvent = userEvents.reduce((earliest, event) => 
+    const firstEvent = userEvents.reduce((earliest, event) =>
       event.timestamp < earliest.timestamp ? event : earliest
     )
 

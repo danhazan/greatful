@@ -64,77 +64,40 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
   // Handle heart interaction
   const handleHeart = async (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
     if (!isUserAuthenticated) {
-      // Redirect to login if not authenticated
       router.push('/auth/login')
       return
     }
-
-    // Update post state with server response or optimistic update
-    if (heartInfo) {
-      setPost(prevPost => ({
-        ...prevPost,
-        heartsCount: heartInfo.heartsCount,
-        isHearted: heartInfo.isHearted,
-      }))
-    } else {
-      // Fallback optimistic update
-      setPost(prevPost => ({
-        ...prevPost,
-        heartsCount: prevPost.heartsCount + (isCurrentlyHearted ? -1 : 1),
-        isHearted: !isCurrentlyHearted,
-      }))
-    }
+    // heart is now handled via handleReaction as a unified emoji code.
   }
 
   // Handle reaction interaction
-  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
+  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: any) => {
     if (!isUserAuthenticated) {
-      // Redirect to login if not authenticated
       router.push('/auth/login')
       return
     }
 
-    // Update post state with server response or optimistic update
-    if (reactionSummary) {
-      setPost(prevPost => ({
-        ...prevPost,
-        reactionsCount: reactionSummary.totalCount,
-        currentUserReaction: reactionSummary.userReaction || undefined,
-      }))
-    } else {
-      // Fallback optimistic update
-      const wasReacting = !!post.currentUserReaction
-      setPost(prevPost => ({
-        ...prevPost,
-        reactionsCount: (prevPost.reactionsCount || 0) + (wasReacting ? 0 : 1),
-        currentUserReaction: emojiCode,
-      }))
-    }
+    setPost(prevPost => ({
+      ...prevPost,
+      reactionsCount: reactionSummary ? reactionSummary.totalCount : (prevPost.reactionsCount || 0) + 1,
+      currentUserReaction: emojiCode,
+      reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? prevPost.reactionEmojiCodes,
+    }))
   }
 
   // Handle reaction removal
-  const handleRemoveReaction = async (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
+  const handleRemoveReaction = async (postId: string, reactionSummary?: any) => {
     if (!isUserAuthenticated) {
-      // Redirect to login if not authenticated
       router.push('/auth/login')
       return
     }
 
-    // Update post state with server response or optimistic update
-    if (reactionSummary) {
-      setPost(prevPost => ({
-        ...prevPost,
-        reactionsCount: reactionSummary.totalCount,
-        currentUserReaction: reactionSummary.userReaction || undefined,
-      }))
-    } else {
-      // Fallback optimistic update
-      setPost(prevPost => ({
-        ...prevPost,
-        reactionsCount: Math.max(0, (prevPost.reactionsCount || 0) - 1),
-        currentUserReaction: undefined,
-      }))
-    }
+    setPost(prevPost => ({
+      ...prevPost,
+      reactionsCount: reactionSummary ? reactionSummary.totalCount : Math.max(0, (prevPost.reactionsCount || 0) - 1),
+      currentUserReaction: null,
+      reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? prevPost.reactionEmojiCodes,
+    }))
   }
 
   // Handle share interaction

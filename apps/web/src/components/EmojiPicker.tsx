@@ -10,7 +10,7 @@ interface EmojiPickerProps {
   onClose: () => void           // Called when emoji is selected (sends reaction)
   onCancel: () => void          // Called when X clicked or click outside (cancels, no reaction)
   onEmojiSelect: (emojiCode: string) => void
-  currentReaction?: string
+  currentReaction?: string | null
   position?: { x: number, y: number }
   isLoading?: boolean
 }

@@ -10,8 +10,8 @@ interface SynchronizedPostCardProps {
   currentUserId?: string
   hideFollowButton?: boolean
   onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => void
-  onReaction?: (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => void
-  onRemoveReaction?: (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => void
+  onReaction?: (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null, reactionEmojiCodes?: string[] }) => void
+  onRemoveReaction?: (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null, reactionEmojiCodes?: string[] }) => void
   onShare?: (postId: string) => void
   onUserClick?: (userId: string) => void
   onEdit?: (postId: string, updatedPost: Post) => void

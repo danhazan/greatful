@@ -140,19 +140,7 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
         router.push(`/profile/${userId}`)
       }}
       onHeart={(postId, isCurrentlyHearted, heartInfo) => {
-        // If no current user, redirect to login
-        if (!currentUser) {
-          router.push('/auth/login')
-          return
-        }
-
-        if (heartInfo) {
-          setPost(prev => prev ? {
-            ...prev,
-            heartsCount: heartInfo.heartsCount,
-            isHearted: heartInfo.isHearted
-          } : null)
-        }
+        // heart is now handled via handleReaction as a unified emoji code.
       }}
       onReaction={(postId, emojiCode, reactionSummary) => {
         // If no current user, redirect to login
@@ -165,7 +153,8 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
           setPost(prev => prev ? {
             ...prev,
             reactionsCount: reactionSummary.totalCount,
-            currentUserReaction: reactionSummary.userReaction || undefined
+            currentUserReaction: reactionSummary.userReaction || undefined,
+            reactionEmojiCodes: reactionSummary.reactionEmojiCodes ?? prev.reactionEmojiCodes
           } : null)
         }
       }}
@@ -180,7 +169,8 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
           setPost(prev => prev ? {
             ...prev,
             reactionsCount: reactionSummary.totalCount,
-            currentUserReaction: reactionSummary.userReaction || undefined
+            currentUserReaction: reactionSummary.userReaction || undefined,
+            reactionEmojiCodes: reactionSummary.reactionEmojiCodes ?? prev.reactionEmojiCodes
           } : null)
         }
       }}

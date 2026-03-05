@@ -10,6 +10,7 @@ This document contains common fixes and solutions that can be applied to similar
 - [Dropdown Positioning Fixes](#dropdown-positioning-fixes)
 - [Responsive Design Patterns](#responsive-design-patterns)
 - [Mobile Optimization Techniques](#mobile-optimization-techniques)
+- [API Client Case Transformation Issues](#api-client-case-transformation-issues)
 
 ---
 
@@ -1250,3 +1251,66 @@ When adding new fixes to this document:
 - [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) - Active issues and their status
 - [NAVBAR_ENHANCEMENT_PLAN.md](./NAVBAR_ENHANCEMENT_PLAN.md) - Navbar-specific improvements
 - [TEST_GUIDELINES.md](./TEST_GUIDELINES.md) - Testing best practices
+## API Client Case Transformation Issues
+
+### Duplicate Reactions and Thumbs Up Fallback (Case Transformation Conflict)
+
+**Problem**: When adding a reaction, the UI shows a duplicate 👍 emoji along with the selected emoji, or correctly renders after a refresh but not immediately.
+
+**Root Cause**: The frontend `apiClient` (via `api-proxy.ts` and `caseTransform.ts`) automatically transforms all backend response keys from `snake_case` to `camelCase` using the `humps` library. This was recursively mutating dynamic dictionary keys inside `emojiCounts` (e.g., transforming `heart_eyes` to `heartEyes`). Since the frontend mapping (`emojiMapping.ts`) expects `snake_case` identifiers, it failed to find the emoji and fell back to 👍.
+
+#### Symptoms:
+- Adding a reaction shows 👍 immediately in the banner.
+- Refreshing the page "fixes" the display (if the feed returns correct keys).
+- Redundant emoji codes appearing in local state (e.g., `['heart_eyes', 'heartEyes']`).
+
+#### Solution: Implement Selective Recursive Transformation
+
+Modify the case transformation utility to "protect" specific keys from deep transformation of their children.
+
+#### Implementation:
+
+**File: `apps/web/src/lib/caseTransform.ts`**
+
+```typescript
+const PROTECTED_KEYS = ['emojiCounts', 'emoji_counts', 'reactionEmojiCodes'];
+
+function deepCamelize(obj: any, isProtected = false): any {
+  if (Array.isArray(obj)) {
+    return obj.map(item => deepCamelize(item, isProtected));
+  }
+
+  if (obj !== null && typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      // Preserve key as-is if already in a protected branch
+      const camelKey = isProtected ? key : humps.camelize(key);
+      
+      // Check if this key starts a new protected branch (case-insensitive)
+      const normalizedKey = camelKey.toLowerCase();
+      const shouldProtect = PROTECTED_KEYS.some(k => k.toLowerCase() === normalizedKey);
+      
+      newObj[camelKey] = deepCamelize(obj[key], isProtected || shouldProtect);
+    }
+    return newObj;
+  }
+  return obj;
+}
+```
+
+#### Key Points:
+- **Domain Identifiers**: Fields like emoji codes are domain identifiers, not schema field names, and must preserve their original casing/naming convention.
+- **Recursive Protection**: Once a "protected" key is found, all its descendants must be preserved to handle nested dynamic structures.
+- **Case Insensitivity**: Use case-insensitive checks when identifying protected keys to remain resilient against upstream casing inconsistencies.
+
+#### How to Prevent This Issue:
+- When adding new dynamic dictionaries to the API, ensure their parent key is added to `PROTECTED_KEYS` in the frontend transformation layer.
+- Always use the same naming convention (e.g., `snake_case`) for domain-level identifiers across backend and frontend.
+
+#### Applied To:
+- **Emoji Reactions Feature** - Resolved 👍 fallback and state duplication (March 2025).
+
+#### Related Files:
+- `apps/web/src/lib/caseTransform.ts` - Selective transformation logic.
+- `apps/web/src/utils/emojiMapping.ts` - Expected snake_case identifiers.
+- `apps/web/src/components/PostCard.tsx` - Optimistic update logic.

@@ -19,8 +19,9 @@ import LocationDisplayModal from "./LocationDisplayModal"
 import OptimizedPostImage from "./OptimizedPostImage"
 import StackedImagePreview from "./StackedImagePreview"
 import MultiImageModal from "./MultiImageModal"
+import ReactionsBanner from "./ReactionsBanner"
 import analyticsService from "@/services/analytics"
-import { getEmojiFromCode } from "@/utils/emojiMapping"
+import { getEmojiFromCode, emojiCodeToEmoji } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
@@ -36,8 +37,8 @@ interface PostCardProps {
   currentUserId?: string
   hideFollowButton?: boolean // New prop to hide follow button in profile context
   onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => void
-  onReaction?: (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => void
-  onRemoveReaction?: (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => void
+  onReaction?: (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null, reactionEmojiCodes?: string[] }) => void
+  onRemoveReaction?: (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null, reactionEmojiCodes?: string[] }) => void
   onShare?: (postId: string) => void
   onUserClick?: (userId: string) => void
   onEdit?: (postId: string, updatedPost: Post) => void
@@ -248,20 +249,23 @@ export default function PostCard({
           // Use optimized API client for reaction removal
           await apiClient.delete(`/posts/${post.id}/reactions`)
 
-          // Get updated reaction summary from server
-          const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
+          // Get updated reaction summary from server, bypassing cache
+          const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`, { skipCache: true }) as any
+
+          // Read emojiCounts with snake_case fallback for API compatibility
+          const emojiCountsObj = reactionSummary.emojiCounts || reactionSummary.emoji_counts || {}
+          const updatedEmojiCodes = [...Object.keys(emojiCountsObj)]
 
           // Update local state immediately for responsive UI
           setCurrentPost(prev => ({
             ...prev,
-            currentUserReaction: undefined,
-            reactionsCount: reactionSummary.totalCount || 0,
-            isHearted: reactionSummary.isHearted || false,
-            heartsCount: reactionSummary.heartsCount || 0
+            currentUserReaction: null,
+            reactionsCount: reactionSummary.totalCount ?? reactionSummary.total_count ?? Math.max(0, (prev.reactionsCount || 0) - 1),
+            reactionEmojiCodes: updatedEmojiCodes
           }))
 
-          // Call handler with updated server data
-          onRemoveReaction(post.id, reactionSummary)
+          // Call handler with updated server data + reactionEmojiCodes so parent state stays in sync
+          onRemoveReaction(post.id, { ...reactionSummary, reactionEmojiCodes: updatedEmojiCodes })
         } catch (error) {
           console.error('Failed to remove reaction:', error)
           // Fallback to original handler if removal fails
@@ -307,20 +311,27 @@ export default function PostCard({
       // Make API call to add/update reaction using optimized API client
       await apiClient.post(`/posts/${post.id}/reactions`, { emojiCode: emojiCode })
 
-      // Get updated reaction summary from server
-      const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`) as any
+      // Get updated reaction summary from server, bypassing cache
+      const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`, { skipCache: true }) as any
 
-      // Update local state immediately for responsive UI
-      setCurrentPost(prev => ({
-        ...prev,
-        currentUserReaction: emojiCode,
-        reactionsCount: reactionSummary.totalCount || 0,
-        isHearted: reactionSummary.isHearted || false,
-        heartsCount: reactionSummary.heartsCount || 0
-      }))
+      // Read emojiCounts with snake_case fallback for API compatibility
+      const emojiCountsObj = reactionSummary.emojiCounts || reactionSummary.emoji_counts || {}
+      const updatedEmojiCodes = [...Object.keys(emojiCountsObj)]
 
-      // Call handler with updated server data
-      onReaction?.(post.id, emojiCode, reactionSummary)
+      // Update local state immediately for responsive UI — atomic replacement, new array reference
+      setCurrentPost(prev => {
+        const updated = {
+          ...prev,
+          currentUserReaction: emojiCode,
+          reactionsCount: reactionSummary.totalCount ?? reactionSummary.total_count ?? ((prev.reactionsCount || 0) + 1),
+          reactionEmojiCodes: updatedEmojiCodes
+        };
+        console.log("Optimistic reactionEmojiCodes:", updated.reactionEmojiCodes);
+        return updated;
+      })
+
+      // Call handler with updated server data + reactionEmojiCodes so parent state stays in sync
+      onReaction?.(post.id, emojiCode, { ...reactionSummary, reactionEmojiCodes: updatedEmojiCodes })
 
     } catch (apiError: any) {
       showError(
@@ -1048,19 +1059,16 @@ export default function PostCard({
             </div>
           )}
 
-          {/* Engagement Summary for highly engaged posts */}
-          {((post.heartsCount || 0) + (post.reactionsCount || 0)) > 5 && (
-            <div className="mb-2 px-2 py-1 bg-gradient-to-r from-purple-50 to-purple-100 rounded-full">
-              <div className="flex items-center space-x-2 text-xs text-gray-600">
-                <span className="flex items-center space-x-1">
-                  <span className="text-xs">💜</span>
-                  <span className="font-medium text-purple-600">
-                    {(post.heartsCount || 0) + (post.reactionsCount || 0)} reactions
-                  </span>
-                </span>
-              </div>
+          {/* Reactions Banner — clickable summary of who reacted, above footer buttons */}
+          <div className="flex justify-between items-center px-1">
+            <div className="flex gap-2 min-w-0">
+              <ReactionsBanner
+                totalCount={currentPost.reactionsCount || 0}
+                emojiCodes={currentPost.reactionEmojiCodes || []}
+                onClick={handleReactionCountClick}
+              />
             </div>
-          )}
+          </div>
 
           {/* Post Actions Toolbar - Three main buttons in single horizontal line */}
           <div className="flex items-center justify-center gap-4 sm:gap-8">
@@ -1071,11 +1079,11 @@ export default function PostCard({
               disabled={isReactionLoading}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
                 ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
-                : (pendingReaction || currentPost.currentUserReaction || currentPost.isHearted)
+                : (pendingReaction || currentPost.currentUserReaction)
                   ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
                   : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
-                } ${((post.reactionsCount || 0) + (post.heartsCount || 0)) > 0 ? 'ring-1 ring-purple-200' : ''}`}
-              title={!isUserAuthenticated ? 'Login to react to posts' : 'React with emoji'}
+                }`}
+              title={!isUserAuthenticated ? 'Login to react to posts' : currentPost.currentUserReaction ? 'Remove reaction' : 'React with emoji'}
             >
               {isReactionLoading ? (
                 <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
@@ -1088,36 +1096,12 @@ export default function PostCard({
                 <span className={`flex-shrink-0 ${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
                   {getEmojiFromCode(currentPost.currentUserReaction)}
                 </span>
-              ) : currentPost.isHearted ? (
-                <Heart
-                  className={`${styling.iconSize} flex-shrink-0 fill-purple-500 text-purple-500`}
-                />
               ) : (
                 // Show empty heart icon when no interaction exists
                 <Heart
                   className={`${styling.iconSize} flex-shrink-0 text-gray-500`}
                 />
               )}
-              <span
-                className={`${styling.textSize} font-medium ${(isUserAuthenticated && !isReactionsViewerLoading && !isHeartsViewerLoading) ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (isUserAuthenticated && !isReactionsViewerLoading && !isHeartsViewerLoading) {
-                    // Show combined reactions and hearts viewer
-                    if ((post.reactionsCount || 0) > 0) {
-                      handleReactionCountClick()
-                    } else if ((post.heartsCount || 0) > 0) {
-                      handleHeartsCountClick()
-                    }
-                  }
-                }}
-              >
-                {(isReactionsViewerLoading || isHeartsViewerLoading) ? (
-                  <Loader2 className="h-3 w-3 animate-spin inline" />
-                ) : (
-                  (post.reactionsCount || 0) + (post.heartsCount || 0)
-                )}
-              </span>
             </button>
 
             {/* Comments Button */}

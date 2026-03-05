@@ -454,39 +454,31 @@ export default function ProfilePage() {
   }
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
+    // heart is now handled via handleReaction as a unified emoji code.
+  }
+
+  const handleReaction = (postId: string, emojiCode: string, reactionSummary?: any) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          heartsCount: isCurrentlyHearted ? Math.max(0, post.heartsCount - 1) : post.heartsCount + 1,
-          isHearted: !isCurrentlyHearted
+          reactionsCount: reactionSummary ? reactionSummary.totalCount : (post.reactionsCount || 0) + 1,
+          currentUserReaction: emojiCode,
+          reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
         }
       }
       return post
     }))
   }
 
-  const handleReaction = (postId: string, emojiCode: string) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        const wasReacted = !!post.currentUserReaction
-        return {
-          ...post,
-          reactionsCount: wasReacted ? post.reactionsCount || 1 : (post.reactionsCount || 0) + 1,
-          currentUserReaction: emojiCode
-        }
-      }
-      return post
-    }))
-  }
-
-  const handleRemoveReaction = (postId: string) => {
+  const handleRemoveReaction = (postId: string, reactionSummary?: any) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          reactionsCount: Math.max(0, (post.reactionsCount || 1) - 1),
-          currentUserReaction: undefined
+          reactionsCount: reactionSummary ? reactionSummary.totalCount : Math.max(0, (post.reactionsCount || 1) - 1),
+          currentUserReaction: null,
+          reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
         }
       }
       return post

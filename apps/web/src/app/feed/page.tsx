@@ -167,60 +167,32 @@ export default function FeedPage() {
   }
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
-    // Update post state with server response data
+    // heart is now handled via handleReaction as a unified emoji code.
+    // This handler is preserved as a no-op for backward compatibility with component props.
+  }
+
+  const handleReaction = (postId: string, emojiCode: string, reactionSummary?: any) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          heartsCount: heartInfo ? heartInfo.heartsCount : (isCurrentlyHearted ? post.heartsCount - 1 : post.heartsCount + 1),
-          isHearted: heartInfo ? heartInfo.isHearted : !isCurrentlyHearted
+          reactionsCount: reactionSummary ? reactionSummary.totalCount : (post.reactionsCount || 0) + 1,
+          currentUserReaction: emojiCode,
+          reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
         }
       }
       return post
     }))
   }
 
-  const handleReaction = (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
+  const handleRemoveReaction = (postId: string, reactionSummary?: any) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
-        // Use reactionSummary if provided by PostCard/API optimization
-        if (reactionSummary) {
-          return {
-            ...post,
-            reactionsCount: reactionSummary.totalCount,
-            currentUserReaction: reactionSummary.userReaction || undefined
-          }
-        }
-
-        // Fallback optimistic update
-        const wasReacted = !!post.currentUserReaction
         return {
           ...post,
-          reactionsCount: wasReacted ? post.reactionsCount : post.reactionsCount + 1,
-          currentUserReaction: emojiCode
-        }
-      }
-      return post
-    }))
-  }
-
-  const handleRemoveReaction = (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        // Use reactionSummary if provided
-        if (reactionSummary) {
-          return {
-            ...post,
-            reactionsCount: reactionSummary.totalCount,
-            currentUserReaction: reactionSummary.userReaction || undefined
-          }
-        }
-
-        // Fallback optimistic update
-        return {
-          ...post,
-          reactionsCount: Math.max(0, post.reactionsCount - 1),
-          currentUserReaction: undefined
+          reactionsCount: reactionSummary ? reactionSummary.totalCount : Math.max(0, (post.reactionsCount || 1) - 1),
+          currentUserReaction: null,
+          reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
         }
       }
       return post

@@ -176,59 +176,31 @@ export default function UserProfilePage() {
   }, [userId, router, currentUser, userLoading])
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
-    // If we have server data, use it; otherwise fallback to optimistic update
-    const newHearted = heartInfo ? heartInfo.isHearted : !isCurrentlyHearted
-    const newCount = heartInfo ? heartInfo.heartsCount : (isCurrentlyHearted ? (posts.find(p => p.id === postId)?.heartsCount || 1) - 1 : (posts.find(p => p.id === postId)?.heartsCount || 0) + 1)
-
-    // Update both the user's individual heart state AND the global count from server
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          // Update global count with server data (server-authoritative)
-          heartsCount: newCount,
-          // Update user's individual heart state
-          isHearted: newHearted
-        }
-      }
-      return post
-    }))
+    // heart is now handled via handleReaction as a unified emoji code.
   }
 
-  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
-    // If we have server data, use it; otherwise fallback to optimistic update
-    const newReaction = reactionSummary ? reactionSummary.userReaction : emojiCode
-    const newCount = reactionSummary ? reactionSummary.totalCount : (posts.find(p => p.id === postId)?.reactionsCount || 0) + 1
-
-    // Update both the user's individual reaction state AND the global count from server
+  const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: any) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          // Update global count with server data (server-authoritative)
-          reactionsCount: newCount,
-          // Update user's individual reaction state
-          currentUserReaction: newReaction as string | undefined
+          reactionsCount: reactionSummary ? reactionSummary.totalCount : (post.reactionsCount || 0) + 1,
+          currentUserReaction: emojiCode,
+          reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
         }
       }
       return post
     }) as typeof posts)
   }
 
-  const handleRemoveReaction = async (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null }) => {
-    // If we have server data, use it; otherwise fallback to optimistic update
-    const newReaction = reactionSummary ? reactionSummary.userReaction : undefined
-    const newCount = reactionSummary ? reactionSummary.totalCount : Math.max((posts.find(p => p.id === postId)?.reactionsCount || 1) - 1, 0)
-
-    // Update both the user's individual reaction state AND the global count from server
+  const handleRemoveReaction = async (postId: string, reactionSummary?: any) => {
     setPosts(posts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          // Update global count with server data (server-authoritative)
-          reactionsCount: newCount,
-          // Clear user's individual reaction state
-          currentUserReaction: newReaction as string | undefined
+          reactionsCount: reactionSummary ? reactionSummary.totalCount : Math.max(0, (post.reactionsCount || 1) - 1),
+          currentUserReaction: null,
+          reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
         }
       }
       return post
