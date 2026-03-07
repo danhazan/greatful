@@ -79,28 +79,31 @@ Added for feed/visibility performance:
 - `idx_post_privacy_users_user_post (user_id, post_id)`
 
 ## Visibility Evaluation
-Shared logic lives in `PostPrivacyService.visible_to_user_clause(viewer_id)`.
+Visibility filtering now uses a database-level abstraction with a compatibility fallback:
 
-Visibility condition:
+- PostgreSQL: `can_view_post(viewer_id, post_id)` (`STABLE` SQL function, UUID post ID argument)
+- SQLite tests: `PostPrivacyService.visible_to_user_clause(viewer_id)` fallback
+
+`can_view_post` preserves existing behavior:
 
 - author can always view own post
 - public posts are visible to everyone
-- custom posts are visible when at least one custom rule matches:
+- custom posts are visible when at least one custom rule matches (`OR` semantics):
   - `followers` rule enabled AND viewer follows author
   - `following` rule enabled AND author follows viewer
   - viewer exists in `post_privacy_users`
 
-Private posts are author-only by default.
+Private posts remain author-only by default.
 
 ## Feed Query Design
-Feed services now apply visibility directly in SQL clauses (not precomputed viewer tables):
+Feed services now apply visibility through `PostPrivacyService.visibility_filter_clause(...)`:
 
 - `AlgorithmService`
 - `OptimizedAlgorithmService`
 
 Candidate selection and counts use:
-
-- `WHERE <visible_to_user_clause(viewer_id)>`
+- PostgreSQL: `WHERE can_view_post(:viewer_id, posts.id)`
+- SQLite: existing SQLAlchemy fallback clause
 - ordered by `posts.created_at DESC`, then in-memory scoring
 
 This avoids:
@@ -192,4 +195,3 @@ To add a new rule type (example: `verified_users`):
 3. add frontend toggle in custom privacy modal (if user-facing)
 
 No schema changes are required for new rule toggles because rules are data-driven in `post_privacy_rules`.
-

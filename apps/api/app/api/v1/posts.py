@@ -1234,7 +1234,7 @@ async def mark_posts_as_read(
         # Validate that all post IDs exist and are public
         from sqlalchemy import select
         if read_request.post_ids:
-            privacy_clause = PostPrivacyService.visible_to_user_clause(current_user_id)
+            privacy_clause = PostPrivacyService.visibility_filter_clause(current_user_id, db)
             query = select(Post.id).where(
                 Post.id.in_(read_request.post_ids),
                 privacy_clause

@@ -1,11 +1,19 @@
 """
 Post privacy service for validation, persistence, and visibility filtering.
+
+Architecture:
+- PostgreSQL: visibility filtering can use the `can_view_post(viewer_id, post_id)`
+  database function to keep query predicates concise and reusable.
+- SQLite (tests): fallback to the existing SQLAlchemy clause builder so tests run
+  without PostgreSQL-only function dependencies.
 """
 
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional
 import logging
-from sqlalchemy import and_, delete, exists, or_, select
+import uuid
+from sqlalchemy import and_, cast, delete, exists, func, or_, select
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.follow import Follow
@@ -236,7 +244,42 @@ class PostPrivacyService:
             custom_clause,
         )
 
+    @staticmethod
+    def _dialect_name(db: AsyncSession) -> str:
+        return db.bind.dialect.name if db.bind is not None else ""
+
+    @classmethod
+    def supports_db_visibility_function(cls, db: AsyncSession) -> bool:
+        return cls._dialect_name(db) == "postgresql"
+
+    @classmethod
+    def visibility_filter_clause(cls, viewer_id: Optional[int], db: AsyncSession):
+        if viewer_id is None:
+            return cls.public_visibility_clause()
+        if cls.supports_db_visibility_function(db):
+            return func.can_view_post(viewer_id, cast(Post.id, PG_UUID))
+        return cls.visible_to_user_clause(viewer_id)
+
     async def can_user_view_post(self, post_id: str, viewer_id: Optional[int]) -> bool:
+        if viewer_id is None:
+            result = await self.db.execute(
+                select(Post.id).where(
+                    and_(
+                        Post.id == post_id,
+                        self.public_visibility_clause(),
+                    )
+                ).limit(1)
+            )
+            return result.scalar_one_or_none() is not None
+
+        if self.supports_db_visibility_function(self.db):
+            try:
+                post_uuid = uuid.UUID(str(post_id))
+            except (TypeError, ValueError):
+                return False
+            result = await self.db.execute(select(func.can_view_post(viewer_id, post_uuid)))
+            return bool(result.scalar())
+
         result = await self.db.execute(
             select(Post.id).where(
                 and_(

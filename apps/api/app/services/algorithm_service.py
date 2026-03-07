@@ -924,7 +924,9 @@ class AlgorithmService(BaseService):
         
         # Get total count for pagination
         total_count_result = await self.db.execute(
-            select(func.count(Post.id)).where(PostPrivacyService.visible_to_user_clause(user_id))
+            select(func.count(Post.id)).where(
+                PostPrivacyService.visibility_filter_clause(user_id, self.db)
+            )
         )
         total_count = total_count_result.scalar() or 0
 
@@ -947,7 +949,7 @@ class AlgorithmService(BaseService):
     ) -> List[Dict[str, Any]]:
         """Get posts ranked by algorithm score."""
         # Get all public posts first, excluding specified IDs
-        conditions = [PostPrivacyService.visible_to_user_clause(user_id)]
+        conditions = [PostPrivacyService.visibility_filter_clause(user_id, self.db)]
         if exclude_ids:
             conditions.append(~Post.id.in_(exclude_ids))
         
@@ -990,7 +992,7 @@ class AlgorithmService(BaseService):
         
         query = select(Post).where(
             and_(
-                PostPrivacyService.visible_to_user_clause(user_id),
+                PostPrivacyService.visibility_filter_clause(user_id, self.db),
                 ~Post.id.in_(exclude_ids) if exclude_ids else True
             )
         ).order_by(Post.created_at.desc()).options(
@@ -1035,7 +1037,9 @@ class AlgorithmService(BaseService):
         
         # Get total count
         total_count_result = await self.db.execute(
-            select(func.count(Post.id)).where(PostPrivacyService.visible_to_user_clause(user_id))
+            select(func.count(Post.id)).where(
+                PostPrivacyService.visibility_filter_clause(user_id, self.db)
+            )
         )
         total_count = total_count_result.scalar() or 0
 
@@ -1060,7 +1064,7 @@ class AlgorithmService(BaseService):
         # Get posts created after user's last feed view
         query = select(Post).where(
             and_(
-                PostPrivacyService.visible_to_user_clause(user_id),
+                PostPrivacyService.visibility_filter_clause(user_id, self.db),
                 Post.created_at > user_last_feed_view
             )
         ).order_by(Post.created_at.desc()).options(
@@ -1183,7 +1187,7 @@ class AlgorithmService(BaseService):
             )
         ).where(
             and_(
-                PostPrivacyService.visible_to_user_clause(user_id),
+                PostPrivacyService.visibility_filter_clause(user_id, self.db),
                 Post.created_at >= cutoff_time
             )
         ).group_by(Post.id).options(
