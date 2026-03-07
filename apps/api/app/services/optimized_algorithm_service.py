@@ -28,6 +28,7 @@ from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
 from app.models.user import User
+from app.services.post_privacy_service import PostPrivacyService
 from app.models.user_interaction import UserInteraction
 from app.core.performance_utils import performance_monitoring
 from app.core.query_monitor import monitor_query
@@ -689,7 +690,7 @@ class OptimizedAlgorithmService(AlgorithmService):
                 logger.info(f"[FEED TRACE] Starting feed generation for user {user_id}. Phase 1: Fetch Posts")
                 # Get posts with optimized query
                 posts_query = select(Post).where(
-                    Post.is_public == True
+                    PostPrivacyService.visible_to_user_clause(user_id)
                 ).options(
                     selectinload(Post.author),
                     selectinload(Post.images)
@@ -795,7 +796,7 @@ class OptimizedAlgorithmService(AlgorithmService):
                  # Get total count
                 total_count_start_queries = query_count
                 total_count_result = await self.db.execute(
-                    select(func.count(Post.id)).where(Post.is_public == True)
+                    select(func.count(Post.id)).where(PostPrivacyService.visible_to_user_clause(user_id))
                 )
                 total_count = total_count_result.scalar() or 0
                 count_queries_sql = query_count - total_count_start_queries

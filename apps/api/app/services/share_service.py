@@ -13,6 +13,7 @@ from app.repositories.post_repository import PostRepository
 from app.models.share import Share, ShareMethod
 from app.models.user import User
 from app.models.post import Post
+from app.services.post_privacy_service import PostPrivacyService
 from app.core.notification_factory import NotificationFactory
 from app.core.image_urls import serialize_image_url
 import logging
@@ -483,7 +484,7 @@ class ShareService(BaseService):
         """
         # For now, allow sharing of public posts
         # This can be extended with user preferences later
-        if not post.is_public:
+        if not PostPrivacyService.is_public_post(post):
             return False
         
         # TODO: Check user preferences for sharing permissions

@@ -15,6 +15,13 @@ class PostType(str, enum.Enum):
     photo = "photo"
     spontaneous = "spontaneous"
 
+
+class PostPrivacyLevel(str, enum.Enum):
+    public = "public"
+    private = "private"
+    custom = "custom"
+
+
 class Post(Base):
     __tablename__ = "posts"
 
@@ -28,6 +35,13 @@ class Post(Base):
     location = Column(String, nullable=True)  # Keep for backward compatibility
     location_data = Column(JSON, nullable=True)  # New structured location data (JSON for SQLite compatibility)
     is_public = Column(Boolean, default=True)
+    privacy_level = Column(
+        String(20),
+        nullable=False,
+        default=PostPrivacyLevel.public.value,
+        server_default=PostPrivacyLevel.public.value,
+        index=True,
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     # Represents intentional author edits to post content/state.
     # Engagement/system maintenance updates (e.g., comments_count) must not modify this field.
@@ -54,6 +68,16 @@ class Post(Base):
         cascade="all, delete-orphan",
         order_by="PostImage.position"
     )
+    privacy_rules = relationship(
+        "PostPrivacyRule",
+        back_populates="post",
+        cascade="all, delete-orphan",
+    )
+    privacy_users = relationship(
+        "PostPrivacyUser",
+        back_populates="post",
+        cascade="all, delete-orphan",
+    )
     
     @classmethod
     async def get_by_id(cls, db, post_id: str):
@@ -61,3 +85,7 @@ class Post(Base):
         from sqlalchemy.future import select
         result = await db.execute(select(cls).where(cls.id == post_id))
         return result.scalar_one_or_none()
+
+
+# Ensure related privacy models are registered when Post is imported.
+from app.models.post_privacy import PostPrivacyRule, PostPrivacyUser  # noqa: E402,F401

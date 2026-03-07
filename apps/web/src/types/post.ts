@@ -65,6 +65,9 @@ export interface Post {
     images?: PostImage[]
     location?: string
     locationData?: LocationData
+    privacyLevel?: 'public' | 'private' | 'custom'
+    privacyRules?: string[]
+    specificUsers?: number[]
     heartsCount?: number   // @deprecated — unified into reactionsCount
     isHearted?: boolean    // @deprecated — unified into currentUserReaction
     reactionsCount: number

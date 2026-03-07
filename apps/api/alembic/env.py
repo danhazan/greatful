@@ -14,6 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'apps', 'api'))
 from app.core.database import Base
 from app.models.user import User
 from app.models.post import Post
+from app.models.post_privacy import PostPrivacyRule, PostPrivacyUser
 from app.models.emoji_reaction import EmojiReaction
 
 # this is the Alembic Config object, which provides

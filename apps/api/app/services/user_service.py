@@ -338,6 +338,7 @@ class UserService(BaseService):
             user_id=current_user_id,
             author_id=user_id,
             public_only=public_only,
+            include_privacy_details=(user_id == current_user_id),
             limit=limit,
             offset=offset
         )

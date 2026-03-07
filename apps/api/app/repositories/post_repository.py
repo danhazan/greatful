@@ -5,7 +5,7 @@ Post repository with specialized query methods.
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, desc, text, and_
+from sqlalchemy import func, desc, text, and_, or_
 from app.core.repository_base import BaseRepository
 from app.core.storage import storage  # ← ADDED: Import storage adapter
 from app.models.post import Post, PostType
@@ -18,6 +18,14 @@ class PostRepository(BaseRepository):
     def __init__(self, db: AsyncSession):
         super().__init__(db, Post)
     
+    @staticmethod
+    def _is_public_condition():
+        """Public visibility condition with legacy fallback."""
+        return or_(
+            Post.privacy_level == "public",
+            and_(Post.privacy_level.is_(None), Post.is_public.is_(True)),
+        )
+
     async def get_by_author(
         self, 
         author_id: int, 
@@ -40,7 +48,7 @@ class PostRepository(BaseRepository):
         builder = self.query().filter(Post.author_id == author_id)
         
         if public_only:
-            builder = builder.filter(Post.is_public == True)
+            builder = builder.filter(self._is_public_condition())
         
         builder = builder.order_by(desc(Post.created_at)).limit(limit).offset(offset)
         
@@ -65,7 +73,7 @@ class PostRepository(BaseRepository):
         Returns:
             List[Post]: List of public posts
         """
-        builder = self.query().filter(Post.is_public == True)
+        builder = self.query().filter(self._is_public_condition())
         
         if post_types:
             builder = builder.filter(Post.post_type.in_(post_types))
@@ -81,6 +89,7 @@ class PostRepository(BaseRepository):
         user_id: int,
         author_id: Optional[int] = None,
         public_only: bool = False,
+        include_privacy_details: bool = False,
         limit: int = 20,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
@@ -106,7 +115,7 @@ class PostRepository(BaseRepository):
         # Build the base query conditions
         where_conditions = []
         if public_only:
-            where_conditions.append("p.is_public = true")
+            where_conditions.append("(p.privacy_level = 'public' OR (p.privacy_level IS NULL AND p.is_public = true))")
         if author_id:
             where_conditions.append("p.author_id = :author_id")
         
@@ -123,6 +132,7 @@ class PostRepository(BaseRepository):
                        p.location,
                        p.location_data,
                        p.is_public,
+                       p.privacy_level,
                        p.created_at,
                        p.updated_at,
                        u.id as author_user_id,
@@ -215,6 +225,7 @@ class PostRepository(BaseRepository):
                     "location": row.location,
                     "location_data": loc_data,
                     "is_public": row.is_public,
+                    "privacy_level": row.privacy_level if getattr(row, "privacy_level", None) else ("public" if row.is_public else "private"),
                     "created_at": str(row.created_at),
                     "updated_at": str(row.updated_at) if row.updated_at else None,
                     "author": {
@@ -233,6 +244,12 @@ class PostRepository(BaseRepository):
                 }
                 posts.append(post_dict)
                 post_ids.append(row.id)
+
+            privacy_details_by_post: Dict[str, Dict[str, Any]] = {}
+            if include_privacy_details and post_ids:
+                from app.services.post_privacy_service import PostPrivacyService
+                privacy_service = PostPrivacyService(self.db)
+                privacy_details_by_post = await privacy_service.get_privacy_details_for_posts(post_ids)
 
             # Fetch images for all posts in a single query (multi-image support)
             if post_ids:
@@ -270,6 +287,12 @@ class PostRepository(BaseRepository):
                 # Assign images to their posts
                 for post in posts:
                     post["images"] = images_by_post.get(post["id"], [])
+
+            if include_privacy_details:
+                for post in posts:
+                    details = privacy_details_by_post.get(post["id"], {})
+                    post["privacy_rules"] = details.get("privacy_rules", [])
+                    post["specific_users"] = details.get("specific_users", [])
 
             logger.debug(f"post_repo.get_posts_with_engagement - returning {len(posts)} posts")
             return posts
@@ -470,6 +493,7 @@ class PostRepository(BaseRepository):
         import json
         import logging
         from sqlalchemy import text
+        from app.services.post_privacy_service import PostPrivacyService
         
         logger = logging.getLogger(__name__)
         
@@ -479,6 +503,13 @@ class PostRepository(BaseRepository):
         # Get post IDs and author IDs for batch queries
         post_ids = [post.id for post in posts]
         author_ids = list({post.author_id for post in posts if post.author_id})
+        dialect = self.db.bind.dialect.name if self.db.bind is not None else ""
+        is_postgresql = dialect == "postgresql"
+
+        def build_in_clause_params(values: List[str], prefix: str) -> tuple[str, Dict[str, str]]:
+            placeholders = ", ".join(f":{prefix}_{i}" for i in range(len(values)))
+            params = {f"{prefix}_{i}": values[i] for i in range(len(values))}
+            return placeholders, params
         
         # 1. Batch get Author profile stats (1 optimized SQL query)
         from app.repositories.user_repository import UserRepository
@@ -494,79 +525,145 @@ class PostRepository(BaseRepository):
         if engagement_counts is None:
             engagement_counts = {}
             # Query for engagement data in batch
-            engagement_query = text("""
-                SELECT 
-                    p.id,
-                    COALESCE(hearts.hearts_count, 0) as hearts_count,
-                    COALESCE(reactions.reactions_count, 0) as reactions_count,
-                    COALESCE(reactions.reaction_emoji_codes, ARRAY[]::text[]) as reaction_emoji_codes,
-                    COALESCE(comments.comments_count, 0) as comments_count
-                FROM posts p
-                LEFT JOIN (
-                    SELECT post_id, 
-                           COUNT(DISTINCT user_id) as hearts_count
-                    FROM emoji_reactions
-                    WHERE emoji_code = 'heart' AND post_id = ANY(:post_ids)
-                    GROUP BY post_id
-                ) hearts ON hearts.post_id = p.id
-                LEFT JOIN (
-                    SELECT post_id,
-                           COUNT(DISTINCT user_id) as reactions_count,
-                           ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code) as reaction_emoji_codes
-                    FROM emoji_reactions
-                    WHERE post_id = ANY(:post_ids)
-                    GROUP BY post_id
-                ) reactions ON reactions.post_id = p.id
-                LEFT JOIN (
-                    SELECT post_id, COUNT(*) as comments_count
-                    FROM comments
-                    WHERE post_id = ANY(:post_ids)
-                    GROUP BY post_id
-                ) comments ON comments.post_id = p.id
-                WHERE p.id = ANY(:post_ids)
-            """)
-            
-            result = await self.execute_raw_query(engagement_query, {"post_ids": post_ids})
+            if is_postgresql:
+                engagement_query = text("""
+                    SELECT 
+                        p.id,
+                        COALESCE(hearts.hearts_count, 0) as hearts_count,
+                        COALESCE(reactions.reactions_count, 0) as reactions_count,
+                        COALESCE(reactions.reaction_emoji_codes, ARRAY[]::text[]) as reaction_emoji_codes,
+                        COALESCE(comments.comments_count, 0) as comments_count
+                    FROM posts p
+                    LEFT JOIN (
+                        SELECT post_id, 
+                               COUNT(DISTINCT user_id) as hearts_count
+                        FROM emoji_reactions
+                        WHERE emoji_code = 'heart' AND post_id = ANY(:post_ids)
+                        GROUP BY post_id
+                    ) hearts ON hearts.post_id = p.id
+                    LEFT JOIN (
+                        SELECT post_id,
+                               COUNT(DISTINCT user_id) as reactions_count,
+                               ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code) as reaction_emoji_codes
+                        FROM emoji_reactions
+                        WHERE post_id = ANY(:post_ids)
+                        GROUP BY post_id
+                    ) reactions ON reactions.post_id = p.id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(*) as comments_count
+                        FROM comments
+                        WHERE post_id = ANY(:post_ids)
+                        GROUP BY post_id
+                    ) comments ON comments.post_id = p.id
+                    WHERE p.id = ANY(:post_ids)
+                """)
+                engagement_params: Dict[str, Any] = {"post_ids": post_ids}
+            else:
+                post_id_placeholders, post_id_params = build_in_clause_params(post_ids, "post_id")
+                engagement_query = text(f"""
+                    SELECT 
+                        p.id,
+                        COALESCE(hearts.hearts_count, 0) as hearts_count,
+                        COALESCE(reactions.reactions_count, 0) as reactions_count,
+                        COALESCE(reactions.reaction_emoji_codes, '') as reaction_emoji_codes,
+                        COALESCE(comments.comments_count, 0) as comments_count
+                    FROM posts p
+                    LEFT JOIN (
+                        SELECT post_id, 
+                               COUNT(DISTINCT user_id) as hearts_count
+                        FROM emoji_reactions
+                        WHERE emoji_code = 'heart' AND post_id IN ({post_id_placeholders})
+                        GROUP BY post_id
+                    ) hearts ON hearts.post_id = p.id
+                    LEFT JOIN (
+                        SELECT post_id,
+                               COUNT(DISTINCT user_id) as reactions_count,
+                               GROUP_CONCAT(DISTINCT emoji_code) as reaction_emoji_codes
+                        FROM emoji_reactions
+                        WHERE post_id IN ({post_id_placeholders})
+                        GROUP BY post_id
+                    ) reactions ON reactions.post_id = p.id
+                    LEFT JOIN (
+                        SELECT post_id, COUNT(*) as comments_count
+                        FROM comments
+                        WHERE post_id IN ({post_id_placeholders})
+                        GROUP BY post_id
+                    ) comments ON comments.post_id = p.id
+                    WHERE p.id IN ({post_id_placeholders})
+                """)
+                engagement_params = post_id_params
+
+            result = await self.execute_raw_query(engagement_query, engagement_params)
             for row in result.fetchall():
+                raw_codes = getattr(row, "reaction_emoji_codes", None)
+                if isinstance(raw_codes, str):
+                    normalized_codes = [code for code in raw_codes.split(",") if code]
+                else:
+                    normalized_codes = list(raw_codes or [])
                 engagement_counts[row.id] = {
                     'hearts': int(row.hearts_count or 0),
                     'reactions': int(row.reactions_count or 0),
                     'comments': int(row.comments_count or 0),
-                    'reaction_emoji_codes': list(row.reaction_emoji_codes or [])
+                    'reaction_emoji_codes': normalized_codes
                 }
         
         # Get user's reactions in batch
-        reactions_query = text("""
-            SELECT post_id, emoji_code
-            FROM emoji_reactions
-            WHERE post_id = ANY(:post_ids) AND user_id = :user_id
-        """)
-        reactions_result = await self.execute_raw_query(reactions_query, {
-            "post_ids": post_ids,
-            "user_id": user_id
-        })
+        if is_postgresql:
+            reactions_query = text("""
+                SELECT post_id, emoji_code
+                FROM emoji_reactions
+                WHERE post_id = ANY(:post_ids) AND user_id = :user_id
+            """)
+            reactions_params: Dict[str, Any] = {"post_ids": post_ids, "user_id": user_id}
+        else:
+            post_id_placeholders, post_id_params = build_in_clause_params(post_ids, "post_id")
+            reactions_query = text(f"""
+                SELECT post_id, emoji_code
+                FROM emoji_reactions
+                WHERE post_id IN ({post_id_placeholders}) AND user_id = :user_id
+            """)
+            reactions_params = {**post_id_params, "user_id": user_id}
+        reactions_result = await self.execute_raw_query(reactions_query, reactions_params)
         user_reactions = {row.post_id: row.emoji_code for row in reactions_result.fetchall()}
         
         # Get user's hearts in batch
-        hearts_query = text("""
-            SELECT post_id
-            FROM emoji_reactions
-            WHERE post_id = ANY(:post_ids) AND user_id = :user_id AND emoji_code = 'heart'
-        """)
-        hearts_result = await self.execute_raw_query(hearts_query, {
-            "post_ids": post_ids,
-            "user_id": user_id
-        })
+        if is_postgresql:
+            hearts_query = text("""
+                SELECT post_id
+                FROM emoji_reactions
+                WHERE post_id = ANY(:post_ids) AND user_id = :user_id AND emoji_code = 'heart'
+            """)
+            hearts_params: Dict[str, Any] = {"post_ids": post_ids, "user_id": user_id}
+        else:
+            post_id_placeholders, post_id_params = build_in_clause_params(post_ids, "post_id")
+            hearts_query = text(f"""
+                SELECT post_id
+                FROM emoji_reactions
+                WHERE post_id IN ({post_id_placeholders}) AND user_id = :user_id AND emoji_code = 'heart'
+            """)
+            hearts_params = {**post_id_params, "user_id": user_id}
+        hearts_result = await self.execute_raw_query(hearts_query, hearts_params)
         user_hearts = {row.post_id for row in hearts_result.fetchall()}
         
         # Get images for all posts in batch
-        images_query = text("""
-            SELECT id, post_id, position, thumbnail_url, medium_url, original_url, width, height
-            FROM post_images
-            WHERE post_id = ANY(:post_ids)
-            ORDER BY post_id, position
-        """)
-        images_result = await self.execute_raw_query(images_query, {"post_ids": post_ids})
+        if is_postgresql:
+            images_query = text("""
+                SELECT id, post_id, position, thumbnail_url, medium_url, original_url, width, height
+                FROM post_images
+                WHERE post_id = ANY(:post_ids)
+                ORDER BY post_id, position
+            """)
+            images_params: Dict[str, Any] = {"post_ids": post_ids}
+        else:
+            post_id_placeholders, post_id_params = build_in_clause_params(post_ids, "post_id")
+            images_query = text(f"""
+                SELECT id, post_id, position, thumbnail_url, medium_url, original_url, width, height
+                FROM post_images
+                WHERE post_id IN ({post_id_placeholders})
+                ORDER BY post_id, position
+            """)
+            images_params = post_id_params
+        images_result = await self.execute_raw_query(images_query, images_params)
         images_by_post: Dict[str, List[Dict[str, Any]]] = {}
         
         for img_row in images_result.fetchall():
@@ -590,6 +687,16 @@ class PostRepository(BaseRepository):
         for post in posts:
             # Get engagement data
             engagement = engagement_counts.get(post.id, {'hearts': 0, 'reactions': 0, 'comments': 0})
+            hearts_count = int(engagement.get('hearts', 0) or 0)
+            reactions_count = int(engagement.get('reactions', 0) or 0)
+            comments_count = int(
+                engagement.get('comments', engagement.get('comments_count', 0)) or 0
+            )
+            reaction_emoji_codes = engagement.get('reaction_emoji_codes', [])
+            if isinstance(reaction_emoji_codes, str):
+                reaction_emoji_codes = [code for code in reaction_emoji_codes.split(",") if code]
+            elif not isinstance(reaction_emoji_codes, list):
+                reaction_emoji_codes = list(reaction_emoji_codes or [])
             
             # Normalize location_data
             loc_data = post.location_data
@@ -640,16 +747,18 @@ class PostRepository(BaseRepository):
                 "images": images_by_post.get(post.id, []),
                 "location": post.location,
                 "location_data": loc_data,
-                "is_public": post.is_public,
+                "is_public": PostPrivacyService.is_public_post(post),
                 "created_at": post.created_at.isoformat() if post.created_at else None,
                 "updated_at": post.updated_at.isoformat() if post.updated_at else None,
                 "author": author_data,
-                "hearts_count": engagement['hearts'],
-                "reactions_count": engagement['reactions'],
-                "comments_count": engagement['comments'],
+                "hearts_count": hearts_count,
+                "reactions_count": reactions_count,
+                "comments_count": comments_count,
+                "comment_count": comments_count,
+                "comments": [],
                 "current_user_reaction": user_reactions.get(post.id),
                 "is_hearted": post.id in user_hearts,
-                "reaction_emoji_codes": engagement.get('reaction_emoji_codes', []),
+                "reaction_emoji_codes": reaction_emoji_codes,
                 "algorithm_score": algorithm_scores.get(post.id, 0.0) if algorithm_scores else 0.0,
                 "is_read": read_statuses.get(post.id, False) if read_statuses else False, # is_read is true if in read_statuses
                 "is_unread": not read_statuses.get(post.id, False) if read_statuses else True # is_unread is true if not in read_statuses
