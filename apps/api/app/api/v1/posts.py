@@ -590,6 +590,7 @@ async def create_post_json(
         )
         
         db.add(db_post)
+        await db.flush()
         await privacy_service.apply_post_config(db_post, privacy_config)
         await db.commit()
         await db.refresh(db_post)
@@ -967,6 +968,7 @@ async def create_post_with_file(
         )
 
         db.add(db_post)
+        await db.flush()
         await privacy_service.apply_post_config(db_post, privacy_config)
         await db.commit()
         await db.refresh(db_post)
