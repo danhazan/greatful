@@ -18,6 +18,7 @@ from app.models.share import Share
 from app.models.follow import Follow
 from app.models.user import User
 from app.config.algorithm_config import get_algorithm_config
+from app.services.post_privacy_service import PostPrivacyService
 
 logger = logging.getLogger(__name__)
 
@@ -923,7 +924,7 @@ class AlgorithmService(BaseService):
         
         # Get total count for pagination
         total_count_result = await self.db.execute(
-            select(func.count(Post.id)).where(Post.is_public == True)
+            select(func.count(Post.id)).where(PostPrivacyService.visible_to_user_clause(user_id))
         )
         total_count = total_count_result.scalar() or 0
 
@@ -946,7 +947,7 @@ class AlgorithmService(BaseService):
     ) -> List[Dict[str, Any]]:
         """Get posts ranked by algorithm score."""
         # Get all public posts first, excluding specified IDs
-        conditions = [Post.is_public == True]
+        conditions = [PostPrivacyService.visible_to_user_clause(user_id)]
         if exclude_ids:
             conditions.append(~Post.id.in_(exclude_ids))
         
@@ -989,7 +990,7 @@ class AlgorithmService(BaseService):
         
         query = select(Post).where(
             and_(
-                Post.is_public == True,
+                PostPrivacyService.visible_to_user_clause(user_id),
                 ~Post.id.in_(exclude_ids) if exclude_ids else True
             )
         ).order_by(Post.created_at.desc()).options(
@@ -1034,7 +1035,7 @@ class AlgorithmService(BaseService):
         
         # Get total count
         total_count_result = await self.db.execute(
-            select(func.count(Post.id)).where(Post.is_public == True)
+            select(func.count(Post.id)).where(PostPrivacyService.visible_to_user_clause(user_id))
         )
         total_count = total_count_result.scalar() or 0
 
@@ -1059,7 +1060,7 @@ class AlgorithmService(BaseService):
         # Get posts created after user's last feed view
         query = select(Post).where(
             and_(
-                Post.is_public == True,
+                PostPrivacyService.visible_to_user_clause(user_id),
                 Post.created_at > user_last_feed_view
             )
         ).order_by(Post.created_at.desc()).options(
@@ -1182,7 +1183,7 @@ class AlgorithmService(BaseService):
             )
         ).where(
             and_(
-                Post.is_public == True,
+                PostPrivacyService.visible_to_user_clause(user_id),
                 Post.created_at >= cutoff_time
             )
         ).group_by(Post.id).options(
@@ -1238,7 +1239,7 @@ class AlgorithmService(BaseService):
                     'image_url': post.image_url,
                     'location': post.location,
                     'location_data': post.location_data,
-                    'is_public': post.is_public,
+                    'is_public': PostPrivacyService.is_public_post(post),
                     'created_at': post.created_at.isoformat() if post.created_at else None,
                     'updated_at': post.updated_at.isoformat() if post.updated_at else None,
                     'author': {
@@ -1525,7 +1526,7 @@ class AlgorithmService(BaseService):
             'image_url': post.image_url,
             'location': post.location,
             'location_data': post.location_data,
-            'is_public': post.is_public,
+            'is_public': PostPrivacyService.is_public_post(post),
             'created_at': post.created_at.isoformat() if post.created_at else None,
             'updated_at': post.updated_at.isoformat() if post.updated_at else None,
             'author': {

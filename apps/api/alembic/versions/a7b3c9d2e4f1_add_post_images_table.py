@@ -11,6 +11,7 @@ Also migrates existing single image_url data to the new table.
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.sql import text
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -21,44 +22,49 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create post_images table
-    op.create_table(
-        'post_images',
-        sa.Column('id', sa.String(), nullable=False),
-        sa.Column('post_id', sa.String(), nullable=False),
-        sa.Column('position', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('thumbnail_url', sa.String(500), nullable=False),
-        sa.Column('medium_url', sa.String(500), nullable=False),
-        sa.Column('original_url', sa.String(500), nullable=False),
-        sa.Column('width', sa.Integer(), nullable=True),
-        sa.Column('height', sa.Integer(), nullable=True),
-        sa.Column('file_size', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.ForeignKeyConstraint(['post_id'], ['posts.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id')
-    )
-
-    # Create indexes for performance
-    op.create_index('ix_post_images_post_id', 'post_images', ['post_id'])
-    op.create_index('idx_post_images_post_position', 'post_images', ['post_id', 'position'])
-
-    # Migrate existing image_url data to post_images table
-    # For existing posts with images, create a PostImage record at position 0
-    # Using the same URL for all variants initially (no variants exist for legacy images)
     connection = op.get_bind()
-    connection.execute(text("""
-        INSERT INTO post_images (id, post_id, position, thumbnail_url, medium_url, original_url, created_at)
-        SELECT
-            gen_random_uuid()::text,
-            id,
-            0,
-            image_url,
-            image_url,
-            image_url,
-            created_at
-        FROM posts
-        WHERE image_url IS NOT NULL AND image_url != ''
-    """))
+    inspector = inspect(connection)
+    table_exists = inspector.has_table("post_images")
+
+    if not table_exists:
+        # Create post_images table
+        op.create_table(
+            'post_images',
+            sa.Column('id', sa.String(), nullable=False),
+            sa.Column('post_id', sa.String(), nullable=False),
+            sa.Column('position', sa.Integer(), nullable=False, server_default='0'),
+            sa.Column('thumbnail_url', sa.String(500), nullable=False),
+            sa.Column('medium_url', sa.String(500), nullable=False),
+            sa.Column('original_url', sa.String(500), nullable=False),
+            sa.Column('width', sa.Integer(), nullable=True),
+            sa.Column('height', sa.Integer(), nullable=True),
+            sa.Column('file_size', sa.Integer(), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.ForeignKeyConstraint(['post_id'], ['posts.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id')
+        )
+
+    # Create indexes for performance (idempotent)
+    op.execute(text("CREATE INDEX IF NOT EXISTS ix_post_images_post_id ON post_images (post_id)"))
+    op.execute(text("CREATE INDEX IF NOT EXISTS idx_post_images_post_position ON post_images (post_id, position)"))
+
+    # Backfill only if table was created by this migration.
+    if not table_exists:
+        # For existing posts with images, create a PostImage record at position 0
+        # Using the same URL for all variants initially (no variants exist for legacy images)
+        connection.execute(text("""
+            INSERT INTO post_images (id, post_id, position, thumbnail_url, medium_url, original_url, created_at)
+            SELECT
+                gen_random_uuid()::text,
+                id,
+                0,
+                image_url,
+                image_url,
+                image_url,
+                created_at
+            FROM posts
+            WHERE image_url IS NOT NULL AND image_url != ''
+        """))
 
 
 def downgrade() -> None:

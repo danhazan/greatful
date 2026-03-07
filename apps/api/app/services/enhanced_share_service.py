@@ -13,6 +13,7 @@ from app.repositories.post_repository import PostRepository
 from app.models.share import Share, ShareMethod
 from app.models.user import User
 from app.models.post import Post
+from app.services.post_privacy_service import PostPrivacyService
 from app.core.notification_factory import NotificationFactory
 import logging
 import os
@@ -378,7 +379,7 @@ class EnhancedShareService(BaseService):
         """Check if a post can be shared based on privacy settings."""
         try:
             # For now, allow sharing of public posts
-            if not post.is_public:
+            if not PostPrivacyService.is_public_post(post):
                 return False
             return True
         except Exception as e:

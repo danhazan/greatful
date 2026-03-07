@@ -27,6 +27,7 @@ from app.core.storage import storage
 from app.services.mention_service import MentionService
 from app.services.algorithm_service import AlgorithmService
 from app.services.content_analysis_service import ContentAnalysisService
+from app.services.post_privacy_service import PostPrivacyService
 from app.utils.html_sanitizer import sanitize_html
 from app.core.responses import success_response
 from app.core.image_urls import serialize_image_url
@@ -34,6 +35,17 @@ from app.core.image_urls import serialize_image_url
 logger = logging.getLogger(__name__)
 router = APIRouter()
 security = HTTPBearer()
+
+
+def _normalize_reaction_emoji_codes(value: Any) -> List[str]:
+    """Normalize DB reaction_emoji_codes payload into a list of emoji codes."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [item for item in value.split(",") if item]
+    if isinstance(value, (list, tuple, set)):
+        return [str(item) for item in value if item]
+    return []
 
 
 class PostCreate(BaseModel):
@@ -45,6 +57,9 @@ class PostCreate(BaseModel):
     location: Optional[str] = Field(None, max_length=150)
     location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
     is_public: bool = True
+    privacy_level: Optional[str] = Field(None, description="Post privacy: public, private, custom")
+    rules: List[str] = Field(default_factory=list, description="Custom privacy rules")
+    specific_users: List[int] = Field(default_factory=list, description="Explicit user IDs for custom privacy")
     # Optional override for post type (for future use or manual override)
     post_type_override: Optional[str] = Field(None, description="Optional manual override for post type")
 
@@ -64,6 +79,18 @@ class PostCreate(BaseModel):
             from app.utils.post_style_validator import PostStyleValidator
             return PostStyleValidator.validate_post_style(v)
         return v
+
+    @field_validator("privacy_level")
+    @classmethod
+    def validate_privacy_level(cls, value):
+        if value is None:
+            return value
+        normalized = value.strip().lower()
+        if normalized not in PostPrivacyService.SUPPORTED_LEVELS:
+            raise ValueError(
+                f"Invalid privacy_level. Must be one of: {sorted(PostPrivacyService.SUPPORTED_LEVELS)}"
+            )
+        return normalized
 
 
 
@@ -106,6 +133,9 @@ class PostResponse(BaseModel):
     is_unread: Optional[bool] = Field(False, alias="isUnread")
     algorithm_score: Optional[float] = Field(None, alias="algorithmScore")
     reaction_emoji_codes: List[str] = Field(default_factory=list, alias="reactionEmojiCodes")
+    privacy_level: Optional[str] = Field(None, alias="privacyLevel")
+    privacy_rules: Optional[List[str]] = Field(None, alias="privacyRules")
+    specific_users: Optional[List[int]] = Field(None, alias="specificUsers")
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -199,6 +229,9 @@ class PostUpdate(BaseModel):
     image_url: Optional[str] = Field(None, description="Image URL for the post")
     location: Optional[str] = Field(None, max_length=150)
     location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
+    privacy_level: Optional[str] = Field(None, description="Post privacy: public, private, custom")
+    rules: Optional[List[str]] = Field(None, description="Custom privacy rules")
+    specific_users: Optional[List[int]] = Field(None, description="Explicit user IDs for custom privacy")
 
     @field_validator('post_style')
     @classmethod
@@ -207,6 +240,18 @@ class PostUpdate(BaseModel):
             from app.utils.post_style_validator import PostStyleValidator
             return PostStyleValidator.validate_post_style(v)
         return v
+
+    @field_validator("privacy_level")
+    @classmethod
+    def validate_privacy_level(cls, value):
+        if value is None:
+            return value
+        normalized = value.strip().lower()
+        if normalized not in PostPrivacyService.SUPPORTED_LEVELS:
+            raise ValueError(
+                f"Invalid privacy_level. Must be one of: {sorted(PostPrivacyService.SUPPORTED_LEVELS)}"
+            )
+        return normalized
 
 
 class DeleteResponse(BaseModel):
@@ -498,6 +543,35 @@ async def create_post_json(
             sanitized_content = sanitizer.sanitize_text(post_data.content, "post_content")
         else:
             sanitized_content = post_data.content
+
+        privacy_service = PostPrivacyService(db)
+        logger.debug(
+            "[PRIVACY][create_post][parsed_input] privacy_level=%s rules=%s specific_users=%s is_public=%s author_id=%s",
+            post_data.privacy_level,
+            post_data.rules,
+            post_data.specific_users,
+            post_data.is_public,
+            current_user_id,
+        )
+        try:
+            privacy_config = privacy_service.resolve_config(
+                privacy_level=post_data.privacy_level,
+                rules=post_data.rules,
+                specific_users=post_data.specific_users,
+                is_public=post_data.is_public,
+                author_id=current_user_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+        logger.debug(
+            "[PRIVACY][create_post][resolved_config] level=%s normalized_rules=%s normalized_specific_user_ids=%s",
+            privacy_config.level,
+            privacy_config.rules,
+            privacy_config.specific_user_ids,
+        )
         
         # Create post with automatically determined type and rich content support
         db_post = Post(
@@ -510,13 +584,22 @@ async def create_post_json(
             image_url=post_data.image_url,
             location=post_data.location,
             location_data=post_data.location_data,
-            is_public=post_data.is_public,
+            is_public=privacy_config.is_public,
+            privacy_level=privacy_config.level,
             created_at=datetime.now(timezone.utc)
         )
         
         db.add(db_post)
+        await privacy_service.apply_post_config(db_post, privacy_config)
         await db.commit()
         await db.refresh(db_post)
+        if privacy_config.level == PostPrivacyService.CUSTOM:
+            persisted = await privacy_service.get_privacy_details_for_posts([db_post.id])
+            logger.debug(
+                "[PRIVACY][create_post][persisted] post_id=%s details=%s",
+                db_post.id,
+                persisted.get(db_post.id, {}),
+            )
         
         # Process mentions in the post content
         try:
@@ -543,6 +626,9 @@ async def create_post_json(
             location=db_post.location,
             location_data=db_post.location_data,
             is_public=db_post.is_public,
+            privacy_level=privacy_config.level,
+            privacy_rules=privacy_config.rules,
+            specific_users=privacy_config.specific_user_ids,
             created_at=db_post.created_at.isoformat() if db_post.created_at else None,
             updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
             author={
@@ -625,6 +711,10 @@ async def create_post_with_file(
     post_style: Optional[str] = Form(None),  # JSON string
     location: Optional[str] = Form(None),
     location_data: Optional[str] = Form(None),  # JSON string
+    is_public: Optional[bool] = Form(None),
+    privacy_level: Optional[str] = Form(None),
+    rules: Optional[str] = Form(None),  # JSON array string
+    specific_users: Optional[str] = Form(None),  # JSON array string
     post_type_override: Optional[str] = Form(None),
     force_upload: bool = Form(False),
     # Multi-image support: accepts multiple files via 'images' field
@@ -664,6 +754,47 @@ async def create_post_with_file(
                     detail="Invalid post_style JSON format"
                 )
 
+        parsed_rules = []
+        if rules:
+            try:
+                candidate_rules = json.loads(rules)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid rules JSON format"
+                )
+            if not isinstance(candidate_rules, list):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="rules must be a JSON array"
+                )
+            parsed_rules = candidate_rules
+
+        parsed_specific_users = []
+        if specific_users:
+            try:
+                candidate_users = json.loads(specific_users)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid specific_users JSON format"
+                )
+            if not isinstance(candidate_users, list):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="specific_users must be a JSON array"
+                )
+            parsed_specific_users = candidate_users
+
+        logger.debug(
+            "[PRIVACY][create_post_with_file][parsed_form_input] privacy_level=%s rules=%s specific_users=%s is_public=%s author_id=%s",
+            privacy_level,
+            parsed_rules,
+            parsed_specific_users,
+            is_public,
+            current_user_id,
+        )
+
         # Create PostCreate object and validate it
         post_data_dict = {
             "content": content,
@@ -671,8 +802,11 @@ async def create_post_with_file(
             "post_style": parsed_post_style,
             "location": location,
             "location_data": parsed_location_data,
+            "is_public": True if is_public is None else bool(is_public),
+            "privacy_level": privacy_level,
+            "rules": parsed_rules,
+            "specific_users": parsed_specific_users,
             "post_type_override": post_type_override,
-            "is_public": True
         }
 
         # This will trigger Pydantic validation and raise 422 if invalid
@@ -777,6 +911,27 @@ async def create_post_with_file(
         else:
             sanitized_content = post_data.content
 
+        privacy_service = PostPrivacyService(db)
+        try:
+            privacy_config = privacy_service.resolve_config(
+                privacy_level=post_data.privacy_level,
+                rules=post_data.rules,
+                specific_users=post_data.specific_users,
+                is_public=post_data.is_public,
+                author_id=current_user_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+        logger.debug(
+            "[PRIVACY][create_post_with_file][resolved_config] level=%s normalized_rules=%s normalized_specific_user_ids=%s",
+            privacy_config.level,
+            privacy_config.rules,
+            privacy_config.specific_user_ids,
+        )
+
         # Generate post ID for image association
         post_id = str(uuid.uuid4())
 
@@ -806,13 +961,22 @@ async def create_post_with_file(
             image_url=primary_image_url,  # Backward compatibility
             location=post_data.location,
             location_data=post_data.location_data,
-            is_public=post_data.is_public,
+            is_public=privacy_config.is_public,
+            privacy_level=privacy_config.level,
             created_at=datetime.now(timezone.utc)
         )
 
         db.add(db_post)
+        await privacy_service.apply_post_config(db_post, privacy_config)
         await db.commit()
         await db.refresh(db_post)
+        if privacy_config.level == PostPrivacyService.CUSTOM:
+            persisted = await privacy_service.get_privacy_details_for_posts([db_post.id])
+            logger.debug(
+                "[PRIVACY][create_post_with_file][persisted] post_id=%s details=%s",
+                db_post.id,
+                persisted.get(db_post.id, {}),
+            )
 
         # Process mentions in the post content
         try:
@@ -839,6 +1003,9 @@ async def create_post_with_file(
             location=db_post.location,
             location_data=db_post.location_data,
             is_public=db_post.is_public,
+            privacy_level=privacy_config.level,
+            privacy_rules=privacy_config.rules,
+            specific_users=privacy_config.specific_user_ids,
             created_at=db_post.created_at.isoformat() if db_post.created_at else None,
             updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
             author={
@@ -887,9 +1054,23 @@ async def get_feed(
         from app.services.algorithm_service import AlgorithmService
         from sqlalchemy import text
         from app.models.emoji_reaction import EmojiReaction
+        dialect = db.bind.dialect.name if db.bind is not None else ""
         
         # Hearts are implemented as emoji reactions with emoji_code='heart'
         has_likes_table = True  # Hearts available through emoji reactions system
+
+        if not algorithm:
+            algorithm_service = AlgorithmService(db)
+            posts_data, _ = await algorithm_service.get_personalized_feed(
+                user_id=current_user_id,
+                limit=limit,
+                offset=offset,
+                algorithm_enabled=False,
+                consider_read_status=consider_read_status,
+                refresh_mode=refresh
+            )
+            logger.debug(f"Retrieved {len(posts_data)} chronological posts for user {current_user_id}")
+            return posts_data
 
         # Use OptimizedAlgorithmService for personalized feed with performance monitoring
         if algorithm:
@@ -924,8 +1105,15 @@ async def get_feed(
             # Note: serialize_posts_for_feed returns dicts that match PostResponse structure
             return posts_data
         
+            reaction_agg_expression = (
+                "ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code)"
+                if dialect == "postgresql"
+                else "GROUP_CONCAT(DISTINCT emoji_code)"
+            )
+            reaction_default_expression = "ARRAY[]::text[]" if dialect == "postgresql" else "''"
+
             # Build query with engagement counts using efficient LEFT JOINs
-            query = text("""
+            query = text(f"""
                 SELECT p.id,
                        p.author_id,
                        p.content,
@@ -945,7 +1133,7 @@ async def get_feed(
                        u.email as author_email,
                        COALESCE(engagement.hearts_count, 0) as hearts_count,
                        COALESCE(engagement.reactions_count, 0) as reactions_count,
-                       COALESCE(engagement.reaction_emoji_codes, ARRAY[]::text[]) as reaction_emoji_codes,
+                       COALESCE(engagement.reaction_emoji_codes, {reaction_default_expression}) as reaction_emoji_codes,
                        user_reactions.emoji_code as current_user_reaction,
                        CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
                 FROM posts p
@@ -954,7 +1142,7 @@ async def get_feed(
                     SELECT post_id, 
                            COUNT(DISTINCT CASE WHEN emoji_code = 'heart' THEN user_id END) as hearts_count,
                            COUNT(DISTINCT CASE WHEN emoji_code != 'heart' THEN user_id END) as reactions_count,
-                           ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code) as reaction_emoji_codes
+                           {reaction_agg_expression} as reaction_emoji_codes
                     FROM emoji_reactions
                     GROUP BY post_id
                 ) engagement ON engagement.post_id = p.id
@@ -1012,7 +1200,7 @@ async def get_feed(
                     is_read=is_read,
                     is_unread=False,  # Chronological feed doesn't mark posts as unread
                     algorithm_score=None,  # No algorithm score for chronological feed
-                    reaction_emoji_codes=list(getattr(row, 'reaction_emoji_codes', None) or [])
+                    reaction_emoji_codes=_normalize_reaction_emoji_codes(getattr(row, 'reaction_emoji_codes', None))
                 ))
 
             logger.debug(f"Retrieved {len(posts_with_counts)} chronological posts")
@@ -1044,10 +1232,10 @@ async def mark_posts_as_read(
         # Validate that all post IDs exist and are public
         from sqlalchemy import select
         if read_request.post_ids:
-            # Use SQLAlchemy ORM query for better compatibility
+            privacy_clause = PostPrivacyService.visible_to_user_clause(current_user_id)
             query = select(Post.id).where(
                 Post.id.in_(read_request.post_ids),
-                Post.is_public == True
+                privacy_clause
             )
             result = await db.execute(query)
             valid_post_ids = [row.id for row in result.fetchall()]
@@ -1179,12 +1367,20 @@ async def get_post_by_id(
         
         from sqlalchemy import text
         from app.models.emoji_reaction import EmojiReaction
+        dialect = db.bind.dialect.name if db.bind is not None else ""
         
         # Hearts are implemented as emoji reactions with emoji_code='heart'
         has_likes_table = True  # Hearts available through emoji reactions system
 
+        reaction_agg_expression = (
+            "ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code)"
+            if dialect == "postgresql"
+            else "GROUP_CONCAT(DISTINCT emoji_code)"
+        )
+        reaction_default_expression = "ARRAY[]::text[]" if dialect == "postgresql" else "''"
+
         # Build query with engagement counts using efficient LEFT JOINs
-        query = text("""
+        query = text(f"""
             SELECT p.id,
                    p.author_id,
                    p.content,
@@ -1195,6 +1391,7 @@ async def get_post_by_id(
                    p.location,
                    p.location_data,
                    p.is_public,
+                   p.privacy_level,
                    p.created_at,
                    p.updated_at,
                    p.comments_count,
@@ -1205,7 +1402,7 @@ async def get_post_by_id(
                    u.profile_image_url as author_profile_image,
                    COALESCE(engagement.hearts_count, 0) as hearts_count,
                    COALESCE(engagement.reactions_count, 0) as reactions_count,
-                   COALESCE(engagement.reaction_emoji_codes, ARRAY[]::text[]) as reaction_emoji_codes,
+                   COALESCE(engagement.reaction_emoji_codes, {reaction_default_expression}) as reaction_emoji_codes,
                    user_reactions.emoji_code as current_user_reaction,
                    CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted,
                    CASE WHEN user_follows.follower_id IS NOT NULL THEN true ELSE false END as is_following
@@ -1215,7 +1412,7 @@ async def get_post_by_id(
                 SELECT post_id, 
                        COUNT(DISTINCT CASE WHEN emoji_code = 'heart' THEN user_id END) as hearts_count,
                        COUNT(DISTINCT CASE WHEN emoji_code != 'heart' THEN user_id END) as reactions_count,
-                       ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code) as reaction_emoji_codes
+                       {reaction_agg_expression} as reaction_emoji_codes
                 FROM emoji_reactions
                 GROUP BY post_id
             ) engagement ON engagement.post_id = p.id
@@ -1241,12 +1438,22 @@ async def get_post_by_id(
                 detail="Post not found"
             )
         
-        # Check if post is public or user has access
-        if not row.is_public and current_user_id != row.author_id:
+        privacy_service = PostPrivacyService(db)
+        has_access = await privacy_service.can_user_view_post(post_id, current_user_id)
+        if not has_access:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="This post is private"
+                detail="You do not have access to this post"
             )
+
+        privacy_rules = None
+        specific_users = None
+        is_author_view = bool(current_user_id and current_user_id == row.author_id)
+        if is_author_view:
+            privacy_details = await privacy_service.get_privacy_details_for_posts([post_id])
+            details = privacy_details.get(post_id, {})
+            privacy_rules = details.get("privacy_rules", [])
+            specific_users = details.get("specific_users", [])
 
         # Parse JSON fields
         post_style = None
@@ -1283,7 +1490,10 @@ async def get_post_by_id(
             images=images,  # Multi-image support
             location=row.location,
             location_data=location_data,
-            is_public=row.is_public,
+            is_public=(row.privacy_level == "public") if getattr(row, "privacy_level", None) else row.is_public,
+            privacy_level=getattr(row, "privacy_level", None) if is_author_view else None,
+            privacy_rules=privacy_rules,
+            specific_users=specific_users,
             created_at=row.created_at.isoformat() if hasattr(row.created_at, 'isoformat') else str(row.created_at),
             updated_at=row.updated_at.isoformat() if row.updated_at and hasattr(row.updated_at, 'isoformat') else str(row.updated_at) if row.updated_at else None,
             author={
@@ -1303,7 +1513,7 @@ async def get_post_by_id(
             current_user_reaction=row.current_user_reaction,
             is_hearted=bool(row.is_hearted) if hasattr(row, 'is_hearted') else False,
             algorithm_score=None,  # Individual post view doesn't include algorithm score
-            reaction_emoji_codes=list(getattr(row, 'reaction_emoji_codes', None) or [])
+            reaction_emoji_codes=_normalize_reaction_emoji_codes(getattr(row, 'reaction_emoji_codes', None))
         )
 
     except HTTPException:
@@ -1483,6 +1693,7 @@ async def edit_post(
         from app.repositories.post_repository import PostRepository
         post_repo = PostRepository(db)
         post = await post_repo.get_by_id_or_404(post_id)
+        privacy_service = PostPrivacyService(db)
         
         # Check permission - only author can edit
         if post.author_id != current_user_id:
@@ -1508,6 +1719,37 @@ async def edit_post(
             update_data['location'] = post_update.location
         if 'location_data' in post_update.model_fields_set:
             update_data['location_data'] = post_update.location_data
+
+        privacy_update_requested = any(
+            field in post_update.model_fields_set
+            for field in ["privacy_level", "rules", "specific_users"]
+        )
+        privacy_config = None
+        if privacy_update_requested:
+            existing_privacy_details = await privacy_service.get_privacy_details_for_posts([post.id])
+            existing = existing_privacy_details.get(post.id, {})
+            existing_rules = existing.get("privacy_rules", [])
+            existing_specific_users = existing.get("specific_users", [])
+
+            try:
+                privacy_config = privacy_service.resolve_config(
+                    privacy_level=post_update.privacy_level or post.privacy_level,
+                    rules=post_update.rules if post_update.rules is not None else existing_rules,
+                    specific_users=(
+                        post_update.specific_users
+                        if post_update.specific_users is not None
+                        else existing_specific_users
+                    ),
+                    is_public=post.is_public,
+                    author_id=current_user_id,
+                )
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(exc),
+                ) from exc
+            update_data["privacy_level"] = privacy_config.level
+            update_data["is_public"] = privacy_config.is_public
         
         # If content or image is being updated, re-analyze post type
         if 'content' in update_data or 'image_url' in update_data:
@@ -1550,6 +1792,9 @@ async def edit_post(
         # Update the post
         for field, value in update_data.items():
             setattr(post, field, value)
+
+        if privacy_config is not None:
+            await privacy_service.apply_post_config(post, privacy_config)
         
         # Set updated_at timestamp manually
         from datetime import datetime, timezone
@@ -1581,6 +1826,8 @@ async def edit_post(
 
         # Fetch post images with full URLs
         images = await _fetch_post_images(db, post.id)
+        privacy_details_map = await privacy_service.get_privacy_details_for_posts([post.id])
+        post_privacy_details = privacy_details_map.get(post.id, {})
 
         # Format response
         return PostResponse(
@@ -1595,6 +1842,9 @@ async def edit_post(
             location=post.location,
             location_data=post.location_data,
             is_public=post.is_public,
+            privacy_level=post.privacy_level,
+            privacy_rules=post_privacy_details.get("privacy_rules", []),
+            specific_users=post_privacy_details.get("specific_users", []),
             created_at=post.created_at.isoformat(),
             updated_at=post.updated_at.isoformat() if post.updated_at else None,
             author={

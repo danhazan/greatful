@@ -12,6 +12,7 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 ### 🗄️ Database & Data
 - **[Database Structure](DATABASE_STRUCTURE.md)** - Complete database documentation and relationships
 - **[Backend API Documentation](BACKEND_API_DOCUMENTATION.md)** - FastAPI backend setup and usage
+- **[Post Privacy System](POST_PRIVACY_SYSTEM.md)** - Post-level privacy architecture and feed visibility rules
 
 ### 🧪 Testing & Quality
 - **[Test Guidelines](TEST_GUIDELINES.md)** - Comprehensive testing guidelines and best practices

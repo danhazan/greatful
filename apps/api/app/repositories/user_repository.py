@@ -92,7 +92,15 @@ class UserRepository(BaseRepository):
         # Optimized: Single query for all stats using correlated subqueries
         # This is efficient for batches up to 50 users and ensures exactly 1 SQL connection/query
         posts_sub = select(func.count(Post.id)).where(Post.author_id == User.id).scalar_subquery()
-        public_sub = select(func.count(Post.id)).where(and_(Post.author_id == User.id, Post.is_public == True)).scalar_subquery()
+        public_sub = select(func.count(Post.id)).where(
+            and_(
+                Post.author_id == User.id,
+                or_(
+                    Post.privacy_level == "public",
+                    and_(Post.privacy_level.is_(None), Post.is_public == True),
+                ),
+            )
+        ).scalar_subquery()
         followers_sub = select(func.count(Follow.id)).where(and_(Follow.followed_id == User.id, Follow.status == "active")).scalar_subquery()
         following_sub = select(func.count(Follow.id)).where(and_(Follow.follower_id == User.id, Follow.status == "active")).scalar_subquery()
         

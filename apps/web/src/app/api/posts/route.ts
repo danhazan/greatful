@@ -30,6 +30,9 @@ export async function POST(request: NextRequest) {
         title: formData.get('title') as string,
         location: formData.get('location') as string,
         locationData: (formData.get('locationData') || formData.get('location_data')) as string,
+        privacyLevel: (formData.get('privacyLevel') || formData.get('privacy_level')) as string,
+        rules: (formData.get('privacyRules') || formData.get('rules')) as string,
+        specificUsers: (formData.get('specificUsers') || formData.get('specific_users')) as string,
         postTypeOverride: (formData.get('postTypeOverride') || formData.get('post_type_override')) as string,
         image: formData.get('image') as File,  // Legacy single image
         images: imageFiles.length > 0 ? imageFiles : undefined  // Multi-image
@@ -44,6 +47,9 @@ export async function POST(request: NextRequest) {
     const richContent = body.richContent ?? body.rich_content
     const postStyle = body.postStyle ?? body.post_style
     const locationData = body.locationData ?? body.location_data
+    const privacyLevel = body.privacyLevel ?? body.privacy_level
+    const privacyRules = body.privacyRules ?? body.rules
+    const specificUsers = body.specificUsers ?? body.specific_users
     const postTypeOverride = body.postTypeOverride ?? body.post_type_override
     const isPublic = body.isPublic ?? body.is_public
 
@@ -70,6 +76,19 @@ export async function POST(request: NextRequest) {
       if (body.title) backendFormData.append('title', body.title)
       if (body.location) backendFormData.append('location', body.location)
       if (locationData) backendFormData.append('location_data', locationData)
+      if (privacyLevel) backendFormData.append('privacy_level', String(privacyLevel))
+      if (privacyRules) {
+        backendFormData.append(
+          'rules',
+          typeof privacyRules === 'string' ? privacyRules : JSON.stringify(privacyRules)
+        )
+      }
+      if (specificUsers) {
+        backendFormData.append(
+          'specific_users',
+          typeof specificUsers === 'string' ? specificUsers : JSON.stringify(specificUsers)
+        )
+      }
       if (postTypeOverride) backendFormData.append('post_type_override', postTypeOverride)
       // Multi-image support: forward all images to backend
       if (body.images && body.images.length > 0) {
@@ -100,7 +119,10 @@ export async function POST(request: NextRequest) {
         location: body.location || null,
         location_data: locationData || null,
         post_type_override: postTypeOverride || null,
-        is_public: isPublic !== false // Default to true
+        is_public: isPublic !== false, // Default to true
+        privacy_level: privacyLevel || null,
+        rules: Array.isArray(privacyRules) ? privacyRules : [],
+        specific_users: Array.isArray(specificUsers) ? specificUsers : []
       }
 
 

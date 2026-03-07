@@ -88,6 +88,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `location` | String | Nullable | Location string (backward compatibility) |
 | `location_data` | JSON | Nullable | Structured location data with coordinates |
 | `is_public` | Boolean | Default: True | Post visibility |
+| `privacy_level` | String(20) | Not Null, Default: 'public', Index | Privacy level: public, private, custom |
 | `created_at` | DateTime | Default: now() | Post creation timestamp |
 | `updated_at` | DateTime | On Update | Last modification timestamp |
 | `hearts_count` | Integer | Not Null, Default: 0 | Cached count of hearts/likes |
@@ -135,11 +136,46 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 - `idx_posts_created_at_desc` - For chronological feeds (created_at DESC)
 - `idx_posts_author_created_desc` - For user-specific feeds (author_id, created_at DESC)
 - `idx_posts_engagement` - For engagement-based sorting (hearts_count, reactions_count, shares_count)
+- `idx_posts_privacy_created_at` - For privacy-aware feed retrieval (privacy_level, created_at)
+- `idx_posts_author_created_at` - For author + recency filtering
 
 **Relationships:**
 - `author` - Many-to-One with Users (post author)
 - `likes` - One-to-Many with Likes (post likes)
 - `comments` - One-to-Many with Comments (post comments)
+- `privacy_rules` - One-to-Many with PostPrivacyRules (custom rule toggles)
+- `privacy_users` - One-to-Many with PostPrivacyUsers (explicit audience)
+
+### Post Privacy Rules Table (`post_privacy_rules`)
+
+**Stores enabled custom audience rule types for each post.**
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | String (UUID) | Primary Key | Unique row identifier |
+| `post_id` | String | Foreign Key (posts.id, CASCADE), Not Null | Related post |
+| `rule_type` | String(50) | Not Null | Rule identifier (followers, following, specific_users, ...) |
+| `created_at` | DateTime | Default: now() | Rule creation timestamp |
+
+**Constraints & Indexes:**
+- Unique constraint on (`post_id`, `rule_type`)
+- `idx_post_privacy_rules_post_rule` on (`post_id`, `rule_type`)
+
+### Post Privacy Users Table (`post_privacy_users`)
+
+**Stores explicit user allow-lists for custom post privacy.**
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | String (UUID) | Primary Key | Unique row identifier |
+| `post_id` | String | Foreign Key (posts.id, CASCADE), Not Null | Related post |
+| `user_id` | Integer | Foreign Key (users.id, CASCADE), Not Null | Allowed viewer |
+| `created_at` | DateTime | Default: now() | Mapping creation timestamp |
+
+**Constraints & Indexes:**
+- Unique constraint on (`post_id`, `user_id`)
+- `idx_post_privacy_users_post_user` on (`post_id`, `user_id`)
+- `idx_post_privacy_users_user_post` on (`user_id`, `post_id`)
 
 ### Likes Table (`likes`)
 

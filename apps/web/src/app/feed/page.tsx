@@ -286,6 +286,9 @@ export default function FeedPage() {
     richContent?: string
     postStyle?: any
     mentions?: string[]
+    privacyLevel?: 'public' | 'private' | 'custom'
+    privacyRules?: string[]
+    specificUsers?: number[]
   }) => {
     setIsCreatingPost(true)
 
@@ -306,6 +309,9 @@ export default function FeedPage() {
         if (postData.postStyle) formData.append('postStyle', JSON.stringify(postData.postStyle))
         if (postData.location) formData.append('location', postData.location)
         if (postData.location_data) formData.append('location_data', JSON.stringify(postData.location_data))
+        if (postData.privacyLevel) formData.append('privacyLevel', postData.privacyLevel)
+        if (postData.privacyRules) formData.append('privacyRules', JSON.stringify(postData.privacyRules))
+        if (postData.specificUsers) formData.append('specificUsers', JSON.stringify(postData.specificUsers))
         // Append all images (backend expects 'images' field for multi-image)
         postData.imageFiles.forEach(file => {
           formData.append('images', file)
@@ -327,6 +333,9 @@ export default function FeedPage() {
         if (postData.postStyle) formData.append('postStyle', JSON.stringify(postData.postStyle))
         if (postData.location) formData.append('location', postData.location)
         if (postData.location_data) formData.append('location_data', JSON.stringify(postData.location_data))
+        if (postData.privacyLevel) formData.append('privacyLevel', postData.privacyLevel)
+        if (postData.privacyRules) formData.append('privacyRules', JSON.stringify(postData.privacyRules))
+        if (postData.specificUsers) formData.append('specificUsers', JSON.stringify(postData.specificUsers))
         formData.append('image', postData.imageFile)
 
         response = await fetch('/api/posts', {
@@ -351,7 +360,10 @@ export default function FeedPage() {
             postStyle: postData.postStyle,
             imageUrl: postData.imageUrl,
             location: postData.location,
-            location_data: postData.location_data
+            location_data: postData.location_data,
+            privacyLevel: postData.privacyLevel,
+            privacyRules: postData.privacyRules,
+            specificUsers: postData.specificUsers
           })
         })
       }

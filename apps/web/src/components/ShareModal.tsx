@@ -2,13 +2,11 @@
 
 import { useState, useRef, useEffect } from "react"
 import { flushSync } from "react-dom"
-import { X, Copy, Check, Link, MessageCircle, Send, Loader2, MessageSquare } from "lucide-react"
-import MentionAutocomplete from "./MentionAutocomplete"
+import { X, Copy, Check, Link, MessageCircle, Send, MessageSquare } from "lucide-react"
 import { useToast } from "@/contexts/ToastContext"
-import { getTextDirection, getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
-import { getCompleteInputStyling } from "@/utils/inputStyles"
 import { generateWhatsAppURL, formatWhatsAppShareText } from "@/utils/mobileDetection"
 import { htmlToPlainText } from "@/utils/htmlUtils"
+import UserMultiSelect, { UserMultiSelectUser } from "./UserMultiSelect"
 
 interface Post {
   id: string
@@ -18,13 +16,6 @@ interface Post {
     name: string
     image?: string
   }
-}
-
-interface UserInfo {
-  id: number
-  username: string
-  profile_image_url?: string
-  bio?: string
 }
 
 interface ShareModalProps {
@@ -49,11 +40,8 @@ export default function ShareModal({
   
   // Message sharing state
   const [showMessageShare, setShowMessageShare] = useState(false)
-  const [selectedUsers, setSelectedUsers] = useState<UserInfo[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showAutocomplete, setShowAutocomplete] = useState(false)
+  const [selectedUsers, setSelectedUsers] = useState<UserMultiSelectUser[]>([])
   const [sendingMessage, setSendingMessage] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const { showSuccess, showError, showLoading, hideToast } = useToast()
 
 
@@ -115,8 +103,6 @@ export default function ShareModal({
       setPendingShare(null)
       setShowMessageShare(false)
       setSelectedUsers([])
-      setSearchQuery("")
-      setShowAutocomplete(false)
       setSendingMessage(false)
     }
   }, [isOpen])
@@ -254,33 +240,6 @@ export default function ShareModal({
   // Handle message sharing
   const handleSendAsMessage = () => {
     setShowMessageShare(true)
-    setTimeout(() => {
-      searchInputRef.current?.focus()
-    }, 100)
-  }
-
-  const handleUserSelect = (user: UserInfo) => {
-    if (selectedUsers.length >= 5) {
-      return // Max 5 users
-    }
-    
-    if (!selectedUsers.find(u => u.id === user.id)) {
-      setSelectedUsers(prev => [...prev, user])
-    }
-    
-    setSearchQuery("")
-    setShowAutocomplete(false)
-    searchInputRef.current?.focus()
-  }
-
-  const handleRemoveUser = (userId: number) => {
-    setSelectedUsers(prev => prev.filter(u => u.id !== userId))
-  }
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSearchQuery(value)
-    setShowAutocomplete(value.length > 0)
   }
 
   const handleWhatsAppShare = async () => {
@@ -403,7 +362,6 @@ export default function ShareModal({
       // Reset to main share view
       setShowMessageShare(false)
       setSelectedUsers([])
-      setSearchQuery("")
       
       // Close modal after a brief delay
       setTimeout(() => {
@@ -522,57 +480,12 @@ export default function ShareModal({
             </button>
           ) : (
             <div className="space-y-3">
-              {/* User Selection */}
-              <div className="relative">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  placeholder="Search users to send to..."
-                  dir={getDirectionAttribute(searchQuery)}
-                  className={`w-full px-3 py-3 sm:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] touch-manipulation ${getTextAlignmentClass(searchQuery)} ${getCompleteInputStyling().className}`}
-                  style={getCompleteInputStyling().style}
-                  onFocus={() => setShowAutocomplete(searchQuery.length > 0)}
-                  aria-label="Search users to send post to"
-                  aria-describedby="user-search-help"
-                  role="combobox"
-                  aria-expanded={showAutocomplete}
-                  aria-autocomplete="list"
-                />
-                
-                {/* Autocomplete */}
-                {showAutocomplete && (
-                  <MentionAutocomplete
-                    isOpen={showAutocomplete}
-                    searchQuery={searchQuery}
-                    onUserSelect={handleUserSelect}
-                    onClose={() => setShowAutocomplete(false)}
-                    position={{ x: 0, y: 40 }}
-                    className="w-full"
-                  />
-                )}
-              </div>
-
-              {/* Selected Users */}
-              {selectedUsers.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedUsers.map(user => (
-                    <div
-                      key={user.id}
-                      className="flex items-center space-x-2 bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs"
-                    >
-                      <span>@{user.username}</span>
-                      <button
-                        onClick={() => handleRemoveUser(user.id)}
-                        className="text-purple-600 hover:text-purple-800"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <UserMultiSelect
+                selectedUsers={selectedUsers}
+                onChange={setSelectedUsers}
+                maxSelected={5}
+                placeholder="Search users to send to..."
+              />
 
               {/* Send Button */}
               <div className="flex space-x-2">

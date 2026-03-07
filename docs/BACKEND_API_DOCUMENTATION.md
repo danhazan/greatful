@@ -1151,7 +1151,10 @@ Content-Type: application/json
       "state": "NY",
       "country": "USA"
     }
-  }
+  },
+  "privacy_level": "custom",
+  "rules": ["followers", "specific_users"],
+  "specific_users": [12, 34]
 }
 ```
 
@@ -1212,6 +1215,9 @@ Content-Type: multipart/form-data
 - `image`: Image file (JPEG, PNG, WebP, max 10MB)
 - `location`: Location string (optional, for backward compatibility)
 - `location_data`: JSON string with structured location data (optional)
+- `privacy_level`: `public | private | custom` (optional, default `public`)
+- `rules`: JSON array string for custom audience rules (optional)
+- `specific_users`: JSON array string of user IDs for custom audience (optional)
 
 **Response (automatic photo type detection):**
 ```json

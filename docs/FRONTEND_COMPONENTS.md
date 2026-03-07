@@ -417,6 +417,7 @@ User-search dropdowns are standardized around one shared composition:
 - **Shared search hook**: `apps/web/src/hooks/useUserSearch.ts`
 - **Shared dropdown body**: `apps/web/src/components/UserSearchDropdown.tsx`
 - **Canonical row renderer**: `apps/web/src/components/UserSearchResultItem.tsx`
+- **Shared multi-select composition**: `apps/web/src/components/UserMultiSelect.tsx`
 
 Source of truth rule:
 
@@ -427,6 +428,7 @@ Source of truth rule:
 Extension rule:
 
 - New user-search surfaces must reuse these shared pieces.
+- Multi-select surfaces (message recipients, custom privacy specific users) must reuse `UserMultiSelect`.
 - Do not create feature-specific dropdown row markup.
 
 Public primitive exports:
