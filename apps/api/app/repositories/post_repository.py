@@ -26,6 +26,23 @@ class PostRepository(BaseRepository):
             and_(Post.privacy_level.is_(None), Post.is_public.is_(True)),
         )
 
+    def _apply_visibility(self, query, viewer_id: Optional[int]):
+        """Apply shared post-visibility abstraction to a query."""
+        from app.services.post_privacy_service import PostPrivacyService
+
+        return query.where(PostPrivacyService.visibility_filter_clause(viewer_id, self.db))
+
+    def visible_posts_query(self, viewer_id: Optional[int]):
+        """
+        Canonical base query for viewer-visible posts.
+
+        Contract:
+        - All viewer-visible post queries MUST originate from this method.
+        - Visibility filtering is applied first; callers may then add extra filters
+          (e.g. author_id), followed by ordering and pagination.
+        """
+        return self._apply_visibility(select(Post), viewer_id)
+
     async def get_by_author(
         self, 
         author_id: int, 
@@ -86,9 +103,8 @@ class PostRepository(BaseRepository):
     
     async def get_posts_with_engagement(
         self,
-        user_id: int,
+        viewer_id: int,
         author_id: Optional[int] = None,
-        public_only: bool = False,
         include_privacy_details: bool = False,
         limit: int = 20,
         offset: int = 0
@@ -97,9 +113,8 @@ class PostRepository(BaseRepository):
         Get posts with engagement data (hearts, reactions) for a specific user.
         
         Args:
-            user_id: ID of the current user (for personalized data)
+            viewer_id: ID of the viewer (for visibility + personalized data)
             author_id: Optional author ID to filter by
-            public_only: Whether to only return public posts
             limit: Maximum number of posts
             offset: Number of posts to skip
             
@@ -108,20 +123,35 @@ class PostRepository(BaseRepository):
         """
         import json
         import logging
-        from fastapi.encoders import jsonable_encoder
         
         logger = logging.getLogger(__name__)
-        
-        # Build the base query conditions
-        where_conditions = []
-        if public_only:
-            where_conditions.append("(p.privacy_level = 'public' OR (p.privacy_level IS NULL AND p.is_public = true))")
-        if author_id:
-            where_conditions.append("p.author_id = :author_id")
-        
-        where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
-        
+
+        dialect = self.db.bind.dialect.name if self.db.bind is not None else ""
+
+        def build_in_clause_params(values: List[str], prefix: str) -> tuple[str, Dict[str, str]]:
+            placeholders = ", ".join(f":{prefix}_{i}" for i in range(len(values)))
+            params = {f"{prefix}_{i}": values[i] for i in range(len(values))}
+            return placeholders, params
+
+        visible_ids_query = self._apply_visibility(select(Post.id), viewer_id)
+        if author_id is not None:
+            visible_ids_query = visible_ids_query.where(Post.author_id == author_id)
+        visible_ids_query = visible_ids_query.order_by(desc(Post.created_at)).limit(limit).offset(offset)
+
         try:
+            visible_ids_result = await self._execute_query(visible_ids_query, "get visible timeline post ids")
+            selected_post_ids = list(visible_ids_result.scalars().all())
+            if not selected_post_ids:
+                return []
+
+            post_id_placeholders, post_id_params = build_in_clause_params(selected_post_ids, "post_id")
+            reaction_agg_expression = (
+                "ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code)"
+                if dialect == "postgresql"
+                else "GROUP_CONCAT(DISTINCT emoji_code)"
+            )
+            reaction_default_expression = "ARRAY[]::text[]" if dialect == "postgresql" else "''"
+
             query = text(f"""
                 SELECT p.id,
                        p.author_id,
@@ -142,7 +172,7 @@ class PostRepository(BaseRepository):
                        u.profile_image_url as author_profile_image_url,
                        COALESCE(engagement.hearts_count, 0) as hearts_count,
                        COALESCE(engagement.reactions_count, 0) as reactions_count,
-                       COALESCE(engagement.reaction_emoji_codes, ARRAY[]::text[]) as reaction_emoji_codes,
+                       COALESCE(engagement.reaction_emoji_codes, {reaction_default_expression}) as reaction_emoji_codes,
                        COALESCE(comments.comments_count, 0) as comments_count,
                        user_reactions.emoji_code as current_user_reaction,
                        CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted
@@ -152,34 +182,31 @@ class PostRepository(BaseRepository):
                     SELECT post_id, 
                            COUNT(DISTINCT CASE WHEN emoji_code = 'heart' THEN user_id END) as hearts_count,
                            COUNT(DISTINCT user_id) as reactions_count,
-                           ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code) as reaction_emoji_codes
+                           {reaction_agg_expression} as reaction_emoji_codes
                     FROM emoji_reactions
+                    WHERE post_id IN ({post_id_placeholders})
                     GROUP BY post_id
                 ) engagement ON engagement.post_id = p.id
                 LEFT JOIN (
                     SELECT post_id, COUNT(*) as comments_count
                     FROM comments
+                    WHERE post_id IN ({post_id_placeholders})
                     GROUP BY post_id
                 ) comments ON comments.post_id = p.id
                 LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                    AND user_reactions.user_id = :user_id
+                    AND user_reactions.user_id = :viewer_id
                 LEFT JOIN emoji_reactions user_hearts ON user_hearts.post_id = p.id 
-                    AND user_hearts.user_id = :user_id AND user_hearts.emoji_code = 'heart'
-                {where_clause}
+                    AND user_hearts.user_id = :viewer_id AND user_hearts.emoji_code = 'heart'
+                WHERE p.id IN ({post_id_placeholders})
                 ORDER BY p.created_at DESC
-                LIMIT :limit OFFSET :offset
             """)
 
 
             
             params = {
-                "user_id": user_id,
-                "limit": limit,
-                "offset": offset
+                **post_id_params,
+                "viewer_id": viewer_id,
             }
-            
-            if author_id:
-                params["author_id"] = author_id
             
             logger.debug(f"Executing query with params: {params}")
             result = await self.execute_raw_query(query, params)
@@ -240,7 +267,11 @@ class PostRepository(BaseRepository):
                     "comments_count": int(row.comments_count) if row.comments_count else 0,
                     "current_user_reaction": row.current_user_reaction,
                     "is_hearted": bool(row.is_hearted) if hasattr(row, 'is_hearted') else False,
-                    "reaction_emoji_codes": list(getattr(row, 'reaction_emoji_codes', None) or [])
+                    "reaction_emoji_codes": (
+                        [code for code in (getattr(row, "reaction_emoji_codes", "") or "").split(",") if code]
+                        if isinstance(getattr(row, "reaction_emoji_codes", None), str)
+                        else list(getattr(row, "reaction_emoji_codes", None) or [])
+                    ),
                 }
                 posts.append(post_dict)
                 post_ids.append(row.id)
@@ -253,13 +284,14 @@ class PostRepository(BaseRepository):
 
             # Fetch images for all posts in a single query (multi-image support)
             if post_ids:
-                images_query = text("""
+                post_image_placeholders, post_image_params = build_in_clause_params(post_ids, "image_post_id")
+                images_query = text(f"""
                     SELECT id, post_id, position, thumbnail_url, medium_url, original_url, width, height
                     FROM post_images
-                    WHERE post_id = ANY(:post_ids)
+                    WHERE post_id IN ({post_image_placeholders})
                     ORDER BY post_id, position
                 """)
-                images_result = await self.execute_raw_query(images_query, {"post_ids": post_ids})
+                images_result = await self.execute_raw_query(images_query, post_image_params)
                 images_rows = images_result.fetchall()
 
                 # Group images by post_id

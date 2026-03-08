@@ -17,6 +17,7 @@ from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
 from app.models.user import User
+from app.repositories.post_repository import PostRepository
 from app.config.algorithm_config import get_algorithm_config
 from app.services.post_privacy_service import PostPrivacyService
 
@@ -923,10 +924,10 @@ class AlgorithmService(BaseService):
 
         
         # Get total count for pagination
+        post_repo = PostRepository(self.db)
+        visible_posts_subquery = post_repo.visible_posts_query(user_id).subquery()
         total_count_result = await self.db.execute(
-            select(func.count(Post.id)).where(
-                PostPrivacyService.visibility_filter_clause(user_id, self.db)
-            )
+            select(func.count()).select_from(visible_posts_subquery)
         )
         total_count = total_count_result.scalar() or 0
 
@@ -948,14 +949,12 @@ class AlgorithmService(BaseService):
         exclude_ids: Optional[set] = None
     ) -> List[Dict[str, Any]]:
         """Get posts ranked by algorithm score."""
-        # Get all public posts first, excluding specified IDs
-        conditions = [PostPrivacyService.visibility_filter_clause(user_id, self.db)]
+        post_repo = PostRepository(self.db)
+        query = post_repo.visible_posts_query(user_id)
         if exclude_ids:
-            conditions.append(~Post.id.in_(exclude_ids))
-        
-        query = select(Post).where(
-            and_(*conditions)
-        ).options(
+            query = query.where(~Post.id.in_(exclude_ids))
+
+        query = query.options(
             selectinload(Post.author)
         )
 
@@ -988,14 +987,13 @@ class AlgorithmService(BaseService):
         user_last_feed_view: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
         """Get recent posts excluding specified IDs."""
-        from app.repositories.post_repository import PostRepository
+        post_repo = PostRepository(self.db)
         
-        query = select(Post).where(
-            and_(
-                PostPrivacyService.visibility_filter_clause(user_id, self.db),
-                ~Post.id.in_(exclude_ids) if exclude_ids else True
-            )
-        ).order_by(Post.created_at.desc()).options(
+        query = post_repo.visible_posts_query(user_id)
+        if exclude_ids:
+            query = query.where(~Post.id.in_(exclude_ids))
+
+        query = query.order_by(Post.created_at.desc()).options(
             selectinload(Post.author),
             selectinload(Post.images)
         ).limit(limit).offset(offset)
@@ -1013,7 +1011,6 @@ class AlgorithmService(BaseService):
             read_statuses = await self._get_read_status_batch(user_id, post_ids)
         
         # Use PostRepository to serialize with proper URL conversion
-        post_repo = PostRepository(self.db)
         recent_posts = await post_repo.serialize_posts_for_feed(
             posts=posts,
             user_id=user_id,
@@ -1036,10 +1033,10 @@ class AlgorithmService(BaseService):
         recent_posts = await self._get_recent_posts_excluding(user_id, limit, offset, set(), consider_read_status, user_last_feed_view)
         
         # Get total count
+        post_repo = PostRepository(self.db)
+        visible_posts_subquery = post_repo.visible_posts_query(user_id).subquery()
         total_count_result = await self.db.execute(
-            select(func.count(Post.id)).where(
-                PostPrivacyService.visibility_filter_clause(user_id, self.db)
-            )
+            select(func.count()).select_from(visible_posts_subquery)
         )
         total_count = total_count_result.scalar() or 0
 
@@ -1054,7 +1051,7 @@ class AlgorithmService(BaseService):
         consider_read_status: bool = True
     ) -> List[Dict[str, Any]]:
         """Get posts that are unread based on user's last feed view timestamp."""
-        from app.repositories.post_repository import PostRepository
+        post_repo = PostRepository(self.db)
         
         if not user_last_feed_view:
             return await self._get_recent_posts_excluding(
@@ -1062,11 +1059,8 @@ class AlgorithmService(BaseService):
             )
         
         # Get posts created after user's last feed view
-        query = select(Post).where(
-            and_(
-                PostPrivacyService.visibility_filter_clause(user_id, self.db),
-                Post.created_at > user_last_feed_view
-            )
+        query = post_repo.visible_posts_query(user_id).where(
+            Post.created_at > user_last_feed_view
         ).order_by(Post.created_at.desc()).options(
             selectinload(Post.author),
             selectinload(Post.images)
@@ -1093,7 +1087,6 @@ class AlgorithmService(BaseService):
         read_statuses = {post.id: False for post in posts}
         
         # Use PostRepository to serialize with proper URL conversion
-        post_repo = PostRepository(self.db)
         unread_posts = await post_repo.serialize_posts_for_feed(
             posts=posts,
             user_id=user_id,
@@ -1164,6 +1157,8 @@ class AlgorithmService(BaseService):
         HeartReactions = EmojiReaction.__table__.alias('heart_reactions')
         OtherReactions = EmojiReaction.__table__.alias('other_reactions')
         
+        post_repo = PostRepository(self.db)
+
         query = select(
             Post,
             func.count(HeartReactions.c.id).label('hearts_count'),
@@ -1187,7 +1182,7 @@ class AlgorithmService(BaseService):
             )
         ).where(
             and_(
-                PostPrivacyService.visibility_filter_clause(user_id, self.db),
+                Post.id.in_(select(post_repo.visible_posts_query(user_id).with_only_columns(Post.id).subquery().c.id)),
                 Post.created_at >= cutoff_time
             )
         ).group_by(Post.id).options(

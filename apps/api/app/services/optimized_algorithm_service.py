@@ -689,9 +689,8 @@ class OptimizedAlgorithmService(AlgorithmService):
                 
                 logger.info(f"[FEED TRACE] Starting feed generation for user {user_id}. Phase 1: Fetch Posts")
                 # Get posts with optimized query
-                posts_query = select(Post).where(
-                    PostPrivacyService.visibility_filter_clause(user_id, self.db)
-                ).options(
+                post_repo = PostRepository(self.db)
+                posts_query = post_repo.visible_posts_query(user_id).options(
                     selectinload(Post.author),
                     selectinload(Post.images)
                 ).order_by(Post.created_at.desc()).limit(limit * 3)
@@ -795,10 +794,9 @@ class OptimizedAlgorithmService(AlgorithmService):
                 
                  # Get total count
                 total_count_start_queries = query_count
+                visible_posts_subquery = post_repo.visible_posts_query(user_id).subquery()
                 total_count_result = await self.db.execute(
-                    select(func.count(Post.id)).where(
-                        PostPrivacyService.visibility_filter_clause(user_id, self.db)
-                    )
+                    select(func.count()).select_from(visible_posts_subquery)
                 )
                 total_count = total_count_result.scalar() or 0
                 count_queries_sql = query_count - total_count_start_queries

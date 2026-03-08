@@ -34,6 +34,39 @@ def _extract_post_ids(feed_payload):
     return []
 
 
+async def _assert_post_visibility_parity(
+    async_client: AsyncClient,
+    *,
+    viewer_headers: dict,
+    viewer_id: int,
+    post_id: str,
+    author_id: int,
+    expected_direct_status: int,
+):
+    direct_resp = await async_client.get(f"/api/v1/posts/{post_id}", headers=viewer_headers)
+    assert direct_resp.status_code == expected_direct_status, direct_resp.text
+
+    feed_resp = await async_client.get("/api/v1/posts/feed?algorithm=false&limit=50", headers=viewer_headers)
+    assert feed_resp.status_code == 200, feed_resp.text
+    feed_contains = post_id in _extract_post_ids(feed_resp.json())
+
+    timeline_resp = await async_client.get(f"/api/v1/users/{author_id}/posts", headers=viewer_headers)
+    assert timeline_resp.status_code == 200, timeline_resp.text
+    timeline_contains = post_id in _extract_post_ids(timeline_resp.json())
+
+    _print_privacy_debug_header("VISIBILITY CHECKS")
+    _print_privacy_debug_line(
+        f"viewer={viewer_id} direct_access={direct_resp.status_code} feed_contains_post={feed_contains} timeline_contains_post={timeline_contains}"
+    )
+
+    if expected_direct_status == 200:
+        assert feed_contains
+        assert timeline_contains
+    else:
+        assert not feed_contains
+        assert not timeline_contains
+
+
 @pytest.mark.asyncio
 async def test_custom_specific_users_visibility_pipeline(
     async_client: AsyncClient,
@@ -91,28 +124,22 @@ async def test_custom_specific_users_visibility_pipeline(
     assert rules_rows == ["specific_users"]
     assert users_rows == [test_user_2.id]
 
-    allowed_direct = await async_client.get(f"/api/v1/posts/{post_id}", headers=auth_headers_2)
-    blocked_direct = await async_client.get(f"/api/v1/posts/{post_id}", headers=auth_headers_3)
-    assert allowed_direct.status_code == 200, allowed_direct.text
-    assert blocked_direct.status_code == 403, blocked_direct.text
-
-    allowed_feed = await async_client.get("/api/v1/posts/feed?algorithm=false&limit=50", headers=auth_headers_2)
-    blocked_feed = await async_client.get("/api/v1/posts/feed?algorithm=false&limit=50", headers=auth_headers_3)
-    assert allowed_feed.status_code == 200, allowed_feed.text
-    assert blocked_feed.status_code == 200, blocked_feed.text
-    allowed_feed_ids = _extract_post_ids(allowed_feed.json())
-    blocked_feed_ids = _extract_post_ids(blocked_feed.json())
-    allowed_feed_contains_post = post_id in allowed_feed_ids
-    blocked_feed_contains_post = post_id in blocked_feed_ids
-    _print_privacy_debug_header("VISIBILITY CHECKS")
-    _print_privacy_debug_line(
-        f"viewer={test_user_2.id} direct_access={allowed_direct.status_code} feed_status={allowed_feed.status_code} feed_contains_post={allowed_feed_contains_post}"
+    await _assert_post_visibility_parity(
+        async_client,
+        viewer_headers=auth_headers_2,
+        viewer_id=test_user_2.id,
+        post_id=post_id,
+        author_id=test_user.id,
+        expected_direct_status=200,
     )
-    _print_privacy_debug_line(
-        f"viewer={test_user_3.id} direct_access={blocked_direct.status_code} feed_status={blocked_feed.status_code} feed_contains_post={blocked_feed_contains_post}"
+    await _assert_post_visibility_parity(
+        async_client,
+        viewer_headers=auth_headers_3,
+        viewer_id=test_user_3.id,
+        post_id=post_id,
+        author_id=test_user.id,
+        expected_direct_status=403,
     )
-    assert allowed_feed_contains_post
-    assert not blocked_feed_contains_post
 
     svc = PostPrivacyService(db_session)
     allowed_clause_hit = await db_session.scalar(
@@ -191,28 +218,22 @@ async def test_custom_followers_and_specific_users_visibility_pipeline(
     assert rules_rows == ["followers", "specific_users"]
     assert users_rows == [test_user_3.id]
 
-    direct_user_2 = await async_client.get(f"/api/v1/posts/{post_id}", headers=auth_headers_2)
-    direct_user_3 = await async_client.get(f"/api/v1/posts/{post_id}", headers=auth_headers_3)
-    assert direct_user_2.status_code == 200, direct_user_2.text
-    assert direct_user_3.status_code == 200, direct_user_3.text
-
-    feed_user_2 = await async_client.get("/api/v1/posts/feed?algorithm=false&limit=50", headers=auth_headers_2)
-    feed_user_3 = await async_client.get("/api/v1/posts/feed?algorithm=false&limit=50", headers=auth_headers_3)
-    assert feed_user_2.status_code == 200, feed_user_2.text
-    assert feed_user_3.status_code == 200, feed_user_3.text
-    feed_user_2_ids = _extract_post_ids(feed_user_2.json())
-    feed_user_3_ids = _extract_post_ids(feed_user_3.json())
-    feed_user_2_contains_post = post_id in feed_user_2_ids
-    feed_user_3_contains_post = post_id in feed_user_3_ids
-    _print_privacy_debug_header("VISIBILITY CHECKS")
-    _print_privacy_debug_line(
-        f"viewer={test_user_2.id} direct_access={direct_user_2.status_code} feed_status={feed_user_2.status_code} feed_contains_post={feed_user_2_contains_post}"
+    await _assert_post_visibility_parity(
+        async_client,
+        viewer_headers=auth_headers_2,
+        viewer_id=test_user_2.id,
+        post_id=post_id,
+        author_id=test_user.id,
+        expected_direct_status=200,
     )
-    _print_privacy_debug_line(
-        f"viewer={test_user_3.id} direct_access={direct_user_3.status_code} feed_status={feed_user_3.status_code} feed_contains_post={feed_user_3_contains_post}"
+    await _assert_post_visibility_parity(
+        async_client,
+        viewer_headers=auth_headers_3,
+        viewer_id=test_user_3.id,
+        post_id=post_id,
+        author_id=test_user.id,
+        expected_direct_status=200,
     )
-    assert feed_user_2_contains_post
-    assert feed_user_3_contains_post
 
     svc = PostPrivacyService(db_session)
     clause_hit_user_2 = await db_session.scalar(
@@ -235,3 +256,38 @@ def test_custom_rule_identifiers_are_consistent():
     assert PostPrivacyService.RULE_FOLLOWERS == "followers"
     assert PostPrivacyService.RULE_FOLLOWING == "following"
     assert PostPrivacyService.RULE_SPECIFIC_USERS == "specific_users"
+
+
+@pytest.mark.asyncio
+async def test_author_always_sees_own_private_and_custom_posts_in_timeline(
+    async_client: AsyncClient,
+    test_user: User,
+    auth_headers: dict,
+):
+    private_payload = {
+        "content": "Author-only private post",
+        "privacy_level": "private",
+        "rules": [],
+        "specific_users": [],
+    }
+    private_resp = await async_client.post("/api/v1/posts", json=private_payload, headers=auth_headers)
+    assert private_resp.status_code == 201, private_resp.text
+    private_id = private_resp.json()["id"]
+
+    custom_payload = {
+        "content": "Author custom post",
+        "privacy_level": "custom",
+        "rules": ["specific_users"],
+        "specific_users": [],
+    }
+    # This payload is invalid by design (custom needs a rule audience), so use followers to keep test realistic.
+    custom_payload["rules"] = ["followers"]
+    custom_resp = await async_client.post("/api/v1/posts", json=custom_payload, headers=auth_headers)
+    assert custom_resp.status_code == 201, custom_resp.text
+    custom_id = custom_resp.json()["id"]
+
+    me_timeline = await async_client.get("/api/v1/users/me/posts", headers=auth_headers)
+    assert me_timeline.status_code == 200, me_timeline.text
+    post_ids = _extract_post_ids(me_timeline.json())
+    assert private_id in post_ids
+    assert custom_id in post_ids

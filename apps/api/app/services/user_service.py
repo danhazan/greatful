@@ -311,8 +311,7 @@ class UserService(BaseService):
         user_id: int,
         current_user_id: int,
         limit: int = 20,
-        offset: int = 0,
-        public_only: bool = False
+        offset: int = 0
     ) -> List[Dict[str, any]]:
         """
         Get user's posts with engagement data.
@@ -322,7 +321,6 @@ class UserService(BaseService):
             current_user_id: ID of the current user (for engagement data)
             limit: Maximum number of posts to return
             offset: Number of posts to skip
-            public_only: Whether to only return public posts
             
         Returns:
             List of post dictionaries with engagement data and full URLs
@@ -335,9 +333,8 @@ class UserService(BaseService):
         
         # Use repository method for posts with engagement data
         posts = await self.post_repo.get_posts_with_engagement(
-            user_id=current_user_id,
+            viewer_id=current_user_id,
             author_id=user_id,
-            public_only=public_only,
             include_privacy_details=(user_id == current_user_id),
             limit=limit,
             offset=offset

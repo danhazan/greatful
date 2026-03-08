@@ -214,8 +214,7 @@ async def get_my_posts(
     user_service = UserService(db)
     result = await user_service.get_user_posts(
         user_id=current_user_id,
-        current_user_id=current_user_id,
-        public_only=False
+        current_user_id=current_user_id
     )
     
     # Add logging to trace data shape
@@ -246,12 +245,11 @@ async def get_user_posts(
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get another user's posts with engagement data."""
+    """Get another user's posts visible to the current viewer."""
     user_service = UserService(db)
     result = await user_service.get_user_posts(
         user_id=user_id,
-        current_user_id=current_user_id,
-        public_only=True  # Only show public posts for other users
+        current_user_id=current_user_id
     )
     
     # Add logging to trace data shape
