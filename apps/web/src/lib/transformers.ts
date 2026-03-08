@@ -375,6 +375,9 @@ export interface FrontendUserPost {
   reactionsCount: number
   commentsCount: number
   currentUserReaction?: string
+  privacyLevel?: 'public' | 'private' | 'custom'
+  privacyRules?: string[]
+  specificUsers?: number[]
 }
 
 /**
@@ -410,6 +413,9 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
   const reactionsCount = post.reactionsCount ?? post.reactions_count ?? 0
   const commentsCount = post.commentsCount ?? post.comments_count ?? 0
   const currentUserReaction = post.currentUserReaction || post.current_user_reaction
+  const privacyLevel = post.privacyLevel ?? post.privacy_level
+  const privacyRules = post.privacyRules ?? post.privacy_rules ?? post.rules
+  const specificUsers = post.specificUsers ?? post.specific_users
 
   // Normalize images array for multi-image support
   const images: FrontendPostImage[] | undefined = post.images && Array.isArray(post.images)
@@ -444,7 +450,10 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
     isHearted: isHearted,
     reactionsCount: reactionsCount,
     commentsCount: commentsCount,
-    currentUserReaction: currentUserReaction
+    currentUserReaction: currentUserReaction,
+    privacyLevel: typeof privacyLevel === 'string' ? privacyLevel : undefined,
+    privacyRules: Array.isArray(privacyRules) ? privacyRules : undefined,
+    specificUsers: Array.isArray(specificUsers) ? specificUsers : undefined
   }
 }
 

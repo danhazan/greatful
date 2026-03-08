@@ -10,6 +10,8 @@ import LocationModal from "./LocationModal"
 import RichTextEditor, { RichTextEditorRef } from "./RichTextEditor"
 import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
 import UserMultiSelect, { UserMultiSelectUser } from "./UserMultiSelect"
+import PostPrivacyBadge from "./PostPrivacyBadge"
+import { getPostAudience } from "@/utils/privacyUtils"
 
 // Gratitude prompts for inspiring users
 const GRATITUDE_PROMPTS = [
@@ -225,30 +227,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
   const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
 
-  const customAudienceSummary = (() => {
-    const includesFollowers = privacyRules.includes('followers')
-    const includesFollowing = privacyRules.includes('following')
-    const specificCount = specificUsers.length
-
-    if (!includesFollowers && !includesFollowing && specificCount > 0) {
-      return `Only specific users (${specificCount})`
-    }
-
-    const parts: string[] = []
-    if (includesFollowers) parts.push('Followers')
-    if (includesFollowing) parts.push('Following')
-    if (specificCount > 0) {
-      parts.push(`${specificCount} specific user${specificCount > 1 ? 's' : ''}`)
-    }
-    return parts.length > 0 ? parts.join(' + ') : 'Choose audience'
-  })()
-
-  const privacySummaryLabel =
-    privacyLevel === 'public'
-      ? 'Public'
-      : privacyLevel === 'private'
-        ? 'Private'
-        : customAudienceSummary
+  const privacyAudience = getPostAudience({
+    privacyLevel,
+    privacyRules,
+    specificUsersCount: specificUsers.length,
+  })
 
   // Handle click outside to close
   useEffect(() => {
@@ -1002,30 +985,28 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           onDrop={handleDrop}
         >
           {/* Header */}
-          <div className={`flex items-center justify-between p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
+          <div className={`flex items-center justify-between gap-3 p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
             }`}>
-            <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center">
+            <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center min-w-0">
               Share Your Gratitude
               <span className="text-xl ml-2" aria-hidden="true">💜</span>
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowPrivacyMenu((prev) => !prev)}
-                  className="flex max-w-[220px] items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-purple-300 hover:text-purple-700"
-                  aria-label="Select post privacy"
+                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-purple-300 hover:text-purple-700"
+                  aria-label={privacyAudience.ariaLabel}
+                  title={privacyAudience.label}
                 >
-                  {privacyLevel === 'public' && <Globe className="h-4 w-4 text-green-600" />}
-                  {privacyLevel === 'private' && <Lock className="h-4 w-4 text-rose-600" />}
-                  {privacyLevel === 'custom' && <Users className="h-4 w-4 text-indigo-600" />}
-                  <span className="truncate">
-                    {privacyLevel === 'public'
-                      ? 'Public'
-                      : privacyLevel === 'private'
-                        ? 'Private'
-                        : privacySummaryLabel}
-                  </span>
+                  <PostPrivacyBadge
+                    privacyLevel={privacyLevel}
+                    privacyRules={privacyRules}
+                    specificUsersCount={specificUsers.length}
+                    hideLabelOnMobile
+                    className="min-w-0"
+                  />
                   <ChevronDown className="h-4 w-4 text-gray-500" />
                 </button>
 

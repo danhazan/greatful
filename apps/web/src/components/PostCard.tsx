@@ -14,6 +14,7 @@ import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import RichContentRenderer from "./RichContentRenderer"
 import EditPostModal from "./EditPostModal"
 import DeleteConfirmationModal from "./DeleteConfirmationModal"
+import PostPrivacyBadge from "./PostPrivacyBadge"
 import { apiClient } from "@/utils/apiClient"
 import LocationDisplayModal from "./LocationDisplayModal"
 import OptimizedPostImage from "./OptimizedPostImage"
@@ -864,6 +865,9 @@ export default function PostCard({
   }
 
   const styling = getPostStyling()
+  const postPrivacyLevel = currentPost.privacyLevel ?? (currentPost as any).privacy_level
+  const postPrivacyRules = currentPost.privacyRules ?? (currentPost as any).privacy_rules ?? (currentPost as any).rules
+  const postSpecificUsers = currentPost.specificUsers ?? (currentPost as any).specific_users
 
   return (
     <>
@@ -914,41 +918,51 @@ export default function PostCard({
 
                 {/* Options Menu for Post Author */}
                 {isPostAuthor && (
-                  <div className="relative flex-shrink-0">
-                    <button
-                      ref={optionsButtonRef}
-                      onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                      className="p-1 hover:bg-gray-100 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                      title="Post options"
-                    >
-                      <MoreHorizontal className="h-4 w-4 text-gray-500" />
-                    </button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <PostPrivacyBadge
+                      privacyLevel={postPrivacyLevel}
+                      privacyRules={postPrivacyRules}
+                      specificUsers={postSpecificUsers}
+                      hideLabelOnMobile
+                      className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600"
+                      labelClassName="text-gray-600"
+                    />
+                    <div className="relative">
+                      <button
+                        ref={optionsButtonRef}
+                        onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                        className="p-1 hover:bg-gray-100 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                        title="Post options"
+                      >
+                        <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                      </button>
 
-                    {/* Options Dropdown */}
-                    {showOptionsMenu && (
-                      <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-                        <button
-                          onClick={() => {
-                            setShowEditModal(true)
-                            setShowOptionsMenu(false)
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                          <span>Edit post</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowDeleteModal(true)
-                            setShowOptionsMenu(false)
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Delete post</span>
-                        </button>
-                      </div>
-                    )}
+                      {/* Options Dropdown */}
+                      {showOptionsMenu && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                          <button
+                            onClick={() => {
+                              setShowEditModal(true)
+                              setShowOptionsMenu(false)
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                            <span>Edit post</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowDeleteModal(true)
+                              setShowOptionsMenu(false)
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete post</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

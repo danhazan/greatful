@@ -14,6 +14,25 @@ import { Post, Author } from '@/types/post'
 
 // Redundant local interface removed - using Post from @/types/post
 
+function extractPostPrivacy(post: any): {
+  privacyLevel?: 'public' | 'private' | 'custom'
+  privacyRules?: string[]
+  specificUsers?: number[]
+} {
+  const privacyLevelRaw = post?.privacyLevel ?? post?.privacy_level
+  const privacyRulesRaw = post?.privacyRules ?? post?.privacy_rules ?? post?.rules
+  const specificUsersRaw = post?.specificUsers ?? post?.specific_users
+
+  return {
+    privacyLevel:
+      privacyLevelRaw === 'public' || privacyLevelRaw === 'private' || privacyLevelRaw === 'custom'
+        ? privacyLevelRaw
+        : undefined,
+    privacyRules: Array.isArray(privacyRulesRaw) ? privacyRulesRaw : undefined,
+    specificUsers: Array.isArray(specificUsersRaw) ? specificUsersRaw : undefined,
+  }
+}
+
 export default function FeedPage() {
   const router = useRouter()
   const { currentUser, isLoading: userLoading, logout, updateUserProfile, updateFollowState, markDataAsFresh } = useUser()
@@ -52,13 +71,65 @@ export default function FeedPage() {
       // Normalize posts to ensure consistent field naming
       const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
 
-      setPosts(normalizedPosts)
+      let hydratedPosts = normalizedPosts
+
+      // Feed payloads can omit privacy fields in some response paths.
+      // Hydrate current user's own posts from /users/me/posts so author-only
+      // privacy indicators always render correctly in feed cards.
+      if (currentUser?.id) {
+        const ownPostsMissingPrivacy = normalizedPosts.some(
+          (post) =>
+            post.author?.id === currentUser.id &&
+            !(post.privacyLevel ?? (post as any).privacy_level)
+        )
+
+        if (ownPostsMissingPrivacy) {
+          try {
+            const myPostsResponse = await apiClient.get('/users/me/posts', { skipCache: refresh }) as any
+            const myPosts = myPostsResponse?.data || myPostsResponse
+
+            if (Array.isArray(myPosts)) {
+              const privacyByPostId = new Map<
+                string,
+                {
+                  privacyLevel?: 'public' | 'private' | 'custom'
+                  privacyRules?: string[]
+                  specificUsers?: number[]
+                }
+              >()
+
+              myPosts.forEach((myPost: any) => {
+                const postId = String(myPost?.id || '')
+                if (!postId) return
+                privacyByPostId.set(postId, extractPostPrivacy(myPost))
+              })
+
+              hydratedPosts = normalizedPosts.map((post) => {
+                if (post.author?.id !== currentUser.id) return post
+                const privacy = privacyByPostId.get(post.id)
+                if (!privacy) return post
+
+                return {
+                  ...post,
+                  privacyLevel: privacy.privacyLevel ?? post.privacyLevel,
+                  privacyRules: privacy.privacyRules ?? post.privacyRules,
+                  specificUsers: privacy.specificUsers ?? post.specificUsers,
+                }
+              })
+            }
+          } catch (privacyHydrationError) {
+            console.warn('[Feed] Failed to hydrate own post privacy metadata:', privacyHydrationError)
+          }
+        }
+      }
+
+      setPosts(hydratedPosts)
 
       // ✅ ULTIMATE OPTIMIZATION: Populate UserContext cache directly from post data
       // This eliminates the need for separate /batch-profiles and /batch-follow-status calls
       // achieving the target of 1 DB session and minimal SQL queries per feed load.
       const uniqueAuthors = new Map<string, any>();
-      normalizedPosts.forEach(post => {
+      hydratedPosts.forEach(post => {
         if (post.author && post.author.id && post.author.id !== currentUser?.id) {
           uniqueAuthors.set(post.author.id.toString(), post.author);
         }
