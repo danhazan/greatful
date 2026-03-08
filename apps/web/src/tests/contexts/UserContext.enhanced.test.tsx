@@ -2,13 +2,14 @@ import React from 'react';
 import { render, act, waitFor, screen } from '@testing-library/react';
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import * as auth from '@/utils/auth';
+import { UserProvider, useUser } from '@/contexts/UserContext';
 
 // Mock fetch
 global.fetch = jest.fn();
 
 // Mock localStorage
 const mockLocalStorage = {
-  getItem: jest.fn(),
+  getItem: jest.fn(() => null),
   setItem: jest.fn(),
   removeItem: jest.fn(),
   clear: jest.fn(),
@@ -62,7 +63,7 @@ const TestComponent: React.FC = () => {
       <div data-testid="events">{JSON.stringify(events)}</div>
       <button
         data-testid="update-profile"
-        onClick={() => updateUserProfile('user123', { display_name: 'Updated Name' })}
+        onClick={() => updateUserProfile('user123', { displayName: 'Updated Name' })}
       >
         Update Profile
       </button>
@@ -104,7 +105,7 @@ describe.skip('Enhanced UserContext', () => {
   it('should handle authentication failure', async () => {
     // Mock failed authentication
     mockLocalStorage.getItem.mockReturnValue('invalid-token');
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 401,
     });
@@ -118,7 +119,7 @@ describe.skip('Enhanced UserContext', () => {
     await waitFor(() => {
       // Check that user is null
       expect(screen.getByTestId('current-user')).toHaveTextContent('No user');
-      
+
       // Check that auth.logout was called
       expect(mockedAuth.logout).toHaveBeenCalled();
     });

@@ -751,7 +751,7 @@ export default function MinimalEmojiPicker({
                 </div>
               ) : (
                 <div className="text-xs text-gray-500 text-center py-2">
-                  No emojis found for "{searchQuery}"
+                  No emojis found for &quot;{searchQuery}&quot;
                 </div>
               )}
             </div>

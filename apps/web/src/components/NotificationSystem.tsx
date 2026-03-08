@@ -277,7 +277,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                 <div className="p-6 sm:p-8 text-center" role="status" aria-label="No notifications">
                   <div className="text-gray-400 text-4xl mb-2" aria-hidden="true">🔔</div>
                   <p className="text-gray-500">No notifications yet</p>
-                  <p className="text-sm text-gray-400 mt-1">You'll see reactions and comments here</p>
+                  <p className="text-sm text-gray-400 mt-1">You&apos;ll see reactions and comments here</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">

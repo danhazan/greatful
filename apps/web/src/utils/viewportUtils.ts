@@ -35,7 +35,7 @@ export function getViewportDimensions() {
   if (typeof window === 'undefined') {
     return { width: 0, height: 0 }
   }
-  
+
   return {
     width: window.innerWidth,
     height: window.innerHeight
@@ -63,7 +63,7 @@ export function calculateDropdownPosition(
 
   const triggerRect = triggerElement.getBoundingClientRect()
   const viewport = getViewportDimensions()
-  
+
   // Calculate available space
   const spaceLeft = triggerRect.left - viewportPadding
   const spaceRight = viewport.width - triggerRect.right - viewportPadding
@@ -73,7 +73,7 @@ export function calculateDropdownPosition(
   // Determine horizontal position
   let left = triggerRect.left
   let right = 'auto'
-  
+
   if (preferredPosition === 'right') {
     // Try to align to the right edge of trigger
     const rightAlignedLeft = triggerRect.right - dropdownWidth
@@ -140,12 +140,12 @@ export function createViewportResizeHandler(
   delay: number = 150
 ) {
   let timeoutId: NodeJS.Timeout | null = null
-  
+
   return () => {
     if (timeoutId) {
       clearTimeout(timeoutId)
     }
-    
+
     timeoutId = setTimeout(callback, delay)
   }
 }
@@ -154,13 +154,13 @@ export function createViewportResizeHandler(
  * Hook to detect viewport size changes
  */
 export function useViewportSize() {
-  if (typeof window === 'undefined') {
-    return { width: 0, height: 0, isMobile: false, isTablet: false, isDesktop: false }
-  }
-
-  const [dimensions, setDimensions] = React.useState(() => getViewportDimensions())
+  const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
 
   React.useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    setDimensions(getViewportDimensions())
+
     const handleResize = createViewportResizeHandler(() => {
       setDimensions(getViewportDimensions())
     })
@@ -169,12 +169,13 @@ export function useViewportSize() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  const { width } = dimensions
   return {
     width: dimensions.width,
     height: dimensions.height,
-    isMobile: dimensions.width < 640,
-    isTablet: dimensions.width >= 640 && dimensions.width < 1024,
-    isDesktop: dimensions.width >= 1024
+    isMobile: width > 0 && width < 640,
+    isTablet: width >= 640 && width < 1024,
+    isDesktop: width >= 1024
   }
 }
 

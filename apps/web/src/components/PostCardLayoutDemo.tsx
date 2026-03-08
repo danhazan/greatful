@@ -62,7 +62,7 @@ export default function PostCardLayoutDemo() {
       </div>
 
       <div className="bg-gray-50 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Same User's Post (no FollowButton)</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Same User&apos;s Post (no FollowButton)</h3>
         <PostCard
           post={mockPost}
           currentUserId="123" // Same as post author, so no follow button
@@ -77,7 +77,7 @@ export default function PostCardLayoutDemo() {
           <li>• <strong>Size:</strong> Extra small (xs) for compact inline placement</li>
           <li>• <strong>Variant:</strong> Outline style to be less prominent</li>
           <li>• <strong>Responsive:</strong> Maintains proper spacing on all screen sizes</li>
-          <li>• <strong>Conditional:</strong> Only shows for other users' posts</li>
+          <li>• <strong>Conditional:</strong> Only shows for other users&apos; posts</li>
         </ul>
       </div>
 

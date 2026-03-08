@@ -38,7 +38,7 @@ export default function KeyboardNavigationDemo() {
       <h2 className="text-xl font-semibold text-gray-800 mb-4">
         Keyboard Navigation Demo
       </h2>
-      
+
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
@@ -60,9 +60,8 @@ export default function KeyboardNavigationDemo() {
                 type="button"
                 role="option"
                 aria-selected={index === selectedIndex}
-                className={`w-full px-4 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors border-b border-gray-100 last:border-b-0 focus:ring-2 focus:ring-purple-500 focus:ring-inset ${
-                  index === selectedIndex ? 'bg-purple-50 text-purple-700' : 'text-gray-900'
-                }`}
+                className={`w-full px-4 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors border-b border-gray-100 last:border-b-0 focus:ring-2 focus:ring-purple-500 focus:ring-inset ${index === selectedIndex ? 'bg-purple-50 text-purple-700' : 'text-gray-900'
+                  }`}
                 onClick={() => {
                   alert(`Selected: ${item.name}`)
                   setIsOpen(false)
@@ -81,7 +80,7 @@ export default function KeyboardNavigationDemo() {
       <div className="mt-4 p-4 bg-gray-50 rounded-lg">
         <h3 className="font-medium text-gray-800 mb-2">Instructions:</h3>
         <ul className="text-sm text-gray-600 space-y-1">
-          <li>• Click "Open Dropdown" to show the list</li>
+          <li>• Click &quot;Open Dropdown&quot; to show the list</li>
           <li>• Use ↑/↓ arrow keys to navigate</li>
           <li>• Press Enter or Space to select</li>
           <li>• Press Escape to close</li>

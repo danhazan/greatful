@@ -61,7 +61,7 @@ export default function UserSearchDropdown({
 
       {!loading && hasSearched && users.length === 0 && searchQuery && (
         <div className="p-3 text-center text-gray-500 text-sm" role="status" aria-live="polite">
-          No users found for "{searchQuery}"
+          No users found for &quot;{searchQuery}&quot;
         </div>
       )}
 

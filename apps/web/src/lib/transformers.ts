@@ -451,7 +451,7 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
     reactionsCount: reactionsCount,
     commentsCount: commentsCount,
     currentUserReaction: currentUserReaction,
-    privacyLevel: typeof privacyLevel === 'string' ? privacyLevel : undefined,
+    privacyLevel: (typeof privacyLevel === 'string' && ['public', 'private', 'custom'].includes(privacyLevel)) ? (privacyLevel as "public" | "private" | "custom") : undefined,
     privacyRules: Array.isArray(privacyRules) ? privacyRules : undefined,
     specificUsers: Array.isArray(specificUsers) ? specificUsers : undefined
   }
