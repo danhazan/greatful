@@ -448,11 +448,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       const finalPrivacyRules: PrivacyRule[] =
         privacyLevel === 'custom'
           ? Array.from(
-              new Set([
-                ...privacyRules.filter((rule) => rule !== 'specific_users'),
-                ...(specificUsers.length > 0 ? (['specific_users'] as PrivacyRule[]) : []),
-              ])
-            )
+            new Set([
+              ...privacyRules.filter((rule) => rule !== 'specific_users'),
+              ...(specificUsers.length > 0 ? (['specific_users'] as PrivacyRule[]) : []),
+            ])
+          )
           : []
 
       const payload: any = {
@@ -480,9 +480,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         privacyLevel,
         ...(privacyLevel === 'custom'
           ? {
-              privacyRules: finalPrivacyRules,
-              specificUsers: specificUsers.map((user) => user.id),
-            }
+            privacyRules: finalPrivacyRules,
+            specificUsers: specificUsers.map((user) => user.id),
+          }
           : {})
       }
 
@@ -988,7 +988,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           <div className={`flex items-center justify-between gap-3 p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
             }`}>
             <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center min-w-0">
-              Share Your Gratitude
+              Post Gratitude
               <span className="text-xl ml-2" aria-hidden="true">💜</span>
             </h2>
             <div className="flex items-center gap-2 shrink-0">
@@ -1060,7 +1060,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
               <div className="flex-1 p-4 sm:p-6">
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {gratitudePrompt}
+                    Share what you're grateful for today
                   </label>
                 </div>
 
@@ -1077,7 +1077,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                       ref={richTextEditorRef}
                       value={postData.content}
                       onChange={handleRichTextChange}
-                      placeholder="Share what you're grateful for today... (Use @username to mention someone)"
+                      placeholder={`${gratitudePrompt}... (Use @username to mention someone)`}
                       maxLength={maxChars}
                       onMentionTrigger={handleRichTextMentionTrigger}
                       onMentionHide={handleRichTextMentionHide}
@@ -1319,7 +1319,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     disabled={isSubmitting || (!postData.content.trim() && !postData.imageUrl && !imageFile && images.length === 0)}
                     className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
                   >
-                    {isSubmitting ? 'Sharing...' : 'Share Gratitude'}
+                    {isSubmitting ? 'Posting...' : 'Post Gratitude'}
                   </button>
                 </div>
                 {/* Draft status and discard button */}
