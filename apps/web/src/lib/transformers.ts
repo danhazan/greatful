@@ -375,6 +375,8 @@ export interface FrontendUserPost {
   reactionsCount: number
   commentsCount: number
   currentUserReaction?: string
+  reactionEmojiCodes: string[]
+  emojiCounts: Record<string, number>
   privacyLevel?: 'public' | 'private' | 'custom'
   privacyRules?: string[]
   specificUsers?: number[]
@@ -451,6 +453,8 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
     reactionsCount: reactionsCount,
     commentsCount: commentsCount,
     currentUserReaction: currentUserReaction,
+    reactionEmojiCodes: post.reactionEmojiCodes || post.reaction_emoji_codes || [],
+    emojiCounts: post.emojiCounts || post.emoji_counts || {},
     privacyLevel: (typeof privacyLevel === 'string' && ['public', 'private', 'custom'].includes(privacyLevel)) ? (privacyLevel as "public" | "private" | "custom") : undefined,
     privacyRules: Array.isArray(privacyRules) ? privacyRules : undefined,
     specificUsers: Array.isArray(specificUsers) ? specificUsers : undefined

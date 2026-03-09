@@ -1,11 +1,15 @@
 import { camelize, decamelizeKeys } from 'humps'
 
 /**
- * Keys whose children should NOT be transformed to camelCase.
+ * CENTRALIZED REGISTRY: Keys whose children should NOT be transformed to camelCase.
  * 
- * IMPORTANT: These keys contain domain-specific identifiers (like emoji codes
- * such as 'heart_eyes') that must remain in snake_case to match database values
- * and frontend mappings. Removing or modifying these will break reaction rendering.
+ * IMPORTANT: These keys contain domain-level identifiers (such as emoji codes: 'heart_eyes')
+ * rather than schema-level field names. They must preserve their original 
+ * snake_case format to correctly match backend storage and frontend mapping 
+ * tables (e.g., emojiMapping.ts).
+ * 
+ * If adding new dynamic dictionaries to the API that use snake_case identifiers,
+ * they must be added to this list.
  */
 const PROTECTED_KEYS = ['emojiCounts', 'emoji_counts', 'reactionEmojiCodes'];
 
@@ -26,7 +30,8 @@ function deepCamelize(obj: any, isProtected = false): any {
       const camelKey = isProtected ? key : humpsCamelize(key);
 
       // 2. Check if this specific key marks the START of a protected branch.
-      // Use case-insensitive check to be resilient to upstream casing changes.
+      // Emojis are domain-level identifiers, not schema keys, so they must 
+      // bypass camelization to remain compatible with data mappings.
       const normalizedKey = camelKey.toLowerCase();
       const shouldProtect = PROTECTED_KEYS.some(k => k.toLowerCase() === normalizedKey);
 

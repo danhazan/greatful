@@ -133,6 +133,7 @@ class PostResponse(BaseModel):
     is_unread: Optional[bool] = Field(False, alias="isUnread")
     algorithm_score: Optional[float] = Field(None, alias="algorithmScore")
     reaction_emoji_codes: List[str] = Field(default_factory=list, alias="reactionEmojiCodes")
+    emoji_counts: Dict[str, int] = Field(default_factory=dict, alias="emojiCounts")
     privacy_level: Optional[str] = Field(None, alias="privacyLevel")
     privacy_rules: Optional[List[str]] = Field(None, alias="privacyRules")
     specific_users: Optional[List[int]] = Field(None, alias="specificUsers")

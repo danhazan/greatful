@@ -6,7 +6,7 @@ import logging
 from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 import re
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
@@ -105,6 +105,8 @@ class UserPostResponse(BaseModel):
     reactions_count: int = 0
     current_user_reaction: Optional[str] = None
     is_hearted: bool = False
+    reaction_emoji_codes: List[str] = Field(default_factory=list, alias="reactionEmojiCodes")
+    emoji_counts: Dict[str, int] = Field(default_factory=dict, alias="emojiCounts")
 
     model_config = ConfigDict(from_attributes=True)
 
