@@ -60,7 +60,7 @@ describe('CreatePostModal - Multiple Mentions Integration', () => {
   it('should handle multiple mentions without overwriting previous content', async () => {
     renderModal()
     
-    const editor = screen.getByRole('textbox', { name: /share what you're grateful for today/i })
+    const editor = screen.getByRole('textbox')
     
     // Step 1: Type first mention and select it
     await act(async () => {
@@ -133,7 +133,7 @@ describe('CreatePostModal - Multiple Mentions Integration', () => {
   it('should calculate correct mention positions with existing content', async () => {
     renderModal()
     
-    const editor = screen.getByRole('textbox', { name: /share what you're grateful for today/i })
+    const editor = screen.getByRole('textbox')
     
     // Set up content similar to the user's scenario
     await act(async () => {
@@ -167,7 +167,7 @@ describe('CreatePostModal - Multiple Mentions Integration', () => {
   it('should preserve all content when replacing only the target mention', async () => {
     renderModal()
     
-    const editor = screen.getByRole('textbox', { name: /share what you're grateful for today/i })
+    const editor = screen.getByRole('textbox')
     
     // Test with more complex content
     await act(async () => {

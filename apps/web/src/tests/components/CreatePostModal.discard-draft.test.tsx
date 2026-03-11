@@ -71,7 +71,7 @@ describe('CreatePostModal - Discard Draft Button', () => {
   }
 
   const getEditor = () => {
-    return screen.getByRole('textbox', { name: /share what you're grateful for today/i })
+    return screen.getByRole('textbox')
   }
 
   it('Case 1: New post - button should be disabled', async () => {

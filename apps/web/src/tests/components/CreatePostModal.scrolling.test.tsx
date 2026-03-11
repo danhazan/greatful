@@ -30,13 +30,13 @@ describe('CreatePostModal Scrolling', () => {
     // Check that the modal has proper structure for scrolling
     const modal = screen.getByRole('dialog')
     expect(modal).toBeInTheDocument()
-    
+
     // Check for scrollable content area
     const scrollableArea = document.querySelector('.overflow-y-auto')
     expect(scrollableArea).toBeInTheDocument()
   })
 
-  it('should always show the Share Gratitude button', () => {
+  it('should always show the Post Gratitude button', () => {
     render(
       <CreatePostModal
         isOpen={true}
@@ -45,7 +45,7 @@ describe('CreatePostModal Scrolling', () => {
       />
     )
 
-    const submitButton = screen.getByText('Share Gratitude')
+    const submitButton = screen.getByRole('button', { name: 'Post Gratitude' })
     expect(submitButton).toBeInTheDocument()
     expect(submitButton).toBeVisible()
   })

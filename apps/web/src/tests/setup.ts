@@ -47,3 +47,13 @@ if (typeof window !== 'undefined') {
     })),
   })
 }
+
+// Mock URL.createObjectURL and revokeObjectURL
+if (typeof window !== 'undefined') {
+  if (!window.URL.createObjectURL) {
+    window.URL.createObjectURL = jest.fn(() => 'blob:mock-url') as any
+  }
+  if (!window.URL.revokeObjectURL) {
+    window.URL.revokeObjectURL = jest.fn() as any
+  }
+}

@@ -5,11 +5,11 @@ import { ToastProvider } from '@/contexts/ToastContext'
 
 // Mock LocationAutocomplete component
 jest.mock('../LocationAutocomplete', () => {
-  return function MockLocationAutocomplete({ 
-    value, 
-    onChange, 
-    onLocationSelect, 
-    placeholder 
+  return function MockLocationAutocomplete({
+    value,
+    onChange,
+    onLocationSelect,
+    placeholder
   }: any) {
     return (
       <div>
@@ -22,7 +22,7 @@ jest.mock('../LocationAutocomplete', () => {
         <button
           data-testid="select-location"
           onClick={() => onLocationSelect({
-            display_name: "Test Location",
+            displayName: "Test Location",
             lat: 40.7128,
             lon: -74.0060,
             address: { city: "New York", country: "USA" }
@@ -127,7 +127,7 @@ describe('CreatePostModal - LocationModal Integration', () => {
 
     // CreatePostModal should still be open (not closed)
     expect(mockOnClose).not.toHaveBeenCalled()
-    expect(screen.getByText('Share Your Gratitude')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Post Gratitude' })).toBeInTheDocument()
 
     // Location should be displayed in the post modal
     expect(screen.getByText('Test Location')).toBeInTheDocument()

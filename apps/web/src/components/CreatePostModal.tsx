@@ -64,6 +64,9 @@ interface LocationResult {
   type?: string
 }
 
+// Module-level cache for draft images to survive modal unmounts during the same session
+const draftFilesCache = new Map<string, File>()
+
 /** Individual image in the upload state */
 interface ImageUploadState {
   id: string
@@ -139,6 +142,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   })
   // Multi-image state: array of images with files, previews, and positions
   const [images, setImages] = useState<ImageUploadState[]>([])
+  // Draft ID for namespacing the cache
+  const [draftId, setDraftId] = useState<string>('')
   // Legacy single image support (deprecated)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -330,9 +335,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       setGratitudePrompt(getRandomGratitudePrompt())
 
       const draft = localStorage.getItem('grateful_post_draft')
+      let currentDraftId = Date.now().toString(36) + Math.random().toString(36).substring(2)
       if (draft) {
         try {
           const draftData = JSON.parse(draft)
+          if (draftData.draftId) {
+            currentDraftId = draftData.draftId
+          }
           // Clear any stale blob URLs from old drafts (they can't be restored)
           if (draftData.imageUrl?.startsWith('blob:')) {
             draftData.imageUrl = ''
@@ -341,11 +350,29 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           setPrivacyLevel((draftData.privacyLevel as PrivacyLevel) || 'public')
           setPrivacyRules(Array.isArray(draftData.privacyRules) ? (draftData.privacyRules as PrivacyRule[]) : [])
           setSpecificUsers(Array.isArray(draftData.specificUsers) ? (draftData.specificUsers as UserMultiSelectUser[]) : [])
-          // Clear multi-image state when restoring draft (Files can't be serialized)
-          setImages([])
+
+          if (Array.isArray(draftData.draftImages) && draftData.draftImages.length > 0) {
+            const restoredImages: ImageUploadState[] = []
+            draftData.draftImages.forEach((imgMeta: any) => {
+              const file = draftFilesCache.get(`${currentDraftId}:${imgMeta.id}`)
+              if (file) {
+                restoredImages.push({
+                  id: imgMeta.id,
+                  file,
+                  previewUrl: createImagePreview(file),
+                  position: imgMeta.position
+                })
+              }
+            })
+            setImages(restoredImages)
+          } else {
+            setImages([])
+          }
           setImageFile(null)
         } catch (error) {
           console.error('Error loading draft:', error)
+          setImages([])
+          setImageFile(null)
         }
       } else {
         // No draft - ensure clean state
@@ -355,15 +382,23 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         setPrivacyRules([])
         setSpecificUsers([])
       }
+      setDraftId(currentDraftId)
     }
   }, [isOpen])
 
   // Save draft to localStorage (excluding blob URLs which can't be restored)
   useEffect(() => {
-    if (postData.content.trim()) {
+    if (postData.content.trim() || images.length > 0 || hasActiveDraft()) {
+      const draftImages = images.map(img => ({
+        id: img.id,
+        position: img.position
+      }))
+
       // Don't save blob URLs - they're ephemeral and can't be restored after page reload
       const draftToSave = {
         ...postData,
+        draftId,
+        draftImages,
         // Clear imageUrl if it's a blob URL (can't be restored)
         imageUrl: postData.imageUrl?.startsWith('blob:') ? '' : postData.imageUrl,
         privacyLevel,
@@ -372,7 +407,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       }
       localStorage.setItem('grateful_post_draft', JSON.stringify(draftToSave))
     }
-  }, [postData, privacyLevel, privacyRules, specificUsers])
+  }, [postData, privacyLevel, privacyRules, specificUsers, images, draftId])
 
   // Cleanup blob URLs when modal closes
   useEffect(() => {
@@ -501,6 +536,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         if (img.previewUrl.startsWith('blob:')) {
           revokeImagePreview(img.previewUrl)
         }
+        draftFilesCache.delete(`${draftId}:${img.id}`)
       })
       setImages([])
       // Legacy single image cleanup
@@ -634,12 +670,16 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
 
     // Create image states for prepared files
-    const newImages: ImageUploadState[] = result.preparedFiles.map((file, index) => ({
-      id: `img-${Date.now()}-${index}`,
-      file,
-      previewUrl: createImagePreview(file),
-      position: images.length + index
-    }))
+    const newImages: ImageUploadState[] = result.preparedFiles.map((file, index) => {
+      const id = `img-${Date.now()}-${index}`
+      draftFilesCache.set(`${draftId}:${id}`, file)
+      return {
+        id,
+        file,
+        previewUrl: createImagePreview(file),
+        position: images.length + index
+      }
+    })
 
     setImages(prev => [...prev, ...newImages])
   }
@@ -651,6 +691,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       if (imageToRemove && imageToRemove.previewUrl.startsWith('blob:')) {
         revokeImagePreview(imageToRemove.previewUrl)
       }
+      draftFilesCache.delete(`${draftId}:${imageId}`)
       // Reindex remaining images
       return prev
         .filter(img => img.id !== imageId)
@@ -1162,7 +1203,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                         Images ({images.length}/{MAX_POST_IMAGES})
                       </span>
                       <span className="text-xs text-gray-500">
-                        Drag to reorder
+                        Hold and drag to reorder
                       </span>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -1174,12 +1215,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                           onDragOver={(e) => handleImageDragOver(e, img.id)}
                           onDrop={(e) => handleImageDragDrop(e, img.id)}
                           onDragEnd={handleImageDragEnd}
-                          className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-move ${draggedImageId === img.id
+                          onContextMenu={(e) => e.preventDefault()}
+                          className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-move select-none ${draggedImageId === img.id
                             ? 'opacity-50 border-purple-400'
                             : index === 0
                               ? 'border-purple-300 ring-2 ring-purple-200'
                               : 'border-gray-200 hover:border-purple-200'
                             }`}
+                          style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
                         >
                           <img
                             src={img.previewUrl}
@@ -1201,12 +1244,18 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                           {/* Remove button */}
                           <button
                             type="button"
-                            onClick={() => handleRemoveMultiImage(img.id)}
-                            className="absolute bottom-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-lg opacity-0 group-hover:opacity-100"
+                            draggable={false}
+                            onDragStart={(e) => e.preventDefault()}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              e.preventDefault()
+                              handleRemoveMultiImage(img.id)
+                            }}
+                            className="absolute bottom-1 right-1 w-6 h-6 min-w-0 min-h-0 flex items-center justify-center bg-red-500 text-white rounded-full opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all touch-manipulation z-10 shadow-lg"
                             title="Remove image"
                             aria-label={`Remove image ${index + 1}`}
                           >
-                            <X className="h-3 w-3" />
+                            <X className="h-2.5 w-2.5" />
                           </button>
                           {/* First image label */}
                           {index === 0 && (
@@ -1265,6 +1314,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     onKeyDown={handleDragZoneKeyDown}
                     tabIndex={0}
                     role="button"
+                    data-testid="drag-drop-zone"
                     aria-label="Upload images by dragging and dropping or clicking to browse"
                   >
                     <ImageIcon className={`h-8 w-8 mx-auto mb-2 ${isDragOver ? 'text-purple-600' : 'text-gray-400'
@@ -1334,6 +1384,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                         if (img.previewUrl.startsWith('blob:')) {
                           revokeImagePreview(img.previewUrl)
                         }
+                        draftFilesCache.delete(`${draftId}:${img.id}`)
                       })
                       setImages([])
                       // Clear legacy single image
