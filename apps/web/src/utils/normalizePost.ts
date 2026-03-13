@@ -1,4 +1,4 @@
-import { Post, Author, PostImage } from '@/types/post'
+import { Post, Author, PostImage, PostPrivacy } from '@/types/post'
 import { assertNoSnakeCase } from './contractAssertion'
 
 /**
@@ -13,6 +13,14 @@ import { assertNoSnakeCase } from './contractAssertion'
  * In the new unified contract, the API returns camelCase directly.
  * This function asserts that correctness and casts to the canonical Post type.
  */
+function extractPostPrivacyFromApi(post: any): PostPrivacy {
+  return {
+    privacyLevel: post?.privacyLevel ?? post?.privacy_level,
+    privacyRules: post?.privacyRules ?? post?.privacy_rules ?? post?.rules ?? [],
+    specificUsers: post?.specificUsers ?? post?.specific_users ?? [],
+  }
+}
+
 export function normalizePostFromApi(apiResponse: any): Post | null {
   if (!apiResponse) return null
 
@@ -24,9 +32,15 @@ export function normalizePostFromApi(apiResponse: any): Post | null {
   // Runtime validation in development to detect contract regressions
   assertNoSnakeCase(rawPost, 'PostResponse')
 
+  // Preserve canonical privacy fields even if upstream casing drifts.
+  const privacy = extractPostPrivacyFromApi(rawPost)
+
   // We still do minimal transformation for legacy or edge cases if necessary, 
   // but the goal is direct casting.
-  return rawPost as Post
+  return {
+    ...rawPost,
+    ...privacy,
+  } as Post
 }
 
 /**

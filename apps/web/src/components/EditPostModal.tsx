@@ -10,6 +10,9 @@ import MentionAutocomplete from "./MentionAutocomplete"
 import LocationModal from "./LocationModal"
 import RichTextEditor, { RichTextEditorRef } from "./RichTextEditor"
 import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
+import PostPrivacySelector from "./PostPrivacySelector"
+import { usePostPrivacyState } from "@/hooks/usePostPrivacyState"
+import { PostPrivacy } from "@/types/post"
 
 // UserInfo type defined locally
 interface UserInfo {
@@ -58,6 +61,12 @@ interface Post {
   postType: "daily" | "photo" | "spontaneous"
   createdAt?: string
   updatedAt?: string
+  privacyLevel?: 'public' | 'private' | 'custom'
+  privacyRules?: string[]
+  specificUsers?: number[]
+  privacy_level?: 'public' | 'private' | 'custom'
+  privacy_rules?: string[]
+  specific_users?: number[]
 }
 
 interface EditPostModalProps {
@@ -71,6 +80,9 @@ interface EditPostModalProps {
     location?: string
     locationData?: LocationResult
     mentions?: string[]
+    privacy_level: 'public' | 'private' | 'custom'
+    rules: string[]
+    specific_users: number[]
   }) => void
 }
 
@@ -149,6 +161,22 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
   // Location state
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [initialPrivacy, setInitialPrivacy] = useState<PostPrivacy>({
+    privacyLevel: post.privacyLevel ?? post.privacy_level,
+    privacyRules: post.privacyRules ?? post.privacy_rules ?? [],
+    specificUsers: post.specificUsers ?? post.specific_users ?? [],
+  })
+  const initializedRef = useRef(false)
+
+  const {
+    privacyLevel,
+    privacyRules,
+    specificUsers,
+    setPrivacyLevel,
+    setPrivacyRules,
+    setSpecificUsers,
+    buildPayload,
+  } = usePostPrivacyState(initialPrivacy)
 
   // Drag and drop state (same as CreatePostModal)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -267,6 +295,14 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   // Reset form when modal opens/closes or post changes
   useEffect(() => {
     if (isOpen) {
+      if (!initializedRef.current) {
+        setInitialPrivacy({
+          privacyLevel: post.privacyLevel ?? post.privacy_level,
+          privacyRules: post.privacyRules ?? post.privacy_rules ?? [],
+          specificUsers: post.specificUsers ?? post.specific_users ?? [],
+        })
+        initializedRef.current = true
+      }
       // Load existing post data including image
       setPostData({
         content: post.content || '',
@@ -292,6 +328,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
           richTextEditorRef.current.focus()
         }
       }, 100)
+    } else {
+      initializedRef.current = false
     }
   }, [isOpen, post])
 
@@ -357,7 +395,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         location: postData.location || null,
         locationData: postData.locationData || null,
         // Include mentions if present
-        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {})
+        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {}),
+        ...buildPayload(),
       }
 
       await onSubmit(payload)
@@ -663,19 +702,31 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
           onDrop={handleDrop}
         >
           {/* Header */}
-          <div className={`flex items-center justify-between p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
+          <div className={`flex items-center justify-between gap-3 p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
             }`}>
-            <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center">
+            <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center min-w-0">
               Edit Your Gratitude
               <span className="text-xl ml-2" aria-hidden="true">💜</span>
             </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-              aria-label="Close modal"
-            >
-              <X className="h-6 w-6" />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative">
+                <PostPrivacySelector
+                  privacyLevel={privacyLevel}
+                  privacyRules={privacyRules}
+                  specificUserIds={specificUsers}
+                  onPrivacyLevelChange={setPrivacyLevel}
+                  onPrivacyRulesChange={setPrivacyRules}
+                  onSpecificUserIdsChange={setSpecificUsers}
+                />
+              </div>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                aria-label="Close modal"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
           </div>
 
           {/* Form */}

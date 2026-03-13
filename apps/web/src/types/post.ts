@@ -79,3 +79,9 @@ export interface Post {
     commentsCount?: number
     algorithmScore?: number
 }
+
+export interface PostPrivacy {
+    privacyLevel?: 'public' | 'private' | 'custom'
+    privacyRules: string[]
+    specificUsers: number[]
+}

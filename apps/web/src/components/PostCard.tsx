@@ -657,6 +657,12 @@ export default function PostCard({
     mentions?: string[]
     imageUrl?: string
     imageFile?: File
+    privacy_level?: 'public' | 'private' | 'custom'
+    rules?: string[]
+    specific_users?: number[]
+    privacyLevel?: 'public' | 'private' | 'custom'
+    privacyRules?: string[]
+    specificUsers?: number[]
   }) => {
     try {
       const token = getAccessToken()
@@ -703,6 +709,18 @@ export default function PostCard({
         image_url: finalImageUrl,
         location: postData.location,
         location_data: postData.location_data
+      }
+      const privacyLevel = postData.privacy_level ?? postData.privacyLevel
+      const privacyRules = postData.rules ?? postData.privacyRules
+      const specificUsers = postData.specific_users ?? postData.specificUsers
+      if (privacyLevel !== undefined) {
+        (updateData as any).privacy_level = privacyLevel
+      }
+      if (privacyRules !== undefined) {
+        (updateData as any).rules = privacyRules
+      }
+      if (specificUsers !== undefined) {
+        (updateData as any).specific_users = specificUsers
       }
 
       try {

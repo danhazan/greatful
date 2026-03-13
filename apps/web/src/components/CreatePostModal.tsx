@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, GripVertical, Globe, Lock, Users, ChevronDown } from "lucide-react"
+import { useState, useRef, useEffect, useMemo } from "react"
+import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, GripVertical } from "lucide-react"
 import { createImagePreview, revokeImagePreview, MAX_POST_IMAGES, prepareImageForUpload, prepareMultipleImagesForUpload } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
@@ -9,9 +9,8 @@ import MentionAutocomplete from "./MentionAutocomplete"
 import LocationModal from "./LocationModal"
 import RichTextEditor, { RichTextEditorRef } from "./RichTextEditor"
 import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
-import UserMultiSelect, { UserMultiSelectUser } from "./UserMultiSelect"
-import PostPrivacyBadge from "./PostPrivacyBadge"
-import { getPostAudience } from "@/utils/privacyUtils"
+import PostPrivacySelector from "./PostPrivacySelector"
+import { usePostPrivacyState } from "@/hooks/usePostPrivacyState"
 
 // Gratitude prompts for inspiring users
 const GRATITUDE_PROMPTS = [
@@ -119,15 +118,6 @@ const POST_TYPE_INFO = {
   }
 }
 
-type PrivacyLevel = 'public' | 'private' | 'custom'
-type PrivacyRule = 'followers' | 'following' | 'specific_users'
-
-const CUSTOM_PRIVACY_RULES: Array<{ id: PrivacyRule; label: string; description: string }> = [
-  { id: 'followers', label: 'Followers', description: 'Users who follow you' },
-  { id: 'following', label: 'Following', description: 'Users you follow' },
-  { id: 'specific_users', label: 'Specific Users', description: 'Only selected users' },
-]
-
 export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
   const { showSuccess, showError, showLoading, hideToast } = useToast()
   const [postData, setPostData] = useState<{
@@ -169,12 +159,19 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const [showLocationModal, setShowLocationModal] = useState(false)
 
   // Privacy state
-  const [privacyLevel, setPrivacyLevel] = useState<PrivacyLevel>('public')
-  const [privacyRules, setPrivacyRules] = useState<PrivacyRule[]>([])
-  const [specificUsers, setSpecificUsers] = useState<UserMultiSelectUser[]>([])
-  const [showPrivacyMenu, setShowPrivacyMenu] = useState(false)
-  const [showCustomPrivacyModal, setShowCustomPrivacyModal] = useState(false)
-  const [customPrivacyError, setCustomPrivacyError] = useState('')
+  const initialPrivacy = useMemo(
+    () => ({ privacyLevel: 'public', privacyRules: [], specificUsers: [] }),
+    []
+  )
+  const {
+    privacyLevel,
+    privacyRules,
+    specificUsers,
+    setPrivacyLevel,
+    setPrivacyRules,
+    setSpecificUsers,
+    hasValidCustomAudience,
+  } = usePostPrivacyState(initialPrivacy)
 
   // BEFORE: analyzeContent returned {type, limit} and UI used limit to enforce input. 
   // AFTER: analyzeContent returns predicted type only (for display), and we compute maxChars separately.
@@ -232,12 +229,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
   const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
 
-  const privacyAudience = getPostAudience({
-    privacyLevel,
-    privacyRules,
-    specificUsersCount: specificUsers.length,
-  })
-
   // Handle click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -248,10 +239,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         if (showLocationModal && target.closest('[data-location-modal]')) {
           return
         }
-        if (showCustomPrivacyModal && target.closest('[data-custom-privacy-modal]')) {
-          return
-        }
-
         // ✅ Ignore clicks inside mention autocomplete dropdown
         if (target.closest('[data-mention-autocomplete]')) {
           return
@@ -276,7 +263,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose, showLocationModal, showBackgrounds, showCustomPrivacyModal])
+  }, [isOpen, onClose, showLocationModal, showBackgrounds])
 
   // Handle escape key and mention autocomplete navigation
   useEffect(() => {
@@ -287,9 +274,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       }
 
       if (event.key === 'Escape') {
-        if (showCustomPrivacyModal) {
-          setShowCustomPrivacyModal(false)
-        } else if (showMentionAutocomplete) {
+        if (showMentionAutocomplete) {
           handleMentionClose()
         } else {
           onClose()
@@ -301,7 +286,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose, showMentionAutocomplete, showCustomPrivacyModal])
+  }, [isOpen, onClose, showMentionAutocomplete])
 
   // Handle keyboard navigation for drag and drop zone
   const handleDragZoneKeyDown = (e: React.KeyboardEvent) => {
@@ -347,9 +332,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             draftData.imageUrl = ''
           }
           setPostData(draftData)
-          setPrivacyLevel((draftData.privacyLevel as PrivacyLevel) || 'public')
-          setPrivacyRules(Array.isArray(draftData.privacyRules) ? (draftData.privacyRules as PrivacyRule[]) : [])
-          setSpecificUsers(Array.isArray(draftData.specificUsers) ? (draftData.specificUsers as UserMultiSelectUser[]) : [])
+          setPrivacyLevel((draftData.privacyLevel as any) || 'public')
+          setPrivacyRules(Array.isArray(draftData.privacyRules) ? (draftData.privacyRules as any) : [])
+          setSpecificUsers(Array.isArray(draftData.specificUsers) ? (draftData.specificUsers as number[]) : [])
 
           if (Array.isArray(draftData.draftImages) && draftData.draftImages.length > 0) {
             const restoredImages: ImageUploadState[] = []
@@ -450,15 +435,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       return
     }
 
-    if (privacyLevel === 'custom') {
-      const hasFollowersOrFollowing =
-        privacyRules.includes('followers') || privacyRules.includes('following')
-      const hasSpecificUsers = specificUsers.length > 0
-
-      if (!hasFollowersOrFollowing && !hasSpecificUsers) {
-        setError('Custom privacy requires at least one audience rule.')
-        return
-      }
+    if (!hasValidCustomAudience) {
+      setError('Custom privacy requires at least one audience rule.')
+      return
     }
 
     setIsSubmitting(true)
@@ -480,16 +459,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       // Prepare image files in order for multi-image upload
       const sortedImages = [...images].sort((a, b) => a.position - b.position)
       const imageFilesArray = sortedImages.map(img => img.file)
-      const finalPrivacyRules: PrivacyRule[] =
-        privacyLevel === 'custom'
-          ? Array.from(
-            new Set([
-              ...privacyRules.filter((rule) => rule !== 'specific_users'),
-              ...(specificUsers.length > 0 ? (['specific_users'] as PrivacyRule[]) : []),
-            ])
-          )
-          : []
-
       const payload: any = {
         content: contentToSubmit.trim(),
         // Always include postStyle (camelCase to match interface) and richContent
@@ -515,8 +484,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         privacyLevel,
         ...(privacyLevel === 'custom'
           ? {
-            privacyRules: finalPrivacyRules,
-            specificUsers: specificUsers.map((user) => user.id),
+            privacyRules: privacyRules,
+            specificUsers: specificUsers,
           }
           : {})
       }
@@ -554,9 +523,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       setPrivacyLevel('public')
       setPrivacyRules([])
       setSpecificUsers([])
-      setShowPrivacyMenu(false)
-      setShowCustomPrivacyModal(false)
-      setCustomPrivacyError('')
       setShowLocationModal(false)
       localStorage.removeItem('grateful_post_draft')
       onClose()
@@ -954,46 +920,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     setCurrentMentionStart(-1)
   }
 
-
-
-
-
   const handleShowBackgrounds = (e: React.MouseEvent) => {
     const rect = (e.target as HTMLElement).getBoundingClientRect()
     setBackgroundsPosition({ x: rect.left, y: rect.bottom + 8 })
     setShowBackgrounds(true)
-  }
-
-  const handlePrivacyLevelSelect = (level: PrivacyLevel) => {
-    setPrivacyLevel(level)
-    setShowPrivacyMenu(false)
-    setCustomPrivacyError('')
-    if (level === 'custom') {
-      setShowCustomPrivacyModal(true)
-    }
-    if (level !== 'custom') {
-      setPrivacyRules([])
-      setSpecificUsers([])
-    }
-  }
-
-  const handleToggleCustomRule = (rule: PrivacyRule) => {
-    if (rule === 'specific_users') {
-      setCustomPrivacyError('')
-      const enabled = privacyRules.includes('specific_users')
-      if (enabled) {
-        setPrivacyRules((prev) => prev.filter((r) => r !== rule))
-        setSpecificUsers([])
-      } else {
-        setPrivacyRules((prev) => [...prev, rule])
-      }
-      return
-    }
-
-    setPrivacyRules((prev) =>
-      prev.includes(rule) ? prev.filter((r) => r !== rule) : [...prev, rule]
-    )
-    setCustomPrivacyError('')
   }
 
   if (!isOpen) return null
@@ -1034,53 +964,15 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             </h2>
             <div className="flex items-center gap-2 shrink-0">
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowPrivacyMenu((prev) => !prev)}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-purple-300 hover:text-purple-700"
-                  aria-label={privacyAudience.ariaLabel}
-                  title={privacyAudience.label}
-                >
-                  <PostPrivacyBadge
-                    privacyLevel={privacyLevel}
-                    privacyRules={privacyRules}
-                    specificUsersCount={specificUsers.length}
-                    hideLabelOnMobile
-                    className="min-w-0"
-                  />
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
-                </button>
-
-                {showPrivacyMenu && (
-                  <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
-                    <button
-                      type="button"
-                      onClick={() => handlePrivacyLevelSelect('public')}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <Globe className="h-4 w-4 text-green-600" />
-                      <span>Public</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePrivacyLevelSelect('custom')}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <Users className="h-4 w-4 text-indigo-600" />
-                      <span>Custom</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePrivacyLevelSelect('private')}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <Lock className="h-4 w-4 text-rose-600" />
-                      <span>Private</span>
-                    </button>
-                  </div>
-                )}
+                <PostPrivacySelector
+                  privacyLevel={privacyLevel}
+                  privacyRules={privacyRules}
+                  specificUserIds={specificUsers}
+                  onPrivacyLevelChange={setPrivacyLevel}
+                  onPrivacyRulesChange={setPrivacyRules}
+                  onSpecificUserIdsChange={setSpecificUsers}
+                />
               </div>
-
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors p-1"
@@ -1402,9 +1294,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                       setPrivacyLevel('public')
                       setPrivacyRules([])
                       setSpecificUsers([])
-                      setShowPrivacyMenu(false)
-                      setShowCustomPrivacyModal(false)
-                      setCustomPrivacyError('')
                       // Clear the editor content
                       richTextEditorRef.current?.clear()
                       // Focus the editor after clearing
@@ -1436,95 +1325,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         />
       </div>
 
-      {showCustomPrivacyModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" data-custom-privacy-modal>
-          <div
-            className="absolute inset-0 bg-black bg-opacity-40"
-            onClick={() => setShowCustomPrivacyModal(false)}
-          />
-          <div
-            className="relative z-10 w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
-            data-custom-privacy-modal
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Custom Audience</h3>
-              <button
-                type="button"
-                onClick={() => setShowCustomPrivacyModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="Close custom privacy modal"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {CUSTOM_PRIVACY_RULES.map((rule) => (
-                <label
-                  key={rule.id}
-                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 hover:border-purple-300"
-                >
-                  <input
-                    type="checkbox"
-                    checked={privacyRules.includes(rule.id)}
-                    onChange={() => handleToggleCustomRule(rule.id)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{rule.label}</p>
-                    <p className="text-xs text-gray-500">{rule.description}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-
-            {privacyRules.includes('specific_users') && (
-              <div className="mt-4">
-                <p className="mb-2 text-sm font-medium text-gray-700">Select specific users</p>
-                <UserMultiSelect
-                  selectedUsers={specificUsers}
-                  onChange={(users) => {
-                    setSpecificUsers(users)
-                    setCustomPrivacyError('')
-                  }}
-                  placeholder="Search and add users..."
-                />
-              </div>
-            )}
-
-            {customPrivacyError && (
-              <p className="mt-3 text-sm text-red-600">{customPrivacyError}</p>
-            )}
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCustomPrivacyModal(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const hasFollowersOrFollowing =
-                    privacyRules.includes('followers') || privacyRules.includes('following')
-                  const hasSpecificUsers = specificUsers.length > 0
-                  if (!hasFollowersOrFollowing && !hasSpecificUsers) {
-                    setCustomPrivacyError('Select at least one audience rule before saving.')
-                    return
-                  }
-                  setCustomPrivacyError('')
-                  setShowCustomPrivacyModal(false)
-                }}
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Custom privacy modal handled within PostPrivacySelector */}
 
       {/* Location Modal */}
       <LocationModal
