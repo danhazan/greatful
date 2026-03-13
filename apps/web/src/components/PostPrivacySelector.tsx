@@ -11,7 +11,7 @@ import { PrivacyLevel, PrivacyRule } from "@/hooks/usePostPrivacyState"
 const CUSTOM_PRIVACY_RULES: Array<{ id: PrivacyRule; label: string; description: string }> = [
   { id: 'followers', label: 'Followers', description: 'Users who follow you' },
   { id: 'following', label: 'Following', description: 'Users you follow' },
-  { id: 'specific_users', label: 'Specific Users', description: 'Only selected users' },
+  { id: 'specific_users', label: 'Users', description: 'Only selected users' },
 ]
 
 interface PostPrivacySelectorProps {
@@ -232,7 +232,7 @@ export default function PostPrivacySelector({
 
             {privacyRules.includes('specific_users') && (
               <div className="mt-4">
-                <p className="mb-2 text-sm font-medium text-gray-700">Select specific users</p>
+                <p className="mb-2 text-sm font-medium text-gray-700">Select users</p>
                 <UserMultiSelect
                   selectedUsers={selectedUsers}
                   onChange={handleSpecificUsersChange}

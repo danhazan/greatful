@@ -941,6 +941,13 @@ export default function PostCard({
                       privacyLevel={postPrivacyLevel}
                       privacyRules={postPrivacyRules}
                       specificUsers={postSpecificUsers}
+                      isAuthor
+                      postPrivacy={{
+                        privacyLevel: postPrivacyLevel,
+                        privacyRules: Array.isArray(postPrivacyRules) ? postPrivacyRules : [],
+                        specificUsers: Array.isArray(postSpecificUsers) ? postSpecificUsers : [],
+                      }}
+                      showQuickPreview
                       hideLabelOnMobile
                       className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600"
                       labelClassName="text-gray-600"

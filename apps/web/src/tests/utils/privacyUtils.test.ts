@@ -27,17 +27,16 @@ describe('privacyUtils.getPostAudience', () => {
       specificUsersCount: 2,
     })
     expect(result.iconKind).toBe('custom')
-    expect(result.label).toBe('Followers + Following + 2 specific users')
+    expect(result.label).toBe('Followers + Following + 2 Users')
   })
 
-  it('supports specific users only custom audience', () => {
+  it('supports users only custom audience', () => {
     const result = getPostAudience({
       privacyLevel: 'custom',
       privacyRules: ['specific_users'],
       specificUsersCount: 3,
     })
     expect(result.iconKind).toBe('custom')
-    expect(result.label).toBe('3 specific users')
+    expect(result.label).toBe('3 Users')
   })
 })
-

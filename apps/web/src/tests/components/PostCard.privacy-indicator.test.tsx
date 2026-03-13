@@ -40,12 +40,11 @@ const privacyPost = {
 describe('PostCard privacy indicator', () => {
   it('shows privacy indicator for author', () => {
     render(<PostCard post={privacyPost as any} currentUserId="author-1" />)
-    expect(screen.getByLabelText('Followers and 1 specific user')).toBeInTheDocument()
+    expect(screen.getByLabelText('Followers and 1 User')).toBeInTheDocument()
   })
 
   it('does not show privacy indicator for non-authors', () => {
     render(<PostCard post={privacyPost as any} currentUserId="viewer-2" />)
-    expect(screen.queryByLabelText('Followers and 1 specific user')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Followers and 1 User')).not.toBeInTheDocument()
   })
 })
-

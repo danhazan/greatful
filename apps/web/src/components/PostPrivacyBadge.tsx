@@ -1,13 +1,23 @@
 "use client"
 
+import { useEffect, useId, useRef, useState } from "react"
+import { autoUpdate, flip, offset, shift, useFloating, FloatingPortal } from "@floating-ui/react"
 import { Globe, Lock, Users } from "lucide-react"
+import { apiClient } from "@/utils/apiClient"
 import { getPostAudience } from "@/utils/privacyUtils"
+import PostVisibilityPreview from "@/components/PostVisibilityPreview"
+import { PostPrivacy } from "@/types/post"
+import { UserMultiSelectUser } from "@/components/UserMultiSelect"
 
 interface PostPrivacyBadgeProps {
   privacyLevel?: string | null
   privacyRules?: string[] | null
   specificUsers?: number[] | null
   specificUsersCount?: number
+  isAuthor?: boolean
+  postPrivacy?: PostPrivacy
+  specificUsersDetails?: UserMultiSelectUser[]
+  showQuickPreview?: boolean
   showLabel?: boolean
   hideLabelOnMobile?: boolean
   className?: string
@@ -19,17 +29,223 @@ export default function PostPrivacyBadge({
   privacyRules,
   specificUsers,
   specificUsersCount,
+  isAuthor = false,
+  postPrivacy,
+  specificUsersDetails,
+  showQuickPreview = false,
   showLabel = true,
   hideLabelOnMobile = false,
   className = "",
   labelClassName = "",
 }: PostPrivacyBadgeProps) {
+  const normalizedPrivacyLevel =
+    privacyLevel === 'public' || privacyLevel === 'private' || privacyLevel === 'custom'
+      ? privacyLevel
+      : undefined
+  const normalizedPrivacyRules = Array.isArray(privacyRules) ? privacyRules : []
+  const normalizedSpecificUsers = Array.isArray(specificUsers) ? specificUsers : []
+
   const audience = getPostAudience({
-    privacyLevel,
-    privacyRules,
-    specificUsers,
+    privacyLevel: normalizedPrivacyLevel,
+    privacyRules: normalizedPrivacyRules,
+    specificUsers: normalizedSpecificUsers,
     specificUsersCount,
   })
+
+  const previewPrivacy: PostPrivacy | null = postPrivacy ?? (isAuthor ? {
+    privacyLevel: normalizedPrivacyLevel,
+    privacyRules: normalizedPrivacyRules,
+    specificUsers: normalizedSpecificUsers,
+  } : null)
+
+  const enablePreview = Boolean(isAuthor && previewPrivacy)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false)
+  const [resolvedUsers, setResolvedUsers] = useState<UserMultiSelectUser[]>(specificUsersDetails ?? [])
+  const resolvedUsersRef = useRef<Map<number, UserMultiSelectUser>>(new Map())
+  const isFetchingRef = useRef(false)
+  const hasFetchedRef = useRef(false)
+  const lastIdsKeyRef = useRef<string>('')
+  const tooltipTimeoutRef = useRef<number | null>(null)
+  const longPressTimeoutRef = useRef<number | null>(null)
+  const suppressClickRef = useRef(false)
+  const previewId = useId()
+  const tooltipId = useId()
+
+  const { refs, floatingStyles } = useFloating({
+    placement: 'bottom-end',
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  })
+
+  useEffect(() => {
+    if (!enablePreview) return
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      const referenceEl = refs.reference.current
+      const floatingEl = refs.floating.current
+      if (referenceEl?.contains(target) || floatingEl?.contains(target)) {
+        return
+      }
+      setIsPreviewOpen(false)
+      setShowTooltip(false)
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [enablePreview, refs.reference, refs.floating])
+
+  useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) {
+        window.clearTimeout(tooltipTimeoutRef.current)
+      }
+      if (longPressTimeoutRef.current) {
+        window.clearTimeout(longPressTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const scheduleTooltip = () => {
+    if (!showQuickPreview) return
+    if (tooltipTimeoutRef.current) {
+      window.clearTimeout(tooltipTimeoutRef.current)
+    }
+    tooltipTimeoutRef.current = window.setTimeout(() => {
+      setShowTooltip(true)
+    }, 150)
+  }
+
+  const clearTooltip = () => {
+    if (tooltipTimeoutRef.current) {
+      window.clearTimeout(tooltipTimeoutRef.current)
+    }
+    setShowTooltip(false)
+  }
+
+  const handleClick = () => {
+    if (!enablePreview) return
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    setIsPreviewOpen((prev) => !prev)
+    setShowTooltip(false)
+  }
+
+  const handleTouchStart = () => {
+    if (!showQuickPreview || !enablePreview) return
+    suppressClickRef.current = false
+    if (longPressTimeoutRef.current) {
+      window.clearTimeout(longPressTimeoutRef.current)
+    }
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      suppressClickRef.current = true
+      setShowTooltip(true)
+    }, 500)
+  }
+
+  const handleTouchEnd = () => {
+    if (longPressTimeoutRef.current) {
+      window.clearTimeout(longPressTimeoutRef.current)
+    }
+    if (suppressClickRef.current) {
+      setShowTooltip(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!enablePreview || !previewPrivacy) return
+
+    const specificUserIds = previewPrivacy.specificUsers ?? []
+    const idsKey = specificUserIds.join(',')
+    if (idsKey !== lastIdsKeyRef.current) {
+      lastIdsKeyRef.current = idsKey
+      hasFetchedRef.current = false
+      isFetchingRef.current = false
+      resolvedUsersRef.current.clear()
+      if (!specificUsersDetails) {
+        setResolvedUsers([])
+      }
+    }
+
+    if (specificUsersDetails && specificUsersDetails.length > 0) {
+      specificUsersDetails.forEach((user) => resolvedUsersRef.current.set(user.id, user))
+      setResolvedUsers(specificUsersDetails)
+      hasFetchedRef.current = true
+      return
+    }
+
+    if (!specificUserIds.length) {
+      setResolvedUsers([])
+      return
+    }
+
+    const shouldLoad = showTooltip || isPreviewOpen
+    if (!shouldLoad || hasFetchedRef.current || isFetchingRef.current) {
+      return
+    }
+
+    let isActive = true
+    isFetchingRef.current = true
+
+    const fetchProfiles = async () => {
+      const unresolvedIds = specificUserIds.filter((id) => !resolvedUsersRef.current.has(id))
+      if (unresolvedIds.length === 0) {
+        return
+      }
+
+      try {
+        const response = await apiClient.getBatchUserProfiles(unresolvedIds.map(String))
+        const profiles = response?.data || response
+        if (Array.isArray(profiles)) {
+          profiles.forEach((profile: any) => {
+            if (!profile?.id) return
+            const userId = Number(profile.id)
+            resolvedUsersRef.current.set(userId, {
+              id: userId,
+              username: profile.username ?? `user${userId}`,
+              displayName: profile.displayName ?? profile.name ?? profile.username,
+              profileImageUrl: profile.profileImageUrl ?? profile.image ?? null,
+            })
+          })
+        }
+      } catch (error) {
+        // Fall through to unresolved placeholders.
+      }
+    }
+
+    fetchProfiles().finally(() => {
+      if (!isActive) return
+      const users = specificUserIds.map((id) => {
+        return (
+          resolvedUsersRef.current.get(id) ?? {
+            id,
+            username: `user${id}`,
+            unresolved: true,
+          }
+        )
+      })
+      setResolvedUsers(users)
+      hasFetchedRef.current = true
+      isFetchingRef.current = false
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [
+    enablePreview,
+    previewPrivacy,
+    specificUsersDetails,
+    showTooltip,
+    isPreviewOpen,
+  ])
 
   const iconClassName = "h-4 w-4"
   const icon = audience.iconKind === "public"
@@ -38,19 +254,80 @@ export default function PostPrivacyBadge({
       ? <Lock className={`${iconClassName} text-rose-600`} data-testid="privacy-icon-private" aria-hidden="true" />
       : <Users className={`${iconClassName} text-indigo-600`} data-testid="privacy-icon-custom" aria-hidden="true" />
 
-  return (
-    <span
-      className={`inline-flex items-center gap-2 ${className}`}
-      aria-label={audience.ariaLabel}
-      title={audience.label}
-    >
+  const badgeContent = (
+    <>
       {icon}
       {showLabel && (
         <span className={`${hideLabelOnMobile ? "hidden sm:inline" : ""} ${labelClassName}`.trim()}>
           {audience.label}
         </span>
       )}
+    </>
+  )
+
+  if (!enablePreview || !previewPrivacy) {
+    return (
+      <span
+        className={`inline-flex items-center gap-2 ${className}`.trim()}
+        aria-label={audience.ariaLabel}
+        title={audience.label}
+      >
+        {badgeContent}
+      </span>
+    )
+  }
+
+  const isPopoverOpen = (showQuickPreview && showTooltip) || isPreviewOpen
+
+  return (
+    <span className="relative inline-flex">
+      <span
+        role="button"
+        tabIndex={0}
+        ref={refs.setReference}
+        className={`inline-flex items-center gap-2 bg-transparent p-0 ${className}`.trim()}
+        aria-label={audience.ariaLabel}
+        title={audience.label}
+        aria-expanded={isPreviewOpen}
+        aria-controls={previewId}
+        onClick={handleClick}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            handleClick()
+          }
+        }}
+        onMouseEnter={scheduleTooltip}
+        onMouseLeave={clearTooltip}
+        onFocus={scheduleTooltip}
+        onBlur={clearTooltip}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {badgeContent}
+      </span>
+
+      {isPopoverOpen && (
+        <FloatingPortal>
+          <div
+            id={isPreviewOpen ? previewId : tooltipId}
+            ref={refs.setFloating}
+            style={floatingStyles}
+            className={`z-50 rounded-xl border border-gray-200 bg-white shadow-xl ${
+              isPreviewOpen ? "p-4" : "p-3"
+            }`}
+            role={isPreviewOpen ? "dialog" : "tooltip"}
+          >
+            <PostVisibilityPreview
+              postPrivacy={previewPrivacy}
+              specificUsers={resolvedUsers}
+              maxUsers={isPreviewOpen ? 10 : 3}
+              allowExpand={isPreviewOpen}
+              showTitle
+            />
+          </div>
+        </FloatingPortal>
+      )}
     </span>
   )
 }
-

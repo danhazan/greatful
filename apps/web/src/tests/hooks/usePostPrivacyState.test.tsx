@@ -18,7 +18,7 @@ describe('usePostPrivacyState', () => {
     expect(latest?.buildPayload().privacy_level).toBe('public')
   })
 
-  it('adds and removes specific_users rule when specific users change', () => {
+  it('adds and removes specific_users rule when users change', () => {
     let latest: ReturnType<typeof usePostPrivacyState> | null = null
 
     const Harness = ({ initial }: { initial: PostPrivacy }) => {
