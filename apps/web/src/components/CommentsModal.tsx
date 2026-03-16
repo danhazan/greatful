@@ -611,42 +611,32 @@ export default function CommentsModal({
         <div className="flex space-x-3">
           {/* User Profile Picture */}
           <div className="flex-shrink-0">
-            <ProfilePhotoDisplay
-              photoUrl={comment.user.profileImageUrl}
-              username={comment.user.username}
-              size="sm"
-              className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => {
-                // Navigate to user profile
-                window.location.href = `/profile/${comment.user.id}`
-              }}
-            />
+            <a href={`/profile/${comment.user.id}`} aria-label={`${comment.user.displayName || comment.user.username}'s profile`}>
+              <ProfilePhotoDisplay
+                photoUrl={comment.user.profileImageUrl}
+                username={comment.user.username}
+                size="sm"
+                className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+              />
+            </a>
           </div>
 
           {/* Comment Content */}
           <div className="flex-1 min-w-0">
             {/* User Info */}
             <div className="flex items-baseline space-x-2 flex-wrap">
-              <span className="font-bold text-gray-900 text-sm">
+              <a
+                href={`/profile/${comment.user.id}`}
+                className="font-bold text-gray-900 text-sm hover:text-purple-600 transition-colors no-underline"
+              >
                 {comment.user.displayName || comment.user.username}
-              </span>
-              <span
-                className="text-gray-500 hover:text-purple-600 cursor-pointer transition-colors text-xs"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  window.location.href = `/profile/${comment.user.id}`
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    window.location.href = `/profile/${comment.user.id}`
-                  }
-                }}
+              </a>
+              <a
+                href={`/profile/${comment.user.id}`}
+                className="text-gray-500 hover:text-purple-600 transition-colors text-xs no-underline"
               >
                 @{comment.user.username}
-              </span>
+              </a>
               <span className="text-gray-400 text-xs">
                 {formatTimeAgo(displayTime)}
                 {isEdited && <span className="ml-1 text-gray-400">(edited)</span>}
@@ -956,8 +946,9 @@ export default function CommentsModal({
           {/* Content - Scrollable Comments List */}
           <div
             ref={commentsContainerRef}
-            className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6"
+            className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 select-text"
             role="main"
+            style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
           >
             {localComments.length === 0 ? (
               <div className="text-center py-8" role="status" aria-label="No comments yet">
