@@ -14,10 +14,11 @@ import { assertNoSnakeCase } from './contractAssertion'
  * This function asserts that correctness and casts to the canonical Post type.
  */
 function extractPostPrivacyFromApi(post: any): PostPrivacy {
+  const level = post?.privacyLevel
   return {
-    privacyLevel: post?.privacyLevel ?? post?.privacy_level,
-    privacyRules: post?.privacyRules ?? post?.privacy_rules ?? post?.rules ?? [],
-    specificUsers: post?.specificUsers ?? post?.specific_users ?? [],
+    privacyLevel: (level === 'public' || level === 'private' || level === 'custom') ? level : undefined,
+    privacyRules: post?.privacyRules ?? [],
+    specificUsers: post?.specificUsers ?? [],
   }
 }
 

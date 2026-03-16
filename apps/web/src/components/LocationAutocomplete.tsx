@@ -228,9 +228,11 @@ export default function LocationAutocomplete({
           ref={inputRef}
           type="text"
           role="combobox"
+          aria-label={placeholder}
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-haspopup="listbox"
+          aria-controls="location-search-results"
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -283,6 +285,7 @@ export default function LocationAutocomplete({
       {isOpen && (results.length > 0 || isLoading) && (
         <div
           ref={dropdownRef}
+          id="location-search-results"
           data-location-dropdown
           role="listbox"
           aria-label="Location search results"

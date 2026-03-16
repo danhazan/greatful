@@ -57,7 +57,6 @@ interface NotificationUser {
 
 interface Notification {
   fromUser?: NotificationUser | null
-  from_user?: NotificationUser | null // Legacy
   data?: NotificationData
   type?: string
 }
@@ -75,11 +74,6 @@ export function extractNotificationUsername(notification: Notification): string 
   // First priority: fromUser relation
   if (notification.fromUser?.username) {
     return notification.fromUser.username
-  }
-
-  // Fallback: legacy from_user
-  if (notification.from_user?.username) {
-    return notification.from_user.username
   }
 
   // Second priority: notification-type-specific fields
@@ -136,11 +130,6 @@ export function extractNotificationUserId(notification: Notification): string {
     return String(notification.fromUser.id)
   }
 
-  // Fallback: legacy from_user
-  if (notification.from_user?.id) {
-    return String(notification.from_user.id)
-  }
-
   // Second priority: try to extract from username fields by removing '_username' suffix
   const data = notification.data
   if (!data) {
@@ -186,11 +175,8 @@ export function extractNotificationUserImage(notification: any): string | undefi
     return notification.fromUser.image
   }
 
-  // Fallback for raw backend format
-  return notification.from_user?.profileImageUrl ||
-    notification.from_user?.profile_image_url ||
-    notification.from_user?.image ||
-    undefined
+  // Fallback
+  return undefined
 }
 
 /**
@@ -203,17 +189,13 @@ export function resolveNotificationUser(notification: any) {
     return notification.fromUser
   }
 
-  // Otherwise, resolve from raw backend format
-  const img = notification.from_user?.image ??
-    notification.from_user?.profile_image_url ??
-    notification.data?.from_user?.image ??
-    notification.data?.from_user?.profile_image_url ??
-    null
+  // Otherwise, resolve from data
+  const img = notification.data?.profileImageUrl ?? null
 
   return {
     id: extractNotificationUserId(notification),
     name: extractNotificationUsername(notification),
-    username: notification.from_user?.username ?? undefined,
+    username: notification.fromUser?.username ?? undefined,
     image: img,
   }
 }
@@ -230,7 +212,7 @@ export function validateNotificationUserData(notification: Notification): {
   issues: string[]
 } {
   const issues: string[] = []
-  const hasFromUser = !!(notification.fromUser?.username || notification.from_user?.username)
+  const hasFromUser = !!(notification.fromUser?.username)
   const detectedUsername = extractNotificationUsername(notification)
   const hasUsernameInData = detectedUsername !== 'Unknown User'
 

@@ -110,7 +110,7 @@ export default function OAuthCallbackPage() {
     }
 
     handleCallback()
-  }, [searchParams, router])
+  }, [searchParams, router, reloadUser])
 
   const getStatusIcon = () => {
     switch (status) {

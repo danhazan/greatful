@@ -225,7 +225,7 @@ export default function UserSearchBar({
                       aria-haspopup="listbox"
                       aria-autocomplete="list"
                       role="combobox"
-                      aria-controls="mobile-search-results"
+                      aria-controls="mobile-user-search-results"
                     />
                     <button
                       type="button"
@@ -245,7 +245,7 @@ export default function UserSearchBar({
                   {/* Search Results Dropdown - also portal-level */}
                   {isDropdownOpen && (
                     <UserSearchDropdown
-                      id="mobile-search-results"
+                      id="mobile-user-search-results"
                       dropdownRef={dropdownRef}
                       className="mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto"
                       users={users}
@@ -284,6 +284,7 @@ export default function UserSearchBar({
               aria-haspopup="listbox"
               aria-autocomplete="list"
               role="combobox"
+              aria-controls="desktop-user-search-results"
             />
             {searchQuery && (
               <button
@@ -304,6 +305,7 @@ export default function UserSearchBar({
       {/* Search Results Dropdown - Desktop only (mobile handles its own in portal) */}
       {!isMobile && isDropdownOpen && (
         <UserSearchDropdown
+          id="desktop-user-search-results"
           dropdownRef={dropdownRef}
           className="absolute top-full mt-1 w-full max-w-sm bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto"
           users={users}

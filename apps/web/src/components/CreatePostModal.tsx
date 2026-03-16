@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useMemo } from "react"
+import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { X, Camera, MapPin, Type, Image as ImageIcon, Zap, Palette, FileText, Sparkles, Brush, GripVertical } from "lucide-react"
 import { createImagePreview, revokeImagePreview, MAX_POST_IMAGES, prepareImageForUpload, prepareMultipleImagesForUpload } from "@/utils/imageUpload"
 import { extractMentions } from "@/utils/mentionUtils"
@@ -207,20 +207,23 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
 
   // Helper function to determine if there's an active draft
-  const hasActiveDraft = () => {
+  const hasActiveDraft = useCallback(() => {
     return Boolean(
       postData.content.trim() ||
       postData.imageUrl ||
-      postData.location ||
-      postData.locationData ||
-      richContent?.trim() ||
-      images.length > 0 ||
       imageFile ||
+      images.length > 0 ||
       privacyLevel !== 'public' ||
       privacyRules.length > 0 ||
       specificUsers.length > 0
     )
-  }
+  }, [postData.content, postData.imageUrl, imageFile, images.length, privacyLevel, privacyRules.length, specificUsers.length])
+
+  const handleMentionClose = useCallback(() => {
+    setShowMentionAutocomplete(false)
+    setMentionQuery('')
+    setCurrentMentionStart(-1)
+  }, [])
 
   // predicted type only for display
   const predicted = analyzeContent(contentForAnalysis, hasImage)
@@ -286,7 +289,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose, showMentionAutocomplete])
+  }, [isOpen, onClose, showMentionAutocomplete, handleMentionClose])
 
   // Handle keyboard navigation for drag and drop zone
   const handleDragZoneKeyDown = (e: React.KeyboardEvent) => {
@@ -369,6 +372,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       }
       setDraftId(currentDraftId)
     }
+    // React state setters are stable by design and do not need to be dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   // Save draft to localStorage (excluding blob URLs which can't be restored)
@@ -392,7 +397,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       }
       localStorage.setItem('grateful_post_draft', JSON.stringify(draftToSave))
     }
-  }, [postData, privacyLevel, privacyRules, specificUsers, images, draftId])
+  }, [postData, privacyLevel, privacyRules, specificUsers, images, draftId, hasActiveDraft])
 
   // Cleanup blob URLs when modal closes
   useEffect(() => {
@@ -880,12 +885,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       richTextEditorRef.current.insertMention(user.username, currentMentionStart, mentionEnd)
     }
 
-    setShowMentionAutocomplete(false)
-    setMentionQuery('')
-    setCurrentMentionStart(-1)
-  }
-
-  const handleMentionClose = () => {
     setShowMentionAutocomplete(false)
     setMentionQuery('')
     setCurrentMentionStart(-1)

@@ -253,15 +253,15 @@ export default function PostCard({
           // Get updated reaction summary from server, bypassing cache
           const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`, { skipCache: true }) as any
 
-          // Read emojiCounts with snake_case fallback for API compatibility
-          const emojiCountsObj = reactionSummary.emojiCounts || reactionSummary.emoji_counts || {}
+          // Read emojiCounts explicitly
+          const emojiCountsObj = reactionSummary.emojiCounts || {}
           const updatedEmojiCodes = [...Object.keys(emojiCountsObj)]
 
           // Update local state immediately for responsive UI
           setCurrentPost(prev => ({
             ...prev,
             currentUserReaction: null,
-            reactionsCount: reactionSummary.totalCount ?? reactionSummary.total_count ?? Math.max(0, (prev.reactionsCount || 0) - 1),
+            reactionsCount: reactionSummary.totalCount ?? Math.max(0, (prev.reactionsCount || 0) - 1),
             reactionEmojiCodes: updatedEmojiCodes
           }))
 
@@ -315,8 +315,8 @@ export default function PostCard({
       // Get updated reaction summary from server, bypassing cache
       const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`, { skipCache: true }) as any
 
-      // Read emojiCounts with snake_case fallback for API compatibility
-      const emojiCountsObj = reactionSummary.emojiCounts || reactionSummary.emoji_counts || {}
+      // Read emojiCounts explicitly
+      const emojiCountsObj = reactionSummary.emojiCounts || {}
       const updatedEmojiCodes = [...Object.keys(emojiCountsObj)]
 
       // Update local state immediately for responsive UI — atomic replacement, new array reference
@@ -324,7 +324,7 @@ export default function PostCard({
         const updated = {
           ...prev,
           currentUserReaction: emojiCode,
-          reactionsCount: reactionSummary.totalCount ?? reactionSummary.total_count ?? ((prev.reactionsCount || 0) + 1),
+          reactionsCount: reactionSummary.totalCount ?? ((prev.reactionsCount || 0) + 1),
           reactionEmojiCodes: updatedEmojiCodes
         };
         console.log("Optimistic reactionEmojiCodes:", updated.reactionEmojiCodes);
@@ -653,13 +653,10 @@ export default function PostCard({
     postStyle?: any
     title?: string
     location?: string
-    location_data?: any
+    locationData?: any
     mentions?: string[]
     imageUrl?: string
     imageFile?: File
-    privacy_level?: 'public' | 'private' | 'custom'
-    rules?: string[]
-    specific_users?: number[]
     privacyLevel?: 'public' | 'private' | 'custom'
     privacyRules?: string[]
     specificUsers?: number[]
@@ -691,7 +688,7 @@ export default function PostCard({
 
           if (uploadResponse.ok) {
             const uploadResult = await uploadResponse.json()
-            finalImageUrl = uploadResult.url || uploadResult.file_url
+            finalImageUrl = uploadResult.url
           } else {
             throw new Error('Failed to upload image')
           }
@@ -704,23 +701,23 @@ export default function PostCard({
 
       const updateData = {
         content: postData.content,
-        post_style: postData.postStyle,
+        postStyle: postData.postStyle,
         title: postData.title,
-        image_url: finalImageUrl,
+        imageUrl: finalImageUrl,
         location: postData.location,
-        location_data: postData.location_data
+        locationData: postData.locationData
       }
-      const privacyLevel = postData.privacy_level ?? postData.privacyLevel
-      const privacyRules = postData.rules ?? postData.privacyRules
-      const specificUsers = postData.specific_users ?? postData.specificUsers
+      const privacyLevel = postData.privacyLevel
+      const privacyRules = postData.privacyRules
+      const specificUsers = postData.specificUsers
       if (privacyLevel !== undefined) {
-        (updateData as any).privacy_level = privacyLevel
+        (updateData as any).privacyLevel = privacyLevel
       }
       if (privacyRules !== undefined) {
-        (updateData as any).rules = privacyRules
+        (updateData as any).privacyRules = privacyRules
       }
       if (specificUsers !== undefined) {
-        (updateData as any).specific_users = specificUsers
+        (updateData as any).specificUsers = specificUsers
       }
 
       try {
@@ -883,9 +880,9 @@ export default function PostCard({
   }
 
   const styling = getPostStyling()
-  const postPrivacyLevel = currentPost.privacyLevel ?? (currentPost as any).privacy_level
-  const postPrivacyRules = currentPost.privacyRules ?? (currentPost as any).privacy_rules ?? (currentPost as any).rules
-  const postSpecificUsers = currentPost.specificUsers ?? (currentPost as any).specific_users
+  const postPrivacyLevel = currentPost.privacyLevel
+  const postPrivacyRules = currentPost.privacyRules
+  const postSpecificUsers = currentPost.specificUsers
 
   return (
     <>

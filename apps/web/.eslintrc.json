@@ -28,11 +28,15 @@
         "no-restricted-syntax": [
           "warn",
           {
-            "selector": "MemberExpression[property.type='Identifier'][property.name=/_/]",
+            "selector": "MemberExpression[object.name=/^(post|notification|reaction|comment)$/][property.name=/.*_.*/]",
             "message": "Use camelCase in frontend-facing code. Normalize snake_case at API boundaries."
           }
-        ]
+        ],
+        "@next/next/no-img-element": "off"
       }
     }
   ]
 }
+// Note: @next/next/no-img-element is disabled intentionally. 
+// Grateful manages image optimization manually for uploaded content and modal previews, 
+// making next/image unsuitable for several components.

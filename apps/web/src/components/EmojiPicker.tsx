@@ -205,37 +205,37 @@ export default function EmojiPicker({
             aria-label="Emoji reactions"
           >
             {EMOJI_OPTIONS.map((option) => (
-              <button
-                key={option.code}
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleEmojiClick(option.code)
-                }}
-                disabled={isLoading}
-                className={`
-                  relative p-3 sm:p-4 rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
-                  min-h-[44px] min-w-[44px] flex items-center justify-center
-                  touch-manipulation select-none
-                  active:scale-95 active:bg-purple-100
-                  disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
-                  focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
-                  ${currentReaction === option.code
-                    ? 'bg-purple-100 ring-2 ring-purple-500 ring-offset-1'
-                    : 'hover:bg-gray-50 active:bg-purple-50'
-                  }
-                  ${selectedEmoji === option.code ? 'bg-purple-200' : ''}
-                `}
-                title={option.label}
-                aria-label={`React with ${option.label}.${currentReaction === option.code ? ' Currently selected.' : ''}`}
-                aria-pressed={currentReaction === option.code}
-                role="gridcell"
-                {...createTouchHandlers(undefined, 'medium')}
-              >
-                <span className="text-2xl sm:text-3xl block pointer-events-none">{option.emoji}</span>
-                {currentReaction === option.code && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
-                )}
-              </button>
+              <div key={option.code} role="gridcell">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleEmojiClick(option.code)
+                  }}
+                  disabled={isLoading}
+                  className={`
+                    relative p-3 sm:p-4 rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
+                    min-h-[44px] min-w-[44px] flex items-center justify-center
+                    touch-manipulation select-none
+                    active:scale-95 active:bg-purple-100
+                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+                    focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+                    ${currentReaction === option.code
+                      ? 'bg-purple-100 ring-2 ring-purple-500 ring-offset-1'
+                      : 'hover:bg-gray-50 active:bg-purple-50'
+                    }
+                    ${selectedEmoji === option.code ? 'bg-purple-200' : ''}
+                  `}
+                  title={option.label}
+                  aria-label={`React with ${option.label}.${currentReaction === option.code ? ' Currently selected.' : ''}`}
+                  aria-pressed={currentReaction === option.code}
+                  {...createTouchHandlers(undefined, 'medium')}
+                >
+                  <span className="text-2xl sm:text-3xl block pointer-events-none">{option.emoji}</span>
+                  {currentReaction === option.code && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
+                  )}
+                </button>
+              </div>
             ))}
           </div>
         </div>

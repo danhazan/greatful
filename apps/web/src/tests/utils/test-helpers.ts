@@ -300,7 +300,7 @@ export const getContentEditableByPlaceholder = (container: HTMLElement, placehol
 // EXPORTS
 // ============================================================================
 
-export default {
+const helpers = {
   // Mock factories
   createMockLocalStorage,
   createMockFetch,
@@ -332,3 +332,5 @@ export default {
   typeInContentEditable,
   getContentEditableByPlaceholder,
 }
+
+export default helpers

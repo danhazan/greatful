@@ -19,9 +19,9 @@ function extractPostPrivacy(post: any): {
   privacyRules?: string[]
   specificUsers?: number[]
 } {
-  const privacyLevelRaw = post?.privacyLevel ?? post?.privacy_level
-  const privacyRulesRaw = post?.privacyRules ?? post?.privacy_rules ?? post?.rules
-  const specificUsersRaw = post?.specificUsers ?? post?.specific_users
+  const privacyLevelRaw = post?.privacyLevel
+  const privacyRulesRaw = post?.privacyRules
+  const specificUsersRaw = post?.specificUsers
 
   return {
     privacyLevel:
@@ -50,7 +50,7 @@ export default function FeedPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Load posts from API using optimized API client
-  const loadPosts = async (token: string, refresh: boolean = false) => {
+  const loadPosts = useCallback(async (token: string, refresh: boolean = false) => {
     try {
       setError(null)
 
@@ -80,7 +80,7 @@ export default function FeedPage() {
         const ownPostsMissingPrivacy = normalizedPosts.some(
           (post) =>
             post.author?.id === currentUser.id &&
-            !(post.privacyLevel ?? (post as any).privacy_level)
+            !post.privacyLevel
         )
 
         if (ownPostsMissingPrivacy) {
@@ -172,7 +172,7 @@ export default function FeedPage() {
       setError(error instanceof Error ? error.message : 'Failed to load posts')
       setPosts([]) // Set empty array on error
     }
-  }
+  }, [currentUser?.id, router, updateUserProfile, updateFollowState, markDataAsFresh])
 
   // Check authentication and load data using UserContext
   useEffect(() => {
@@ -224,7 +224,7 @@ export default function FeedPage() {
     }
 
     initializePage()
-  }, [currentUser, userLoading, router])
+  }, [currentUser, userLoading, router, loadPosts])
 
   const handleLogout = () => {
     // Clear local posts state
@@ -303,7 +303,7 @@ export default function FeedPage() {
   // feed model. That caused false positives (including after local post creation).
   // Reintroduce only with an authoritative signal (cursor watermark, SSE/WebSocket,
   // or polling against stable server-side deltas).
-  const refreshPosts = async (skipCache: boolean = false, updateFeedView: boolean = false) => {
+  const refreshPosts = useCallback(async (skipCache: boolean = false, updateFeedView: boolean = false) => {
     const token = localStorage.getItem("access_token")
     if (token) {
       await loadPosts(token, skipCache)
@@ -314,10 +314,11 @@ export default function FeedPage() {
           await apiClient.post('/posts/update-feed-view')
         } catch (error) {
           console.error('Error updating feed view timestamp:', error)
+          // Don't fail the page load if this fails
         }
       }
     }
-  }
+  }, [loadPosts])
 
   // Touch event handlers for pull-to-refresh
   const handleTouchStart = useCallback((e: React.TouchEvent) => {

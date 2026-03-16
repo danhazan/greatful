@@ -93,7 +93,7 @@ export default function GoogleOAuthCallbackPage() {
     }
 
     handleCallback()
-  }, [searchParams, router])
+  }, [searchParams, router, reloadUser])
 
   const getStatusIcon = () => {
     switch (status) {

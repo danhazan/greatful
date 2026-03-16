@@ -60,13 +60,9 @@ interface Post {
   images?: PostImage[]  // Multi-image support
   postType: "daily" | "photo" | "spontaneous"
   createdAt?: string
-  updatedAt?: string
   privacyLevel?: 'public' | 'private' | 'custom'
   privacyRules?: string[]
   specificUsers?: number[]
-  privacy_level?: 'public' | 'private' | 'custom'
-  privacy_rules?: string[]
-  specific_users?: number[]
 }
 
 interface EditPostModalProps {
@@ -80,9 +76,9 @@ interface EditPostModalProps {
     location?: string
     locationData?: LocationResult
     mentions?: string[]
-    privacy_level: 'public' | 'private' | 'custom'
-    rules: string[]
-    specific_users: number[]
+    privacyLevel: 'public' | 'private' | 'custom'
+    privacyRules: string[]
+    specificUsers: number[]
   }) => void
 }
 
@@ -162,9 +158,9 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   // Location state
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [initialPrivacy, setInitialPrivacy] = useState<PostPrivacy>({
-    privacyLevel: post.privacyLevel ?? post.privacy_level,
-    privacyRules: post.privacyRules ?? post.privacy_rules ?? [],
-    specificUsers: post.specificUsers ?? post.specific_users ?? [],
+    privacyLevel: post.privacyLevel,
+    privacyRules: post.privacyRules ?? [],
+    specificUsers: post.specificUsers ?? [],
   })
   const initializedRef = useRef(false)
 
@@ -297,9 +293,9 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     if (isOpen) {
       if (!initializedRef.current) {
         setInitialPrivacy({
-          privacyLevel: post.privacyLevel ?? post.privacy_level,
-          privacyRules: post.privacyRules ?? post.privacy_rules ?? [],
-          specificUsers: post.specificUsers ?? post.specific_users ?? [],
+          privacyLevel: post.privacyLevel,
+          privacyRules: post.privacyRules ?? [],
+          specificUsers: post.specificUsers ?? [],
         })
         initializedRef.current = true
       }
@@ -386,7 +382,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       const payload: any = {
         content: contentToSubmit.trim(),
         richContent: richContent || null,
-        // Always include post_style (filtered) explicitly
+        // Always include postStyle (filtered) explicitly
         postStyle: filterPostStyleProperties(selectedStyle),
         // Include image information
         ...(postData.imageUrl !== undefined ? { imageUrl: postData.imageUrl } : {}),

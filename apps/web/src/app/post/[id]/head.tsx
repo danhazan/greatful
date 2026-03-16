@@ -27,6 +27,11 @@ async function getPostForMetadata(id: string) {
   }
 }
 
+/* eslint-disable no-restricted-syntax --
+   head.tsx intentionally reads raw API fields (snake_case) for metadata generation.
+   Normalization happens in the application layer, but metadata may be generated
+   directly from API responses for SEO/OpenGraph compatibility.
+*/
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const post = await getPostForMetadata(params.id)
 
@@ -74,3 +79,4 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
   }
 }
+/* eslint-enable no-restricted-syntax */

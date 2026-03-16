@@ -152,11 +152,13 @@ export default function UserMultiSelect({
           role="combobox"
           aria-expanded={dropdownOpen}
           aria-autocomplete="list"
+          aria-controls="user-multi-select-results"
         />
       </div>
 
       {dropdownOpen && (
         <UserSearchDropdown
+          id="user-multi-select-results"
           className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
           users={filteredUsers}
           loading={loading}

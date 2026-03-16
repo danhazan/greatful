@@ -11,8 +11,6 @@ interface NotificationUser {
 interface NotificationData {
   actorUserId?: string
   actorUsername?: string
-  actor_user_id?: string // For fallback
-  actor_username?: string // For fallback
   [key: string]: any
 }
 
@@ -77,8 +75,8 @@ export function formatNotificationWithClickableUser(
   notificationData?: NotificationData
 ): React.ReactNode {
   // Get the user ID and username for navigation
-  const actorId = notificationData?.actor_user_id ?? fromUser?.id
-  const username = notificationData?.actor_username ?? fromUser?.username
+  const actorId = notificationData?.actorUserId ?? fromUser?.id
+  const username = notificationData?.actorUsername ?? fromUser?.username
   // Use display name for showing, but username for navigation
   const displayName = fromUser?.name
 
