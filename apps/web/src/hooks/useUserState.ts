@@ -215,7 +215,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
       // If autoFetch is disabled, don't show loading state
       setIsLoading(false)
     }
-  }, [userId, autoFetch, fetchUserData])
+  }, [userId, autoFetch, fetchUserData, getCachedData, getLastFetchTime])
   
   // Subscribe to state updates for real-time synchronization
   useEffect(() => {
@@ -243,7 +243,6 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   const updateProfile = useCallback(async (updates: any) => {
     if (!userId) return
 
-    // Optimistic update
     updateUserProfile(userId, updates)
     setLocalUserProfile((prev: any) => prev ? { ...prev, ...updates } : null)
 

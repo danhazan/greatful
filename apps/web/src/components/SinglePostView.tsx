@@ -66,7 +66,7 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
     if (userLoading) return
 
     fetchPost()
-  }, [postId, userLoading])
+  }, [postId, userLoading, showError])
 
   if (loading) {
     return (

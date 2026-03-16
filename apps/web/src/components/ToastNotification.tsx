@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react'
 
 export interface Toast {
@@ -25,31 +25,7 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
   const [isExiting, setIsExiting] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    // Ensure transition starts AFTER initial render commit
-    let raf1 = requestAnimationFrame(() => {
-      let raf2 = requestAnimationFrame(() => setIsVisible(true))
-      // store nested id in closure to cancel properly
-      ;(setIsVisible as any)._raf2 = raf2
-    })
-    return () => {
-      cancelAnimationFrame(raf1)
-      if ((setIsVisible as any)._raf2) cancelAnimationFrame((setIsVisible as any)._raf2)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (toast.type === 'loading') return // Don't auto-close loading toasts
-
-    const duration = toast.duration || (toast.type === 'error' ? 5000 : 3000)
-    const timer = setTimeout(() => {
-      handleClose()
-    }, duration)
-
-    return () => clearTimeout(timer)
-  }, [toast.duration, toast.type])
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     // CRITICAL: Capture current active element BEFORE any state changes
     const activeElement = document.activeElement as HTMLElement
     const shouldRestoreFocus = activeElement && 
@@ -75,7 +51,31 @@ export default function ToastNotification({ toast, onClose }: ToastNotificationP
     setTimeout(() => {
       onClose(toast.id)
     }, 300)
-  }
+  }, [onClose, toast.id])
+
+  useEffect(() => {
+    // Ensure transition starts AFTER initial render commit
+    let raf1 = requestAnimationFrame(() => {
+      let raf2 = requestAnimationFrame(() => setIsVisible(true))
+      // store nested id in closure to cancel properly
+      ;(setIsVisible as any)._raf2 = raf2
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      if ((setIsVisible as any)._raf2) cancelAnimationFrame((setIsVisible as any)._raf2)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (toast.type === 'loading') return // Don't auto-close loading toasts
+
+    const duration = toast.duration || (toast.type === 'error' ? 5000 : 3000)
+    const timer = setTimeout(() => {
+      handleClose()
+    }, duration)
+
+    return () => clearTimeout(timer)
+  }, [toast.duration, toast.type, handleClose])
 
   const getIcon = () => {
     switch (toast.type) {

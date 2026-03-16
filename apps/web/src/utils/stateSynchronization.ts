@@ -131,6 +131,7 @@ export function useStateSyncSubscription(
     } else {
       return stateSyncEmitter.subscribe(eventType, callback)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventType, ...dependencies])
 }
 

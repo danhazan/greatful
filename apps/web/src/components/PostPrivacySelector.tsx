@@ -37,11 +37,25 @@ export default function PostPrivacySelector({
   const [selectedUsers, setSelectedUsers] = useState<UserMultiSelectUser[]>([])
   const resolvedUsersRef = useRef<Map<number, UserMultiSelectUser>>(new Map())
 
-  const privacyAudience = getPostAudience({
-    privacyLevel,
-    privacyRules,
-    specificUsersCount: specificUserIds.length,
-  })
+  const normalizedPrivacyRules = useMemo(() => {
+    if (privacyRules && privacyRules.length > 0) return privacyRules
+    if (privacyLevel === 'public') return []
+    if (privacyLevel === 'private') return []
+    return []
+  }, [privacyRules, privacyLevel])
+
+  const normalizedSpecificUsers = useMemo(() => {
+    if (specificUserIds && specificUserIds.length > 0) return specificUserIds
+    return []
+  }, [specificUserIds])
+
+  const audience = useMemo(() => {
+    return getPostAudience({
+      privacyLevel,
+      privacyRules: normalizedPrivacyRules as PrivacyRule[],
+      specificUsersCount: normalizedSpecificUsers.length,
+    })
+  }, [privacyLevel, normalizedPrivacyRules, normalizedSpecificUsers])
 
   useEffect(() => {
     let isActive = true
@@ -55,7 +69,7 @@ export default function PostPrivacySelector({
       const unresolvedIds = specificUserIds.filter((id) => !resolvedUsersRef.current.has(id))
       if (unresolvedIds.length > 0) {
         try {
-          const response = await apiClient.getBatchUserProfiles(unresolvedIds.map(String))
+          const response = await apiClient.getBatchUserProfiles(unresolvedIds.map(String)) as any
           const profiles = response?.data || response
           if (Array.isArray(profiles)) {
             profiles.forEach((profile: any) => {
@@ -146,8 +160,8 @@ export default function PostPrivacySelector({
         <button
           type="button"
           onClick={() => setShowPrivacyMenu((prev) => !prev)}
-          aria-label={privacyAudience.ariaLabel}
-          title={privacyAudience.label}
+          aria-label={audience.ariaLabel}
+          title={audience.label}
           className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-purple-300 hover:text-purple-700 transition-colors"
         >
           <PostPrivacyBadge

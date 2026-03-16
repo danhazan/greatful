@@ -21,20 +21,24 @@ jest.mock('@/components/RichTextEditor', () => {
   const React = require('react')
   return {
     __esModule: true,
-    default: React.forwardRef((props: any, ref: any) => {
-      React.useImperativeHandle(ref, () => ({
-        getPlainText: () => props.value || '',
-        focus: jest.fn(),
-        clear: jest.fn(),
-      }))
-      return (
-        <textarea
-          data-testid="rich-text-editor"
-          value={props.value || ''}
-          onChange={(event) => props.onChange?.(event.target.value, event.target.value)}
-        />
-      )
-    }),
+    default: (() => {
+      const MockRichTextEditor = React.forwardRef((props: any, ref: any) => {
+        React.useImperativeHandle(ref, () => ({
+          getPlainText: () => props.value || '',
+          focus: jest.fn(),
+          clear: jest.fn(),
+        }))
+        return (
+          <textarea
+            data-testid="rich-text-editor"
+            value={props.value || ''}
+            onChange={(event) => props.onChange?.(event.target.value, event.target.value)}
+          />
+        )
+      })
+      MockRichTextEditor.displayName = 'MockRichTextEditor'
+      return MockRichTextEditor
+    })(),
   }
 })
 

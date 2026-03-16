@@ -33,6 +33,12 @@ interface UploadResponse {
   error?: string
 }
 
+// Use existing validation utility with profile photo specific options
+const PROFILE_PHOTO_OPTIONS = {
+  maxSizeBytes: 5 * 1024 * 1024, // 5MB
+  allowedTypes: ['image/jpeg', 'image/png', 'image/webp'] // No GIF for profile photos
+}
+
 export default function ProfilePhotoUpload({
   currentPhotoUrl,
   onPhotoUpdate,
@@ -44,12 +50,6 @@ export default function ProfilePhotoUpload({
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { showSuccess, showError } = useToast()
-
-  // Use existing validation utility with profile photo specific options
-  const profilePhotoOptions = {
-    maxSizeBytes: 5 * 1024 * 1024, // 5MB
-    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'] // No GIF for profile photos
-  }
 
   const uploadPhoto = async (croppedBlob: Blob, cropData: CropData) => {
     setIsUploading(true)
@@ -116,9 +116,9 @@ export default function ProfilePhotoUpload({
     }
   }
 
-  const handleFileSelect = async (file: File) => {
+  const handleFileSelect = useCallback(async (file: File) => {
     // Prepare image (validates type and compresses if needed)
-    const result = await prepareImageForUpload(file, profilePhotoOptions)
+    const result = await prepareImageForUpload(file, PROFILE_PHOTO_OPTIONS)
     if (!result.success || !result.file) {
       showError(result.error || 'Invalid file')
       return
@@ -126,7 +126,7 @@ export default function ProfilePhotoUpload({
 
     setSelectedFile(result.file)
     setShowCropModal(true)
-  }
+  }, [showError])
 
   const handleCropComplete = (cropData: CropData, croppedBlob: Blob) => {
     uploadPhoto(croppedBlob, cropData)
@@ -172,7 +172,7 @@ export default function ProfilePhotoUpload({
       const file = e.dataTransfer.files[0]
       handleFileSelect(file)
     }
-  }, [])
+  }, [handleFileSelect])
 
   const openFileDialog = () => {
     fileInputRef.current?.click()

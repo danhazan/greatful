@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState, useMemo } from "react"
 import { autoUpdate, flip, offset, shift, useFloating, FloatingPortal } from "@floating-ui/react"
 import { Globe, Lock, Users } from "lucide-react"
 import { apiClient } from "@/utils/apiClient"
@@ -38,12 +38,12 @@ export default function PostPrivacyBadge({
   className = "",
   labelClassName = "",
 }: PostPrivacyBadgeProps) {
-  const normalizedPrivacyLevel =
+  const normalizedPrivacyLevel = useMemo(() => 
     privacyLevel === 'public' || privacyLevel === 'private' || privacyLevel === 'custom'
       ? privacyLevel
-      : undefined
-  const normalizedPrivacyRules = Array.isArray(privacyRules) ? privacyRules : []
-  const normalizedSpecificUsers = Array.isArray(specificUsers) ? specificUsers : []
+      : undefined, [privacyLevel])
+  const normalizedPrivacyRules = useMemo(() => Array.isArray(privacyRules) ? privacyRules : [], [privacyRules])
+  const normalizedSpecificUsers = useMemo(() => Array.isArray(specificUsers) ? specificUsers : [], [specificUsers])
 
   const audience = getPostAudience({
     privacyLevel: normalizedPrivacyLevel,
@@ -52,11 +52,13 @@ export default function PostPrivacyBadge({
     specificUsersCount,
   })
 
-  const previewPrivacy: PostPrivacy | null = postPrivacy ?? (isAuthor ? {
-    privacyLevel: normalizedPrivacyLevel,
-    privacyRules: normalizedPrivacyRules,
-    specificUsers: normalizedSpecificUsers,
-  } : null)
+  const previewPrivacy: PostPrivacy | null = useMemo(() => {
+    return postPrivacy ?? (isAuthor ? {
+      privacyLevel: normalizedPrivacyLevel,
+      privacyRules: normalizedPrivacyRules,
+      specificUsers: normalizedSpecificUsers,
+    } : null)
+  }, [postPrivacy, isAuthor, normalizedPrivacyLevel, normalizedPrivacyRules, normalizedSpecificUsers])
 
   const enablePreview = Boolean(isAuthor && previewPrivacy)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -83,8 +85,8 @@ export default function PostPrivacyBadge({
 
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node
-      const referenceEl = refs.reference.current
-      const floatingEl = refs.floating.current
+      const referenceEl = refs.reference.current as Element | null
+      const floatingEl = refs.floating.current as Element | null
       if (referenceEl?.contains(target) || floatingEl?.contains(target)) {
         return
       }
@@ -201,7 +203,7 @@ export default function PostPrivacyBadge({
       }
 
       try {
-        const response = await apiClient.getBatchUserProfiles(unresolvedIds.map(String))
+        const response = await apiClient.getBatchUserProfiles(unresolvedIds.map(String)) as any
         const profiles = response?.data || response
         if (Array.isArray(profiles)) {
           profiles.forEach((profile: any) => {

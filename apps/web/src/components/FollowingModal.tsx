@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { X } from 'lucide-react'
 
 import UserListItem from './UserListItem'
@@ -33,14 +33,7 @@ export default function FollowingModal({
   const [error, setError] = useState<string | null>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
-  // Fetch following when modal opens
-  useEffect(() => {
-    if (isOpen && userId) {
-      fetchFollowing()
-    }
-  }, [isOpen, userId])
-
-  const fetchFollowing = async () => {
+  const fetchFollowing = useCallback(async () => {
     const token = getAccessToken()
     if (!token) return
 
@@ -67,7 +60,14 @@ export default function FollowingModal({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [userId])
+
+  // Fetch following when modal opens
+  useEffect(() => {
+    if (isOpen && userId) {
+      fetchFollowing()
+    }
+  }, [isOpen, userId, fetchFollowing])
 
 
 

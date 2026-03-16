@@ -239,7 +239,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateUserProfile(currentUser.id, profileUpdates)
       }
     }
-  }, [currentUser, updateUserProfile])
+  }, [currentUser, updateUserProfile, emitStateEvent])
 
   // Get user profile
   const getUserProfile = useCallback((userId: string): UserProfile | null => {

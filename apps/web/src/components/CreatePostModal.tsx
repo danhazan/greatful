@@ -160,7 +160,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   // Privacy state
   const initialPrivacy = useMemo(
-    () => ({ privacyLevel: 'public', privacyRules: [], specificUsers: [] }),
+    () => ({ privacyLevel: 'public' as const, privacyRules: [], specificUsers: [] }),
     []
   )
   const {

@@ -312,7 +312,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
     }
   }, [htmlValue, value])
 
-  const emitChange = () => {
+  const emitChange = useCallback(() => {
     if (!editableRef.current || isComposing || typeof window === 'undefined') return
 
     const rawHtml = editableRef.current.innerHTML
@@ -320,7 +320,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
     const plain = mentionsToPlainText(clean)
 
     onChange?.(plain, clean)
-  }
+  }, [isComposing, onChange])
 
   // Expose ref methods
   useImperativeHandle(ref, () => ({
@@ -421,7 +421,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       // Emit change to notify parent
       emitChange()
     }
-  }), [])
+  }), [emitChange])
 
   // Composition events for IME support
   const handleCompositionStart = () => {
