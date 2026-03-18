@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { LogOut } from "lucide-react"
 import UserAvatar from "./UserAvatar"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
@@ -29,13 +29,12 @@ export default function ProfileDropdown({
   onClose,
   onLogout
 }: ProfileDropdownProps) {
-  const router = useRouter()
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   // Menu items for keyboard navigation
   const menuItems = [
-    { label: 'Profile', action: () => handleProfileClick() },
+    { label: 'Profile', action: () => onClose() },
     { label: 'Logout', action: () => handleLogoutClick() }
   ]
 
@@ -73,11 +72,6 @@ export default function ProfileDropdown({
     }
   }, [isOpen])
 
-  const handleProfileClick = () => {
-    router.push('/profile')
-    onClose()
-  }
-
   const handleLogoutClick = () => {
     onLogout()
     onClose()
@@ -111,12 +105,13 @@ export default function ProfileDropdown({
           aria-orientation="vertical"
         >
           {/* User Info Header - Clickable to go to profile */}
-          <button
+          <Link
             ref={setItemRef(0)}
-            onClick={handleProfileClick}
+            href="/profile"
+            onClick={onClose}
             onMouseEnter={() => setSelectedIndex(0)}
             role="menuitem"
-            className={`w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 active:bg-purple-100 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] touch-manipulation ${selectedIndex === 0 ? 'bg-purple-50' : ''
+            className={`block w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 active:bg-purple-100 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] touch-manipulation no-underline text-inherit ${selectedIndex === 0 ? 'bg-purple-50' : ''
               }`}
             aria-label="Go to profile page"
           >
@@ -131,7 +126,7 @@ export default function ProfileDropdown({
                 </p>
               </div>
             </div>
-          </button>
+          </Link>
 
           {/* Menu Items */}
           <div className="py-1">

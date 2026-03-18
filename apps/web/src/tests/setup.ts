@@ -3,6 +3,15 @@ import '@testing-library/jest-dom'
 // Mock environment variables for testing
 process.env['NEXT_PUBLIC_API_URL'] = 'http://localhost:8000'
 
+import React from 'react'
+
+// Mock Next.js Link
+jest.mock('next/link', () => {
+  return function MockLink({ children, href, prefetch, replace, scroll, shallow, passHref, ...props }: any) {
+    return React.createElement('a', { href: href?.toString() || href, ...props }, children)
+  }
+})
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: () => ({

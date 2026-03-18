@@ -361,7 +361,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
         'edit'
       )
 
-      await onSubmit(payload)
+      await onSubmit(payload as any)
 
       // Hide loading toast and show success
       hideToast(loadingToastId)

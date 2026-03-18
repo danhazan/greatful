@@ -6,13 +6,16 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import ClickableUsername from '@/components/ClickableUsername'
 
-// Mock next/navigation
-const mockPush = jest.fn()
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush
-  })
-}))
+// Mock Next.js Link
+jest.mock('next/link', () => {
+  return function MockLink({ children, href, onClick, className, ...props }: any) {
+    return (
+      <a href={href} onClick={onClick} className={className} {...props}>
+        {children}
+      </a>
+    )
+  }
+})
 
 describe('ClickableUsername', () => {
   beforeEach(() => {
@@ -30,7 +33,7 @@ describe('ClickableUsername', () => {
     expect(screen.getByText('testuser')).toBeInTheDocument()
   })
 
-  it('should navigate to user profile when clicked with valid ID', async () => {
+  it('should render as a link with correct href', () => {
     render(
       <ClickableUsername
         userId="123"
@@ -38,55 +41,8 @@ describe('ClickableUsername', () => {
       />
     )
 
-    const usernameElement = screen.getByText('testuser')
-    fireEvent.click(usernameElement)
-
-    // Wait for async navigation
-    await new Promise(resolve => setTimeout(resolve, 0))
-
-    expect(mockPush).toHaveBeenCalledWith('/profile/123')
-  })
-
-  it('should navigate to user profile when Enter key is pressed', () => {
-    render(
-      <ClickableUsername
-        userId="456"
-        username="anotheruser"
-      />
-    )
-
-    const usernameElement = screen.getByText('anotheruser')
-    fireEvent.keyDown(usernameElement, { key: 'Enter' })
-
-    expect(mockPush).toHaveBeenCalledWith('/profile/456')
-  })
-
-  it('should navigate to user profile when Space key is pressed', () => {
-    render(
-      <ClickableUsername
-        userId="789"
-        username="spaceuser"
-      />
-    )
-
-    const usernameElement = screen.getByText('spaceuser')
-    fireEvent.keyDown(usernameElement, { key: ' ' })
-
-    expect(mockPush).toHaveBeenCalledWith('/profile/789')
-  })
-
-  it('should not navigate when other keys are pressed', () => {
-    render(
-      <ClickableUsername
-        userId="123"
-        username="testuser"
-      />
-    )
-
-    const usernameElement = screen.getByText('testuser')
-    fireEvent.keyDown(usernameElement, { key: 'Tab' })
-
-    expect(mockPush).not.toHaveBeenCalled()
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', '/profile/123')
   })
 
   it('should call custom onClick handler when provided', () => {
@@ -100,11 +56,10 @@ describe('ClickableUsername', () => {
       />
     )
 
-    const usernameElement = screen.getByText('testuser')
-    fireEvent.click(usernameElement)
+    const link = screen.getByRole('link')
+    fireEvent.click(link)
 
     expect(mockOnClick).toHaveBeenCalled()
-    expect(mockPush).toHaveBeenCalledWith('/profile/123')
   })
 
   it('should apply custom className', () => {
@@ -116,8 +71,8 @@ describe('ClickableUsername', () => {
       />
     )
 
-    const usernameElement = screen.getByText('testuser')
-    expect(usernameElement).toHaveClass('custom-class')
+    const link = screen.getByRole('link')
+    expect(link).toHaveClass('custom-class')
   })
 
   it('should have proper accessibility attributes', () => {
@@ -128,30 +83,20 @@ describe('ClickableUsername', () => {
       />
     )
 
-    const usernameElement = screen.getByText('testuser')
-    expect(usernameElement).toHaveAttribute('role', 'button')
-    expect(usernameElement).toHaveAttribute('tabIndex', '0')
-    expect(usernameElement).toHaveAttribute('aria-label', "View testuser's profile")
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('aria-label', "View testuser's profile")
   })
 
-  it('should prevent event propagation when clicked', () => {
-    const parentClickHandler = jest.fn()
-    
+  it('should render as a link element (not a button or span)', () => {
     render(
-      <div onClick={parentClickHandler}>
-        <ClickableUsername
-          userId="123"
-          username="testuser"
-        />
-      </div>
+      <ClickableUsername
+        userId="123"
+        username="testuser"
+      />
     )
 
-    const usernameElement = screen.getByText('testuser')
-    fireEvent.click(usernameElement)
-
-    // Parent click handler should not be called due to stopPropagation
-    expect(parentClickHandler).not.toHaveBeenCalled()
-    expect(mockPush).toHaveBeenCalledWith('/profile/123')
+    expect(screen.getByRole('link')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('should work with numeric user IDs', () => {
@@ -162,9 +107,38 @@ describe('ClickableUsername', () => {
       />
     )
 
-    const usernameElement = screen.getByText('numericuser')
-    fireEvent.click(usernameElement)
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', '/profile/456')
+  })
 
-    expect(mockPush).toHaveBeenCalledWith('/profile/456')
+  it('should display displayName when provided', () => {
+    render(
+      <ClickableUsername
+        userId="123"
+        username="testuser"
+        displayName="Test User"
+      />
+    )
+
+    expect(screen.getByText('Test User')).toBeInTheDocument()
+  })
+
+  it('should fallback to username href when userId is not valid', () => {
+    render(
+      <ClickableUsername
+        userId="invalid-id"
+        username="testuser"
+      />
+    )
+
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', '/profile/testuser')
+  })
+
+  it('should render plain text when no userId or username provided', () => {
+    render(<ClickableUsername />)
+
+    expect(screen.getByText('Unknown User')).toBeInTheDocument()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 })

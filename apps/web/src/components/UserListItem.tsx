@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import ProfilePhotoDisplay from './ProfilePhotoDisplay'
 import { formatTimeAgo } from '@/utils/timeAgo'
 
@@ -15,6 +16,7 @@ interface UserListItemProps {
     createdAt?: string
   }
   rightElement?: React.ReactNode
+  href?: string
   onClick?: () => void
   showTimestamp?: boolean
   className?: string
@@ -27,6 +29,7 @@ interface UserListItemProps {
 export default function UserListItem({
   user,
   rightElement,
+  href,
   onClick,
   showTimestamp = false,
   className = '',
@@ -35,15 +38,8 @@ export default function UserListItem({
   ariaLabel,
   onKeyDown
 }: UserListItemProps) {
-  return (
-    <div
-      className={`flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer ${className}`}
-      onClick={onClick}
-      role={role}
-      tabIndex={tabIndex}
-      aria-label={ariaLabel}
-      onKeyDown={onKeyDown}
-    >
+  const content = (
+    <>
       {/* User Avatar */}
       <div className="flex-shrink-0">
         <ProfilePhotoDisplay
@@ -80,6 +76,38 @@ export default function UserListItem({
           {rightElement}
         </div>
       )}
+    </>
+  )
+
+  const baseClasses = `flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer ${className}`
+
+  // When href is provided, render as a Link (proper <a> tag)
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={`${baseClasses} no-underline text-inherit`}
+        onClick={onClick}
+        role={role}
+        tabIndex={tabIndex}
+        aria-label={ariaLabel}
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  // Fallback: render as div with onClick (backward compatibility)
+  return (
+    <div
+      className={baseClasses}
+      onClick={onClick}
+      role={role}
+      tabIndex={tabIndex}
+      aria-label={ariaLabel}
+      onKeyDown={onKeyDown}
+    >
+      {content}
     </div>
   )
 }

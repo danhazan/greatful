@@ -113,40 +113,40 @@ export async function PUT(
     const backendPayload: Record<string, any> = {}
 
     if (hasField('content')) {
-      backendPayload.content = body.content
+      backendPayload['content'] = body.content
     }
 
     if (hasAnyField('richContent', 'rich_content')) {
-      backendPayload.rich_content = hasField('richContent') ? body.richContent : body.rich_content
+      backendPayload['rich_content'] = hasField('richContent') ? body.richContent : body.rich_content
     }
 
     if (hasAnyField('postStyle', 'post_style')) {
       const postStyle = hasField('postStyle') ? body.postStyle : body.post_style
       if (postStyle !== null && postStyle !== undefined) {
-        backendPayload.post_style = postStyle
+        backendPayload['post_style'] = postStyle
       }
     }
 
     if (hasAnyField('location', 'location_data', 'locationData')) {
       if (hasField('location')) {
-        backendPayload.location = body.location
+        backendPayload['location'] = body.location
       }
       if (hasAnyField('locationData', 'location_data')) {
         const rawLocationData = hasField('locationData') ? body.locationData : body.location_data
-        backendPayload.location_data = normalizeLocationData(rawLocationData)
+        backendPayload['location_data'] = normalizeLocationData(rawLocationData)
       }
     }
 
     if (hasAnyField('privacyLevel', 'privacy_level')) {
-      backendPayload.privacy_level = hasField('privacyLevel') ? body.privacyLevel : body.privacy_level
+      backendPayload['privacy_level'] = hasField('privacyLevel') ? body.privacyLevel : body.privacy_level
     }
 
     if (hasAnyField('privacyRules', 'rules')) {
-      backendPayload.rules = hasField('privacyRules') ? body.privacyRules : body.rules
+      backendPayload['rules'] = hasField('privacyRules') ? body.privacyRules : body.rules
     }
 
     if (hasAnyField('specificUsers', 'specific_users')) {
-      backendPayload.specific_users = hasField('specificUsers') ? body.specificUsers : body.specific_users
+      backendPayload['specific_users'] = hasField('specificUsers') ? body.specificUsers : body.specific_users
     }
     
     // Get auth token from request headers

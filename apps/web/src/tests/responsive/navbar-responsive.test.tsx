@@ -35,10 +35,12 @@ jest.mock('@/components/UserSearchBar', () => ({
 const mockUser = {
   id: 'user-123',
   name: 'John Doe',
-  display_name: 'Johnny',
+  display_name: 'Johnny', // keep for backward compatibility if needed in tests
+  displayName: 'Johnny',
   username: 'johndoe',
   email: 'john@example.com',
-  profile_image_url: 'https://example.com/avatar.jpg'
+  profile_image_url: 'https://example.com/avatar.jpg',
+  profileImageUrl: 'https://example.com/avatar.jpg'
 }
 
 describe('Navbar Responsive Design', () => {
@@ -105,7 +107,7 @@ describe('Navbar Responsive Design', () => {
     it('applies responsive spacing between elements', () => {
       render(<Navbar user={mockUser} />)
       
-      const logoButton = screen.getByRole('button', { name: /go to grateful home/i })
+      const logoButton = screen.getByRole('link', { name: /go to grateful home/i })
       expect(logoButton).toHaveClass('space-x-1', 'sm:space-x-2')
       
       const rightSection = screen.getByLabelText('Go to feed').closest('div')

@@ -124,7 +124,7 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
                       image: heart.userImage,
                       createdAt: heart.createdAt
                     }}
-                    onClick={() => onUserClick?.(parseInt(heart.userId))}
+                    href={`/profile/${heart.userId}`}
                     showTimestamp={true}
                     rightElement={<span className="text-lg">💜</span>}
                   />

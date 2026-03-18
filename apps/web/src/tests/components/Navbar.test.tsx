@@ -1,10 +1,23 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+
+// Mock Next.js Link
+jest.mock('next/link', () => {
+  return function MockLink({ children, href, onClick, className, ...props }: any) {
+    return (
+      <a href={href} onClick={onClick} className={className} {...props}>
+        {children}
+      </a>
+    )
+  }
+})
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
+  useRouter: jest.fn().mockReturnValue({
+    push: jest.fn(),
+    back: jest.fn(),
+  }),
 }))
 
 // Mock NotificationSystem component
@@ -25,22 +38,16 @@ jest.mock('@/components/ProfileDropdown', () => {
   }
 })
 
-const mockPush = jest.fn()
-const mockBack = jest.fn()
-
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(useRouter as jest.Mock).mockReturnValue({
-    push: mockPush,
-    back: mockBack,
-  })
 })
 
 describe('Navbar Component', () => {
   const mockUser = {
     id: 'user-123',
     name: 'John Doe',
-    email: 'john@example.com'
+    email: 'john@example.com',
+    username: 'johndoe',
   }
 
   it('renders the Grateful logo and title', () => {
@@ -78,46 +85,40 @@ describe('Navbar Component', () => {
     expect(screen.queryByTestId('notification-system')).not.toBeInTheDocument()
   })
 
-  it('shows feed icon when user is provided', () => {
+  it('shows feed icon as a link when user is provided', () => {
     render(<Navbar user={mockUser} />)
     
-    const feedButton = screen.getByRole('button', { name: 'Go to feed' })
-    expect(feedButton).toBeInTheDocument()
-    expect(feedButton).toHaveAttribute('title', 'Feed')
+    const feedLink = screen.getByRole('link', { name: 'Go to feed' })
+    expect(feedLink).toBeInTheDocument()
+    expect(feedLink).toHaveAttribute('href', '/feed')
+    expect(feedLink).toHaveAttribute('title', 'Feed')
   })
 
   it('does not show feed icon when user is not provided', () => {
     render(<Navbar />)
     
-    expect(screen.queryByRole('button', { name: 'Go to feed' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Go to feed' })).not.toBeInTheDocument()
   })
 
-
-
-  it('navigates to feed when feed icon is clicked', () => {
+  it('feed link has correct href', () => {
     render(<Navbar user={mockUser} />)
     
-    const feedButton = screen.getByRole('button', { name: 'Go to feed' })
-    fireEvent.click(feedButton)
-    
-    expect(mockPush).toHaveBeenCalledWith('/feed')
+    const feedLink = screen.getByRole('link', { name: 'Go to feed' })
+    expect(feedLink).toHaveAttribute('href', '/feed')
   })
 
-  it('navigates to feed when logo is clicked', () => {
+  it('logo link has correct href when user is logged in', () => {
     render(<Navbar user={mockUser} />)
     
-    const logoButton = screen.getByRole('button', { name: /go to grateful home/i })
-    expect(logoButton).toBeInTheDocument()
-    
-    fireEvent.click(logoButton)
-    
-    expect(mockPush).toHaveBeenCalledWith('/feed')
+    const logoLink = screen.getByRole('link', { name: /go to grateful home/i })
+    expect(logoLink).toBeInTheDocument()
+    expect(logoLink).toHaveAttribute('href', '/feed')
   })
 
-  it('logo is not clickable when no user is provided', () => {
+  it('logo is not a link when no user is provided', () => {
     render(<Navbar />)
     
-    expect(screen.queryByRole('button', { name: /go to grateful home/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /go to grateful home/i })).not.toBeInTheDocument()
     expect(screen.getByText('💜')).toBeInTheDocument()
     expect(screen.getByText('Grateful')).toBeInTheDocument()
   })
@@ -165,15 +166,25 @@ describe('Navbar Component', () => {
     expect(screen.queryByRole('button', { name: /open menu/i })).not.toBeInTheDocument()
   })
 
-
-
   it('applies correct styling classes', () => {
     render(<Navbar user={mockUser} />)
     
     const nav = screen.getByRole('navigation')
     expect(nav).toHaveClass('bg-white', 'border-b', 'border-gray-200')
     
-    const feedButton = screen.getByRole('button', { name: 'Go to feed' })
-    expect(feedButton).toHaveClass('text-purple-600', 'hover:text-purple-700', 'transition-colors')
+    const feedLink = screen.getByRole('link', { name: 'Go to feed' })
+    expect(feedLink).toHaveClass('text-purple-600', 'hover:text-purple-700', 'transition-colors')
+  })
+
+  it('renders logo and feed as links (not buttons) for proper link behavior', () => {
+    render(<Navbar user={mockUser} />)
+    
+    // Logo should be a link
+    const logoLink = screen.getByRole('link', { name: /go to grateful home/i })
+    expect(logoLink.tagName).toBe('A')
+    
+    // Feed icon should be a link
+    const feedLink = screen.getByRole('link', { name: 'Go to feed' })
+    expect(feedLink.tagName).toBe('A')
   })
 })

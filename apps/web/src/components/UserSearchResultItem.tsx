@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import { createTouchHandlers } from '@/utils/hapticFeedback'
 import ProfilePhotoDisplay from './ProfilePhotoDisplay'
 import { UserSearchResult } from '@/types/userSearch'
@@ -34,18 +35,17 @@ export default function UserSearchResultItem({
     : `Go to ${user.displayName || user.username}'s profile${user.bio ? `. ${user.bio}` : ''}`
 
   return (
-    <button
+    <Link
       key={user.id}
       ref={setItemRef(index)}
-      type="button"
+      href={`/profile/${user.id}`}
       role="option"
       aria-selected={isSelected}
-      className={`w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 select-none focus:ring-2 focus:ring-purple-500 focus:ring-inset ${isSelected ? 'bg-purple-50' : ''}`}
+      className={`block w-full px-3 py-3 text-left hover:bg-purple-50 focus:bg-purple-50 focus:outline-none transition-colors min-h-[56px] sm:min-h-[48px] touch-manipulation active:bg-purple-100 focus:ring-2 focus:ring-purple-500 focus:ring-inset no-underline text-inherit ${isSelected ? 'bg-purple-50' : ''}`}
       onMouseDown={(e) => {
         e.preventDefault()
       }}
       onClick={(e) => {
-        e.preventDefault()
         onSelect(user)
       }}
       onMouseEnter={() => onMouseEnter(index)}
@@ -75,6 +75,6 @@ export default function UserSearchResultItem({
           )}
         </div>
       </div>
-    </button>
+    </Link>
   )
 }

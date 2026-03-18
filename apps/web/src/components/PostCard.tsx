@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Share, Calendar, MapPin, Plus, Loader2, MoreHorizontal, Edit3, Trash2, Heart, MessageCircle } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
@@ -839,26 +840,27 @@ export default function PostCard({
         {/* Post Header */}
         <div className={styling.header}>
           <div className="flex items-start gap-3">
-            <ProfilePhotoDisplay
-              photoUrl={currentPost.author.profileImageUrl || currentPost.author.image}
-              username={currentPost.author.username || currentPost.author.name}
-              size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
-              className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all flex-shrink-0"
-              onClick={() => onUserClick?.(currentPost.author.id)}
-            />
+            <Link href={`/profile/${currentPost.author.id}`} className="flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all rounded-full">
+              <ProfilePhotoDisplay
+                photoUrl={currentPost.author.profileImageUrl || currentPost.author.image}
+                username={currentPost.author.username || currentPost.author.name}
+                size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
+                className="flex-shrink-0"
+              />
+            </Link>
             {/* Content Column */}
             <div className="flex-1 min-w-0">
               {/* Row 1: Name + Follow + Options */}
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div
-                    className="min-w-0 cursor-pointer hover:text-purple-700 transition-colors"
-                    onClick={() => onUserClick?.(currentPost.author.id)}
+                  <Link
+                    href={`/profile/${currentPost.author.id}`}
+                    className="min-w-0 cursor-pointer hover:text-purple-700 transition-colors no-underline text-inherit"
                   >
                     <h3 className={`${styling.name} text-gray-900 font-bold truncate`}>
                       {currentPost.author.displayName || currentPost.author.name}
                     </h3>
-                  </div>
+                  </Link>
                   {/* Follow button */}
                   {currentUserId &&
                     currentUserId !== currentPost.author.id &&

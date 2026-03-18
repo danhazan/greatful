@@ -483,7 +483,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         'create'
       )
 
-      await onSubmit(payload)
+      await onSubmit(payload as any)
 
       // Hide loading toast and show success
       hideToast(loadingToastId)

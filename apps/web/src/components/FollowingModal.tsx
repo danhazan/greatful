@@ -142,9 +142,7 @@ export default function FollowingModal({
                       profileImageUrl: user.profileImageUrl,
                       bio: user.bio
                     }}
-                    onClick={() => {
-                      window.location.href = `/profile/${user.id}`
-                    }}
+                    href={`/profile/${user.id}`}
                   />
                 ))}
               </div>

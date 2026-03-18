@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { validProfileId } from "@/utils/idGuards"
 
 interface ClickableUsernameProps {
@@ -12,8 +12,8 @@ interface ClickableUsernameProps {
 }
 
 /**
- * Clickable username component that navigates to user profile
- * Used in notifications and other places where usernames should be clickable
+ * Clickable username component that navigates to user profile.
+ * Uses Next.js Link for SPA navigation with a static href.
  */
 export default function ClickableUsername({ 
   userId, 
@@ -22,82 +22,41 @@ export default function ClickableUsername({
   className = "font-medium text-purple-600 hover:text-purple-700 cursor-pointer transition-colors",
   onClick 
 }: ClickableUsernameProps) {
-  const router = useRouter()
-
-  const handleClick = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation() // Prevent parent click handlers from firing
-    
-    if (onClick) {
-      onClick(e)
-    }
-    
-    // Ensure we have either userId or username
-    if (!userId && !username) {
-      console.warn('ClickableUsername: No userId or username provided')
-      return
-    }
-    
-    // If we have a valid userId, navigate directly
+  // Build static href — always available at render time
+  const getProfileHref = (): string | null => {
     if (userId && validProfileId(userId)) {
-      router.push(`/profile/${userId}`)
-      return
+      return `/profile/${userId}`
     }
-    
-    // If userId is provided but not valid (might be a username), try to resolve it
-    const usernameToResolve = username || (userId && !validProfileId(userId) ? String(userId) : null)
-    
-    if (usernameToResolve) {
-      try {
-        const token = localStorage.getItem("access_token")
-        if (!token) {
-          console.warn('No access token available for username resolution')
-          return
-        }
-
-        const response = await fetch(`/api/users/by-username/${encodeURIComponent(usernameToResolve)}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
-        if (response.ok) {
-          const userData = await response.json()
-          if (userData.data && userData.data.id) {
-            router.push(`/profile/${userData.data.id}`)
-            return
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to resolve username to ID:', error)
-      }
+    if (username) {
+      return `/profile/${username}`
     }
-    
-    console.warn('Unable to navigate to user profile:', { userId, username })
+    if (userId) {
+      return `/profile/${userId}`
+    }
+    return null
   }
 
-  // Don't render if we have neither userId nor username
+  const profileHref = getProfileHref()
+
+  // Don't render link if we have no profile destination
   if (!userId && !username) {
     return <span className={className}>Unknown User</span>
   }
 
   const nameToDisplay = displayName || username || `User ${userId}`
 
+  if (!profileHref) {
+    return <span className={className}>{nameToDisplay}</span>
+  }
+
   return (
-    <span 
+    <Link 
+      href={profileHref}
       className={className}
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          handleClick(e as any)
-        }
-      }}
+      onClick={onClick}
       aria-label={`View ${nameToDisplay}'s profile`}
     >
       {nameToDisplay}
-    </span>
+    </Link>
   )
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { validProfileId } from "@/utils/idGuards"
 
 interface ClickableProfilePictureProps {
@@ -15,8 +15,8 @@ interface ClickableProfilePictureProps {
 }
 
 /**
- * Clickable profile picture component that navigates to user profile
- * Reuses the same navigation logic as ClickableUsername for consistency
+ * Clickable profile picture component that navigates to user profile.
+ * Uses Next.js Link for SPA navigation with a static href.
  */
 export default function ClickableProfilePicture({ 
   userId, 
@@ -27,7 +27,6 @@ export default function ClickableProfilePicture({
   className,
   onClick 
 }: ClickableProfilePictureProps) {
-  const router = useRouter()
   const [imageError, setImageError] = useState(false)
 
   // Reset image error when URL changes
@@ -48,63 +47,27 @@ export default function ClickableProfilePicture({
     large: 'text-base'
   }
 
-  const handleClick = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation() // Prevent parent click handlers from firing
-    
-    if (onClick) {
-      onClick(e)
-    }
-    
-    // Ensure we have either userId or username
-    if (!userId && !username) {
-      console.warn('ClickableProfilePicture: No userId or username provided')
-      return
-    }
-    
-    // If we have a valid userId, navigate directly
+  // Build static href — always available at render time
+  const getProfileHref = (): string | null => {
     if (userId && validProfileId(userId)) {
-      router.push(`/profile/${userId}`)
-      return
+      return `/profile/${userId}`
     }
-    
-    // If userId is provided but not valid (might be a username), try to resolve it
-    const usernameToResolve = username || (userId && !validProfileId(userId) ? String(userId) : null)
-    
-    if (usernameToResolve) {
-      try {
-        const token = localStorage.getItem("access_token")
-        if (!token) {
-          console.warn('No access token available for username resolution')
-          return
-        }
-
-        const response = await fetch(`/api/users/by-username/${encodeURIComponent(usernameToResolve)}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
-        if (response.ok) {
-          const userData = await response.json()
-          if (userData.data && userData.data.id) {
-            router.push(`/profile/${userData.data.id}`)
-            return
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to resolve username to ID:', error)
-      }
+    if (username) {
+      return `/profile/${username}`
     }
-    
-    console.warn('Unable to navigate to user profile:', { userId, username })
+    if (userId) {
+      return `/profile/${userId}`
+    }
+    return null
   }
+
+  const profileHref = getProfileHref()
 
   const handleImageError = () => {
     setImageError(true)
   }
 
-  // Don't render if we have neither userId nor username
+  // Don't render link if we have no profile destination
   if (!userId && !username) {
     return (
       <div className={`${sizeClasses[size]} rounded-full bg-gray-200 flex items-center justify-center ${className || ''}`}>
@@ -116,51 +79,44 @@ export default function ClickableProfilePicture({
   const fallbackName = displayName || username || `User ${userId}`
   const fallbackInitial = fallbackName.charAt(0).toUpperCase()
 
-  // Show profile picture if available and not errored
-  if (imageUrl && !imageError) {
+  // Inner content — image or letter avatar
+  const renderContent = () => {
+    if (imageUrl && !imageError) {
+      return (
+        <div className={`${sizeClasses[size]} rounded-full overflow-hidden bg-gray-100 ${className || ''}`}>
+          <img
+            src={imageUrl}
+            alt={fallbackName}
+            className="w-full h-full object-cover object-center"
+            referrerPolicy="no-referrer"
+            onError={handleImageError}
+          />
+        </div>
+      )
+    }
+
     return (
-      <div 
-        className={`${sizeClasses[size]} rounded-full overflow-hidden bg-gray-100 cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all ${className || ''}`}
-        onClick={handleClick}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            handleClick(e as any)
-          }
-        }}
-        role="button"
-        tabIndex={0}
-        aria-label={`View ${fallbackName}'s profile`}
-      >
-        <img
-          src={imageUrl}
-          alt={fallbackName}
-          className="w-full h-full object-cover object-center"
-          referrerPolicy="no-referrer"
-          onError={handleImageError}
-        />
+      <div className={`${sizeClasses[size]} rounded-full bg-purple-100 flex items-center justify-center ${className || ''}`}>
+        <span className={`text-purple-600 ${textSizeClasses[size]} font-medium`}>
+          {fallbackInitial}
+        </span>
       </div>
     )
   }
 
-  // Fallback to letter avatar
+  // If no valid href, render non-linked content
+  if (!profileHref) {
+    return renderContent()
+  }
+
   return (
-    <div 
-      className={`${sizeClasses[size]} rounded-full bg-purple-100 flex items-center justify-center cursor-pointer hover:bg-purple-200 transition-colors ${className || ''}`}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          handleClick(e as any)
-        }
-      }}
-      role="button"
-      tabIndex={0}
+    <Link
+      href={profileHref}
+      onClick={onClick}
+      className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all rounded-full inline-block"
       aria-label={`View ${fallbackName}'s profile`}
     >
-      <span className={`text-purple-600 ${textSizeClasses[size]} font-medium`}>
-        {fallbackInitial}
-      </span>
-    </div>
+      {renderContent()}
+    </Link>
   )
 }

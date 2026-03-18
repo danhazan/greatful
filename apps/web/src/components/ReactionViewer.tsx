@@ -175,19 +175,12 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                             image: reaction.userImage,
                             createdAt: reaction.createdAt
                           }}
-                          onClick={() => onUserClick?.(parseInt(reaction.userId))}
+                          href={`/profile/${reaction.userId}`}
                           showTimestamp={true}
                           rightElement={<span className="text-lg">{emoji}</span>}
                           className="min-h-[44px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset"
                           role="listitem"
-                          tabIndex={0}
-                          ariaLabel={`${reaction.userName} reacted with ${emoji} ${formatTimeAgo(reaction.createdAt)}. Press to view profile.`}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault()
-                              onUserClick?.(parseInt(reaction.userId))
-                            }
-                          }}
+                          ariaLabel={`${reaction.userName} reacted with ${emoji} ${formatTimeAgo(reaction.createdAt)}. Click to view profile.`}
                         />
                       ))}
                     </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 import NotificationSystem from "./NotificationSystem"
 import ProfileDropdown from "./ProfileDropdown"
@@ -56,9 +57,9 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
         {/* Left section: Logo */}
         <div className="flex items-center flex-shrink-0 relative z-10">
           {user ? (
-            <button
-              onClick={() => handleNavigation("/feed")}
-              className="flex items-center space-x-1 sm:space-x-2 min-h-[44px] hover:opacity-80 active:opacity-70 transition-opacity touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1"
+            <Link
+              href="/feed"
+              className="flex items-center space-x-1 sm:space-x-2 min-h-[44px] hover:opacity-80 active:opacity-70 transition-opacity touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1 no-underline"
               aria-label="Go to Grateful home"
               title="Go to Grateful home"
             >
@@ -66,7 +67,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
               <span className="text-xl sm:text-2xl relative z-20" aria-hidden="true">💜</span>
               {/* Grateful text - can be covered by search on mobile */}
               <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-0">Grateful</h1>
-            </button>
+            </Link>
           ) : (
             <div className="flex items-center space-x-1 sm:space-x-2 min-h-[44px]">
               {/* Purple heart - always visible, higher z-index */}
@@ -95,14 +96,14 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
         <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0 relative z-10">
           {/* Purple Heart Feed Icon */}
           {user && (
-            <button
-              onClick={() => handleNavigation("/feed")}
+            <Link
+              href="/feed"
               className="text-purple-600 hover:text-purple-700 active:text-purple-800 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
               aria-label="Go to feed"
               title="Feed"
             >
               <span className="text-xl sm:text-2xl" aria-hidden="true">💜</span>
-            </button>
+            </Link>
           )}
 
           {user && <NotificationSystem userId={user.id} />}

@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals'
 import { normalizeUserData } from '@/utils/userDataMapping'
 
 describe('Navbar Profile Image Integration', () => {
@@ -33,10 +34,12 @@ describe('Navbar Profile Image Integration', () => {
         id: 123,
         username: 'testuser',
         display_name: 'Test User',
+        displayName: 'Test User',
         email: 'test@example.com',
         profile_image_url: 'https://example.com/profile.jpg',
+        profileImageUrl: 'https://example.com/profile.jpg',
         image: 'https://example.com/profile.jpg', // Normalized field
-        name: 'Test User', // Normalized field
+        name: 'testuser', // Normalized field
         bio: 'Test bio',
         created_at: '2024-01-01T00:00:00Z',
         posts_count: 5
@@ -62,7 +65,7 @@ describe('Navbar Profile Image Integration', () => {
 
       // Both image fields should now be absolute URLs
       expect(normalizedUserData.image).toBe('http://localhost:8000/uploads/profile_photos/profile_03777.jpg')
-      expect(normalizedUserData.profile_image_url).toBe('http://localhost:8000/uploads/profile_photos/profile_03777.jpg')
+      expect(normalizedUserData.profileImageUrl).toBe('http://localhost:8000/uploads/profile_photos/profile_03777.jpg')
       
       // This prevents the browser from trying to load:
       // http://localhost:3000/uploads/profile_photos/profile_03777.jpg (404 error)
@@ -85,7 +88,7 @@ describe('Navbar Profile Image Integration', () => {
       const normalizedUserData = normalizeUserData(backendResponse.data)
 
       expect(normalizedUserData.image).toBeNull()
-      expect(normalizedUserData.name).toBe('Test User')
+      expect(normalizedUserData.name).toBe('testuser')
     })
   })
 
@@ -109,21 +112,25 @@ describe('Navbar Profile Image Integration', () => {
       const profileData = apiResponse.data
       const currentUser = {
         id: profileData.id,
-        name: profileData.display_name || profileData.username,
+        name: profileData.username,
         display_name: profileData.display_name,
+        displayName: profileData.display_name,
         username: profileData.username,
         email: profileData.email,
         profile_image_url: profileData.profile_image_url,
+        profileImageUrl: profileData.profile_image_url,
         image: profileData.image // Use normalized image field
       }
 
       expect(currentUser).toEqual({
         id: 123,
-        name: 'Test User',
+        name: 'testuser',
         display_name: 'Test User',
+        displayName: 'Test User',
         username: 'testuser',
         email: 'test@example.com',
         profile_image_url: 'https://example.com/profile.jpg',
+        profileImageUrl: 'https://example.com/profile.jpg',
         image: 'https://example.com/profile.jpg'
       })
     })

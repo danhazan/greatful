@@ -53,12 +53,12 @@ export function buildPostPayload(input: BuildPostPayloadInput, mode: PostPayload
   }
 
   if (input.richContent !== undefined) {
-    payload.richContent = input.richContent ?? null
+    payload['richContent'] = input.richContent ?? null
   }
 
   const sanitizedStyle = sanitizePostStyleForApi(input.postStyle)
   if (sanitizedStyle) {
-    payload.postStyle = sanitizedStyle
+    payload['postStyle'] = sanitizedStyle
   }
 
   const privacyLevel: PrivacyLevel = input.privacyLevel ?? 'public'
@@ -67,38 +67,38 @@ export function buildPostPayload(input: BuildPostPayloadInput, mode: PostPayload
   const isCustom = privacyLevel === 'custom'
 
   if (mode === 'edit') {
-    payload.privacyLevel = privacyLevel
-    payload.privacyRules = isCustom ? privacyRules : []
-    payload.specificUsers = isCustom ? specificUsers : []
-    payload.location = input.location ? input.location : null
-    payload.locationData = input.locationData ? input.locationData : null
+    payload['privacyLevel'] = privacyLevel
+    payload['privacyRules'] = isCustom ? privacyRules : []
+    payload['specificUsers'] = isCustom ? specificUsers : []
+    payload['location'] = input.location ? input.location : null
+    payload['locationData'] = input.locationData ? input.locationData : null
     return payload
   }
 
   // create mode
-  payload.privacyLevel = privacyLevel
+  payload['privacyLevel'] = privacyLevel
   if (isCustom) {
-    payload.privacyRules = privacyRules
-    payload.specificUsers = specificUsers
+    payload['privacyRules'] = privacyRules
+    payload['specificUsers'] = specificUsers
   }
 
   if (input.location) {
-    payload.location = input.location
+    payload['location'] = input.location
   }
   if (input.locationData) {
-    payload.locationData = input.locationData
+    payload['locationData'] = input.locationData
   }
   if (input.mentions && input.mentions.length > 0) {
-    payload.mentions = input.mentions
+    payload['mentions'] = input.mentions
   }
   if (input.imageFiles && input.imageFiles.length > 0) {
-    payload.imageFiles = input.imageFiles
+    payload['imageFiles'] = input.imageFiles
   }
   if (input.imageFile) {
-    payload.imageFile = input.imageFile
+    payload['imageFile'] = input.imageFile
   }
   if (input.imageUrl) {
-    payload.imageUrl = input.imageUrl
+    payload['imageUrl'] = input.imageUrl
   }
 
   return payload

@@ -1,12 +1,17 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { useRouter } from 'next/navigation'
 import ClickableProfilePicture from '@/components/ClickableProfilePicture'
 
-// Mock Next.js router
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn()
-}))
+// Mock Next.js Link
+jest.mock('next/link', () => {
+  return function MockLink({ children, href, onClick, className, ...props }: any) {
+    return (
+      <a href={href} onClick={onClick} className={className} {...props}>
+        {children}
+      </a>
+    )
+  }
+})
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -23,13 +28,8 @@ Object.defineProperty(window, 'localStorage', {
 global.fetch = jest.fn()
 
 describe('ClickableProfilePicture', () => {
-  const mockPush = jest.fn()
-  
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(useRouter as jest.Mock).mockReturnValue({
-      push: mockPush
-    })
     mockLocalStorage.getItem.mockReturnValue('mock-token')
   })
 
@@ -103,7 +103,7 @@ describe('ClickableProfilePicture', () => {
 
   describe('Size Variants', () => {
     it('should apply correct size classes for small size', () => {
-      const { container } = render(
+      render(
         <ClickableProfilePicture
           userId="123"
           username="testuser"
@@ -111,24 +111,26 @@ describe('ClickableProfilePicture', () => {
         />
       )
 
-      const avatar = container.querySelector('[role="button"]')
-      expect(avatar).toHaveClass('w-8', 'h-8')
+      const link = screen.getByRole('link')
+      const sizeDiv = link.querySelector('.w-8')
+      expect(sizeDiv).toBeInTheDocument()
     })
 
     it('should apply correct size classes for medium size (default)', () => {
-      const { container } = render(
+      render(
         <ClickableProfilePicture
           userId="123"
           username="testuser"
         />
       )
 
-      const avatar = container.querySelector('[role="button"]')
-      expect(avatar).toHaveClass('w-10', 'h-10')
+      const link = screen.getByRole('link')
+      const sizeDiv = link.querySelector('.w-10')
+      expect(sizeDiv).toBeInTheDocument()
     })
 
     it('should apply correct size classes for large size', () => {
-      const { container } = render(
+      render(
         <ClickableProfilePicture
           userId="123"
           username="testuser"
@@ -136,13 +138,14 @@ describe('ClickableProfilePicture', () => {
         />
       )
 
-      const avatar = container.querySelector('[role="button"]')
-      expect(avatar).toHaveClass('w-12', 'h-12')
+      const link = screen.getByRole('link')
+      const sizeDiv = link.querySelector('.w-12')
+      expect(sizeDiv).toBeInTheDocument()
     })
   })
 
   describe('Navigation', () => {
-    it('should navigate to profile when clicked with valid userId', async () => {
+    it('should render as a link with correct href for valid userId', () => {
       render(
         <ClickableProfilePicture
           userId="123"
@@ -151,20 +154,11 @@ describe('ClickableProfilePicture', () => {
         />
       )
 
-      const avatar = screen.getByRole('button')
-      fireEvent.click(avatar)
-
-      expect(mockPush).toHaveBeenCalledWith('/profile/123')
+      const link = screen.getByRole('link')
+      expect(link).toHaveAttribute('href', '/profile/123')
     })
 
-    it('should resolve username to ID when userId is invalid', async () => {
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: { id: 456 }
-        })
-      })
-
+    it('should use username as href fallback when userId is not a valid ID', () => {
       render(
         <ClickableProfilePicture
           userId="invalid-id"
@@ -173,47 +167,8 @@ describe('ClickableProfilePicture', () => {
         />
       )
 
-      const avatar = screen.getByRole('button')
-      fireEvent.click(avatar)
-
-      await waitFor(() => {
-        expect(fetch).toHaveBeenCalledWith('/api/users/by-username/testuser', {
-          headers: {
-            'Authorization': 'Bearer mock-token'
-          }
-        })
-        expect(mockPush).toHaveBeenCalledWith('/profile/456')
-      })
-    })
-
-    it('should handle keyboard navigation (Enter key)', async () => {
-      render(
-        <ClickableProfilePicture
-          userId="123"
-          username="testuser"
-          displayName="Test User"
-        />
-      )
-
-      const avatar = screen.getByRole('button')
-      fireEvent.keyDown(avatar, { key: 'Enter' })
-
-      expect(mockPush).toHaveBeenCalledWith('/profile/123')
-    })
-
-    it('should handle keyboard navigation (Space key)', async () => {
-      render(
-        <ClickableProfilePicture
-          userId="123"
-          username="testuser"
-          displayName="Test User"
-        />
-      )
-
-      const avatar = screen.getByRole('button')
-      fireEvent.keyDown(avatar, { key: ' ' })
-
-      expect(mockPush).toHaveBeenCalledWith('/profile/123')
+      const link = screen.getByRole('link')
+      expect(link).toHaveAttribute('href', '/profile/testuser')
     })
 
     it('should call custom onClick handler when provided', () => {
@@ -228,11 +183,10 @@ describe('ClickableProfilePicture', () => {
         />
       )
 
-      const avatar = screen.getByRole('button')
-      fireEvent.click(avatar)
+      const link = screen.getByRole('link')
+      fireEvent.click(link)
 
       expect(mockOnClick).toHaveBeenCalled()
-      expect(mockPush).toHaveBeenCalledWith('/profile/123')
     })
   })
 
@@ -246,11 +200,11 @@ describe('ClickableProfilePicture', () => {
         />
       )
 
-      const avatar = screen.getByRole('button')
-      expect(avatar).toHaveAttribute('aria-label', "View Test User's profile")
+      const link = screen.getByRole('link')
+      expect(link).toHaveAttribute('aria-label', "View Test User's profile")
     })
 
-    it('should be focusable', () => {
+    it('should render as an <a> element (not a button)', () => {
       render(
         <ClickableProfilePicture
           userId="123"
@@ -259,66 +213,40 @@ describe('ClickableProfilePicture', () => {
         />
       )
 
-      const avatar = screen.getByRole('button')
-      expect(avatar).toHaveAttribute('tabIndex', '0')
+      expect(screen.getByRole('link')).toBeInTheDocument()
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
     })
 
-    it('should have proper role attribute', () => {
-      render(
-        <ClickableProfilePicture
-          userId="123"
-          username="testuser"
-          displayName="Test User"
-        />
-      )
+    it('should not render a link when no user data is provided', () => {
+      render(<ClickableProfilePicture />)
 
-      expect(screen.getByRole('button')).toBeInTheDocument()
+      expect(screen.queryByRole('link')).not.toBeInTheDocument()
     })
   })
 
-  describe('Error Handling', () => {
-    it('should handle missing access token gracefully', async () => {
-      mockLocalStorage.getItem.mockReturnValue(null)
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
-
+  describe('Link Behavior', () => {
+    it('should work with numeric user IDs', () => {
       render(
         <ClickableProfilePicture
-          userId="invalid-id"
-          username="testuser"
-          displayName="Test User"
+          userId={456}
+          username="numericuser"
         />
       )
 
-      const avatar = screen.getByRole('button')
-      fireEvent.click(avatar)
-
-      await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('No access token available for username resolution')
-      })
-
-      consoleSpy.mockRestore()
+      const link = screen.getByRole('link')
+      expect(link).toHaveAttribute('href', '/profile/456')
     })
 
-    it('should handle API errors gracefully', async () => {
-      ;(fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'))
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
-
+    it('should fallback to username when only username is provided', () => {
       render(
         <ClickableProfilePicture
-          userId="invalid-id"
           username="testuser"
           displayName="Test User"
         />
       )
 
-      const avatar = screen.getByRole('button')
-      fireEvent.click(avatar)
-
-      await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('Failed to resolve username to ID:', expect.any(Error))
-      })
-
-      consoleSpy.mockRestore()
+      const link = screen.getByRole('link')
+      expect(link).toHaveAttribute('href', '/profile/testuser')
     })
   })
 })
