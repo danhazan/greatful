@@ -70,8 +70,8 @@ describe('EditPostModal privacy payload', () => {
 
     expect(onSubmit).toHaveBeenCalled()
     const payload = onSubmit.mock.calls[0][0]
-    expect(payload.privacy_level).toBe('private')
-    expect(payload.rules).toEqual([])
-    expect(payload.specific_users).toEqual([])
+    expect(payload.privacyLevel).toBe('private')
+    expect(payload.privacyRules).toEqual([])
+    expect(payload.specificUsers).toEqual([])
   })
 })

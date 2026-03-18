@@ -650,13 +650,10 @@ export default function PostCard({
   // Edit and delete handlers
   const handleEditPost = async (postData: {
     content: string
+    richContent?: string
     postStyle?: any
-    title?: string
     location?: string
     locationData?: any
-    mentions?: string[]
-    imageUrl?: string
-    imageFile?: File
     privacyLevel?: 'public' | 'private' | 'custom'
     privacyRules?: string[]
     specificUsers?: number[]
@@ -670,55 +667,7 @@ export default function PostCard({
 
       const loadingToastId = showLoading('Updating Post', 'Saving your changes...')
 
-      let finalImageUrl = postData.imageUrl
-
-      // If there's a new image file, upload it first
-      if (postData.imageFile) {
-        try {
-          const formData = new FormData()
-          formData.append('image', postData.imageFile)
-
-          const uploadResponse = await fetch('/api/upload', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: formData
-          })
-
-          if (uploadResponse.ok) {
-            const uploadResult = await uploadResponse.json()
-            finalImageUrl = uploadResult.url
-          } else {
-            throw new Error('Failed to upload image')
-          }
-        } catch (uploadError) {
-          hideToast(loadingToastId)
-          showError('Upload Failed', 'Failed to upload image. Please try again.')
-          return
-        }
-      }
-
-      const updateData = {
-        content: postData.content,
-        postStyle: postData.postStyle,
-        title: postData.title,
-        imageUrl: finalImageUrl,
-        location: postData.location,
-        locationData: postData.locationData
-      }
-      const privacyLevel = postData.privacyLevel
-      const privacyRules = postData.privacyRules
-      const specificUsers = postData.specificUsers
-      if (privacyLevel !== undefined) {
-        (updateData as any).privacyLevel = privacyLevel
-      }
-      if (privacyRules !== undefined) {
-        (updateData as any).privacyRules = privacyRules
-      }
-      if (specificUsers !== undefined) {
-        (updateData as any).specificUsers = specificUsers
-      }
+      const updateData = postData
 
       try {
         // Use optimized API client for post update

@@ -11,6 +11,7 @@ import RichTextEditor, { RichTextEditorRef } from "./RichTextEditor"
 import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
 import PostPrivacySelector from "./PostPrivacySelector"
 import { usePostPrivacyState } from "@/hooks/usePostPrivacyState"
+import { buildPostPayload } from "@/utils/postPayload"
 
 // Gratitude prompts for inspiring users
 const GRATITUDE_PROMPTS = [
@@ -464,36 +465,23 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       // Prepare image files in order for multi-image upload
       const sortedImages = [...images].sort((a, b) => a.position - b.position)
       const imageFilesArray = sortedImages.map(img => img.file)
-      const payload: any = {
-        content: contentToSubmit.trim(),
-        // Always include postStyle (camelCase to match interface) and richContent
-        postStyle: selectedStyle ? ({
-          id: selectedStyle.id,
-          name: selectedStyle.name,
-          backgroundColor: selectedStyle.backgroundColor,
-          backgroundGradient: selectedStyle.backgroundGradient,
-          textColor: selectedStyle.textColor,
-          borderStyle: selectedStyle.borderStyle,
-          fontFamily: selectedStyle.fontFamily,
-          textShadow: selectedStyle.textShadow
-        }) : null,
-        richContent: richContent || null,
-        // Multi-image support (new)
-        ...(imageFilesArray.length > 0 ? { imageFiles: imageFilesArray } : {}),
-        // Legacy single image support (deprecated)
-        ...(postData.imageUrl ? { imageUrl: postData.imageUrl } : {}),
-        ...(postData.location ? { location: postData.location } : {}),
-        ...(postData.locationData ? { locationData: postData.locationData } : {}),
-        ...(imageFile ? { imageFile } : {}),
-        ...(mentionUsernames.length > 0 ? { mentions: mentionUsernames } : {}),
-        privacyLevel,
-        ...(privacyLevel === 'custom'
-          ? {
-            privacyRules: privacyRules,
-            specificUsers: specificUsers,
-          }
-          : {})
-      }
+      const payload = buildPostPayload(
+        {
+          content: contentToSubmit.trim(),
+          richContent: richContent || null,
+          postStyle: selectedStyle,
+          imageFiles: imageFilesArray,
+          imageUrl: postData.imageUrl || undefined,
+          imageFile: imageFile || undefined,
+          location: postData.location || undefined,
+          locationData: postData.locationData || undefined,
+          mentions: mentionUsernames,
+          privacyLevel,
+          privacyRules,
+          specificUsers,
+        },
+        'create'
+      )
 
       await onSubmit(payload)
 
