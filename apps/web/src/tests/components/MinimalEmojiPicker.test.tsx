@@ -113,11 +113,10 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const picker = document.querySelector('.fixed.z-50.bg-white')
+    const picker = document.querySelector('[data-minimal-emoji-picker]')
     expect(picker).toBeInTheDocument()
     expect(picker).toHaveStyle('width: min(calc(100vw - 32px), 672px)')
-    // Should use compressed desktop height by default in test environment
-    expect(picker).toHaveStyle('maxHeight: 280px')
+    expect(picker).toHaveStyle('maxHeight: 320px')
   })
 
   it('supports custom anchor gap for placement', () => {
@@ -131,7 +130,7 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const picker = document.querySelector('.fixed.z-50.bg-white')
+    const picker = document.querySelector('[data-minimal-emoji-picker]')
     expect(picker).toBeInTheDocument()
     expect(picker).toHaveStyle('bottom: 268px')
   })
@@ -206,7 +205,7 @@ describe('MinimalEmojiPicker', () => {
     expect(mockOnEmojiSelect).toHaveBeenCalledWith('😀')
   })
 
-  it('prevents text selection on section titles', () => {
+  it('shows compact category labels without adding much chrome', () => {
     render(
       <MinimalEmojiPicker
         isOpen={true}
@@ -217,10 +216,11 @@ describe('MinimalEmojiPicker', () => {
     )
 
     const sectionTitle = screen.getByText('Smileys & Happiness')
-    expect(sectionTitle).toHaveClass('select-none')
+    expect(sectionTitle).toHaveClass('text-[10px]')
+    expect(sectionTitle).toHaveClass('text-gray-400')
   })
 
-  it('shows search bar when open', () => {
+  it('shows search bar after toggling search mode', () => {
     render(
       <MinimalEmojiPicker
         isOpen={true}
@@ -230,7 +230,11 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const searchInput = screen.getByPlaceholderText('Search emojis...')
+    expect(screen.queryByPlaceholderText('Search emojis')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Show emoji search'))
+
+    const searchInput = screen.getByPlaceholderText('Search emojis')
     expect(searchInput).toBeInTheDocument()
     expect(searchInput).toHaveAttribute('type', 'text')
   })
@@ -245,17 +249,17 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const searchInput = screen.getByPlaceholderText('Search emojis...')
+    fireEvent.click(screen.getByLabelText('Show emoji search'))
+
+    const searchInput = screen.getByPlaceholderText('Search emojis')
 
     // Type "heart" to search for heart emojis
     fireEvent.change(searchInput, { target: { value: 'heart' } })
 
-    // Should show search results section
-    expect(screen.getByText(/Search Results/)).toBeInTheDocument()
-
     // Should hide category sections when searching
     expect(screen.queryByText('Smileys & Happiness')).not.toBeInTheDocument()
     expect(screen.queryByText('Hearts & Love')).not.toBeInTheDocument()
+    expect(screen.getByTitle('red heart')).toBeInTheDocument()
   })
 
   it('shows no results message when search has no matches', () => {
@@ -268,7 +272,9 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const searchInput = screen.getByPlaceholderText('Search emojis...')
+    fireEvent.click(screen.getByLabelText('Show emoji search'))
+
+    const searchInput = screen.getByPlaceholderText('Search emojis')
 
     // Type something that won't match any emojis
     fireEvent.change(searchInput, { target: { value: 'xyz123' } })
@@ -287,7 +293,9 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const searchInput = screen.getByPlaceholderText('Search emojis...')
+    fireEvent.click(screen.getByLabelText('Show emoji search'))
+
+    const searchInput = screen.getByPlaceholderText('Search emojis')
 
     // Type to search
     fireEvent.change(searchInput, { target: { value: 'heart' } })
@@ -297,15 +305,19 @@ describe('MinimalEmojiPicker', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(searchInput).toHaveValue('')
 
-    // Should show categories again
+    // Categories should be visible again while search stays open
     expect(screen.getByText('Smileys & Happiness')).toBeInTheDocument()
 
-    // Press escape again - should close modal
+    // Press escape again - should hide search mode
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByPlaceholderText('Search emojis')).not.toBeInTheDocument()
+
+    // Press escape a third time - should close modal
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(mockOnClose).toHaveBeenCalled()
   })
 
-  it('allows collapsing and expanding sections', () => {
+  it('keeps category sections available for browsing by default', () => {
     render(
       <MinimalEmojiPicker
         isOpen={true}
@@ -317,19 +329,7 @@ describe('MinimalEmojiPicker', () => {
 
     const sectionHeader = screen.getByText('Smileys & Happiness')
 
-    // Initially expanded - should show emojis
-    expect(screen.getByTitle('grinning face')).toBeInTheDocument()
-
-    // Click to collapse
-    fireEvent.click(sectionHeader)
-
-    // Should hide emojis when collapsed
-    expect(screen.queryByTitle('Insert 😀')).not.toBeInTheDocument()
-
-    // Click to expand again
-    fireEvent.click(sectionHeader)
-
-    // Should show emojis when expanded
+    expect(sectionHeader).toHaveClass('text-[10px]')
     expect(screen.getByTitle('grinning face')).toBeInTheDocument()
   })
 
@@ -381,13 +381,7 @@ describe('MinimalEmojiPicker', () => {
     expect(mockPreventDefault).toHaveBeenCalled()
   })
 
-  it('shows category toolbar when not searching', async () => {
-    // Mock a wider container for the test
-    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-      configurable: true,
-      value: 600, // Wide enough to show several category icons
-    })
-
+  it('shows the bottom category toolbar when not searching', () => {
     render(
       <MinimalEmojiPicker
         isOpen={true}
@@ -397,15 +391,11 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    // Wait for the responsive calculation to complete
-    await new Promise(resolve => setTimeout(resolve, 50))
-
-    // Should show category icons or overflow menu
-    const categoryToolbar = document.querySelector('[class*="border-b border-gray-100 px-2 py-1"]')
-    expect(categoryToolbar).toBeInTheDocument()
+    expect(screen.getByLabelText('Show emoji search')).toBeInTheDocument()
+    expect(screen.getByLabelText('Smileys & Happiness')).toBeInTheDocument()
   })
 
-  it('hides category toolbar when searching', () => {
+  it('keeps category toolbar visible while searching', () => {
     render(
       <MinimalEmojiPicker
         isOpen={true}
@@ -415,14 +405,15 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const searchInput = screen.getByPlaceholderText('Search emojis...')
+    fireEvent.click(screen.getByLabelText('Show emoji search'))
+
+    const searchInput = screen.getByPlaceholderText('Search emojis')
 
     // Type to search
     fireEvent.change(searchInput, { target: { value: 'heart' } })
 
-    // Category toolbar should be hidden when searching
-    expect(screen.queryByTitle('Smileys & Happiness')).not.toBeInTheDocument()
-    expect(screen.queryByTitle('Hearts & Love')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Smileys & Happiness')).toBeInTheDocument()
+    expect(screen.getByLabelText('Hearts & Love')).toBeInTheDocument()
   })
 
   it('uses responsive height calculation', () => {
@@ -448,11 +439,10 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const picker = document.querySelector('.fixed.z-50.bg-white')
+    const picker = document.querySelector('[data-minimal-emoji-picker]')
     expect(picker).toBeInTheDocument()
 
-    // Should use mobile height (35% of viewport height, max 240px)
-    const expectedHeight = Math.min(240, 800 * 0.35) // 240px
+    const expectedHeight = Math.min(340, 800 * 0.42)
     expect(picker).toHaveStyle(`maxHeight: ${expectedHeight}px`)
   })
 
@@ -466,13 +456,12 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const searchInput = screen.getByPlaceholderText('Search emojis...')
+    fireEvent.click(screen.getByLabelText('Show emoji search'))
+
+    const searchInput = screen.getByPlaceholderText('Search emojis')
 
     // Type "pizza" to search
     fireEvent.change(searchInput, { target: { value: 'pizza' } })
-
-    // Should show search results section
-    expect(screen.getByText(/Search Results/)).toBeInTheDocument()
 
     // Pizza emoji should be in the results (🍕)
     expect(screen.getByText('🍕')).toBeInTheDocument()
@@ -504,7 +493,9 @@ describe('MinimalEmojiPicker', () => {
       />
     )
 
-    const searchInput = screen.getByPlaceholderText('Search emojis...')
+    fireEvent.click(screen.getByLabelText('Show emoji search'))
+
+    const searchInput = screen.getByPlaceholderText('Search emojis')
 
     // Search by emoji name
     fireEvent.change(searchInput, { target: { value: 'grinning face' } })

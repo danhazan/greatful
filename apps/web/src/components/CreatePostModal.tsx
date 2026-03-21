@@ -158,6 +158,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
   // Location state
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0)
 
   // Privacy state
   const initialPrivacy = useMemo(
@@ -268,6 +270,47 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen, onClose, showLocationModal, showBackgrounds])
+
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const handleViewportMode = () => {
+      setIsMobileViewport(mediaQuery.matches)
+    }
+
+    handleViewportMode()
+    mediaQuery.addEventListener('change', handleViewportMode)
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleViewportMode)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !isMobileViewport || typeof window === 'undefined') return
+
+    if (!window.visualViewport) {
+      setMobileKeyboardInset(0)
+      return
+    }
+
+    const viewport = window.visualViewport
+    const updateInset = () => {
+      const inset = Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop))
+      setMobileKeyboardInset(inset)
+    }
+
+    updateInset()
+    viewport.addEventListener('resize', updateInset)
+    viewport.addEventListener('scroll', updateInset)
+
+    return () => {
+      viewport.removeEventListener('resize', updateInset)
+      viewport.removeEventListener('scroll', updateInset)
+      setMobileKeyboardInset(0)
+    }
+  }, [isOpen, isMobileViewport])
 
   // Handle escape key and mention autocomplete navigation
   useEffect(() => {
@@ -929,7 +972,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center p-2 sm:items-center sm:p-4"
+        style={{ paddingBottom: isMobileViewport ? `${mobileKeyboardInset}px` : undefined }}
+      >
         <div
           ref={modalRef}
           role="dialog"
@@ -937,6 +983,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           aria-modal="true"
           className={`bg-white rounded-xl shadow-xl border w-full max-w-2xl max-h-[90vh] flex flex-col transition-colors ${isDragOver ? 'border-purple-400 shadow-purple-200' : 'border-gray-200'
             }`}
+          style={{ maxHeight: isMobileViewport ? '85dvh' : undefined }}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}

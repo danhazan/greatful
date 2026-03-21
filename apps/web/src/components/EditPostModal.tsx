@@ -151,6 +151,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
   // Location state
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0)
   const [initialPrivacy, setInitialPrivacy] = useState<PostPrivacy>({
     privacyLevel: post.privacyLevel,
     privacyRules: post.privacyRules ?? [],
@@ -276,6 +278,47 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen, onClose, showMentionAutocomplete])
+
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const handleViewportMode = () => {
+      setIsMobileViewport(mediaQuery.matches)
+    }
+
+    handleViewportMode()
+    mediaQuery.addEventListener('change', handleViewportMode)
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleViewportMode)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !isMobileViewport || typeof window === 'undefined') return
+
+    if (!window.visualViewport) {
+      setMobileKeyboardInset(0)
+      return
+    }
+
+    const viewport = window.visualViewport
+    const updateInset = () => {
+      const inset = Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop))
+      setMobileKeyboardInset(inset)
+    }
+
+    updateInset()
+    viewport.addEventListener('resize', updateInset)
+    viewport.addEventListener('scroll', updateInset)
+
+    return () => {
+      viewport.removeEventListener('resize', updateInset)
+      viewport.removeEventListener('scroll', updateInset)
+      setMobileKeyboardInset(0)
+    }
+  }, [isOpen, isMobileViewport])
 
   // Reset form when modal opens/closes or post changes
   useEffect(() => {
@@ -531,13 +574,17 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center p-2 sm:items-center sm:p-4"
+        style={{ paddingBottom: isMobileViewport ? `${mobileKeyboardInset}px` : undefined }}
+      >
         <div
           ref={modalRef}
           role="dialog"
           aria-labelledby="modal-title"
           aria-modal="true"
           className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl max-h-[90vh] flex flex-col"
+          style={{ maxHeight: isMobileViewport ? '85dvh' : undefined }}
         >
           {/* Header */}
           <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200">

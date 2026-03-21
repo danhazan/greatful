@@ -135,7 +135,6 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [showTextSizePicker, setShowTextSizePicker] = useState(false)
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [overflowItems, setOverflowItems] = useState<string[]>([])
@@ -187,6 +186,35 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!showEmojiPicker) return
+
+    editableRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }, [showEmojiPicker])
+
+  useEffect(() => {
+    if (!showEmojiPicker) return
+
+    const handleEmojiTrayOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      const targetElement = event.target as Element | null
+
+      const isInsideEditor = !!(target && editableRef.current?.contains(target))
+      const isInsideTray = !!targetElement?.closest('[data-minimal-emoji-picker]')
+      const isInsideTrigger = !!targetElement?.closest('[data-emoji-trigger]')
+
+      if (!isInsideEditor && !isInsideTray && !isInsideTrigger) {
+        setShowEmojiPicker(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleEmojiTrayOutsideClick)
+    return () => document.removeEventListener('mousedown', handleEmojiTrayOutsideClick)
+  }, [showEmojiPicker])
 
   // Responsive toolbar logic
   const checkToolbarOverflow = useCallback(() => {
@@ -609,10 +637,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  setEmojiPickerPosition({ x: rect.left + rect.width / 2, y: rect.bottom })
-                  setShowEmojiPicker(!showEmojiPicker)
+                  setShowEmojiPicker(prev => !prev)
                 }}
+                data-emoji-trigger
                 className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
                 style={{ color: '#4b5563' }}
                 title="Add Emoji"
@@ -830,6 +857,14 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           } as React.CSSProperties}
         />
       </div>
+
+      <MinimalEmojiPicker
+        isOpen={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onEmojiSelect={insertEmoji}
+        variant="inline"
+        className="mt-3"
+      />
 
       {/* Click outside handlers */}
       {(showColorPicker || showBackgroundPicker || showTextSizePicker || showOverflowMenu) && (
@@ -1059,11 +1094,10 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  setEmojiPickerPosition({ x: rect.left + rect.width / 2, y: rect.bottom })
                   setShowOverflowMenu(false)
-                  setShowEmojiPicker(true)
+                  setShowEmojiPicker(prev => !prev)
                 }}
+                data-emoji-trigger
                 className="flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-100 rounded transition-colors"
                 title="Add Emoji"
               >
@@ -1075,14 +1109,6 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         </div>,
         document.body
       )}
-
-      {/* Minimal Emoji Picker */}
-      <MinimalEmojiPicker
-        isOpen={showEmojiPicker}
-        onClose={() => setShowEmojiPicker(false)}
-        onEmojiSelect={insertEmoji}
-        position={emojiPickerPosition}
-      />
 
       <style jsx>{`
         .rich-editor {

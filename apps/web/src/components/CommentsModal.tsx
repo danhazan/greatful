@@ -66,6 +66,7 @@ export default function CommentsModal({
   const editInputRef = useRef<HTMLTextAreaElement>(null)
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const commentsContainerRef = useRef<HTMLDivElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
   const [commentText, setCommentText] = useState("")
   const [replyText, setReplyText] = useState("")
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
@@ -84,7 +85,6 @@ export default function CommentsModal({
   const [deleteConfirmCommentId, setDeleteConfirmCommentId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [activeEmojiInput, setActiveEmojiInput] = useState<ActiveEmojiInput>('comment')
   const [textareaSelections, setTextareaSelections] = useState<Record<ActiveEmojiInput, { start: number; end: number }>>({
     comment: { start: 0, end: 0 },
@@ -225,6 +225,8 @@ export default function CommentsModal({
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
       const isInsidePicker = !!target.closest('[data-minimal-emoji-picker]')
+      const isInsideInput = !!target.closest('textarea')
+      const isInsideEmojiTrigger = !!target.closest('[data-emoji-trigger]')
       const modalElement = modalRef.current
       const modalContainsTarget = !!modalElement?.contains(event.target as Node)
       const modalRect = modalElement?.getBoundingClientRect()
@@ -248,8 +250,7 @@ export default function CommentsModal({
         return
       }
 
-      // Clicking inside modal but outside picker closes picker only.
-      if (showEmojiPicker && !isInsidePicker) {
+      if (showEmojiPicker && !isInsidePicker && !isInsideInput && !isInsideEmojiTrigger) {
         setShowEmojiPicker(false)
       }
     }
@@ -348,12 +349,20 @@ export default function CommentsModal({
   const openEmojiPickerForInput = (inputType: ActiveEmojiInput, textarea: HTMLTextAreaElement | null) => {
     if (!textarea) return
 
+    if (showEmojiPicker && activeEmojiInput === inputType) {
+      setShowEmojiPicker(false)
+      return
+    }
+
     updateTextareaSelection(inputType, textarea)
-    const rect = textarea.getBoundingClientRect()
     setActiveEmojiInput(inputType)
-    setEmojiPickerPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top
+    textarea.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+    footerRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'end'
     })
     setShowEmojiPicker(true)
   }
@@ -695,6 +704,7 @@ export default function CommentsModal({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => openEmojiPickerForInput('edit', editInputRef.current)}
+                      data-emoji-trigger
                       className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
                       aria-label="Open emoji picker for edit comment"
                     >
@@ -879,6 +889,7 @@ export default function CommentsModal({
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => openEmojiPickerForInput('reply', replyInputRef.current)}
+                    data-emoji-trigger
                     className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     aria-label="Open emoji picker for reply"
                   >
@@ -969,7 +980,7 @@ export default function CommentsModal({
           </div>
 
           {/* Footer - Comment Input */}
-          <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+          <div ref={footerRef} className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
             <div className="relative">
               <textarea
                 ref={commentInputRef}
@@ -1016,6 +1027,7 @@ export default function CommentsModal({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => openEmojiPickerForInput('comment', commentInputRef.current)}
+                data-emoji-trigger
                 className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 aria-label="Open emoji picker for comment"
               >
@@ -1025,15 +1037,16 @@ export default function CommentsModal({
                 {commentText.length}/{MAX_CHARS}
               </div>
             </div>
+            <MinimalEmojiPicker
+              isOpen={showEmojiPicker}
+              onClose={() => setShowEmojiPicker(false)}
+              onEmojiSelect={insertEmojiIntoActiveInput}
+              variant="inline"
+              viewportInset={mobileKeyboardInset}
+              className="mt-4"
+            />
           </div>
         </div>
-        <MinimalEmojiPicker
-          isOpen={showEmojiPicker}
-          onClose={() => setShowEmojiPicker(false)}
-          onEmojiSelect={insertEmojiIntoActiveInput}
-          position={emojiPickerPosition}
-          anchorGap={0}
-        />
       </div>
   )
 }

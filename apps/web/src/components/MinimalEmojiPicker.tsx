@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Search, ChevronDown, ChevronRight, Smile, Heart, Hand, Flower, PartyPopper, Cake, Dog, Car, Watch } from "lucide-react"
+import { Search, Smile, Heart, Hand, Flower, PartyPopper, Cake, Dog, Car, Watch, History } from "lucide-react"
 
 interface MinimalEmojiPickerProps {
   isOpen: boolean
@@ -9,6 +9,9 @@ interface MinimalEmojiPickerProps {
   onEmojiSelect: (emoji: string) => void
   position?: { x: number, y: number }
   anchorGap?: number
+  variant?: 'floating' | 'inline'
+  viewportInset?: number
+  className?: string
 }
 
 // Enhanced emoji groups with extensive positive emojis for gratitude posts
@@ -497,14 +500,18 @@ export default function MinimalEmojiPicker({
   onClose,
   onEmojiSelect,
   position = { x: 0, y: 0 },
-  anchorGap = 8
+  anchorGap = 8,
+  variant = 'floating',
+  viewportInset = 0,
+  className = ""
 }: MinimalEmojiPickerProps) {
   const pickerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [recentEmojis, setRecentEmojis] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filteredEmojis, setFilteredEmojis] = useState<string[]>([])
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const [showSearch, setShowSearch] = useState(false)
+  const [activeCategory, setActiveCategory] = useState<string>('Recently Used')
 
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -514,7 +521,8 @@ export default function MinimalEmojiPicker({
       setRecentEmojis(getRecentlyUsedEmojis())
       setSearchQuery('') // Reset search when opening
       setFilteredEmojis([])
-      // Don't auto-focus search input to prevent cursor movement from text area
+      setShowSearch(false)
+      setActiveCategory('Recently Used')
     }
   }, [isOpen])
 
@@ -549,17 +557,6 @@ export default function MinimalEmojiPicker({
     setSearchQuery(e.target.value)
   }
 
-  // Toggle section collapse
-  const toggleSection = (sectionName: string) => {
-    const newCollapsed = new Set(collapsedSections)
-    if (newCollapsed.has(sectionName)) {
-      newCollapsed.delete(sectionName)
-    } else {
-      newCollapsed.add(sectionName)
-    }
-    setCollapsedSections(newCollapsed)
-  }
-
   // Scroll to category section with proper positioning
   const scrollToCategory = (categoryName: string) => {
     if (!contentRef.current) return
@@ -576,41 +573,49 @@ export default function MinimalEmojiPicker({
         top: Math.max(0, relativeTop - 8), // 8px padding from top
         behavior: 'smooth'
       })
+      setActiveCategory(categoryName)
     }
   }
 
-
-
-  // Calculate responsive modal height - increased slightly to cover toolbar
-  const getModalHeight = () => {
+  const getPickerHeight = () => {
     if (typeof window === 'undefined') return '280px'
 
     const isMobile = window.innerWidth < 768
-    const viewportHeight = window.innerHeight
+    const viewportHeight = window.visualViewport?.height || window.innerHeight
 
     if (isMobile) {
-      // On mobile, limit height to 35% of viewport to cover toolbar but not text area
-      const maxMobileHeight = Math.min(240, viewportHeight * 0.35)
-      return `${maxMobileHeight}px`
+      const availableHeight = Math.max(220, viewportHeight - Math.max(0, viewportInset) - 180)
+      const maxMobileHeight = Math.min(340, viewportHeight * 0.42, availableHeight)
+      return `${Math.max(220, maxMobileHeight)}px`
     }
 
-    // On desktop, use height that covers toolbar
-    return '280px'
+    return '320px'
   }
 
   const getContentHeight = () => {
-    if (typeof window === 'undefined') return '216px'
-
-    const isMobile = window.innerWidth < 768
-    const modalHeight = parseInt(getModalHeight())
-
-    // Account for search bar (32px) and compressed category toolbar (32px)
-    const contentHeight = modalHeight - 32 - 32
+    const pickerHeight = parseInt(getPickerHeight(), 10)
+    const searchHeight = showSearch ? 52 : 0
+    const contentHeight = pickerHeight - searchHeight - 68
     return `${contentHeight}px`
   }
 
-  // Handle click outside to close
+  const handleSearchToggle = () => {
+    setShowSearch(prev => {
+      const next = !prev
+      if (!next) {
+        setSearchQuery('')
+        setFilteredEmojis([])
+      } else {
+        requestAnimationFrame(() => searchInputRef.current?.focus())
+      }
+      return next
+    })
+  }
+
+  // Floating mode keeps legacy outside-click behavior. Inline mode relies on the host surface.
   useEffect(() => {
+    if (variant !== 'floating') return
+
     const handleClickOutside = (event: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
         onClose()
@@ -621,7 +626,7 @@ export default function MinimalEmojiPicker({
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, variant])
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -631,6 +636,8 @@ export default function MinimalEmojiPicker({
           // Clear search first, then close on second escape
           setSearchQuery('')
           setFilteredEmojis([])
+        } else if (showSearch) {
+          setShowSearch(false)
         } else {
           onClose()
         }
@@ -642,95 +649,70 @@ export default function MinimalEmojiPicker({
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose, searchQuery])
+  }, [isOpen, onClose, searchQuery, showSearch])
 
   if (!isOpen) return null
 
+  const pickerShellClassName = variant === 'inline'
+    ? `relative w-full rounded-2xl border border-gray-200 bg-white shadow-lg ${className}`.trim()
+    : `fixed z-50 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl ${className}`.trim()
+
+  const pickerStyle = variant === 'inline'
+    ? {
+        maxHeight: getPickerHeight(),
+      }
+    : {
+        left: '50%',
+        transform: 'translateX(-50%)',
+        bottom: typeof window !== 'undefined' ? window.innerHeight - position.y + anchorGap : 0,
+        width: 'min(calc(100vw - 32px), 672px)',
+        maxHeight: typeof window !== 'undefined' ? Math.min(parseInt(getPickerHeight(), 10), position.y - 16) : getPickerHeight(),
+      }
+
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-50" onClick={onClose} />
+      {variant === 'floating' && <div className="fixed inset-0 z-50" onClick={onClose} />}
 
-      {/* Emoji Picker - responsive height for mobile */}
       <div
         ref={pickerRef}
         data-minimal-emoji-picker
-        className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden"
-        style={{
-          left: '50%',
-          transform: 'translateX(-50%)',
-          bottom: typeof window !== 'undefined' ? window.innerHeight - position.y + anchorGap : 0, // Anchor to bottom (button edge) + configurable gap
-          width: 'min(calc(100vw - 32px), 672px)', // Same as max-w-2xl (672px) with 16px padding on each side
-          maxHeight: typeof window !== 'undefined' ? Math.min(parseInt(getModalHeight()), position.y - 16) : getModalHeight(), // Prevent top cropping
-        }}
-        onMouseDown={(e) => {
-          // Prevent focus from moving to the modal - this fixes the cursor issue
-          e.preventDefault()
-          e.stopPropagation()
-        }}
+        className={pickerShellClassName}
+        style={pickerStyle}
+        onMouseDown={variant === 'floating'
+          ? (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          : undefined}
       >
-        {/* Search Bar - Compressed */}
-        <div className="px-2 py-1.5 border-b border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search emojis..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onMouseDown={(e) => {
-                // Allow focus on search input but prevent event bubbling
-                e.stopPropagation()
-              }}
-              className="w-full pl-7 pr-3 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-              style={{ minHeight: '24px' }} // Compressed height
-            />
-          </div>
-        </div>
-
-        {/* Category Toolbar - Simple scrollable */}
-        {!searchQuery.trim() && (
-          <div className="border-b border-gray-100 px-2 py-1">
-            <div className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {EMOJI_GROUPS.map((group) => {
-                const IconComponent = group.icon
-
-                return (
-                  <button
-                    key={group.name}
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      scrollToCategory(group.name)
-                    }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    className="flex-shrink-0 w-7 h-7 rounded hover:bg-gray-100 transition-colors flex items-center justify-center"
-                    title={group.name}
-                  >
-                    <IconComponent className="h-3.5 w-3.5 text-gray-600" />
-                  </button>
-                )
-              })}
+        {showSearch && (
+          <div className="border-b border-gray-100 px-3 pt-3 pb-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search emojis"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onMouseDown={(e) => {
+                  e.stopPropagation()
+                }}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-10 pr-3 text-sm text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              />
             </div>
           </div>
         )}
 
-        {/* Scrollable content - Compressed */}
         <div
           ref={contentRef}
-          className="overflow-y-auto px-2 py-1"
+          className="overflow-y-auto px-3 pt-3 pb-20"
           style={{ maxHeight: getContentHeight() }}
         >
-          {/* Search Results */}
           {searchQuery.trim() && (
-            <div className="mb-2">
-              <div className="text-xs font-medium text-gray-600 mb-1 px-1 select-none">
-                Search Results ({filteredEmojis.length})
-              </div>
+            <div className="space-y-3">
               {filteredEmojis.length > 0 ? (
-                <div className="grid grid-cols-8 gap-1">
+                <div className="grid grid-cols-7 gap-1 sm:grid-cols-9">
                   {filteredEmojis.map((emoji, index) => (
                     <button
                       key={`search-${emoji}-${index}`}
@@ -740,9 +722,9 @@ export default function MinimalEmojiPicker({
                         e.stopPropagation()
                         handleEmojiSelect(emoji)
                       }}
-                      onMouseDown={(e) => e.preventDefault()} // Prevent focus change
-                      className="w-6 h-6 rounded hover:bg-gray-100 transition-colors text-sm flex items-center justify-center hover:scale-110"
-                      style={{ minHeight: '24px', minWidth: '24px' }} // Ensure minimum touch target
+                      onMouseDown={(e) => e.preventDefault()}
+                      className="flex h-10 w-10 items-center justify-center rounded-xl text-[1.65rem] transition hover:bg-purple-50 active:scale-95 sm:h-11 sm:w-11"
+                      style={{ minHeight: '40px', minWidth: '40px' }}
                       title={EMOJI_DATABASE.find(item => item.emoji === emoji)?.name || emoji}
                     >
                       {emoji}
@@ -757,98 +739,131 @@ export default function MinimalEmojiPicker({
             </div>
           )}
 
-          {/* Show categories only when not searching */}
           {!searchQuery.trim() && (
             <>
-              {/* Recently Used Section */}
               {recentEmojis.length > 0 && (
-                <div className="mb-1.5">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      toggleSection('Recently Used')
-                    }}
-                    onMouseDown={(e) => e.preventDefault()} // Prevent focus change
-                    className="flex items-center w-full text-xs font-medium text-gray-600 mb-0.5 px-1 select-none hover:text-gray-800 transition-colors"
-                  >
-                    {collapsedSections.has('Recently Used') ? (
-                      <ChevronRight className="h-3 w-3 mr-1" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3 mr-1" />
-                    )}
+                <div className="mb-4" data-category="Recently Used">
+                  <div className="mb-1 px-1 text-[10px] font-medium uppercase tracking-[0.08em] text-gray-400">
                     Recently Used
-                  </button>
-                  {!collapsedSections.has('Recently Used') && (
-                    <div className="grid grid-cols-8 gap-1">
-                      {recentEmojis.slice(0, 32).map((emoji, index) => (
-                        <button
-                          key={`recent-${emoji}-${index}`}
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            handleEmojiSelect(emoji)
-                          }}
-                          onMouseDown={(e) => e.preventDefault()} // Prevent focus change
-                          className="w-6 h-6 rounded hover:bg-gray-100 transition-colors text-sm flex items-center justify-center hover:scale-110"
-                          style={{ minHeight: '24px', minWidth: '24px' }} // Ensure minimum touch target
-                          title={EMOJI_DATABASE.find(item => item.emoji === emoji)?.name || emoji}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 sm:grid-cols-9">
+                    {recentEmojis.slice(0, 32).map((emoji, index) => (
+                      <button
+                        key={`recent-${emoji}-${index}`}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleEmojiSelect(emoji)
+                        }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="flex h-10 w-10 items-center justify-center rounded-xl text-[1.65rem] transition hover:bg-purple-50 active:scale-95 sm:h-11 sm:w-11"
+                        style={{ minHeight: '40px', minWidth: '40px' }}
+                        title={EMOJI_DATABASE.find(item => item.emoji === emoji)?.name || emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Emoji Groups */}
               {EMOJI_GROUPS.map((group) => (
-                <div key={group.name} className="mb-1.5" data-category={group.name}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      toggleSection(group.name)
-                    }}
-                    onMouseDown={(e) => e.preventDefault()} // Prevent focus change
-                    className="flex items-center w-full text-xs font-medium text-gray-600 mb-0.5 px-1 select-none hover:text-gray-800 transition-colors"
-                  >
-                    {collapsedSections.has(group.name) ? (
-                      <ChevronRight className="h-3 w-3 mr-1" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3 mr-1" />
-                    )}
+                <div key={group.name} className="mb-4" data-category={group.name}>
+                  <div className="mb-1 px-1 text-[10px] font-medium uppercase tracking-[0.08em] text-gray-400">
                     {group.name}
-                  </button>
-                  {!collapsedSections.has(group.name) && (
-                    <div className="grid grid-cols-8 gap-1">
-                      {group.emojis.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            handleEmojiSelect(emoji)
-                          }}
-                          onMouseDown={(e) => e.preventDefault()} // Prevent focus change
-                          className="w-6 h-6 rounded hover:bg-gray-100 transition-colors text-sm flex items-center justify-center hover:scale-110"
-                          style={{ minHeight: '24px', minWidth: '24px' }} // Ensure minimum touch target
-                          title={EMOJI_DATABASE.find(item => item.emoji === emoji)?.name || emoji}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 sm:grid-cols-9">
+                    {group.emojis.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleEmojiSelect(emoji)
+                        }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="flex h-10 w-10 items-center justify-center rounded-xl text-[1.65rem] transition hover:bg-purple-50 active:scale-95 sm:h-11 sm:w-11"
+                        style={{ minHeight: '40px', minWidth: '40px' }}
+                        title={EMOJI_DATABASE.find(item => item.emoji === emoji)?.name || emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </>
           )}
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 px-3 pb-3">
+          <div className="pointer-events-auto rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur">
+            <div
+              className="flex items-center gap-1 overflow-x-auto"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleSearchToggle()
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition ${
+                  showSearch ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+                aria-label={showSearch ? "Hide emoji search" : "Show emoji search"}
+              >
+                <Search className="h-4 w-4" />
+              </button>
+
+              {recentEmojis.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    scrollToCategory('Recently Used')
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-lg transition ${
+                    activeCategory === 'Recently Used' ? 'bg-purple-100' : 'hover:bg-gray-100'
+                  }`}
+                  title="Recently used"
+                  aria-label="Recently used emojis"
+                >
+                  <History className="h-4 w-4" />
+                </button>
+              )}
+
+              {EMOJI_GROUPS.map((group) => {
+                const IconComponent = group.icon
+
+                return (
+                  <button
+                    key={group.name}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      scrollToCategory(group.name)
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition ${
+                      activeCategory === group.name ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                    title={group.name}
+                    aria-label={group.name}
+                  >
+                    <IconComponent className="h-4 w-4" />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </>
