@@ -13,8 +13,11 @@ export interface RichTextEditorRef {
   getHtml: () => string
   getPlainText: () => string
   focus: () => void
+  insertEmoji: (emoji: string) => void
   insertMention: (username: string, mentionStart: number, mentionEnd: number) => void
   clear: () => void
+  getEditorShell: () => HTMLDivElement | null
+  getToolbarHeight: () => number
 }
 
 interface RichTextEditorProps {
@@ -28,6 +31,10 @@ interface RichTextEditorProps {
   onMentionHide?: () => void
   selectedStyle?: any
   onStyleChange?: (style: any) => void
+  emojiPickerMode?: 'internal' | 'external'
+  emojiTrayOpen?: boolean
+  editorMaxHeight?: number | null
+  onEmojiPickerToggle?: () => void
 }
 
 const TEXT_COLORS = [
@@ -128,8 +135,13 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   onMentionTrigger,
   onMentionHide,
   selectedStyle,
-  onStyleChange
+  onStyleChange,
+  emojiPickerMode = 'internal',
+  emojiTrayOpen = false,
+  editorMaxHeight = null,
+  onEmojiPickerToggle
 }, ref) => {
+  const editorShellRef = useRef<HTMLDivElement | null>(null)
   const editableRef = useRef<HTMLDivElement | null>(null)
   const [isComposing, setIsComposing] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
@@ -157,6 +169,29 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
   const toolbarRef = useRef<HTMLDivElement>(null)
   const primaryToolbarRef = useRef<HTMLDivElement>(null)
+  const isUsingExternalEmojiPicker = emojiPickerMode === 'external'
+
+  const scrollEditorShellIntoView = useCallback(() => {
+    editorShellRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }, [])
+
+  const handleEmojiTriggerToggle = useCallback(() => {
+    if (isUsingExternalEmojiPicker) {
+      onEmojiPickerToggle?.()
+      return
+    }
+
+    setShowEmojiPicker(prev => {
+      const next = !prev
+      if (next) {
+        scrollEditorShellIntoView()
+      }
+      return next
+    })
+  }, [isUsingExternalEmojiPicker, onEmojiPickerToggle, scrollEditorShellIntoView])
 
   // Check current formatting state
   const updateFormatState = useCallback(() => {
@@ -188,16 +223,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   }, []);
 
   useEffect(() => {
-    if (!showEmojiPicker) return
-
-    editableRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    })
-  }, [showEmojiPicker])
-
-  useEffect(() => {
-    if (!showEmojiPicker) return
+    if (isUsingExternalEmojiPicker || !showEmojiPicker) return
 
     const handleEmojiTrayOutsideClick = (event: MouseEvent) => {
       const target = event.target as Node | null
@@ -214,7 +240,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
     document.addEventListener('mousedown', handleEmojiTrayOutsideClick)
     return () => document.removeEventListener('mousedown', handleEmojiTrayOutsideClick)
-  }, [showEmojiPicker])
+  }, [isUsingExternalEmojiPicker, showEmojiPicker])
 
   // Responsive toolbar logic
   const checkToolbarOverflow = useCallback(() => {
@@ -363,6 +389,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       return mentionsToPlainText(raw)
     },
     focus: () => editableRef.current?.focus(),
+    insertEmoji,
     insertMention: (username: string, mentionStart: number, mentionEnd: number) => {
       if (!editableRef.current) return
 
@@ -448,8 +475,10 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
       // Emit change to notify parent
       emitChange()
-    }
-  }), [emitChange])
+    },
+    getEditorShell: () => editorShellRef.current,
+    getToolbarHeight: () => toolbarRef.current?.offsetHeight ?? 0
+  }), [emitChange, insertEmoji])
 
   // Composition events for IME support
   const handleCompositionStart = () => {
@@ -580,7 +609,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
     editableRef.current?.focus()
   }
 
-  const insertEmoji = (emoji: string) => {
+  function insertEmoji(emoji: string) {
     if (!editableRef.current) return
 
     let selection = window.getSelection()
@@ -626,7 +655,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   }
 
   return (
-    <div className={`rich-editor ${className || ""}`}>
+    <div ref={editorShellRef} className={`rich-editor ${className || ""}`}>
       <div ref={toolbarRef} className="toolbar mb-2 flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg" style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}>
         <div ref={primaryToolbarRef} className="flex items-center gap-1 flex-nowrap min-w-0">
           {/* Emoji button - moved to beginning */}
@@ -637,7 +666,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  setShowEmojiPicker(prev => !prev)
+                  handleEmojiTriggerToggle()
                 }}
                 data-emoji-trigger
                 className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
@@ -834,8 +863,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           dir={getDirectionAttribute(value || htmlValue || '')}
           style={{
             minHeight: '120px',
-            maxHeight: '300px',
+            maxHeight: editorMaxHeight ? `${editorMaxHeight}px` : '300px',
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
             background: 'transparent', // ensure it is transparent
             color: 'inherit', // inherit wrapper color
             direction: getDirectionAttribute(value || htmlValue || ''),
@@ -858,13 +888,15 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         />
       </div>
 
-      <MinimalEmojiPicker
-        isOpen={showEmojiPicker}
-        onClose={() => setShowEmojiPicker(false)}
-        onEmojiSelect={insertEmoji}
-        variant="inline"
-        className="mt-3"
-      />
+      {!isUsingExternalEmojiPicker && (
+        <MinimalEmojiPicker
+          isOpen={showEmojiPicker}
+          onClose={() => setShowEmojiPicker(false)}
+          onEmojiSelect={insertEmoji}
+          variant="inline"
+          className="mt-3"
+        />
+      )}
 
       {/* Click outside handlers */}
       {(showColorPicker || showBackgroundPicker || showTextSizePicker || showOverflowMenu) && (
@@ -1095,7 +1127,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
                   e.preventDefault()
                   e.stopPropagation()
                   setShowOverflowMenu(false)
-                  setShowEmojiPicker(prev => !prev)
+                  handleEmojiTriggerToggle()
                 }}
                 data-emoji-trigger
                 className="flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-100 rounded transition-colors"

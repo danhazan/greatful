@@ -5,6 +5,7 @@ import { X, MapPin, Brush, Loader2 } from "lucide-react"
 import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
 import LocationModal from "./LocationModal"
+import MinimalEmojiPicker from "./MinimalEmojiPicker"
 import RichTextEditor, { RichTextEditorRef } from "./RichTextEditor"
 import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
 import PostPrivacySelector from "./PostPrivacySelector"
@@ -105,6 +106,10 @@ const POST_TYPE_INFO = {
   }
 }
 
+const DEFAULT_EDITOR_MAX_HEIGHT = 300
+const MIN_EDITOR_MAX_HEIGHT = 140
+const EDITOR_TRAY_GAP = 12
+
 export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditPostModalProps) {
   const { showSuccess, showError, showLoading, hideToast } = useToast()
   const [postData, setPostData] = useState<{
@@ -121,6 +126,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const modalRef = useRef<HTMLDivElement>(null)
+  const scrollableContentRef = useRef<HTMLDivElement>(null)
+  const emojiTrayRef = useRef<HTMLDivElement>(null)
   const richTextEditorRef = useRef<RichTextEditorRef>(null)
 
   // Rich text and styling state (always enabled)
@@ -153,6 +160,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [emojiEditorMaxHeight, setEmojiEditorMaxHeight] = useState<number | null>(null)
   const [initialPrivacy, setInitialPrivacy] = useState<PostPrivacy>({
     privacyLevel: post.privacyLevel,
     privacyRules: post.privacyRules ?? [],
@@ -209,12 +218,63 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
   const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
 
+  const handleEmojiPickerToggle = () => {
+    setShowEmojiPicker(prev => {
+      const next = !prev
+      if (next) {
+        richTextEditorRef.current?.getEditorShell()?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        })
+      }
+      return next
+    })
+  }
+
+  const updateEmojiEditorMaxHeight = () => {
+    if (!showEmojiPicker) {
+      setEmojiEditorMaxHeight(null)
+      return
+    }
+
+    const modal = modalRef.current
+    const tray = emojiTrayRef.current
+    const editorShell = richTextEditorRef.current?.getEditorShell()
+
+    if (!modal || !tray || !editorShell) {
+      setEmojiEditorMaxHeight(DEFAULT_EDITOR_MAX_HEIGHT)
+      return
+    }
+
+    const availableShellHeight = tray.getBoundingClientRect().top - editorShell.getBoundingClientRect().top - EDITOR_TRAY_GAP
+    const toolbarHeight = richTextEditorRef.current?.getToolbarHeight() ?? 0
+    const nextMaxHeight = Math.max(
+      MIN_EDITOR_MAX_HEIGHT,
+      Math.floor(availableShellHeight - toolbarHeight)
+    )
+
+    setEmojiEditorMaxHeight(nextMaxHeight)
+  }
+
   // Handle click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        const target = event.target as Element
+      const target = event.target as Element
+      const clickedInsideModal = !!modalRef.current?.contains(event.target as Node)
 
+      if (clickedInsideModal) {
+        const editorShell = richTextEditorRef.current?.getEditorShell()
+        const isInsideEditor = !!editorShell?.contains(event.target as Node)
+        const isInsideTray = !!target.closest('[data-minimal-emoji-picker]')
+        const isInsideEmojiTrigger = !!target.closest('[data-emoji-trigger]')
+
+        if (showEmojiPicker && !isInsideEditor && !isInsideTray && !isInsideEmojiTrigger) {
+          setShowEmojiPicker(false)
+        }
+        return
+      }
+
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         // ✅ Ignore clicks inside LocationModal if open
         if (showLocationModal && target.closest('[data-location-modal]')) {
           return
@@ -244,7 +304,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose, showLocationModal, showBackgrounds])
+  }, [isOpen, onClose, showBackgrounds, showEmojiPicker, showLocationModal])
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -267,6 +327,8 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       if (event.key === 'Escape') {
         if (showMentionAutocomplete) {
           handleMentionClose()
+        } else if (showEmojiPicker) {
+          setShowEmojiPicker(false)
         } else {
           onClose()
         }
@@ -277,7 +339,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose, showMentionAutocomplete])
+  }, [isOpen, onClose, showEmojiPicker, showMentionAutocomplete])
 
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return
@@ -319,6 +381,32 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       setMobileKeyboardInset(0)
     }
   }, [isOpen, isMobileViewport])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowEmojiPicker(false)
+      setEmojiEditorMaxHeight(null)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !showEmojiPicker || typeof window === 'undefined') return
+
+    const updateLayout = () => updateEmojiEditorMaxHeight()
+    const frame = window.requestAnimationFrame(updateLayout)
+    window.addEventListener('resize', updateLayout)
+
+    const viewport = window.visualViewport
+    viewport?.addEventListener('resize', updateLayout)
+    viewport?.addEventListener('scroll', updateLayout)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', updateLayout)
+      viewport?.removeEventListener('resize', updateLayout)
+      viewport?.removeEventListener('scroll', updateLayout)
+    }
+  }, [isOpen, showEmojiPicker, mobileKeyboardInset])
 
   // Reset form when modal opens/closes or post changes
   useEffect(() => {
@@ -616,7 +704,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
           {/* Form */}
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+            <div ref={scrollableContentRef} className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
               {/* Content Input */}
               <div className="flex-1 p-4 sm:p-6">
                 <div className="mb-4">
@@ -639,6 +727,10 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                       onMentionHide={handleRichTextMentionHide}
                       selectedStyle={selectedStyle}
                       onStyleChange={setSelectedStyle}
+                      emojiPickerMode="external"
+                      emojiTrayOpen={showEmojiPicker}
+                      editorMaxHeight={emojiEditorMaxHeight}
+                      onEmojiPickerToggle={handleEmojiPickerToggle}
                     />
                   </div>
 
@@ -755,8 +847,23 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
               </div>
             )}
 
+            {showEmojiPicker && (
+              <div
+                ref={emojiTrayRef}
+                className="relative z-10 border-t border-gray-200 bg-white px-4 pb-4 pt-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] sm:px-6"
+              >
+                <MinimalEmojiPicker
+                  isOpen={showEmojiPicker}
+                  onClose={() => setShowEmojiPicker(false)}
+                  onEmojiSelect={(emoji) => richTextEditorRef.current?.insertEmoji(emoji)}
+                  variant="inline"
+                  viewportInset={mobileKeyboardInset}
+                />
+              </div>
+            )}
+
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div className={`px-6 py-4 border-t border-gray-200 bg-gray-50 ${showEmojiPicker ? 'hidden' : ''}`}>
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-500">
                   Predicted type: {currentPostTypeInfo.name}

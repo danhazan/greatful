@@ -59,16 +59,15 @@ export default function CommentsModal({
   onCommentDelete,
   isSubmitting = false
 }: CommentsModalProps) {
-  type ActiveEmojiInput = 'comment' | 'reply' | 'edit'
-
   const modalRef = useRef<HTMLDivElement>(null)
-  const replyInputRef = useRef<HTMLTextAreaElement>(null)
-  const editInputRef = useRef<HTMLTextAreaElement>(null)
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const commentsContainerRef = useRef<HTMLDivElement>(null)
   const footerRef = useRef<HTMLDivElement>(null)
+  const anchorFrameRef = useRef<number | null>(null)
+  const isAnchoringRef = useRef(false)
+  // Stores the last anchor getter so alignment can be re-run when the keyboard opens
+  const anchorGetterRef = useRef<(() => HTMLElement | null) | null>(null)
   const [commentText, setCommentText] = useState("")
-  const [replyText, setReplyText] = useState("")
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set())
@@ -78,30 +77,186 @@ export default function CommentsModal({
 
   // Edit state
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
-  const [editText, setEditText] = useState("")
   const [isEditing, setIsEditing] = useState(false)
 
   // Delete state
   const [deleteConfirmCommentId, setDeleteConfirmCommentId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [activeEmojiInput, setActiveEmojiInput] = useState<ActiveEmojiInput>('comment')
-  const [textareaSelections, setTextareaSelections] = useState<Record<ActiveEmojiInput, { start: number; end: number }>>({
-    comment: { start: 0, end: 0 },
-    reply: { start: 0, end: 0 },
-    edit: { start: 0, end: 0 }
-  })
+  const [textareaSelection, setTextareaSelection] = useState({ start: 0, end: 0 })
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0)
 
+  // Dynamic spacer added to the top of the footer so it "rises" to meet a
+  // near-top anchor element that can't be reached by scrolling alone.
+  const [footerTopSpacer, setFooterTopSpacer] = useState(0)
+
   const MAX_CHARS = 500
+  const MAX_TEXTAREA_LINES = 4
+  const THREAD_ANCHOR_GAP = 16
+
+  const getTextareaHeights = (element: HTMLTextAreaElement) => {
+    const computedStyle = window.getComputedStyle(element)
+    const fontSize = Number.parseFloat(computedStyle.fontSize) || 16
+    const parsedLineHeight = Number.parseFloat(computedStyle.lineHeight)
+    const lineHeight = Number.isFinite(parsedLineHeight) ? parsedLineHeight : fontSize * 1.5
+    const paddingTop = Number.parseFloat(computedStyle.paddingTop) || 0
+    const paddingBottom = Number.parseFloat(computedStyle.paddingBottom) || 0
+    const borderTop = Number.parseFloat(computedStyle.borderTopWidth) || 0
+    const borderBottom = Number.parseFloat(computedStyle.borderBottomWidth) || 0
+    const verticalInsets = paddingTop + paddingBottom + borderTop + borderBottom
+
+    return {
+      singleLineHeight: lineHeight + verticalInsets,
+      maxHeight: lineHeight * MAX_TEXTAREA_LINES + verticalInsets
+    }
+  }
+
+  const resizeTextarea = (element: HTMLTextAreaElement) => {
+    const { maxHeight } = getTextareaHeights(element)
+    element.style.height = 'auto'
+    const nextHeight = Math.min(element.scrollHeight, maxHeight)
+    element.style.height = `${nextHeight}px`
+    element.style.overflowY = element.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }
+
+  const resetTextarea = (element: HTMLTextAreaElement | null) => {
+    if (!element) return
+
+    const { singleLineHeight } = getTextareaHeights(element)
+    element.style.height = `${singleLineHeight}px`
+    element.style.overflowY = 'hidden'
+    element.scrollTop = 0
+  }
+
+  const unlockCommentsScroll = () => {
+    const container = commentsContainerRef.current
+    if (!container) return
+    container.style.overflowY = ''
+  }
+
+  const lockCommentsScroll = () => {
+    const container = commentsContainerRef.current
+    if (!container) return
+    container.style.overflowY = 'hidden'
+  }
+
+  const clearReplyMode = () => {
+    setReplyingTo(null)
+    setCommentText("")
+    resetTextarea(commentInputRef.current)
+    setFooterTopSpacer(0)
+    unlockCommentsScroll()
+  }
+
+  const clearEditMode = () => {
+    setEditingCommentId(null)
+    setCommentText("")
+    resetTextarea(commentInputRef.current)
+    setFooterTopSpacer(0)
+    unlockCommentsScroll()
+  }
+
+  const clearComposerModes = () => {
+    setReplyingTo(null)
+    setEditingCommentId(null)
+    setCommentText("")
+    resetTextarea(commentInputRef.current)
+    setFooterTopSpacer(0)
+    unlockCommentsScroll()
+  }
+
+  const focusComposer = () => {
+    const input = commentInputRef.current
+    if (!input) return
+
+    input.focus()
+    const cursorPosition = input.value.length
+    input.setSelectionRange(cursorPosition, cursorPosition)
+  }
+
+  /**
+   * Scrolls the comments container so the anchor element's bottom edge sits
+   * just above the footer's top edge (with THREAD_ANCHOR_GAP of breathing room).
+   *
+   * Uses getBoundingClientRect throughout so the measurement is always in
+   * screen-space and never confused by nested offsetParent chains.
+   *
+   * Near-top handling: when the desired scrollTop would be negative (i.e. the
+   * comment is too close to the top of the content to be scrolled far enough),
+   * we leave scrollTop at 0 and instead grow the footer upward via a spacer
+   * div.  Because the modal uses flex-col, a taller footer shrinks the
+   * flex-1 content area, which moves the footer's top edge up to meet the
+   * anchor.
+   */
+  const alignAnchorAboveFooter = (anchorElement: HTMLElement) => {
+    const container = commentsContainerRef.current
+    const footer = footerRef.current
+
+    if (!container || !footer) return
+
+    const anchorBottom = anchorElement.getBoundingClientRect().bottom
+    const footerTop = footer.getBoundingClientRect().top
+    const currentScrollTop = container.scrollTop
+
+    // How much we need to increase scrollTop so the anchor bottom lands just
+    // above the footer top.
+    // Increasing scrollTop shifts content upward, so anchorBottom decreases by
+    // the same amount.
+    // Target: anchorBottom - scrollDelta + THREAD_ANCHOR_GAP = footerTop
+    //   => scrollDelta = anchorBottom + THREAD_ANCHOR_GAP - footerTop
+    const scrollDelta = anchorBottom + THREAD_ANCHOR_GAP - footerTop
+    const desiredScrollTop = currentScrollTop + scrollDelta
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+
+    if (desiredScrollTop < 0) {
+      // The anchor is too close to the top of the scroll content; we cannot
+      // scroll up far enough.  Set scrollTop to 0 and add a spacer to the
+      // top of the footer instead.
+      //
+      // At scrollTop = 0 the anchor will appear at:
+      //   anchorBottom + currentScrollTop  (moving down as we unscroll)
+      // We want the footer top to be right below that:
+      //   desiredFooterTop = anchorBottom + currentScrollTop + THREAD_ANCHOR_GAP
+      // Current footer top = footerTop, so spacer needed:
+      //   spacer = footerTop - desiredFooterTop
+      const anchorBottomAtScrollTop0 = anchorBottom + currentScrollTop
+      const spacer = Math.max(0, footerTop - anchorBottomAtScrollTop0 - THREAD_ANCHOR_GAP)
+      setFooterTopSpacer(spacer)
+      container.scrollTop = 0
+    } else {
+      setFooterTopSpacer(0)
+      container.scrollTop = Math.min(desiredScrollTop, maxScrollTop)
+    }
+
+    lockCommentsScroll()
+  }
+
+  const scheduleComposerAnchor = (getAnchorElement: () => HTMLElement | null) => {
+    if (isAnchoringRef.current) return
+
+    anchorGetterRef.current = getAnchorElement  // persist for keyboard-open re-alignment
+    isAnchoringRef.current = true
+
+    if (anchorFrameRef.current !== null) {
+      window.cancelAnimationFrame(anchorFrameRef.current)
+    }
+
+    anchorFrameRef.current = window.requestAnimationFrame(() => {
+      anchorFrameRef.current = window.requestAnimationFrame(() => {
+        anchorFrameRef.current = null
+        const anchorElement = getAnchorElement()
+        if (anchorElement) {
+          alignAnchorAboveFooter(anchorElement)
+        }
+        focusComposer()
+        isAnchoringRef.current = false
+      })
+    })
+  }
 
   // Sync local comments with prop changes
   useEffect(() => {
-    console.log('CommentsModal: comments prop changed, updating localComments', {
-      newCommentsCount: comments.length,
-      comments: comments
-    })
     setLocalComments(comments)
     // Don't clear expanded state or cache - keep the UI state intact
   }, [comments])
@@ -134,17 +289,23 @@ export default function CommentsModal({
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setReplyText("")
+      if (anchorFrameRef.current !== null) {
+        window.cancelAnimationFrame(anchorFrameRef.current)
+        anchorFrameRef.current = null
+      }
+      isAnchoringRef.current = false
+      unlockCommentsScroll()
       setReplyingTo(null)
+      setEditingCommentId(null)
       setExpandedComments(new Set())
       setLoadingReplies(new Set())
       setRepliesCache({})
       // Reset edit/delete state
-      setEditingCommentId(null)
-      setEditText("")
       setDeleteConfirmCommentId(null)
       setShowEmojiPicker(false)
       setMobileKeyboardInset(0)
+      setFooterTopSpacer(0)
+      resetTextarea(commentInputRef.current)
     }
   }, [isOpen])
 
@@ -191,34 +352,21 @@ export default function CommentsModal({
     }
   }, [isOpen, isMobileViewport])
 
-  // Auto-scroll to reply input when replying
+  // Re-align the reply anchor whenever the onscreen keyboard opens or closes.
+  // Problem: scheduleComposerAnchor measures the footer position before the keyboard
+  // opens (focus is called after alignment). When the keyboard appears it pushes the
+  // footer up via paddingBottom/mobileKeyboardInset, but the scroll is already locked
+  // so the anchor drifts below the footer. This effect fires after React has re-rendered
+  // with the new inset (so getBoundingClientRect reflects the true footer position),
+  // unlocks the scroll, re-runs alignment, then re-locks.
   useEffect(() => {
-    if (replyingTo && replyInputRef.current) {
-      setTimeout(() => {
-        replyInputRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        })
-        replyInputRef.current?.focus()
-      }, 100)
-    }
-  }, [replyingTo])
-
-  // Auto-focus edit input when editing
-  useEffect(() => {
-    if (editingCommentId && editInputRef.current) {
-      setTimeout(() => {
-        editInputRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        })
-        editInputRef.current?.focus()
-        // Move cursor to end of text
-        const len = editInputRef.current?.value.length || 0
-        editInputRef.current?.setSelectionRange(len, len)
-      }, 100)
-    }
-  }, [editingCommentId])
+    if (!replyingTo || !anchorGetterRef.current) return
+    const anchorElement = anchorGetterRef.current()
+    if (!anchorElement) return
+    unlockCommentsScroll()
+    alignAnchorAboveFooter(anchorElement)  // re-locks inside
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobileKeyboardInset])
 
   // Handle click outside to close
   useEffect(() => {
@@ -266,15 +414,12 @@ export default function CommentsModal({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         if (editingCommentId) {
-          // Cancel editing
-          setEditingCommentId(null)
-          setEditText("")
+          clearEditMode()
         } else if (deleteConfirmCommentId) {
           // Cancel delete confirmation
           setDeleteConfirmCommentId(null)
         } else if (replyingTo) {
-          setReplyingTo(null)
-          setReplyText("")
+          clearReplyMode()
         } else {
           onClose()
         }
@@ -306,199 +451,142 @@ export default function CommentsModal({
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose, replyingTo, editingCommentId, deleteConfirmCommentId])
+  }, [deleteConfirmCommentId, editingCommentId, isOpen, onClose, replyingTo])
 
   const handleCommentSubmit = async () => {
     if (!commentText.trim() || isSubmitting) return
 
     try {
-      await onCommentSubmit(commentText.trim())
-      setCommentText("")
-      // Success message is shown by parent component
+      if (editingCommentId && onCommentEdit) {
+        const updatedComment = await onCommentEdit(editingCommentId, commentText.trim())
 
-      // Reload all comments to show the new comment (same pattern as replies)
-      // This ensures the new comment appears immediately in the modal
-      console.log('CommentsModal: Comment submitted, reloading all comments')
+        setLocalComments(prev =>
+          prev.map(c => c.id === editingCommentId ? { ...c, content: updatedComment.content, editedAt: updatedComment.editedAt } : c)
+        )
 
-      // The parent component also reloads comments, but we do it here too
-      // to ensure immediate update in the modal
-      // The useEffect will sync with parent's reload as well
+        setRepliesCache(prev => {
+          const newCache = { ...prev }
+          for (const parentId of Object.keys(newCache)) {
+            newCache[parentId] = newCache[parentId].map(r =>
+              r.id === editingCommentId ? { ...r, content: updatedComment.content, editedAt: updatedComment.editedAt } : r
+            )
+          }
+          return newCache
+        })
 
-      // Scroll to bottom to show the new comment
-      setTimeout(() => {
-        if (commentsContainerRef.current) {
-          commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight
-        }
-      }, 100)
+        setEditingCommentId(null)
+        setCommentText("")
+        setFooterTopSpacer(0)
+        resetTextarea(commentInputRef.current)
+        unlockCommentsScroll()
+        showSuccess("Comment updated successfully")
+      } else if (replyingTo) {
+        await onReplySubmit(replyingTo, commentText.trim())
+
+        const submittedReplyTarget = replyingTo
+        setCommentText("")
+        setReplyingTo(null)
+        setFooterTopSpacer(0)
+        resetTextarea(commentInputRef.current)
+        unlockCommentsScroll()
+        await loadReplies(submittedReplyTarget, true)
+      } else {
+        await onCommentSubmit(commentText.trim())
+        setCommentText("")
+        setFooterTopSpacer(0)
+        resetTextarea(commentInputRef.current)
+        unlockCommentsScroll()
+      }
     } catch (error) {
       // Error is handled by parent component
       console.error('CommentsModal: Comment submission failed', error)
     }
   }
 
-  const updateTextareaSelection = (inputType: ActiveEmojiInput, target: HTMLTextAreaElement) => {
-    setTextareaSelections(prev => ({
-      ...prev,
-      [inputType]: {
-        start: target.selectionStart ?? 0,
-        end: target.selectionEnd ?? 0
-      }
-    }))
+  const updateTextareaSelection = (target: HTMLTextAreaElement) => {
+    setTextareaSelection({
+      start: target.selectionStart ?? 0,
+      end: target.selectionEnd ?? 0
+    })
   }
 
-  const openEmojiPickerForInput = (inputType: ActiveEmojiInput, textarea: HTMLTextAreaElement | null) => {
+  const openEmojiPickerForInput = (textarea: HTMLTextAreaElement | null) => {
     if (!textarea) return
 
-    if (showEmojiPicker && activeEmojiInput === inputType) {
+    if (showEmojiPicker) {
       setShowEmojiPicker(false)
       return
     }
 
-    updateTextareaSelection(inputType, textarea)
-    setActiveEmojiInput(inputType)
-    textarea.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    })
-    footerRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'end'
-    })
+    updateTextareaSelection(textarea)
     setShowEmojiPicker(true)
   }
 
   const insertEmojiIntoActiveInput = (emoji: string) => {
-    const inputMap: Record<ActiveEmojiInput, { ref: { current: HTMLTextAreaElement | null }; value: string; setValue: (value: string) => void }> = {
-      comment: { ref: commentInputRef, value: commentText, setValue: setCommentText },
-      reply: { ref: replyInputRef, value: replyText, setValue: setReplyText },
-      edit: { ref: editInputRef, value: editText, setValue: setEditText }
-    }
-
-    const target = inputMap[activeEmojiInput]
-    const currentSelection = textareaSelections[activeEmojiInput]
-    const textLengthAfterReplace = target.value.length - (currentSelection.end - currentSelection.start) + emoji.length
+    const textLengthAfterReplace = commentText.length - (textareaSelection.end - textareaSelection.start) + emoji.length
     if (textLengthAfterReplace > MAX_CHARS) {
       setShowEmojiPicker(false)
       return
     }
 
     const result = insertEmojiIntoTextarea(
-      target.value,
+      commentText,
       emoji,
-      currentSelection.start,
-      currentSelection.end
+      textareaSelection.start,
+      textareaSelection.end
     )
 
-    target.setValue(result.value)
-    setTextareaSelections(prev => ({
-      ...prev,
-      [activeEmojiInput]: { start: result.cursor, end: result.cursor }
-    }))
+    setCommentText(result.value)
+    setTextareaSelection({ start: result.cursor, end: result.cursor })
 
     requestAnimationFrame(() => {
-      const element = target.ref.current
+      const element = commentInputRef.current
       if (!element) return
+      resizeTextarea(element)
       element.focus()
       element.setSelectionRange(result.cursor, result.cursor)
     })
   }
 
-  const handleReplySubmit = async (commentId: string) => {
-    if (!replyText.trim() || isSubmitting) return
-
-    try {
-      await onReplySubmit(commentId, replyText.trim())
-      setReplyText("")
-      setReplyingTo(null)
-      // Success message is shown by parent component
-
-      // Force refresh replies for this comment to show the new reply immediately
-      await loadReplies(commentId, true)
-
-      // Scroll to the end of the replies section to show the new reply
-      setTimeout(() => {
-        const repliesSection = document.querySelector(`[data-replies-section="${commentId}"]`)
-        if (repliesSection && commentsContainerRef.current) {
-          // Scroll the replies section into view, then scroll a bit more to show the last reply
-          repliesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-
-          // Additional scroll to ensure the last reply is visible
-          setTimeout(() => {
-            if (commentsContainerRef.current) {
-              const repliesSectionBottom = repliesSection.getBoundingClientRect().bottom
-              const containerBottom = commentsContainerRef.current.getBoundingClientRect().bottom
-              if (repliesSectionBottom > containerBottom) {
-                commentsContainerRef.current.scrollTop += (repliesSectionBottom - containerBottom + 20)
-              }
-            }
-          }, 100)
-        }
-      }, 150)
-    } catch (error) {
-      // Error is handled by parent component
-    }
-  }
-
-  // Start editing a comment
+  // Start editing a comment — the editor renders inline, replacing the bubble.
+  // After render, scroll the container so the comment sits flush at the top,
+  // then lock scrolling so nothing shifts while the user edits.
   const handleStartEdit = (comment: Comment) => {
+    clearReplyMode()
     setEditingCommentId(comment.id)
-    setEditText(comment.content)
-    // Cancel any active reply
-    setReplyingTo(null)
-    setReplyText("")
-    // Cancel any delete confirmation
+    setCommentText(comment.content)
     setDeleteConfirmCommentId(null)
+    setShowEmojiPicker(false)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = commentsContainerRef.current
+        const commentEl = container?.querySelector<HTMLElement>(`[data-comment-id="${comment.id}"]`)
+        if (container && commentEl) {
+          container.scrollTop += commentEl.getBoundingClientRect().top - container.getBoundingClientRect().top
+        }
+        const input = commentInputRef.current
+        if (input) {
+          resizeTextarea(input)
+          input.focus()
+          input.setSelectionRange(input.value.length, input.value.length)
+        }
+        lockCommentsScroll()
+      })
+    })
   }
 
   // Cancel editing
   const handleCancelEdit = () => {
-    setEditingCommentId(null)
-    setEditText("")
-  }
-
-  // Save edited comment
-  const handleSaveEdit = async (commentId: string) => {
-    if (!editText.trim() || isEditing || !onCommentEdit) return
-
-    setIsEditing(true)
-    try {
-      const updatedComment = await onCommentEdit(commentId, editText.trim())
-
-      // Update local state optimistically
-      setLocalComments(prev =>
-        prev.map(c => c.id === commentId ? { ...c, content: updatedComment.content, editedAt: updatedComment.editedAt } : c)
-      )
-
-      // Also update replies cache if the comment is a reply
-      setRepliesCache(prev => {
-        const newCache = { ...prev }
-        for (const parentId of Object.keys(newCache)) {
-          newCache[parentId] = newCache[parentId].map(r =>
-            r.id === commentId ? { ...r, content: updatedComment.content, editedAt: updatedComment.editedAt } : r
-          )
-        }
-        return newCache
-      })
-
-      setEditingCommentId(null)
-      setEditText("")
-      showSuccess("Comment updated successfully")
-    } catch (error: any) {
-      showError(error.message || "Failed to update comment")
-    } finally {
-      setIsEditing(false)
-    }
+    clearEditMode()
   }
 
   // Show delete confirmation
   const handleShowDeleteConfirm = (commentId: string) => {
     setDeleteConfirmCommentId(commentId)
     // Cancel any active edit
-    setEditingCommentId(null)
-    setEditText("")
+    clearEditMode()
     // Cancel any active reply
-    setReplyingTo(null)
-    setReplyText("")
+    clearReplyMode()
   }
 
   // Cancel delete confirmation
@@ -543,11 +631,6 @@ export default function CommentsModal({
 
     try {
       const replies = await onLoadReplies(commentId)
-      console.log('CommentsModal: Loaded replies', {
-        commentId,
-        repliesCount: replies.length,
-        replies
-      })
       setRepliesCache(prev => ({ ...prev, [commentId]: replies }))
       setExpandedComments(prev => new Set(prev).add(commentId))
     } catch (error) {
@@ -596,12 +679,45 @@ export default function CommentsModal({
     return comment.replyCount === 0
   }
 
+  const handleReplyToggle = (comment: Comment) => {
+    if (replyingTo === comment.id) {
+      clearReplyMode()
+      return
+    }
+
+    clearEditMode()
+    setDeleteConfirmCommentId(null)
+    setCommentText("")
+    setReplyingTo(comment.id)
+
+    const scheduleReplyAnchor = () => {
+      scheduleComposerAnchor(() => {
+        const container = commentsContainerRef.current
+        const targetComment = container?.querySelector<HTMLElement>(`[data-comment-id="${comment.id}"]`)
+        const repliesSection = container?.querySelector<HTMLElement>(`[data-replies-section="${comment.id}"]`)
+        const directReplyItems = repliesSection
+          ? Array.from(repliesSection.querySelectorAll<HTMLElement>(':scope > [data-comment-id]'))
+          : []
+
+        return directReplyItems[directReplyItems.length - 1] ?? targetComment ?? null
+      })
+    }
+
+    if (comment.replyCount > 0 && !expandedComments.has(comment.id)) {
+      void loadReplies(comment.id).then(() => {
+        scheduleReplyAnchor()
+      })
+      return
+    }
+
+    scheduleReplyAnchor()
+  }
+
   const renderComment = (comment: Comment, isReply: boolean = false) => {
     const isExpanded = expandedComments.has(comment.id)
     const isLoadingReplies = loadingReplies.has(comment.id)
     const replies = repliesCache[comment.id] || []
     const isReplyingToThis = replyingTo === comment.id
-    const isEditingThis = editingCommentId === comment.id
     const isDeletingThis = deleteConfirmCommentId === comment.id
     const isOwner = isCommentOwner(comment)
     const canDelete = canDeleteComment(comment)
@@ -616,6 +732,7 @@ export default function CommentsModal({
         className={`${isReply ? 'ml-8 sm:ml-12' : ''} space-y-2`}
         role="article"
         aria-label={`Comment by ${comment.user.displayName || comment.user.username}`}
+        data-comment-id={comment.id}
       >
         <div className="flex space-x-3">
           {/* User Profile Picture */}
@@ -633,7 +750,7 @@ export default function CommentsModal({
           {/* Comment Content */}
           <div className="flex-1 min-w-0">
             {/* User Info */}
-            <div className="flex items-baseline space-x-2 flex-wrap">
+            <div className="flex items-baseline space-x-2 flex-wrap" data-comment-header={comment.id}>
               <a
                 href={`/profile/${comment.user.id}`}
                 className="font-bold text-gray-900 text-sm hover:text-purple-600 transition-colors no-underline"
@@ -652,255 +769,194 @@ export default function CommentsModal({
               </span>
             </div>
 
-            {/* Comment Text or Edit Input */}
-            {isEditingThis ? (
-              // Edit Mode UI
-              <div className="mt-2">
+            {editingCommentId === comment.id ? (
+              /* ── Inline editor: replaces the bubble and action bar ── */
+              <div className="mt-0.5 w-full">
                 <div className="relative">
                   <textarea
-                    ref={editInputRef}
-                    value={editText}
+                    ref={commentInputRef}
+                    value={commentText}
                     onChange={(e) => {
-                      setEditText(e.target.value.slice(0, MAX_CHARS))
-                      // Auto-expand textarea
-                      e.target.style.height = 'auto'
-                      e.target.style.height = e.target.scrollHeight + 'px'
+                      setCommentText(e.target.value.slice(0, MAX_CHARS))
+                      resizeTextarea(e.target)
                     }}
-                    onFocus={(e) => updateTextareaSelection('edit', e.currentTarget)}
-                    onClick={(e) => updateTextareaSelection('edit', e.currentTarget)}
-                    onKeyUp={(e) => updateTextareaSelection('edit', e.currentTarget)}
-                    onSelect={(e) => updateTextareaSelection('edit', e.currentTarget)}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm overflow-hidden text-gray-900 bg-white"
-                    rows={1}
+                    onFocus={(e) => updateTextareaSelection(e.currentTarget)}
+                    onClick={(e) => updateTextareaSelection(e.currentTarget)}
+                    onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
+                    onSelect={(e) => updateTextareaSelection(e.currentTarget)}
+                    className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-purple-50 border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800"
                     maxLength={MAX_CHARS}
                     aria-label="Edit comment"
-                    style={{ minHeight: '40px', maxHeight: '200px', WebkitTextFillColor: '#111827' }}
+                    aria-describedby="edit-comment-char-count"
+                    style={{ boxSizing: 'border-box' }}
                   />
-                  {/* Save Button inside textarea */}
                   <button
-                    onClick={() => handleSaveEdit(comment.id)}
-                    disabled={!editText.trim() || isEditing || editText.trim() === comment.content}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    aria-label="Save edit"
+                    onClick={handleCommentSubmit}
+                    disabled={!commentText.trim() || isSubmitting}
+                    className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    aria-label="Save comment edit"
                   >
-                    {isEditing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </button>
                 </div>
-                {/* Character count and Cancel button */}
-                <div className="flex items-center justify-between mt-1">
-                  <button
-                    onClick={handleCancelEdit}
-                    className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
-                    disabled={isEditing}
-                  >
-                    Cancel
-                  </button>
+                {/* Controls row */}
+                <div
+                  id="edit-comment-char-count"
+                  className="mt-1 flex items-center justify-between"
+                  aria-live="polite"
+                >
                   <div className="flex items-center space-x-2">
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => openEmojiPickerForInput('edit', editInputRef.current)}
+                      onClick={() => openEmojiPickerForInput(commentInputRef.current)}
                       data-emoji-trigger
                       className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      aria-label="Open emoji picker for edit comment"
+                      aria-label="Open emoji picker"
                     >
                       <Smile className="h-4 w-4" />
                     </button>
-                    <span className="text-xs text-gray-400">
-                      {editText.length}/{MAX_CHARS}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="text-xs text-gray-400 text-right">
+                    {commentText.length}/{MAX_CHARS}
                   </div>
                 </div>
+                <MinimalEmojiPicker
+                  isOpen={showEmojiPicker}
+                  onClose={() => setShowEmojiPicker(false)}
+                  onEmojiSelect={insertEmojiIntoActiveInput}
+                  variant="inline"
+                  viewportInset={mobileKeyboardInset}
+                  className="mt-2"
+                />
               </div>
             ) : (
-              // Normal Comment Display
-              <div className="mt-0.5 bg-purple-50 rounded-2xl px-3 py-2 sm:px-5 sm:py-3 inline-block max-w-full">
-                <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
-                  {comment.content}
-                </p>
-              </div>
-            )}
-
-            {/* Delete Confirmation */}
-            {isDeletingThis && (
-              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-700 mb-2">Are you sure you want to delete this comment?</p>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => handleConfirmDelete(comment.id)}
-                    disabled={isDeleting}
-                    className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-1"
-                  >
-                    {isDeleting ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Deleting...</span>
-                      </>
-                    ) : (
-                      <span>Delete</span>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleCancelDelete}
-                    disabled={isDeleting}
-                    className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Cancel
-                  </button>
+              <>
+                {/* Comment bubble */}
+                <div className="mt-0.5 bg-purple-50 rounded-2xl px-3 py-2 sm:px-5 sm:py-3 inline-block max-w-full">
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                    {comment.content}
+                  </p>
                 </div>
-              </div>
-            )}
 
-            {/* Action Buttons */}
-            {!isEditingThis && !isDeletingThis && (
-              <div className="flex items-center space-x-4 mt-2">
-                {/* Owner Actions: Edit & Delete (only for comment owner) */}
-                {isOwner && onCommentEdit && (
-                  <button
-                    onClick={() => handleStartEdit(comment)}
-                    className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded flex items-center space-x-1"
-                    aria-label="Edit comment"
-                  >
-                    <Pencil className="h-3 w-3" />
-                    <span>Edit</span>
-                  </button>
+                {/* Delete Confirmation */}
+                {isDeletingThis && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700 mb-2">Are you sure you want to delete this comment?</p>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => handleConfirmDelete(comment.id)}
+                        disabled={isDeleting}
+                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-1"
+                      >
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Deleting...</span>
+                          </>
+                        ) : (
+                          <span>Delete</span>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleCancelDelete}
+                        disabled={isDeleting}
+                        className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 )}
 
-                {isOwner && onCommentDelete && (
-                  <div className="relative group">
-                    <button
-                      onClick={() => canDelete ? handleShowDeleteConfirm(comment.id) : undefined}
-                      disabled={!canDelete}
-                      className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded flex items-center space-x-1 transition-colors ${
-                        canDelete
-                          ? 'text-red-500 hover:text-red-600 active:text-red-700'
-                          : 'text-gray-300 cursor-not-allowed'
-                      }`}
-                      aria-label={canDelete ? "Delete comment" : (isReply ? "Cannot delete reply with later replies" : "Cannot delete comment with replies")}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      <span>Delete</span>
-                    </button>
-                    {/* Tooltip for disabled delete button */}
-                    {!canDelete && (
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                        {isReply
-                          ? "Only the last reply in a thread can be deleted."
-                          : "This comment has replies and cannot be deleted."}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                {/* Action Buttons */}
+                {!isDeletingThis && (
+                  <div className="flex items-center space-x-4 mt-2">
+                    {/* Owner Actions: Edit & Delete */}
+                    {isOwner && onCommentEdit && (
+                      <button
+                        onClick={() => handleStartEdit(comment)}
+                        className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded flex items-center space-x-1"
+                        aria-label="Edit comment"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+
+                    {isOwner && onCommentDelete && (
+                      <div className="relative group">
+                        <button
+                          onClick={() => canDelete ? handleShowDeleteConfirm(comment.id) : undefined}
+                          disabled={!canDelete}
+                          className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded flex items-center space-x-1 transition-colors ${
+                            canDelete
+                              ? 'text-red-500 hover:text-red-600 active:text-red-700'
+                              : 'text-gray-300 cursor-not-allowed'
+                          }`}
+                          aria-label={canDelete ? "Delete comment" : (isReply ? "Cannot delete reply with later replies" : "Cannot delete comment with replies")}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Delete</span>
+                        </button>
+                        {!canDelete && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                            {isReply
+                              ? "Only the last reply in a thread can be deleted."
+                              : "This comment has replies and cannot be deleted."}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                          </div>
+                        )}
                       </div>
                     )}
+
+                    {/* Reply Button - only for top-level comments */}
+                    {!isReply && (
+                      <button
+                        onClick={() => handleReplyToggle(comment)}
+                        className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
+                        aria-label={isReplyingToThis ? `Cancel reply to ${comment.user.displayName || comment.user.username}` : `Reply to ${comment.user.displayName || comment.user.username}'s comment`}
+                      >
+                        {isReplyingToThis ? 'Cancel' : 'Reply'}
+                      </button>
+                    )}
+
+                    {/* Show/Hide Replies Button */}
+                    {!isReply && comment.replyCount > 0 && (
+                      <button
+                        onClick={() => toggleReplies(comment.id)}
+                        disabled={isLoadingReplies}
+                        className="text-xs text-purple-600 hover:text-purple-700 transition-colors font-medium flex items-center space-x-1 min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
+                        aria-label={isExpanded ? `Hide ${comment.replyCount} replies` : `Show ${comment.replyCount} replies`}
+                        aria-expanded={isExpanded}
+                      >
+                        {isLoadingReplies ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessageCircle className="h-3 w-3" />
+                            <span>
+                              {isExpanded ? 'Hide' : 'Show'} {comment.replyCount} {comment.replyCount === 1 ? 'reply' : 'replies'}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 )}
-
-                {/* Reply Button - only for top-level comments */}
-                {!isReply && (
-                  <button
-                    onClick={() => {
-                      if (isReplyingToThis) {
-                        // Hide reply input
-                        setReplyingTo(null)
-                        setReplyText("")
-                      } else {
-                        // Show reply input
-                        setReplyingTo(comment.id)
-                        setReplyText("")
-                      }
-                    }}
-                    className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
-                    aria-label={isReplyingToThis ? 'Hide reply input' : `Reply to ${comment.user.displayName || comment.user.username}'s comment`}
-                  >
-                    {isReplyingToThis ? 'Hide' : 'Reply'}
-                  </button>
-                )}
-
-                {/* Show/Hide Replies Button */}
-                {!isReply && comment.replyCount > 0 && (
-                  <button
-                    onClick={() => toggleReplies(comment.id)}
-                    disabled={isLoadingReplies}
-                    className="text-xs text-purple-600 hover:text-purple-700 transition-colors font-medium flex items-center space-x-1 min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
-                    aria-label={isExpanded ? `Hide ${comment.replyCount} replies` : `Show ${comment.replyCount} replies`}
-                    aria-expanded={isExpanded}
-                  >
-                    {isLoadingReplies ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Loading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <MessageCircle className="h-3 w-3" />
-                        <span>
-                          {isExpanded ? 'Hide' : 'Show'} {comment.replyCount} {comment.replyCount === 1 ? 'reply' : 'replies'}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
+              </>
             )}
 
-            {/* Reply Input */}
-            {isReplyingToThis && (
-              <div className="mt-3">
-                <div className="relative">
-                  <textarea
-                    ref={replyInputRef}
-                    value={replyText}
-                    onChange={(e) => {
-                      setReplyText(e.target.value.slice(0, MAX_CHARS))
-                      // Auto-expand textarea
-                      e.target.style.height = 'auto'
-                      e.target.style.height = e.target.scrollHeight + 'px'
-                    }}
-                    onFocus={(e) => updateTextareaSelection('reply', e.currentTarget)}
-                    onClick={(e) => updateTextareaSelection('reply', e.currentTarget)}
-                    onKeyUp={(e) => updateTextareaSelection('reply', e.currentTarget)}
-                    onSelect={(e) => updateTextareaSelection('reply', e.currentTarget)}
-                    placeholder={`Reply to ${comment.user.displayName || comment.user.username}...`}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm overflow-hidden text-gray-900 bg-white"
-                    rows={1}
-                    maxLength={MAX_CHARS}
-                    aria-label={`Reply to ${comment.user.displayName || comment.user.username}`}
-                    style={{ minHeight: '40px', maxHeight: '200px', WebkitTextFillColor: '#111827' }}
-                  />
-                  {/* Reply Button inside textarea */}
-                  <button
-                    onClick={() => handleReplySubmit(comment.id)}
-                    disabled={!replyText.trim() || isSubmitting}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    aria-label="Submit reply"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                {/* Character count below textarea */}
-                <div className="mt-1 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => openEmojiPickerForInput('reply', replyInputRef.current)}
-                    data-emoji-trigger
-                    className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    aria-label="Open emoji picker for reply"
-                  >
-                    <Smile className="h-4 w-4" />
-                  </button>
-                  <div className="text-xs text-gray-400 text-right">
-                    {replyText.length}/{MAX_CHARS}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -920,6 +976,16 @@ export default function CommentsModal({
   }
 
   if (!isOpen) return null
+
+  const replyTargetComment = replyingTo
+    ? localComments.find(comment => comment.id === replyingTo)
+    : null
+  const replyTargetLabel = replyTargetComment?.user.displayName || replyTargetComment?.user.username || ''
+  // Edit mode is fully inline — these footer vars only need to handle reply vs. normal
+  const footerPlaceholder = replyingTo ? `Reply to ${replyTargetLabel}...` : 'Add a comment...'
+  const footerAriaLabel = replyingTo ? `Reply to ${replyTargetLabel}` : 'Add a comment'
+  const submitAriaLabel = replyingTo ? 'Post reply' : 'Post comment'
+  const canCancelReply = Boolean(replyingTo)
 
   return (
     <div
@@ -979,72 +1045,102 @@ export default function CommentsModal({
             )}
           </div>
 
-          {/* Footer - Comment Input */}
-          <div ref={footerRef} className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
-            <div className="relative">
-              <textarea
-                ref={commentInputRef}
-                value={commentText}
-                onChange={(e) => {
-                  setCommentText(e.target.value.slice(0, MAX_CHARS))
-                  // Auto-expand textarea
-                  e.target.style.height = 'auto'
-                  e.target.style.height = e.target.scrollHeight + 'px'
-                }}
-                onFocus={(e) => updateTextareaSelection('comment', e.currentTarget)}
-                onClick={(e) => updateTextareaSelection('comment', e.currentTarget)}
-                onKeyUp={(e) => updateTextareaSelection('comment', e.currentTarget)}
-                onSelect={(e) => updateTextareaSelection('comment', e.currentTarget)}
-                placeholder="Add a comment..."
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden text-gray-900 bg-white"
-                rows={1}
-                maxLength={MAX_CHARS}
-                aria-label="Add a comment"
-                aria-describedby="comment-char-count"
-                style={{ minHeight: '44px', maxHeight: '200px', WebkitTextFillColor: '#111827' }}
-              />
-              {/* Send Button inside textarea */}
-              <button
-                onClick={handleCommentSubmit}
-                disabled={!commentText.trim() || isSubmitting}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                aria-label="Post comment"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Send className="h-5 w-5" />
-                )}
-              </button>
-            </div>
-            {/* Character count below textarea */}
-            <div
-              id="comment-char-count"
-              className="mt-1 flex items-center justify-between"
-              aria-live="polite"
-            >
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => openEmojiPickerForInput('comment', commentInputRef.current)}
-                data-emoji-trigger
-                className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                aria-label="Open emoji picker for comment"
-              >
-                <Smile className="h-4 w-4" />
-              </button>
-              <div className="text-xs text-gray-400 text-right">
-                {commentText.length}/{MAX_CHARS}
+          {/* Footer - new comment / reply input (edit mode is handled inline above) */}
+          <div ref={footerRef} className="border-t border-gray-200 bg-gray-50">
+            {/*
+              Dynamic spacer: when a reply target is too close to the top of the
+              scroll area to be reached by scrolling alone, this spacer grows the
+              footer upward so the textarea lands right below the anchor comment.
+            */}
+            {footerTopSpacer > 0 && (
+              <div style={{ height: `${footerTopSpacer}px` }} aria-hidden="true" />
+            )}
+
+            {editingCommentId ? (
+              /* While an inline edit is open, the footer is a neutral placeholder
+                 so the user knows the bottom bar is temporarily inactive. */
+              <div className="p-4 sm:p-6">
+                <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white text-sm text-gray-400 select-none">
+                  Editing comment above…
+                </div>
               </div>
-            </div>
-            <MinimalEmojiPicker
-              isOpen={showEmojiPicker}
-              onClose={() => setShowEmojiPicker(false)}
-              onEmojiSelect={insertEmojiIntoActiveInput}
-              variant="inline"
-              viewportInset={mobileKeyboardInset}
-              className="mt-4"
-            />
+            ) : (
+              <div className="p-4 sm:p-6">
+                <div className="relative">
+                  <textarea
+                    ref={commentInputRef}
+                    value={commentText}
+                    onChange={(e) => {
+                      setCommentText(e.target.value.slice(0, MAX_CHARS))
+                      resizeTextarea(e.target)
+                    }}
+                    onFocus={(e) => updateTextareaSelection(e.currentTarget)}
+                    onClick={(e) => updateTextareaSelection(e.currentTarget)}
+                    onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
+                    onSelect={(e) => updateTextareaSelection(e.currentTarget)}
+                    placeholder={footerPlaceholder}
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white"
+                    rows={1}
+                    maxLength={MAX_CHARS}
+                    aria-label={footerAriaLabel}
+                    aria-describedby="comment-char-count"
+                    style={{ minHeight: '44px', WebkitTextFillColor: '#111827', boxSizing: 'border-box' }}
+                  />
+                  {/* Send Button */}
+                  <button
+                    onClick={handleCommentSubmit}
+                    disabled={!commentText.trim() || isSubmitting}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    aria-label={submitAriaLabel}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Send className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                {/* Controls row */}
+                <div
+                  id="comment-char-count"
+                  className="mt-1 flex items-center justify-between"
+                  aria-live="polite"
+                >
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => openEmojiPickerForInput(commentInputRef.current)}
+                      data-emoji-trigger
+                      className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      aria-label="Open emoji picker for comment"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </button>
+                    {canCancelReply && (
+                      <button
+                        type="button"
+                        onClick={clearReplyMode}
+                        className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-400 text-right">
+                    {commentText.length}/{MAX_CHARS}
+                  </div>
+                </div>
+                <MinimalEmojiPicker
+                  isOpen={showEmojiPicker}
+                  onClose={() => setShowEmojiPicker(false)}
+                  onEmojiSelect={insertEmojiIntoActiveInput}
+                  variant="inline"
+                  viewportInset={mobileKeyboardInset}
+                  className="mt-4"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

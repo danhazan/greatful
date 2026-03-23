@@ -109,6 +109,21 @@ describe('CommentsModal', () => {
     })
   })
 
+  it('caps the footer textarea at four lines and enables internal scrolling', () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const textarea = screen.getByPlaceholderText('Add a comment...') as HTMLTextAreaElement
+    Object.defineProperty(textarea, 'scrollHeight', {
+      configurable: true,
+      value: 220
+    })
+
+    fireEvent.change(textarea, { target: { value: 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5' } })
+
+    expect(textarea.style.height).toBe('102px')
+    expect(textarea.style.overflowY).toBe('auto')
+  })
+
   it('renders modal when open', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
@@ -155,14 +170,27 @@ describe('CommentsModal', () => {
   it('allows user to add a comment', async () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
-    const textarea = screen.getByPlaceholderText('Add a comment...')
+    const textarea = screen.getByPlaceholderText('Add a comment...') as HTMLTextAreaElement
     const submitButton = screen.getByRole('button', { name: /Post comment/i })
+
+    Object.defineProperty(textarea, 'scrollHeight', {
+      configurable: true,
+      value: 220
+    })
     
     fireEvent.change(textarea, { target: { value: 'New comment text' } })
+    textarea.scrollTop = 48
     fireEvent.click(submitButton)
     
     await waitFor(() => {
       expect(defaultProps.onCommentSubmit).toHaveBeenCalledWith('New comment text')
+    })
+
+    await waitFor(() => {
+      expect(textarea.value).toBe('')
+      expect(textarea.style.height).toBe('30px')
+      expect(textarea.style.overflowY).toBe('hidden')
+      expect(textarea.scrollTop).toBe(0)
     })
   })
 
@@ -209,13 +237,14 @@ describe('CommentsModal', () => {
     expect(submitButton).not.toBeDisabled()
   })
 
-  it('shows reply input when clicking reply button', () => {
+  it('uses the footer input for replies when clicking reply button', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
     const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
     fireEvent.click(replyButtons[0])
     
     expect(screen.getByPlaceholderText(/Reply to Test User.../i)).toBeInTheDocument()
+    expect(screen.queryAllByPlaceholderText(/Reply to Test User.../i)).toHaveLength(1)
   })
 
   it('allows user to submit a reply', async () => {
@@ -225,33 +254,43 @@ describe('CommentsModal', () => {
     const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
     fireEvent.click(replyButtons[0])
     
-    // Enter reply text
-    const replyTextarea = screen.getByPlaceholderText(/Reply to Test User.../i)
+    // Enter reply text into footer input
+    const replyTextarea = screen.getByPlaceholderText(/Reply to Test User.../i) as HTMLTextAreaElement
+    Object.defineProperty(replyTextarea, 'scrollHeight', {
+      configurable: true,
+      value: 220
+    })
     fireEvent.change(replyTextarea, { target: { value: 'This is a reply' } })
+    replyTextarea.scrollTop = 36
     
-    // Submit reply
-    const submitReplyButton = screen.getByRole('button', { name: /Submit reply/i })
+    // Submit reply from footer send button
+    const submitReplyButton = screen.getByRole('button', { name: /Post reply/i })
     fireEvent.click(submitReplyButton)
     
     await waitFor(() => {
       expect(defaultProps.onReplySubmit).toHaveBeenCalledWith('1', 'This is a reply')
     })
+
+    await waitFor(() => {
+      expect(replyTextarea.value).toBe('')
+      expect(replyTextarea.style.height).toBe('30px')
+      expect(replyTextarea.style.overflowY).toBe('hidden')
+      expect(replyTextarea.scrollTop).toBe(0)
+    })
   })
 
-  it('cancels reply input when clicking cancel', () => {
+  it('cancels reply mode when clicking cancel', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
-    // Click reply button
     const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
     fireEvent.click(replyButtons[0])
     
     expect(screen.getByPlaceholderText(/Reply to Test User.../i)).toBeInTheDocument()
     
-    // Click hide button (which acts as cancel)
-    const hideButton = screen.getByRole('button', { name: /Hide reply input/i })
-    fireEvent.click(hideButton)
+    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
+    fireEvent.click(cancelButton)
     
-    expect(screen.queryByPlaceholderText(/Reply to Test User.../i)).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Add a comment...')).toBeInTheDocument()
   })
 
   it('shows empty state when no comments', () => {
@@ -361,19 +400,19 @@ describe('CommentsModal', () => {
     expect((screen.getByLabelText('Add a comment') as HTMLTextAreaElement).value).toBe('Hello😀')
     expect(document.activeElement).toBe(screen.getByLabelText('Add a comment'))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Search emojis...')).toBeInTheDocument()
+    expect(document.querySelector('[data-minimal-emoji-picker]')).toBeInTheDocument()
   })
 
-  it('clicking inside modal while picker is open closes only picker, not modal', () => {
+  it('clicking inside the footer input keeps the picker open and modal stable', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for comment/i }))
-    expect(screen.getByPlaceholderText('Search emojis...')).toBeInTheDocument()
+    expect(document.querySelector('[data-minimal-emoji-picker]')).toBeInTheDocument()
 
     fireEvent.mouseDown(screen.getByLabelText('Add a comment'))
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.queryByPlaceholderText('Search emojis...')).not.toBeInTheDocument()
+    expect(document.querySelector('[data-minimal-emoji-picker]')).toBeInTheDocument()
   })
 
   it('clicking outside modal still triggers modal close', () => {
@@ -408,7 +447,7 @@ describe('CommentsModal', () => {
     expect((screen.getByLabelText('Add a comment') as HTMLTextAreaElement).value).toBe('draft text 💜')
   })
 
-  it('inserts emoji into reply input', async () => {
+  it('inserts emoji into footer input while replying', async () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
 
     const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
@@ -420,7 +459,7 @@ describe('CommentsModal', () => {
     replyTextarea.setSelectionRange(5, 5)
     fireEvent.select(replyTextarea)
 
-    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for reply/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for comment/i }))
     fireEvent.click(screen.getByTitle('grinning face'))
 
     await waitFor(() => {
@@ -428,7 +467,22 @@ describe('CommentsModal', () => {
     })
   })
 
-  it('inserts emoji into edit input', async () => {
+  it('keeps the emoji tray open when switching reply targets', async () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
+    fireEvent.click(replyButtons[0])
+    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for comment/i }))
+
+    expect(document.querySelector('[data-minimal-emoji-picker]')).toBeInTheDocument()
+
+    fireEvent.click(replyButtons[1])
+
+    expect(document.querySelector('[data-minimal-emoji-picker]')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/Reply to Another User.../i)).toBeInTheDocument()
+  })
+
+  it('uses the footer input for editing and emoji insertion', async () => {
     const propsWithEdit = {
       ...defaultProps,
       currentUserId: 1,
@@ -441,16 +495,54 @@ describe('CommentsModal', () => {
     renderWithToast(<CommentsModal {...propsWithEdit} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Edit comment/i }))
-    const editTextarea = screen.getByLabelText('Edit comment') as HTMLTextAreaElement
+    const editTextarea = screen.getByPlaceholderText('Edit comment...') as HTMLTextAreaElement
+    expect(editTextarea.value).toBe('This is a great post! 😊')
     editTextarea.focus()
     editTextarea.setSelectionRange(editTextarea.value.length, editTextarea.value.length)
     fireEvent.select(editTextarea)
 
-    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for edit comment/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for comment/i }))
     fireEvent.click(screen.getByTitle('grinning face'))
 
     await waitFor(() => {
-      expect((screen.getByLabelText('Edit comment') as HTMLTextAreaElement).value).toContain('😀')
+      expect((screen.getByPlaceholderText('Edit comment...') as HTMLTextAreaElement).value).toContain('😀')
+    })
+  })
+
+  it('resets the footer textarea after saving an edit', async () => {
+    const propsWithEdit = {
+      ...defaultProps,
+      currentUserId: 1,
+      onCommentEdit: jest.fn().mockResolvedValue({
+        ...mockComments[0],
+        content: 'Updated comment',
+        editedAt: new Date().toISOString()
+      })
+    }
+
+    renderWithToast(<CommentsModal {...propsWithEdit} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit comment/i }))
+    const editTextarea = screen.getByPlaceholderText('Edit comment...') as HTMLTextAreaElement
+    Object.defineProperty(editTextarea, 'scrollHeight', {
+      configurable: true,
+      value: 220
+    })
+    fireEvent.change(editTextarea, { target: { value: 'Updated comment' } })
+    editTextarea.scrollTop = 28
+
+    fireEvent.click(screen.getByRole('button', { name: /Save comment edit/i }))
+
+    await waitFor(() => {
+      expect(propsWithEdit.onCommentEdit).toHaveBeenCalledWith('1', 'Updated comment')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a comment...')).toBeInTheDocument()
+      expect(editTextarea.value).toBe('')
+      expect(editTextarea.style.height).toBe('30px')
+      expect(editTextarea.style.overflowY).toBe('hidden')
+      expect(editTextarea.scrollTop).toBe(0)
     })
   })
 
