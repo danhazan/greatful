@@ -6,6 +6,7 @@ import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { useUserSearch } from '@/hooks/useUserSearch'
 import { UserSearchDropdown } from '@/components/user-search'
 import { UserSearchResult } from '@/types/userSearch'
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 export interface UserMultiSelectUser {
   id: number
@@ -136,6 +137,7 @@ export default function UserMultiSelect({
           </div>
         )}
 
+        {/* getCompleteInputStyling() is required here to prevent transparent text bugs on mobile WebKit */}
         <input
           ref={inputRef}
           type="text"
@@ -146,7 +148,8 @@ export default function UserMultiSelect({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={reachedMax ? `Maximum ${maxSelected} users selected` : placeholder}
-          className="w-full border-none px-2 py-2 text-sm outline-none"
+          className={`w-full border-none px-2 py-2 text-sm outline-none ${getCompleteInputStyling().className}`}
+          style={getCompleteInputStyling().style}
           disabled={disabled || reachedMax}
           aria-label={placeholder}
           role="combobox"

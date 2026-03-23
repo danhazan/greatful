@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Search, Smile, Heart, Hand, Flower, PartyPopper, Cake, Dog, Car, Watch, History } from "lucide-react"
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 interface MinimalEmojiPickerProps {
   isOpen: boolean
@@ -689,6 +690,7 @@ export default function MinimalEmojiPicker({
           <div className="border-b border-gray-100 px-3 pt-3 pb-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              {/* getCompleteInputStyling() is required here to prevent transparent text bugs on mobile WebKit */}
               <input
                 ref={searchInputRef}
                 type="text"
@@ -698,7 +700,8 @@ export default function MinimalEmojiPicker({
                 onMouseDown={(e) => {
                   e.stopPropagation()
                 }}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-10 pr-3 text-sm text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                className={`w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-10 pr-3 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 ${getCompleteInputStyling().className}`}
+                style={{ ...getCompleteInputStyling().style, backgroundColor: '#f9fafb' }} // Preserve bg-gray-50
               />
             </div>
           </div>
