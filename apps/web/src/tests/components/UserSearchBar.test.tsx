@@ -138,8 +138,8 @@ describe('UserSearchBar', () => {
       expect(screen.getByText('Test User 1')).toBeInTheDocument()
     })
 
-    // The first result should already be selected (selectedIndex = 0)
-    const firstResult = screen.getByRole('option', { name: /Test User 1/ })
+    // The first result should already be visually focused (selectedIndex = 0)
+    const firstResult = screen.getByRole('link', { name: /Test User 1/ })
     expect(firstResult).toHaveClass('bg-purple-50')
   })
 
@@ -154,14 +154,14 @@ describe('UserSearchBar', () => {
       expect(screen.getByText('Test User 1')).toBeInTheDocument()
     }, { timeout: 1000 })
     // Get the first result button
-    const firstResult = screen.getByRole('option', { name: /Test User 1/ })
+    const firstResult = screen.getByRole('link', { name: /Test User 1/ })
     // Verify the dropdown is open and the result is clickable
     expect(firstResult).toBeInTheDocument()
     expect(input).toHaveAttribute('aria-expanded', 'true')
     
     // Verify the result has proper attributes for navigation
-    expect(firstResult).toHaveAttribute('type', 'button')
-    expect(firstResult).toHaveAttribute('role', 'option')
+    expect(firstResult).toHaveAttribute('href', '/profile/1')
+    expect(firstResult).not.toHaveAttribute('role', 'option')
     expect(firstResult).toHaveAttribute('aria-label', expect.stringContaining('Go to Test User 1\'s profile'))
     
     // Verify the result displays user information correctly
@@ -247,10 +247,9 @@ describe('UserSearchBar', () => {
     await waitFor(() => {
       expect(screen.getByText('Test User 1')).toBeInTheDocument()
     }, { timeout: 1000 })
-    // The first result should be selected by default (selectedIndex = 0)
-    const firstResult = screen.getByRole('option', { name: /Test User 1/ })
+    // The first result should be visually focused by default (selectedIndex = 0)
+    const firstResult = screen.getByRole('link', { name: /Test User 1/ })
     expect(firstResult).toHaveClass('bg-purple-50')
-    expect(firstResult).toHaveAttribute('aria-selected', 'true')
     
     // Verify the dropdown is open
     expect(input).toHaveAttribute('aria-expanded', 'true')
@@ -258,20 +257,18 @@ describe('UserSearchBar', () => {
     // Test arrow down navigation
     fireEvent.keyDown(document, { key: 'ArrowDown' })
     
-    // Second result should now be selected
+    // Second result should now be visually focused
     await waitFor(() => {
-      const secondResult = screen.getByRole('option', { name: /Test User 2/ })
+      const secondResult = screen.getByRole('link', { name: /Test User 2/ })
       expect(secondResult).toHaveClass('bg-purple-50')
-      expect(secondResult).toHaveAttribute('aria-selected', 'true')
     })
     
     // Test arrow up navigation
     fireEvent.keyDown(document, { key: 'ArrowUp' })
     
-    // First result should be selected again
+    // First result should be visually focused again
     await waitFor(() => {
       expect(firstResult).toHaveClass('bg-purple-50')
-      expect(firstResult).toHaveAttribute('aria-selected', 'true')
     })
   })
 
@@ -362,9 +359,9 @@ describe('UserSearchBar', () => {
     
     // Wait a bit for the effect to run
     await waitFor(() => {
-      // The second user should be selected (aria-selected="true")
-      const secondUser = screen.getByRole('option', { name: /Test User 2/ })
-      expect(secondUser).toHaveAttribute('aria-selected', 'true')
+      // The second user should be visually focused
+      const secondUser = screen.getByRole('link', { name: /Test User 2/ })
+      expect(secondUser).toHaveClass('bg-purple-50')
     })
     
     // Should call scrollIntoView on the selected element

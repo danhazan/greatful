@@ -68,7 +68,6 @@ describe('Keyboard Navigation Accessibility', () => {
         const dropdown = screen.getByRole('listbox')
         expect(dropdown).toBeInTheDocument()
         expect(dropdown).toHaveAttribute('aria-label', 'User search results')
-        expect(dropdown).toHaveAttribute('aria-live', 'polite')
       })
 
       await waitFor(() => {

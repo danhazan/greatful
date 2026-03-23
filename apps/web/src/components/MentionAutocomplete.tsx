@@ -96,6 +96,7 @@ export default function MentionAutocomplete({
 
   return (
     <UserSearchDropdown
+      mode="selection"
       dropdownRef={dropdownRef}
       dataMentionAutocomplete={true}
       className={`absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-w-xs w-64 sm:w-80 max-h-60 sm:max-h-72 overflow-y-auto custom-scrollbar touch-manipulation ${className} ${getTextAlignmentClass(searchQuery)}`}

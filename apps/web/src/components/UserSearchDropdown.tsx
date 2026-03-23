@@ -6,13 +6,12 @@ import UserSearchResultItem from './UserSearchResultItem'
 
 // Shared dropdown body for all user-search surfaces.
 // Row rendering must flow through UserSearchResultItem only.
-interface UserSearchDropdownProps {
+type BaseDropdownProps = {
   users: UserSearchResult[]
   loading: boolean
   hasSearched: boolean
   searchQuery: string
   selectedIndex: number
-  onSelect: (user: UserSearchResult) => void
   onIndexChange: (index: number) => void
   setItemRef: (index: number) => (el: HTMLElement | null) => void
   dropdownRef?: React.Ref<HTMLDivElement>
@@ -24,23 +23,35 @@ interface UserSearchDropdownProps {
   getResultAriaLabel?: (user: UserSearchResult) => string
 }
 
-export default function UserSearchDropdown({
-  users,
-  loading,
-  hasSearched,
-  searchQuery,
-  selectedIndex,
-  onSelect,
-  onIndexChange,
-  setItemRef,
-  dropdownRef,
-  id,
-  className,
-  style,
-  dir,
-  dataMentionAutocomplete = false,
-  getResultAriaLabel,
-}: UserSearchDropdownProps) {
+export type UserSearchDropdownProps = BaseDropdownProps & (
+  | {
+      mode: 'navigation'
+      onSelect?: (user: UserSearchResult) => void
+    }
+  | {
+      mode: 'selection'
+      onSelect: (user: UserSearchResult) => void
+    }
+)
+
+export default function UserSearchDropdown(props: UserSearchDropdownProps) {
+  const {
+    mode,
+    users,
+    loading,
+    hasSearched,
+    searchQuery,
+    selectedIndex,
+    onIndexChange,
+    setItemRef,
+    dropdownRef,
+    id,
+    className,
+    style,
+    dir,
+    dataMentionAutocomplete = false,
+    getResultAriaLabel,
+  } = props
   return (
     <div
       id={id}
@@ -68,16 +79,32 @@ export default function UserSearchDropdown({
       {!loading && users.length > 0 && (
         <div className="py-1" role="group" aria-label="Search results">
           {users.map((user, index) => (
-            <UserSearchResultItem
-              key={user.id}
-              user={user}
-              index={index}
-              isSelected={index === selectedIndex}
-              onSelect={onSelect}
-              onMouseEnter={onIndexChange}
-              setItemRef={setItemRef}
-              getAriaLabel={getResultAriaLabel}
-            />
+            props.mode === 'navigation' ? (
+              <UserSearchResultItem
+                key={user.id}
+                user={user}
+                index={index}
+                isSelected={index === selectedIndex}
+                mode="navigation"
+                href={`/profile/${user.id}`}
+                onClick={props.onSelect ? () => props.onSelect?.(user) : undefined}
+                onMouseEnter={onIndexChange}
+                setItemRef={setItemRef}
+                getAriaLabel={getResultAriaLabel}
+              />
+            ) : (
+              <UserSearchResultItem
+                key={user.id}
+                user={user}
+                index={index}
+                isSelected={index === selectedIndex}
+                mode="selection"
+                onClick={() => props.onSelect(user)}
+                onMouseEnter={onIndexChange}
+                setItemRef={setItemRef}
+                getAriaLabel={getResultAriaLabel}
+              />
+            )
           ))}
         </div>
       )}

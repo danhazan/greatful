@@ -158,6 +158,7 @@ export default function UserMultiSelect({
 
       {dropdownOpen && (
         <UserSearchDropdown
+          mode="selection"
           id="user-multi-select-results"
           className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
           users={filteredUsers}

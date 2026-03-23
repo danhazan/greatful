@@ -7,9 +7,13 @@ import React from 'react'
 
 // Mock Next.js Link
 jest.mock('next/link', () => {
-  return function MockLink({ children, href, prefetch, replace, scroll, shallow, passHref, ...props }: any) {
-    return React.createElement('a', { href: href?.toString() || href, ...props }, children)
-  }
+  const React = require('react')
+  return React.forwardRef(function MockLink(
+    { children, href, prefetch, replace, scroll, shallow, passHref, ...props }: any,
+    ref: any
+  ) {
+    return React.createElement('a', { ref, href: href?.toString() || href, ...props }, children)
+  })
 })
 
 // Mock Next.js router

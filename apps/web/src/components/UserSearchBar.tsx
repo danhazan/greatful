@@ -245,6 +245,7 @@ export default function UserSearchBar({
                   {/* Search Results Dropdown - also portal-level */}
                   {isDropdownOpen && (
                     <UserSearchDropdown
+                      mode="navigation"
                       id="mobile-user-search-results"
                       dropdownRef={dropdownRef}
                       className="mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto"
@@ -305,6 +306,7 @@ export default function UserSearchBar({
       {/* Search Results Dropdown - Desktop only (mobile handles its own in portal) */}
       {!isMobile && isDropdownOpen && (
         <UserSearchDropdown
+          mode="navigation"
           id="desktop-user-search-results"
           dropdownRef={dropdownRef}
           className="absolute top-full mt-1 w-full max-w-sm bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto"
