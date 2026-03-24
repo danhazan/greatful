@@ -12,14 +12,9 @@ import PostPrivacySelector from "./PostPrivacySelector"
 import { usePostPrivacyState } from "@/hooks/usePostPrivacyState"
 import { PostPrivacy } from "@/types/post"
 import { buildPostPayload } from "@/utils/postPayload"
+import { UserSearchResult } from "@/types/userSearch"
 
-// UserInfo type defined locally
-interface UserInfo {
-  id: number
-  username: string
-  profileImageUrl?: string
-  bio?: string
-}
+// Removed local UserInfo interface in favor of UserSearchResult from @/types/userSearch
 
 // Location result type from LocationAutocomplete
 interface LocationResult {
@@ -585,7 +580,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     setShowMentionAutocomplete(true)
   }
 
-  const handleMentionSelect = (user: UserInfo) => {
+  const handleMentionSelect = (user: UserSearchResult) => {
     if (currentMentionStart >= 0 && richTextEditorRef.current) {
       // Get the current plain text from the editor to ensure accuracy
       const currentContent = richTextEditorRef.current.getPlainText()

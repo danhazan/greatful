@@ -10,6 +10,8 @@ interface UseUserSearchOptions {
   normalizeQuery?: (query: string) => string
 }
 
+import { normalizeToUserSearchResult } from '@/utils/userDataMapping'
+
 const identityQuery = (value: string) => value
 
 function normalizeSearchResults(data: any): UserSearchResult[] {
@@ -21,13 +23,7 @@ function normalizeSearchResults(data: any): UserSearchResult[] {
 
   return rawResults
     .filter((user: any) => user?.id && user?.username)
-    .map((user: any) => ({
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName || user.display_name || user.name || user.username,
-      profileImageUrl: user.profileImageUrl || user.profile_image_url || user.image || null,
-      bio: user.bio,
-    }))
+    .map(normalizeToUserSearchResult)
 }
 
 /**

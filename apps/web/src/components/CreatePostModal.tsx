@@ -13,6 +13,7 @@ import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
 import PostPrivacySelector from "./PostPrivacySelector"
 import { usePostPrivacyState } from "@/hooks/usePostPrivacyState"
 import { buildPostPayload } from "@/utils/postPayload"
+import { UserSearchResult } from "@/types/userSearch"
 
 // Gratitude prompts for inspiring users
 const GRATITUDE_PROMPTS = [
@@ -41,13 +42,7 @@ const getRandomGratitudePrompt = () => {
   return GRATITUDE_PROMPTS[Math.floor(Math.random() * GRATITUDE_PROMPTS.length)]
 }
 
-// UserInfo type defined locally
-interface UserInfo {
-  id: number
-  username: string
-  profileImageUrl?: string
-  bio?: string
-}
+// Removed local UserInfo interface in favor of UserSearchResult from @/types/userSearch
 
 // Location result type from LocationAutocomplete
 interface LocationResult {
@@ -994,7 +989,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
 
 
-  const handleMentionSelect = (user: UserInfo) => {
+  const handleMentionSelect = (user: UserSearchResult) => {
     if (currentMentionStart >= 0 && richTextEditorRef.current) {
       // Get the current plain text from the editor to ensure accuracy
       const currentContent = richTextEditorRef.current.getPlainText()

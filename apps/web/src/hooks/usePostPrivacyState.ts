@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { PostPrivacy } from '@/types/post'
 import { UserSearchResult } from '@/types/userSearch'
 import { apiClient } from '@/utils/apiClient'
+import { normalizeToUserSearchResult, dedupeUsersById } from '@/utils/userDataMapping'
 
 export type PrivacyLevel = 'public' | 'private' | 'custom'
 export type PrivacyRule = 'followers' | 'following' | 'specific_users'
@@ -33,6 +34,7 @@ export function usePostPrivacyState(initialPrivacy: PostPrivacy): UsePostPrivacy
       ? (initialPrivacy.specificUsers as unknown as UserSearchResult[])
       : []
   )
+  const hasHydratedRef = useRef(false)
 
   useEffect(() => {
     let isActive = true
@@ -41,6 +43,12 @@ export function usePostPrivacyState(initialPrivacy: PostPrivacy): UsePostPrivacy
 
     const handleInitialUsers = async () => {
       const initialUsers = initialPrivacy.specificUsers || []
+      
+      // Skip if already hydrated for this instance
+      if (hasHydratedRef.current) {
+        return
+      }
+      
       if (initialUsers.length === 0) {
         if (isActive) setSpecificUsersState([])
         return
@@ -48,7 +56,10 @@ export function usePostPrivacyState(initialPrivacy: PostPrivacy): UsePostPrivacy
 
       // Check if they are already UserSearchResult objects (e.g. from new drafts)
       if (typeof initialUsers[0] === 'object' && initialUsers[0] !== null) {
-        if (isActive) setSpecificUsersState(initialUsers as unknown as UserSearchResult[])
+        if (isActive) {
+          setSpecificUsersState(initialUsers as unknown as UserSearchResult[])
+          hasHydratedRef.current = true
+        }
         return
       }
 
@@ -58,13 +69,7 @@ export function usePostPrivacyState(initialPrivacy: PostPrivacy): UsePostPrivacy
       try {
         const promises = ids.map(id => 
           apiClient.getUserProfile(id.toString())
-            .then(profile => ({
-              id: profile.id,
-              username: profile.username || `user${id}`,
-              displayName: profile.displayName || profile.name || profile.username,
-              profileImageUrl: profile.profileImageUrl || profile.image || null,
-              bio: profile.bio
-            } as UserSearchResult))
+            .then(normalizeToUserSearchResult)
             .catch(() => null)
         )
         
@@ -73,15 +78,9 @@ export function usePostPrivacyState(initialPrivacy: PostPrivacy): UsePostPrivacy
         if (isActive) {
           const validUsers = results.filter((u): u is UserSearchResult => u !== null)
           
-          // Deduplicate
-          const uniqueUsers: UserSearchResult[] = []
-          for (const u of validUsers) {
-            if (!uniqueUsers.find(existing => existing.id === u.id)) {
-              uniqueUsers.push(u)
-            }
-          }
-          
-          setSpecificUsersState(uniqueUsers)
+          // Merge with any users selected during the fetch, preserving existing selections
+          setSpecificUsersState(prev => dedupeUsersById([...prev, ...validUsers]))
+          hasHydratedRef.current = true
         }
       } catch (err) {
         console.error('Failed to hydrate specific users', err)
@@ -108,14 +107,7 @@ export function usePostPrivacyState(initialPrivacy: PostPrivacy): UsePostPrivacy
   }, [])
 
   const setSpecificUsers = useCallback((users: UserSearchResult[]) => {
-    // Basic deduplication safeguard on setter
-    const uniqueUsers: UserSearchResult[] = []
-    for (const u of users) {
-      if (!uniqueUsers.find(existing => existing.id === u.id)) {
-        uniqueUsers.push(u)
-      }
-    }
-    setSpecificUsersState(uniqueUsers)
+    setSpecificUsersState(dedupeUsersById(users))
   }, [])
 
   useEffect(() => {

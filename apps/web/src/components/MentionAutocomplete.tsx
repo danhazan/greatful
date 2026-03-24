@@ -7,18 +7,10 @@ import { getTextAlignmentClass, getDirectionAttribute } from '@/utils/rtlUtils'
 import { UserSearchDropdown } from '@/components/user-search'
 import { UserSearchResult } from '@/types/userSearch'
 
-interface UserInfo {
-  id: number
-  username: string
-  profileImageUrl?: string
-  profile_image_url?: string
-  bio?: string
-}
-
 interface MentionAutocompleteProps {
   isOpen: boolean
   searchQuery: string
-  onUserSelect: (user: UserInfo) => void
+  onUserSelect: (user: UserSearchResult) => void
   onClose: () => void
   position: { x: number; y: number }
   className?: string
@@ -79,14 +71,7 @@ export default function MentionAutocomplete({
   }, [isOpen, onClose])
 
   const handleUserSelect = (user: UserSearchResult) => {
-    const userInfo: UserInfo = {
-      id: user.id,
-      username: user.username,
-      profileImageUrl: user.profileImageUrl || undefined,
-      profile_image_url: user.profileImageUrl || undefined,
-      bio: user.bio
-    }
-    onUserSelect(userInfo)
+    onUserSelect(user)
     onClose()
   }
 
