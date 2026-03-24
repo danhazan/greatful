@@ -63,10 +63,7 @@ export default function CommentsModal({
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const commentsContainerRef = useRef<HTMLDivElement>(null)
   const footerRef = useRef<HTMLDivElement>(null)
-  const anchorFrameRef = useRef<number | null>(null)
-  const isAnchoringRef = useRef(false)
-  // Stores the last anchor getter so alignment can be re-run when the keyboard opens
-  const anchorGetterRef = useRef<(() => HTMLElement | null) | null>(null)
+  const scrollBeforeEmojiRef = useRef<number | null>(null)
   const [commentText, setCommentText] = useState("")
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
@@ -87,14 +84,8 @@ export default function CommentsModal({
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0)
 
-  // Dynamic spacer added to the top of the footer so it "rises" to meet a
-  // near-top anchor element that can't be reached by scrolling alone.
-  const [footerTopSpacer, setFooterTopSpacer] = useState(0)
-
   const MAX_CHARS = 500
   const MAX_TEXTAREA_LINES = 4
-  const THREAD_ANCHOR_GAP = 16
-
   const getTextareaHeights = (element: HTMLTextAreaElement) => {
     const computedStyle = window.getComputedStyle(element)
     const fontSize = Number.parseFloat(computedStyle.fontSize) || 16
@@ -145,7 +136,6 @@ export default function CommentsModal({
     setReplyingTo(null)
     setCommentText("")
     resetTextarea(commentInputRef.current)
-    setFooterTopSpacer(0)
     unlockCommentsScroll()
   }
 
@@ -153,7 +143,6 @@ export default function CommentsModal({
     setEditingCommentId(null)
     setCommentText("")
     resetTextarea(commentInputRef.current)
-    setFooterTopSpacer(0)
     unlockCommentsScroll()
   }
 
@@ -162,97 +151,7 @@ export default function CommentsModal({
     setEditingCommentId(null)
     setCommentText("")
     resetTextarea(commentInputRef.current)
-    setFooterTopSpacer(0)
     unlockCommentsScroll()
-  }
-
-  const focusComposer = () => {
-    const input = commentInputRef.current
-    if (!input) return
-
-    input.focus()
-    const cursorPosition = input.value.length
-    input.setSelectionRange(cursorPosition, cursorPosition)
-  }
-
-  /**
-   * Scrolls the comments container so the anchor element's bottom edge sits
-   * just above the footer's top edge (with THREAD_ANCHOR_GAP of breathing room).
-   *
-   * Uses getBoundingClientRect throughout so the measurement is always in
-   * screen-space and never confused by nested offsetParent chains.
-   *
-   * Near-top handling: when the desired scrollTop would be negative (i.e. the
-   * comment is too close to the top of the content to be scrolled far enough),
-   * we leave scrollTop at 0 and instead grow the footer upward via a spacer
-   * div.  Because the modal uses flex-col, a taller footer shrinks the
-   * flex-1 content area, which moves the footer's top edge up to meet the
-   * anchor.
-   */
-  const alignAnchorAboveFooter = (anchorElement: HTMLElement) => {
-    const container = commentsContainerRef.current
-    const footer = footerRef.current
-
-    if (!container || !footer) return
-
-    const anchorBottom = anchorElement.getBoundingClientRect().bottom
-    const footerTop = footer.getBoundingClientRect().top
-    const currentScrollTop = container.scrollTop
-
-    // How much we need to increase scrollTop so the anchor bottom lands just
-    // above the footer top.
-    // Increasing scrollTop shifts content upward, so anchorBottom decreases by
-    // the same amount.
-    // Target: anchorBottom - scrollDelta + THREAD_ANCHOR_GAP = footerTop
-    //   => scrollDelta = anchorBottom + THREAD_ANCHOR_GAP - footerTop
-    const scrollDelta = anchorBottom + THREAD_ANCHOR_GAP - footerTop
-    const desiredScrollTop = currentScrollTop + scrollDelta
-    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
-
-    if (desiredScrollTop < 0) {
-      // The anchor is too close to the top of the scroll content; we cannot
-      // scroll up far enough.  Set scrollTop to 0 and add a spacer to the
-      // top of the footer instead.
-      //
-      // At scrollTop = 0 the anchor will appear at:
-      //   anchorBottom + currentScrollTop  (moving down as we unscroll)
-      // We want the footer top to be right below that:
-      //   desiredFooterTop = anchorBottom + currentScrollTop + THREAD_ANCHOR_GAP
-      // Current footer top = footerTop, so spacer needed:
-      //   spacer = footerTop - desiredFooterTop
-      const anchorBottomAtScrollTop0 = anchorBottom + currentScrollTop
-      const spacer = Math.max(0, footerTop - anchorBottomAtScrollTop0 - THREAD_ANCHOR_GAP)
-      setFooterTopSpacer(spacer)
-      container.scrollTop = 0
-    } else {
-      setFooterTopSpacer(0)
-      container.scrollTop = Math.min(desiredScrollTop, maxScrollTop)
-    }
-
-    lockCommentsScroll()
-  }
-
-  const scheduleComposerAnchor = (getAnchorElement: () => HTMLElement | null) => {
-    if (isAnchoringRef.current) return
-
-    anchorGetterRef.current = getAnchorElement  // persist for keyboard-open re-alignment
-    isAnchoringRef.current = true
-
-    if (anchorFrameRef.current !== null) {
-      window.cancelAnimationFrame(anchorFrameRef.current)
-    }
-
-    anchorFrameRef.current = window.requestAnimationFrame(() => {
-      anchorFrameRef.current = window.requestAnimationFrame(() => {
-        anchorFrameRef.current = null
-        const anchorElement = getAnchorElement()
-        if (anchorElement) {
-          alignAnchorAboveFooter(anchorElement)
-        }
-        focusComposer()
-        isAnchoringRef.current = false
-      })
-    })
   }
 
   // Sync local comments with prop changes
@@ -289,11 +188,6 @@ export default function CommentsModal({
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
-      if (anchorFrameRef.current !== null) {
-        window.cancelAnimationFrame(anchorFrameRef.current)
-        anchorFrameRef.current = null
-      }
-      isAnchoringRef.current = false
       unlockCommentsScroll()
       setReplyingTo(null)
       setEditingCommentId(null)
@@ -304,7 +198,6 @@ export default function CommentsModal({
       setDeleteConfirmCommentId(null)
       setShowEmojiPicker(false)
       setMobileKeyboardInset(0)
-      setFooterTopSpacer(0)
       resetTextarea(commentInputRef.current)
     }
   }, [isOpen])
@@ -352,21 +245,84 @@ export default function CommentsModal({
     }
   }, [isOpen, isMobileViewport])
 
-  // Re-align the reply anchor whenever the onscreen keyboard opens or closes.
-  // Problem: scheduleComposerAnchor measures the footer position before the keyboard
-  // opens (focus is called after alignment). When the keyboard appears it pushes the
-  // footer up via paddingBottom/mobileKeyboardInset, but the scroll is already locked
-  // so the anchor drifts below the footer. This effect fires after React has re-rendered
-  // with the new inset (so getBoundingClientRect reflects the true footer position),
-  // unlocks the scroll, re-runs alignment, then re-locks.
+  // When the emoji picker opens in inline mode the scroll container shrinks
+  // (the picker renders between the container and footer in the flex layout).
+  // If the inline composer is now below the container's visible bottom, scroll
+  // just enough to bring it back into view.
   useEffect(() => {
-    if (!replyingTo || !anchorGetterRef.current) return
-    const anchorElement = anchorGetterRef.current()
-    if (!anchorElement) return
-    unlockCommentsScroll()
-    alignAnchorAboveFooter(anchorElement)  // re-locks inside
+    if (!showEmojiPicker || (!editingCommentId && !replyingTo)) return
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = commentsContainerRef.current
+        if (!container) return
+
+        const composerEl = editingCommentId
+          ? container.querySelector<HTMLElement>(`[data-comment-id="${editingCommentId}"]`)
+          : container.querySelector<HTMLElement>(`[data-reply-composer="${replyingTo}"]`)
+        if (!composerEl) return
+
+        const containerRect = container.getBoundingClientRect()
+        const composerRect = composerEl.getBoundingClientRect()
+        const overflow = composerRect.bottom - containerRect.bottom
+        if (overflow > 0) {
+          unlockCommentsScroll()
+          container.scrollTop += overflow
+          lockCommentsScroll()
+        }
+      })
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mobileKeyboardInset])
+  }, [showEmojiPicker])
+
+  // When the emoji picker opens in inline mode, save the current scrollTop then
+  // scroll the anchor comment flush to the top so the textarea is fully visible
+  // above the tray.  When the picker closes, restore the saved scrollTop so the
+  // comment header (and any preceding content) comes back into view.
+  //
+  // On mobile the keyboard may still be mid-animation when this effect fires, so
+  // the scroll is deferred via double-rAF to ensure getBoundingClientRect() sees
+  // the fully-settled layout (tray rendered + viewport adjusted) before we move
+  // anything.
+  useEffect(() => {
+    const anchorId = editingCommentId || replyingTo
+    if (!anchorId) return
+
+    if (showEmojiPicker) {
+      // Snapshot scrollTop synchronously before any layout shifts occur
+      const container = commentsContainerRef.current
+      if (!container) return
+      scrollBeforeEmojiRef.current = container.scrollTop
+
+      // Defer the scroll itself so the tray and virtual keyboard have settled
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const c = commentsContainerRef.current
+          if (!c) return
+          const commentEl = c.querySelector<HTMLElement>(`[data-comment-id="${anchorId}"]`)
+          if (!commentEl) return
+          unlockCommentsScroll()
+          c.scrollTop += commentEl.getBoundingClientRect().top - c.getBoundingClientRect().top
+          lockCommentsScroll()
+        })
+      })
+    } else {
+      // Restore position if we saved one
+      if (scrollBeforeEmojiRef.current !== null) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const c = commentsContainerRef.current
+            if (!c) return
+            unlockCommentsScroll()
+            c.scrollTop = scrollBeforeEmojiRef.current!
+            scrollBeforeEmojiRef.current = null
+            lockCommentsScroll()
+          })
+        })
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showEmojiPicker])
 
   // Handle click outside to close
   useEffect(() => {
@@ -476,7 +432,6 @@ export default function CommentsModal({
 
         setEditingCommentId(null)
         setCommentText("")
-        setFooterTopSpacer(0)
         resetTextarea(commentInputRef.current)
         unlockCommentsScroll()
         showSuccess("Comment updated successfully")
@@ -486,14 +441,12 @@ export default function CommentsModal({
         const submittedReplyTarget = replyingTo
         setCommentText("")
         setReplyingTo(null)
-        setFooterTopSpacer(0)
         resetTextarea(commentInputRef.current)
         unlockCommentsScroll()
         await loadReplies(submittedReplyTarget, true)
       } else {
         await onCommentSubmit(commentText.trim())
         setCommentText("")
-        setFooterTopSpacer(0)
         resetTextarea(commentInputRef.current)
         unlockCommentsScroll()
       }
@@ -679,6 +632,28 @@ export default function CommentsModal({
     return comment.replyCount === 0
   }
 
+  // Scroll the container so the target comment sits flush at the top, then lock.
+  // Same pattern as handleStartEdit — inline composer renders below the replies
+  // so no footer alignment is needed at all.
+  const scrollCommentToTop = (commentId: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = commentsContainerRef.current
+        const commentEl = container?.querySelector<HTMLElement>(`[data-comment-id="${commentId}"]`)
+        if (container && commentEl) {
+          container.scrollTop += commentEl.getBoundingClientRect().top - container.getBoundingClientRect().top
+        }
+        const input = commentInputRef.current
+        if (input) {
+          resizeTextarea(input)
+          input.focus()
+          input.setSelectionRange(input.value.length, input.value.length)
+        }
+        lockCommentsScroll()
+      })
+    })
+  }
+
   const handleReplyToggle = (comment: Comment) => {
     if (replyingTo === comment.id) {
       clearReplyMode()
@@ -690,27 +665,16 @@ export default function CommentsModal({
     setCommentText("")
     setReplyingTo(comment.id)
 
-    const scheduleReplyAnchor = () => {
-      scheduleComposerAnchor(() => {
-        const container = commentsContainerRef.current
-        const targetComment = container?.querySelector<HTMLElement>(`[data-comment-id="${comment.id}"]`)
-        const repliesSection = container?.querySelector<HTMLElement>(`[data-replies-section="${comment.id}"]`)
-        const directReplyItems = repliesSection
-          ? Array.from(repliesSection.querySelectorAll<HTMLElement>(':scope > [data-comment-id]'))
-          : []
-
-        return directReplyItems[directReplyItems.length - 1] ?? targetComment ?? null
-      })
-    }
-
+    // If replies aren't loaded yet, load them first so they render before we
+    // scroll — the inline composer appears below the last reply.
     if (comment.replyCount > 0 && !expandedComments.has(comment.id)) {
       void loadReplies(comment.id).then(() => {
-        scheduleReplyAnchor()
+        scrollCommentToTop(comment.id)
       })
       return
     }
 
-    scheduleReplyAnchor()
+    scrollCommentToTop(comment.id)
   }
 
   const renderComment = (comment: Comment, isReply: boolean = false) => {
@@ -828,14 +792,6 @@ export default function CommentsModal({
                     {commentText.length}/{MAX_CHARS}
                   </div>
                 </div>
-                <MinimalEmojiPicker
-                  isOpen={showEmojiPicker}
-                  onClose={() => setShowEmojiPicker(false)}
-                  onEmojiSelect={insertEmojiIntoActiveInput}
-                  variant="inline"
-                  viewportInset={mobileKeyboardInset}
-                  className="mt-2"
-                />
               </div>
             ) : (
               <>
@@ -971,21 +927,76 @@ export default function CommentsModal({
             {replies.map(reply => renderComment(reply, true))}
           </div>
         )}
+
+        {/* Inline reply composer — appears below the last reply (or the comment
+            itself when there are no replies), replacing the footer textarea.    */}
+        {isReplyingToThis && (
+          <div className="mt-3 ml-8 sm:ml-12" data-reply-composer={comment.id}>
+            <div className="relative">
+              <textarea
+                ref={commentInputRef}
+                value={commentText}
+                onChange={(e) => {
+                  setCommentText(e.target.value.slice(0, MAX_CHARS))
+                  resizeTextarea(e.target)
+                }}
+                onFocus={(e) => updateTextareaSelection(e.currentTarget)}
+                onClick={(e) => updateTextareaSelection(e.currentTarget)}
+                onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
+                onSelect={(e) => updateTextareaSelection(e.currentTarget)}
+                placeholder={`Reply to ${comment.user.displayName || comment.user.username}...`}
+                className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800"
+                maxLength={MAX_CHARS}
+                aria-label={`Reply to ${comment.user.displayName || comment.user.username}`}
+                aria-describedby="reply-composer-char-count"
+                style={{ boxSizing: 'border-box' }}
+              />
+              <button
+                onClick={handleCommentSubmit}
+                disabled={!commentText.trim() || isSubmitting}
+                className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                aria-label="Post reply"
+              >
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </button>
+            </div>
+            <div
+              id="reply-composer-char-count"
+              className="mt-1 flex items-center justify-between"
+              aria-live="polite"
+            >
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => openEmojiPickerForInput(commentInputRef.current)}
+                  data-emoji-trigger
+                  className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  aria-label="Open emoji picker"
+                >
+                  <Smile className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={clearReplyMode}
+                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="text-xs text-gray-400 text-right">
+                {commentText.length}/{MAX_CHARS}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
 
   if (!isOpen) return null
 
-  const replyTargetComment = replyingTo
-    ? localComments.find(comment => comment.id === replyingTo)
-    : null
-  const replyTargetLabel = replyTargetComment?.user.displayName || replyTargetComment?.user.username || ''
-  // Edit mode is fully inline — these footer vars only need to handle reply vs. normal
-  const footerPlaceholder = replyingTo ? `Reply to ${replyTargetLabel}...` : 'Add a comment...'
-  const footerAriaLabel = replyingTo ? `Reply to ${replyTargetLabel}` : 'Add a comment'
-  const submitAriaLabel = replyingTo ? 'Post reply' : 'Post comment'
-  const canCancelReply = Boolean(replyingTo)
+  // Both edit and reply are now fully inline — footer only handles new top-level comments
 
   return (
     <div
@@ -1045,23 +1056,28 @@ export default function CommentsModal({
             )}
           </div>
 
-          {/* Footer - new comment / reply input (edit mode is handled inline above) */}
-          <div ref={footerRef} className="border-t border-gray-200 bg-gray-50">
-            {/*
-              Dynamic spacer: when a reply target is too close to the top of the
-              scroll area to be reached by scrolling alone, this spacer grows the
-              footer upward so the textarea lands right below the anchor comment.
-            */}
-            {footerTopSpacer > 0 && (
-              <div style={{ height: `${footerTopSpacer}px` }} aria-hidden="true" />
-            )}
+          {/* Inline emoji picker tray — sits between the scroll area and the footer,
+               outside the locked scroll container so it is never clipped. Only shown
+               while an inline edit or reply composer is active. */}
+          {(editingCommentId || replyingTo) && (
+            <MinimalEmojiPicker
+              isOpen={showEmojiPicker}
+              onClose={() => setShowEmojiPicker(false)}
+              onEmojiSelect={insertEmojiIntoActiveInput}
+              variant="inline"
+              viewportInset={mobileKeyboardInset}
+              className="border-t border-gray-100 px-4 sm:px-6 py-2"
+            />
+          )}
 
-            {editingCommentId ? (
-              /* While an inline edit is open, the footer is a neutral placeholder
-                 so the user knows the bottom bar is temporarily inactive. */
+          {/* Footer — new top-level comment only.
+               Edit and reply are both handled inline above their respective comments. */}
+          <div ref={footerRef} className="border-t border-gray-200 bg-gray-50">
+            {editingCommentId || replyingTo ? (
+              /* Neutral placeholder while an inline edit or reply is open */
               <div className="p-4 sm:p-6">
                 <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white text-sm text-gray-400 select-none">
-                  Editing comment above…
+                  {editingCommentId ? 'Editing comment above…' : 'Replying above…'}
                 </div>
               </div>
             ) : (
@@ -1078,20 +1094,19 @@ export default function CommentsModal({
                     onClick={(e) => updateTextareaSelection(e.currentTarget)}
                     onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                     onSelect={(e) => updateTextareaSelection(e.currentTarget)}
-                    placeholder={footerPlaceholder}
+                    placeholder="Add a comment..."
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white"
                     rows={1}
                     maxLength={MAX_CHARS}
-                    aria-label={footerAriaLabel}
+                    aria-label="Add a comment"
                     aria-describedby="comment-char-count"
                     style={{ minHeight: '44px', WebkitTextFillColor: '#111827', boxSizing: 'border-box' }}
                   />
-                  {/* Send Button */}
                   <button
                     onClick={handleCommentSubmit}
                     disabled={!commentText.trim() || isSubmitting}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    aria-label={submitAriaLabel}
+                    aria-label="Post comment"
                   >
                     {isSubmitting ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -1100,7 +1115,6 @@ export default function CommentsModal({
                     )}
                   </button>
                 </div>
-                {/* Controls row */}
                 <div
                   id="comment-char-count"
                   className="mt-1 flex items-center justify-between"
@@ -1117,15 +1131,6 @@ export default function CommentsModal({
                     >
                       <Smile className="h-4 w-4" />
                     </button>
-                    {canCancelReply && (
-                      <button
-                        type="button"
-                        onClick={clearReplyMode}
-                        className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
-                      >
-                        Cancel
-                      </button>
-                    )}
                   </div>
                   <div className="text-xs text-gray-400 text-right">
                     {commentText.length}/{MAX_CHARS}
