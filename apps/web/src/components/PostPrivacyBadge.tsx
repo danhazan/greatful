@@ -7,7 +7,7 @@ import { apiClient } from "@/utils/apiClient"
 import { getPostAudience } from "@/utils/privacyUtils"
 import PostVisibilityPreview from "@/components/PostVisibilityPreview"
 import { PostPrivacy } from "@/types/post"
-import { UserMultiSelectUser } from "@/components/UserMultiSelect"
+import { UserSearchResult } from "@/types/userSearch"
 
 interface PostPrivacyBadgeProps {
   privacyLevel?: string | null
@@ -16,7 +16,7 @@ interface PostPrivacyBadgeProps {
   specificUsersCount?: number
   isAuthor?: boolean
   postPrivacy?: PostPrivacy
-  specificUsersDetails?: UserMultiSelectUser[]
+  specificUsersDetails?: UserSearchResult[]
   showQuickPreview?: boolean
   showLabel?: boolean
   hideLabelOnMobile?: boolean
@@ -63,8 +63,8 @@ export default function PostPrivacyBadge({
   const enablePreview = Boolean(isAuthor && previewPrivacy)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
-  const [resolvedUsers, setResolvedUsers] = useState<UserMultiSelectUser[]>(specificUsersDetails ?? [])
-  const resolvedUsersRef = useRef<Map<number, UserMultiSelectUser>>(new Map())
+  const [resolvedUsers, setResolvedUsers] = useState<UserSearchResult[]>(specificUsersDetails ?? [])
+  const resolvedUsersRef = useRef<Map<number, UserSearchResult>>(new Map())
   const isFetchingRef = useRef(false)
   const hasFetchedRef = useRef(false)
   const lastIdsKeyRef = useRef<string>('')
@@ -203,20 +203,21 @@ export default function PostPrivacyBadge({
       }
 
       try {
-        const response = await apiClient.getBatchUserProfiles(unresolvedIds.map(String)) as any
-        const profiles = response?.data || response
-        if (Array.isArray(profiles)) {
-          profiles.forEach((profile: any) => {
-            if (!profile?.id) return
-            const userId = Number(profile.id)
-            resolvedUsersRef.current.set(userId, {
-              id: userId,
-              username: profile.username ?? `user${userId}`,
-              displayName: profile.displayName ?? profile.name ?? profile.username,
-              profileImageUrl: profile.profileImageUrl ?? profile.image ?? null,
+        const promises = unresolvedIds.map(id =>
+          apiClient.getUserProfile(id.toString())
+            .then(profile => {
+              const userId = Number(profile.id)
+              resolvedUsersRef.current.set(userId, {
+                id: userId,
+                username: profile.username ?? `user${userId}`,
+                displayName: profile.displayName ?? profile.name ?? profile.username,
+                profileImageUrl: profile.profileImageUrl ?? profile.image ?? null,
+              })
             })
-          })
-        }
+            .catch(() => null)
+        )
+        
+        await Promise.all(promises)
       } catch (error) {
         // Fall through to unresolved placeholders.
       }

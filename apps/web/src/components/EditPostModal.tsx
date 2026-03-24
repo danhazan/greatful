@@ -487,7 +487,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
           locationData: postData.locationData || null,
           privacyLevel,
           privacyRules,
-          specificUsers,
+          specificUsers: specificUsers.map((u) => u.id),
         },
         'edit'
       )
@@ -685,10 +685,10 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
                 <PostPrivacySelector
                   privacyLevel={privacyLevel}
                   privacyRules={privacyRules}
-                  specificUserIds={specificUsers}
+                  specificUsers={specificUsers}
                   onPrivacyLevelChange={setPrivacyLevel}
                   onPrivacyRulesChange={setPrivacyRules}
-                  onSpecificUserIdsChange={setSpecificUsers}
+                  onSpecificUsersChange={setSpecificUsers}
                 />
               </div>
               <button

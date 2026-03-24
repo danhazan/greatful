@@ -4,7 +4,7 @@ import PostPrivacySelector from '@/components/PostPrivacySelector'
 
 jest.mock('@/utils/apiClient', () => ({
   apiClient: {
-    getBatchUserProfiles: jest.fn().mockResolvedValue([]),
+    getUserProfile: jest.fn().mockResolvedValue({}),
   },
 }))
 
@@ -14,10 +14,10 @@ describe('PostPrivacySelector', () => {
       <PostPrivacySelector
         privacyLevel="custom"
         privacyRules={['specific_users']}
-        specificUserIds={[42]}
+        specificUsers={[{ id: 42, username: 'user42' }]}
         onPrivacyLevelChange={() => {}}
         onPrivacyRulesChange={() => {}}
-        onSpecificUserIdsChange={() => {}}
+        onSpecificUsersChange={() => {}}
       />
     )
 

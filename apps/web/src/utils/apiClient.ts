@@ -2,7 +2,7 @@
  * Optimized API Client with caching and deduplication
  */
 
-import { apiCache, userProfileCache, followStateCache, postsCache, notificationCache, batchDataCache } from './apiCache'
+import { apiCache, userProfileCache, followStateCache, postsCache, notificationCache } from './apiCache'
 import { requestDeduplicator } from './requestDeduplicator'
 import { getAccessToken } from './auth'
 
@@ -64,7 +64,7 @@ class OptimizedAPIClient {
     } else if (endpoint.includes('/notifications')) {
       cache = notificationCache
     } else if (endpoint.includes('/batch')) {
-      cache = batchDataCache
+      cache = apiCache
     }
 
     // Use request deduplicator for GET requests
@@ -188,7 +188,6 @@ class OptimizedAPIClient {
     followStateCache.invalidate(pattern)
     postsCache.invalidate(pattern)
     notificationCache.invalidate(pattern)
-    batchDataCache.invalidate(pattern)
   }
 
   /**
@@ -200,7 +199,6 @@ class OptimizedAPIClient {
     followStateCache.invalidateRelated(url)
     postsCache.invalidateRelated(url)
     notificationCache.invalidateRelated(url)
-    batchDataCache.invalidateRelated(url)
   }
 
   /**
@@ -212,7 +210,6 @@ class OptimizedAPIClient {
     followStateCache.clear()
     postsCache.clear()
     notificationCache.clear()
-    batchDataCache.clear()
 
     // Also cancel any pending requests
     requestDeduplicator.cancelAll()
@@ -228,7 +225,6 @@ class OptimizedAPIClient {
       followState: followStateCache.getStats(),
       posts: postsCache.getStats(),
       notifications: notificationCache.getStats(),
-      batchData: batchDataCache.getStats(),
       deduplicator: requestDeduplicator.getStats()
     }
   }
@@ -315,15 +311,15 @@ class OptimizedAPIClient {
     })
   }
 
-  /**
-   * Batch get user profiles
-   */
+  // Batch get user profiles (DEPRECATED - Use getUserProfile for now)
+  /*
   async getBatchUserProfiles(userIds: string[], options: RequestOptions = {}) {
     return this.post('/users/batch-profiles', { user_ids: userIds }, {
       cacheTTL: 300000, // Cache for 5 minutes
       ...options
     })
   }
+  */
 
   /**
    * Batch get follow statuses

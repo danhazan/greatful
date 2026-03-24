@@ -13,7 +13,7 @@ jest.mock('@/contexts/ToastContext', () => ({
 
 jest.mock('@/utils/apiClient', () => ({
   apiClient: {
-    getBatchUserProfiles: jest.fn().mockResolvedValue([]),
+    getUserProfile: jest.fn().mockResolvedValue({}),
   },
 }))
 

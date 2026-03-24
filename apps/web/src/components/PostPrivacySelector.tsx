@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, X } from "lucide-react"
 import { apiClient } from "@/utils/apiClient"
 import PostPrivacyBadge from "./PostPrivacyBadge"
-import UserMultiSelect, { UserMultiSelectUser } from "./UserMultiSelect"
+import UserMultiSelect from "./UserMultiSelect"
 import { getPostAudience } from "@/utils/privacyUtils"
 import { PrivacyLevel, PrivacyRule } from "@/hooks/usePostPrivacyState"
+import { UserSearchResult } from "@/types/userSearch"
 
 const CUSTOM_PRIVACY_RULES: Array<{ id: PrivacyRule; label: string; description: string }> = [
   { id: 'followers', label: 'Followers', description: 'Users who follow you' },
@@ -17,25 +18,23 @@ const CUSTOM_PRIVACY_RULES: Array<{ id: PrivacyRule; label: string; description:
 interface PostPrivacySelectorProps {
   privacyLevel?: PrivacyLevel
   privacyRules: PrivacyRule[]
-  specificUserIds: number[]
+  specificUsers: UserSearchResult[]
   onPrivacyLevelChange: (level: PrivacyLevel) => void
   onPrivacyRulesChange: (rules: PrivacyRule[]) => void
-  onSpecificUserIdsChange: (ids: number[]) => void
+  onSpecificUsersChange: (users: UserSearchResult[]) => void
 }
 
 export default function PostPrivacySelector({
   privacyLevel = 'public',
   privacyRules,
-  specificUserIds,
+  specificUsers,
   onPrivacyLevelChange,
   onPrivacyRulesChange,
-  onSpecificUserIdsChange,
+  onSpecificUsersChange,
 }: PostPrivacySelectorProps) {
   const [showPrivacyMenu, setShowPrivacyMenu] = useState(false)
   const [showCustomPrivacyModal, setShowCustomPrivacyModal] = useState(false)
   const [customPrivacyError, setCustomPrivacyError] = useState('')
-  const [selectedUsers, setSelectedUsers] = useState<UserMultiSelectUser[]>([])
-  const resolvedUsersRef = useRef<Map<number, UserMultiSelectUser>>(new Map())
 
   const normalizedPrivacyRules = useMemo(() => {
     if (privacyRules && privacyRules.length > 0) return privacyRules
@@ -45,9 +44,9 @@ export default function PostPrivacySelector({
   }, [privacyRules, privacyLevel])
 
   const normalizedSpecificUsers = useMemo(() => {
-    if (specificUserIds && specificUserIds.length > 0) return specificUserIds
+    if (specificUsers && specificUsers.length > 0) return specificUsers
     return []
-  }, [specificUserIds])
+  }, [specificUsers])
 
   const audience = useMemo(() => {
     return getPostAudience({
@@ -56,57 +55,6 @@ export default function PostPrivacySelector({
       specificUsersCount: normalizedSpecificUsers.length,
     })
   }, [privacyLevel, normalizedPrivacyRules, normalizedSpecificUsers])
-
-  useEffect(() => {
-    let isActive = true
-
-    const hydrateUsers = async () => {
-      if (!specificUserIds.length) {
-        setSelectedUsers([])
-        return
-      }
-
-      const unresolvedIds = specificUserIds.filter((id) => !resolvedUsersRef.current.has(id))
-      if (unresolvedIds.length > 0) {
-        try {
-          const response = await apiClient.getBatchUserProfiles(unresolvedIds.map(String)) as any
-          const profiles = response?.data || response
-          if (Array.isArray(profiles)) {
-            profiles.forEach((profile: any) => {
-              if (!profile?.id) return
-              const userId = Number(profile.id)
-              resolvedUsersRef.current.set(userId, {
-                id: userId,
-                username: profile.username ?? `user${userId}`,
-                displayName: profile.displayName ?? profile.name ?? profile.username,
-                profileImageUrl: profile.profileImageUrl ?? profile.image ?? null,
-              })
-            })
-          }
-        } catch (error) {
-          // Fall through to unresolved placeholders below.
-        }
-      }
-
-      if (!isActive) return
-
-      const users = specificUserIds.map((id) => {
-        return (
-          resolvedUsersRef.current.get(id) ?? {
-            id,
-            username: `user${id}`,
-            unresolved: true,
-          }
-        )
-      })
-      setSelectedUsers(users)
-    }
-
-    hydrateUsers()
-    return () => {
-      isActive = false
-    }
-  }, [specificUserIds])
 
   const handlePrivacyLevelSelect = (level: PrivacyLevel) => {
     onPrivacyLevelChange(level)
@@ -119,7 +67,7 @@ export default function PostPrivacySelector({
 
     if (level !== 'custom') {
       onPrivacyRulesChange([])
-      onSpecificUserIdsChange([])
+      onSpecificUsersChange([])
     }
   }
 
@@ -128,8 +76,8 @@ export default function PostPrivacySelector({
       setCustomPrivacyError('')
       const enabled = privacyRules.includes('specific_users')
       if (enabled) {
-        onPrivacyRulesChange(privacyRules.filter((r) => r !== rule))
-        onSpecificUserIdsChange([])
+        onPrivacyRulesChange(privacyRules.filter((r: PrivacyRule) => r !== rule))
+        onSpecificUsersChange([])
       } else {
         onPrivacyRulesChange([...privacyRules, rule])
       }
@@ -138,21 +86,20 @@ export default function PostPrivacySelector({
 
     onPrivacyRulesChange(
       privacyRules.includes(rule)
-        ? privacyRules.filter((r) => r !== rule)
+        ? privacyRules.filter((r: PrivacyRule) => r !== rule)
         : [...privacyRules, rule]
     )
     setCustomPrivacyError('')
   }
 
-  const handleSpecificUsersChange = (users: UserMultiSelectUser[]) => {
-    setSelectedUsers(users)
-    onSpecificUserIdsChange(users.map((user) => user.id))
+  const handleSpecificUsersChange = (users: UserSearchResult[]) => {
+    onSpecificUsersChange(users)
     setCustomPrivacyError('')
   }
 
   const hasFollowersOrFollowing =
     privacyRules.includes('followers') || privacyRules.includes('following')
-  const hasSpecificUsers = specificUserIds.length > 0
+  const hasSpecificUsers = specificUsers.length > 0
 
   return (
     <>
@@ -167,7 +114,7 @@ export default function PostPrivacySelector({
           <PostPrivacyBadge
             privacyLevel={privacyLevel}
             privacyRules={privacyRules}
-            specificUsersCount={specificUserIds.length}
+            specificUsersCount={specificUsers.length}
             showLabel
             hideLabelOnMobile
             className="gap-2"
@@ -248,7 +195,7 @@ export default function PostPrivacySelector({
               <div className="mt-4">
                 <p className="mb-2 text-sm font-medium text-gray-700">Select users</p>
                 <UserMultiSelect
-                  selectedUsers={selectedUsers}
+                  selectedUsers={specificUsers}
                   onChange={handleSpecificUsersChange}
                   placeholder="Search and add users..."
                 />

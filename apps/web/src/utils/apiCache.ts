@@ -281,7 +281,9 @@ export const notificationCache = new APICache({
   maxSize: 50
 })
 
+/*
 export const batchDataCache = new APICache({
   ttl: 180000, // 3 minutes for batch data (less frequent changes)
   maxSize: 100
 })
+*/

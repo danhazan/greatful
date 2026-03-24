@@ -5,7 +5,7 @@ import PostPrivacyBadge from '@/components/PostPrivacyBadge'
 
 jest.mock('@/utils/apiClient', () => ({
   apiClient: {
-    getBatchUserProfiles: jest.fn().mockResolvedValue([]),
+    getUserProfile: jest.fn().mockResolvedValue({}),
   },
 }))
 
@@ -56,10 +56,11 @@ describe('PostPrivacyBadge', () => {
 
     fireEvent.mouseEnter(badge)
     jest.advanceTimersByTime(200)
-    expect(apiClient.getBatchUserProfiles).toHaveBeenCalledTimes(1)
+    expect(apiClient.getUserProfile).toHaveBeenCalledTimes(2)
+    expect(apiClient.getUserProfile).toHaveBeenCalledWith('1')
+    expect(apiClient.getUserProfile).toHaveBeenCalledWith('2')
 
     fireEvent.click(badge)
-    expect(apiClient.getBatchUserProfiles).toHaveBeenCalledTimes(1)
     expect(badge.className).toBe(initialClassName)
 
     jest.useRealTimers()

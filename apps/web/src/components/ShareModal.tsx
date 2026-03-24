@@ -6,7 +6,8 @@ import { X, Copy, Check, Link, MessageCircle, Send, MessageSquare } from "lucide
 import { useToast } from "@/contexts/ToastContext"
 import { generateWhatsAppURL, formatWhatsAppShareText } from "@/utils/mobileDetection"
 import { htmlToPlainText } from "@/utils/htmlUtils"
-import UserMultiSelect, { UserMultiSelectUser } from "./UserMultiSelect"
+import UserMultiSelect from "./UserMultiSelect"
+import { UserSearchResult } from "@/types/userSearch"
 
 interface Post {
   id: string
@@ -40,7 +41,7 @@ export default function ShareModal({
   
   // Message sharing state
   const [showMessageShare, setShowMessageShare] = useState(false)
-  const [selectedUsers, setSelectedUsers] = useState<UserMultiSelectUser[]>([])
+  const [selectedUsers, setSelectedUsers] = useState<UserSearchResult[]>([])
   const [sendingMessage, setSendingMessage] = useState(false)
   const { showSuccess, showError, showLoading, hideToast } = useToast()
 

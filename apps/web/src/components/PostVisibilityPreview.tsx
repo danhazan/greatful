@@ -4,11 +4,11 @@ import { useMemo, useState } from "react"
 import { getPostPrivacyRuleFlags } from "@/utils/privacyUtils"
 import ProfilePhotoDisplay from "@/components/ProfilePhotoDisplay"
 import { PostPrivacy } from "@/types/post"
-import { UserMultiSelectUser } from "@/components/UserMultiSelect"
+import { UserSearchResult } from "@/types/userSearch"
 
 interface PostVisibilityPreviewProps {
   postPrivacy: PostPrivacy
-  specificUsers?: UserMultiSelectUser[]
+  specificUsers?: UserSearchResult[]
   maxUsers?: number
   allowExpand?: boolean
   showTitle?: boolean

@@ -8,17 +8,11 @@ import { UserSearchDropdown } from '@/components/user-search'
 import { UserSearchResult } from '@/types/userSearch'
 import { getCompleteInputStyling } from '@/utils/inputStyles'
 
-export interface UserMultiSelectUser {
-  id: number
-  username: string
-  displayName?: string
-  profileImageUrl?: string | null
-  bio?: string
-}
+// Removed `UserMultiSelectUser` definition in favor of unified `UserSearchResult`
 
 interface UserMultiSelectProps {
-  selectedUsers: UserMultiSelectUser[]
-  onChange: (users: UserMultiSelectUser[]) => void
+  selectedUsers: UserSearchResult[]
+  onChange: (users: UserSearchResult[]) => void
   placeholder?: string
   maxSelected?: number
   excludeUserIds?: number[]
@@ -84,20 +78,13 @@ export default function UserMultiSelect({
     if (disabled) {
       return
     }
-    if (maxSelected && selectedUsers.length >= maxSelected) {
-      return
+    // Prevent duplicate entries
+    if (!selectedUsers.find((u) => u.id === user.id)) {
+      if (maxSelected && selectedUsers.length >= maxSelected) {
+        return
+      }
+      onChange([...selectedUsers, user])
     }
-
-    onChange([
-      ...selectedUsers,
-      {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        profileImageUrl: user.profileImageUrl,
-        bio: user.bio,
-      },
-    ])
     setQuery('')
     setIsOpen(false)
     inputRef.current?.focus()

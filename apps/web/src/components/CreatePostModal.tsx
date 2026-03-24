@@ -469,7 +469,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           setPostData(draftData)
           setPrivacyLevel((draftData.privacyLevel as any) || 'public')
           setPrivacyRules(Array.isArray(draftData.privacyRules) ? (draftData.privacyRules as any) : [])
-          setSpecificUsers(Array.isArray(draftData.specificUsers) ? (draftData.specificUsers as number[]) : [])
+          
+          const rawSpecificUsers = Array.isArray(draftData.specificUsers) ? draftData.specificUsers : []
+          if (rawSpecificUsers.length > 0 && typeof rawSpecificUsers[0] === 'object') {
+            setSpecificUsers(rawSpecificUsers)
+          } else {
+            setSpecificUsers([]) // Drop legacy number-only draft specific users
+          }
 
           if (Array.isArray(draftData.draftImages) && draftData.draftImages.length > 0) {
             const restoredImages: ImageUploadState[] = []
@@ -609,7 +615,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           mentions: mentionUsernames,
           privacyLevel,
           privacyRules,
-          specificUsers,
+          specificUsers: specificUsers.map(u => u.id),
         },
         'create'
       )
@@ -1089,10 +1095,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                 <PostPrivacySelector
                   privacyLevel={privacyLevel}
                   privacyRules={privacyRules}
-                  specificUserIds={specificUsers}
+                  specificUsers={specificUsers}
                   onPrivacyLevelChange={setPrivacyLevel}
                   onPrivacyRulesChange={setPrivacyRules}
-                  onSpecificUserIdsChange={setSpecificUsers}
+                  onSpecificUsersChange={setSpecificUsers}
                 />
               </div>
               <button
