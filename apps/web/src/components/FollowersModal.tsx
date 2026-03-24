@@ -3,17 +3,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { X } from 'lucide-react'
 
-import UserListItem from './UserListItem'
+import UserItem from './UserItem'
+import { UserSearchResult } from '@/types/userSearch'
 import { getAccessToken } from '@/utils/auth'
 
-interface FollowerUser {
-  id: number
-  username: string
-  displayName?: string
-  bio?: string
-  profileImageUrl?: string
-  createdAt: string
-}
+
 
 interface FollowersModalProps {
   isOpen: boolean
@@ -28,7 +22,7 @@ export default function FollowersModal({
   userId,
   username
 }: FollowersModalProps) {
-  const [followers, setFollowers] = useState<FollowerUser[]>([])
+  const [followers, setFollowers] = useState<UserSearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const modalRef = useRef<HTMLDivElement>(null)
@@ -133,14 +127,16 @@ export default function FollowersModal({
             ) : (
               <div className="p-4 space-y-2">
                 {followers.map((follower) => (
-                  <UserListItem
+                  <UserItem
                     key={follower.id}
+                    mode="navigation"
                     user={{
                       id: follower.id,
-                      name: follower.displayName || follower.username,
                       username: follower.username,
+                      displayName: follower.displayName,
                       profileImageUrl: follower.profileImageUrl,
-                      bio: follower.bio
+                      bio: follower.bio,
+                      createdAt: follower.createdAt
                     }}
                     href={`/profile/${follower.id}`}
                   />

@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { X } from "lucide-react"
-import { formatTimeAgo } from "@/utils/timeAgo"
-import UserListItem from "./UserListItem"
+import UserItem from "./UserItem"
 
 interface HeartUser {
   id: string
@@ -116,12 +115,14 @@ export default function HeartsViewer({ isOpen, onClose, postId, hearts, onUserCl
             ) : (
               <div className="p-4 space-y-2">
                 {Array.isArray(hearts) && hearts.map((heart) => (
-                  <UserListItem
+                  <UserItem
                     key={heart.id}
+                    mode="navigation"
                     user={{
-                      id: heart.userId,
-                      name: heart.userName,
-                      image: heart.userImage,
+                      id: Number(heart.userId),
+                      username: heart.userName,
+                      displayName: heart.userName,
+                      profileImageUrl: heart.userImage,
                       createdAt: heart.createdAt
                     }}
                     href={`/profile/${heart.userId}`}

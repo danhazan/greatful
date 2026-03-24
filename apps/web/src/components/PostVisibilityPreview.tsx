@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { getPostPrivacyRuleFlags } from "@/utils/privacyUtils"
 import ProfilePhotoDisplay from "@/components/ProfilePhotoDisplay"
+import UserItem from "@/components/UserItem"
 import { PostPrivacy } from "@/types/post"
 import { UserSearchResult } from "@/types/userSearch"
 
@@ -80,22 +81,16 @@ export default function PostVisibilityPreview({
         )}
         {includesSpecificUsers && resolvedUsers.length > 0 && (
           <>
-            {visibleUsers.map((user) => {
-              const displayName = user.displayName || user.username
-              return (
-                <li key={user.id} className="flex items-center gap-2">
-                  <ProfilePhotoDisplay
-                    photoUrl={user.profileImageUrl ?? null}
-                    username={user.username}
-                    size="xs"
-                    className="border-none shadow-none"
-                  />
-                  <span className="text-sm text-gray-700">
-                    {displayName ? displayName : `@${user.username}`}
-                  </span>
-                </li>
-              )
-            })}
+            {visibleUsers.map((user) => (
+              <li key={user.id}>
+                <UserItem
+                  mode="static"
+                  user={user}
+                  size="xs"
+                  compact={true}
+                />
+              </li>
+            ))}
             {hiddenCount > 0 && (
               <li className="text-sm text-gray-500">+ {hiddenCount} more</li>
             )}

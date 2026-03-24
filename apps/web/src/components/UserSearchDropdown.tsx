@@ -2,10 +2,10 @@
 
 import React from 'react'
 import { UserSearchResult } from '@/types/userSearch'
-import UserSearchResultItem from './UserSearchResultItem'
+import UserItem from './UserItem'
 
 // Shared dropdown body for all user-search surfaces.
-// Row rendering must flow through UserSearchResultItem only.
+// Row rendering must flow through UserItem only.
 type BaseDropdownProps = {
   users: UserSearchResult[]
   loading: boolean
@@ -80,29 +80,27 @@ export default function UserSearchDropdown(props: UserSearchDropdownProps) {
         <div className="py-1" role="group" aria-label="Search results">
           {users.map((user, index) => (
             props.mode === 'navigation' ? (
-              <UserSearchResultItem
+              <UserItem
                 key={user.id}
+                mode="navigation"
                 user={user}
                 index={index}
                 isSelected={index === selectedIndex}
-                mode="navigation"
                 href={`/profile/${user.id}`}
                 onClick={props.onSelect ? () => props.onSelect?.(user) : undefined}
                 onMouseEnter={onIndexChange}
-                setItemRef={setItemRef}
-                getAriaLabel={getResultAriaLabel}
+                ariaLabel={getResultAriaLabel ? getResultAriaLabel(user) : undefined}
               />
             ) : (
-              <UserSearchResultItem
+              <UserItem
                 key={user.id}
+                mode="selection"
                 user={user}
                 index={index}
                 isSelected={index === selectedIndex}
-                mode="selection"
                 onClick={() => props.onSelect(user)}
-                onMouseEnter={onIndexChange}
                 setItemRef={setItemRef}
-                getAriaLabel={getResultAriaLabel}
+                ariaLabel={getResultAriaLabel ? getResultAriaLabel(user) : undefined}
               />
             )
           ))}

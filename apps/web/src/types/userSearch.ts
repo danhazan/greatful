@@ -4,5 +4,7 @@ export interface UserSearchResult {
   displayName?: string
   profileImageUrl?: string | null
   bio?: string
+  image?: string
+  createdAt?: string
+  email?: string
 }
-

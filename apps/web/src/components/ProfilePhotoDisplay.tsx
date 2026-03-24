@@ -10,6 +10,8 @@ interface ProfilePhotoDisplayProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   className?: string
   onClick?: () => void
+  onError?: () => void
+  onLoad?: () => void
 }
 
 const sizeClasses = {
@@ -35,7 +37,9 @@ export default function ProfilePhotoDisplay({
   username, 
   size = 'md', 
   className = '',
-  onClick 
+  onClick,
+  onError,
+  onLoad
 }: ProfilePhotoDisplayProps) {
   const [imageError, setImageError] = React.useState(false)
   const [imageLoaded, setImageLoaded] = React.useState(false)
@@ -67,11 +71,13 @@ export default function ProfilePhotoDisplay({
   const handleImageError = () => {
     setImageError(true)
     setImageLoaded(false)
+    if (onError) onError()
   }
 
   const handleImageLoad = () => {
     setImageLoaded(true)
     setImageError(false)
+    if (onLoad) onLoad()
   }
   
   if (imageUrl && !imageError) {

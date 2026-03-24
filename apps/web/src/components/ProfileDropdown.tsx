@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { LogOut } from "lucide-react"
+import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import UserAvatar from "./UserAvatar"
+import UserItem from "./UserItem"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 
 interface ProfileDropdownProps {
@@ -81,7 +83,10 @@ export default function ProfileDropdown({
     <div className="relative" ref={dropdownRef}>
       {/* Profile Avatar Button */}
       <UserAvatar
-        user={user}
+        user={{
+          ...user,
+          id: Number(user.id)
+        }}
         size="md"
         showTooltip={!isOpen}
         onClick={onToggle}
@@ -105,28 +110,24 @@ export default function ProfileDropdown({
           aria-orientation="vertical"
         >
           {/* User Info Header - Clickable to go to profile */}
-          <Link
-            ref={setItemRef(0)}
+          <UserItem
+            mode="navigation"
+            user={{
+              id: Number(user.id),
+              username: user.username,
+              displayName: user.displayName || user.name,
+              profileImageUrl: user.profileImageUrl || user.image,
+              email: user.email
+            }}
             href="/profile"
-            onClick={onClose}
+            index={0}
+            isSelected={selectedIndex === 0}
+            setItemRef={setItemRef}
             onMouseEnter={() => setSelectedIndex(0)}
-            role="menuitem"
-            className={`block w-full px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-purple-50 active:bg-purple-100 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset min-h-[44px] touch-manipulation no-underline text-inherit ${selectedIndex === 0 ? 'bg-purple-50' : ''
-              }`}
-            aria-label="Go to profile page"
-          >
-            <div className="flex items-center space-x-3">
-              <UserAvatar user={user} size="sm" />
-              <div className="min-w-0 flex-1 text-left">
-                <p className="text-sm font-medium text-gray-900 truncate hover:text-purple-700 transition-colors">
-                  {user.displayName || user.name}
-                </p>
-                <p className="text-xs text-gray-500 truncate hover:text-purple-600 transition-colors">
-                  @{user.username}
-                </p>
-              </div>
-            </div>
-          </Link>
+            onClick={onClose}
+            className="border-b border-gray-100"
+            ariaLabel="Go to profile page"
+          />
 
           {/* Menu Items */}
           <div className="py-1">

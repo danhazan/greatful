@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { X } from "lucide-react"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
-import { formatTimeAgo } from "@/utils/timeAgo"
-import UserListItem from "./UserListItem"
+import UserItem from "./UserItem"
 
 interface Reaction {
   id: string
@@ -167,20 +166,21 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                     {/* Users who reacted with this emoji */}
                     <div className="space-y-2" role="list" aria-label={`Users who reacted with ${emoji}`}>
                       {emojiReactions.map((reaction) => (
-                        <UserListItem
+                        <UserItem
                           key={reaction.id}
+                          mode="navigation"
                           user={{
-                            id: reaction.userId,
-                            name: reaction.userName,
-                            image: reaction.userImage,
+                            id: Number(reaction.userId),
+                            username: reaction.userName,
+                            displayName: reaction.userName,
+                            profileImageUrl: reaction.userImage,
                             createdAt: reaction.createdAt
                           }}
                           href={`/profile/${reaction.userId}`}
                           showTimestamp={true}
                           rightElement={<span className="text-lg">{emoji}</span>}
                           className="min-h-[44px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset"
-                          role="listitem"
-                          ariaLabel={`${reaction.userName} reacted with ${emoji} ${formatTimeAgo(reaction.createdAt)}. Click to view profile.`}
+                          ariaLabel={`${reaction.userName} reacted with ${emoji}. Click to view profile.`}
                         />
                       ))}
                     </div>
