@@ -96,7 +96,9 @@ const CHARACTER_LIMITS = {
   spontaneous: 5000 // Same limit as daily posts - no artificial restriction
 }
 
-// Post type information for display purposes
+// DEPRECATED: Post type classification is no longer exposed in the UI.
+// It is still used internally for feed ranking and character limit validation.
+// Do not remove without coordinating backend + data migration.
 const POST_TYPE_INFO = {
   daily: {
     name: 'Daily Gratitude',
@@ -146,9 +148,13 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const richTextEditorRef = useRef<RichTextEditorRef>(null)
 
-  // Rich text and styling state (always enabled)
+  // SOURCE OF TRUTH: richContent is the canonical version of post content (HTML).
+  // postData.content is the plain text fallback, derived from richContent.
+  // Both are kept in sync by handleRichTextChange; richContent takes priority on submit.
   const [richContent, setRichContent] = useState('')
   const [selectedStyle, setSelectedStyle] = useState<PostStyle>(POST_STYLES[0])
+  // HTML value to pass to RichTextEditor when restoring a draft
+  const [draftHtmlValue, setDraftHtmlValue] = useState<string | null>(null)
   const [showBackgrounds, setShowBackgrounds] = useState(false)
   const [backgroundsPosition, setBackgroundsPosition] = useState({ x: 0, y: 0 })
 
@@ -217,6 +223,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const hasActiveDraft = useCallback(() => {
     return Boolean(
       postData.content.trim() ||
+      richContent.trim() ||
       postData.imageUrl ||
       imageFile ||
       images.length > 0 ||
@@ -224,7 +231,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       privacyRules.length > 0 ||
       specificUsers.length > 0
     )
-  }, [postData.content, postData.imageUrl, imageFile, images.length, privacyLevel, privacyRules.length, specificUsers.length])
+  }, [postData.content, richContent, postData.imageUrl, imageFile, images.length, privacyLevel, privacyRules.length, specificUsers.length])
 
   const handleMentionClose = useCallback(() => {
     setShowMentionAutocomplete(false)
@@ -239,14 +246,14 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
   const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
 
+  // IMPORTANT: We explicitly control scroll via scrollTo({ top: 0 }) on focus/toggle.
+  // Avoid adding new scrollIntoView calls in this modal or editor,
+  // as they will conflict with mobile browser focus behavior.
   const handleEmojiPickerToggle = useCallback(() => {
     setShowEmojiPicker(prev => {
       const next = !prev
       if (next) {
-        richTextEditorRef.current?.getEditorShell()?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        })
+        scrollableContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
       }
       return next
     })
@@ -426,10 +433,10 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     }
   }
 
-  // Focus textarea when modal opens
+  // Focus textarea when modal opens (preventScroll avoids mobile scroll jump)
   useEffect(() => {
     if (isOpen && textareaRef.current) {
-      textareaRef.current.focus()
+      textareaRef.current.focus({ preventScroll: true })
     }
   }, [isOpen])
 
@@ -462,6 +469,16 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             draftData.imageUrl = ''
           }
           setPostData(draftData)
+          // Restore rich content and style from draft
+          if (draftData.richContent) {
+            setRichContent(draftData.richContent)
+            setDraftHtmlValue(draftData.richContent)
+          } else {
+            setDraftHtmlValue(null)
+          }
+          if (draftData.selectedStyle) {
+            setSelectedStyle(draftData.selectedStyle)
+          }
           setPrivacyLevel((draftData.privacyLevel as any) || 'public')
           setPrivacyRules(Array.isArray(draftData.privacyRules) ? (draftData.privacyRules as any) : [])
           
@@ -494,6 +511,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           console.error('Error loading draft:', error)
           setImages([])
           setImageFile(null)
+          setDraftHtmlValue(null)
         }
       } else {
         // No draft - ensure clean state
@@ -502,6 +520,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
         setPrivacyLevel('public')
         setPrivacyRules([])
         setSpecificUsers([])
+        setDraftHtmlValue(null)
       }
       setDraftId(currentDraftId)
     }
@@ -520,6 +539,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       // Don't save blob URLs - they're ephemeral and can't be restored after page reload
       const draftToSave = {
         ...postData,
+        richContent,
+        selectedStyle,
         draftId,
         draftImages,
         // Clear imageUrl if it's a blob URL (can't be restored)
@@ -530,7 +551,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       }
       localStorage.setItem('grateful_post_draft', JSON.stringify(draftToSave))
     }
-  }, [postData, privacyLevel, privacyRules, specificUsers, images, draftId, hasActiveDraft])
+  }, [postData, richContent, selectedStyle, privacyLevel, privacyRules, specificUsers, images, draftId, hasActiveDraft])
 
   // Cleanup blob URLs when modal closes
   useEffect(() => {
@@ -1062,8 +1083,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
       {/* Modal */}
       <div
-        className="fixed inset-0 z-50 flex items-end justify-center p-2 sm:items-center sm:p-4"
-        style={{ paddingBottom: isMobileViewport ? `${mobileKeyboardInset}px` : undefined }}
+        className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:items-center sm:p-4"
       >
         <div
           ref={modalRef}
@@ -1072,18 +1092,22 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
           aria-modal="true"
           className={`bg-white rounded-xl shadow-xl border w-full max-w-2xl max-h-[90vh] flex flex-col transition-colors ${isDragOver ? 'border-purple-400 shadow-purple-200' : 'border-gray-200'
             }`}
-          style={{ maxHeight: isMobileViewport ? '85dvh' : undefined }}
+          style={{
+            maxHeight: isMobileViewport
+              ? `calc(100dvh - ${mobileKeyboardInset}px - 16px)`
+              : undefined
+          }}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
           {/* Header */}
-          <div className={`flex items-center justify-between gap-3 p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
+          <div className={`flex items-center justify-between gap-3 px-4 py-2 sm:p-4 border-b transition-colors ${isDragOver ? 'border-purple-200 bg-purple-50' : 'border-gray-200'
             }`}>
-            <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center min-w-0">
+            <h2 id="modal-title" className="text-base sm:text-xl font-semibold text-gray-900 flex items-center min-w-0">
               Post Gratitude
-              <span className="text-xl ml-2" aria-hidden="true">💜</span>
+              <span className="text-base sm:text-xl ml-2" aria-hidden="true">💜</span>
             </h2>
             <div className="flex items-center gap-2 shrink-0">
               <div className="relative">
@@ -1108,18 +1132,17 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+            {/* Caption - stays visible above scrollable content */}
+            <div className="shrink-0 px-4 py-1.5 sm:px-6 sm:pt-4 sm:pb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700">
+                Share what you're grateful for today
+              </label>
+            </div>
+
             {/* Scrollable Content */}
-            <div ref={scrollableContentRef} className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-
-
+            <div ref={scrollableContentRef} className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ overflowAnchor: 'none' }}>
               {/* Content Input */}
-              <div className="flex-1 p-4 sm:p-6">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Share what you're grateful for today
-                  </label>
-                </div>
-
+              <div className="flex-1 px-4 pb-4 sm:px-6 sm:pb-6">
                 {/* Content Editor - Always Rich Text */}
                 <div
                   className={`relative ${isDragOver ? 'pointer-events-none' : ''}`}
@@ -1132,6 +1155,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                     <RichTextEditor
                       ref={richTextEditorRef}
                       value={postData.content}
+                      htmlValue={draftHtmlValue}
                       onChange={handleRichTextChange}
                       placeholder={`${gratitudePrompt}... (Use @username to mention someone)`}
                       maxLength={maxChars}
@@ -1387,21 +1411,21 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             )}
 
             {/* Footer */}
-            <div className={`p-6 border-t border-gray-200 ${showEmojiPicker ? 'hidden' : ''}`}>
-              <div className="flex flex-col space-y-2">
+            <div className={`px-4 py-2 sm:p-6 border-t border-gray-200 ${showEmojiPicker ? 'hidden' : ''}`}>
+              <div className="flex flex-col space-y-1.5 sm:space-y-2">
                 {/* Centered buttons */}
                 <div className="flex justify-center space-x-3">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors min-h-[44px] touch-manipulation"
+                    className="px-4 sm:px-6 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors min-h-[36px] sm:min-h-[44px] touch-manipulation text-sm sm:text-base"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || (!postData.content.trim() && !postData.imageUrl && !imageFile && images.length === 0)}
-                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+                    className="px-4 sm:px-6 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px] sm:min-h-[44px] touch-manipulation text-sm sm:text-base"
                   >
                     {isSubmitting ? 'Posting...' : 'Post Gratitude'}
                   </button>
@@ -1432,6 +1456,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
                         location: ''
                       })
                       setRichContent('')
+                      setDraftHtmlValue(null)
                       setSelectedStyle(POST_STYLES[0])
                       setPrivacyLevel('public')
                       setPrivacyRules([])

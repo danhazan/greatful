@@ -12,7 +12,7 @@ import { getTextColorForBackground, extractPrimaryBackgroundColor } from "@/util
 export interface RichTextEditorRef {
   getHtml: () => string
   getPlainText: () => string
-  focus: () => void
+  focus: (options?: FocusOptions) => void
   insertEmoji: (emoji: string) => void
   insertMention: (username: string, mentionStart: number, mentionEnd: number) => void
   clear: () => void
@@ -174,7 +174,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
   const scrollEditorShellIntoView = useCallback(() => {
     editorShellRef.current?.scrollIntoView({
       behavior: 'smooth',
-      block: 'start'
+      block: 'nearest'
     })
   }, [])
 
@@ -388,7 +388,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
       const raw = editableRef.current?.innerHTML ?? ""
       return mentionsToPlainText(raw)
     },
-    focus: () => editableRef.current?.focus(),
+    focus: (options?: FocusOptions) => editableRef.current?.focus(options),
     insertEmoji,
     insertMention: (username: string, mentionStart: number, mentionEnd: number) => {
       if (!editableRef.current) return
@@ -863,9 +863,10 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           dir={getDirectionAttribute(value || htmlValue || '')}
           style={{
             minHeight: '120px',
-            maxHeight: editorMaxHeight ? `${editorMaxHeight}px` : '300px',
+            maxHeight: editorMaxHeight ? `${editorMaxHeight}px` : '35dvh',
             overflowY: 'auto',
-            overscrollBehavior: 'contain',
+            overscrollBehavior: 'auto',
+            WebkitOverflowScrolling: 'touch',
             background: 'transparent', // ensure it is transparent
             color: 'inherit', // inherit wrapper color
             direction: getDirectionAttribute(value || htmlValue || ''),

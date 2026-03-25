@@ -82,7 +82,9 @@ const CHARACTER_LIMITS = {
   spontaneous: 5000 // Same limit as daily posts - no artificial restriction
 }
 
-// Post type information for display purposes
+// DEPRECATED: Post type classification is no longer exposed in the UI.
+// It is still used internally for feed ranking and character limit validation.
+// Do not remove without coordinating backend + data migration.
 const POST_TYPE_INFO = {
   daily: {
     name: 'Daily Gratitude',
@@ -213,14 +215,14 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
   const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
 
+  // IMPORTANT: We explicitly control scroll via scrollTo({ top: 0 }) on focus/toggle.
+  // Avoid adding new scrollIntoView calls in this modal or editor,
+  // as they will conflict with mobile browser focus behavior.
   const handleEmojiPickerToggle = () => {
     setShowEmojiPicker(prev => {
       const next = !prev
       if (next) {
-        richTextEditorRef.current?.getEditorShell()?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        })
+        scrollableContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
       }
       return next
     })
@@ -658,8 +660,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
       {/* Modal */}
       <div
-        className="fixed inset-0 z-50 flex items-end justify-center p-2 sm:items-center sm:p-4"
-        style={{ paddingBottom: isMobileViewport ? `${mobileKeyboardInset}px` : undefined }}
+        className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:items-center sm:p-4"
       >
         <div
           ref={modalRef}
@@ -667,13 +668,17 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
           aria-labelledby="modal-title"
           aria-modal="true"
           className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl max-h-[90vh] flex flex-col"
-          style={{ maxHeight: isMobileViewport ? '85dvh' : undefined }}
+          style={{
+            maxHeight: isMobileViewport
+              ? `calc(100dvh - ${mobileKeyboardInset}px - 16px)`
+              : undefined
+          }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
-            <h2 id="modal-title" className="text-xl font-semibold text-gray-900 flex items-center min-w-0">
+          <div className="flex items-center justify-between gap-3 px-4 py-2 sm:p-4 border-b border-gray-200">
+            <h2 id="modal-title" className="text-base sm:text-xl font-semibold text-gray-900 flex items-center min-w-0">
               Edit Your Gratitude
-              <span className="text-xl ml-2" aria-hidden="true">💜</span>
+              <span className="text-base sm:text-xl ml-2" aria-hidden="true">💜</span>
             </h2>
             <div className="flex items-center gap-2 shrink-0">
               <div className="relative">
@@ -698,16 +703,17 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-            {/* Scrollable Content */}
-            <div ref={scrollableContentRef} className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-              {/* Content Input */}
-              <div className="flex-1 p-4 sm:p-6">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    What are you grateful for?
-                  </label>
-                </div>
+            {/* Caption - stays visible above scrollable content */}
+            <div className="shrink-0 px-4 py-1.5 sm:px-6 sm:pt-4 sm:pb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700">
+                What are you grateful for?
+              </label>
+            </div>
 
+            {/* Scrollable Content */}
+            <div ref={scrollableContentRef} className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ overflowAnchor: 'none' }}>
+              {/* Content Input */}
+              <div className="flex-1 px-4 pb-4 sm:px-6 sm:pb-6">
                 {/* Content Editor - Always Rich Text */}
                 <div className="relative">
                   <div className="border rounded-lg border-gray-300">
@@ -858,23 +864,20 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
             )}
 
             {/* Footer */}
-            <div className={`px-6 py-4 border-t border-gray-200 bg-gray-50 ${showEmojiPicker ? 'hidden' : ''}`}>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-500">
-                  Predicted type: {currentPostTypeInfo.name}
-                </div>
+            <div className={`px-4 py-2 sm:px-6 sm:py-4 border-t border-gray-200 bg-gray-50 ${showEmojiPicker ? 'hidden' : ''}`}>
+              <div className="flex items-center justify-end">
                 <div className="flex items-center space-x-3">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+                    className="px-4 py-1.5 sm:py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors text-sm sm:text-base"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center space-x-2"
+                    className="px-4 sm:px-6 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center space-x-2 text-sm sm:text-base"
                   >
                     {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                     <span>{isSubmitting ? 'Updating...' : 'Update Post'}</span>
