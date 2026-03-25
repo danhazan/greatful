@@ -63,7 +63,6 @@ export default function CommentsModal({
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const commentsContainerRef = useRef<HTMLDivElement>(null)
   const footerRef = useRef<HTMLDivElement>(null)
-  const scrollBeforeEmojiRef = useRef<number | null>(null)
   const [commentText, setCommentText] = useState("")
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
@@ -245,26 +244,19 @@ export default function CommentsModal({
     }
   }, [isOpen, isMobileViewport])
 
-  // When the emoji picker opens in inline mode the scroll container shrinks
-  // (the picker renders between the container and footer in the flex layout).
-  // If the inline composer is now below the container's visible bottom, scroll
-  // just enough to bring it back into view.
+  // When the emoji tray opens OR the onscreen keyboard shrinks the modal while
+  // an inline edit is active, scroll the container just enough to keep the edit
+  // controls row (emoji btn / cancel / char count) visible at the container's
+  // bottom edge.  We only need this for editing because the reply composer lives
+  // outside the scroll container at modal level and is always visible.
   useEffect(() => {
-    if (!showEmojiPicker || (!editingCommentId && !replyingTo)) return
-
+    if (!editingCommentId) return
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const container = commentsContainerRef.current
-        if (!container) return
-
-        const composerEl = editingCommentId
-          ? container.querySelector<HTMLElement>(`[data-comment-id="${editingCommentId}"]`)
-          : container.querySelector<HTMLElement>(`[data-reply-composer="${replyingTo}"]`)
-        if (!composerEl) return
-
-        const containerRect = container.getBoundingClientRect()
-        const composerRect = composerEl.getBoundingClientRect()
-        const overflow = composerRect.bottom - containerRect.bottom
+        const controlsEl = container?.querySelector<HTMLElement>(`[data-edit-controls="${editingCommentId}"]`)
+        if (!container || !controlsEl) return
+        const overflow = controlsEl.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom
         if (overflow > 0) {
           unlockCommentsScroll()
           container.scrollTop += overflow
@@ -273,56 +265,7 @@ export default function CommentsModal({
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showEmojiPicker])
-
-  // When the emoji picker opens in inline mode, save the current scrollTop then
-  // scroll the anchor comment flush to the top so the textarea is fully visible
-  // above the tray.  When the picker closes, restore the saved scrollTop so the
-  // comment header (and any preceding content) comes back into view.
-  //
-  // On mobile the keyboard may still be mid-animation when this effect fires, so
-  // the scroll is deferred via double-rAF to ensure getBoundingClientRect() sees
-  // the fully-settled layout (tray rendered + viewport adjusted) before we move
-  // anything.
-  useEffect(() => {
-    const anchorId = editingCommentId || replyingTo
-    if (!anchorId) return
-
-    if (showEmojiPicker) {
-      // Snapshot scrollTop synchronously before any layout shifts occur
-      const container = commentsContainerRef.current
-      if (!container) return
-      scrollBeforeEmojiRef.current = container.scrollTop
-
-      // Defer the scroll itself so the tray and virtual keyboard have settled
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const c = commentsContainerRef.current
-          if (!c) return
-          const commentEl = c.querySelector<HTMLElement>(`[data-comment-id="${anchorId}"]`)
-          if (!commentEl) return
-          unlockCommentsScroll()
-          c.scrollTop += commentEl.getBoundingClientRect().top - c.getBoundingClientRect().top
-          lockCommentsScroll()
-        })
-      })
-    } else {
-      // Restore position if we saved one
-      if (scrollBeforeEmojiRef.current !== null) {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            const c = commentsContainerRef.current
-            if (!c) return
-            unlockCommentsScroll()
-            c.scrollTop = scrollBeforeEmojiRef.current!
-            scrollBeforeEmojiRef.current = null
-            lockCommentsScroll()
-          })
-        })
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showEmojiPicker])
+  }, [showEmojiPicker, mobileKeyboardInset])
 
   // Handle click outside to close
   useEffect(() => {
@@ -502,30 +445,14 @@ export default function CommentsModal({
   }
 
   // Start editing a comment — the editor renders inline, replacing the bubble.
-  // After render, scroll the container so the comment sits flush at the top,
-  // then lock scrolling so nothing shifts while the user edits.
+  // scrollCommentToTop handles the double-rAF scroll-to-top + focus + lock.
   const handleStartEdit = (comment: Comment) => {
     clearReplyMode()
     setEditingCommentId(comment.id)
     setCommentText(comment.content)
     setDeleteConfirmCommentId(null)
     setShowEmojiPicker(false)
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const container = commentsContainerRef.current
-        const commentEl = container?.querySelector<HTMLElement>(`[data-comment-id="${comment.id}"]`)
-        if (container && commentEl) {
-          container.scrollTop += commentEl.getBoundingClientRect().top - container.getBoundingClientRect().top
-        }
-        const input = commentInputRef.current
-        if (input) {
-          resizeTextarea(input)
-          input.focus()
-          input.setSelectionRange(input.value.length, input.value.length)
-        }
-        lockCommentsScroll()
-      })
-    })
+    scrollCommentToTop(comment.id)
   }
 
   // Cancel editing
@@ -768,6 +695,7 @@ export default function CommentsModal({
                   id="edit-comment-char-count"
                   className="mt-1 flex items-center justify-between"
                   aria-live="polite"
+                  data-edit-controls={comment.id}
                 >
                   <div className="flex items-center space-x-2">
                     <button
@@ -928,75 +856,16 @@ export default function CommentsModal({
           </div>
         )}
 
-        {/* Inline reply composer — appears below the last reply (or the comment
-            itself when there are no replies), replacing the footer textarea.    */}
-        {isReplyingToThis && (
-          <div className="mt-3 ml-8 sm:ml-12" data-reply-composer={comment.id}>
-            <div className="relative">
-              <textarea
-                ref={commentInputRef}
-                value={commentText}
-                onChange={(e) => {
-                  setCommentText(e.target.value.slice(0, MAX_CHARS))
-                  resizeTextarea(e.target)
-                }}
-                onFocus={(e) => updateTextareaSelection(e.currentTarget)}
-                onClick={(e) => updateTextareaSelection(e.currentTarget)}
-                onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
-                onSelect={(e) => updateTextareaSelection(e.currentTarget)}
-                placeholder={`Reply to ${comment.user.displayName || comment.user.username}...`}
-                className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800"
-                maxLength={MAX_CHARS}
-                aria-label={`Reply to ${comment.user.displayName || comment.user.username}`}
-                aria-describedby="reply-composer-char-count"
-                style={{ boxSizing: 'border-box' }}
-              />
-              <button
-                onClick={handleCommentSubmit}
-                disabled={!commentText.trim() || isSubmitting}
-                className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                aria-label="Post reply"
-              >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </button>
-            </div>
-            <div
-              id="reply-composer-char-count"
-              className="mt-1 flex items-center justify-between"
-              aria-live="polite"
-            >
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => openEmojiPickerForInput(commentInputRef.current)}
-                  data-emoji-trigger
-                  className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  aria-label="Open emoji picker"
-                >
-                  <Smile className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={clearReplyMode}
-                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-              <div className="text-xs text-gray-400 text-right">
-                {commentText.length}/{MAX_CHARS}
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
     )
   }
 
   if (!isOpen) return null
 
-  // Both edit and reply are now fully inline — footer only handles new top-level comments
+  // Used by the modal-level reply composer (reply mode is no longer inline)
+  const replyTargetComment = replyingTo ? localComments.find(c => c.id === replyingTo) : null
+  const replyTargetName = replyTargetComment?.user.displayName || replyTargetComment?.user.username || ''
 
   return (
     <div
@@ -1056,9 +925,74 @@ export default function CommentsModal({
             )}
           </div>
 
-          {/* Inline emoji picker tray — sits between the scroll area and the footer,
-               outside the locked scroll container so it is never clipped. Only shown
-               while an inline edit or reply composer is active. */}
+          {/* ── Modal-level reply composer ───────────────────────────────────────
+               Lives outside the locked scroll container so the emoji tray can sit
+               immediately below it with no gap and no scroll adjustment needed.   */}
+          {replyingTo && (
+            <div className="border-t border-purple-100 bg-white px-4 sm:px-6 py-3">
+              <div className="relative">
+                <textarea
+                  ref={commentInputRef}
+                  value={commentText}
+                  onChange={(e) => {
+                    setCommentText(e.target.value.slice(0, MAX_CHARS))
+                    resizeTextarea(e.target)
+                  }}
+                  onFocus={(e) => updateTextareaSelection(e.currentTarget)}
+                  onClick={(e) => updateTextareaSelection(e.currentTarget)}
+                  onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
+                  onSelect={(e) => updateTextareaSelection(e.currentTarget)}
+                  placeholder={`Reply to ${replyTargetName}...`}
+                  className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800"
+                  maxLength={MAX_CHARS}
+                  aria-label={`Reply to ${replyTargetName}`}
+                  aria-describedby="reply-composer-char-count"
+                  style={{ boxSizing: 'border-box' }}
+                />
+                <button
+                  onClick={handleCommentSubmit}
+                  disabled={!commentText.trim() || isSubmitting}
+                  className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  aria-label="Post reply"
+                >
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </div>
+              <div
+                id="reply-composer-char-count"
+                className="mt-1 flex items-center justify-between"
+                aria-live="polite"
+              >
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => openEmojiPickerForInput(commentInputRef.current)}
+                    data-emoji-trigger
+                    className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    aria-label="Open emoji picker"
+                  >
+                    <Smile className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearReplyMode}
+                    className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="text-xs text-gray-400 text-right">
+                  {commentText.length}/{MAX_CHARS}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Emoji tray ───────────────────────────────────────────────────────────
+               Always adjacent to whichever composer is active (edit: just below the
+               scroll container; reply: just below the modal-level reply composer).
+               Never inside the scroll container so it can never be clipped.        */}
           {(editingCommentId || replyingTo) && (
             <MinimalEmojiPicker
               isOpen={showEmojiPicker}
