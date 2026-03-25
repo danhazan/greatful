@@ -65,30 +65,61 @@ npm run lint
 
 ### Backend Structure (apps/api)
 - `main.py` - FastAPI app entry point with middleware configuration
-- `app/api/v1/` - REST API endpoints (auth, posts, users, comments, reactions, notifications, follows)
-- `app/models/` - SQLAlchemy models (User, Post, Comment, EmojiReaction, Notification, Follow, Share)
-- `app/services/` - Business logic layer (algorithm_service, reaction_service, notification_service, etc.)
-- `app/repositories/` - Data access layer (not explicitly used, services often access DB directly)
+- `app/api/v1/` - REST API endpoints (auth, posts, users, comments, reactions, hearts, notifications, follows, shares, oauth, health, monitoring, database, security, ssl, error_reporting, algorithm_performance)
+- `app/models/` - SQLAlchemy models (User, Post, Comment, EmojiReaction, Notification, Follow, Share, and others)
+- `app/services/` - Business logic layer (21 services including algorithm_service, reaction_service, notification_service, oauth_service, share_service, mention_service, file_upload_service, post_privacy_service, etc.)
+- `app/repositories/` - Data access layer (8 repository files)
 - `app/core/` - Core infrastructure:
   - `database.py` - Async SQLAlchemy engine and session management
   - `security.py` - JWT token handling, password hashing
   - `rate_limiting.py` - Request rate limiting
   - `notification_batcher.py` - Groups notifications to prevent spam
-- `alembic/` - Database migrations
+  - `oauth_config.py` - OAuth provider configuration
+  - `storage.py` - File storage management
+  - `input_sanitization.py` - Input validation and sanitization
+  - `structured_logging.py` - Application logging
+  - Additional: monitoring, SSL, security audit, migration, performance utilities
+- `alembic/` - Database migrations (43+ migrations)
+- `scripts/` - Deployment and utility scripts
 
 ### Frontend Structure (apps/web)
 - `src/app/` - Next.js App Router pages (feed, profile, post, auth, settings)
-- `src/app/api/` - API routes that proxy to backend
-- `src/components/` - React components:
+- `src/app/api/` - API routes (40+) that proxy to backend
+- `src/components/` - React components (69 files):
   - `PostCard.tsx` - Main post display with reactions, hearts, comments
-  - `EmojiPicker.tsx` - Emoji reaction selector
+  - `EmojiPicker.tsx` / `MinimalEmojiPicker.tsx` / `EnhancedEmojiPicker.tsx` - Emoji reaction selectors
   - `CommentsModal.tsx` - Comment thread display
   - `CreatePostModal.tsx` / `EditPostModal.tsx` - Post creation/editing
   - `RichTextEditor.tsx` - WYSIWYG editor with formatting
   - `NotificationSystem.tsx` - Real-time notification handling
+  - `ReactionsBanner.tsx` / `ReactionViewer.tsx` / `HeartsViewer.tsx` - Reaction displays
+  - `ShareModal.tsx` - Post sharing
+  - `UserItem.tsx` / `UserAvatar.tsx` / `UserSearchBar.tsx` - User components
+  - `FollowButton.tsx` / `FollowersModal.tsx` / `FollowingModal.tsx` - Follow/social
+  - `PostPrivacySelector.tsx` / `PostPrivacyBadge.tsx` - Privacy controls
+  - `MentionAutocomplete.tsx` - Mention suggestions in editor
+  - `LocationAutocomplete.tsx` / `LocationModal.tsx` - Location features
+  - `GratitudeTemplates.tsx` - Template suggestions for posts
+  - `Navbar.tsx`, `ErrorBoundary.tsx`, `ToastNotification.tsx` - UI infrastructure
 - `src/lib/` - Shared utilities including API proxy helpers
-- `src/utils/` - Utility functions (notificationMapping, userDataMapping)
-- `src/contexts/` - React context providers
+- `src/utils/` - Utility functions (36 files):
+  - `userDataMapping.ts` - User data normalization (snake_case to camelCase)
+  - `notificationMapping.ts` - Notification data transformation
+  - `emojiMapping.ts` - Emoji code-to-emoji conversion (source of truth for all 56 emojis)
+  - `imageUpload.ts` - Image upload with validation
+  - `mentionUtils.ts` - Mention parsing utilities
+  - `htmlUtils.ts` - HTML parsing and sanitization
+  - `normalizePost.ts` - Post data normalization
+  - `smartNotificationPoller.ts` - Intelligent notification polling
+  - `privacyUtils.ts` - Privacy/visibility helpers
+  - `errorTracking.ts` - Error tracking utilities
+  - `apiClient.ts` / `apiCache.ts` - API client with caching
+- `src/hooks/` - Custom React hooks (7 files)
+- `src/contexts/` - React context providers:
+  - `UserContext.tsx` - Global user authentication state
+  - `ToastContext.tsx` - Toast notification state
+- `src/types/` - TypeScript type definitions
+- `src/services/` - Client-side services
 
 ### API Proxy Pattern
 The frontend uses a proxy pattern where Next.js API routes forward requests to the FastAPI backend. See `src/lib/api-proxy.ts` for the implementation. This handles:
@@ -100,13 +131,16 @@ The frontend uses a proxy pattern where Next.js API routes forward requests to t
 Backend returns snake_case fields, frontend expects camelCase. Key utilities:
 - `src/utils/userDataMapping.ts` - User data normalization
 - `src/utils/notificationMapping.ts` - Notification data transformation
+- `src/utils/normalizePost.ts` - Post data normalization
 
 ## Testing
 
 ### Backend Tests (apps/api/tests)
-- `tests/unit/` - Unit tests for services and utilities
-- `tests/integration/` - API endpoint integration tests
-- `tests/security/` - Security and authorization tests
+- `tests/unit/` - Unit tests for services and utilities (~45 files)
+- `tests/integration/` - API endpoint integration tests (~54 files)
+- `tests/security/` - Security and authorization tests (6 files)
+- `tests/load/` - Load/performance tests (6 files)
+- `tests/contract/` - API contract tests
 - `tests/conftest.py` - Shared fixtures (test_user, test_post, auth_headers, db_session)
 
 Uses in-memory SQLite for test isolation. Key fixtures:
@@ -116,21 +150,30 @@ Uses in-memory SQLite for test isolation. Key fixtures:
 - `client` - FastAPI TestClient
 
 ### Frontend Tests (apps/web/src/tests)
-Uses Jest with Testing Library. Test files mirror component structure.
+Uses Jest with Testing Library. 137 test files organized to mirror component/utility structure. Categories include: component tests, API route tests, utility tests, integration tests, accessibility tests, and context tests.
 
 ## Key Patterns
 
 ### Emoji Reaction System
-- 8 supported emojis
+- 56 positive emojis organized in 7 rows/categories: original (💜😍🤗🥹💪🙏🙌👏), love/warmth, joy/celebration, encouragement, nature/peace, affection, expressions
 - One reaction per user per post (can be changed)
 - Backend: `EmojiReaction` model in `app/models/emoji_reaction.py`
-- Frontend: `EmojiPicker.tsx` and reaction display in `PostCard.tsx`
+- Frontend: `src/utils/emojiMapping.ts` is the source of truth; `EmojiPicker.tsx`, `ReactionsBanner.tsx`, and reaction display in `PostCard.tsx`
 
 ### Real-time Updates
 Reactions update immediately via API calls without page refresh. PostCard fetches updated counts after mutations.
 
 ### Authentication
-JWT-based auth with tokens stored in cookies. Backend validates via `app/core/security.py`. OAuth integration available for Google/Facebook.
+JWT-based auth with tokens stored in cookies. Backend validates via `app/core/security.py`. OAuth integration available for Google/Facebook via `app/core/oauth_config.py` and `app/services/oauth_service.py`.
+
+### Post Privacy
+Posts support privacy/visibility settings. Backend: `app/services/post_privacy_service.py`. Frontend: `PostPrivacySelector.tsx`, `PostPrivacyBadge.tsx`, `src/utils/privacyUtils.ts`.
+
+### Mentions
+Users can be @mentioned in posts and comments. Backend: `app/services/mention_service.py`. Frontend: `MentionAutocomplete.tsx`, `src/utils/mentionUtils.ts`.
+
+### File Uploads
+Profile photos and post images supported. Backend: `app/services/file_upload_service.py`, `app/services/profile_photo_service.py`, `app/services/image_hash_service.py` (deduplication). Frontend: `src/utils/imageUpload.ts`.
 
 ## Known Issues
 

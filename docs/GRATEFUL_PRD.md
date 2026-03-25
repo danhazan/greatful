@@ -241,7 +241,7 @@ As an engaged community member, I want to send meaningful posts directly to spec
 ### 6.5 Emoji Reaction System
 - **Initial State:** Heart button and reaction button (😊+) visible on posts
 - **First Interaction:** User taps reaction button to open emoji selector
-- **Emoji Selection:** Choose from 8 positive emotion emojis
+- **Emoji Selection:** Choose from a variety of positive emotion emojis organized by category
 - **Post-Reaction State:** Reaction button shows count, tapping opens reaction viewer
 - **Reaction Viewer:** Modal/popup displaying a list of all users with their individual chosen reactions (one user per row)
 - **Reaction Changes:** Users can change their reaction by selecting a different emoji
@@ -697,7 +697,7 @@ CREATE TABLE notifications (
 - **User Profiles**: Complete profile management with image upload, bio, stats
 - **Post Creation**: Text and image posts with basic validation
 - **Feed System**: Chronological feed with responsive design
-- **Emoji Reactions**: Full 8-emoji reaction system (😍, 🤗, 🙏, 💪, 🌟, 🔥, 🥰, 👏)
+- **Emoji Reactions**: Full emoji reaction system with variety of emojis organized by category
 - **Hearts/Likes**: Basic heart functionality
 - **Reaction Viewer**: Modal showing who reacted with what emoji
 - **Notification Backend**: Database models and API endpoints for notifications
