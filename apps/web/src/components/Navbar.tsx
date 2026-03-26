@@ -69,12 +69,17 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
               <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-0">Grateful</h1>
             </Link>
           ) : (
-            <div className="flex items-center space-x-1 sm:space-x-2 min-h-[44px]">
+            <Link
+              href="/"
+              className="flex items-center space-x-1 sm:space-x-2 min-h-[44px] hover:opacity-80 active:opacity-70 transition-opacity touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1 no-underline"
+              aria-label="Go to Grateful home"
+              title="Go to Grateful home"
+            >
               {/* Purple heart - always visible, higher z-index */}
               <span className="text-xl sm:text-2xl relative z-20" aria-hidden="true">💜</span>
               {/* Grateful text - can be covered by search on mobile */}
               <h1 className="text-lg sm:text-xl font-bold text-purple-700 whitespace-nowrap select-none relative z-0">Grateful</h1>
-            </div>
+            </Link>
           )}
         </div>
 

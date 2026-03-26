@@ -21,6 +21,7 @@ interface StackedImagePreviewProps {
   images: PostImage[]
   onImageClick: (index: number) => void
   className?: string
+  disabled?: boolean
 }
 
 /**
@@ -34,12 +35,14 @@ interface StackedImagePreviewProps {
  *
  * Interaction:
  * - Clicking opens fullscreen viewer at the selected image index
+ * - When disabled, images are displayed but not clickable (guest mode)
  * - Feed display is passive (no hover carousel or auto-rotation)
  */
 export default function StackedImagePreview({
   images,
   onImageClick,
-  className = ""
+  className = "",
+  disabled = false
 }: StackedImagePreviewProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -86,7 +89,7 @@ export default function StackedImagePreview({
   }
 
   const handleClick = () => {
-    if (!hasError && !isLoading) {
+    if (!hasError && !isLoading && !disabled) {
       onImageClick(0)
     }
   }
@@ -104,12 +107,14 @@ export default function StackedImagePreview({
   return (
     <div
       ref={containerRef}
-      className={`relative mt-4 cursor-pointer group ${className}`}
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      aria-label={`View ${totalImages} image${totalImages > 1 ? 's' : ''}`}
+      className={`relative mt-4 ${disabled ? '' : 'cursor-pointer'} group ${className}`}
+      {...(!disabled && {
+        onClick: handleClick,
+        role: "button",
+        tabIndex: 0,
+        onKeyDown: handleKeyDown,
+      })}
+      aria-label={`${disabled ? '' : 'View '}${totalImages} image${totalImages > 1 ? 's' : ''}`}
       style={{
         // Add padding to prevent clipping of offset cards
         paddingBottom: visibleStackCount >= 3 ? '16px' : visibleStackCount >= 2 ? '8px' : '0',
@@ -199,8 +204,8 @@ export default function StackedImagePreview({
             />
           )}
 
-          {/* Hover overlay */}
-          {!isLoading && !hasError && (
+          {/* Hover overlay - only shown when not disabled */}
+          {!isLoading && !hasError && !disabled && (
             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
               <div className="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
                 {totalImages > 1 ? `View ${totalImages} images` : 'Click to expand'}

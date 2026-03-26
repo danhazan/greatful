@@ -9,6 +9,7 @@ interface OptimizedPostImageProps {
   alt: string
   postType: "daily" | "photo" | "spontaneous"
   className?: string
+  disabled?: boolean
 }
 
 interface ImageDimensions {
@@ -21,7 +22,8 @@ export default function OptimizedPostImage({
   src, 
   alt, 
   postType, 
-  className = "" 
+  className = "",
+  disabled = false
 }: OptimizedPostImageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -77,14 +79,14 @@ export default function OptimizedPostImage({
   }
 
   const handleImageClick = () => {
-    if (!hasError && !isLoading) {
+    if (!hasError && !isLoading && !disabled) {
       setShowModal(true)
     }
   }
 
   // Get container styling - use natural image dimensions
   const getContainerStyling = () => {
-    const baseClasses = "relative rounded-lg overflow-hidden bg-gray-50 w-full cursor-pointer hover:opacity-95 transition-opacity"
+    const baseClasses = `relative rounded-lg overflow-hidden bg-gray-50 w-full ${disabled ? '' : 'cursor-pointer hover:opacity-95'} transition-opacity`
     
     switch (postType) {
       case 'daily':
@@ -138,16 +140,18 @@ export default function OptimizedPostImage({
         ref={containerRef}
         className={`${containerClasses} ${className}`}
         style={containerStyle}
-        onClick={handleImageClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            handleImageClick()
-          }
-        }}
-        aria-label="Click to view full image"
+        {...(!disabled && {
+          onClick: handleImageClick,
+          role: "button",
+          tabIndex: 0,
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleImageClick()
+            }
+          },
+          'aria-label': 'Click to view full image'
+        })}
       >
         {/* Loading State */}
         {isLoading && (
@@ -184,8 +188,8 @@ export default function OptimizedPostImage({
           />
         )}
 
-        {/* Click indicator overlay */}
-        {!isLoading && !hasError && (
+        {/* Click indicator overlay - only shown when not disabled */}
+        {!isLoading && !hasError && !disabled && (
           <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center opacity-0 hover:opacity-100">
             <div className="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
               Click to expand
@@ -194,13 +198,15 @@ export default function OptimizedPostImage({
         )}
       </div>
 
-      {/* Image Modal */}
-      <ImageModal
-        src={src}
-        alt={alt}
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-      />
+      {/* Image Modal - only rendered when not disabled */}
+      {!disabled && (
+        <ImageModal
+          src={src}
+          alt={alt}
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </>
   )
 }

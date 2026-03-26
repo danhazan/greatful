@@ -25,6 +25,7 @@ interface ShareModalProps {
   post: Post
   onShare?: (method: 'url' | 'message' | 'whatsapp', data: any) => void
   position?: { x: number, y: number }
+  isGuest?: boolean
 }
 
 export default function ShareModal({ 
@@ -32,7 +33,8 @@ export default function ShareModal({
   onClose, 
   post,
   onShare,
-  position = { x: 0, y: 0 }
+  position = { x: 0, y: 0 },
+  isGuest = false
 }: ShareModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const [copySuccess, setCopySuccess] = useState(false)
@@ -464,12 +466,21 @@ export default function ShareModal({
             </div>
           </button>
 
-          {/* Send as Message Option */}
+          {/* Send as Message Option - Restore visibility for guests, but disabled */}
           {!showMessageShare ? (
             <button
               onClick={handleSendAsMessage}
-              className="w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-purple-200 hover:bg-purple-50 text-gray-700 transition-all duration-200 min-h-[44px] touch-manipulation select-none active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              disabled={isGuest}
+              className={`
+                w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg border border-gray-200 transition-all duration-200
+                min-h-[44px] touch-manipulation select-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+                ${isGuest 
+                  ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400' 
+                  : 'hover:border-purple-200 hover:bg-purple-50 text-gray-700 active:bg-purple-100'
+                }
+              `}
               aria-describedby="message-description"
+              aria-disabled={isGuest}
             >
               <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                 <MessageCircle className="h-4 w-4 text-purple-600" />

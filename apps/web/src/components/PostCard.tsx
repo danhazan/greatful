@@ -225,8 +225,7 @@ export default function PostCard({
     event.preventDefault()
 
     if (!isUserAuthenticated) {
-      // Call the onReaction handler which will handle the redirect
-      onReaction?.(post.id, 'heart_eyes') // Use a default emoji for the redirect
+      // Guest users cannot react — button is disabled, no redirect
       return
     }
 
@@ -424,8 +423,7 @@ export default function PostCard({
 
   const handleCommentsButtonClick = async () => {
     if (!isUserAuthenticated) {
-      // Redirect to login for unauthenticated users
-      router.push('/auth/login')
+      // Guest users cannot comment — button is disabled, no redirect
       return
     }
 
@@ -1003,12 +1001,14 @@ export default function PostCard({
                       setMultiImageInitialIndex(index)
                       setShowMultiImageModal(true)
                     }}
+                    disabled={!isUserAuthenticated}
                   />
                 ) : currentPost.imageUrl && (
                   <OptimizedPostImage
                     src={getImageUrl(currentPost.imageUrl) || currentPost.imageUrl}
                     alt="Post image"
                     postType={currentPost.postType}
+                    disabled={!isUserAuthenticated}
                   />
                 )}
               </div>
@@ -1021,23 +1021,23 @@ export default function PostCard({
           {/* Authentication Notice for logged-out users - only show if currentUserId is explicitly undefined */}
           {currentUserId === undefined && !isUserAuthenticated && (
             <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  <span className="text-sm text-blue-700 font-medium">
-                    Join to interact with this post
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0"></div>
+                  <span className="text-sm text-blue-700 font-medium line-clamp-2">
+                    Join to interact with this post!
                   </span>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 flex-shrink-0">
                   <a
                     href="/auth/login"
-                    className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
+                    className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors whitespace-nowrap h-7 flex items-center"
                   >
                     Log In
                   </a>
                   <a
                     href="/auth/signup"
-                    className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
+                    className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors whitespace-nowrap h-7 flex items-center"
                   >
                     Sign Up
                   </a>
@@ -1052,7 +1052,7 @@ export default function PostCard({
               <ReactionsBanner
                 totalCount={currentPost.reactionsCount || 0}
                 emojiCodes={currentPost.reactionEmojiCodes || []}
-                onClick={handleReactionCountClick}
+                onClick={isUserAuthenticated ? handleReactionCountClick : undefined}
               />
             </div>
           </div>
@@ -1063,9 +1063,9 @@ export default function PostCard({
             <button
               ref={reactionButtonRef}
               onClick={handleReactionButtonClick}
-              disabled={isReactionLoading}
+              disabled={!isUserAuthenticated || isReactionLoading}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
-                ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
+                ? 'text-gray-400'
                 : (pendingReaction || currentPost.currentUserReaction)
                   ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
                   : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
@@ -1094,11 +1094,11 @@ export default function PostCard({
             {/* Comments Button */}
             <button
               onClick={handleCommentsButtonClick}
-              disabled={isCommentsLoading}
+              disabled={!isUserAuthenticated || isCommentsLoading}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
-                ? 'text-gray-400 cursor-pointer hover:bg-gray-50'
+                ? 'text-gray-400'
                 : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
-                } ${(currentPost.commentsCount || 0) > 0 ? 'ring-1 ring-purple-200' : ''}`}
+                } ${(currentPost.commentsCount || 0) > 0 && isUserAuthenticated ? 'ring-1 ring-purple-200' : ''}`}
               title={!isUserAuthenticated ? 'Login to comment on posts' : 'View and add comments'}
             >
               {isCommentsLoading ? (
@@ -1138,29 +1138,41 @@ export default function PostCard({
           {/* Location Metadata Row */}
           {(currentPost.locationData || currentPost.location) && (
             <div className="flex justify-end min-w-0 mt-1">
-              <button
-                ref={locationButtonRef}
-                onClick={(event) => {
-                  event.preventDefault()
+              {isUserAuthenticated ? (
+                <button
+                  ref={locationButtonRef}
+                  onClick={(event) => {
+                    event.preventDefault()
 
-                  if (locationButtonRef.current) {
-                    const rect = locationButtonRef.current.getBoundingClientRect()
-                    setLocationModalPosition({
-                      x: rect.left + rect.width / 2,
-                      y: rect.top
-                    })
-                  }
+                    if (locationButtonRef.current) {
+                      const rect = locationButtonRef.current.getBoundingClientRect()
+                      setLocationModalPosition({
+                        x: rect.left + rect.width / 2,
+                        y: rect.top
+                      })
+                    }
 
-                  setShowLocationModal(true)
-                }}
-                className="flex items-center justify-end gap-1 flex-1 min-w-0 overflow-hidden text-gray-500 hover:text-purple-600 transition-colors"
-                title={currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
-              >
-                <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="text-xs truncate min-w-0">
-                  {currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
-                </span>
-              </button>
+                    setShowLocationModal(true)
+                  }}
+                  className="flex items-center justify-end gap-1 flex-1 min-w-0 overflow-hidden text-gray-500 hover:text-purple-600 transition-colors"
+                  title={currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
+                >
+                  <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="text-xs truncate min-w-0">
+                    {currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
+                  </span>
+                </button>
+              ) : (
+                <div 
+                  className="flex items-center justify-end gap-1 flex-1 min-w-0 overflow-hidden text-gray-400 select-none cursor-default" 
+                  title={currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
+                >
+                  <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="text-xs truncate min-w-0">
+                    {currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1201,6 +1213,7 @@ export default function PostCard({
         onClose={() => setShowShareModal(false)}
         post={post}
         position={shareModalPosition}
+        isGuest={!isUserAuthenticated}
         onShare={(method) => {
           // Track analytics event for share
           if (currentUserId) {

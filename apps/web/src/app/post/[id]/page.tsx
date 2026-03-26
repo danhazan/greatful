@@ -55,16 +55,6 @@ export default function PostPage({ params }: PostPageProps) {
           <div className="bg-white rounded-lg shadow-sm">
             <SinglePostView postId={params.id} />
           </div>
-
-          {/* Back to feed/home link */}
-          <div className="mt-6 text-center">
-            <a
-              href={user ? "/feed" : "/"}
-              className="text-purple-600 hover:text-purple-700 font-medium"
-            >
-              ← Back to {user ? "Feed" : "Home"}
-            </a>
-          </div>
         </div>
       </main>
     </div>
