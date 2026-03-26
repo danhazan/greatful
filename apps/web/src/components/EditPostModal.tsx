@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react"
 import { X, MapPin, Brush, Loader2 } from "lucide-react"
-import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
 import LocationModal from "./LocationModal"
 import MinimalEmojiPicker from "./MinimalEmojiPicker"
@@ -108,7 +107,8 @@ const MIN_EDITOR_MAX_HEIGHT = 140
 const EDITOR_TRAY_GAP = 12
 
 export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditPostModalProps) {
-  const { showSuccess, showError, showLoading, hideToast } = useToast()
+  // Toast ownership: PostCard's handler owns all toast lifecycle for post edits.
+  // EditPostModal only uses setError() for inline form error display.
   const [postData, setPostData] = useState<{
     content: string
     imageUrl?: string
@@ -467,12 +467,6 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
     setIsSubmitting(true)
 
-    // Show loading toast
-    const loadingToastId = showLoading(
-      'Updating post...',
-      'Saving your changes'
-    )
-
     try {
       // Build payload - always include location fields to ensure proper clearing
       const payload = buildPostPayload(
@@ -491,55 +485,35 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
 
       await onSubmit(payload as any)
 
-      // Hide loading toast and show success
-      hideToast(loadingToastId)
-      showSuccess(
-        'Post Updated!',
-        'Your changes have been saved successfully'
-      )
-
       // Close modal on successful submission
+      // Toast handling is owned by PostCard's handler
       onClose()
 
     } catch (error: any) {
-      // Hide loading toast and show error
-      hideToast(loadingToastId)
       console.error('Post update error:', error)
 
-      // Better error message extraction
-      let errorMessage = 'Failed to update post. Please try again.'
+      // Extract error message for inline form display
+      let errorMsg = 'Failed to update post. Please try again.'
 
       if (error?.message) {
-        errorMessage = error.message
+        errorMsg = error.message
       } else if (typeof error === 'string') {
-        errorMessage = error
+        errorMsg = error
       } else if (error?.error) {
-        errorMessage = error.error
+        errorMsg = error.error
       } else if (error?.detail) {
-        // Handle Pydantic validation errors (array of error objects)
         if (Array.isArray(error.detail)) {
           const firstError = error.detail[0]
-          if (firstError && firstError.msg) {
-            errorMessage = firstError.msg
-          } else {
-            errorMessage = 'Validation error occurred'
-          }
+          errorMsg = firstError?.msg || 'Validation error occurred'
         } else if (typeof error.detail === 'string') {
-          errorMessage = error.detail
+          errorMsg = error.detail
         } else {
-          errorMessage = 'Validation error occurred'
+          errorMsg = 'Validation error occurred'
         }
       }
 
-      setError(errorMessage)
-      showError(
-        'Update Failed',
-        errorMessage,
-        {
-          label: 'Retry',
-          onClick: () => handleSubmit(e)
-        }
-      )
+      // Inline form error only — toast is owned by PostCard's handler
+      setError(errorMsg)
     } finally {
       setIsSubmitting(false)
     }

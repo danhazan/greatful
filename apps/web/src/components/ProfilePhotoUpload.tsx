@@ -49,7 +49,7 @@ export default function ProfilePhotoUpload({
   const [showCropModal, setShowCropModal] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { showSuccess, showError } = useToast()
+  const { showDebugSuccess, showError } = useToast()
 
   const uploadPhoto = async (croppedBlob: Blob, cropData: CropData) => {
     setIsUploading(true)
@@ -72,7 +72,7 @@ export default function ProfilePhotoUpload({
 
       if (response.ok && result.success && result.data) {
         onPhotoUpdate(result.data.profileImageUrl)
-        showSuccess('Profile photo updated successfully!')
+        showDebugSuccess('Profile photo updated successfully!')
       } else {
         throw new Error(result.error || 'Upload failed')
       }
@@ -104,7 +104,7 @@ export default function ProfilePhotoUpload({
 
       if (response.ok) {
         onPhotoUpdate(null)
-        showSuccess('Profile photo removed successfully!')
+        showDebugSuccess('Profile photo removed successfully!')
       } else {
         throw new Error('Failed to delete photo')
       }

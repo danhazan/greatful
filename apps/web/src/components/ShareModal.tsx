@@ -45,7 +45,7 @@ export default function ShareModal({
   const [showMessageShare, setShowMessageShare] = useState(false)
   const [selectedUsers, setSelectedUsers] = useState<UserSearchResult[]>([])
   const [sendingMessage, setSendingMessage] = useState(false)
-  const { showSuccess, showError, showLoading, hideToast } = useToast()
+  const { showError, showDebugSuccess, showDebugLoading, hideToast } = useToast()
 
 
 
@@ -294,7 +294,7 @@ export default function ShareModal({
       window.open(whatsAppUrl, '_blank')
       
       // Show success feedback
-      showSuccess(
+      showDebugSuccess(
         'Opening WhatsApp...',
         'Share your gratitude with friends!'
       )
@@ -319,7 +319,7 @@ export default function ShareModal({
     setSendingMessage(true)
     
     // Show loading toast
-    const loadingToastId = showLoading(
+    const loadingToastId = showDebugLoading(
       'Sending post...',
       `Sharing with ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`
     )
@@ -356,8 +356,8 @@ export default function ShareModal({
       })
 
       // Hide loading toast and show success
-      hideToast(loadingToastId)
-      showSuccess(
+      if (loadingToastId) hideToast(loadingToastId)
+      showDebugSuccess(
         'Post Shared!',
         `Successfully sent to ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`
       )
@@ -373,7 +373,7 @@ export default function ShareModal({
       
     } catch (error) {
       console.error('Failed to send message:', error)
-      hideToast(loadingToastId)
+      if (loadingToastId) hideToast(loadingToastId)
       showError(
         'Share Failed',
         error instanceof Error ? error.message : 'Unable to share post. Please try again.',

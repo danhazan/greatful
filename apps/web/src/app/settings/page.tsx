@@ -17,9 +17,11 @@ import {
 } from 'lucide-react'
 
 import { UserPreferences } from '@/types/user'
+import { useToast } from '@/contexts/ToastContext'
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { showError: showErrorToast } = useToast()
   const [preferences, setPreferences] = useState<UserPreferences | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -96,7 +98,9 @@ export default function SettingsPage() {
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save preferences')
+      const msg = err instanceof Error ? err.message : 'Failed to save preferences'
+      setError(msg)
+      showErrorToast('Save Failed', msg)
     } finally {
       setSaving(false)
     }

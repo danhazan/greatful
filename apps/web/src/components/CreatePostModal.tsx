@@ -122,7 +122,7 @@ const MIN_EDITOR_MAX_HEIGHT = 140
 const EDITOR_TRAY_GAP = 12
 
 export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
-  const { showSuccess, showError, showLoading, hideToast } = useToast()
+  const { showError, showDebugSuccess, showDebugLoading, hideToast } = useToast()
   const [postData, setPostData] = useState<{
     content: string
     imageUrl?: string
@@ -601,8 +601,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
     setIsSubmitting(true)
 
-    // Show loading toast
-    const loadingToastId = showLoading(
+    // Debug loading toast (dev/staging only)
+    const loadingToastId = showDebugLoading(
       'Creating post...',
       'Sharing your gratitude'
     )
@@ -638,9 +638,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
       await onSubmit(payload as any)
 
-      // Hide loading toast and show success
-      hideToast(loadingToastId)
-      showSuccess(
+      // Hide loading toast and show debug success (dev/staging only)
+      if (loadingToastId) hideToast(loadingToastId)
+      showDebugSuccess(
         'Post Created!',
         'Your gratitude has been shared successfully'
       )
@@ -674,7 +674,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
       onClose()
     } catch (error: any) {
       // Hide loading toast and show error
-      hideToast(loadingToastId)
+      if (loadingToastId) hideToast(loadingToastId)
       console.error('Post creation error:', error)
 
       // Better error message extraction

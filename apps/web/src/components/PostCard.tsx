@@ -109,7 +109,7 @@ export default function PostCard({
   const locationButtonRef = useRef<HTMLButtonElement>(null)
   const optionsButtonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
-  const { showSuccess, showError, showLoading, hideToast } = useToast()
+  const { showError, showDebugSuccess, showDebugLoading, hideToast } = useToast()
 
   // Check authentication status on mount and when currentUserId changes
   useEffect(() => {
@@ -225,11 +225,10 @@ export default function PostCard({
     event.preventDefault()
 
     if (!isUserAuthenticated) {
-      // Guest users cannot react — button is disabled, no redirect
       return
     }
 
-    // If user already has a reaction, remove it immediately
+    // If user already has a reaction, remove it optimistically
     if (currentPost.currentUserReaction && onRemoveReaction) {
       // Track analytics event for reaction removal
       if (currentUserId) {
@@ -242,60 +241,73 @@ export default function PostCard({
         )
       }
 
+      // Snapshot for rollback
+      const snapshot = {
+        currentUserReaction: currentPost.currentUserReaction,
+        reactionsCount: currentPost.reactionsCount,
+        reactionEmojiCodes: currentPost.reactionEmojiCodes ? [...currentPost.reactionEmojiCodes] : [],
+      }
+
+      // Optimistic update — remove reaction immediately
+      setCurrentPost(prev => ({
+        ...prev,
+        currentUserReaction: null,
+        reactionsCount: Math.max(0, (prev.reactionsCount || 1) - 1),
+      }))
+      onRemoveReaction(post.id)
+
       try {
-        const token = getAccessToken()
+        await apiClient.delete(`/posts/${post.id}/reactions`)
 
-        // Make API call to remove reaction
+        // Background reconciliation — update counts from server truth
         try {
-          // Use optimized API client for reaction removal
-          await apiClient.delete(`/posts/${post.id}/reactions`)
-
-          // Get updated reaction summary from server, bypassing cache
           const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`, { skipCache: true }) as any
-
-          // Read emojiCounts explicitly
           const emojiCountsObj = reactionSummary.emojiCounts || {}
           const updatedEmojiCodes = [...Object.keys(emojiCountsObj)]
 
-          // Update local state immediately for responsive UI
           setCurrentPost(prev => ({
             ...prev,
-            currentUserReaction: null,
-            reactionsCount: reactionSummary.totalCount ?? Math.max(0, (prev.reactionsCount || 0) - 1),
-            reactionEmojiCodes: updatedEmojiCodes
+            reactionsCount: reactionSummary.totalCount ?? prev.reactionsCount,
+            reactionEmojiCodes: updatedEmojiCodes,
           }))
-
-          // Call handler with updated server data + reactionEmojiCodes so parent state stays in sync
           onRemoveReaction(post.id, { ...reactionSummary, reactionEmojiCodes: updatedEmojiCodes })
-        } catch (error) {
-          console.error('Failed to remove reaction:', error)
-          // Fallback to original handler if removal fails
-          onRemoveReaction(post.id)
+        } catch {
+          // Reconciliation failure is non-critical — optimistic state is good enough
         }
       } catch (error) {
-        console.error('Error removing reaction:', error)
+        // Rollback on failure
+        console.error('Failed to remove reaction:', error)
+        setCurrentPost(prev => ({
+          ...prev,
+          currentUserReaction: snapshot.currentUserReaction,
+          reactionsCount: snapshot.reactionsCount,
+          reactionEmojiCodes: snapshot.reactionEmojiCodes,
+        }))
+        showError(
+          'Reaction Failed',
+          'Unable to remove reaction. Please try again.',
+          { label: 'Retry', onClick: () => handleReactionButtonClick(event) }
+        )
       }
       return
     }
 
-    // Set pending reaction to heart (show purple heart immediately in UI)
+    // No existing reaction — open emoji picker
     setPendingReaction('heart')
 
     if (reactionButtonRef.current) {
       const rect = reactionButtonRef.current.getBoundingClientRect()
       setEmojiPickerPosition({
         x: rect.left + rect.width / 2,
-        y: rect.top - 8 // Position above button with 8px spacing to avoid covering
+        y: rect.top - 8
       })
     }
 
     setShowEmojiPicker(true)
   }
 
-  // Handle emoji selection - immediately sends reaction to backend
+  // Handle emoji selection — optimistic update before API call
   const handleEmojiSelect = async (emojiCode: string) => {
-    setIsReactionLoading(true)
-
     // Track analytics event
     if (currentUserId) {
       const eventType = currentPost.currentUserReaction ? 'reaction_change' : 'reaction_add'
@@ -308,44 +320,59 @@ export default function PostCard({
       )
     }
 
+    // Snapshot for rollback
+    const snapshot = {
+      currentUserReaction: currentPost.currentUserReaction,
+      reactionsCount: currentPost.reactionsCount,
+      reactionEmojiCodes: currentPost.reactionEmojiCodes ? [...currentPost.reactionEmojiCodes] : [],
+    }
+
+    // Optimistic update — show reaction immediately
+    const isChangingReaction = !!currentPost.currentUserReaction
+    setCurrentPost(prev => ({
+      ...prev,
+      currentUserReaction: emojiCode,
+      reactionsCount: isChangingReaction ? prev.reactionsCount : (prev.reactionsCount || 0) + 1,
+      reactionEmojiCodes: prev.reactionEmojiCodes?.includes(emojiCode)
+        ? prev.reactionEmojiCodes
+        : [...(prev.reactionEmojiCodes || []), emojiCode],
+    }))
+    onReaction?.(post.id, emojiCode)
+    setPendingReaction(null)
+
     try {
-      // Make API call to add/update reaction using optimized API client
-      await apiClient.post(`/posts/${post.id}/reactions`, { emojiCode: emojiCode })
+      await apiClient.post(`/posts/${post.id}/reactions`, { emojiCode })
 
-      // Get updated reaction summary from server, bypassing cache
-      const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`, { skipCache: true }) as any
+      // Background reconciliation — update counts from server truth
+      try {
+        const reactionSummary = await apiClient.get(`/posts/${post.id}/reactions/summary`, { skipCache: true }) as any
+        const emojiCountsObj = reactionSummary.emojiCounts || {}
+        const updatedEmojiCodes = [...Object.keys(emojiCountsObj)]
 
-      // Read emojiCounts explicitly
-      const emojiCountsObj = reactionSummary.emojiCounts || {}
-      const updatedEmojiCodes = [...Object.keys(emojiCountsObj)]
-
-      // Update local state immediately for responsive UI — atomic replacement, new array reference
-      setCurrentPost(prev => {
-        const updated = {
+        setCurrentPost(prev => ({
           ...prev,
-          currentUserReaction: emojiCode,
-          reactionsCount: reactionSummary.totalCount ?? ((prev.reactionsCount || 0) + 1),
-          reactionEmojiCodes: updatedEmojiCodes
-        };
-        console.log("Optimistic reactionEmojiCodes:", updated.reactionEmojiCodes);
-        return updated;
-      })
-
-      // Call handler with updated server data + reactionEmojiCodes so parent state stays in sync
-      onReaction?.(post.id, emojiCode, { ...reactionSummary, reactionEmojiCodes: updatedEmojiCodes })
-
+          reactionsCount: reactionSummary.totalCount ?? prev.reactionsCount,
+          reactionEmojiCodes: updatedEmojiCodes,
+        }))
+        onReaction?.(post.id, emojiCode, { ...reactionSummary, reactionEmojiCodes: updatedEmojiCodes })
+      } catch {
+        // Reconciliation failure is non-critical
+      }
     } catch (apiError: any) {
+      // Rollback on failure
+      setCurrentPost(prev => ({
+        ...prev,
+        currentUserReaction: snapshot.currentUserReaction,
+        reactionsCount: snapshot.reactionsCount,
+        reactionEmojiCodes: snapshot.reactionEmojiCodes,
+      }))
       showError(
         'Reaction Failed',
         apiError.message || 'Unable to add reaction. Please try again.',
-        {
-          label: 'Retry',
-          onClick: () => handleEmojiSelect(emojiCode)
-        }
+        { label: 'Retry', onClick: () => handleEmojiSelect(emojiCode) }
       )
     } finally {
       setIsReactionLoading(false)
-      setPendingReaction(null)
     }
   }
 
@@ -451,41 +478,50 @@ export default function PostCard({
   }
 
   const handleCommentSubmit = async (content: string) => {
+    const token = getAccessToken()
+    if (!token) {
+      showError('Authentication Error', 'Please log in to comment.')
+      return
+    }
+
+    // Snapshot for rollback
+    const snapshotComments = [...comments]
+    const snapshotCount = currentPost.commentsCount || 0
+
+    // Optimistic insert — temp comment appears instantly
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const tempComment = {
+      id: tempId,
+      content,
+      userId: currentUserId,
+      user: { id: currentUserId, displayName: '', profileImageUrl: null },
+      createdAt: new Date().toISOString(),
+      editedAt: null,
+      replies: [],
+      repliesCount: 0,
+    }
+    setComments(prev => [...prev, tempComment])
+    setCurrentPost(prev => ({ ...prev, commentsCount: (prev.commentsCount || 0) + 1 }))
+    setIsCommentSubmitting(true)
+
     try {
-      const token = getAccessToken()
-      if (!token) {
-        showError('Authentication Error', 'Please log in to comment.')
-        return
+      const newComment = await apiClient.post(`/posts/${post.id}/comments`, { content }) as any
+
+      // Reconcile: replace temp comment with server response
+      setComments(prev => prev.map(c => c.id === tempId ? newComment : c))
+
+      // Background: reload full list for consistency (e.g., server-side ordering)
+      try {
+        const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, { skipCache: true }) as any
+        setComments(updatedComments)
+      } catch {
+        // Non-critical — we already have the server comment
       }
-
-      setIsCommentSubmitting(true)
-
-      // Create the comment
-      const newComment = await apiClient.post(`/posts/${post.id}/comments`, {
-        content
-      }) as any
-
-      // Reload comments to show the new comment
-      // Use skipCache to ensure we get fresh data
-      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, {
-        skipCache: true
-      }) as any
-      console.log('PostCard: Reloaded comments after creation', {
-        commentsCount: updatedComments.length,
-        comments: updatedComments
-      })
-      setComments(updatedComments)
-
-      // Update comment count in post (includes all comments + replies)
-      const newCount = (currentPost.commentsCount || 0) + 1
-      setCurrentPost(prev => ({
-        ...prev,
-        commentsCount: newCount
-      }))
-
-      // Toast removed to prevent focus stealing from input fields
     } catch (error: any) {
+      // Rollback
       console.error('Failed to post comment:', error)
+      setComments(snapshotComments)
+      setCurrentPost(prev => ({ ...prev, commentsCount: snapshotCount }))
       showError('Failed to Post', error.message || 'Unable to post comment. Please try again.')
       throw error // Re-throw to let modal handle it
     } finally {
@@ -494,39 +530,28 @@ export default function PostCard({
   }
 
   const handleReplySubmit = async (commentId: string, content: string) => {
+    const token = getAccessToken()
+    if (!token) {
+      showError('Authentication Error', 'Please log in to reply.')
+      return
+    }
+
+    // Snapshot for rollback
+    const snapshotCount = currentPost.commentsCount || 0
+
+    // Optimistic: increment count immediately (reply appears in CommentsModal via reload)
+    setCurrentPost(prev => ({ ...prev, commentsCount: (prev.commentsCount || 0) + 1 }))
+
     try {
-      const token = getAccessToken()
-      if (!token) {
-        showError('Authentication Error', 'Please log in to reply.')
-        return
-      }
+      await apiClient.post(`/comments/${commentId}/replies`, { content }) as any
 
-      // Use the correct endpoint for replies
-      const newReply = await apiClient.post(`/comments/${commentId}/replies`, {
-        content
-      }) as any
-
-      // Reload all comments to show the new reply (same pattern as regular comments)
-      // Use skipCache to ensure we get fresh data
-      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, {
-        skipCache: true
-      }) as any
-      console.log('PostCard: Reloaded comments after reply creation', {
-        commentsCount: updatedComments.length,
-        comments: updatedComments
-      })
+      // Reload comments to show the new reply with server data
+      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, { skipCache: true }) as any
       setComments(updatedComments)
-
-      // Update comment count in post (includes all comments + replies)
-      const newCount = (currentPost.commentsCount || 0) + 1
-      setCurrentPost(prev => ({
-        ...prev,
-        commentsCount: newCount
-      }))
-
-      // Toast removed to prevent focus stealing from input fields
     } catch (error: any) {
+      // Rollback count
       console.error('Failed to post reply:', error)
+      setCurrentPost(prev => ({ ...prev, commentsCount: snapshotCount }))
       showError('Failed to Post', error.message || 'Unable to post reply. Please try again.')
       throw error // Re-throw to let modal handle it
     }
@@ -556,57 +581,78 @@ export default function PostCard({
     }
   }
 
-  // Edit comment handler
+  // Edit comment handler — optimistic content update
   const handleCommentEdit = async (commentId: string, content: string): Promise<any> => {
+    const token = getAccessToken()
+    if (!token) {
+      throw new Error('Please log in to edit comments.')
+    }
+
+    // Snapshot original content for rollback
+    const originalComment = comments.find(c => c.id === commentId)
+    const originalContent = originalComment?.content
+
+    // Optimistic update — show edited content immediately
+    setComments(prev => prev.map(c =>
+      c.id === commentId ? { ...c, content, editedAt: new Date().toISOString() } : c
+    ))
+
     try {
-      const token = getAccessToken()
-      if (!token) {
-        throw new Error('Please log in to edit comments.')
-      }
+      const updatedComment = await apiClient.put(`/comments/${commentId}`, { content }) as any
 
-      // Call the edit API
-      const updatedComment = await apiClient.put(`/comments/${commentId}`, {
-        content
-      }) as any
-
-      // Reload comments to ensure consistency
-      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, {
-        skipCache: true
-      }) as any
-      setComments(updatedComments)
+      // Reconcile with server data (e.g., exact editedAt timestamp)
+      setComments(prev => prev.map(c =>
+        c.id === commentId ? { ...c, content: updatedComment.content, editedAt: updatedComment.editedAt } : c
+      ))
 
       return updatedComment
     } catch (error: any) {
+      // Rollback to original content
       console.error('Failed to edit comment:', error)
+      if (originalContent !== undefined) {
+        setComments(prev => prev.map(c =>
+          c.id === commentId ? { ...c, content: originalContent, editedAt: originalComment?.editedAt } : c
+        ))
+      }
+      showError('Edit Failed', error.message || 'Unable to edit comment. Please try again.')
       throw new Error(error.message || 'Unable to edit comment. Please try again.')
     }
   }
 
-  // Delete comment handler
+  // Delete comment handler — optimistic removal
   const handleCommentDelete = async (commentId: string): Promise<void> => {
+    const token = getAccessToken()
+    if (!token) {
+      throw new Error('Please log in to delete comments.')
+    }
+
+    // Snapshot for rollback
+    const snapshotComments = [...comments]
+    const snapshotCount = currentPost.commentsCount || 0
+
+    // Optimistic removal — hide comment immediately
+    setComments(prev => prev.filter(c => c.id !== commentId))
+    setCurrentPost(prev => ({
+      ...prev,
+      commentsCount: Math.max(0, (prev.commentsCount || 0) - 1)
+    }))
+
     try {
-      const token = getAccessToken()
-      if (!token) {
-        throw new Error('Please log in to delete comments.')
+      await apiClient.delete(`/comments/${commentId}`)
+
+      // Background reconciliation
+      try {
+        const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, { skipCache: true }) as any
+        setComments(updatedComments)
+      } catch {
+        // Non-critical
       }
-
-      // Call the delete API
-      await apiClient.delete(`/comments/${commentId}`) as any
-
-      // Reload comments to ensure consistency
-      const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, {
-        skipCache: true
-      }) as any
-      setComments(updatedComments)
-
-      // Update comment count in post
-      const newCount = Math.max(0, (currentPost.commentsCount || 0) - 1)
-      setCurrentPost(prev => ({
-        ...prev,
-        commentsCount: newCount
-      }))
     } catch (error: any) {
+      // Rollback
       console.error('Failed to delete comment:', error)
+      setComments(snapshotComments)
+      setCurrentPost(prev => ({ ...prev, commentsCount: snapshotCount }))
+      showError('Delete Failed', error.message || 'Unable to delete comment. Please try again.')
       throw new Error(error.message || 'Unable to delete comment. Please try again.')
     }
   }
@@ -646,7 +692,7 @@ export default function PostCard({
     }
   }
 
-  // Edit and delete handlers
+  // Edit post handler — optimistic update
   const handleEditPost = async (postData: {
     content: string
     richContent?: string
@@ -657,72 +703,59 @@ export default function PostCard({
     privacyRules?: string[]
     specificUsers?: number[]
   }) => {
+    const token = getAccessToken()
+    if (!token) {
+      showError('Authentication Error', 'Please log in to edit posts.')
+      return
+    }
+
+    // Snapshot for rollback (structuredClone for deep copy)
+    const snapshot = typeof structuredClone === 'function'
+      ? structuredClone(currentPost)
+      : JSON.parse(JSON.stringify(currentPost))
+
+    // Optimistic update — merge edited fields immediately
+    setCurrentPost(prev => ({
+      ...prev,
+      content: postData.content,
+      richContent: postData.richContent ?? prev.richContent,
+      postStyle: postData.postStyle ?? prev.postStyle,
+      location: postData.location ?? prev.location,
+      privacyLevel: postData.privacyLevel ?? prev.privacyLevel,
+      updatedAt: new Date().toISOString(),
+    }))
+    setShowEditModal(false)
+
+    const loadingToastId = showDebugLoading('Updating Post', 'Saving your changes...')
+
     try {
-      const token = getAccessToken()
-      if (!token) {
-        showError('Authentication Error', 'Please log in to edit posts.')
-        return
-      }
+      const raw = await apiClient.put(`/posts/${post.id}`, postData) as any
 
-      const loadingToastId = showLoading('Updating Post', 'Saving your changes...')
+      if (loadingToastId) hideToast(loadingToastId)
+      debugApiResponse(raw, "PUT /api/posts/:id response")
 
-      const updateData = postData
-
-      try {
-        // Use optimized API client for post update
-        const raw = await apiClient.put(`/posts/${post.id}`, updateData) as any
-
-        hideToast(loadingToastId)
-
-        debugApiResponse(raw, "PUT /api/posts/:id response")
-
-        const normalized = normalizePostFromApi(raw)
-        if (!normalized) {
-          console.warn("Could not normalize post response:", raw)
-          // Fallback: close modal and try to refetch from server
-          setShowEditModal(false)
-          if (onEdit) onEdit(post.id, raw) // best-effort
-          return
-        }
-
-        showSuccess('Post Updated', 'Your post has been updated successfully.')
-        setShowEditModal(false)
-
-        // Merge updated fields into local post state (safe)
-        // Use specialized merge function to preserve author fields like profile image
+      const normalized = normalizePostFromApi(raw)
+      if (normalized) {
+        // Reconcile with full server response
         setCurrentPost(prev => mergePostUpdate(prev, normalized))
-
-        // Call the onEdit callback if provided
-        if (onEdit) {
-          onEdit(post.id, normalized)
-        }
-      } catch (error: any) {
-        hideToast(loadingToastId)
-
-        // Handle API client errors
-        let errorMessage = 'Unable to update post. Please try again.'
-        if (error.message) {
-          errorMessage = error.message
-        }
-
-        showError(
-          'Update Failed',
-          errorMessage,
-          {
-            label: 'Retry',
-            onClick: () => handleEditPost(postData)
-          }
-        )
+        showDebugSuccess('Post Updated', 'Your post has been updated successfully.')
+        if (onEdit) onEdit(post.id, normalized)
+      } else {
+        console.warn("Could not normalize post response:", raw)
+        if (onEdit) onEdit(post.id, raw)
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (loadingToastId) hideToast(loadingToastId)
+
+      // Rollback to snapshot
       console.error('Error updating post:', error)
+      setCurrentPost(snapshot)
+
+      const errorMessage = error.message || 'Unable to update post. Please try again.'
       showError(
-        'Network Error',
-        'Please check your connection and try again.',
-        {
-          label: 'Retry',
-          onClick: () => handleEditPost(postData)
-        }
+        'Update Failed',
+        errorMessage,
+        { label: 'Retry', onClick: () => handleEditPost(postData) }
       )
     }
   }
@@ -736,7 +769,7 @@ export default function PostCard({
       }
 
       setIsDeleting(true)
-      const loadingToastId = showLoading('Deleting Post', 'Removing your post...')
+      const loadingToastId = showDebugLoading('Deleting Post', 'Removing your post...')
 
       const response = await fetch(`/api/posts/${post.id}`, {
         method: 'DELETE',
@@ -745,10 +778,10 @@ export default function PostCard({
         }
       })
 
-      hideToast(loadingToastId)
+      if (loadingToastId) hideToast(loadingToastId)
 
       if (response.ok) {
-        showSuccess('Post Deleted', 'Your post has been deleted successfully.')
+        showDebugSuccess('Post Deleted', 'Your post has been deleted successfully.')
         setShowDeleteModal(false)
 
         // Call the onDelete callback if provided

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import ToastNotification, { Toast } from '@/components/ToastNotification'
 import ToastPortal from '@/contexts/ToastPortal'
+import { isDebugEnvironment } from '@/utils/environment'
 
 interface ToastContextType {
   showToast: (toast: Omit<Toast, 'id'>) => string
@@ -13,6 +14,10 @@ interface ToastContextType {
   showWarning: (title: string, message?: string) => string
   showLoading: (title: string, message?: string) => string
   updateToast: (id: string, updates: Partial<Toast>) => void
+  /** Debug-only toasts: visible in development and staging, no-op in production */
+  showDebugSuccess: (title: string, message?: string) => string
+  showDebugLoading: (title: string, message?: string) => string
+  showDebugInfo: (title: string, message?: string) => string
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined)
@@ -72,6 +77,21 @@ export function ToastProvider({ children }: ToastProviderProps) {
     return showToast({ type: 'loading', title, message })
   }, [showToast])
 
+  const showDebugSuccess = useCallback((title: string, message?: string) => {
+    if (!isDebugEnvironment()) return ''
+    return showSuccess(title, message)
+  }, [showSuccess])
+
+  const showDebugLoading = useCallback((title: string, message?: string) => {
+    if (!isDebugEnvironment()) return ''
+    return showLoading(title, message)
+  }, [showLoading])
+
+  const showDebugInfo = useCallback((title: string, message?: string) => {
+    if (!isDebugEnvironment()) return ''
+    return showInfo(title, message)
+  }, [showInfo])
+
   const value: ToastContextType = {
     showToast,
     hideToast,
@@ -80,7 +100,10 @@ export function ToastProvider({ children }: ToastProviderProps) {
     showInfo,
     showWarning,
     showLoading,
-    updateToast
+    updateToast,
+    showDebugSuccess,
+    showDebugLoading,
+    showDebugInfo
   }
 
   return (

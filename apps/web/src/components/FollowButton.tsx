@@ -34,7 +34,7 @@ export default function FollowButton({
 }: FollowButtonProps) {
   const [error, setError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
-  const { showSuccess, showError, showLoading, hideToast } = useToast()
+  const { showError, showDebugSuccess, showDebugLoading, hideToast } = useToast()
 
   // Debug logging for follow state initialization
   useEffect(() => {
@@ -125,8 +125,8 @@ export default function FollowButton({
     const action = effectiveFollowState ? 'unfollow' : 'follow'
     setError(null)
 
-    // Show loading toast
-    const loadingToastId = showLoading(
+    // Debug loading toast (dev/staging only)
+    const loadingToastId = showDebugLoading(
       `${action === 'follow' ? 'Following' : 'Unfollowing'} user...`,
       'Please wait'
     )
@@ -135,15 +135,15 @@ export default function FollowButton({
       // Use centralized state management with optimistic updates
       await toggleFollow()
 
-      // Success - update toast
-      hideToast(loadingToastId)
-      showSuccess(
+      // Success - dismiss loading and show debug success (dev/staging only)
+      if (loadingToastId) hideToast(loadingToastId)
+      showDebugSuccess(
         `User ${action === 'follow' ? 'followed' : 'unfollowed'}!`,
         `You ${action === 'follow' ? 'are now following' : 'unfollowed'} this user`
       )
     } catch (error) {
       // Error handling - rollback is handled by useUserState
-      hideToast(loadingToastId)
+      if (loadingToastId) hideToast(loadingToastId)
 
       let errorMessage = 'Failed to update follow status'
       if (error instanceof Error) {

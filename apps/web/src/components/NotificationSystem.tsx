@@ -10,6 +10,7 @@ import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
 import { smartNotificationPoller } from "@/utils/smartNotificationPoller"
 import { apiClient } from "@/utils/apiClient"
+import { useToast } from "@/contexts/ToastContext"
 
 import { Notification } from "@/types/notification"
 
@@ -19,6 +20,7 @@ interface NotificationSystemProps {
 
 export default function NotificationSystem({ userId }: NotificationSystemProps) {
   const router = useRouter()
+  const { showError } = useToast()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -119,10 +121,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
       // Invalidate notification cache to ensure fresh data on next fetch
       apiClient.invalidateCache('/notifications')
     } catch (error) {
-      // Silently handle errors - local state is already updated
-      if (process.env['NODE_ENV'] === 'development') {
-        console.debug('Backend unavailable for notification sync:', error)
-      }
+      console.debug('Backend unavailable for notification sync:', error)
+      showError('Sync Failed', 'Notification status may be out of date.')
     }
   }
 
@@ -138,10 +138,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
       // Invalidate notification cache to ensure fresh data on next fetch
       apiClient.invalidateCache('/notifications')
     } catch (error) {
-      // Silently handle errors - local state is already updated
-      if (process.env['NODE_ENV'] === 'development') {
-        console.debug('Backend unavailable for notification sync:', error)
-      }
+      console.debug('Backend unavailable for notification sync:', error)
+      showError('Sync Failed', 'Notification status may be out of date.')
     }
   }
 

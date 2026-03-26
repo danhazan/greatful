@@ -69,7 +69,7 @@ export default function CommentsModal({
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set())
   const [repliesCache, setRepliesCache] = useState<Record<string, Comment[]>>({})
   const [localComments, setLocalComments] = useState<Comment[]>(comments)
-  const { showError, showSuccess } = useToast()
+  const { showError } = useToast()
 
   // Edit state
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
@@ -377,7 +377,7 @@ export default function CommentsModal({
         setCommentText("")
         resetTextarea(commentInputRef.current)
         unlockCommentsScroll()
-        showSuccess("Comment updated successfully")
+        // Toast ownership: PostCard's handler owns toast lifecycle for comment edits
       } else if (replyingTo) {
         await onReplySubmit(replyingTo, commentText.trim())
 
@@ -495,7 +495,7 @@ export default function CommentsModal({
       })
 
       setDeleteConfirmCommentId(null)
-      showSuccess("Comment deleted successfully")
+      // Toast ownership: PostCard's handler owns toast lifecycle for comment deletes
     } catch (error: any) {
       showError(error.message || "Failed to delete comment")
     } finally {
