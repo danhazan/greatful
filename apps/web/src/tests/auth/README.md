@@ -135,7 +135,7 @@ Object.defineProperty(window, 'localStorage', {
 ```typescript
 const user = userEvent.setup()
 await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-await user.click(screen.getByRole('button', { name: /sign in/i }))
+await user.click(screen.getByRole('button', { name: /log in/i }))
 ```
 
 ### API Call Verification

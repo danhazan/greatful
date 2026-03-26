@@ -22,11 +22,11 @@ export default function SignupPage() {
   const [error, setError] = useState("")
   const [showLinkingDialog, setShowLinkingDialog] = useState(false)
   const [linkingData, setLinkingData] = useState<any>(null)
-  
-  const { 
-    providers, 
-    isLoading: oauthLoading, 
-    error: oauthError, 
+
+  const {
+    providers,
+    isLoading: oauthLoading,
+    error: oauthError,
     isAvailable: oauthAvailable,
     handleOAuthLogin,
     clearError: clearOAuthError
@@ -80,13 +80,13 @@ export default function SignupPage() {
         if (accessToken) {
           localStorage.setItem("access_token", accessToken)
         }
-        
+
         // Redirect to feed or login
         router.push(accessToken ? "/feed" : "/auth/login")
       } else {
         // Handle structured error responses from backend
         let errorMessage = "Signup failed. Please try again."
-        
+
         try {
           if (data.detail) {
             if (Array.isArray(data.detail)) {
@@ -118,12 +118,12 @@ export default function SignupPage() {
           console.error('Error parsing error response:', parseError)
           errorMessage = "Signup failed. Please try again."
         }
-        
+
         // Ensure errorMessage is always a string
         if (typeof errorMessage !== 'string') {
           errorMessage = "Signup failed. Please try again."
         }
-        
+
         setError(errorMessage)
       }
     } catch (error) {
@@ -292,7 +292,7 @@ export default function SignupPage() {
             <p className="text-gray-600">
               Already have an account?{" "}
               <Link href="/auth/login" className="text-purple-600 hover:text-purple-700 font-medium">
-                Sign in
+                Log in
               </Link>
             </p>
           </div>

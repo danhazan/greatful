@@ -120,7 +120,7 @@ const AccountLinkingDialog: React.FC<AccountLinkingDialogProps> = ({
           >
             {isLoading ? 'Linking Account...' : `Link ${getProviderName(oauthProvider)} Account`}
           </button>
-          
+
           <button
             onClick={onCancel}
             disabled={isLoading}
@@ -138,7 +138,7 @@ const AccountLinkingDialog: React.FC<AccountLinkingDialogProps> = ({
               onClick={onClose}
               className="text-purple-600 hover:text-purple-700 font-medium"
             >
-              Sign in with email instead
+              Log in with email instead
             </button>
           </p>
         </div>
