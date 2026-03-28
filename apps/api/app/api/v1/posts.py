@@ -1048,7 +1048,7 @@ async def get_feed_v2(
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
     cursor: Optional[str] = None,
-    page_size: int = 20,
+    page_size: Optional[int] = None,
 ):
     """
     Feed v2: simplified scoring with cursor-based pagination.
@@ -1057,12 +1057,15 @@ async def get_feed_v2(
     - Cursor-based pagination for stable ordering across pages
     - No offset, no algorithm toggle, no read-status tracking
     """
+    from app.config.feed_config import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
     from app.services.feed_service_v2 import FeedServiceV2
 
-    if page_size < 1 or page_size > 50:
+    if page_size is None:
+        page_size = DEFAULT_PAGE_SIZE
+    if page_size < 1 or page_size > MAX_PAGE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="page_size must be between 1 and 50",
+            detail=f"page_size must be between 1 and {MAX_PAGE_SIZE}",
         )
 
     debug = request.headers.get("X-Feed-Debug", "").lower() == "true"

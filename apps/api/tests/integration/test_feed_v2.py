@@ -308,21 +308,21 @@ class TestFeedV2AuthorSpacing:
 
     @pytest.mark.asyncio
     async def test_consecutive_posts_reordered(self, db_session, user_a, user_b, user_c):
-        # Create 5 posts from user_b and 1 from user_c, all similar age
-        for i in range(5):
+        # Create 4 posts from user_b and 2 from user_c, all similar age
+        for i in range(4):
             await _create_post(db_session, user_b, f"B-{i}", age_hours=i * 0.1)
         await _create_post(db_session, user_c, "C-0", age_hours=0.5)
+        await _create_post(db_session, user_c, "C-1", age_hours=1.0)
 
         service = FeedServiceV2(db_session)
         result = await service.get_feed(user_id=user_a.id)
 
-        # user_c's post should not be at the very end
-        # (it was pushed up because user_b has too many consecutive posts)
         authors = [p["author_id"] for p in result["posts"]]
-        # Check no more than 4 consecutive from same author
-        for i in range(len(authors) - 4):
-            window = authors[i : i + 5]
-            assert len(set(window)) > 1 or len(window) < 5
+        # Verify that user_b never has more than 2 consecutive posts
+        for i in range(len(authors) - 2):
+            window = authors[i : i + 3]
+            if len(set(window)) == 1:
+                assert False, f"Found 3 consecutive posts from author {window[0]} at index {i}"
 
 
 # ---------------------------------------------------------------------------
@@ -355,18 +355,20 @@ class TestFeedV2Endpoint:
 
 
 # ---------------------------------------------------------------------------
-# Test: Old posts excluded by candidate window
+# Test: Old posts included (no candidate window — scoring handles ordering)
 # ---------------------------------------------------------------------------
 
-class TestFeedV2CandidateWindow:
+class TestFeedV2OldPosts:
 
     @pytest.mark.asyncio
-    async def test_old_posts_excluded(self, db_session, user_a, user_b):
-        # Post from 15 days ago — outside 14-day window
+    async def test_old_posts_included_but_ranked_lower(self, db_session, user_a, user_b):
+        # Post from 15 days ago — old but still visible
         await _create_post(db_session, user_b, "Very old", age_hours=15 * 24)
-        # Post from 1 day ago — inside window
+        # Post from 1 day ago — recent
         await _create_post(db_session, user_b, "Recent", age_hours=24)
         service = FeedServiceV2(db_session)
         result = await service.get_feed(user_id=user_a.id)
-        assert len(result["posts"]) == 1
+        assert len(result["posts"]) == 2
+        # Recent post should rank higher due to recency score
         assert result["posts"][0]["content"] == "Recent"
+        assert result["posts"][1]["content"] == "Very old"
