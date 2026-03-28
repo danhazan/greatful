@@ -14,9 +14,7 @@ from sqlalchemy import text
 
 from app.core.database import get_db, get_db_health, get_db_stats
 from app.core.performance_utils import run_performance_diagnostics
-from app.core.algorithm_performance import get_algorithm_performance_report
 from app.core.monitoring_security import check_basic_health_access, check_monitoring_access
-from app.services.batch_preference_service import BatchPreferenceService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -64,34 +62,6 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Database readiness check failed: {e}")
         checks["database"] = {
-            "status": "unhealthy",
-            "error": str(e)
-        }
-        overall_status = "not_ready"
-    
-    # Algorithm performance check
-    try:
-        algorithm_report = get_algorithm_performance_report()
-        performance_metrics = algorithm_report.get("performance_metrics", {})
-        
-        # Check if algorithm performance is within acceptable limits
-        is_algorithm_healthy = _is_algorithm_healthy(performance_metrics)
-        
-        checks["algorithm"] = {
-            "status": "healthy" if is_algorithm_healthy else "degraded",
-            "target_time_ms": 300,
-            "details": {
-                "operations_count": len(performance_metrics.get("operations", {})),
-                "cache_hit_rate": _calculate_cache_hit_rate(algorithm_report.get("cache_statistics", {}))
-            }
-        }
-        
-        if not is_algorithm_healthy:
-            overall_status = "degraded"
-            
-    except Exception as e:
-        logger.error(f"Algorithm readiness check failed: {e}")
-        checks["algorithm"] = {
             "status": "unhealthy",
             "error": str(e)
         }
@@ -186,31 +156,6 @@ async def metrics_endpoint(
             "database_size": db_stats.get("database_size", "unknown")
         }
         
-        # Algorithm performance metrics
-        algorithm_report = get_algorithm_performance_report()
-        performance_metrics = algorithm_report.get("performance_metrics", {})
-        
-        metrics["algorithm"] = {
-            "status": "healthy" if _is_algorithm_healthy(performance_metrics) else "degraded",
-            "target_time_ms": 300,
-            "operations": {
-                "total_count": sum(
-                    op.get("execution_count", 0) 
-                    for op in performance_metrics.get("operations", {}).values()
-                ),
-                "slow_operations": sum(
-                    op.get("slow_operations", 0) 
-                    for op in performance_metrics.get("operations", {}).values()
-                )
-            },
-            "cache": {
-                "hit_rate_percentage": _calculate_cache_hit_rate(
-                    algorithm_report.get("cache_statistics", {})
-                ),
-                "total_caches": len(algorithm_report.get("cache_statistics", {}))
-            }
-        }
-        
         # System resource metrics (basic)
         try:
             import psutil
@@ -282,60 +227,6 @@ async def database_health_check(
         ) from e
 
 
-@router.get("/health/algorithm")
-async def algorithm_health_check() -> Dict[str, Any]:
-    """
-    Algorithm performance health check endpoint.
-    
-    Returns:
-        Dict containing algorithm performance health information
-    """
-    try:
-        algorithm_report = get_algorithm_performance_report()
-        performance_metrics = algorithm_report.get("performance_metrics", {})
-        
-        # Determine health status
-        is_healthy = _is_algorithm_healthy(performance_metrics)
-        
-        # Calculate key metrics
-        operations = performance_metrics.get("operations", {})
-        total_operations = sum(op.get("execution_count", 0) for op in operations.values())
-        total_slow = sum(op.get("slow_operations", 0) for op in operations.values())
-        slow_percentage = (total_slow / total_operations * 100) if total_operations > 0 else 0
-        
-        # Get feed-specific metrics
-        feed_metrics = {}
-        for op_name, op_data in operations.items():
-            if "feed" in op_name.lower():
-                feed_metrics[op_name] = {
-                    "avg_time_ms": op_data.get("avg_time_ms", 0),
-                    "slow_operations": op_data.get("slow_operations", 0),
-                    "execution_count": op_data.get("execution_count", 0)
-                }
-        
-        return {
-            "status": "healthy" if is_healthy else "degraded",
-            "target_time_ms": 300,
-            "summary": {
-                "total_operations": total_operations,
-                "slow_operations_percentage": slow_percentage,
-                "cache_hit_rate_percentage": _calculate_cache_hit_rate(
-                    algorithm_report.get("cache_statistics", {})
-                )
-            },
-            "feed_performance": feed_metrics,
-            "recommendations": performance_metrics.get("recommendations", [])[:3],
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        
-    except Exception as e:
-        logger.error(f"Algorithm health check failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Algorithm health check failed: {str(e)}"
-        ) from e
-
-
 @router.get("/health/detailed")
 async def detailed_health_check(
     request: Request,
@@ -364,10 +255,6 @@ async def detailed_health_check(
         # Wait for database checks
         db_health, db_stats = await asyncio.gather(db_health_task, db_stats_task)
         
-        # Get algorithm performance
-        algorithm_report = get_algorithm_performance_report()
-        performance_metrics = algorithm_report.get("performance_metrics", {})
-        
         # System checks
         system_info = {}
         try:
@@ -394,11 +281,6 @@ async def detailed_health_check(
             overall_status = "unhealthy"
             issues.append("Database connectivity issues")
         
-        if not _is_algorithm_healthy(performance_metrics):
-            if overall_status == "healthy":
-                overall_status = "degraded"
-            issues.append("Algorithm performance below target")
-        
         # Check system resources
         if system_info.get("cpu_percent", 0) > 80:
             if overall_status == "healthy":
@@ -421,14 +303,6 @@ async def detailed_health_check(
                     "connection_pool": db_health.get("pool", {}),
                     "connections": db_stats.get("connections", {}),
                     "size": db_stats.get("database_size", "unknown")
-                },
-                "algorithm": {
-                    "status": "healthy" if _is_algorithm_healthy(performance_metrics) else "degraded",
-                    "target_time_ms": 300,
-                    "cache_hit_rate": _calculate_cache_hit_rate(
-                        algorithm_report.get("cache_statistics", {})
-                    ),
-                    "operations_count": len(performance_metrics.get("operations", {}))
                 },
                 "system": system_info
             }
@@ -453,57 +327,3 @@ async def detailed_health_check(
         ) from e
 
 
-def _is_algorithm_healthy(performance_metrics: Dict[str, Any]) -> bool:
-    """
-    Determine if algorithm performance is healthy based on metrics.
-    
-    Args:
-        performance_metrics: Performance metrics from algorithm monitor
-        
-    Returns:
-        bool: True if performance is healthy
-    """
-    operations = performance_metrics.get("operations", {})
-    
-    # Check for feed operations specifically
-    for op_name, op_data in operations.items():
-        if "feed" in op_name.lower():
-            avg_time_ms = op_data.get("avg_time_ms", 0)
-            if avg_time_ms > 300:  # Exceeds 300ms target
-                return False
-    
-    # Check overall slow operation percentage
-    total_operations = sum(op.get("execution_count", 0) for op in operations.values())
-    total_slow = sum(op.get("slow_operations", 0) for op in operations.values())
-    
-    if total_operations > 0:
-        slow_percentage = (total_slow / total_operations) * 100
-        if slow_percentage > 20:  # More than 20% slow operations
-            return False
-    
-    return True
-
-
-def _calculate_cache_hit_rate(cache_stats: Dict[str, Any]) -> float:
-    """
-    Calculate overall cache hit rate from cache statistics.
-    
-    Args:
-        cache_stats: Cache statistics from cache manager
-        
-    Returns:
-        float: Overall hit rate percentage
-    """
-    total_hits = 0
-    total_requests = 0
-    
-    for cache_name, stats in cache_stats.items():
-        hits = stats.get("hits", 0)
-        misses = stats.get("misses", 0)
-        total_hits += hits
-        total_requests += hits + misses
-    
-    if total_requests == 0:
-        return 0.0
-    
-    return (total_hits / total_requests) * 100

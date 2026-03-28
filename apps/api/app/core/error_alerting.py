@@ -340,8 +340,8 @@ class AlertManager:
                 "type": AlertType.ALGORITHM_PERFORMANCE,
                 "severity": AlertSeverity.WARNING,
                 "rate_limit_minutes": 10,
-                "title": "Algorithm Performance Degraded",
-                "message_template": "Feed algorithm exceeding 300ms target: {avg_time_ms}ms average"
+                "title": "Algorithm Performance Degraded (deprecated)",
+                "message_template": "Legacy feed algorithm alert (no longer triggered)"
             },
             "high_error_rate": {
                 "type": AlertType.HIGH_ERROR_RATE,
@@ -564,11 +564,8 @@ async def alert_database_connection_failure(error: str) -> bool:
 
 
 async def alert_algorithm_performance_degraded(avg_time_ms: float) -> bool:
-    """Send algorithm performance degraded alert."""
-    return await alert_manager.send_alert(
-        "algorithm_performance_degraded",
-        metadata={"avg_time_ms": avg_time_ms, "threshold_ms": 300}
-    )
+    """Deprecated: legacy feed algorithm alert (no longer triggered)."""
+    return False
 
 
 async def alert_high_error_rate(error_rate: float, threshold: float = 5.0) -> bool:

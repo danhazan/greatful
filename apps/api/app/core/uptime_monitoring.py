@@ -13,7 +13,6 @@ import aiohttp
 
 from app.core.error_alerting import alert_manager, AlertType, AlertSeverity
 from app.core.database import get_db_health
-from app.core.algorithm_performance import get_algorithm_performance_report
 
 logger = logging.getLogger(__name__)
 
@@ -103,16 +102,6 @@ class UptimeMonitor:
             timeout_seconds=10,
             failure_threshold=3,
             recovery_threshold=2
-        )
-        
-        # Algorithm performance check
-        self.add_health_check(
-            name="algorithm_performance",
-            check_function=self._check_algorithm_performance,
-            interval_seconds=60,
-            timeout_seconds=15,
-            failure_threshold=5,
-            recovery_threshold=3
         )
         
         # API endpoint health check
@@ -522,50 +511,6 @@ class UptimeMonitor:
             return {
                 "status": ServiceStatus.DOWN,
                 "error": f"Database check failed: {str(e)}"
-            }
-    
-    async def _check_algorithm_performance(self) -> Dict[str, Any]:
-        """Check algorithm performance."""
-        try:
-            algorithm_report = get_algorithm_performance_report()
-            performance_metrics = algorithm_report.get("performance_metrics", {})
-            
-            # Check if algorithm is meeting performance targets
-            operations = performance_metrics.get("operations", {})
-            feed_operations = {
-                name: data for name, data in operations.items()
-                if "feed" in name.lower()
-            }
-            
-            if not feed_operations:
-                return {"status": ServiceStatus.HEALTHY, "metadata": {"note": "No feed operations recorded"}}
-            
-            # Check average feed performance
-            total_avg_time = sum(op.get("avg_time_ms", 0) for op in feed_operations.values())
-            avg_feed_time = total_avg_time / len(feed_operations)
-            
-            if avg_feed_time > 500:  # Very slow
-                return {
-                    "status": ServiceStatus.UNHEALTHY,
-                    "error": f"Algorithm performance degraded: {avg_feed_time:.1f}ms average",
-                    "metadata": {"avg_feed_time_ms": avg_feed_time, "target_ms": 300}
-                }
-            elif avg_feed_time > 300:  # Slower than target
-                return {
-                    "status": ServiceStatus.DEGRADED,
-                    "error": f"Algorithm performance below target: {avg_feed_time:.1f}ms average",
-                    "metadata": {"avg_feed_time_ms": avg_feed_time, "target_ms": 300}
-                }
-            else:
-                return {
-                    "status": ServiceStatus.HEALTHY,
-                    "metadata": {"avg_feed_time_ms": avg_feed_time, "target_ms": 300}
-                }
-                
-        except Exception as e:
-            return {
-                "status": ServiceStatus.DOWN,
-                "error": f"Algorithm performance check failed: {str(e)}"
             }
     
     async def _check_api_endpoints(self) -> Dict[str, Any]:
