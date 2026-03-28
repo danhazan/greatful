@@ -50,20 +50,30 @@ def get_test_database_url():
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
     """Create test database engine."""
+    import math
+    from sqlalchemy import event
+
     engine = create_async_engine(
-        get_test_database_url(), 
+        get_test_database_url(),
         echo=False,  # Reduce noise in test output
         pool_pre_ping=True,
         pool_recycle=300,
         poolclass=None  # Disable connection pooling for tests
     )
-    
+
+    # Register custom SQLite functions needed by FeedServiceV2
+    @event.listens_for(engine.sync_engine, "connect")
+    def _register_sqlite_functions(dbapi_conn, connection_record):
+        dbapi_conn.create_function("LN", 1, math.log)
+        dbapi_conn.create_function("GREATEST", 2, max)
+        dbapi_conn.create_function("LEAST", 2, min)
+
     # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # Cleanup
     await engine.dispose()
 

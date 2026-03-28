@@ -1034,6 +1034,64 @@ async def create_post_with_file(
         ) from e
 
 
+class FeedV2Response(BaseModel):
+    """Response model for feed v2 with cursor-based pagination."""
+    posts: List[dict] = []
+    next_cursor: Optional[str] = Field(None, alias="nextCursor")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+@router.get("/feed/v2")
+async def get_feed_v2(
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    cursor: Optional[str] = None,
+    page_size: Optional[int] = None,
+):
+    """
+    Feed v2: simplified scoring with cursor-based pagination.
+
+    - Scores computed in SQL (recency + engagement + relationship + own-post boost)
+    - Cursor-based pagination for stable ordering across pages
+    - No offset, no algorithm toggle, no read-status tracking
+    """
+    from app.config.feed_config import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+    from app.services.feed_service_v2 import FeedServiceV2
+
+    if page_size is None:
+        page_size = DEFAULT_PAGE_SIZE
+    if page_size < 1 or page_size > MAX_PAGE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"page_size must be between 1 and {MAX_PAGE_SIZE}",
+        )
+
+    debug = request.headers.get("X-Feed-Debug", "").lower() == "true"
+
+    try:
+        service = FeedServiceV2(db)
+        result = await service.get_feed(
+            user_id=current_user_id,
+            cursor=cursor,
+            page_size=page_size,
+            debug=debug,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        logger.error(f"Error in feed v2: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get feed",
+        ) from e
+
+
 @router.get("/feed", response_model=List[PostResponse])
 async def get_feed(
     current_user_id: int = Depends(get_current_user_id),
