@@ -289,11 +289,7 @@ async def clear_monitoring_metrics(
     try:
         # Clear monitoring dashboard metrics
         monitoring_dashboard.clear_alerts()
-        
-        # Clear algorithm performance metrics
-        from app.core.algorithm_performance import algorithm_performance_monitor
-        algorithm_performance_monitor.reset_metrics()
-        
+
         logger.info(
             f"Monitoring metrics cleared by user {current_user_id}",
             extra={

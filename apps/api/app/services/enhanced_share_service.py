@@ -141,25 +141,6 @@ class EnhancedShareService(BaseService):
                     logger.error(f"Failed to create share notification: {e}")
                     # Don't fail the share if notification fails
                 
-                # Track interaction for preference learning with error handling
-                try:
-                    # Import with fallback handling
-                    try:
-                        from app.services.user_preference_service import UserPreferenceService
-                        preference_service = UserPreferenceService(self.db)
-                        await preference_service.track_share_interaction(
-                            user_id=user_id,
-                            post_author_id=post.author_id,
-                            post_id=post_id
-                        )
-                    except ImportError as ie:
-                        logger.warning(f"UserPreferenceService not available: {ie}")
-                    except Exception as pe:
-                        logger.error(f"Failed to track preference interaction: {pe}")
-                except Exception as e:
-                    logger.error(f"Failed to track share interaction: {e}")
-                    # Don't fail the share if preference tracking fails
-            
             # Track analytics with error handling
             try:
                 await self.track_share_analytics(user_id, post_id, "url")
@@ -290,22 +271,6 @@ class EnhancedShareService(BaseService):
                     # Continue with other recipients
             
             logger.info(f"Created {successful_notifications}/{len(valid_recipients)} notifications")
-            
-            # Track interaction for preference learning (with post author)
-            if post.author_id != sender_id:
-                try:
-                    from app.services.user_preference_service import UserPreferenceService
-                    preference_service = UserPreferenceService(self.db)
-                    await preference_service.track_share_interaction(
-                        user_id=sender_id,
-                        post_author_id=post.author_id,
-                        post_id=post_id
-                    )
-                except ImportError as ie:
-                    logger.warning(f"UserPreferenceService not available: {ie}")
-                except Exception as e:
-                    logger.error(f"Failed to track share interaction: {e}")
-                    # Don't fail the share if preference tracking fails
             
             # Track analytics
             try:

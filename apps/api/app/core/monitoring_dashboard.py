@@ -10,7 +10,6 @@ from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 
-from app.core.algorithm_performance import get_algorithm_performance_report
 from app.core.performance_utils import run_performance_diagnostics
 from app.core.database import get_db_health, get_db_stats
 
@@ -158,38 +157,8 @@ class MonitoringDashboard:
             }
     
     async def _collect_algorithm_metrics(self) -> Dict[str, Any]:
-        """Collect algorithm performance metrics."""
-        try:
-            algorithm_report = get_algorithm_performance_report()
-            performance_metrics = algorithm_report.get("performance_metrics", {})
-            cache_stats = algorithm_report.get("cache_statistics", {})
-            
-            # Calculate feed algorithm performance
-            feed_operations = {}
-            for op_name, op_data in performance_metrics.get("operations", {}).items():
-                if "feed" in op_name.lower():
-                    feed_operations[op_name] = op_data
-            
-            # Calculate average feed time
-            feed_avg_time = 0
-            if feed_operations:
-                total_time = sum(op.get("avg_time_ms", 0) for op in feed_operations.values())
-                feed_avg_time = total_time / len(feed_operations)
-            
-            # Calculate cache hit rate
-            cache_hit_rate = self._calculate_cache_hit_rate(cache_stats)
-            
-            return {
-                "feed_algorithm_time_ms": feed_avg_time,
-                "cache_hit_rate": cache_hit_rate,
-                "total_operations": len(performance_metrics.get("operations", {})),
-                "feed_operations": feed_operations,
-                "cache_statistics": cache_stats
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to collect algorithm metrics: {e}")
-            return {"error": str(e)}
+        """Algorithm performance metrics (legacy system removed, feed v2 uses SQL scoring)."""
+        return {}
     
     async def _collect_database_metrics(self) -> Dict[str, Any]:
         """Collect database performance metrics."""

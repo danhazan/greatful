@@ -105,7 +105,6 @@ class ProductionEnvironmentChecker:
             ("ShareService", "app.services.share_service", "ShareService"),
             ("ShareRepository", "app.repositories.share_repository", "ShareRepository"),
             ("Share Model", "app.models.share", "Share"),
-            ("UserPreferenceService", "app.services.user_preference_service", "UserPreferenceService"),
             ("NotificationFactory", "app.core.notification_factory", "NotificationFactory"),
         ]
         

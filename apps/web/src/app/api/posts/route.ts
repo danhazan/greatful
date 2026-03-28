@@ -228,8 +228,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-const FEED_V2_ENABLED = process.env['NEXT_PUBLIC_FEED_V2'] === 'true'
-
 // Helper function to transform relative image URLs to full URLs
 function transformImageUrl(url: string | null): string | null {
   if (!url) return null
@@ -272,59 +270,13 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
 
-    if (FEED_V2_ENABLED) {
-      // --- Feed V2: cursor-based pagination ---
-      const queryParams = new URLSearchParams()
-      const cursor = searchParams.get('cursor')
-      const pageSize = searchParams.get('page_size') || '10'
-      if (cursor) queryParams.set('cursor', cursor)
-      queryParams.set('page_size', pageSize)
+    const queryParams = new URLSearchParams()
+    const cursor = searchParams.get('cursor')
+    const pageSize = searchParams.get('page_size') || '10'
+    if (cursor) queryParams.set('cursor', cursor)
+    queryParams.set('page_size', pageSize)
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed/v2?${queryParams}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        return NextResponse.json(
-          { error: errorData.detail || 'Failed to fetch posts' },
-          { status: response.status }
-        )
-      }
-
-      const data = await response.json()
-      // data is { posts: [...], nextCursor: "..." | null }
-      const transformedPosts = transformApiResponse(data.posts || [])
-      if (Array.isArray(transformedPosts)) {
-        transformedPosts.forEach(transformPost)
-      }
-
-      return NextResponse.json({
-        posts: transformedPosts,
-        nextCursor: data.nextCursor ?? data.next_cursor ?? null
-      })
-    }
-
-    // --- Feed V1: offset-based pagination (unchanged) ---
-    const limit = searchParams.get('limit') || '20'
-    const offset = searchParams.get('offset') || '0'
-    const refresh = searchParams.get('refresh') || 'false'
-    const algorithm = searchParams.get('algorithm') || 'true'
-    const considerReadStatus = searchParams.get('consider_read_status') || 'true'
-
-    const queryParams = new URLSearchParams({
-      limit,
-      offset,
-      refresh,
-      algorithm,
-      consider_read_status: considerReadStatus
-    })
-
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed?${queryParams}`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed/v2?${queryParams}`, {
       method: 'GET',
       headers: {
         'Authorization': authHeader,
@@ -340,13 +292,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const posts = await response.json()
-    const transformedPosts = transformApiResponse(posts)
+    const data = await response.json()
+    const transformedPosts = transformApiResponse(data.posts || [])
     if (Array.isArray(transformedPosts)) {
       transformedPosts.forEach(transformPost)
     }
 
-    return NextResponse.json(transformedPosts)
+    return NextResponse.json({
+      posts: transformedPosts,
+      nextCursor: data.nextCursor ?? data.next_cursor ?? null
+    })
 
   } catch (error) {
     console.error('Error fetching posts:', error)

@@ -12,8 +12,6 @@ import { useUser } from "@/contexts/UserContext"
 import Navbar from "@/components/Navbar"
 import { Post, Author } from '@/types/post'
 
-const FEED_V2_ENABLED = process.env['NEXT_PUBLIC_FEED_V2'] === 'true'
-
 function extractPostPrivacy(post: any): {
   privacyLevel?: 'public' | 'private' | 'custom'
   privacyRules?: string[]
@@ -43,7 +41,7 @@ export default function FeedPage() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Feed v2 state
+  // Cursor pagination state
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const isLoadingMoreRef = useRef(false)
@@ -125,34 +123,18 @@ export default function FeedPage() {
     try {
       setError(null)
 
-      if (FEED_V2_ENABLED) {
-        // --- Feed V2: cursor-based ---
-        const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>('/posts', {
-          skipCache: true, // Always fresh for feed
-        })
+      const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>('/posts', {
+        skipCache: true, // Always fresh for feed
+      })
 
-        const rawPosts = (data as any)?.posts ?? (data as any)?.data?.posts ?? []
-        if (!Array.isArray(rawPosts)) throw new Error('Invalid posts data format')
+      const rawPosts = (data as any)?.posts ?? (data as any)?.data?.posts ?? []
+      if (!Array.isArray(rawPosts)) throw new Error('Invalid posts data format')
 
-        const normalizedPosts = rawPosts.map((p: any) => normalizePostFromApi(p)).filter(Boolean) as Post[]
-        const hydratedPosts = await hydratePrivacy(normalizedPosts, refresh)
-
-        setPosts(hydratedPosts)
-        setNextCursor((data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null)
-        populateAuthorCache(hydratedPosts)
-        return
-      }
-
-      // --- Feed V1: offset-based (unchanged) ---
-      const postsData = await apiClient.getPosts({ skipCache: refresh })
-
-      const posts = postsData.data || postsData
-      if (!Array.isArray(posts)) throw new Error('Invalid posts data format')
-
-      const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
+      const normalizedPosts = rawPosts.map((p: any) => normalizePostFromApi(p)).filter(Boolean) as Post[]
       const hydratedPosts = await hydratePrivacy(normalizedPosts, refresh)
 
       setPosts(hydratedPosts)
+      setNextCursor((data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null)
       populateAuthorCache(hydratedPosts)
     } catch (error) {
       console.error('Error loading posts:', error)
@@ -166,9 +148,9 @@ export default function FeedPage() {
     }
   }, [currentUser?.id, router, populateAuthorCache, hydratePrivacy])
 
-  // Load more posts (v2 only — appends next page)
+  // Load more posts (appends next page)
   const loadMore = useCallback(async () => {
-    if (!FEED_V2_ENABLED || !nextCursor || isLoadingMoreRef.current) return
+    if (!nextCursor || isLoadingMoreRef.current) return
 
     isLoadingMoreRef.current = true
     setIsLoadingMore(true)
@@ -225,13 +207,6 @@ export default function FeedPage() {
     const initializePage = async () => {
       try {
         await loadPosts(token)
-
-        // Update user's last feed view timestamp using optimized client
-        try {
-          await apiClient.post('/posts/update-feed-view')
-        } catch (error) {
-          console.error('Error updating feed view timestamp:', error)
-        }
       } catch (error) {
         console.error('Error loading feed data:', error)
         setError('Failed to load feed data')
@@ -243,9 +218,9 @@ export default function FeedPage() {
     initializePage()
   }, [currentUser, userLoading, router, loadPosts])
 
-  // Infinite scroll observer (v2 only)
+  // Infinite scroll observer
   useEffect(() => {
-    if (!FEED_V2_ENABLED || !nextCursor) return
+    if (!nextCursor) return
 
     const sentinel = sentinelRef.current
     if (!sentinel) return
@@ -340,24 +315,11 @@ export default function FeedPage() {
   // feed model. That caused false positives (including after local post creation).
   // Reintroduce only with an authoritative signal (cursor watermark, SSE/WebSocket,
   // or polling against stable server-side deltas).
-  const refreshPosts = useCallback(async (skipCache: boolean = false, updateFeedView: boolean = false) => {
+  const refreshPosts = useCallback(async (skipCache: boolean = false) => {
     const token = localStorage.getItem("access_token")
     if (token) {
-      // Reset cursor for fresh v2 load
-      if (FEED_V2_ENABLED) {
-        setNextCursor(null)
-      }
+      setNextCursor(null)
       await loadPosts(token, skipCache)
-
-      // Update user's last feed view timestamp after refresh
-      if (updateFeedView) {
-        try {
-          await apiClient.post('/posts/update-feed-view')
-        } catch (error) {
-          console.error('Error updating feed view timestamp:', error)
-          // Don't fail the page load if this fails
-        }
-      }
     }
   }, [loadPosts])
 
@@ -382,7 +344,7 @@ export default function FeedPage() {
   const handleTouchEnd = useCallback(async () => {
     if (pullDistance > 60 && !isPullToRefresh) {
       setIsPullToRefresh(true)
-      await refreshPosts(true, true)
+      await refreshPosts(true)
       setIsPullToRefresh(false)
     }
     setPullDistance(0)
@@ -516,7 +478,7 @@ export default function FeedPage() {
       }
 
       // Refresh feed with a network read so the newly created post is visible immediately
-      await refreshPosts(true, false)
+      await refreshPosts(true)
 
       // Close the modal
       setIsCreateModalOpen(false)
@@ -640,7 +602,7 @@ export default function FeedPage() {
           </div>
 
           {/* Infinite scroll sentinel + loading indicator (v2 only) */}
-          {FEED_V2_ENABLED && posts.length > 0 && (
+          {posts.length > 0 && (
             <>
               <div ref={sentinelRef} className="h-1" />
               {isLoadingMore && (
