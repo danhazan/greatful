@@ -56,11 +56,11 @@ class TestCursorEncoding:
         with pytest.raises(ValueError, match="Missing cursor fields"):
             FeedServiceV2._decode_cursor(encoded)
 
-    def test_score_rounded_to_6_decimals(self):
+    def test_score_preserves_full_precision(self):
         qt = datetime(2026, 1, 1, tzinfo=timezone.utc)
         encoded = FeedServiceV2._encode_cursor(qt, 1.123456789, qt, "id")
         payload = json.loads(base64.urlsafe_b64decode(encoded))
-        assert payload["s"] == 1.123457  # rounded to 6 decimals
+        assert payload["s"] == 1.123456789  # full precision for correct cursor comparisons
 
     def test_naive_datetime_gets_utc(self):
         """Naive datetimes should be treated as UTC."""

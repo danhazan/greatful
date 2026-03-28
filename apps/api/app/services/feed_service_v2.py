@@ -11,18 +11,18 @@ import base64
 import binascii
 import json
 import logging
-import math
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import case, func, literal, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
 
+from app.config.feed_config import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from app.core.service_base import BaseService
 from app.models.follow import Follow
 from app.models.post import Post
+from app.models.user import User
 from app.repositories.post_repository import PostRepository
 from app.services.post_privacy_service import PostPrivacyService
 
@@ -39,10 +39,7 @@ OWN_POST_PHASE1_MAX = 5.0
 OWN_POST_PHASE1_SECONDS = 3_600  # 1 hour
 OWN_POST_PHASE2_MAX = 2.0
 OWN_POST_PHASE2_SECONDS = 18_000  # 5 hours (1h–6h)
-CANDIDATE_MAX_AGE_DAYS = 14
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 50
-MAX_CONSECUTIVE_SAME_AUTHOR = 4
+MAX_CONSECUTIVE_SAME_AUTHOR = 2
 CURSOR_VERSION = 1
 
 # Engagement weights (inside ln())
@@ -124,6 +121,16 @@ class FeedServiceV2(BaseService):
                     "ownPostBoost": round(float(row.own_post_score), 4),
                 }
 
+        # Load authors in batch (raw SQL rows don't include ORM relationships)
+        author_ids = list({p.author_id for p in posts if p.author_id})
+        if author_ids:
+            author_result = await self.db.execute(
+                select(User).where(User.id.in_(author_ids))
+            )
+            authors_by_id = {u.id: u for u in author_result.scalars().all()}
+            for post in posts:
+                post.author = authors_by_id.get(post.author_id)
+
         # Apply lightweight author spacing
         posts = self._apply_author_spacing(posts)
 
@@ -135,11 +142,17 @@ class FeedServiceV2(BaseService):
             algorithm_scores=scores,
         )
 
-        # Remove algorithm_score from response (internal detail)
+        # Build a lookup for privacy data from the Post objects
+        privacy_by_id = {p.id: getattr(p, "privacy_level", None) for p in posts}
+
+        # Clean up internal fields, add privacy metadata
         for post_dict in serialized:
             post_dict.pop("algorithm_score", None)
             post_dict.pop("is_read", None)
             post_dict.pop("is_unread", None)
+            # Include privacy_level so frontend doesn't need a separate hydration call
+            if post_dict["id"] in privacy_by_id:
+                post_dict["privacy_level"] = privacy_by_id[post_dict["id"]]
             if debug and post_dict["id"] in debug_data:
                 post_dict["_debug"] = debug_data[post_dict["id"]]
 
@@ -249,7 +262,6 @@ class FeedServiceV2(BaseService):
                     ON f_in.follower_id = p.author_id AND f_in.followed_id = :uid
                     AND f_in.status = 'active' AND p.author_id != :uid
                 WHERE can_view_post(:uid, p.id::uuid)
-                  AND p.created_at >= CAST(:qt AS timestamptz) - INTERVAL '{CANDIDATE_MAX_AGE_DAYS} days'
             )
             SELECT * FROM scored
             WHERE 1=1 {cursor_filter}
@@ -280,8 +292,6 @@ class FeedServiceV2(BaseService):
             )
 
         age_expr = f"(julianday(:qt) - julianday(p.created_at)) * 86400"
-        cutoff_time = query_time - timedelta(days=CANDIDATE_MAX_AGE_DAYS)
-
         # Build visibility clause for SQLite (inline instead of can_view_post function)
         visibility_clause = """
             (p.author_id = :uid
@@ -344,7 +354,6 @@ class FeedServiceV2(BaseService):
                     ON f_in.follower_id = p.author_id AND f_in.followed_id = :uid
                     AND f_in.status = 'active' AND p.author_id != :uid
                 WHERE {visibility_clause}
-                  AND p.created_at >= :cutoff
             )
             SELECT * FROM scored
             WHERE 1=1 {cursor_filter}
@@ -355,12 +364,13 @@ class FeedServiceV2(BaseService):
         params: Dict[str, Any] = {
             "uid": user_id,
             "qt": query_time.isoformat(),
-            "cutoff": cutoff_time.isoformat(),
             "lim": page_size + 1,
         }
         if cursor_data:
             params["cursor_s"] = cursor_data["score"]
-            params["cursor_t"] = cursor_data["created_at"].isoformat()
+            # SQLite stores datetimes as "YYYY-MM-DD HH:MM:SS.ffffff" (no T, no tz)
+            # Match this format for correct text comparison
+            params["cursor_t"] = cursor_data["created_at"].strftime("%Y-%m-%d %H:%M:%S.%f")
             params["cursor_id"] = cursor_data["id"]
 
         return sql, params
@@ -428,7 +438,7 @@ class FeedServiceV2(BaseService):
         payload = {
             "v": CURSOR_VERSION,
             "qt": query_time.isoformat(),
-            "s": round(score, 6),
+            "s": score,
             "t": created_at.isoformat(),
             "id": str(post_id),
         }

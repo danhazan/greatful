@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Heart, Plus, RefreshCw, ArrowDown } from "lucide-react"
+import { Plus, RefreshCw, ArrowDown } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 import { normalizePostFromApi } from "@/utils/normalizePost"
@@ -12,7 +12,7 @@ import { useUser } from "@/contexts/UserContext"
 import Navbar from "@/components/Navbar"
 import { Post, Author } from '@/types/post'
 
-// Redundant local interface removed - using Post from @/types/post
+const FEED_V2_ENABLED = process.env['NEXT_PUBLIC_FEED_V2'] === 'true'
 
 function extractPostPrivacy(post: any): {
   privacyLevel?: 'public' | 'private' | 'custom'
@@ -43,165 +43,183 @@ export default function FeedPage() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Feed v2 state
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const isLoadingMoreRef = useRef(false)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const hasInitializedRef = useRef(false)
+
   // Pull-to-refresh state
   const [isPullToRefresh, setIsPullToRefresh] = useState(false)
   const [pullDistance, setPullDistance] = useState(0)
   const touchStartY = useRef(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // Load posts from API using optimized API client
+  // Populate UserContext cache from post author data
+  const populateAuthorCache = useCallback((postList: Post[]) => {
+    const uniqueAuthors = new Map<string, any>()
+    postList.forEach(post => {
+      if (post.author && post.author.id && post.author.id !== currentUser?.id) {
+        uniqueAuthors.set(post.author.id.toString(), post.author)
+      }
+    })
+    if (uniqueAuthors.size > 0) {
+      uniqueAuthors.forEach((author, authorId) => {
+        updateUserProfile(authorId, {
+          id: authorId,
+          name: author.displayName || author.name || author.username,
+          username: author.username,
+          profileImageUrl: author.profileImageUrl,
+          displayName: author.displayName,
+          followerCount: author.followerCount || 0,
+          followingCount: author.followingCount || 0,
+          postsCount: author.postsCount || 0
+        })
+        if (author.isFollowing !== undefined) {
+          updateFollowState(authorId, author.isFollowing)
+        }
+        markDataAsFresh(authorId)
+      })
+    }
+  }, [currentUser?.id, updateUserProfile, updateFollowState, markDataAsFresh])
+
+  // Hydrate privacy metadata for current user's own posts
+  const hydratePrivacy = useCallback(async (normalizedPosts: Post[], refresh: boolean): Promise<Post[]> => {
+    if (!currentUser?.id) return normalizedPosts
+    const needsHydration = normalizedPosts.some(
+      (post) => post.author?.id === currentUser.id && !post.privacyLevel
+    )
+    if (!needsHydration) return normalizedPosts
+
+    try {
+      const myPostsResponse = await apiClient.get('/users/me/posts', { skipCache: refresh }) as any
+      const myPosts = myPostsResponse?.data || myPostsResponse
+      if (!Array.isArray(myPosts)) return normalizedPosts
+
+      const privacyByPostId = new Map<string, { privacyLevel?: 'public' | 'private' | 'custom'; privacyRules?: string[]; specificUsers?: number[] }>()
+      myPosts.forEach((myPost: any) => {
+        const postId = String(myPost?.id || '')
+        if (postId) privacyByPostId.set(postId, extractPostPrivacy(myPost))
+      })
+
+      return normalizedPosts.map((post) => {
+        if (post.author?.id !== currentUser.id) return post
+        const privacy = privacyByPostId.get(post.id)
+        if (!privacy) return post
+        return {
+          ...post,
+          privacyLevel: privacy.privacyLevel ?? post.privacyLevel,
+          privacyRules: privacy.privacyRules ?? post.privacyRules,
+          specificUsers: privacy.specificUsers ?? post.specificUsers,
+        }
+      })
+    } catch {
+      console.warn('[Feed] Failed to hydrate own post privacy metadata')
+      return normalizedPosts
+    }
+  }, [currentUser?.id])
+
+  // Load posts from API
   const loadPosts = useCallback(async (token: string, refresh: boolean = false) => {
     try {
       setError(null)
 
-      // Use optimized API client instead of direct fetch
-      const postsData = await apiClient.getPosts({
-        skipCache: refresh // Skip cache on refresh
-      })
+      if (FEED_V2_ENABLED) {
+        // --- Feed V2: cursor-based ---
+        const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>('/posts', {
+          skipCache: true, // Always fresh for feed
+        })
 
-      console.log('Raw posts data from API:', postsData)
+        const rawPosts = (data as any)?.posts ?? (data as any)?.data?.posts ?? []
+        if (!Array.isArray(rawPosts)) throw new Error('Invalid posts data format')
 
-      // Handle both wrapped and unwrapped responses
+        const normalizedPosts = rawPosts.map((p: any) => normalizePostFromApi(p)).filter(Boolean) as Post[]
+        const hydratedPosts = await hydratePrivacy(normalizedPosts, refresh)
+
+        setPosts(hydratedPosts)
+        setNextCursor((data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null)
+        populateAuthorCache(hydratedPosts)
+        return
+      }
+
+      // --- Feed V1: offset-based (unchanged) ---
+      const postsData = await apiClient.getPosts({ skipCache: refresh })
+
       const posts = postsData.data || postsData
-      if (!Array.isArray(posts)) {
-        console.error('Posts data is not an array:', posts)
-        throw new Error('Invalid posts data format')
-      }
+      if (!Array.isArray(posts)) throw new Error('Invalid posts data format')
 
-      // Normalize posts to ensure consistent field naming
       const normalizedPosts = posts.map((post: any) => normalizePostFromApi(post)).filter(Boolean) as Post[]
-
-      let hydratedPosts = normalizedPosts
-
-      // Feed payloads can omit privacy fields in some response paths.
-      // Hydrate current user's own posts from /users/me/posts so author-only
-      // privacy indicators always render correctly in feed cards.
-      if (currentUser?.id) {
-        const ownPostsMissingPrivacy = normalizedPosts.some(
-          (post) =>
-            post.author?.id === currentUser.id &&
-            !post.privacyLevel
-        )
-
-        if (ownPostsMissingPrivacy) {
-          try {
-            const myPostsResponse = await apiClient.get('/users/me/posts', { skipCache: refresh }) as any
-            const myPosts = myPostsResponse?.data || myPostsResponse
-
-            if (Array.isArray(myPosts)) {
-              const privacyByPostId = new Map<
-                string,
-                {
-                  privacyLevel?: 'public' | 'private' | 'custom'
-                  privacyRules?: string[]
-                  specificUsers?: number[]
-                }
-              >()
-
-              myPosts.forEach((myPost: any) => {
-                const postId = String(myPost?.id || '')
-                if (!postId) return
-                privacyByPostId.set(postId, extractPostPrivacy(myPost))
-              })
-
-              hydratedPosts = normalizedPosts.map((post) => {
-                if (post.author?.id !== currentUser.id) return post
-                const privacy = privacyByPostId.get(post.id)
-                if (!privacy) return post
-
-                return {
-                  ...post,
-                  privacyLevel: privacy.privacyLevel ?? post.privacyLevel,
-                  privacyRules: privacy.privacyRules ?? post.privacyRules,
-                  specificUsers: privacy.specificUsers ?? post.specificUsers,
-                }
-              })
-            }
-          } catch (privacyHydrationError) {
-            console.warn('[Feed] Failed to hydrate own post privacy metadata:', privacyHydrationError)
-          }
-        }
-      }
+      const hydratedPosts = await hydratePrivacy(normalizedPosts, refresh)
 
       setPosts(hydratedPosts)
-
-      // ✅ ULTIMATE OPTIMIZATION: Populate UserContext cache directly from post data
-      // This eliminates the need for separate /batch-profiles and /batch-follow-status calls
-      // achieving the target of 1 DB session and minimal SQL queries per feed load.
-      const uniqueAuthors = new Map<string, any>();
-      hydratedPosts.forEach(post => {
-        if (post.author && post.author.id && post.author.id !== currentUser?.id) {
-          uniqueAuthors.set(post.author.id.toString(), post.author);
-        }
-      });
-
-      if (uniqueAuthors.size > 0) {
-        console.log(`Populating UserContext cache for ${uniqueAuthors.size} authors from feed data`);
-        uniqueAuthors.forEach((author, authorId) => {
-          // Update profile cache
-          updateUserProfile(authorId, {
-            id: authorId,
-            name: author.displayName || author.name || author.username,
-            username: author.username,
-            profileImageUrl: author.profileImageUrl,
-            displayName: author.displayName,
-            followerCount: author.followerCount || 0,
-            followingCount: author.followingCount || 0,
-            postsCount: author.postsCount || 0
-          });
-
-          // Update follow state cache
-          if (author.isFollowing !== undefined) {
-            updateFollowState(authorId, author.isFollowing);
-          }
-
-          // Mark data as fresh to prevent individual refetching
-          markDataAsFresh(authorId);
-        });
-      }
+      populateAuthorCache(hydratedPosts)
     } catch (error) {
       console.error('Error loading posts:', error)
-
-      // Handle auth errors
       if (error instanceof Error && error.message.includes('401')) {
         localStorage.removeItem("access_token")
         router.push("/auth/login")
         return
       }
-
       setError(error instanceof Error ? error.message : 'Failed to load posts')
-      setPosts([]) // Set empty array on error
+      setPosts([])
     }
-  }, [currentUser?.id, router, updateUserProfile, updateFollowState, markDataAsFresh])
+  }, [currentUser?.id, router, populateAuthorCache, hydratePrivacy])
+
+  // Load more posts (v2 only — appends next page)
+  const loadMore = useCallback(async () => {
+    if (!FEED_V2_ENABLED || !nextCursor || isLoadingMoreRef.current) return
+
+    isLoadingMoreRef.current = true
+    setIsLoadingMore(true)
+    try {
+      const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>(
+        `/posts?cursor=${encodeURIComponent(nextCursor)}&page_size=10`,
+        { skipCache: true }
+      )
+
+      const rawPosts = (data as any)?.posts ?? []
+      if (!Array.isArray(rawPosts)) return
+
+      const normalizedPosts = rawPosts.map((p: any) => normalizePostFromApi(p)).filter(Boolean) as Post[]
+      const hydratedPosts = await hydratePrivacy(normalizedPosts, false)
+
+      setPosts(prev => [...prev, ...hydratedPosts])
+      setNextCursor((data as any)?.nextCursor ?? null)
+      populateAuthorCache(hydratedPosts)
+    } catch (error) {
+      console.error('Error loading more posts:', error)
+    } finally {
+      isLoadingMoreRef.current = false
+      setIsLoadingMore(false)
+    }
+  }, [nextCursor, populateAuthorCache, hydratePrivacy])
 
   // Check authentication and load data using UserContext
   useEffect(() => {
     // First check if we have a token - if not, redirect immediately
     const token = localStorage.getItem("access_token")
-    console.log('[Feed] useEffect - token present?', !!token, 'userLoading=', userLoading, 'currentUser=', !!currentUser)
     if (!token) {
-      console.log('[Feed] No token, redirecting to login')
       router.push("/auth/login")
       return
     }
 
     // Wait for UserContext to load
-    if (userLoading) {
-      console.log('[Feed] UserContext still loading, waiting...')
-      return
-    }
+    if (userLoading) return
 
     // If UserContext finished loading but no user, wait a short moment in case UserContext is still finishing up
     if (!currentUser) {
-      console.log('[Feed] No currentUser, waiting grace period before redirect...')
       const t = setTimeout(() => {
         if (!currentUser) {
-          console.log('[Feed] Grace period expired, no user - redirecting to login')
           router.push("/auth/login")
         }
       }, 200)
       return () => clearTimeout(t)
     }
+
+    // Prevent re-initialization when loadPosts reference changes
+    if (hasInitializedRef.current) return
+    hasInitializedRef.current = true
 
     // If we have a user, load posts
     const initializePage = async () => {
@@ -213,7 +231,6 @@ export default function FeedPage() {
           await apiClient.post('/posts/update-feed-view')
         } catch (error) {
           console.error('Error updating feed view timestamp:', error)
-          // Don't fail the page load if this fails
         }
       } catch (error) {
         console.error('Error loading feed data:', error)
@@ -225,6 +242,26 @@ export default function FeedPage() {
 
     initializePage()
   }, [currentUser, userLoading, router, loadPosts])
+
+  // Infinite scroll observer (v2 only)
+  useEffect(() => {
+    if (!FEED_V2_ENABLED || !nextCursor) return
+
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [nextCursor, loadMore])
 
   const handleLogout = () => {
     // Clear local posts state
@@ -306,6 +343,10 @@ export default function FeedPage() {
   const refreshPosts = useCallback(async (skipCache: boolean = false, updateFeedView: boolean = false) => {
     const token = localStorage.getItem("access_token")
     if (token) {
+      // Reset cursor for fresh v2 load
+      if (FEED_V2_ENABLED) {
+        setNextCursor(null)
+      }
       await loadPosts(token, skipCache)
 
       // Update user's last feed view timestamp after refresh
@@ -597,6 +638,18 @@ export default function FeedPage() {
               ))
             )}
           </div>
+
+          {/* Infinite scroll sentinel + loading indicator (v2 only) */}
+          {FEED_V2_ENABLED && posts.length > 0 && (
+            <>
+              <div ref={sentinelRef} className="h-1" />
+              {isLoadingMore && (
+                <div className="flex justify-center py-6">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+                </div>
+              )}
+            </>
+          )}
 
           {/* Floating Create Post Button */}
           <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
