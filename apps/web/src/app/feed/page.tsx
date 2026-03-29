@@ -309,12 +309,6 @@ export default function FeedPage() {
     setPosts(posts.filter(post => post.id !== postId))
   }
 
-  // NOTE: The "X new posts" feed refresher banner was removed intentionally.
-  // The previous implementation treated `isUnread` from full feed fetches as a
-  // new-post detector, but there is no cursor/delta/push mechanism in the current
-  // feed model. That caused false positives (including after local post creation).
-  // Reintroduce only with an authoritative signal (cursor watermark, SSE/WebSocket,
-  // or polling against stable server-side deltas).
   const refreshPosts = useCallback(async (skipCache: boolean = false) => {
     const token = localStorage.getItem("access_token")
     if (token) {

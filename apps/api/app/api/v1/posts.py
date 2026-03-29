@@ -1026,11 +1026,10 @@ async def get_feed(
     page_size: Optional[int] = None,
 ):
     """
-    Feed v2: simplified scoring with cursor-based pagination.
+    Feed endpoint with cursor-based pagination.
 
-    - Scores computed in SQL (recency + engagement + relationship + own-post boost)
-    - Cursor-based pagination for stable ordering across pages
-    - No offset, no algorithm toggle, no read-status tracking
+    Scores computed in SQL (recency + engagement + relationship + own-post boost).
+    Cursor-based pagination for stable ordering across pages.
     """
     from app.config.feed_config import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
     from app.services.feed_service_v2 import FeedServiceV2

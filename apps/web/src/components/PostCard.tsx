@@ -819,11 +819,9 @@ export default function PostCard({
 
   // Get styling based on post type - now standardized with consistent dimensions
   const getPostStyling = () => {
-    const isUnread = currentPost.isUnread
-
     // Standardized styling for all post types - same base size and spacing
     const baseStyle = {
-      container: `bg-white rounded-lg shadow-md border ${isUnread ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'} overflow-hidden mb-6`,
+      container: `bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden mb-6`,
       header: 'p-5 border-b border-gray-100',
       avatar: 'w-10 h-10',
       name: 'font-semibold text-base',
