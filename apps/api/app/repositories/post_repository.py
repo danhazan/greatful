@@ -505,20 +505,16 @@ class PostRepository(BaseRepository):
         posts: List[Post],
         user_id: int,
         engagement_counts: Optional[Dict[str, Dict[str, int]]] = None,
-        algorithm_scores: Optional[Dict[str, float]] = None,
-        read_statuses: Optional[Dict[str, bool]] = None
     ) -> List[Dict[str, Any]]:
         """
         Serialize posts for feed with proper URL conversion.
         Reuses existing logic from get_posts_with_engagement but works with Post objects.
-        
+
         Args:
             posts: List of Post objects to serialize
             user_id: Current user ID
             engagement_counts: Optional pre-calculated engagement data
-            algorithm_scores: Optional algorithm scores for each post
-            read_statuses: Optional read status for each post
-            
+
         Returns:
             List[Dict]: Serialized posts with full URLs
         """
@@ -791,9 +787,6 @@ class PostRepository(BaseRepository):
                 "current_user_reaction": user_reactions.get(post.id),
                 "is_hearted": post.id in user_hearts,
                 "reaction_emoji_codes": reaction_emoji_codes,
-                "algorithm_score": algorithm_scores.get(post.id, 0.0) if algorithm_scores else 0.0,
-                "is_read": read_statuses.get(post.id, False) if read_statuses else False, # is_read is true if in read_statuses
-                "is_unread": not read_statuses.get(post.id, False) if read_statuses else True # is_unread is true if not in read_statuses
             }
             
             serialized_posts.append(post_dict)

@@ -74,10 +74,7 @@ export interface Post {
     currentUserReaction?: string | null
     reactionEmojiCodes?: string[]
     emojiCounts?: Record<string, number>
-    isRead?: boolean
-    isUnread?: boolean
     commentsCount?: number
-    algorithmScore?: number
 }
 
 export interface PostPrivacy {

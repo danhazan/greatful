@@ -351,34 +351,37 @@ describe('/api/posts', () => {
 
   describe('GET /api/posts', () => {
     it('fetches posts successfully', async () => {
-      const mockBackendResponse = [
-        {
-          id: 'post-1',
-          content: 'First post',
-          post_type: 'daily',
-          author: {
-            id: 1,
-            username: 'user1',
-            name: 'User One'
+      const mockBackendResponse = {
+        posts: [
+          {
+            id: 'post-1',
+            content: 'First post',
+            post_type: 'daily',
+            author: {
+              id: 1,
+              username: 'user1',
+              name: 'User One'
+            },
+            created_at: '2025-01-08T12:00:00Z',
+            hearts_count: 5,
+            reactions_count: 3
           },
-          created_at: '2025-01-08T12:00:00Z',
-          hearts_count: 5,
-          reactions_count: 3
-        },
-        {
-          id: 'post-2',
-          content: 'Second post',
-          post_type: 'photo',
-          author: {
-            id: 2,
-            username: 'user2',
-            name: 'User Two'
-          },
-          created_at: '2025-01-08T11:00:00Z',
-          hearts_count: 2,
-          reactions_count: 1
-        }
-      ]
+          {
+            id: 'post-2',
+            content: 'Second post',
+            post_type: 'photo',
+            author: {
+              id: 2,
+              username: 'user2',
+              name: 'User Two'
+            },
+            created_at: '2025-01-08T11:00:00Z',
+            hearts_count: 2,
+            reactions_count: 1
+          }
+        ],
+        next_cursor: null
+      }
 
       ;(fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
@@ -396,8 +399,8 @@ describe('/api/posts', () => {
       const data = await response.json()
 
       expect(response.status).toBe(200)
-      expect(data).toHaveLength(2)
-      expect(data[0]).toMatchObject({
+      expect(data.posts).toHaveLength(2)
+      expect(data.posts[0]).toMatchObject({
         id: 'post-1',
         content: 'First post',
         author: {
@@ -410,9 +413,10 @@ describe('/api/posts', () => {
         heartsCount: 5,
         reactionsCount: 3
       })
+      expect(data.nextCursor).toBeNull()
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/v1/posts/feed?limit=20&offset=0&refresh=false&algorithm=true&consider_read_status=true',
+        'http://localhost:8000/api/v1/posts/feed?page_size=10',
         {
           method: 'GET',
           headers: {
@@ -426,10 +430,10 @@ describe('/api/posts', () => {
     it('handles query parameters', async () => {
       ;(fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: async () => []
+        json: async () => ({ posts: [], next_cursor: null })
       })
 
-      const request = new NextRequest('http://localhost:3000/api/posts?limit=10&offset=5', {
+      const request = new NextRequest('http://localhost:3000/api/posts?cursor=abc123&page_size=5', {
         method: 'GET',
         headers: {
           'authorization': 'Bearer test-token'
@@ -439,7 +443,7 @@ describe('/api/posts', () => {
       await GET(request)
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/v1/posts/feed?limit=10&offset=5&refresh=false&algorithm=true&consider_read_status=true',
+        'http://localhost:8000/api/v1/posts/feed?cursor=abc123&page_size=5',
         expect.any(Object)
       )
     })

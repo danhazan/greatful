@@ -139,17 +139,13 @@ class FeedServiceV2(BaseService):
         serialized = await post_repo.serialize_posts_for_feed(
             posts=posts,
             user_id=user_id,
-            algorithm_scores=scores,
         )
 
         # Build a lookup for privacy data from the Post objects
         privacy_by_id = {p.id: getattr(p, "privacy_level", None) for p in posts}
 
-        # Clean up internal fields, add privacy metadata
+        # Add privacy metadata
         for post_dict in serialized:
-            post_dict.pop("algorithm_score", None)
-            post_dict.pop("is_read", None)
-            post_dict.pop("is_unread", None)
             # Include privacy_level so frontend doesn't need a separate hydration call
             if post_dict["id"] in privacy_by_id:
                 post_dict["privacy_level"] = privacy_by_id[post_dict["id"]]

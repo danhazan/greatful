@@ -65,9 +65,9 @@ npm run lint
 
 ### Backend Structure (apps/api)
 - `main.py` - FastAPI app entry point with middleware configuration
-- `app/api/v1/` - REST API endpoints (auth, posts, users, comments, reactions, hearts, notifications, follows, shares, oauth, health, monitoring, database, security, ssl, error_reporting, algorithm_performance)
+- `app/api/v1/` - REST API endpoints (auth, posts, users, comments, reactions, hearts, notifications, follows, shares, oauth, health, monitoring, database, security, ssl, error_reporting)
 - `app/models/` - SQLAlchemy models (User, Post, Comment, EmojiReaction, Notification, Follow, Share, and others)
-- `app/services/` - Business logic layer (21 services including algorithm_service, reaction_service, notification_service, oauth_service, share_service, mention_service, file_upload_service, post_privacy_service, etc.)
+- `app/services/` - Business logic layer (services including feed_service_v2, reaction_service, notification_service, oauth_service, share_service, mention_service, file_upload_service, post_privacy_service, etc.)
 - `app/repositories/` - Data access layer (8 repository files)
 - `app/core/` - Core infrastructure:
   - `database.py` - Async SQLAlchemy engine and session management
@@ -153,6 +153,14 @@ Uses in-memory SQLite for test isolation. Key fixtures:
 Uses Jest with Testing Library. 137 test files organized to mirror component/utility structure. Categories include: component tests, API route tests, utility tests, integration tests, accessibility tests, and context tests.
 
 ## Key Patterns
+
+### Feed System
+- Single endpoint: `GET /api/v1/posts/feed` with cursor-based pagination (`cursor`, `page_size` params)
+- Returns `{ posts, nextCursor }` response shape
+- Backend: `app/services/feed_service_v2.py` — SQL CTE-based scoring with recency, engagement, and follow boosts
+- Author spacing applied post-query to prevent feed domination
+- Frontend: `src/app/feed/page.tsx` with infinite scroll via cursor pagination
+- No read-status tracking, no algorithm toggle, no offset-based pagination
 
 ### Emoji Reaction System
 - 56 positive emojis organized in 7 rows/categories: original (💜😍🤗🥹💪🙏🙌👏), love/warmth, joy/celebration, encouragement, nature/peace, affection, expressions
