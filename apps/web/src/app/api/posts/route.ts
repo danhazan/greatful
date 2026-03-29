@@ -276,7 +276,7 @@ export async function GET(request: NextRequest) {
     if (cursor) queryParams.set('cursor', cursor)
     queryParams.set('page_size', pageSize)
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed/v2?${queryParams}`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed?${queryParams}`, {
       method: 'GET',
       headers: {
         'Authorization': authHeader,
