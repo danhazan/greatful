@@ -264,7 +264,7 @@ class TestFeedV2Pagination:
     @pytest.mark.asyncio
     async def test_invalid_cursor_raises_400(self, client, auth_headers):
         response = client.get(
-            "/api/v1/posts/feed/v2?cursor=invalid-cursor",
+            "/api/v1/posts/feed?cursor=invalid-cursor",
             headers=auth_headers,
         )
         assert response.status_code == 400
@@ -332,25 +332,25 @@ class TestFeedV2AuthorSpacing:
 class TestFeedV2Endpoint:
 
     def test_endpoint_returns_200(self, client, auth_headers):
-        response = client.get("/api/v1/posts/feed/v2", headers=auth_headers)
+        response = client.get("/api/v1/posts/feed", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert "posts" in data
         assert "nextCursor" in data or "next_cursor" in data
 
     def test_endpoint_requires_auth(self, client):
-        response = client.get("/api/v1/posts/feed/v2")
+        response = client.get("/api/v1/posts/feed")
         assert response.status_code in (401, 403)
 
     def test_page_size_validation(self, client, auth_headers):
-        response = client.get("/api/v1/posts/feed/v2?page_size=0", headers=auth_headers)
+        response = client.get("/api/v1/posts/feed?page_size=0", headers=auth_headers)
         assert response.status_code == 400
 
-        response = client.get("/api/v1/posts/feed/v2?page_size=51", headers=auth_headers)
+        response = client.get("/api/v1/posts/feed?page_size=51", headers=auth_headers)
         assert response.status_code == 400
 
     def test_page_size_default(self, client, auth_headers):
-        response = client.get("/api/v1/posts/feed/v2", headers=auth_headers)
+        response = client.get("/api/v1/posts/feed", headers=auth_headers)
         assert response.status_code == 200
 
 
