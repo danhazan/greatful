@@ -9,6 +9,7 @@ import pytest_asyncio
 from datetime import datetime, timedelta, timezone
 
 from app.models.post import Post, PostType
+from app.models.emoji_reaction import EmojiReaction
 from app.models.follow import Follow
 from app.models.user import User
 from app.core.security import create_access_token, get_password_hash
@@ -136,6 +137,17 @@ class TestFeedV2Basic:
         assert "score" in debug_info
         assert "recency" in debug_info
         assert "engagement" in debug_info
+        # Phase 6 extended debug fields
+        assert "postAgeHours" in debug_info
+        assert "authorId" in debug_info
+        assert "userHasReacted" in debug_info
+        assert "rawCounts" in debug_info
+        assert isinstance(debug_info["rawCounts"], dict)
+        # Debug meta
+        meta = result.get("_debugMeta")
+        assert meta is not None
+        assert "queryTime" in meta
+        assert "spacingMoves" in meta
 
 
 # ---------------------------------------------------------------------------
@@ -155,9 +167,9 @@ class TestFeedV2Scoring:
 
     @pytest.mark.asyncio
     async def test_own_post_boosted_to_top(self, db_session, user_a, user_b):
-        # user_b's post is 1 hour old with high engagement
+        # user_b's post is 3 days old with high engagement (beyond recent-engagement window)
         await _create_post(
-            db_session, user_b, "Popular", age_hours=0.5,
+            db_session, user_b, "Popular", age_hours=72,
             hearts_count=50, reactions_count=20, comments_count=10,
         )
         # user_a's own post is brand new with no engagement
@@ -244,8 +256,9 @@ class TestFeedV2Pagination:
 
     @pytest.mark.asyncio
     async def test_pagination_order_preserved(self, db_session, user_a, user_b):
+        # Use 6-hour spacing so recency differences (~0.6) overwhelm jitter (±0.1)
         for i in range(6):
-            await _create_post(db_session, user_b, f"Post {i}", age_hours=i)
+            await _create_post(db_session, user_b, f"Post {i}", age_hours=i * 6)
         service = FeedServiceV2(db_session)
 
         all_posts = []
@@ -372,3 +385,71 @@ class TestFeedV2OldPosts:
         # Recent post should rank higher due to recency score
         assert result["posts"][0]["content"] == "Recent"
         assert result["posts"][1]["content"] == "Very old"
+
+
+# ---------------------------------------------------------------------------
+# Test: User reaction boost
+# ---------------------------------------------------------------------------
+
+class TestFeedV2UserReaction:
+
+    @pytest.mark.asyncio
+    async def test_reacted_post_ranks_higher(self, db_session, user_a, user_b):
+        """A post the user reacted to should rank above an identical unreacted post."""
+        post_unreacted = await _create_post(db_session, user_b, "Unreacted", age_hours=2)
+        post_reacted = await _create_post(db_session, user_b, "Reacted", age_hours=2)
+
+        # Add user_a's reaction to post_reacted
+        reaction = EmojiReaction(
+            id=str(uuid.uuid4()),
+            user_id=user_a.id,
+            post_id=post_reacted.id,
+            emoji_code="heart",
+        )
+        db_session.add(reaction)
+        await db_session.commit()
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id)
+        assert result["posts"][0]["content"] == "Reacted"
+
+
+# ---------------------------------------------------------------------------
+# Test: Followed user dominance
+# ---------------------------------------------------------------------------
+
+class TestFeedV2FollowDominance:
+
+    @pytest.mark.asyncio
+    async def test_followed_clearly_outranks_unfollowed(self, db_session, user_a, user_b, user_c):
+        """Followed user's post should rank above unfollowed with low engagement at same age."""
+        await _follow(db_session, user_a, user_b)
+        # Both 12h old — follow bonus should dominate over low engagement
+        await _create_post(
+            db_session, user_c, "Unfollowed popular", age_hours=12,
+            hearts_count=2, reactions_count=1,
+        )
+        await _create_post(db_session, user_b, "Followed quiet", age_hours=12)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id)
+        assert result["posts"][0]["content"] == "Followed quiet"
+
+    @pytest.mark.asyncio
+    async def test_new_high_engagement_beats_old_followed(self, db_session, user_a, user_b, user_c):
+        """New high-engagement post must beat old followed post with low engagement."""
+        await _follow(db_session, user_a, user_b)
+        # Post A: 3 days old, followed, low engagement
+        await _create_post(
+            db_session, user_b, "Old followed quiet", age_hours=72,
+            hearts_count=1, reactions_count=1,
+        )
+        # Post B: 6 hours old, NOT followed, high engagement
+        await _create_post(
+            db_session, user_c, "New engaged", age_hours=6,
+            hearts_count=10, reactions_count=8, comments_count=5,
+        )
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, debug=True)
+        assert result["posts"][0]["content"] == "New engaged"
