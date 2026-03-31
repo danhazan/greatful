@@ -59,11 +59,12 @@ class TestNotificationProfilePictures:
         print(f"DEBUG: from_user data: {notification.get('from_user')}")
         
         # Verify the notification has profile picture data
+        from app.core.image_urls import serialize_image_url
         assert notification["from_user"] is not None
         assert notification["from_user"]["id"] == str(test_user_with_profile.id)
         assert notification["from_user"]["username"] == test_user_with_profile.username
         assert notification["from_user"]["name"] == test_user_with_profile.display_name
-        assert notification["from_user"]["image"] == test_user_with_profile.profile_image_url
+        assert notification["from_user"]["image"] == serialize_image_url(test_user_with_profile.profile_image_url)
 
     async def test_notification_without_profile_picture(
         self, 

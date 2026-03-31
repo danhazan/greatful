@@ -43,7 +43,7 @@ class TestReferenceCountingSystem:
         assert response1.status_code == 201
         post1_data = response1.json()
         post1_id = post1_data["id"]
-        image_url = post1_data["image_url"]
+        image_url = post1_data["imageUrl"]
         
         # Upload second post with same image (should detect duplicate)
         response2 = client.post(
@@ -60,7 +60,7 @@ class TestReferenceCountingSystem:
         post2_id = post2_data["id"]
         
         # Both posts should have the same image URL (deduplication worked)
-        assert post2_data["image_url"] == image_url
+        assert post2_data["imageUrl"] == image_url
         
         # Delete first post
         delete_response1 = client.delete(f"/api/v1/posts/{post1_id}", headers=auth_headers)
@@ -70,7 +70,7 @@ class TestReferenceCountingSystem:
         get_response = client.get(f"/api/v1/posts/{post2_id}", headers=auth_headers)
         assert get_response.status_code == 200
         remaining_post = get_response.json()
-        assert remaining_post["image_url"] == image_url
+        assert remaining_post["imageUrl"] == image_url
         
         # Delete second post (should now delete the actual image file)
         delete_response2 = client.delete(f"/api/v1/posts/{post2_id}", headers=auth_headers)
@@ -135,7 +135,7 @@ class TestReferenceCountingSystem:
         )
         assert response1.status_code == 201
         post1_data = response1.json()
-        image_url1 = post1_data["image_url"]
+        image_url1 = post1_data["imageUrl"]
         
         # Upload second post with force_upload=true
         response2 = client.post(
@@ -149,7 +149,7 @@ class TestReferenceCountingSystem:
         )
         assert response2.status_code == 201
         post2_data = response2.json()
-        image_url2 = post2_data["image_url"]
+        image_url2 = post2_data["imageUrl"]
         
         # Images should have different URLs (force upload bypassed deduplication)
         assert image_url1 != image_url2
@@ -193,7 +193,7 @@ class TestReferenceCountingSystem:
         
         # Verify the new post was created successfully
         assert post2_data["content"] == "Second post with same image"
-        assert post2_data["image_url"] is not None
+        assert post2_data["imageUrl"] is not None
 
     def test_profile_photo_variant_cleanup(self, client, test_user, auth_headers):
         """Test that profile photo variants are properly cleaned up when deleted."""

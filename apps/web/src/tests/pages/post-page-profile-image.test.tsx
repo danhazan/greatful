@@ -31,7 +31,6 @@ const mockPostData = {
     image: "/uploads/profile_photos/test-profile.jpg"
   },
   created_at: "2025-01-01T12:00:00Z",
-  post_type: "daily",
   image_url: null,
   location: null,
   hearts_count: 5,

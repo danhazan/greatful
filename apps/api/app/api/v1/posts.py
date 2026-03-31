@@ -20,12 +20,11 @@ from sqlalchemy.orm import selectinload
 from app.schemas.user import AuthorResponse
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.models.user import User
 from app.services.share_service import ShareService
 from app.core.storage import storage
 from app.services.mention_service import MentionService
-from app.services.content_analysis_service import ContentAnalysisService
 from app.services.post_privacy_service import PostPrivacyService
 from app.utils.html_sanitizer import sanitize_html
 from app.core.responses import success_response
@@ -59,17 +58,6 @@ class PostCreate(BaseModel):
     privacy_level: Optional[str] = Field(None, description="Post privacy: public, private, custom")
     rules: List[str] = Field(default_factory=list, description="Custom privacy rules")
     specific_users: List[int] = Field(default_factory=list, description="Explicit user IDs for custom privacy")
-    # Optional override for post type (for future use or manual override)
-    post_type_override: Optional[str] = Field(None, description="Optional manual override for post type")
-
-    @field_validator('post_type_override')
-    @classmethod
-    def validate_post_type_override(cls, v):
-        if v is not None:
-            valid_types = ['daily', 'photo', 'spontaneous']
-            if v not in valid_types:
-                raise ValueError(f'Invalid post type override. Must be one of: {valid_types}')
-        return v
 
     @field_validator('post_style')
     @classmethod
@@ -114,7 +102,6 @@ class PostResponse(BaseModel):
     content: str
     rich_content: Optional[str] = Field(None, alias="richContent")
     post_style: Optional[dict] = Field(None, alias="postStyle")
-    post_type: str = Field(alias="postType")
     image_url: Optional[str] = Field(None, alias="imageUrl")  # Deprecated: kept for backward compatibility
     images: List[PostImageResponse] = []  # Multi-image support
     location: Optional[str] = None
@@ -155,14 +142,6 @@ class PostResponse(BaseModel):
                         "Follow state should be strictly nested under 'author'."
                     )
         return data
-
-    @field_validator('post_type')
-    @classmethod
-    def validate_post_type(cls, v):
-        valid_types = ['daily', 'photo', 'spontaneous']
-        if v not in valid_types:
-            raise ValueError(f'Invalid post type. Must be one of: {valid_types}')
-        return v
 
     @field_validator('current_user_reaction')
     @classmethod
@@ -477,28 +456,11 @@ async def create_post_json(
                 }]
             )
 
-        # Analyze content to determine post type automatically
-        content_analysis_service = ContentAnalysisService(db)
-        has_image = bool(post_data.image_url)
-        
-        analysis_result = content_analysis_service.analyze_content(
-            content=post_data.content,
-            has_image=has_image
-        )
-        
-        # Use override if provided, otherwise use analyzed type
-        final_post_type = PostType(post_data.post_type_override) if post_data.post_type_override else analysis_result.suggested_type
-        
-        # Validate content length for the determined type
-        validation_result = content_analysis_service.validate_content_for_type(
-            content=post_data.content,
-            post_type=final_post_type
-        )
-        
-        if not validation_result["is_valid"]:
+        # Validate content length
+        if len(post_data.content.strip()) > 5000:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Content too long. Maximum {validation_result['character_limit']} characters for {final_post_type.value} posts. Current: {validation_result['character_count']} characters."
+                detail=f"Content too long. Maximum 5000 characters. Current: {len(post_data.content.strip())} characters."
             )
 
         # Validate location_data if provided
@@ -556,7 +518,6 @@ async def create_post_json(
             content=sanitized_content,
             rich_content=sanitize_html(post_data.rich_content),
             post_style=post_data.post_style,
-            post_type=final_post_type,
             image_url=post_data.image_url,
             location=post_data.location,
             location_data=post_data.location_data,
@@ -597,7 +558,6 @@ async def create_post_json(
             content=db_post.content,
             rich_content=db_post.rich_content,
             post_style=db_post.post_style,
-            post_type=db_post.post_type.value,
             image_url=serialize_image_url(db_post.image_url),
             images=[],  # JSON endpoint doesn't support image upload
             location=db_post.location,
@@ -692,7 +652,6 @@ async def create_post_with_file(
     privacy_level: Optional[str] = Form(None),
     rules: Optional[str] = Form(None),  # JSON array string
     specific_users: Optional[str] = Form(None),  # JSON array string
-    post_type_override: Optional[str] = Form(None),
     force_upload: bool = Form(False),
     # Multi-image support: accepts multiple files via 'images' field
     images: List[UploadFile] = File(default=[]),
@@ -783,7 +742,6 @@ async def create_post_with_file(
             "privacy_level": privacy_level,
             "rules": parsed_rules,
             "specific_users": parsed_specific_users,
-            "post_type_override": post_type_override,
         }
 
         # This will trigger Pydantic validation and raise 422 if invalid
@@ -846,27 +804,11 @@ async def create_post_with_file(
                 }]
             )
 
-        # Analyze content to determine post type automatically
-        content_analysis_service = ContentAnalysisService(db)
-
-        analysis_result = content_analysis_service.analyze_content(
-            content=post_data.content,
-            has_image=has_images
-        )
-
-        # Use override if provided, otherwise use analyzed type
-        final_post_type = PostType(post_data.post_type_override) if post_data.post_type_override else analysis_result.suggested_type
-
-        # Validate content length for the determined type
-        validation_result = content_analysis_service.validate_content_for_type(
-            content=post_data.content,
-            post_type=final_post_type
-        )
-
-        if not validation_result["is_valid"]:
+        # Validate content length
+        if len(post_data.content.strip()) > 5000:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Content too long. Maximum {validation_result['character_limit']} characters for {final_post_type.value} posts. Current: {validation_result['character_count']} characters."
+                detail=f"Content too long. Maximum 5000 characters. Current: {len(post_data.content.strip())} characters."
             )
 
         # Validate location_data if provided
@@ -934,7 +876,6 @@ async def create_post_with_file(
             content=sanitized_content,
             rich_content=sanitize_html(post_data.rich_content),
             post_style=post_data.post_style,
-            post_type=final_post_type,
             image_url=primary_image_url,  # Backward compatibility
             location=post_data.location,
             location_data=post_data.location_data,
@@ -975,7 +916,6 @@ async def create_post_with_file(
             content=db_post.content,
             rich_content=db_post.rich_content,
             post_style=db_post.post_style,
-            post_type=db_post.post_type.value,
             image_url=serialize_image_url(db_post.image_url),  # Backward compatibility
             images=_serialize_post_images(post_images),  # Multi-image support
             location=db_post.location,
@@ -1011,13 +951,13 @@ async def create_post_with_file(
 
 class FeedResponse(BaseModel):
     """Response model for feed with cursor-based pagination."""
-    posts: List[dict] = []
+    posts: List[PostResponse] = []
     next_cursor: Optional[str] = Field(None, alias="nextCursor")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
-@router.get("/feed")
+@router.get("/feed", response_model=FeedResponse)
 async def get_feed(
     request: Request,
     current_user_id: int = Depends(get_current_user_id),
@@ -1098,7 +1038,6 @@ async def get_post_by_id(
                    p.content,
                    p.rich_content,
                    p.post_style,
-                   p.post_type,
                    p.image_url,
                    p.location,
                    p.location_data,
@@ -1197,7 +1136,6 @@ async def get_post_by_id(
             content=row.content,
             rich_content=getattr(row, 'rich_content', None),
             post_style=post_style,
-            post_type=row.post_type,
             image_url=serialize_image_url(row.image_url),
             images=images,  # Multi-image support
             location=row.location,
@@ -1464,34 +1402,15 @@ async def edit_post(
             update_data["privacy_level"] = privacy_config.level
             update_data["is_public"] = privacy_config.is_public
         
-        # If content or image is being updated, re-analyze post type
-        if 'content' in update_data or 'image_url' in update_data:
-            content_analysis_service = ContentAnalysisService(db)
-            # Use updated image_url if provided, otherwise use existing
-            has_image = bool(update_data.get('image_url', post.image_url))
-            # Use updated content if provided, otherwise use existing
-            content_to_analyze = update_data.get('content', post.content)
-            
-            analysis_result = content_analysis_service.analyze_content(
-                content=content_to_analyze,
-                has_image=has_image
-            )
-            
-            # Update post type based on new content
-            update_data['post_type'] = analysis_result.suggested_type
-            
-            # Validate content length for the new type
-            validation_result = content_analysis_service.validate_content_for_type(
-                content=content_to_analyze,
-                post_type=analysis_result.suggested_type
-            )
-            
-            if not validation_result["is_valid"]:
+        # Validate content length if content is being updated
+        if 'content' in update_data:
+            content_to_validate = update_data['content']
+            if len(content_to_validate.strip()) > 5000:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Content too long. Maximum {validation_result['character_limit']} characters for {analysis_result.suggested_type.value} posts. Current: {validation_result['character_count']} characters."
+                    detail=f"Content too long. Maximum 5000 characters. Current: {len(content_to_validate.strip())} characters."
                 )
-        
+
         # Validate location_data if provided
         if 'location_data' in update_data and update_data['location_data']:
             from app.services.location_service import LocationService
@@ -1549,7 +1468,6 @@ async def edit_post(
             content=post.content,
             rich_content=post.rich_content,
             post_style=post.post_style,
-            post_type=post.post_type.value,
             image_url=serialize_image_url(post.image_url),
             images=images,  # Multi-image support
             location=post.location,

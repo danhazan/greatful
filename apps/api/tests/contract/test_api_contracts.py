@@ -112,7 +112,6 @@ class TestAPIContracts:
         # Test create post endpoint
         post_data = {
             "content": "Test gratitude post content",
-            "post_type": "daily",
             "title": "Test Post",
             "is_public": True
         }
@@ -126,20 +125,18 @@ class TestAPIContracts:
         # Verify post response data structure
         post_response = data
         required_fields = [
-            "id", "author_id", "content", "post_type", "is_public", 
-            "created_at", "author", "hearts_count", "reactions_count"
+            "id", "authorId", "content", "isPublic", 
+            "createdAt", "author", "heartsCount", "reactionsCount"
         ]
         for field in required_fields:
             assert field in post_response
         
         # Verify field types
         assert isinstance(post_response["id"], str)
-        assert isinstance(post_response["author_id"], int)
-        assert isinstance(post_response["content"], str)
-        assert post_response["post_type"] in ["daily", "photo", "spontaneous"]
-        assert isinstance(post_response["is_public"], bool)
-        assert isinstance(post_response["hearts_count"], int)
-        assert isinstance(post_response["reactions_count"], int)
+        assert isinstance(post_response["authorId"], int)
+        assert isinstance(post_response["isPublic"], bool)
+        assert isinstance(post_response["heartsCount"], int)
+        assert isinstance(post_response["reactionsCount"], int)
         
         # Verify author object
         author = post_response["author"]
@@ -241,8 +238,7 @@ class TestAPIContracts:
         
         # Test invalid post data
         invalid_post_data = {
-            "content": "",  # Empty content should fail
-            "post_type": "invalid_type"  # Invalid post type
+            "content": 123  # Error: Should be string
         }
         
         response = await http_client.post("/api/v1/posts", json=invalid_post_data, headers=auth_headers)
@@ -264,12 +260,13 @@ class TestAPIContracts:
         
         data = response.json()
         
-        # Feed endpoint returns a list of posts directly
-        assert isinstance(data, list)
+        # Feed endpoint returns a wrapped object with 'posts' list
+        assert "posts" in data
+        assert isinstance(data["posts"], list)
         
         # Each post should follow the post contract
-        for post in data:
-            required_fields = ["id", "author_id", "content", "post_type", "created_at", "author"]
+        for post in data["posts"]:
+            required_fields = ["id", "authorId", "content", "createdAt", "author"]
             for field in required_fields:
                 assert field in post
 
@@ -294,8 +291,7 @@ class TestAPIContracts:
         
         # Test invalid post type
         invalid_post_data = {
-            "content": "Test content",
-            "post_type_override": "invalid_type"
+            "content": 123
         }
         
         response = await http_client.post("/api/v1/posts", json=invalid_post_data, headers=auth_headers)
@@ -325,8 +321,7 @@ class TestAPIContracts:
         long_content = "x" * 5001  # Exceeds universal limit of 5000
         
         invalid_post_data = {
-            "content": long_content,
-            "post_type_override": "daily"
+            "content": long_content
         }
         
         response = await http_client.post("/api/v1/posts", json=invalid_post_data, headers=auth_headers)
@@ -343,13 +338,15 @@ class TestAPIContracts:
         assert response.status_code == status.HTTP_200_OK
         
         data = response.json()
-        # The feed returns a list of posts, each with created_at timestamp
-        assert isinstance(data, list)
+        
+        # The feed returns a wrapped object with 'posts' list, each with createdAt timestamp
+        assert "posts" in data
+        assert isinstance(data["posts"], list)
         
         # If there are posts, verify timestamp format
-        for post in data:
-            if "created_at" in post:
-                timestamp = post["created_at"]
+        for post in data["posts"]:
+            if "createdAt" in post:
+                timestamp = post["createdAt"]
                 assert isinstance(timestamp, str)
                 # Basic timestamp format check
                 assert len(timestamp) > 0
@@ -361,8 +358,10 @@ class TestAPIContracts:
         assert response.status_code == status.HTTP_200_OK
         
         data = response.json()
-        # The feed returns a list directly - request IDs would be in headers if anywhere
-        assert isinstance(data, list)
+        
+        # The feed returns a wrapped object with 'posts' list
+        assert "posts" in data
+        assert isinstance(data["posts"], list)
         
         # Check if request ID is in response headers
         if "x-request-id" in response.headers:

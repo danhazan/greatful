@@ -60,7 +60,6 @@ async def verify_contracts():
             "id": post_id,
             "author_id": author_id,
             "content": "Verification post",
-            "post_type": "spontaneous",
             "is_public": True,
             "created_at": "2024-01-01T00:00:00Z",
             "author": raw_author_data,

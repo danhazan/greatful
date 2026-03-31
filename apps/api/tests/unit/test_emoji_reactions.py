@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.models.emoji_reaction import EmojiReaction
 from app.services.reaction_service import ReactionService
 import uuid

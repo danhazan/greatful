@@ -33,7 +33,6 @@ export async function POST(request: NextRequest) {
         privacyLevel: (formData.get('privacyLevel') || formData.get('privacy_level')) as string,
         rules: (formData.get('privacyRules') || formData.get('rules')) as string,
         specificUsers: (formData.get('specificUsers') || formData.get('specific_users')) as string,
-        postTypeOverride: (formData.get('postTypeOverride') || formData.get('post_type_override')) as string,
         image: formData.get('image') as File,  // Legacy single image
         images: imageFiles.length > 0 ? imageFiles : undefined  // Multi-image
       }
@@ -50,7 +49,6 @@ export async function POST(request: NextRequest) {
     const privacyLevel = body.privacyLevel ?? body.privacy_level
     const privacyRules = body.privacyRules ?? body.rules
     const specificUsers = body.specificUsers ?? body.specific_users
-    const postTypeOverride = body.postTypeOverride ?? body.post_type_override
     const isPublic = body.isPublic ?? body.is_public
 
     // Validate that either content or image is provided
@@ -89,7 +87,6 @@ export async function POST(request: NextRequest) {
           typeof specificUsers === 'string' ? specificUsers : JSON.stringify(specificUsers)
         )
       }
-      if (postTypeOverride) backendFormData.append('post_type_override', postTypeOverride)
       // Multi-image support: forward all images to backend
       if (body.images && body.images.length > 0) {
         body.images.forEach((file: File) => {
@@ -118,7 +115,6 @@ export async function POST(request: NextRequest) {
         image_url: imageUrl || null,
         location: body.location || null,
         location_data: locationData || null,
-        post_type_override: postTypeOverride || null,
         is_public: isPublic !== false, // Default to true
         privacy_level: privacyLevel || null,
         rules: Array.isArray(privacyRules) ? privacyRules : [],

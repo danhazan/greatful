@@ -8,7 +8,7 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 import uuid
 
 
@@ -189,7 +189,6 @@ class TestGetMyPosts:
                 id=str(uuid.uuid4()),
                 author_id=test_user.id,
                 content=f"Post {i}",
-                post_type=PostType.daily,
                 is_public=True
             )
             db_session.add(post)
@@ -260,7 +259,6 @@ class TestProfileDataIntegrity:
                 id=str(uuid.uuid4()),
                 author_id=test_user.id,
                 content=f"Test post {i}",
-                post_type=PostType.daily,
                 is_public=True
             )
             db_session.add(post)

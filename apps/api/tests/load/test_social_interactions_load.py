@@ -250,7 +250,6 @@ class TestSocialInteractionsLoad:
                 headers=headers,
                 json={
                     "content": content,
-                    "post_type": "spontaneous",
                     "is_public": True
                 }
             )

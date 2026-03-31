@@ -32,9 +32,9 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 201
         
         data = response.json()
-        assert data["post_style"]["id"] == "default"
-        assert data["post_style"]["name"] == "Default Style"
-        assert data["post_style"]["backgroundColor"] == "#FFFFFF"
+        assert data["postStyle"]["id"] == "default"
+        assert data["postStyle"]["name"] == "Default Style"
+        assert data["postStyle"]["backgroundColor"] == "#FFFFFF"
     
     async def test_create_post_style_removes_font_properties(self, async_client: AsyncClient, test_user: User, auth_headers: dict):
         """Test that font properties are removed from post style during creation."""
@@ -57,7 +57,7 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 201
         
         data = response.json()
-        post_style = data["post_style"]
+        post_style = data["postStyle"]
         
         # Should keep required and allowed properties
         assert post_style["id"] == "default"
@@ -146,7 +146,7 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 201
         
         data = response.json()
-        bg_color = data["post_style"]["backgroundColor"]
+        bg_color = data["postStyle"]["backgroundColor"]
         assert bg_color["type"] == "linear"
         assert bg_color["colors"] == ["#FF0000", "#00FF00"]
     
@@ -199,8 +199,8 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 200
         
         data = response.json()
-        assert data["post_style"]["id"] == "warm"
-        assert data["post_style"]["backgroundColor"] == "#FF5733"
+        assert data["postStyle"]["id"] == "warm"
+        assert data["postStyle"]["backgroundColor"] == "#FF5733"
     
     async def test_update_post_removes_font_properties(self, async_client: AsyncClient, test_user: User, auth_headers: dict, db_session: AsyncSession):
         """Test that font properties are removed during post update."""
@@ -232,7 +232,7 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 200
         
         data = response.json()
-        post_style = data["post_style"]
+        post_style = data["postStyle"]
         
         # Should keep allowed properties
         assert post_style["backgroundColor"] == "#00FF00"
@@ -259,8 +259,8 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 201
         
         data = response.json()
-        assert data["post_style"]["id"] == "default"
-        assert data["post_style"]["backgroundColor"] == "#FFFFFF"
+        assert data["postStyle"]["id"] == "default"
+        assert data["postStyle"]["backgroundColor"] == "#FFFFFF"
     
     async def test_create_post_with_form_data_invalid_style_json(self, async_client: AsyncClient, test_user: User, auth_headers: dict):
         """Test creating a post with invalid JSON in form data."""
@@ -294,7 +294,7 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 201
         
         data = response.json()
-        post_style = data["post_style"]
+        post_style = data["postStyle"]
         
         # Should keep required properties
         assert post_style["id"] == "default"
@@ -314,7 +314,7 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 201
         
         data = response.json()
-        assert data["post_style"] is None
+        assert data["postStyle"] is None
     
     async def test_create_post_custom_style_id(self, async_client: AsyncClient, test_user: User, auth_headers: dict):
         """Test creating a post with custom style ID."""
@@ -333,7 +333,7 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 201
         
         data = response.json()
-        assert data["post_style"]["id"] == custom_style["id"]
+        assert data["postStyle"]["id"] == custom_style["id"]
     
     async def test_create_post_user_style_id(self, async_client: AsyncClient, test_user: User, auth_headers: dict):
         """Test creating a post with user-specific style ID."""
@@ -352,4 +352,4 @@ class TestPostStyleValidationAPI:
         assert response.status_code == 201
         
         data = response.json()
-        assert data["post_style"]["id"] == user_style["id"]
+        assert data["postStyle"]["id"] == user_style["id"]

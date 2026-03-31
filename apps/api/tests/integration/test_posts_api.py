@@ -6,7 +6,7 @@ import pytest
 import uuid
 from datetime import datetime, timezone
 
-from app.models.post import Post, PostType
+from app.models.post import Post
 
 
 class TestPostsAPI:
@@ -37,8 +37,8 @@ class TestPostsAPI:
         assert data["id"] == test_post.id
         assert data["content"] == "Updated test content"
         assert data["location"] == "New York, NY"
-        assert data["author_id"] == test_user.id
-        assert data["updated_at"] is not None
+        assert data["authorId"] == test_user.id
+        assert data["updatedAt"] is not None
 
     def test_edit_post_with_rich_content(
         self, 
@@ -69,8 +69,8 @@ class TestPostsAPI:
         data = response.json()
         
         assert data["content"] == "Updated content with rich formatting"
-        assert data["rich_content"] == "<p>This is <strong>bold</strong> text</p>"
-        assert data["post_style"]["name"] == "Modern"
+        assert data["richContent"] == "<p>This is <strong>bold</strong> text</p>"
+        assert data["postStyle"]["name"] == "Modern"
 
     def test_edit_post_content_length_validation(
         self, 
@@ -197,31 +197,7 @@ class TestPostsAPI:
         # Location should be updated
         assert data["location"] == "Boston, MA"
 
-    def test_edit_post_type_reanalysis(
-        self, 
-        client,
-        test_user, 
-        test_post, 
-        auth_headers
-    ):
-        """Test that post type is re-analyzed when content changes."""
-        # Update with content that should trigger daily gratitude type
-        daily_content = "I'm grateful for this amazing day and all the wonderful people in my life"
-        
-        update_data = {"content": daily_content}
-        
-        response = client.put(
-            f"/api/v1/posts/{test_post.id}",
-            json=update_data,
-            headers=auth_headers
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["content"] == daily_content
-        # Post type should be re-analyzed (might change from spontaneous to daily)
-        assert data["post_type"] in ["daily", "spontaneous"]
+
 
     def test_edit_post_invalid_post_style(
         self, 

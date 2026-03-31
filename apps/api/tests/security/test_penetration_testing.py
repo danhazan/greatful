@@ -452,7 +452,7 @@ class TestInputValidationPenetrationTesting:
             # Test in post content
             response = client_with_scenario_mocks.post(
                 "/api/v1/posts",
-                json={"content": payload, "post_type": "spontaneous"},
+                json={"content": payload},
                 headers=auth_headers
             )
             

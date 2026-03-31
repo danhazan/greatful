@@ -49,7 +49,6 @@ class TestMentionNotifications:
         # Create post with mentions
         post_data = {
             "content": "Thanks @mentioned_user and @another_user for your help!",
-            "post_type": "spontaneous",
             "title": "Gratitude Post"
         }
 
@@ -115,7 +114,6 @@ class TestMentionNotifications:
         # Create post with self-mention
         post_data = {
             "content": "I'm grateful for @self_mentioner (myself) today!",
-            "post_type": "daily",
             "title": "Self Gratitude"
         }
 
@@ -167,7 +165,6 @@ class TestMentionNotifications:
         # Create post with mention of nonexistent user
         post_data = {
             "content": "Thanks @nonexistent_user for the inspiration!",
-            "post_type": "spontaneous",
             "title": "Gratitude Post"
         }
 
@@ -224,7 +221,6 @@ class TestMentionNotifications:
         # Create post with multiple mentions of the same user
         post_data = {
             "content": "Thanks @mentioned_user for your help! @mentioned_user is amazing!",
-            "post_type": "spontaneous",
             "title": "Gratitude Post"
         }
 
@@ -283,7 +279,6 @@ class TestMentionNotifications:
         long_content = "I'm so grateful for @helpful_friend who helped me through a difficult time. " * 3
         post_data = {
             "content": long_content,
-            "post_type": "daily",
             "title": "Deep Gratitude"
         }
 
@@ -351,7 +346,6 @@ class TestMentionNotifications:
         # Create form data for file upload
         form_data = {
             "content": "Beautiful sunset with @photo_friend today!",
-            "post_type": "photo",
             "title": "Sunset Gratitude"
         }
 
@@ -409,7 +403,6 @@ class TestMentionNotifications:
         # Create post with mention as user1
         post_data = {
             "content": "Grateful for @mentioned_friend's support today!",
-            "post_type": "daily",
             "title": "Daily Gratitude"
         }
 

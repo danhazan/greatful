@@ -479,7 +479,6 @@ class InputSanitizationMiddleware(BaseHTTPMiddleware):
         },
         '/api/v1/posts': {
             'content': 'post_content',
-            'post_type': 'general',
             'location': 'city'
         },
         '/api/v1/users/search': {

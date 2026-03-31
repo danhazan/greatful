@@ -313,7 +313,6 @@ class ShareRepository(BaseRepository):
             SELECT 
                 s.post_id,
                 p.content,
-                p.post_type,
                 u.username as author_username,
                 COUNT(s.id) as share_count,
                 COUNT(DISTINCT s.user_id) as unique_sharers,
@@ -323,7 +322,7 @@ class ShareRepository(BaseRepository):
             JOIN posts p ON p.id = s.post_id
             JOIN users u ON u.id = p.author_id
             WHERE s.created_at >= NOW() - INTERVAL :days DAY
-            GROUP BY s.post_id, p.content, p.post_type, u.username
+            GROUP BY s.post_id, p.content, u.username
             ORDER BY share_count DESC
             LIMIT :limit
         """)
@@ -336,7 +335,6 @@ class ShareRepository(BaseRepository):
             popular_posts.append({
                 "post_id": row.post_id,
                 "content": row.content[:100] + "..." if len(row.content) > 100 else row.content,
-                "post_type": row.post_type,
                 "author_username": row.author_username,
                 "share_count": int(row.share_count),
                 "unique_sharers": int(row.unique_sharers),

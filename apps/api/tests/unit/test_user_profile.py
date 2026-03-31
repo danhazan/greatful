@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.core.security import get_password_hash
 import uuid
 from datetime import datetime
@@ -61,7 +61,6 @@ async def test_user_with_posts(db_session: AsyncSession, test_user: User):
             id=str(uuid.uuid4()),
             author_id=test_user.id,
             content=f"I'm grateful for test post {i+1}!",
-            post_type=PostType.daily,
             is_public=True
         )
         db_session.add(post)

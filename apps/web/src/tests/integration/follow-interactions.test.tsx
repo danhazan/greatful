@@ -34,7 +34,6 @@ describe.skip('Follow Interactions Integration', () => {
   const mockPost = {
     id: 'post-123',
     content: 'Test post content',
-    post_type: 'spontaneous',
     created_at: '2024-01-01T00:00:00Z',
     author: {
       id: "2", // String to match the currentUserId format

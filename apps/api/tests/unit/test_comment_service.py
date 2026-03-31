@@ -43,8 +43,7 @@ def sample_post():
     post = Post(
         id="post-123",
         author_id=1,
-        content="Test post content",
-        post_type="daily"
+        content="Test post content"
     )
     return post
 

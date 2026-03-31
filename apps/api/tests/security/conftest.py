@@ -202,7 +202,7 @@ def _create_security_test_app():
     async def create_post(request: dict, current_user: dict = Depends(get_current_user)):
         content = request.get("content", "")
         sanitized_content = sanitize_content(content)
-        return {"id": "test_post", "content": sanitized_content, "post_type": "spontaneous"}
+        return {"id": "test_post", "content": sanitized_content}
     
     @test_app.post("/api/v1/users/search")
     async def search_users(request: dict, current_user: dict = Depends(get_current_user)):

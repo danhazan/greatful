@@ -8,7 +8,7 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 import uuid
 
 

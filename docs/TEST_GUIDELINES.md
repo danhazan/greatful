@@ -244,7 +244,6 @@ import { PostResponse, CreatePostRequest, EmojiCode } from '@/shared/types'
 const mockPost: PostResponse = {
   id: 'test-id',
   content: 'Test post content',
-  post_type: 'daily',
   author: { id: 1, username: 'testuser' },
   // ... other required fields with proper types
 }
@@ -252,7 +251,6 @@ const mockPost: PostResponse = {
 // Type-safe API testing
 const createRequest: CreatePostRequest = {
   content: 'New post',
-  post_type: 'daily',
   is_public: true
 }
 ```
@@ -267,15 +265,13 @@ from app.models import Post, User
 async def test_create_post_with_types():
     request_data = CreatePostRequest(
         content="Test post",
-        post_type="daily",
         is_public=True
     )
-    
+
     post = await post_service.create_post(user_id=1, **request_data.dict())
     response = PostResponse.from_model(post)
-    
+
     assert response.content == request_data.content
-    assert response.post_type == request_data.post_type
 ```
 
 ### Contract Testing
@@ -288,7 +284,6 @@ async def test_post_creation_api_contract(async_client, auth_headers):
     """Test that POST /posts endpoint matches API contract."""
     request_data = {
         "content": "Test post content",
-        "post_type": "daily",
         "is_public": True
     }
     
@@ -300,14 +295,12 @@ async def test_post_creation_api_contract(async_client, auth_headers):
     # Validate response structure matches PostResponse type
     assert "id" in data["data"]
     assert "content" in data["data"]
-    assert "post_type" in data["data"]
     assert "author" in data["data"]
     assert "created_at" in data["data"]
     
     # Validate data types
     assert isinstance(data["data"]["id"], str)
     assert isinstance(data["data"]["content"], str)
-    assert data["data"]["post_type"] in ["daily", "photo", "spontaneous"]
 ```
 
 ```typescript
@@ -316,7 +309,6 @@ describe('API Contract Validation', () => {
   it('should match PostResponse type for created posts', async () => {
     const createRequest: CreatePostRequest = {
       content: 'Test post',
-      post_type: 'daily',
       is_public: true
     }
     
@@ -331,7 +323,6 @@ describe('API Contract Validation', () => {
     // TypeScript compiler ensures this matches PostResponse interface
     expect(data.id).toBeDefined()
     expect(data.content).toBe(createRequest.content)
-    expect(data.post_type).toBe(createRequest.post_type)
     expect(data.author).toBeDefined()
   })
 })
@@ -1272,7 +1263,7 @@ async def test_create_post_api_contract(async_client, auth_headers):
     """Test API response structure and standardized formatting."""
     post_data = {
         "content": "I'm grateful for this test!",
-        "post_type": "daily_gratitude",
+
         "is_public": True
     }
     
@@ -1935,121 +1926,6 @@ describe('Content Analysis Integration', () => {
 6. **Cross-browser Compatibility**: Test contentEditable behavior across browsers
 
 ---
-
-## Post Type Detection Testing
-
-### Content Analysis Testing Strategy
-
-Testing the post type detection system requires comprehensive coverage of classification rules and edge cases:
-
-#### Classification Logic Tests
-
-**Backend Content Analysis Tests** (`test_content_analysis_service.py`):
-```python
-class TestContentAnalysisService:
-    def test_photo_post_detection(self):
-        """Test photo post detection with image and no text."""
-        service = ContentAnalysisService()
-        result = service.analyze_content("", has_image=True)
-        
-        assert result["post_type"] == PostType.photo
-        assert result["confidence_score"] >= 0.95
-        assert result["word_count"] == 0
-
-    def test_spontaneous_post_detection(self):
-        """Test spontaneous post detection with short text."""
-        service = ContentAnalysisService()
-        content = "Grateful for coffee this morning!"
-        result = service.analyze_content(content, has_image=False)
-        
-        assert result["post_type"] == PostType.spontaneous
-        assert result["word_count"] < 20
-        assert result["confidence_score"] >= 0.8
-
-    def test_daily_post_detection(self):
-        """Test daily post detection with longer content."""
-        service = ContentAnalysisService()
-        content = "Today I'm incredibly grateful for the opportunity to spend quality time with my family and reflect on all the positive moments we've shared together this week."
-        result = service.analyze_content(content, has_image=False)
-        
-        assert result["post_type"] == PostType.daily
-        assert result["word_count"] >= 20
-        assert result["confidence_score"] >= 0.85
-
-    def test_edge_case_word_threshold(self):
-        """Test edge case at 20-word threshold."""
-        service = ContentAnalysisService()
-        # Exactly 20 words
-        content = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty"
-        result = service.analyze_content(content, has_image=False)
-        
-        # Should be classified as daily (>= 20 words)
-        assert result["post_type"] == PostType.daily
-```
-
-#### Frontend Real-time Detection Tests
-
-**CreatePostModal Analysis Tests**:
-```typescript
-describe('Real-time Post Type Detection', () => {
-  it('detects photo post type with image upload', async () => {
-    const user = userEvent.setup()
-    
-    render(<CreatePostModal isOpen={true} onClose={jest.fn()} />)
-    
-    // Upload image file
-    const fileInput = screen.getByLabelText(/upload image/i)
-    const file = new File(['image'], 'test.jpg', { type: 'image/jpeg' })
-    await user.upload(fileInput, file)
-    
-    // Should detect photo type
-    expect(screen.getByText(/photo gratitude/i)).toBeInTheDocument()
-    expect(screen.getByText(/0 characters/i)).toBeInTheDocument()
-  })
-
-  it('switches type detection based on content changes', async () => {
-    const user = userEvent.setup()
-    
-    render(<CreatePostModal isOpen={true} onClose={jest.fn()} />)
-    
-    const editor = screen.getByRole('textbox')
-    
-    // Start with short content (spontaneous)
-    await user.type(editor, 'Quick note')
-    expect(screen.getByText(/spontaneous/i)).toBeInTheDocument()
-    
-    // Add more content (daily)
-    await user.type(editor, ' about how grateful I am for this beautiful day and all the wonderful opportunities it brings')
-    expect(screen.getByText(/daily gratitude/i)).toBeInTheDocument()
-  })
-
-  it('shows appropriate character limits for each type', async () => {
-    const user = userEvent.setup()
-    
-    render(<CreatePostModal isOpen={true} onClose={jest.fn()} />)
-    
-    const editor = screen.getByRole('textbox')
-    
-    // Spontaneous type
-    await user.type(editor, 'Short')
-    expect(screen.getByText(/200/)).toBeInTheDocument()
-    
-    // Clear and type longer content for daily type
-    await user.clear(editor)
-    await user.type(editor, 'This is a much longer piece of content that should trigger daily gratitude detection')
-    expect(screen.getByText(/5000/)).toBeInTheDocument()
-  })
-})
-```
-
-### Testing Best Practices for Content Analysis
-
-1. **Boundary Testing**: Test edge cases at word count thresholds
-2. **Real-time Updates**: Verify analysis updates as content changes
-3. **Performance Testing**: Ensure analysis doesn't impact typing performance
-4. **Character Limit Validation**: Test enforcement of type-specific limits
-5. **Confidence Scoring**: Validate confidence calculations for edge cases
-6. **Cross-platform Consistency**: Ensure same results on frontend and backend
 
 ## Test Configuration
 

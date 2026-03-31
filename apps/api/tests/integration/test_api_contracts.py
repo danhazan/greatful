@@ -32,7 +32,6 @@ class TestPostsAPIContracts:
         
         valid_post_data = {
             "content": "Grateful for this beautiful day!",
-            "post_type": "spontaneous",
             "is_public": True
         }
         
@@ -50,22 +49,19 @@ class TestPostsAPIContracts:
         assert isinstance(data["id"], str)
         assert len(data["id"]) > 0
         
-        assert "author_id" in data
-        assert isinstance(data["author_id"], int)
-        assert data["author_id"] > 0
+        assert "authorId" in data
+        assert isinstance(data["authorId"], int)
+        assert data["authorId"] > 0
         
         assert "content" in data
         assert isinstance(data["content"], str)
         assert data["content"] == valid_post_data["content"]
         
-        assert "post_type" in data
-        assert data["post_type"] in ["daily", "photo", "spontaneous"]
+        assert "isPublic" in data
+        assert isinstance(data["isPublic"], bool)
         
-        assert "is_public" in data
-        assert isinstance(data["is_public"], bool)
-        
-        assert "created_at" in data
-        assert isinstance(data["created_at"], str)
+        assert "createdAt" in data
+        assert isinstance(data["createdAt"], str)
         
         assert "author" in data
         assert isinstance(data["author"], dict)
@@ -73,44 +69,22 @@ class TestPostsAPIContracts:
         assert "username" in data["author"]
         assert "email" in data["author"]
         
-        assert "hearts_count" in data
-        assert isinstance(data["hearts_count"], int)
-        assert data["hearts_count"] >= 0
+        assert "heartsCount" in data
+        assert isinstance(data["heartsCount"], int)
+        assert data["heartsCount"] >= 0
         
-        assert "reactions_count" in data
-        assert isinstance(data["reactions_count"], int)
-        assert data["reactions_count"] >= 0
+        assert "reactionsCount" in data
+        assert isinstance(data["reactionsCount"], int)
+        assert data["reactionsCount"] >= 0
         
         # Optional fields should be present but can be null
-        assert "image_url" in data
+        assert "imageUrl" in data
         assert "location" in data
-        assert "updated_at" in data
-        assert "current_user_reaction" in data
-        assert "is_hearted" in data
+        assert "updatedAt" in data
+        assert "currentUserReaction" in data
+        assert "isHearted" in data
 
-    def test_invalid_post_type_override_validation(self, setup_test_database, test_user):
-        """Test that invalid post_type_override is rejected by Pydantic validation."""
-        client = TestClient(app)
-        
-        # Create auth token
-        token = create_access_token({"sub": str(test_user.id)})
-        headers = {"Authorization": f"Bearer {token}"}
-        
-        invalid_post_data = {
-            "content": "Test content",
-            "post_type_override": "invalid_type",  # Invalid enum value
-            "is_public": True
-        }
-        
-        response = client.post(
-            "/api/v1/posts",
-            json=invalid_post_data,
-            headers=headers
-        )
-        
-        assert response.status_code == 422  # FastAPI returns 422 for validation errors
-        error_data = response.json()
-        assert "detail" in error_data
+
 
     def test_content_length_validation(self, setup_test_database, test_user):
         """Test that content length validation works for different post types."""
@@ -124,7 +98,6 @@ class TestPostsAPIContracts:
         very_long_content = "a" * 5001
         invalid_long_post = {
             "content": very_long_content,
-            "post_type_override": "spontaneous",  # Force spontaneous type with 5000 char limit
             "is_public": True
         }
         
@@ -310,7 +283,7 @@ class TestErrorResponseContracts:
         
         invalid_post_data = {
             "content": "",  # Empty content should fail validation
-            "post_type": "invalid",  # Invalid post type
+            # Invalid post type
             "is_public": "not_boolean"  # Invalid boolean
         }
         

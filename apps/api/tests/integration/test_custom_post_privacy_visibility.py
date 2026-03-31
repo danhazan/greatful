@@ -28,7 +28,8 @@ def _extract_post_ids(feed_payload):
     if isinstance(feed_payload, list):
         return [row.get("id") for row in feed_payload if isinstance(row, dict) and row.get("id")]
     if isinstance(feed_payload, dict):
-        data = feed_payload.get("data")
+        # Handle different wrapping keys: "data" (pagination) or "posts" (feed)
+        data = feed_payload.get("data") or feed_payload.get("posts")
         if isinstance(data, list):
             return [row.get("id") for row in data if isinstance(row, dict) and row.get("id")]
     return []

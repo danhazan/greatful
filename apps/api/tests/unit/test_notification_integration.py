@@ -39,8 +39,7 @@ class TestNotificationIntegration:
         post = Post(
             id="test-post-1",
             author_id=author.id,
-            content="Test gratitude post",
-            post_type="daily"
+            content="Test gratitude post"
         )
         db_session.add(post)
         await db_session.commit()
@@ -91,8 +90,7 @@ class TestNotificationIntegration:
         post = Post(
             id="test-post-2",
             author_id=user.id,
-            content="Test gratitude post",
-            post_type="daily"
+            content="Test gratitude post"
         )
         db_session.add(post)
         await db_session.commit()
@@ -141,8 +139,7 @@ class TestNotificationIntegration:
         post = Post(
             id="test-post-3",
             author_id=author.id,
-            content="Test gratitude post",
-            post_type="daily"
+            content="Test gratitude post"
         )
         db_session.add(post)
         await db_session.commit()
@@ -210,8 +207,7 @@ class TestNotificationIntegration:
         post = Post(
             id="test-post-4",
             author_id=author.id,
-            content="Test gratitude post",
-            post_type="daily"
+            content="Test gratitude post"
         )
         db_session.add(post)
         await db_session.commit()

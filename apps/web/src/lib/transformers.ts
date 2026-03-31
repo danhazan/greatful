@@ -284,7 +284,6 @@ export interface BackendUserPost {
   }
   created_at: string
   updated_at?: string
-  post_type?: string
   image_url?: string
   images?: BackendPostImage[]  // Multi-image support
   location?: string
@@ -352,7 +351,6 @@ export interface FrontendUserPost {
   }
   createdAt: string
   updatedAt?: string
-  postType: "daily" | "photo" | "spontaneous"
   imageUrl?: string
   images?: FrontendPostImage[]  // Multi-image support
   location?: string
@@ -407,7 +405,6 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
   const postStyle = post.postStyle || post.post_style
   const createdAt = post.createdAt || post.created_at
   const updatedAt = post.updatedAt || post.updated_at
-  const postType = post.postType || post.post_type
   const imageUrl = post.imageUrl || post.image_url
   const locationData = post.location_data
   const heartsCount = post.heartsCount ?? post.hearts_count ?? 0
@@ -443,7 +440,6 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
     },
     createdAt: ensureTimezoneIndicator(createdAt),
     updatedAt: updatedAt ? ensureTimezoneIndicator(updatedAt) : undefined,
-    postType: (postType as "daily" | "photo" | "spontaneous") || "daily",
     imageUrl: imageUrl,
     images: images,  // Include normalized images array
     location: post.location,

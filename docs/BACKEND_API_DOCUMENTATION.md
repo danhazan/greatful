@@ -508,7 +508,6 @@ CREATE INDEX idx_follows_status_created_at ON follows(status, created_at DESC) W
 
 -- Performance-optimized composite indexes
 CREATE INDEX idx_posts_user_created_at ON posts(author_id, created_at);
-CREATE INDEX idx_posts_type_created_at ON posts(post_type, created_at);
 CREATE INDEX idx_posts_engagement_created_at ON posts(hearts_count, reactions_count, shares_count, created_at);
 CREATE INDEX idx_users_last_feed_view ON users(last_feed_view);
 CREATE INDEX idx_user_interactions_user_created_at ON user_interactions(user_id, created_at);
@@ -1171,7 +1170,6 @@ Content-Type: application/json
       "textColor": "#1f2937",
       "fontFamily": "Inter"
     },
-    "post_type": "daily",
     "location": "Central Park, New York",
     "location_data": {
       "display_name": "Central Park, New York, NY, USA",
@@ -1226,7 +1224,6 @@ Content-Type: multipart/form-data
   "data": {
     "id": "post-uuid-456",
     "content": "",
-    "post_type": "photo",
     "image_url": "/uploads/posts/image_def456.jpg",
     "location": "Golden Gate Bridge, San Francisco",
     "author": {
@@ -1242,18 +1239,10 @@ Content-Type: multipart/form-data
 }
 ```
 
-**Type Detection Logic:**
-The system automatically determines the optimal post type based on:
-- **Content Length**: Character count and word analysis
-- **Image Presence**: Whether an image is included
-- **Content Quality**: Analysis of gratitude-specific language patterns
-- **User Intent**: Contextual clues from content structure
-
 **Validation Rules:**
-- Daily posts: 1-5000 characters, optional image
-- Photo posts: 0 characters (image only), required image
-- Spontaneous posts: 1-200 characters, no image
-- Location field: Optional, max 100 characters
+- Universal content limit: 1-5000 characters
+- Image support: Optional image for any post (multi-image support via `images` field)
+- Location field: Optional, max 150 characters
 - Image files: JPEG/PNG/WebP, max 10MB
 
 #### Enhanced Feed Algorithm API
@@ -1278,7 +1267,6 @@ Authorization: Bearer <token>
     {
       "id": "post-uuid-123",
       "content": "Grateful for this beautiful morning...",
-      "post_type": "daily",
       "author": {
         "id": 1,
         "username": "alice",
@@ -1326,7 +1314,6 @@ Authorization: Bearer <token>
     {
       "id": "post-uuid-456",
       "content": "Amazing sunset today!",
-      "post_type": "photo",
       "trending_score": 89.3,
       "engagement_velocity": 12.5,
       "time_window_hours": 24,
@@ -2504,7 +2491,6 @@ Authorization: Bearer <token>
     "author_id": 1,
     "title": "Morning Gratitude",
     "content": "Grateful for this beautiful sunrise...",
-    "post_type": "daily",
     "image_url": "https://example.com/image.jpg",
     "location": "San Francisco, CA",
     "is_public": true,
@@ -2911,98 +2897,7 @@ await factory.create_comment_reply_notification(
 - Multiple comment notification handling
 - Correct notification data structure validation
 
----
 
-## Post Type Detection and Content Analysis
-
-### Intelligent Content Categorization System
-
-The backend implements an advanced content analysis system that automatically categorizes posts into three distinct types based on content characteristics:
-
-#### Content Analysis Service
-
-**Core Service** (`apps/api/app/services/content_analysis_service.py`):
-```python
-class ContentAnalysisService:
-    def analyze_content(self, content: str, has_image: bool) -> Dict[str, Any]:
-        """
-        Analyze content and determine optimal post type.
-        
-        Returns:
-            Dict containing post_type, confidence_score, word_count, and metadata
-        """
-        word_count = self._count_words(content)
-        post_type = self._determine_post_type(content, word_count, has_image)
-        confidence = self._calculate_confidence(content, word_count, has_image, post_type)
-        
-        return {
-            "post_type": post_type,
-            "confidence_score": confidence,
-            "word_count": word_count,
-            "character_count": len(content),
-            "has_image": has_image
-        }
-```
-
-#### Post Type Classification
-
-**Detection Algorithm**:
-```python
-def _determine_post_type(self, content: str, word_count: int, has_image: bool) -> PostType:
-    # Rule 1: Photo only - has image and no meaningful text content
-    if has_image and word_count == 0:
-        return PostType.photo
-    
-    # Rule 2: Short text - use word count threshold for spontaneous posts
-    if not has_image and word_count < SPONTANEOUS_WORD_THRESHOLD:  # 20 words
-        return PostType.spontaneous
-    
-    # Rule 3: All others - longer text, or any text+image combination
-    return PostType.daily
-```
-
-**Character Limits by Type**:
-- **Daily Gratitude**: 5,000 characters (thoughtful reflection)
-- **Photo Gratitude**: 0 characters (pure visual expression)
-- **Spontaneous Text**: 200 characters (quick appreciation notes)
-
-#### API Integration
-
-**Post Creation Endpoint** (`POST /api/v1/posts/`):
-- Automatic content analysis during post creation
-- Real-time type detection and validation
-- Character limit enforcement based on detected type
-- Confidence scoring for edge case handling
-
-**Content Analysis Response**:
-```json
-{
-  "post_type": "daily",
-  "confidence_score": 0.95,
-  "word_count": 45,
-  "character_count": 287,
-  "analysis_metadata": {
-    "content_category": "reflective",
-    "estimated_reading_time": "1 minute"
-  }
-}
-```
-
-#### Performance Optimizations
-
-**Efficient Analysis**:
-- O(n) word counting with regex optimization
-- Cached analysis results for repeated content
-- Minimal memory footprint for content processing
-- Fast classification rules without ML overhead
-
-**Database Integration**:
-- `post_type` field automatically populated
-- Character limits enforced at database level
-- Indexing on post_type for efficient queries
-- Migration support for existing content
-
----
 
 ## Location Management System
 

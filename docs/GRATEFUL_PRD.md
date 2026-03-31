@@ -141,7 +141,7 @@ CREATE TABLE users (
 ## 5. MODULE 2: Gratitude Post Creation & Management
 
 ### 5.1 Technical Requirements
-- Rich text editor with character limits (tiered by post type)
+- Rich text editor with character limits
 - Image upload and compression (max 10MB, auto-resize to optimal dimensions)
 - Photo enhancement filters (warm, natural tones to encourage sharing)
 - Location tagging (optional)
@@ -149,7 +149,6 @@ CREATE TABLE users (
 - Post scheduling capabilities
 - Content moderation hooks
 - **No video support** (planned for future roadmap consideration)
-- Visual post type selection with photo upload prominently featured
 - Smart photo suggestions and editing tools to encourage visual content
 
 ### 5.2 User Stories
@@ -161,19 +160,7 @@ As a busy user, I want to save drafts and schedule posts, so I can maintain cons
 As a thoughtful user, I want to edit my posts within 24 hours, so I can refine my thoughts and correct mistakes.
 ```
 
-### 5.3 Post Types & Visual Hierarchy
-- **Daily Gratitude (Featured):** Primary post type with photo encouraged, detailed caption (max 500 chars), prominent display in feeds and profiles
-- **Photo Gratitude:** Image-first posts with caption (max 300 chars), enhanced visibility in algorithm
-- **Spontaneous Text:** Quick appreciation notes (max 200 chars), minimal visual footprint, subtle feed presence
-- **Location Gratitude:** Place-based appreciation with photo encouraged
-- **Achievement Gratitude:** Celebrating personal wins with visual elements preferred
-- **People Gratitude:** Appreciating relationships, photos of moments together encouraged
 
-**Content Hierarchy Rules:**
-- Daily Gratitude posts appear 3x larger in feeds and prominently on profiles
-- Photo-based posts receive 2x engagement boost in algorithm
-- Text-only posts display as compact cards with muted styling
-- Users encouraged to add photos through UI prompts and rewards
 
 ### 5.4 Content Guidelines
 - No negative content or complaints
@@ -190,7 +177,6 @@ CREATE TABLE posts (
   content TEXT NOT NULL,
   image_url TEXT,
   location_data JSONB,
-  post_type VARCHAR(50) DEFAULT 'simple_text',
   is_draft BOOLEAN DEFAULT FALSE,
   scheduled_for TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
@@ -340,13 +326,9 @@ CREATE TABLE shares (
 ```
 Post Score = (Hearts × 1.0) + (Comments × 2.0) + (Shares × 4.0) + 
             (Completion Rate × 1.5) - (Reports × 10.0) + 
-            (Photo Bonus × 2.5) + (Daily Gratitude Multiplier × 3.0) +
             (Recency Bonus) + (Relationship Multiplier)
 
 Where:
-- Photo Bonus = 2.5 points for posts with images
-- Daily Gratitude Multiplier = 3.0x boost for designated daily gratitude posts
-- Spontaneous Text posts receive 0.5x visibility modifier
 - Shares weighted at 4.0 due to higher engagement value
 - Both URL shares and in-app message shares count toward share score
 ```
@@ -601,7 +583,6 @@ CREATE TABLE notifications (
 - [x] Image upload and optimization
 - [x] Basic post management (create, view, edit)
 - [x] Content validation and guidelines
-- [ ] Post type selection with visual hierarchy - **NEEDS ENHANCEMENT**
 - [ ] Draft saving functionality - **PENDING**
 **Status:** Core posting works, visual hierarchy and drafts need implementation
 
@@ -610,7 +591,6 @@ CREATE TABLE notifications (
 - [x] Chronological feed display
 - [x] Basic post rendering with image loading
 - [x] Responsive design implementation
-- [ ] Visual hierarchy implementation (Daily 3x size, Photo 2x boost) - **NEEDS ENHANCEMENT**
 - [ ] Infinite scroll loading - **PENDING**
 - [ ] Content scoring algorithm - **PENDING**
 **Status:** Basic feed working, advanced features pending
@@ -727,7 +707,6 @@ CREATE TABLE notifications (
 - **Mention System**: @username functionality
 - **Share System**: URL sharing and in-app messaging
 - **Follow System**: User following and discovery
-- **Visual Hierarchy**: Post type differentiation (Daily 3x, Photo 2x, Text compact)
 - **Draft System**: Save and schedule posts
 - **Advanced Feed**: Algorithmic content scoring
 - **Content Moderation**: Reporting and safety features
@@ -743,7 +722,6 @@ CREATE TABLE notifications (
 ### 14.5 **IMMEDIATE PRIORITIES** 🎯
 1. **Fix notification click handler** (Critical - breaks core functionality)
 2. **Fix emoji reaction notification creation** (Critical - missing key feature)
-3. **Implement visual post hierarchy** (High - core UX requirement)
 4. **Add mention system** (High - enables sharing and community)
 5. **Implement share functionality** (Medium - growth feature)
 

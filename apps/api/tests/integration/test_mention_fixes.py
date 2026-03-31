@@ -42,7 +42,6 @@ class TestMentionFixes:
         # Create post with mention
         post_data = {
             "content": "Thank you @mentioned_friend for everything!",
-            "post_type": "daily",
             "title": "Daily Gratitude"
         }
 
@@ -111,7 +110,6 @@ class TestMentionFixes:
         # Create post with mentions of users with special characters
         post_data = {
             "content": "Thanks @Bob7?? and @alice.doe-123 for your help!",
-            "post_type": "spontaneous",
             "title": "Gratitude Post"
         }
 
