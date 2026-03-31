@@ -11,9 +11,6 @@ export const WHATSAPP_CONFIG = {
   
   // Alternative WhatsApp Web URL (also works, but wa.me is preferred)
   WEB_URL_ALT: 'https://api.whatsapp.com/send',
-  
-  // Default share message template
-  SHARE_MESSAGE_TEMPLATE: 'Check out this gratitude post:',
 } as const
 
 /**

@@ -1,10 +1,9 @@
-'use client'
+import type { Metadata } from 'next'
+import PostPageClient from './PostPageClient'
+import { fetchPublicPost } from '@/lib/post-data'
+import { buildPostMetadata } from '@/lib/post-metadata'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import SinglePostView from '@/components/SinglePostView'
-import Navbar from '@/components/Navbar'
-import { useUser } from '@/contexts/UserContext'
+export const dynamic = 'force-dynamic'
 
 interface PostPageProps {
   params: {
@@ -12,51 +11,13 @@ interface PostPageProps {
   }
 }
 
-export default function PostPage({ params }: PostPageProps) {
-  const router = useRouter()
-  const { currentUser, isLoading, logout } = useUser()
+export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
+  const post = await fetchPublicPost(params.id)
+  return buildPostMetadata(post, params.id)
+}
 
-  // Convert UserContext user to the format expected by Navbar
-  const user = currentUser ? {
-    id: currentUser.id,
-    name: currentUser.displayName || currentUser.name,
-    displayName: currentUser.displayName,
-    username: currentUser.username,
-    email: currentUser.email,
-    profileImageUrl: currentUser.profileImageUrl
-  } : undefined
+export default async function PostPage({ params }: PostPageProps) {
+  const post = await fetchPublicPost(params.id)
 
-  const handleLogout = () => {
-    // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
-    logout()
-    router.push("/")
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <Navbar user={user} onLogout={handleLogout} />
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Single post display */}
-          <div className="bg-white rounded-lg shadow-sm">
-            <SinglePostView postId={params.id} />
-          </div>
-        </div>
-      </main>
-    </div>
-  )
+  return <PostPageClient postId={params.id} initialPost={post} />
 }

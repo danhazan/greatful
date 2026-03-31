@@ -153,7 +153,7 @@ describe('mobileDetection', () => {
       const postUrl = 'https://example.com/post/123'
       const result = formatWhatsAppShareText(content, postUrl)
       
-      expect(result).toBe('Check out this gratitude post:\nhttps://example.com/post/123')
+      expect(result).toBe('https://example.com/post/123')
     })
 
     it('handles long content by excluding it', () => {
@@ -161,8 +161,7 @@ describe('mobileDetection', () => {
       const postUrl = 'https://example.com/post/123'
       const result = formatWhatsAppShareText(content, postUrl)
       
-      expect(result).toBe('Check out this gratitude post:\nhttps://example.com/post/123')
-      expect(result.includes('Check out this gratitude post:')).toBe(true)
+      expect(result).toBe('https://example.com/post/123')
       expect(result.includes(postUrl)).toBe(true)
       // Content should not be included
       expect(result.includes(content)).toBe(false)
@@ -173,9 +172,15 @@ describe('mobileDetection', () => {
       const postUrl = 'https://example.com/post/123'
       const result = formatWhatsAppShareText(content, postUrl)
       
-      expect(result).toBe(`Check out this gratitude post:\n${postUrl}`)
+      expect(result).toBe(postUrl)
       // Content should not be included regardless of length
       expect(result.includes(content)).toBe(false)
+    })
+
+    it('trims accidental surrounding whitespace from the url', () => {
+      const result = formatWhatsAppShareText('unused', '  https://example.com/post/123  ')
+
+      expect(result).toBe('https://example.com/post/123')
     })
   })
 })

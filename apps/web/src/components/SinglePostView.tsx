@@ -10,15 +10,22 @@ import { Post } from '@/types/post'
 
 interface SinglePostViewProps {
   postId: string
+  initialPost?: Post | null
 }
 
-export default function SinglePostView({ postId }: SinglePostViewProps) {
-  const [post, setPost] = useState<Post | null>(null)
-  const [loading, setLoading] = useState(true)
+export default function SinglePostView({ postId, initialPost = null }: SinglePostViewProps) {
+  const [post, setPost] = useState<Post | null>(initialPost)
+  const [loading, setLoading] = useState(!initialPost)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const { showError } = useToast()
   const { currentUser, loading: userLoading } = useUser()
+
+  useEffect(() => {
+    setPost(initialPost)
+    setLoading(!initialPost)
+    setError(null)
+  }, [initialPost, postId])
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -64,9 +71,10 @@ export default function SinglePostView({ postId }: SinglePostViewProps) {
 
     if (!postId) return
     if (userLoading) return
+    if (initialPost) return
 
     fetchPost()
-  }, [postId, userLoading, showError])
+  }, [postId, userLoading, showError, initialPost])
 
   if (loading) {
     return (

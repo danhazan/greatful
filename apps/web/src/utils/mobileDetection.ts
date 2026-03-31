@@ -2,7 +2,7 @@
  * Mobile detection utilities for WhatsApp sharing
  */
 
-import { buildWhatsAppURL, WHATSAPP_CONFIG } from '@/config/whatsapp'
+import { buildWhatsAppURL } from '@/config/whatsapp'
 
 /**
  * Detect if the user is on a mobile device
@@ -86,5 +86,5 @@ export function generateWhatsAppURL(text: string): string {
 export function formatWhatsAppShareText(postContent: string, postUrl: string): string {
   // Don't include post content, just share the link
   // postContent parameter kept for API compatibility but not used
-  return `${WHATSAPP_CONFIG.SHARE_MESSAGE_TEMPLATE}\n${postUrl}`
+  return postUrl.trim()
 }
