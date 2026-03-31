@@ -32,7 +32,6 @@ describe('PostCard Date Link', () => {
       image: 'https://example.com/avatar.jpg'
     },
     createdAt: '2024-01-15T10:30:00Z',
-    postType: 'daily' as const,
     heartsCount: 5,
     isHearted: false,
     reactionsCount: 3,
@@ -79,7 +78,6 @@ describe('PostCard Date Link', () => {
   })
 
   it('works with different post types', () => {
-    const photoPost = { ...mockPost, postType: 'photo' as const }
     
     render(
       <PostCard 

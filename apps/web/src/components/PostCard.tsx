@@ -695,6 +695,7 @@ export default function PostCard({
   // Edit post handler — optimistic update
   const handleEditPost = async (postData: {
     content: string
+    updatedAt?: string
     richContent?: string
     postStyle?: any
     location?: string
@@ -817,48 +818,20 @@ export default function PostCard({
   // Check if current user is the post author
   const isPostAuthor = currentUserId && currentUserId === currentPost.author.id
 
-  // Get styling based on post type - now standardized with consistent dimensions
-  const getPostStyling = () => {
-    // Standardized styling for all post types - same base size and spacing
-    const baseStyle = {
-      container: `bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden mb-6`,
-      header: 'p-5 border-b border-gray-100',
-      avatar: 'w-10 h-10',
-      name: 'font-semibold text-base',
-      content: 'p-5',
-      text: 'text-base leading-relaxed',
-      actions: 'px-5 py-3 border-t border-gray-100',
-      iconSize: 'h-5 w-5',
-      textSize: 'text-sm'
-    }
 
-    // Visual distinction through content styling rather than card size
-    switch (currentPost.postType) {
-      case 'daily':
-        return {
-          ...baseStyle,
-          badge: 'text-sm px-3 py-2 bg-purple-100 text-purple-700 rounded-full capitalize font-medium',
-          // Daily posts get enhanced text styling for prominence
-          text: 'text-base leading-relaxed font-medium text-gray-900'
-        }
-      case 'photo':
-        return {
-          ...baseStyle,
-          badge: 'text-sm px-3 py-2 bg-blue-100 text-blue-700 rounded-full capitalize font-medium',
-          // Photo posts maintain standard text styling
-          text: 'text-base leading-relaxed text-gray-800'
-        }
-      default: // spontaneous
-        return {
-          ...baseStyle,
-          badge: 'text-sm px-3 py-2 bg-gray-100 text-gray-600 rounded-full capitalize font-medium',
-          // Spontaneous posts get subtle text styling
-          text: 'text-base leading-relaxed text-gray-700'
-        }
-    }
+  
+  // Standardized styling for all posts
+  const styling = {
+    container: `bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden mb-6`,
+    header: 'p-5 border-b border-gray-100',
+    avatar: 'w-10 h-10',
+    name: 'font-semibold text-base',
+    content: 'p-5',
+    text: 'text-base leading-relaxed font-medium text-gray-900',
+    actions: 'px-5 py-3 border-t border-gray-100',
+    iconSize: 'h-5 w-5',
+    textSize: 'text-sm'
   }
-
-  const styling = getPostStyling()
   const postPrivacyLevel = currentPost.privacyLevel
   const postPrivacyRules = currentPost.privacyRules
   const postSpecificUsers = currentPost.specificUsers
@@ -1038,7 +1011,6 @@ export default function PostCard({
                   <OptimizedPostImage
                     src={getImageUrl(currentPost.imageUrl) || currentPost.imageUrl}
                     alt="Post image"
-                    postType={currentPost.postType}
                     disabled={!isUserAuthenticated}
                   />
                 )}

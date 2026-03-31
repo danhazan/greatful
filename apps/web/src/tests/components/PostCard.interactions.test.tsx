@@ -499,7 +499,6 @@ describe('PostCard Interactions', () => {
   it('should handle different post types with appropriate styling', () => {
     const photoPost = {
       ...mockPost,
-      postType: 'photo' as const,
       imageUrl: 'https://example.com/photo.jpg'
     }
 

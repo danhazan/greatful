@@ -25,7 +25,6 @@ const mockPost = {
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: '2025-01-08T10:00:00Z',
-  postType: 'daily' as const,
   heartsCount: 5,
   reactionsCount: 3,
   isHearted: false,

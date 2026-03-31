@@ -20,7 +20,7 @@ const mockPosts = [
       isFollowing: true
     },
     createdAt: new Date().toISOString(),
-    postType: "daily" as const,
+
     heartsCount: 15,
     isHearted: true,
     reactionsCount: 8,
@@ -52,7 +52,7 @@ const mockPosts = [
       isFollowing: false
     },
     createdAt: new Date(Date.now() - 3600000).toISOString(),
-    postType: "photo" as const,
+
     imageUrl: "/api/placeholder/400/300",
     heartsCount: 3,
     isHearted: false,
@@ -73,7 +73,7 @@ const mockPosts = [
       isFollowing: false
     },
     createdAt: new Date(Date.now() - 7200000).toISOString(),
-    postType: "spontaneous" as const,
+
     heartsCount: 1,
     isHearted: false,
     reactionsCount: 0
@@ -92,7 +92,7 @@ const mockPosts = [
       isFollowing: true
     },
     createdAt: new Date(Date.now() - 10800000).toISOString(),
-    postType: "daily" as const,
+
     heartsCount: 25,
     isHearted: true,
     reactionsCount: 12,
@@ -112,7 +112,7 @@ const mockPosts = [
       isFollowing: false
     },
     createdAt: new Date(Date.now() - 14400000).toISOString(),
-    postType: "daily" as const,
+
     heartsCount: 8,
     isHearted: false,
     reactionsCount: 3,
@@ -132,7 +132,7 @@ const mockPosts = [
       isFollowing: true
     },
     createdAt: new Date(Date.now() - 18000000).toISOString(),
-    postType: "photo" as const,
+
     heartsCount: 5,
     isHearted: true,
     reactionsCount: 2,
@@ -152,7 +152,7 @@ const mockPosts = [
       isFollowing: false
     },
     createdAt: new Date(Date.now() - 21600000).toISOString(),
-    postType: "spontaneous" as const,
+
     heartsCount: 12,
     isHearted: false,
     reactionsCount: 6,

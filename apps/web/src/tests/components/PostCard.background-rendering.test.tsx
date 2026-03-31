@@ -56,7 +56,6 @@ describe('PostCard Background Rendering', () => {
       image: 'https://example.com/avatar.jpg'
     },
     createdAt: '2024-01-01T12:00:00Z',
-    postType: 'daily' as const,
     heartsCount: 5,
     isHearted: false,
     reactionsCount: 3,
@@ -338,37 +337,30 @@ describe('PostCard Background Rendering', () => {
     })
   })
 
-  it('maintains consistent styling across different post types', () => {
+  it('maintains consistent styling with nature-green theme', () => {
     const testStyle = POST_STYLES.find(style => style.id === 'nature-green')!
     
-    const postTypes: Array<'daily' | 'photo' | 'spontaneous'> = ['daily', 'photo', 'spontaneous']
+    const postWithStyle = {
+      ...mockPost,
+      postStyle: testStyle
+    }
+
+    render(
+      <TestWrapper>
+        <PostCard
+          post={postWithStyle}
+          currentUserId="current-user"
+        />
+      </TestWrapper>
+    )
+
+    const richContentContainer = document.querySelector('.rich-content')
+    expect(richContentContainer).toBeInTheDocument()
     
-    postTypes.forEach(postType => {
-      const postWithType = {
-        ...mockPost,
-        postType,
-        postStyle: testStyle
-      }
-
-      const { unmount } = render(
-        <TestWrapper>
-          <PostCard
-            post={postWithType}
-            currentUserId="current-user"
-          />
-        </TestWrapper>
-      )
-
-      const richContentContainer = document.querySelector('.rich-content')
-      expect(richContentContainer).toBeInTheDocument()
-      
-      // Background styles should be consistent regardless of post type
-      expect(richContentContainer).toHaveStyle({
-        backgroundColor: testStyle.backgroundColor,
-        color: testStyle.textColor
-      })
-
-      unmount()
+    // Background styles should be correctly applied
+    expect(richContentContainer).toHaveStyle({
+      backgroundColor: testStyle.backgroundColor,
+      color: testStyle.textColor
     })
   })
 

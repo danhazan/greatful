@@ -60,7 +60,6 @@ describe.skip('PostCard Mention Validation', () => {
       image: 'test-image.jpg'
     },
     createdAt: '2024-01-01T00:00:00Z',
-    postType: 'daily' as const,
     heartsCount: 0,
     isHearted: false,
     reactionsCount: 0

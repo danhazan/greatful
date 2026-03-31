@@ -7,7 +7,7 @@ global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>
 
 import { NextRequest } from 'next/server'
 import { POST, GET } from '@/app/api/posts/route'
-import { describe, it, beforeEach, expect } from '@jest/globals'
+import { describe, it, beforeEach, expect, jest } from '@jest/globals'
 
 describe('/api/posts', () => {
   beforeEach(() => {
@@ -67,7 +67,6 @@ describe('/api/posts', () => {
           profileImageUrl: null
         },
         createdAt: '2025-01-08T12:00:00Z',
-        postType: 'daily',
         imageUrl: null,
         location: null,
         locationData: null,
@@ -103,7 +102,6 @@ describe('/api/posts', () => {
         method: 'POST',
         body: JSON.stringify({
           content: 'Test post',
-          postType: 'daily'
         })
       })
 
@@ -170,7 +168,6 @@ describe('/api/posts', () => {
       expect(data.id).toBe('test-post-id')
       expect(data.content).toBe('')
       expect(data.imageUrl).toBe('http://localhost:8000/uploads/test-image.jpg')
-      expect(data.postType).toBe('photo')
     })
 
     it('maps camelCase request fields to backend snake_case payload', async () => {
@@ -198,7 +195,6 @@ describe('/api/posts', () => {
           postStyle: 'sunset',
           imageUrl: 'https://example.com/test.png',
           locationData: '{"city":"Tel Aviv"}',
-          postTypeOverride: 'daily',
           isPublic: false
         })
       })
@@ -223,38 +219,8 @@ describe('/api/posts', () => {
       )
     })
 
-    it('validates post type override', async () => {
-      // Mock backend response for invalid post type override
-      ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-        ok: false,
-        status: 422,
-        headers: {
-          get: () => 'application/json'
-        },
-        json: async () => ({
-          detail: 'Invalid post type override. Must be one of: daily, photo, spontaneous'
-        })
-      } as Response)
 
-      const request = new NextRequest('http://localhost:3000/api/posts', {
-        method: 'POST',
-        headers: {
-          'authorization': 'Bearer test-token'
-        },
-        body: JSON.stringify({
-          content: 'Test content',
-          postTypeOverride: 'invalid'
-        })
-      })
-
-      const response = await POST(request)
-      const data = await response.json()
-
-      expect(response.status).toBe(422)
-      expect(data.error).toContain('Invalid post type override')
-    })
-
-    it('validates character limits for auto-detected daily posts', async () => {
+    it('validates character limits for posts', async () => {
       // Mock backend response for character limit validation
       ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
         ok: false,
@@ -284,36 +250,6 @@ describe('/api/posts', () => {
       expect(data.error).toContain('Content too long')
     })
 
-    it('validates character limits for post type override', async () => {
-      // Mock backend response for character limit validation with override
-      ;(fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-        ok: false,
-        status: 422,
-        headers: {
-          get: () => 'application/json'
-        },
-        json: async () => ({
-          detail: 'Content too long. Maximum 5000 characters allowed. Current: 5001 characters.'
-        })
-      } as Response)
-
-      const request = new NextRequest('http://localhost:3000/api/posts', {
-        method: 'POST',
-        headers: {
-          'authorization': 'Bearer test-token'
-        },
-        body: JSON.stringify({
-          content: 'a'.repeat(5001), // Exceeds 5000 char limit
-          postTypeOverride: 'spontaneous'
-        })
-      })
-
-      const response = await POST(request)
-      const data = await response.json()
-
-      expect(response.status).toBe(422)
-      expect(data.error).toContain('Content too long')
-    })
 
     it('handles backend errors', async () => {
       ;(fetch as jest.Mock).mockResolvedValueOnce({
@@ -332,7 +268,6 @@ describe('/api/posts', () => {
         },
         body: JSON.stringify({
           content: 'Test content',
-          postType: 'daily'
         })
       })
 
@@ -402,7 +337,6 @@ describe('/api/posts', () => {
           username: 'user1'
         },
         createdAt: '2025-01-08T12:00:00Z',
-        postType: 'daily',
         heartsCount: 5,
         reactionsCount: 3
       })

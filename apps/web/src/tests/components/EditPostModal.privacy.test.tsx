@@ -55,7 +55,6 @@ describe('EditPostModal privacy payload', () => {
         post={{
           id: 'post-1',
           content: 'Hello world',
-          postType: 'daily',
           privacyLevel: 'private',
           privacyRules: [],
           specificUsers: [],

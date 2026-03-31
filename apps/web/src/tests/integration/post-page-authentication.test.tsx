@@ -77,7 +77,6 @@ describe.skip('PostPage Authentication', () => {
                 username: 'testuser'
               },
               createdAt: '2024-01-01T00:00:00Z',
-              postType: 'daily',
               heartsCount: 5,
               reactionsCount: 2,
               isHearted: false
@@ -127,7 +126,6 @@ describe.skip('PostPage Authentication', () => {
                 username: 'testuser'
               },
               createdAt: '2024-01-01T00:00:00Z',
-              postType: 'daily',
               heartsCount: 5,
               reactionsCount: 2,
               isHearted: false
@@ -188,7 +186,6 @@ describe.skip('PostPage Authentication', () => {
               username: 'testuser'
             },
             createdAt: '2024-01-01T00:00:00Z',
-            postType: 'daily',
             heartsCount: 5,
             reactionsCount: 2,
             isHearted: false
@@ -235,7 +232,6 @@ describe.skip('PostPage Authentication', () => {
               username: 'testuser'
             },
             createdAt: '2024-01-01T00:00:00Z',
-            postType: 'daily',
             heartsCount: 5,
             reactionsCount: 2,
             isHearted: false

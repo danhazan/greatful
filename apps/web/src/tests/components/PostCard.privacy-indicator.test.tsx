@@ -30,7 +30,6 @@ const privacyPost = {
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: new Date().toISOString(),
-  postType: 'daily' as const,
   reactionsCount: 1,
   privacyLevel: 'custom' as const,
   privacyRules: ['followers', 'specific_users'],

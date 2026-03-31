@@ -7,7 +7,6 @@ import ImageModal from "./ImageModal"
 interface OptimizedPostImageProps {
   src: string
   alt: string
-  postType: "daily" | "photo" | "spontaneous"
   className?: string
   disabled?: boolean
 }
@@ -21,7 +20,6 @@ interface ImageDimensions {
 export default function OptimizedPostImage({ 
   src, 
   alt, 
-  postType, 
   className = "",
   disabled = false
 }: OptimizedPostImageProps) {
@@ -84,18 +82,9 @@ export default function OptimizedPostImage({
     }
   }
 
-  // Get container styling - use natural image dimensions
+  // Get container styling - standardized
   const getContainerStyling = () => {
-    const baseClasses = `relative rounded-lg overflow-hidden bg-gray-50 w-full ${disabled ? '' : 'cursor-pointer hover:opacity-95'} transition-opacity`
-    
-    switch (postType) {
-      case 'daily':
-        return `${baseClasses} mt-4`
-      case 'photo':
-        return `${baseClasses} mt-4`
-      default: // spontaneous
-        return `${baseClasses} mt-3`
-    }
+    return `relative rounded-lg overflow-hidden bg-gray-50 w-full ${disabled ? '' : 'cursor-pointer hover:opacity-95'} transition-opacity mt-4`
   }
 
   // Get dynamic container style based on image aspect ratio
@@ -107,14 +96,8 @@ export default function OptimizedPostImage({
 
     const { aspectRatio } = imageDimensions
     
-    // Set max heights based on post type to prevent extremely tall images
-    const maxHeights = {
-      daily: 600,    // 600px max for daily posts
-      photo: 500,    // 500px max for photo posts
-      spontaneous: 400 // 400px max for spontaneous posts
-    }
-    
-    const maxHeight = maxHeights[postType]
+    // Standardized max height for all posts (600px)
+    const maxHeight = 600
     
     // Calculate what the height would be at full width
     // Assuming container width is around 500px (typical post width)

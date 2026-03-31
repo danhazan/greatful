@@ -12,7 +12,6 @@ const mockPost = {
     image: undefined,
   },
   createdAt: '2024-01-15T12:00:00Z',
-  postType: 'text' as const,
   heartsCount: 3,
   isHearted: false,
   reactionsCount: 0,

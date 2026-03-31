@@ -36,7 +36,6 @@ const mockPost = {
     image: 'https://example.com/jane-avatar.jpg',
   },
   createdAt: '2025-01-08T18:30:00Z',
-  postType: 'photo' as const,
   imageUrl: 'https://example.com/sunset.jpg',
   location: 'Beach Park',
   heartsCount: 12,

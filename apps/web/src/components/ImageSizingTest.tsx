@@ -7,32 +7,32 @@ const testImages = [
   {
     name: "Very Wide (Panoramic)",
     src: "https://picsum.photos/1200/300", // 4:1 aspect ratio
-    postType: "daily" as const
+
   },
   {
     name: "Very Tall (Portrait)",
     src: "https://picsum.photos/300/1200", // 1:4 aspect ratio
-    postType: "photo" as const
+
   },
   {
     name: "Square",
     src: "https://picsum.photos/600/600", // 1:1 aspect ratio
-    postType: "spontaneous" as const
+
   },
   {
     name: "Small Image",
     src: "https://picsum.photos/200/150", // Small dimensions
-    postType: "daily" as const
+
   },
   {
     name: "Large Image",
     src: "https://picsum.photos/1600/1200", // Large dimensions
-    postType: "photo" as const
+
   },
   {
     name: "Standard Landscape",
     src: "https://picsum.photos/800/600", // 4:3 aspect ratio
-    postType: "spontaneous" as const
+
   }
 ]
 
@@ -50,7 +50,7 @@ export default function ImageSizingTest() {
               {image.name}
             </h3>
             <p className="text-sm text-gray-500">
-              Post Type: {image.postType} | Source: {image.src}
+              Source: {image.src}
             </p>
           </div>
           
@@ -58,7 +58,7 @@ export default function ImageSizingTest() {
             <OptimizedPostImage
               src={image.src}
               alt={`Test image: ${image.name}`}
-              postType={image.postType}
+
             />
           </div>
         </div>

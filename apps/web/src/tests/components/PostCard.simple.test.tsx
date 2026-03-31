@@ -58,7 +58,6 @@ const mockPost = {
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: new Date().toISOString(),
-  postType: 'daily' as const,
   heartsCount: 5,
   isHearted: false,
   reactionsCount: 2,
@@ -202,7 +201,6 @@ describe('PostCard Simple Tests', () => {
     // Test photo post
     rerender(
       <PostCard
-        post={{ ...mockPost, postType: 'photo' }}
         currentUserId="current-user"
       />
     )
@@ -213,7 +211,6 @@ describe('PostCard Simple Tests', () => {
     // Test spontaneous post
     rerender(
       <PostCard
-        post={{ ...mockPost, postType: 'spontaneous' }}
         currentUserId="current-user"
       />
     )

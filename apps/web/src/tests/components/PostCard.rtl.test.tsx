@@ -31,7 +31,6 @@ const mockPost = {
     display_name: "Test User"
   },
   createdAt: new Date().toISOString(),
-  postType: "daily" as const,
   heartsCount: 0,
   isHearted: false,
   reactionsCount: 0
@@ -47,7 +46,6 @@ const mockEnglishPost = {
     display_name: "Test User"
   },
   createdAt: new Date().toISOString(),
-  postType: "daily" as const,
   heartsCount: 0,
   isHearted: false,
   reactionsCount: 0

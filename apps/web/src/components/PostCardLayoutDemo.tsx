@@ -18,7 +18,7 @@ export default function PostCardLayoutDemo() {
       isFollowing: false
     },
     createdAt: new Date().toISOString(),
-    postType: 'daily' as const,
+
     heartsCount: 5,
     isHearted: false,
     reactionsCount: 3,

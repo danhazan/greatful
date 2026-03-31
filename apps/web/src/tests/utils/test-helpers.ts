@@ -137,7 +137,7 @@ export const createTestPost = (overrides: any = {}) => ({
     image: 'https://example.com/author.jpg'
   },
   createdAt: '2024-01-15T10:00:00Z',
-  postType: 'daily' as const,
+
   heartsCount: 5,
   isHearted: false,
   reactionsCount: 3,

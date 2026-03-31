@@ -60,7 +60,6 @@ export interface Post {
     author: Author
     createdAt: string
     updatedAt?: string
-    postType: 'daily' | 'photo' | 'spontaneous'
     imageUrl?: string // Legacy single image URL
     images?: PostImage[]
     location?: string

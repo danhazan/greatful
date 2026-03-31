@@ -1,4 +1,5 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import OptimizedPostImage from '@/components/OptimizedPostImage'
 
 // Mock IntersectionObserver for tests
@@ -24,7 +25,6 @@ describe('OptimizedPostImage', () => {
   const defaultProps = {
     src: 'https://example.com/test-image.jpg',
     alt: 'Test image',
-    postType: 'daily' as const
   }
 
   beforeEach(() => {
@@ -65,33 +65,6 @@ describe('OptimizedPostImage', () => {
     await waitFor(() => {
       expect(screen.getByText('Failed to load image')).toBeInTheDocument()
     })
-  })
-
-  it('should apply correct container classes for daily post type', () => {
-    const { container } = render(
-      <OptimizedPostImage {...defaultProps} postType="daily" />
-    )
-    
-    const imageContainer = container.firstChild as HTMLElement
-    expect(imageContainer).toHaveClass('w-full', 'mt-4')
-  })
-
-  it('should apply correct container classes for photo post type', () => {
-    const { container } = render(
-      <OptimizedPostImage {...defaultProps} postType="photo" />
-    )
-    
-    const imageContainer = container.firstChild as HTMLElement
-    expect(imageContainer).toHaveClass('w-full', 'mt-4')
-  })
-
-  it('should apply correct container classes for spontaneous post type', () => {
-    const { container } = render(
-      <OptimizedPostImage {...defaultProps} postType="spontaneous" />
-    )
-    
-    const imageContainer = container.firstChild as HTMLElement
-    expect(imageContainer).toHaveClass('w-full', 'mt-3')
   })
 
   it('should use object-cover for all images to fill container', async () => {
@@ -163,7 +136,7 @@ describe('OptimizedPostImage', () => {
 
   it('should apply aspect ratio styles based on image dimensions', async () => {
     const { container } = render(
-      <OptimizedPostImage {...defaultProps} postType="daily" />
+      <OptimizedPostImage {...defaultProps} />
     )
     
     const img = screen.getByRole('img', { hidden: true })

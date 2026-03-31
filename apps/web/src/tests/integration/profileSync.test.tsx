@@ -70,7 +70,6 @@ describe('Profile Synchronization Test', () => {
         image: 'original-image.jpg'
       },
       createdAt: '2023-01-01T00:00:00Z',
-      postType: 'spontaneous' as const,
       heartsCount: 0,
       isHearted: false,
       reactionsCount: 0
@@ -115,7 +114,6 @@ describe('Profile Synchronization Test', () => {
         image: 'original-image.jpg'
       },
       createdAt: '2023-01-01T00:00:00Z',
-      postType: 'spontaneous' as const,
       heartsCount: 0,
       isHearted: false,
       reactionsCount: 0

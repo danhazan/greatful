@@ -55,7 +55,6 @@ describe('Background Styles Integration', () => {
       image: 'https://example.com/author.jpg'
     },
     createdAt: '2024-01-01T12:00:00Z',
-    postType: 'daily' as const,
     heartsCount: 10,
     isHearted: false,
     reactionsCount: 5,
