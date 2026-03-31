@@ -188,18 +188,21 @@ class FeedServiceV2(BaseService):
             if debug and post_dict["id"] in debug_data:
                 post_dict["_debug"] = debug_data[post_dict["id"]]
 
-        # Build next cursor from the last post in the returned page
+        # Build next cursor from the logical SQL boundary, not the reordered spaced last item.
+        # This prevents "skipping" high-ranked posts that were pushed down by author spacing.
         next_cursor = None
-        if has_more and posts:
-            last_post = posts[-1]
-            last_created_at = last_post.created_at
+        if has_more and len(candidates) >= page_size:
+            # The boundary is the page_size-th item in the ORIGINAL SQL result
+            boundary_post = candidates[page_size - 1]
+            last_created_at = boundary_post.created_at
             if isinstance(last_created_at, str):
                 last_created_at = datetime.fromisoformat(last_created_at)
+
             next_cursor = self._encode_cursor(
                 query_time=query_time,
-                score=float(last_post._feed_score),
+                score=float(boundary_post._feed_score),
                 created_at=last_created_at,
-                post_id=last_post.id,
+                post_id=boundary_post.id,
             )
 
         response = {"posts": serialized, "nextCursor": next_cursor}
