@@ -16,7 +16,6 @@ class TestContractValidationMiddleware:
         # Test with valid post data - should pass
         valid_post_data = {
             "content": "Valid test content",
-            "post_type": "daily",
             "is_public": True
         }
         
@@ -28,15 +27,13 @@ class TestContractValidationMiddleware:
         # Verify it's a valid post response
         assert "id" in data
         assert "content" in data
-        assert "post_type" in data
 
     async def test_pydantic_validation_errors_handled(self, http_client: AsyncClient, auth_headers):
         """Test that Pydantic validation errors are properly handled by middleware."""
         
         # Test with invalid post type
         invalid_post_data = {
-            "content": "Test content",
-            "post_type_override": "invalid_type",  # Invalid enum value
+            "content": 123,  # Invalid type (integer instead of string)
             "is_public": True
         }
         
@@ -56,7 +53,6 @@ class TestContractValidationMiddleware:
         
         invalid_post_data = {
             "content": long_content,
-            "post_type_override": "daily",
             "is_public": True
         }
         
@@ -103,13 +99,14 @@ class TestContractValidationMiddleware:
         
         data = response.json()
         
-        # The feed returns a list of posts directly
-        assert isinstance(data, list)
+        # The feed returns a wrapped object with 'posts' list
+        assert "posts" in data
+        assert isinstance(data["posts"], list)
         
         # Verify timestamp format in posts if any exist
-        for post in data:
-            if "created_at" in post:
-                timestamp = post["created_at"]
+        for post in data["posts"]:
+            if "createdAt" in post:
+                timestamp = post["createdAt"]
                 assert isinstance(timestamp, str)
                 assert len(timestamp) > 0
 
@@ -156,7 +153,6 @@ class TestContractValidationMiddleware:
         # Create a post to test type consistency
         post_data = {
             "content": "Type safety test",
-            "post_type": "daily",
             "is_public": True
         }
         
@@ -168,11 +164,11 @@ class TestContractValidationMiddleware:
         
         # Verify type consistency in response
         assert isinstance(post_response["id"], str)
-        assert isinstance(post_response["author_id"], int)
+        assert isinstance(post_response["authorId"], int)
         assert isinstance(post_response["content"], str)
-        assert isinstance(post_response["is_public"], bool)
-        assert isinstance(post_response["hearts_count"], int)
-        assert isinstance(post_response["reactions_count"], int)
+        assert isinstance(post_response["isPublic"], bool)
+        assert isinstance(post_response["heartsCount"], int)
+        assert isinstance(post_response["reactionsCount"], int)
 
     async def test_middleware_error_handling(self, http_client: AsyncClient):
         """Test that middleware handles errors gracefully."""

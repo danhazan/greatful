@@ -220,27 +220,23 @@ class ContractValidator:
         
         return id_value
 
-    def validate_content_length(self, content: str, post_type: str, field_name: str = "content") -> str:
+    def validate_content_length(self, content: str, field_name: str = "content") -> str:
         """
-        Validate content length based on post type.
-        
+        Validate content length.
+
         Args:
             content: Content to validate
-            post_type: Type of post (daily, photo, spontaneous)
             field_name: Name of the content field
-            
+
         Returns:
             Validated content
-            
+
         Raises:
             ValidationException: If content is too long
         """
-        # Define max lengths based on post type
-        # Universal character limit for all text posts
-        # Photo posts have no text content limit (image-only)
-        max_length = 5000 if post_type != 'photo' else 0
-        
-        if max_length > 0 and len(content) > max_length:
+        max_length = 5000
+
+        if len(content) > max_length:
             raise ValidationException(
                 message=f"Content too long. Maximum {max_length} characters allowed.",
                 fields={field_name: f"Maximum {max_length} characters allowed"}

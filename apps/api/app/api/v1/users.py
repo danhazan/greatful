@@ -96,7 +96,6 @@ class UserPostResponse(BaseModel):
     id: str
     content: str
     post_style: Optional[dict] = None
-    post_type: str
     image_url: Optional[str] = None
     is_public: bool
     created_at: str

@@ -168,7 +168,6 @@ class TestImageUploadLoad:
             
             data = {
                 'content': f'Load test post {request_id} with image by {test_user.username}',
-                'post_type': 'photo',
                 'is_public': 'true'
             }
             
@@ -452,7 +451,6 @@ class TestImageUploadLoad:
                 
                 data = {
                     'content': f'Mixed upload test post {request_id}',
-                    'post_type': 'photo',
                     'is_public': 'true'
                 }
                 

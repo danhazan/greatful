@@ -177,44 +177,39 @@ def validate_id_param(param_name: str = "id"):
     return decorator
 
 
-def validate_content_length(post_type_param: str = "post_type", content_param: str = "content"):
+def validate_content_length(content_param: str = "content"):
     """
-    Decorator to validate content length based on post type.
-    
+    Decorator to validate content length.
+
     Args:
-        post_type_param: Name of the post type parameter
         content_param: Name of the content parameter
     """
     def decorator(func: F) -> F:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            # Look for post_type and content in kwargs or in request body
-            post_type = kwargs.get(post_type_param)
             content = kwargs.get(content_param)
-            
+
             # If not in kwargs, look in request body objects
-            if not post_type or not content:
+            if not content:
                 for key, value in kwargs.items():
                     if isinstance(value, dict):
-                        post_type = post_type or value.get(post_type_param)
                         content = content or value.get(content_param)
-                    elif hasattr(value, post_type_param) and hasattr(value, content_param):
-                        post_type = post_type or getattr(value, post_type_param)
+                    elif hasattr(value, content_param):
                         content = content or getattr(value, content_param)
-            
-            if post_type and content:
+
+            if content:
                 try:
-                    contract_validator.validate_content_length(content, post_type, content_param)
-                    
+                    contract_validator.validate_content_length(content, content_param)
+
                 except ValidationException as e:
                     logger.warning(f"Content length validation failed in {func.__name__}: {e}")
                     raise HTTPException(
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail=e.detail
                     )
-            
+
             return await func(*args, **kwargs)
-        
+
         return wrapper
     return decorator
 

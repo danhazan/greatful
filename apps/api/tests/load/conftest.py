@@ -22,7 +22,7 @@ from sqlalchemy import text
 
 from app.core.database import get_db
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.models.emoji_reaction import EmojiReaction
 from app.models.share import Share
 from app.models.follow import Follow
@@ -183,9 +183,7 @@ class LoadTestDataGenerator:
                     post_age_hours = random.randint(1, 168)  # 1 hour to 1 week old
                     created_at = datetime.now(timezone.utc) - timedelta(hours=post_age_hours)
                     
-                    post_types = [PostType.daily, PostType.photo, PostType.spontaneous]
-                    post_type = random.choice(post_types)
-                    
+
                     content_length = random.randint(50, 500)
                     content = f"Load test post content for user {user.username}. " * (content_length // 50)
                     content = content[:content_length]
@@ -193,7 +191,6 @@ class LoadTestDataGenerator:
                     post = Post(
                         author_id=user.id,
                         content=content,
-                        post_type=post_type,
                         is_public=True,
                         created_at=created_at,
                         hearts_count=0,
@@ -462,7 +459,6 @@ async def large_dataset(load_test_session):
             post = Post(
                 author_id=user.id,
                 content=f"Load test post content for user {user.username}. Post number {j}.",
-                post_type=PostType.spontaneous,
                 is_public=True,
                 created_at=datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 24)),
                 hearts_count=0,

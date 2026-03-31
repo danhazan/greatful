@@ -205,14 +205,12 @@ async def test_different_post_notifications_separate_batches(
     post1 = Post(
         id="post-1",
         author_id=test_user.id,
-        content="First post",
-        post_type="spontaneous"
+        content="First post"
     )
     post2 = Post(
         id="post-2", 
         author_id=test_user.id,
-        content="Second post",
-        post_type="spontaneous"
+        content="Second post"
     )
     db_session.add_all([post1, post2])
     await db_session.commit()

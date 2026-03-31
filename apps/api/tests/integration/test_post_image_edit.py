@@ -42,7 +42,7 @@ class TestPostImageEdit:
         assert response.status_code == 200
         
         data = response.json()
-        assert data["image_url"] == "/uploads/posts/new-image.jpg"
+        assert data["imageUrl"] == "/uploads/posts/new-image.jpg"
         assert data["content"] == "Original content without image"  # Content unchanged
     
     async def test_edit_post_update_image(self, async_client: AsyncClient, test_user: User, auth_headers: dict, db_session: AsyncSession):
@@ -66,7 +66,7 @@ class TestPostImageEdit:
         assert response.status_code == 200
         
         data = response.json()
-        assert data["image_url"] == "/uploads/posts/new-image.jpg"
+        assert data["imageUrl"] == "/uploads/posts/new-image.jpg"
         assert data["content"] == "Content with image"  # Content unchanged
     
     async def test_edit_post_remove_image(self, async_client: AsyncClient, test_user: User, auth_headers: dict, db_session: AsyncSession):
@@ -90,35 +90,10 @@ class TestPostImageEdit:
         assert response.status_code == 200
         
         data = response.json()
-        assert data["image_url"] is None
+        assert data["imageUrl"] is None
         assert data["content"] == "Content with image to be removed"  # Content unchanged
     
-    async def test_edit_post_image_affects_post_type(self, async_client: AsyncClient, test_user: User, auth_headers: dict, db_session: AsyncSession):
-        """Test that adding/removing images affects post type analysis."""
-        # Create a text-only post
-        post = Post(
-            id="test-post-id-4",
-            author_id=test_user.id,
-            content="Short text",  # Would be spontaneous without image
-            image_url=None,
-            post_type="spontaneous"
-        )
-        db_session.add(post)
-        await db_session.commit()
-        
-        # Add an image - should change to photo type
-        update_data = {
-            "image_url": "posts/new-image.jpg"
-        }
-        
-        response = await async_client.put(f"/api/v1/posts/{post.id}", json=update_data, headers=auth_headers)
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert data["image_url"] == "/uploads/posts/new-image.jpg"
-        # Post type should be re-analyzed based on content + image
-        # Short text + image typically becomes "photo" type
-        assert data["post_type"] in ["photo", "daily"]  # Could be either depending on analysis
+
     
     async def test_edit_post_content_and_image_together(self, async_client: AsyncClient, test_user: User, auth_headers: dict, db_session: AsyncSession):
         """Test updating both content and image in the same request."""
@@ -143,9 +118,8 @@ class TestPostImageEdit:
         
         data = response.json()
         assert data["content"] == "Updated content with new image"
-        assert data["image_url"] == "/uploads/posts/new-image.jpg"
-        # Post type should be re-analyzed based on new content + new image
-        assert data["post_type"] in ["daily", "photo", "spontaneous"]
+        assert data["imageUrl"] == "/uploads/posts/new-image.jpg"
+
 
     async def test_edit_post_serializes_author_profile_image(self, async_client: AsyncClient, test_user: User, auth_headers: dict, db_session: AsyncSession):
         """Test edited post response serializes author profile image URL."""
@@ -166,4 +140,4 @@ class TestPostImageEdit:
         )
         assert response.status_code == 200
         data = response.json()
-        _assert_serialized_image_url(data["author"].get("profile_image_url"))
+        _assert_serialized_image_url(data["author"].get("profileImageUrl"))

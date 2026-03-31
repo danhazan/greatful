@@ -8,7 +8,7 @@ import pytest
 import pytest_asyncio
 from datetime import datetime, timedelta, timezone
 
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.models.emoji_reaction import EmojiReaction
 from app.models.follow import Follow
 from app.models.user import User
@@ -69,7 +69,6 @@ async def _create_post(db_session, author, content="Grateful", age_hours=0, **kw
         id=str(uuid.uuid4()),
         author_id=author.id,
         content=content,
-        post_type=kwargs.pop("post_type", PostType.daily),
         is_public=kwargs.pop("is_public", True),
         privacy_level=kwargs.pop("privacy_level", "public"),
         created_at=created_at,

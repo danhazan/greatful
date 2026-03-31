@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from unittest.mock import patch, AsyncMock
 
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.models.share import Share
 from app.models.notification import Notification
 from app.services.notification_service import NotificationService
@@ -71,7 +71,6 @@ class TestShareWorkflows:
         post = Post(
             author_id=test_users['author'].id,
             content="Amazing gratitude post about testing workflows!",
-            post_type=PostType.daily,
             is_public=True
         )
         db_session.add(post)
@@ -266,8 +265,7 @@ class TestShareWorkflows:
         private_post = Post(
             author_id=test_users['author'].id,
             content="Private gratitude post",
-            post_type=PostType.daily,
-            is_public=False  # Private post
+            privacy_level="private"  # Private post
         )
         db_session.add(private_post)
         await db_session.commit()
@@ -358,12 +356,11 @@ class TestShareWorkflows:
         # Test nonexistent recipient (should handle gracefully)
         # Use an existing post for this test
         existing_post = test_users['author']  # We'll create a simple post
-        from app.models.post import Post, PostType
+        from app.models.post import Post
         
         test_post_for_recipient = Post(
             author_id=test_users['author'].id,
             content="Test post for nonexistent recipient",
-            post_type=PostType.daily,
             is_public=True
         )
         

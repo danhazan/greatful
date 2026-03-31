@@ -9,7 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,6 @@ class TestProductionShareDebug:
         post = Post(
             author_id=test_user.id,
             content="Test gratitude post for production debugging",
-            post_type=PostType.daily,
             is_public=True
         )
         db_session.add(post)

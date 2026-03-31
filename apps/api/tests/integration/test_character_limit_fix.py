@@ -37,7 +37,6 @@ class TestCharacterLimitFix:
         
         post_data = {
             "content": long_content,
-            "post_type_override": "spontaneous",  # Explicitly set as spontaneous
             "is_public": True
         }
 
@@ -47,7 +46,6 @@ class TestCharacterLimitFix:
         assert response.status_code == 201
         response_data = response.json()
         assert response_data["content"] == long_content
-        assert response_data["post_type"] == "spontaneous"
 
     @pytest.mark.asyncio
     async def test_universal_5000_character_limit_enforced(self, client: Client, db_session: AsyncSession):
@@ -71,7 +69,6 @@ class TestCharacterLimitFix:
         
         post_data = {
             "content": very_long_content,
-            "post_type_override": "spontaneous",
             "is_public": True
         }
 
@@ -105,7 +102,6 @@ class TestCharacterLimitFix:
         
         post_data = {
             "content": long_content,
-            "post_type_override": "daily",
             "is_public": True
         }
 
@@ -115,55 +111,3 @@ class TestCharacterLimitFix:
         assert response.status_code == 201
         response_data = response.json()
         assert response_data["content"] == long_content
-        assert response_data["post_type"] == "daily"
-
-    @pytest.mark.asyncio
-    async def test_auto_detection_still_works(self, client: Client, db_session: AsyncSession):
-        """Test that automatic post type detection still works with new limits."""
-        # Create test user
-        user = User(
-            email="test4@example.com",
-            username="testuser4",
-            hashed_password="hashed_password"
-        )
-        db_session.add(user)
-        await db_session.commit()
-        await db_session.refresh(user)
-
-        # Create access token
-        token = create_access_token({"sub": str(user.id)})
-        headers = {"Authorization": f"Bearer {token}"}
-
-        # Test short content (should be detected as spontaneous)
-        short_content = "Grateful for coffee this morning!"
-        
-        post_data = {
-            "content": short_content,
-            "is_public": True
-            # No post_type_override - let it auto-detect
-        }
-
-        response = client.post("/api/v1/posts", json=post_data, headers=headers)
-        
-        # Should succeed and be detected as spontaneous
-        assert response.status_code == 201
-        response_data = response.json()
-        assert response_data["content"] == short_content
-        assert response_data["post_type"] == "spontaneous"
-
-        # Test longer content (should be detected as daily)
-        long_content = "Today I'm incredibly grateful for the opportunity to spend time with my family and friends. We had such a wonderful time together, sharing stories and creating memories that will last a lifetime."
-        
-        post_data = {
-            "content": long_content,
-            "is_public": True
-            # No post_type_override - let it auto-detect
-        }
-
-        response = client.post("/api/v1/posts", json=post_data, headers=headers)
-        
-        # Should succeed and be detected as daily
-        assert response.status_code == 201
-        response_data = response.json()
-        assert response_data["content"] == long_content
-        assert response_data["post_type"] == "daily"

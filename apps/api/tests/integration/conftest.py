@@ -44,7 +44,7 @@ async def test_user_and_post(setup_test_database):
     
     async with TestSessionLocal() as session:
         from app.models.user import User
-        from app.models.post import Post, PostType
+        from app.models.post import Post
         from app.core.security import create_access_token, get_password_hash
         import uuid
         
@@ -63,7 +63,6 @@ async def test_user_and_post(setup_test_database):
             id=str(uuid.uuid4()),
             author_id=user.id,
             content="I'm grateful for testing!",
-            post_type=PostType.daily,
             is_public=True
         )
         session.add(post)

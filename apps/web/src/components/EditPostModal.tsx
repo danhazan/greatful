@@ -51,7 +51,6 @@ interface Post {
   locationData?: LocationResult
   imageUrl?: string  // Legacy single image
   images?: PostImage[]  // Multi-image support
-  postType: "daily" | "photo" | "spontaneous"
   createdAt?: string
   privacyLevel?: 'public' | 'private' | 'custom'
   privacyRules?: string[]
@@ -74,33 +73,8 @@ interface EditPostModalProps {
   }) => void
 }
 
-// Character limits for automatic type detection
-const CHARACTER_LIMITS = {
-  daily: 5000,      // Universal limit for all text posts
-  photo: 0,         // image-only
-  spontaneous: 5000 // Same limit as daily posts - no artificial restriction
-}
-
-// DEPRECATED: Post type classification is no longer exposed in the UI.
-// It is still used internally for feed ranking and character limit validation.
-// Do not remove without coordinating backend + data migration.
-const POST_TYPE_INFO = {
-  daily: {
-    name: 'Daily Gratitude',
-    description: 'Longer reflective content',
-    prominence: '3x larger display'
-  },
-  photo: {
-    name: 'Photo Gratitude',
-    description: 'Image with caption',
-    prominence: '2x boost display'
-  },
-  spontaneous: {
-    name: 'Spontaneous Text',
-    description: 'Quick appreciation note',
-    prominence: 'Compact display'
-  }
-}
+// Universal character limit for posts
+const MAX_CHARS = 5000
 
 const DEFAULT_EDITOR_MAX_HEIGHT = 300
 const MIN_EDITOR_MAX_HEIGHT = 140
@@ -175,24 +149,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     setSpecificUsers,
   } = usePostPrivacyState(initialPrivacy)
 
-  // BEFORE: analyzeContent returned {type, limit} and UI used limit to enforce input. 
-  // AFTER: analyzeContent returns predicted type only (for display), and we compute maxChars separately.
-  const analyzeContent = (content: string, hasImage: boolean) => {
-    const trimmed = content.trim()
-    const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
 
-    if (hasImage && wordCount === 0) {
-      return { type: 'photo' as const } // image only
-    }
-
-    // Predicted spontaneous if very short; this is only a UI hint
-    if (!hasImage && wordCount < 20) {
-      return { type: 'spontaneous' as const }
-    }
-
-    // Otherwise predicted as daily (longer text)
-    return { type: 'daily' as const }
-  }
 
   const hasImage = Boolean(postData.imageUrl) || Boolean(post.images && post.images.length > 0)
 
@@ -208,12 +165,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
   const trimmed = contentForAnalysis.trim()
   const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
 
-  // predicted type only for display
-  const predicted = analyzeContent(contentForAnalysis, hasImage)
-
-  // Input max: photo-only -> 0, else text -> 5000
-  const maxChars = (hasImage && wordCount === 0) ? CHARACTER_LIMITS.photo : CHARACTER_LIMITS.daily
-  const currentPostTypeInfo = POST_TYPE_INFO[predicted.type]
+  const maxChars = MAX_CHARS
 
   // IMPORTANT: We explicitly control scroll via scrollTo({ top: 0 }) on focus/toggle.
   // Avoid adding new scrollIntoView calls in this modal or editor,
@@ -461,7 +413,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     }
 
     if (finalPlainText.length > maxChars) {
-      setError(`Content is too long. Maximum ${maxChars} characters for ${currentPostTypeInfo.name}`)
+      setError(`Content is too long. Maximum ${maxChars} characters.`)
       return
     }
 

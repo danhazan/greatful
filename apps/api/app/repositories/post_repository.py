@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func, desc, text, and_, or_
 from app.core.repository_base import BaseRepository
 from app.core.storage import storage  # ← ADDED: Import storage adapter
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.models.user import User
 
 
@@ -77,24 +77,18 @@ class PostRepository(BaseRepository):
         self, 
         limit: int = 20, 
         offset: int = 0,
-        post_types: Optional[List[PostType]] = None
     ) -> List[Post]:
         """
-        Get public posts for feed with optional type filtering.
-        
+        Get public posts for feed.
+
         Args:
             limit: Maximum number of posts
             offset: Number of posts to skip
-            post_types: Optional list of post types to filter by
-            
+
         Returns:
             List[Post]: List of public posts
         """
         builder = self.query().filter(self._is_public_condition())
-        
-        if post_types:
-            builder = builder.filter(Post.post_type.in_(post_types))
-        
         builder = builder.order_by(desc(Post.created_at)).limit(limit).offset(offset)
         
         query = builder.build()
@@ -157,7 +151,6 @@ class PostRepository(BaseRepository):
                        p.author_id,
                        p.content,
                        p.post_style,
-                       p.post_type,
                        p.image_url,
                        p.location,
                        p.location_data,
@@ -246,7 +239,6 @@ class PostRepository(BaseRepository):
                     "author_id": row.author_id,
                     "content": row.content,
                     "post_style": post_style_data,
-                    "post_type": row.post_type,
                     "image_url": image_url,  # ← Full URL now!
                     "images": [],  # Will be populated below with full URLs
                     "location": row.location,
@@ -332,28 +324,6 @@ class PostRepository(BaseRepository):
         except Exception as e:
             logger.error(f"Error in get_posts_with_engagement: {e}")
             raise
-    
-    async def get_posts_by_type(
-        self, 
-        post_type: PostType, 
-        limit: int = 20,
-        offset: int = 0
-    ) -> List[Post]:
-        """
-        Get posts filtered by type.
-        
-        Args:
-            post_type: Type of posts to retrieve
-            limit: Maximum number of posts
-            offset: Number of posts to skip
-            
-        Returns:
-            List[Post]: List of posts of the specified type
-        """
-        return await self.find_all(
-            filters={"post_type": post_type, "is_public": True},
-            order_by=desc(Post.created_at)
-        )
     
     async def search_posts(
         self, 
@@ -456,7 +426,6 @@ class PostRepository(BaseRepository):
             SELECT 
                 p.id,
                 p.content,
-                p.post_type,
                 p.image_url,
                 p.created_at,
                 u.username as author_username,
@@ -469,7 +438,7 @@ class PostRepository(BaseRepository):
                 AND er.created_at >= NOW() - INTERVAL :hours HOUR
             WHERE p.is_public = true
                 AND p.created_at >= NOW() - INTERVAL :hours HOUR
-            GROUP BY p.id, p.content, p.post_type, p.image_url, p.created_at, u.username
+            GROUP BY p.id, p.content, p.image_url, p.created_at, u.username
             HAVING engagement_score > 0
             ORDER BY engagement_score DESC, p.created_at DESC
             LIMIT :limit
@@ -488,7 +457,6 @@ class PostRepository(BaseRepository):
             trending_posts.append({
                 "id": row.id,
                 "content": row.content,
-                "post_type": row.post_type,
                 "image_url": image_url,  # ← Full URL now!
                 "created_at": str(row.created_at),
                 "author_username": row.author_username,
@@ -770,7 +738,6 @@ class PostRepository(BaseRepository):
                 "content": post.content,
                 "rich_content": post.rich_content,
                 "post_style": post_style_data,
-                "post_type": post.post_type.value if hasattr(post.post_type, 'value') else post.post_type,
                 "image_url": image_url,
                 "images": images_by_post.get(post.id, []),
                 "location": post.location,
@@ -782,7 +749,6 @@ class PostRepository(BaseRepository):
                 "hearts_count": hearts_count,
                 "reactions_count": reactions_count,
                 "comments_count": comments_count,
-                "comment_count": comments_count,
                 "comments": [],
                 "current_user_reaction": user_reactions.get(post.id),
                 "is_hearted": post.id in user_hearts,

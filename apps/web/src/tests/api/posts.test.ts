@@ -22,7 +22,6 @@ describe('/api/posts', () => {
         content: 'Test gratitude post',
         rich_content: null,
         post_style: null,
-        post_type: 'daily',
         author: {
           id: 1,
           username: 'testuser',
@@ -93,7 +92,6 @@ describe('/api/posts', () => {
             image_url: null,
             location: null,
             location_data: null,
-            post_type_override: null, // No override - let backend classify
             is_public: true
           })
         }
@@ -147,7 +145,6 @@ describe('/api/posts', () => {
             email: 'test@example.com'
           },
           created_at: '2023-01-01T00:00:00Z',
-          post_type: 'photo',
           image_url: 'http://localhost:8000/uploads/test-image.jpg',
           hearts_count: 0,
           reactions_count: 0
@@ -183,7 +180,6 @@ describe('/api/posts', () => {
         json: async () => ({
           id: 'post-camel-123',
           content: 'camel payload',
-          post_type: 'daily',
           author: { id: 1, username: 'testuser', profile_image_url: null },
           created_at: '2025-01-08T12:00:00Z',
           image_url: 'https://example.com/test.png'
@@ -221,7 +217,6 @@ describe('/api/posts', () => {
             image_url: 'https://example.com/test.png',
             location: null,
             location_data: '{"city":"Tel Aviv"}',
-            post_type_override: 'daily',
             is_public: false
           })
         })
@@ -356,7 +351,6 @@ describe('/api/posts', () => {
           {
             id: 'post-1',
             content: 'First post',
-            post_type: 'daily',
             author: {
               id: 1,
               username: 'user1',
@@ -369,7 +363,6 @@ describe('/api/posts', () => {
           {
             id: 'post-2',
             content: 'Second post',
-            post_type: 'photo',
             author: {
               id: 2,
               username: 'user2',

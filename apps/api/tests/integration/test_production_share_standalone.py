@@ -31,7 +31,7 @@ class TestProductionShareStandalone:
             
             # Import test dependencies
             from app.models.user import User
-            from app.models.post import Post, PostType
+            from app.models.post import Post
             from app.core.security import create_access_token
             
             logger.info("Starting production environment share test...")
@@ -50,7 +50,6 @@ class TestProductionShareStandalone:
             test_post = Post(
                 author_id=test_user.id,
                 content="Test post for production share testing",
-                post_type=PostType.daily,
                 is_public=True
             )
             db_session.add(test_post)

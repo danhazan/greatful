@@ -45,8 +45,7 @@ class TestHeartsProfileImages:
         post = Post(
             id=str(uuid.uuid4()),
             content="Test post for hearts",
-            author_id=user1.id,
-            post_type="spontaneous"
+            author_id=user1.id
         )
         db_session.add(post)
         await db_session.commit()
@@ -102,6 +101,6 @@ class TestHeartsProfileImages:
         
         source = inspect.getsource(get_hearts_users)
         
-        # Verify that the API now returns profile_image_url instead of None
-        assert "heart.user.profile_image_url" in source
-        assert '"userImage": None' not in source
+        # Verify that the API now returns heart reactions filtered from all reactions
+        assert "reaction_service.get_post_reactions" in source
+        assert "heart_reactions = [r for r in all_reactions if r.get('emoji_code') == 'heart']" in source

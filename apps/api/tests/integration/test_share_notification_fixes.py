@@ -48,8 +48,7 @@ class TestShareNotificationFixes:
         post = Post(
             id="test-post-123",
             content="Test post for sharing",
-            author_id=post_author.id,
-            post_type="spontaneous"
+            author_id=post_author.id
         )
         db_session.add(post)
         await db_session.commit()

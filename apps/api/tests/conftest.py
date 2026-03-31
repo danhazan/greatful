@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.database import Base, get_db
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.core.security import create_access_token, get_password_hash
 from main import app
 import uuid
@@ -217,7 +217,6 @@ async def test_post(db_session, test_user):
         id=str(uuid.uuid4()),
         author_id=test_user.id,
         content="I'm grateful for testing!",
-        post_type=PostType.daily,
         is_public=True
     )
     db_session.add(post)
@@ -261,7 +260,6 @@ class TestDataFactory:
         """Create post data for testing."""
         data = {
             "content": "I'm grateful for this test!",
-            "post_type": "daily",
             "is_public": True
         }
         data.update(overrides)
@@ -288,7 +286,6 @@ async def test_post_dict(http_client, auth_headers):
     """Create a test post and return it as a dictionary."""
     post_data = {
         "content": "Test gratitude post for contract testing",
-        "post_type": "daily",
         "title": "Test Post",
         "is_public": True
     }

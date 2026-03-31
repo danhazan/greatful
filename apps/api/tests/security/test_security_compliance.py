@@ -82,8 +82,7 @@ class TestSQLInjectionPrevention:
             response = client_with_scenario_mocks.post(
                 "/api/v1/posts",
                 json={
-                    "content": payload,
-                    "post_type": "spontaneous"
+                    "content": payload
                 },
                 headers=auth_headers
             )
@@ -146,8 +145,7 @@ class TestXSSPrevention:
             response = client.post(
                 "/api/v1/posts",
                 json={
-                    "content": payload,
-                    "post_type": "spontaneous"
+                    "content": payload
                 },
                 headers=auth_headers
             )
@@ -224,7 +222,7 @@ class TestCSRFProtection:
         """Test that state-changing operations require authentication."""
         # Test POST operations without authentication
         endpoints_to_test = [
-            ("/api/v1/posts", {"content": "test", "post_type": "spontaneous"}),
+            ("/api/v1/posts", {"content": "test"}),
             ("/api/v1/posts/123/reactions", {"emoji": "heart_eyes"}),
             ("/api/v1/posts/123/share", {"method": "url"}),
             ("/api/v1/follows/123", {}),
@@ -694,8 +692,7 @@ class TestDataPrivacyCompliance:
         response = client.post(
             "/api/v1/posts",
             json={
-                "content": "This is a test post",
-                "post_type": "spontaneous"
+                "content": "This is a test post"
             },
             headers=auth_headers
         )
@@ -737,7 +734,7 @@ class TestDataPrivacyCompliance:
         test_cases = [
             ("POST", "/api/v1/auth/login", {"username": "test", "password": "wrong"}),
             ("GET", "/api/v1/users/999999/profile", {}),
-            ("POST", "/api/v1/posts", {"content": "", "post_type": "invalid"}),
+            ("POST", "/api/v1/posts", {"content": ""}),
         ]
         
         for method, endpoint, data in test_cases:
@@ -845,8 +842,7 @@ class TestPenetrationTesting:
             response = client.post(
                 "/api/v1/posts",
                 json={
-                    "content": payload,
-                    "post_type": "spontaneous"
+                    "content": payload
                 },
                 headers=auth_headers
             )
@@ -883,7 +879,7 @@ class TestPenetrationTesting:
         """Test HTTP method tampering prevention."""
         # Try to use POST data with GET request
         response = client.get(
-            "/api/v1/posts?content=test&post_type=spontaneous",
+            "/api/v1/posts?content=test",
             headers=auth_headers
         )
         
@@ -893,8 +889,7 @@ class TestPenetrationTesting:
         # Try method override headers
         override_headers = {**auth_headers, "X-HTTP-Method-Override": "DELETE"}
         response = client.post("/api/v1/posts", headers=override_headers, json={
-            "content": "test",
-            "post_type": "spontaneous"
+            "content": "test"
         })
         
         # Should not honor method override for security-sensitive operations

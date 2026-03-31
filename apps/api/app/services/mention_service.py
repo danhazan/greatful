@@ -295,7 +295,6 @@ class MentionService(BaseService):
                 "post": {
                     "id": mention.post.id,
                     "content": mention.post.content[:100] + "..." if len(mention.post.content) > 100 else mention.post.content,
-                    "post_type": mention.post.post_type,
                     "created_at": mention.post.created_at.isoformat()
                 }
             }

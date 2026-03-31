@@ -331,7 +331,7 @@ class TestRuntimeSecurityValidation:
                     # Test in post creation with timeout protection
                     response = client.post(
                         "/api/v1/posts",
-                        json={"content": malicious_input, "post_type": "spontaneous"},
+                        json={"content": malicious_input},
                         headers=auth_headers,
                         timeout=5.0  # 5 second timeout
                     )

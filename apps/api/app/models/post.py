@@ -2,18 +2,12 @@
 Post model for gratitude posts.
 """
 
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, ForeignKey, Enum, JSON
+from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
 import enum
 import uuid
-
-class PostType(str, enum.Enum):
-    daily = "daily"
-    photo = "photo"
-    spontaneous = "spontaneous"
 
 
 class PostPrivacyLevel(str, enum.Enum):
@@ -30,7 +24,6 @@ class Post(Base):
     content = Column(Text, nullable=False)
     rich_content = Column(Text, nullable=True)  # HTML formatted content
     post_style = Column(JSON, nullable=True)  # Post styling information
-    post_type = Column(Enum(PostType, name="posttype", schema="public"), default=PostType.daily, nullable=False)
     image_url = Column(String, nullable=True)
     location = Column(String, nullable=True)  # Keep for backward compatibility
     location_data = Column(JSON, nullable=True)  # New structured location data (JSON for SQLite compatibility)
@@ -54,7 +47,7 @@ class Post(Base):
     comments_count = Column(Integer, nullable=False, server_default="0")
 
     def __repr__(self):
-        return f"<Post(id={self.id}, author_id={self.author_id}, type={self.post_type})>" 
+        return f"<Post(id={self.id}, author_id={self.author_id})>" 
 
     # Relationships
     author = relationship("User", back_populates="posts")

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.share import Share, ShareMethod
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.services.share_service import ShareService
 from app.repositories.share_repository import ShareRepository
 from app.core.exceptions import ValidationException, BusinessLogicError, NotFoundError
@@ -99,8 +99,7 @@ class TestShareRepository:
         """Create a test post."""
         post = Post(
             author_id=test_user.id,
-            content="Test gratitude post",
-            post_type=PostType.daily
+            content="Test gratitude post"
         )
         db_session.add(post)
         await db_session.commit()
@@ -269,7 +268,6 @@ class TestShareService:
         post = Post(
             author_id=test_user.id,
             content="Test gratitude post for sharing",
-            post_type=PostType.daily,
             is_public=True
         )
         db_session.add(post)

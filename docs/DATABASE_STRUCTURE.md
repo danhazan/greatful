@@ -83,7 +83,6 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `content` | Text | Not Null | Post content (plain text) |
 | `rich_content` | Text | Nullable | HTML formatted content for rich text display |
 | `post_style` | JSON | Nullable | Post styling information (colors, fonts, etc.) |
-| `post_type` | Enum | Not Null, Default: 'daily' | Type: daily, photo, spontaneous |
 | `image_url` | String | Nullable | Image URL for photo posts |
 | `location` | String | Nullable | Location string (backward compatibility) |
 | `location_data` | JSON | Nullable | Structured location data with coordinates |
@@ -94,11 +93,6 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `hearts_count` | Integer | Not Null, Default: 0 | Cached count of hearts/likes |
 | `reactions_count` | Integer | Not Null, Default: 0 | Cached count of emoji reactions |
 | `shares_count` | Integer | Not Null, Default: 0 | Cached count of shares |
-
-**Post Types:**
-- `daily` - Daily gratitude posts (3x styling)
-- `photo` - Photo gratitude posts (2x styling)
-- `spontaneous` - Spontaneous text posts (compact styling)
 
 **Enhanced Content Fields:**
 
@@ -436,7 +430,6 @@ BATCH_CONFIGS = {
 
 ### Check Constraints
 - Users cannot follow themselves
-- Post types must be valid enum values
 - Notification priorities must be valid enum values
 
 ## Mention System Implementation

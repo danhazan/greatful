@@ -46,7 +46,7 @@ class TestMentionNotificationHtmlStripping:
             author_id=author.id,
             content="Thanks @mentioned_user for the amazing work on the project!",  # Plain text version
             rich_content=html_content,  # HTML version
-            post_type="daily"
+            
         )
         
         db_session.add(post)
@@ -115,8 +115,7 @@ class TestMentionNotificationHtmlStripping:
             id="test-post-456",
             author_id=author.id,
             content="@mentioned2 check this <code> example & \"quotes\"",
-            rich_content=html_content,
-            post_type="daily"
+            rich_content=html_content
         )
         
         db_session.add(post)

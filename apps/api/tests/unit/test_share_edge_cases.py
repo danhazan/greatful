@@ -9,7 +9,7 @@ from unittest.mock import patch, AsyncMock
 
 from app.models.share import Share, ShareMethod
 from app.models.user import User
-from app.models.post import Post, PostType
+from app.models.post import Post
 from app.services.share_service import ShareService
 from app.repositories.share_repository import ShareRepository
 from app.core.exceptions import ValidationException, BusinessLogicError, NotFoundError
@@ -55,7 +55,6 @@ class TestShareEdgeCases:
             post = Post(
                 author_id=user.id,
                 content=f"Test gratitude post {i}",
-                post_type=PostType.daily,
                 is_public=True
             )
             db_session.add(post)
@@ -329,7 +328,6 @@ class TestShareEdgeCases:
         private_post = Post(
             author_id=user.id,
             content="Private post",
-            post_type=PostType.daily,
             is_public=False
         )
         db_session.add(private_post)
