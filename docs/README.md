@@ -6,6 +6,7 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 
 ### 🏗️ Architecture & Setup
 - **[Architecture and Setup Guide](ARCHITECTURE_AND_SETUP.md)** - Technical setup guide and project structure
+- **[Feed System & Ranking Algorithm](FEED_SYSTEM.md)** - New SQL-based feed scoring and architecture
 - **[Configuration Files](CONFIGURATION_FILES.md)** - Environment variables and configuration management
 - **[Authentication and Password Management](AUTHENTICATION_AND_PASSWORD_MANAGEMENT.md)** - Complete authentication system, password management, and OAuth documentation
 

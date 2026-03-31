@@ -1247,53 +1247,51 @@ Content-Type: multipart/form-data
 
 #### Enhanced Feed Algorithm API
 
-**Get Personalized Feed with Algorithm**
+**Get Personalized Feed (v2)**
 ```http
-GET /api/v1/posts/feed?algorithm=true&limit=20&offset=0&refresh=false
+GET /api/v1/posts/feed?cursor=eyJxd...&page_size=20
 Authorization: Bearer <token>
+X-Feed-Debug: true  # Optional: Returns _debug info for each post
 ```
 
 **Query Parameters:**
-- `algorithm` (boolean, default: true): Enable/disable algorithm ranking
-- `limit` (integer, 1-100, default: 20): Number of posts to return
-- `offset` (integer, default: 0): Pagination offset
-- `refresh` (boolean, default: false): Prioritize unread posts for refresh
+- `cursor` (string, optional): Base64 encoded JSON cursor for pagination.
+- `page_size` (integer, 1-50, default: 10): Number of posts to return.
 
-**Response with Algorithm Scoring:**
+**Response (Standardized camelCase):**
 ```json
 {
-  "success": true,
-  "data": [
+  "posts": [
     {
       "id": "post-uuid-123",
+      "authorId": 1,
       "content": "Grateful for this beautiful morning...",
       "author": {
         "id": 1,
         "username": "alice",
-        "display_name": "Alice Smith"
+        "displayName": "Alice Smith",
+        "profileImageUrl": "https://..."
       },
-      "hearts_count": 15,
-      "reactions_count": 8,
-      "shares_count": 3,
-      "algorithm_score": 45.7,
-      "is_unread": true,
-      "created_at": "2025-01-01T10:00:00Z"
+      "heartsCount": 15,
+      "reactionsCount": 8,
+      "commentsCount": 3,
+      "createdAt": "2026-03-31T10:00:00Z",
+      "privacyLevel": "public",
+      "_debug": {
+        "score": 12.45,
+        "recency": 8.5,
+        "engagement": 3.2,
+        "relationship": 1.5,
+        "postAgeHours": 2.5
+      }
     }
   ],
-  "pagination": {
-    "total": 150,
-    "limit": 20,
-    "offset": 0,
-    "has_next": true
-  },
-  "algorithm_info": {
-    "enabled": true,
-    "split_ratio": "80/20",
-    "read_posts_count": 5,
-    "unread_posts_count": 15
-  }
+  "nextCursor": "ey..."
 }
 ```
+
+**Note on Algorithm:**
+The feed uses a high-performance SQL-computed ranking system. Parameters like `algorithm=true/false` and `offset` have been removed in favor of stable cursor pagination. Scoring is always enabled on this endpoint. For more details, see [Feed System Documentation](FEED_SYSTEM.md).
 
 **Get Trending Posts**
 ```http
