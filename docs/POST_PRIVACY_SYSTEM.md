@@ -95,11 +95,10 @@ Visibility filtering now uses a database-level abstraction with a compatibility 
 
 Private posts remain author-only by default.
 
-## Feed Query Design
-Feed services now apply visibility through `PostPrivacyService.visibility_filter_clause(...)`:
+Feed services now apply visibility through SQL checks in `FeedServiceV2`:
 
-- `AlgorithmService`
-- `OptimizedAlgorithmService`
+- PostgreSQL: `WHERE can_view_post(:uid, p.id::uuid)`
+- SQLite: inline visibility clause matches `PostPrivacyService`
 
 Candidate selection and counts use:
 - PostgreSQL: `WHERE can_view_post(:viewer_id, posts.id)`
@@ -115,15 +114,12 @@ and keeps joins/index paths predictable using `follows` and privacy tables.
 
 ## API Behavior
 
-### Create Post
-Post creation now accepts:
-
 ```json
 {
   "content": "...",
-  "privacy_level": "custom",
+  "privacyLevel": "custom",
   "rules": ["followers", "following"],
-  "specific_users": [12, 34]
+  "specificUsers": [12, 34]
 }
 ```
 

@@ -59,10 +59,8 @@ grateful/
 - `apps/api/main.py` – FastAPI entrypoint
 - `apps/api/app/` – Backend app code (models, routes, core logic)
 - `apps/web/pages/` or `src/app/` – Next.js pages and routes
-- `alembic/` – Database migration configuration and version history
-- `alembic.ini` – Alembic configuration file (root level)
-- `infrastructure/docker-compose.yml` – Multi-service local dev setup
-- `docs/ARCHITECTURE_AND_SETUP.md` – This guide
+- `apps/api/app/config/feed_config.py` – Feed algorithm configuration
+- `docs/FEED_SYSTEM.md` – Comprehensive feed architecture guide
 - `README.md` – Project summary and quickstart
 
 See each folder’s README (if present) for more details.
@@ -73,8 +71,8 @@ See each folder’s README (if present) for more details.
 
 - **Backend:** FastAPI (Python, SQLAlchemy, JWT) with Service Layer Architecture and Shared Types
   - Location: `apps/api`
-  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, ReactionService, NotificationService, MentionService, AlgorithmService)
-  - **AlgorithmService**: Advanced feed ranking with engagement scoring and social signals (`app/services/algorithm_service.py`)
+  - **Service Layer**: Business logic separated into service classes (AuthService, UserService, ReactionService, NotificationService, MentionService, FeedServiceV2)
+  - **FeedServiceV2**: High-performance SQL-based feed ranking with engagement scoring and social signals (`app/services/feed_service_v2.py`)
   - **NotificationFactory**: Unified notification creation system (`app/core/notification_factory.py`) - eliminates common notification issues
   - **Repository Pattern**: Standardized data access layer with query builders and performance monitoring
   - **Shared Type System**: Comprehensive type definitions shared between frontend and backend (`shared/types/`)
@@ -131,13 +129,17 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **Batch Operations**: Mark individual or all notifications as read
 - **Unread Counter**: Shows count of unread notifications in navbar
 
-#### 🧠 Enhanced Feed Algorithm
-- **Engagement Scoring**: Weighted scoring system (Hearts×1.0, Reactions×1.5, Shares×4.0)
-- **Content Type Bonuses**: Photo posts (+2.5), Daily gratitude posts (+3.0)
-- **Relationship Multipliers**: Posts from followed users get 2.0x boost
-- **80/20 Feed Split**: 80% algorithm-scored posts, 20% recent posts for discovery
-- **Trending Algorithm**: Time-window based trending with recency bonuses
-- **Performance Optimized**: Cached engagement counts and efficient queries
+#### 🧠 SQL-Ranked Feed (v2)
+- **SQL-Computed Scoring**: High-performance ranking calculated directly in PostgreSQL using CTEs.
+- **Scoring Signals**:
+  - **Recency**: Linear decay over 7 days.
+  - **Engagement**: Log-scaled counts of hearts, reactions, comments, and shares.
+  - **Relationships**: Boosts for mutual follows and followed users (scaled by recency).
+  - **Intentional Boosts**: Recovery boosts for own posts, trending/recent engagement, and user-reacted content.
+  - **Discovery**: Boosted high-engagement image posts from unfollowed users.
+- **Author Spacing**: LRU-based spacing ensures no author dominates a user's window of posts.
+- **Cursor Pagination**: Stable, skip-free scrolling via encoded JSON cursors.
+- **Configuration**: Single source of truth in `apps/api/app/config/feed_config.py`.
 
 #### 👥 Follow System
 - **Follow/Unfollow**: Users can follow and unfollow other users with optimistic UI updates
