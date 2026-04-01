@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { proxyApiRequest } from "./api-proxy";
+import { transformApiRequest } from "./caseTransform";
 import { normalizeUserData } from "@/utils/userDataMapping";
 
 export async function handleUserProfileGetRequest(request: any, userId?: string) {
@@ -64,5 +65,15 @@ export async function handleUserProfileGetRequest(request: any, userId?: string)
  * Only supports /me/profile endpoint (always requires auth)
  */
 export async function handleUserProfilePutRequest(request: any) {
-  return proxyApiRequest(request, `/api/v1/users/me/profile`, { requireAuth: true, forwardCookies: true, passthroughOn401: true });
+  const body = await request.json()
+  const transformedBody = transformApiRequest(body)
+
+  // Frontend handlers use camelCase; transform here once before proxying to the snake_case backend contract.
+  const newRequest = new Request(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: JSON.stringify(transformedBody)
+  })
+
+  return proxyApiRequest(newRequest, `/api/v1/users/me/profile`, { requireAuth: true, forwardCookies: true, passthroughOn401: true });
 }

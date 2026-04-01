@@ -4,6 +4,14 @@
 
 This document provides comprehensive documentation for the React components used in the Grateful frontend application. Components are organized by functionality and include usage examples, props interfaces, and implementation details.
 
+## Frontend Conventions
+
+- Toast usage follows the canonical rules in [UI_UX_GUIDELINES.md](UI_UX_GUIDELINES.md).
+- Use `showError(...)` for user-facing failures in all environments.
+- Use `showDebugLoading(...)`, `showDebugSuccess(...)`, and `showDebugInfo(...)` only for development and staging.
+- The top-level component that starts a mutation owns the toast lifecycle for that action.
+- Do not use `alert()` in production code. Use toast feedback or inline UI instead.
+
 ## Table of Contents
 
 - [Modal Components](#modal-components)

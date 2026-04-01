@@ -16,6 +16,7 @@ import { getCompleteInputStyling } from "@/utils/inputStyles"
 import { apiClient } from "@/utils/apiClient"
 import { stateSyncUtils } from "@/utils/stateSynchronization"
 import { useUser } from "@/contexts/UserContext"
+import { useToast } from "@/contexts/ToastContext"
 import { Post, Author } from '@/types/post'
 
 interface UserProfile {
@@ -46,11 +47,13 @@ interface UserProfile {
 export default function ProfilePage() {
   const router = useRouter()
   const { currentUser: contextUser, isLoading: userLoading, getUserProfile, logout } = useUser()
+  const { showError, showDebugLoading, showDebugSuccess, hideToast } = useToast()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isEditingAccount, setIsEditingAccount] = useState(false)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileEditForm, setProfileEditForm] = useState({
     bio: "",
     displayName: "",
@@ -232,6 +235,8 @@ export default function ProfilePage() {
   }
 
   const handleSaveProfile = async () => {
+    if (isSavingProfile) return
+
     const token = localStorage.getItem("access_token")
     if (!token) return
 
@@ -243,13 +248,18 @@ export default function ProfilePage() {
       setSelectedLocation(originalLocation)
       setProfileEditForm({
         ...profileEditForm,
-        city: originalLocation ? originalLocation.displayName : ""
+        city: originalLocation ? (originalLocation.displayName || originalLocation.display_name || "") : ""
       })
-      alert("Please select a location from the dropdown or leave the field empty")
+      showError("Invalid Location", "Please select a location from the dropdown or leave the field empty.")
       return
     }
 
+    let loadingToastId: string | undefined
+
     try {
+      setIsSavingProfile(true)
+      loadingToastId = showDebugLoading("Saving Profile", "Updating your profile...") || undefined
+
       // Build request body, only including fields that have valid values
       const requestBody: any = {}
 
@@ -262,14 +272,18 @@ export default function ProfilePage() {
       }
 
       requestBody.city = profileEditForm.city
-      requestBody.location = selectedLocation
+      requestBody.locationData = locationToSave
       requestBody.institutions = profileEditForm.institutions
       requestBody.websites = profileEditForm.websites
 
       console.log('Sending profile update request:', requestBody)
 
-      const response = await apiClient.patch('/users/me', requestBody) as any
+      const response = await apiClient.put('/users/me/profile', requestBody) as any
       const updatedProfileData = response.data || response // Handle both wrapped and unwrapped responses
+
+      if (loadingToastId) {
+        hideToast(loadingToastId)
+      }
 
       // Update local user state
       setUser({
@@ -289,14 +303,23 @@ export default function ProfilePage() {
         profileImageUrl: updatedProfileData.profileImageUrl
       })
       setIsEditingProfile(false)
+      showDebugSuccess("Profile Saved", "Your profile changes have been applied.")
       // Clear pending fields
       setPendingInstitution("")
       setPendingWebsite("")
       setInstitutionError("")
       setWebsiteError("")
     } catch (error) {
+      if (loadingToastId) {
+        hideToast(loadingToastId)
+      }
       console.error('Error updating profile:', error)
-      alert("Failed to update profile")
+      showError(
+        "Failed to Update Profile",
+        error instanceof Error ? error.message : "Please try again."
+      )
+    } finally {
+      setIsSavingProfile(false)
     }
   }
 
@@ -942,7 +965,7 @@ export default function ProfilePage() {
                         />
                         {selectedLocation && (
                           <p className="text-xs text-gray-500 mt-1">
-                            Selected: {selectedLocation.display_name}
+                            Selected: {selectedLocation.displayName || selectedLocation.display_name}
                           </p>
                         )}
                       </div>
@@ -1171,9 +1194,14 @@ export default function ProfilePage() {
                       </button>
                       <button
                         onClick={handleSaveProfile}
-                        className="px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm min-h-[44px] touch-manipulation"
+                        disabled={isSavingProfile}
+                        className={`px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm min-h-[44px] touch-manipulation ${
+                          isSavingProfile
+                            ? 'bg-purple-400 text-white cursor-not-allowed'
+                            : 'bg-purple-600 text-white hover:bg-purple-700'
+                        }`}
                       >
-                        Save
+                        {isSavingProfile ? 'Saving...' : 'Save'}
                       </button>
                     </div>
                   )}

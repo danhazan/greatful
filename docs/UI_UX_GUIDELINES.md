@@ -536,6 +536,38 @@ Implementation rule:
 - **Info**: Blue background with info icon
 - **Warning**: Orange background with warning icon
 
+### Toast System Rules
+
+Use the global toast system for non-blocking feedback. Production should only surface user-facing errors, while development and staging can also surface debug toasts for developer visibility.
+
+**Error Toasts:**
+- Use `showError(title, message?)`
+- Visible in development, staging, and production
+- Use for failed API calls and user-facing errors
+
+**Debug Toasts:**
+- Use `showDebugLoading(...)`, `showDebugSuccess(...)`, and `showDebugInfo(...)`
+- Visible only in development and staging
+- Never visible in production
+- Use for debugging flows and developer visibility
+
+**Toast Ownership Rule:**
+- The top-level component that initiates the action owns all toasts for that action
+- Child components must not emit duplicate toasts for the same mutation
+- Examples: `ProfilePage` owns profile save toasts, `PostCard` owns post and comment mutation toasts
+
+**Toast Lifecycle Rule:**
+- At most one loading toast and one terminal toast per mutation
+- Never emit duplicate toasts for a single action
+
+**Blocking UI Rule:**
+- `alert()` is forbidden in production code
+- User feedback must be non-blocking via toast or inline UI
+
+**Environment Behavior:**
+- Production: only error toasts are visible
+- Development and staging: debug toasts and error toasts are visible
+
 **Inline Success States:**
 ```typescript
 {success && (
