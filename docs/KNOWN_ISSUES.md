@@ -27,6 +27,7 @@
 - **📤 Image Upload Constraints**: Some images may be rejected by upstream proxies/WAF with "Forbidden" errors (documented behavior)
 - **📍 Feed Location Display**: Location displays as icon-only on mobile feed vs full text in location modal (responsive design tradeoff)
 - **👤 Navigation Avatar Initials**: Navigation bar avatar sometimes shows initials instead of profile image
+- **🔁 Dev-Only Duplicate Current Profile Fetch**: In development, `/api/users/me/profile` can still appear twice on refresh due to React Strict Mode remount behavior; production is expected to issue a single request and this is acceptable for now
 
 ### ✅ Recently Resolved
 - **Toast Notification Focus Stealing**: ✅ COMPLETED - Toasts no longer interrupt typing when closing

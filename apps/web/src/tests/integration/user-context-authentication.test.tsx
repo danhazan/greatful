@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { UserProvider, useUser } from '@/contexts/UserContext';
+import { UserProvider, useUser, resetCurrentUserBootstrapForTests } from '@/contexts/UserContext';
 import { apiClient } from '@/utils/apiClient';
 import * as auth from '@/utils/auth';
 
@@ -35,6 +35,7 @@ function TestComponent() {
 describe('UserContext Authentication Fix', () => {
   afterEach(() => {
     jest.clearAllMocks();
+    resetCurrentUserBootstrapForTests();
   });
 
   it('should correctly parse wrapped API response from backend', async () => {
@@ -113,5 +114,88 @@ describe('UserContext Authentication Fix', () => {
 
     expect(mockedApiClient.getCurrentUserProfile).toHaveBeenCalled();
     expect(mockedAuth.logout).toHaveBeenCalled();
+  });
+
+  it('deduplicates bootstrap profile fetches across StrictMode remounts', async () => {
+    const deferred = new Promise((resolve) => {
+      setTimeout(() => resolve({
+        id: 123,
+        name: 'Test User',
+        email: 'test@example.com',
+      }), 0)
+    })
+
+    mockedAuth.getAccessToken.mockReturnValue('mock-token');
+    mockedApiClient.getCurrentUserProfile.mockReturnValue(deferred as any);
+
+    render(
+      <React.StrictMode>
+        <UserProvider>
+          <TestComponent />
+        </UserProvider>
+      </React.StrictMode>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-id')).toHaveTextContent('123');
+    });
+
+    expect(mockedApiClient.getCurrentUserProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not recreate an immediately resolved bootstrap across StrictMode remounts', async () => {
+    mockedAuth.getAccessToken.mockReturnValue('mock-token');
+    mockedApiClient.getCurrentUserProfile.mockResolvedValue({
+      id: 123,
+      name: 'Test User',
+      email: 'test@example.com',
+    } as any);
+
+    render(
+      <React.StrictMode>
+        <UserProvider>
+          <TestComponent />
+        </UserProvider>
+      </React.StrictMode>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-id')).toHaveTextContent('123');
+    });
+
+    expect(mockedApiClient.getCurrentUserProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses the resolved bootstrap result across remounts with the same token', async () => {
+    mockedAuth.getAccessToken.mockReturnValue('mock-token');
+    mockedApiClient.getCurrentUserProfile.mockResolvedValue({
+      id: 123,
+      name: 'Test User',
+      email: 'test@example.com',
+    } as any);
+
+    const firstRender = render(
+      <UserProvider>
+        <TestComponent />
+      </UserProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-id')).toHaveTextContent('123');
+    });
+
+    firstRender.unmount();
+
+    render(
+      <UserProvider>
+        <TestComponent />
+      </UserProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-id')).toHaveTextContent('123');
+    });
+
+    expect(mockedApiClient.getCurrentUserProfile).toHaveBeenCalledTimes(1);
   });
 });

@@ -38,6 +38,8 @@ interface InvalidateOptions {
   viewerScope?: string
 }
 
+const globalInFlightGetRequests = new Map<string, Promise<any>>()
+
 function debugLog(event: string, payload: Record<string, unknown>) {
   if (process.env['NODE_ENV'] !== 'development') return
   console.debug(`[TaggedQueryCache] ${event}`, payload)
@@ -59,6 +61,30 @@ function serializeScopedQueryKey(queryKey: QueryKey, viewerScope: string): strin
   return `${viewerScope}::${serializeQueryKey(queryKey)}`
 }
 
+function normalizeHeaders(headers?: HeadersInit): [string, string][] {
+  if (!headers) return []
+
+  if (headers instanceof Headers) {
+    return Array.from(headers.entries()).sort(([left], [right]) => left.localeCompare(right))
+  }
+
+  if (Array.isArray(headers)) {
+    return [...headers].sort(([left], [right]) => left.localeCompare(right))
+  }
+
+  return Object.entries(headers).sort(([left], [right]) => left.localeCompare(right))
+}
+
+function serializeRequestOptions(options?: RequestInit): string {
+  if (!options) return JSON.stringify({})
+
+  const { signal: _signal, headers, ...rest } = options
+  return JSON.stringify({
+    ...rest,
+    headers: normalizeHeaders(headers),
+  })
+}
+
 class APICache {
   private cache = new Map<string, CacheEntry>()
   private pendingRequests = new Map<string, Promise<any>>()
@@ -73,9 +99,14 @@ class APICache {
    */
   private generateKey(url: string, options?: RequestInit): string {
     const method = options?.method || 'GET'
-    const headers = JSON.stringify(options?.headers || {})
+    const headers = JSON.stringify(normalizeHeaders(options?.headers))
     const body = options?.body || ''
     return `${method}:${url}:${headers}:${body}`
+  }
+
+  private generateGlobalRequestKey(url: string, options?: RequestInit): string {
+    const method = options?.method || 'GET'
+    return `${method}:${url}:${serializeRequestOptions(options)}`
   }
 
   /**
@@ -207,6 +238,28 @@ class APICache {
    * Make actual HTTP request
    */
   private async makeRequest<T>(url: string, options?: RequestInit): Promise<T> {
+    const method = options?.method || 'GET'
+    if (method === 'GET') {
+      const key = this.generateGlobalRequestKey(url, options)
+      const existingRequest = globalInFlightGetRequests.get(key)
+      if (existingRequest) {
+        return existingRequest as Promise<T>
+      }
+
+      const requestPromise = this.executeHttpRequest<T>(url, options)
+      globalInFlightGetRequests.set(key, requestPromise)
+
+      try {
+        return await requestPromise
+      } finally {
+        globalInFlightGetRequests.delete(key)
+      }
+    }
+
+    return this.executeHttpRequest<T>(url, options)
+  }
+
+  private async executeHttpRequest<T>(url: string, options?: RequestInit): Promise<T> {
     const response = await fetch(url, options)
     
     if (!response.ok) {
@@ -295,6 +348,10 @@ class APICache {
       memoryUsage: this.cache.size * 1024 // Rough estimate
     }
   }
+}
+
+export function resetGlobalInFlightGetRequestsForTests() {
+  globalInFlightGetRequests.clear()
 }
 
 // Create singleton instance with optimized TTL values

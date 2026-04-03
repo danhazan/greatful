@@ -71,6 +71,68 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
+const currentUserBootstrapPromises = new Map<string, Promise<any>>()
+const currentUserBootstrapResults = new Map<string, any>()
+
+function clearOtherCurrentUserBootstrapEntries(activeToken: string) {
+  for (const token of Array.from(currentUserBootstrapPromises.keys())) {
+    if (token !== activeToken) {
+      currentUserBootstrapPromises.delete(token)
+    }
+  }
+
+  for (const token of Array.from(currentUserBootstrapResults.keys())) {
+    if (token !== activeToken) {
+      currentUserBootstrapResults.delete(token)
+    }
+  }
+}
+
+function getCurrentUserBootstrap(token: string, options?: { forceRefresh?: boolean }) {
+  if (options?.forceRefresh) {
+    currentUserBootstrapPromises.delete(token)
+    currentUserBootstrapResults.delete(token)
+  } else {
+    const cachedResult = currentUserBootstrapResults.get(token)
+    if (cachedResult) {
+      return Promise.resolve(cachedResult)
+    }
+
+    const existingPromise = currentUserBootstrapPromises.get(token)
+    if (existingPromise) {
+      return existingPromise
+    }
+  }
+
+  const bootstrapPromise = apiClient.getCurrentUserProfile()
+    .then((result) => {
+      currentUserBootstrapResults.set(token, result)
+      return result
+    })
+    .catch((error) => {
+      currentUserBootstrapPromises.delete(token)
+      throw error
+    })
+
+  currentUserBootstrapPromises.set(token, bootstrapPromise)
+  return bootstrapPromise
+}
+
+function clearCurrentUserBootstrap(token?: string | null) {
+  if (token) {
+    currentUserBootstrapPromises.delete(token)
+    currentUserBootstrapResults.delete(token)
+    return
+  }
+
+  currentUserBootstrapPromises.clear()
+  currentUserBootstrapResults.clear()
+}
+
+export function resetCurrentUserBootstrapForTests() {
+  clearCurrentUserBootstrap()
+}
+
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -111,7 +173,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [stateEventListeners])
 
   // Load user function
-  const loadUser = useCallback(async () => {
+  const loadUser = useCallback(async (options?: { forceRefresh?: boolean }) => {
     try {
       if (typeof window === 'undefined') {
         setIsLoading(false)
@@ -120,13 +182,16 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const token = auth.getAccessToken()
       if (!token) {
+        clearCurrentUserBootstrap()
         setCurrentUserWithTrace(null, 'loadUser:noToken')
         setIsLoading(false)
         return
       }
 
-      // Fetch user data using optimized API client
-      const userData = await apiClient.getCurrentUserProfile() as any
+      clearOtherCurrentUserBootstrapEntries(token)
+
+      // Reuse the same bootstrap request across Strict Mode remounts and concurrent consumers.
+      const userData = await getCurrentUserBootstrap(token, options) as any
 
       if (userData && userData.id) {
         const user: User = {
@@ -154,6 +219,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }))
       } else {
         auth.logout()
+        clearCurrentUserBootstrap(token)
         setCurrentUserWithTrace(null, 'loadUser:nullUserData')
       }
     } catch (error) {
@@ -162,6 +228,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (errorMessage.includes('401')) {
         auth.logout()
       }
+      clearCurrentUserBootstrap(auth.getAccessToken())
       setCurrentUserWithTrace(null, 'loadUser:catch')
     } finally {
       setIsLoading(false)
@@ -286,6 +353,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Comprehensive logout function
   const logout = useCallback(() => {
+    clearCurrentUserBootstrap(auth.getAccessToken())
     auth.logout()
     setCurrentUserWithTrace(null, 'logout')
     setUserProfiles({})
@@ -329,7 +397,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     markDataAsFresh,
     getLastFetchTime,
     logout,
-    reloadUser: loadUser,
+    reloadUser: () => loadUser({ forceRefresh: true }),
     subscribeToStateUpdates
   }
 
