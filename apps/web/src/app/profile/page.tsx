@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { User, Edit3, Calendar, Heart, X, Plus, Trash2, MapPin, Building, Globe, Shield, Eye, EyeOff } from "lucide-react"
 import PostCard from "@/components/PostCard"
@@ -17,7 +17,10 @@ import { apiClient } from "@/utils/apiClient"
 import { stateSyncUtils } from "@/utils/stateSynchronization"
 import { useUser } from "@/contexts/UserContext"
 import { useToast } from "@/contexts/ToastContext"
-import { Post, Author } from '@/types/post'
+import { Post } from '@/types/post'
+import { useTaggedQuery } from "@/hooks/useTaggedQuery"
+import { queryKeys, queryTags } from "@/utils/queryKeys"
+import { isAuthenticated } from "@/utils/auth"
 
 interface UserProfile {
   id: number
@@ -46,7 +49,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { currentUser: contextUser, isLoading: userLoading, getUserProfile, logout } = useUser()
+  const { currentUser: contextUser, isLoading: userLoading, logout } = useUser()
   const { showError, showDebugLoading, showDebugSuccess, hideToast } = useToast()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -86,6 +89,7 @@ export default function ProfilePage() {
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
+  const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
   const usernameInputRef = useRef<HTMLInputElement>(null)
   const passwordSectionRef = useRef<HTMLDivElement>(null)
 
@@ -119,101 +123,135 @@ export default function ProfilePage() {
       return
     }
 
-    const loadProfileData = async () => {
-      try {
-        console.log('[Profile] Loading profile data from UserContext...')
+  }, [contextUser, userLoading, router])
 
-        // Get additional profile data from UserContext if available
-        const userProfile = getUserProfile(contextUser.id)
+  const currentUserProfileQueryKey = useMemo(() => queryKeys.currentUserProfile(), [])
+  const currentUserProfileTags = useMemo(
+    () => [queryTags.currentUserProfile, ...(contextUser?.id ? [queryTags.userProfile(contextUser.id)] : [])],
+    [contextUser?.id]
+  )
+  const currentUserPostsQueryKey = useMemo(
+    () => (contextUser ? queryKeys.userPosts(contextUser.id) : queryKeys.userPosts('pending')),
+    [contextUser?.id]
+  )
+  const currentUserPostsTags = useMemo(
+    () => (contextUser?.id ? [queryTags.userPosts(contextUser.id)] : []),
+    [contextUser?.id]
+  )
+  const authResolved = hasAccessToken !== null && !userLoading
+  const canQueryProfile = authResolved && !!hasAccessToken
+  const fetchCurrentUserProfile = useCallback(
+    async () => normalizeUserData(await apiClient.getCurrentUserProfile({ skipCache: true })),
+    []
+  )
+  const fetchCurrentUserPosts = useCallback(async () => {
+    const userPosts = await apiClient.get('/users/me/posts', { skipCache: true }) as any
+    const postsData = userPosts.data || userPosts
+    const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
+    return transformedPosts.sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [])
 
-        // If we don't have complete profile data, fetch it
-        let profileData
-        if (!userProfile || !userProfile.followerCount) {
-          console.log('[Profile] Fetching additional profile data...')
-          const rawProfileData = await apiClient.getCurrentUserProfile()
-          profileData = normalizeUserData(rawProfileData)
-        } else {
-          // Use data from UserContext
-          profileData = {
-            id: contextUser.id,
-            username: contextUser.username,
-            email: contextUser.email,
-            displayName: contextUser.displayName || contextUser.name,
-            profileImageUrl: contextUser.profileImageUrl,
-            followersCount: userProfile.followerCount,
-            followingCount: userProfile.followingCount,
-            postsCount: userProfile.postsCount,
-            bio: (userProfile as any)?.bio || undefined,
-            city: (userProfile as any)?.city || undefined,
-            location: (userProfile as any)?.location || undefined,
-            institutions: (userProfile as any)?.institutions || undefined,
-            websites: (userProfile as any)?.websites || undefined,
-            createdAt: (userProfile as any)?.joinDate || (userProfile as any)?.createdAt || undefined,
-            oauthProvider: (userProfile as any)?.oauthProvider || undefined
-          }
-        }
+  const {
+    data: profileQueryData,
+    error: profileQueryError,
+    isLoading: profileQueryLoading,
+  } = useTaggedQuery({
+    queryKey: currentUserProfileQueryKey,
+    tags: currentUserProfileTags,
+    policy: 'cache-first-until-invalidated',
+    enabled: canQueryProfile,
+    viewerScope: apiClient.getViewerScope(),
+    fetcher: fetchCurrentUserProfile,
+  })
 
-        const userProfileData: UserProfile = {
-          id: parseInt(profileData.id),
-          username: profileData.username || 'Unknown User',
-          email: profileData.email,
-          bio: profileData.bio || "No bio yet - add one by editing your profile!",
-          profileImage: profileData.profileImageUrl,
-          displayName: profileData.displayName,
-          city: profileData.city,
-          location: profileData.location,
-          institutions: profileData.institutions || [],
-          websites: profileData.websites || [],
-          joinDate: profileData.createdAt || new Date().toISOString(),
-          postsCount: profileData.postsCount || 0,
-          followersCount: profileData.followersCount || 0,
-          followingCount: profileData.followingCount || 0,
-          oauthProvider: profileData.oauthProvider || null
-        }
+  const {
+    data: postsQueryData,
+    error: postsQueryError,
+    isLoading: postsQueryLoading,
+  } = useTaggedQuery({
+    queryKey: currentUserPostsQueryKey,
+    tags: currentUserPostsTags,
+    policy: 'cache-first-until-invalidated',
+    enabled: canQueryProfile,
+    viewerScope: apiClient.getViewerScope(),
+    fetcher: fetchCurrentUserPosts,
+  })
 
-        setUser(userProfileData)
-        setProfileEditForm({
-          bio: userProfileData.bio || "",
-          displayName: userProfileData.displayName || "",
-          city: userProfileData.city || "",
-          institutions: Array.isArray(userProfileData.institutions) ? userProfileData.institutions : [],
-          websites: Array.isArray(userProfileData.websites) ? userProfileData.websites : []
-        })
-        setAccountEditForm({
-          username: userProfileData.username,
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: ""
-        })
-        setSelectedLocation(userProfileData.location)
+  useEffect(() => {
+    setHasAccessToken(isAuthenticated())
+  }, [])
 
-        // Fetch user's posts using optimized API client with deduplication
-        try {
-          console.log('[Profile] Fetching user posts...')
-          const userPosts = await apiClient.get('/users/me/posts') as any
-          const postsData = userPosts.data || userPosts // Handle both wrapped and unwrapped responses
-          // Transform posts from backend format to frontend format
-          const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
-          // Sort posts by creation date (newest first) as a backup
-          const sortedPosts = transformedPosts.sort((a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          )
-          setPosts(sortedPosts)
-          console.log('[Profile] Posts loaded:', sortedPosts.length)
-        } catch (postsError) {
-          console.error('Failed to fetch user posts:', postsError)
-          setPosts([])
-        }
-      } catch (error) {
-        console.error('Error loading profile data:', error)
-        router.push("/auth/login")
-      } finally {
-        setIsLoading(false)
-      }
+  const normalizedProfileData = useMemo<UserProfile | null>(() => {
+    if (!profileQueryData) return null
+
+    return {
+      id: parseInt(profileQueryData.id),
+      username: profileQueryData.username || 'Unknown User',
+      email: profileQueryData.email,
+      bio: profileQueryData.bio || "No bio yet - add one by editing your profile!",
+      profileImage: profileQueryData.profileImageUrl,
+      displayName: profileQueryData.displayName,
+      city: profileQueryData.city,
+      location: profileQueryData.location,
+      institutions: profileQueryData.institutions || [],
+      websites: profileQueryData.websites || [],
+      joinDate: profileQueryData.createdAt || new Date().toISOString(),
+      postsCount: profileQueryData.postsCount || 0,
+      followersCount: profileQueryData.followersCount || 0,
+      followingCount: profileQueryData.followingCount || 0,
+      oauthProvider: profileQueryData.oauthProvider || null
+    }
+  }, [profileQueryData])
+
+  useEffect(() => {
+    if (normalizedProfileData) {
+      setUser(normalizedProfileData)
+      setProfileEditForm({
+        bio: normalizedProfileData.bio || "",
+        displayName: normalizedProfileData.displayName || "",
+        city: normalizedProfileData.city || "",
+        institutions: Array.isArray(normalizedProfileData.institutions) ? normalizedProfileData.institutions : [],
+        websites: Array.isArray(normalizedProfileData.websites) ? normalizedProfileData.websites : []
+      })
+      setAccountEditForm({
+        username: normalizedProfileData.username,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      })
+      setSelectedLocation(normalizedProfileData.location)
+    }
+  }, [normalizedProfileData])
+
+  useEffect(() => {
+    if (postsQueryData !== undefined) {
+      setPosts(postsQueryData)
+    }
+  }, [postsQueryData])
+
+  useEffect(() => {
+    if (!authResolved) {
+      setIsLoading(true)
+      return
     }
 
-    loadProfileData()
-  }, [contextUser, userLoading, router, getUserProfile])
+    if (!hasAccessToken) {
+      setIsLoading(false)
+      return
+    }
+
+    if (profileQueryError || postsQueryError) {
+      console.error('Error loading profile data:', profileQueryError || postsQueryError)
+    }
+    const nextLoadingState = canQueryProfile && (
+      profileQueryLoading ||
+      postsQueryLoading ||
+      (!profileQueryData && !profileQueryError)
+    )
+    setIsLoading(nextLoadingState)
+  }, [authResolved, canQueryProfile, hasAccessToken, profileQueryData, profileQueryError, postsQueryError, profileQueryLoading, postsQueryLoading])
 
   const handleEditProfile = () => {
     setIsEditingProfile(true)
@@ -302,6 +340,10 @@ export default function ProfilePage() {
         name: updatedProfileData.displayName,
         profileImageUrl: updatedProfileData.profileImageUrl
       })
+      apiClient.invalidateTags([
+        queryTags.currentUserProfile,
+        queryTags.userProfile(user!.id.toString()),
+      ])
       setIsEditingProfile(false)
       showDebugSuccess("Profile Saved", "Your profile changes have been applied.")
       // Clear pending fields
@@ -348,6 +390,12 @@ export default function ProfilePage() {
           if (user) {
             const updatedUser = { ...user, username: updatedData.username }
             setUser(updatedUser)
+          }
+          if (user) {
+            apiClient.invalidateTags([
+              queryTags.currentUserProfile,
+              queryTags.userProfile(user.id.toString()),
+            ])
           }
         } catch (error: any) {
           setUsernameError(error.message || "Failed to update username")
@@ -551,6 +599,17 @@ export default function ProfilePage() {
   }
 
   if (!user) {
+    if (!authResolved || (canQueryProfile && !profileQueryError && !user)) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading your profile...</p>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -579,6 +638,10 @@ export default function ProfilePage() {
       stateSyncUtils.updateUserProfile(user.id.toString(), {
         image: photoUrl || undefined
       })
+      apiClient.invalidateTags([
+        queryTags.currentUserProfile,
+        queryTags.userProfile(user.id.toString()),
+      ])
     }
     setShowPhotoUpload(false)
   }

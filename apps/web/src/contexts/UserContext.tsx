@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
 import { stateSyncUtils } from '@/utils/stateSynchronization'
 import { apiClient } from '@/utils/apiClient'
 import * as auth from '@/utils/auth'
@@ -78,6 +78,26 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [followStates, setFollowStates] = useState<FollowState>({})
   const [lastFetchTimes, setLastFetchTimes] = useState<{ [userId: string]: number }>({})
   const [stateEventListeners, setStateEventListeners] = useState<Set<(event: StateEvent) => void>>(new Set())
+  const [viewerScope, setViewerScope] = useState('anon')
+  const currentUserRef = useRef<User | null>(currentUser)
+  const isLoadingRef = useRef(isLoading)
+  const userProfilesRef = useRef(userProfiles)
+
+  currentUserRef.current = currentUser
+  isLoadingRef.current = isLoading
+  userProfilesRef.current = userProfiles
+
+  const setCurrentUserWithTrace = useCallback((
+    nextUser: User | null | ((previousUser: User | null) => User | null),
+    _reason: string
+  ) => {
+    setCurrentUser((previousUser) => {
+      if (typeof nextUser === 'function') {
+        return (nextUser as (previousUser: User | null) => User | null)(previousUser)
+      }
+      return nextUser
+    })
+  }, [])
 
   // Event emission helper
   const emitStateEvent = useCallback((event: StateEvent) => {
@@ -100,7 +120,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const token = auth.getAccessToken()
       if (!token) {
-        setCurrentUser(null)
+        setCurrentUserWithTrace(null, 'loadUser:noToken')
         setIsLoading(false)
         return
       }
@@ -118,7 +138,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           profileImageUrl: userData.profileImageUrl
         }
 
-        setCurrentUser(user)
+        setCurrentUserWithTrace(user, 'loadUser:profileFetchSuccess')
 
         // Also store in user profiles for consistency
         const userProfile: UserProfile = {
@@ -134,7 +154,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }))
       } else {
         auth.logout()
-        setCurrentUser(null)
+        setCurrentUserWithTrace(null, 'loadUser:nullUserData')
       }
     } catch (error) {
       console.error('[UserContext] loadUser error', error)
@@ -142,7 +162,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (errorMessage.includes('401')) {
         auth.logout()
       }
-      setCurrentUser(null)
+      setCurrentUserWithTrace(null, 'loadUser:catch')
     } finally {
       setIsLoading(false)
     }
@@ -194,7 +214,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (updates.profileImageUrl !== undefined) currentUserUpdates.profileImageUrl = updates.profileImageUrl
 
       if (Object.keys(currentUserUpdates).length > 0) {
-        setCurrentUser(prev => prev ? { ...prev, ...currentUserUpdates } : null)
+        setCurrentUserWithTrace(prev => prev ? { ...prev, ...currentUserUpdates } : null, 'updateUserProfile:currentUserUpdates')
         emitStateEvent({
           type: 'CURRENT_USER_UPDATE',
           payload: currentUserUpdates
@@ -220,7 +240,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Update current user
   const updateCurrentUser = useCallback((updates: Partial<User>) => {
-    setCurrentUser(prev => prev ? { ...prev, ...updates } : null)
+    setCurrentUserWithTrace(prev => prev ? { ...prev, ...updates } : null, 'updateCurrentUser')
 
     emitStateEvent({
       type: 'CURRENT_USER_UPDATE',
@@ -267,9 +287,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Comprehensive logout function
   const logout = useCallback(() => {
     auth.logout()
-    setCurrentUser(null)
+    setCurrentUserWithTrace(null, 'logout')
     setUserProfiles({})
     setFollowStates({})
+    setLastFetchTimes({})
+    setViewerScope('anon')
     apiClient.clearCache()
     emitStateEvent({
       type: 'CURRENT_USER_UPDATE',
@@ -278,12 +300,23 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [emitStateEvent])
 
   useEffect(() => {
+    const nextScope = currentUser ? `user:${currentUser.id}` : 'anon'
+    if (viewerScope === nextScope) return
+
+    setViewerScope(nextScope)
+    setUserProfiles({})
+    setFollowStates({})
+    setLastFetchTimes({})
+    apiClient.setViewerScope(nextScope)
+  }, [currentUser, viewerScope])
+
+  useEffect(() => {
     loadUser()
   }, [loadUser])
 
   const value: UserContextType = {
     currentUser,
-    setCurrentUser,
+    setCurrentUser: (nextUser) => setCurrentUserWithTrace(nextUser, 'contextValue:setCurrentUser'),
     loading: isLoading,
     isLoading,
     userProfiles,

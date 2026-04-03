@@ -15,6 +15,50 @@ interface CacheConfig {
   maxSize: number // Maximum number of entries
 }
 
+export type QueryKey = readonly string[]
+export type QueryPolicy = 'network-first' | 'cache-first-until-invalidated'
+export type RefetchReason = 'mount' | 'tagInvalidation' | 'manual' | 'policyBypass'
+
+interface TaggedQueryEntry<T = any> {
+  queryKey: QueryKey
+  serializedKey: string
+  tags: Set<string>
+  viewerScope: string
+  data?: T
+  error?: Error | null
+  stale: boolean
+  version: number
+  lastFetchedAt?: number
+  subscribers: Set<(reason: RefetchReason) => void>
+  inFlightPromise?: Promise<T>
+  inFlightVersion?: number
+}
+
+interface InvalidateOptions {
+  viewerScope?: string
+}
+
+function debugLog(event: string, payload: Record<string, unknown>) {
+  if (process.env['NODE_ENV'] !== 'development') return
+  console.debug(`[TaggedQueryCache] ${event}`, payload)
+}
+
+export function serializeQueryKey(queryKey: QueryKey): string {
+  return JSON.stringify(queryKey)
+}
+
+export function canonicalizeTags(tags: string[]): string[] {
+  return Array.from(new Set(tags)).sort((left, right) => left.localeCompare(right))
+}
+
+export function serializeQueryTags(tags: string[]): string {
+  return JSON.stringify(canonicalizeTags(tags))
+}
+
+function serializeScopedQueryKey(queryKey: QueryKey, viewerScope: string): string {
+  return `${viewerScope}::${serializeQueryKey(queryKey)}`
+}
+
 class APICache {
   private cache = new Map<string, CacheEntry>()
   private pendingRequests = new Map<string, Promise<any>>()
@@ -280,6 +324,226 @@ export const notificationCache = new APICache({
   ttl: 30000, // 30 seconds for notifications (more dynamic)
   maxSize: 50
 })
+
+class TaggedQueryCache {
+  private entries = new Map<string, TaggedQueryEntry>()
+  private tagIndex = new Map<string, Set<string>>()
+  private pendingRefetches = new Map<string, RefetchReason>()
+  private flushScheduled = false
+  private viewerScope = 'anon'
+
+  setViewerScope(viewerScope: string) {
+    if (this.viewerScope === viewerScope) return
+    this.viewerScope = viewerScope
+    this.reset()
+  }
+
+  getViewerScope() {
+    return this.viewerScope
+  }
+
+  private getOrCreateEntry(queryKey: QueryKey, tags: string[], viewerScope?: string): TaggedQueryEntry {
+    const effectiveViewerScope = viewerScope || this.viewerScope
+    const serializedKey = serializeScopedQueryKey(queryKey, effectiveViewerScope)
+    let entry = this.entries.get(serializedKey)
+    const canonicalTags = canonicalizeTags(tags)
+
+    if (!entry) {
+      entry = {
+        queryKey,
+        serializedKey,
+        tags: new Set(),
+        viewerScope: effectiveViewerScope,
+        stale: true,
+        version: 0,
+        subscribers: new Set(),
+      }
+      this.entries.set(serializedKey, entry)
+    }
+
+    canonicalTags.forEach((tag) => {
+      if (entry!.tags.has(tag)) return
+      entry!.tags.add(tag)
+      let keys = this.tagIndex.get(tag)
+      if (!keys) {
+        keys = new Set()
+        this.tagIndex.set(tag, keys)
+      }
+      keys.add(serializedKey)
+    })
+
+    return entry
+  }
+
+  subscribe(queryKey: QueryKey, tags: string[], callback: (reason: RefetchReason) => void, viewerScope?: string): () => void {
+    const entry = this.getOrCreateEntry(queryKey, tags, viewerScope)
+    entry.subscribers.add(callback)
+    debugLog('subscribe', { queryKey, tags, subscriberCount: entry.subscribers.size })
+
+    return () => {
+      const current = this.entries.get(entry.serializedKey)
+      if (!current) return
+      current.subscribers.delete(callback)
+      debugLog('unsubscribe', { queryKey, subscriberCount: current.subscribers.size })
+    }
+  }
+
+  getSnapshot<T = any>(queryKey: QueryKey, tags: string[], viewerScope?: string) {
+    const entry = this.getOrCreateEntry(queryKey, tags, viewerScope)
+    return {
+      data: entry.data as T | undefined,
+      error: entry.error ?? null,
+      stale: entry.stale,
+      version: entry.version,
+      lastFetchedAt: entry.lastFetchedAt,
+      viewerScope: entry.viewerScope,
+    }
+  }
+
+  getVersion(queryKey: QueryKey, tags: string[], viewerScope?: string) {
+    return this.getOrCreateEntry(queryKey, tags, viewerScope).version
+  }
+
+  runWithInFlight<T = any>(
+    queryKey: QueryKey,
+    tags: string[],
+    options: {
+      viewerScope?: string
+      version: number
+      fetcher: () => Promise<T>
+    }
+  ): Promise<T> {
+    const entry = this.getOrCreateEntry(queryKey, tags, options.viewerScope) as TaggedQueryEntry<T>
+
+    if (entry.inFlightPromise && entry.inFlightVersion === options.version) {
+      debugLog('reuseInFlight', { queryKey, version: options.version })
+      return entry.inFlightPromise
+    }
+
+    const promise = options.fetcher().finally(() => {
+      const current = this.entries.get(entry.serializedKey) as TaggedQueryEntry<T> | undefined
+      if (!current || current.inFlightPromise !== promise) return
+      current.inFlightPromise = undefined
+      current.inFlightVersion = undefined
+      debugLog('clearInFlight', { queryKey, version: options.version })
+    })
+
+    entry.inFlightPromise = promise
+    entry.inFlightVersion = options.version
+    debugLog('setInFlight', { queryKey, version: options.version })
+
+    return promise
+  }
+
+  setData<T = any>(
+    queryKey: QueryKey,
+    tags: string[],
+    data: T,
+    options?: { viewerScope?: string; version?: number; error?: Error | null }
+  ) {
+    const entry = this.getOrCreateEntry(queryKey, tags, options?.viewerScope)
+    if (typeof options?.version === 'number' && options.version !== entry.version) {
+      debugLog('dropSetDataVersionMismatch', { queryKey, expectedVersion: entry.version, receivedVersion: options.version })
+      return false
+    }
+
+    entry.data = data
+    entry.error = options?.error ?? null
+    entry.stale = false
+    entry.lastFetchedAt = Date.now()
+    debugLog('setData', { queryKey, version: entry.version })
+    return true
+  }
+
+  setError(queryKey: QueryKey, tags: string[], error: Error, options?: { viewerScope?: string; version?: number }) {
+    const entry = this.getOrCreateEntry(queryKey, tags, options?.viewerScope)
+    if (typeof options?.version === 'number' && options.version !== entry.version) {
+      debugLog('dropSetErrorVersionMismatch', { queryKey, expectedVersion: entry.version, receivedVersion: options.version })
+      return false
+    }
+
+    entry.error = error
+    entry.stale = true
+    debugLog('setError', { queryKey, version: entry.version, message: error.message })
+    return true
+  }
+
+  patchData<T = any>(queryKey: QueryKey, updater: (current: T | undefined) => T | undefined) {
+    const entry = this.entries.get(serializeScopedQueryKey(queryKey, this.viewerScope))
+    if (!entry) return
+    const next = updater(entry.data as T | undefined)
+    if (typeof next === 'undefined') return
+    entry.data = next
+    entry.error = null
+    debugLog('patchData', { queryKey, version: entry.version })
+  }
+
+  invalidateTags(tags: string[], options?: InvalidateOptions) {
+    const affectedKeys = new Set<string>()
+    const canonicalTags = canonicalizeTags(tags)
+
+    canonicalTags.forEach((tag) => {
+      const keys = this.tagIndex.get(tag)
+      if (!keys) return
+      keys.forEach((key) => affectedKeys.add(key))
+    })
+
+    affectedKeys.forEach((serializedKey) => {
+      const entry = this.entries.get(serializedKey)
+      if (!entry) return
+      if (options?.viewerScope && entry.viewerScope !== options.viewerScope) return
+
+      const oldVersion = entry.version
+      entry.stale = true
+      entry.version += 1
+      if (entry.subscribers.size > 0) {
+        this.pendingRefetches.set(serializedKey, 'tagInvalidation')
+      }
+      debugLog('invalidate', { queryKey: entry.queryKey, tags: canonicalTags, version: entry.version })
+    })
+
+    this.scheduleFlush()
+  }
+
+  private scheduleFlush() {
+    if (this.flushScheduled) return
+    this.flushScheduled = true
+
+    queueMicrotask(() => {
+      this.flushScheduled = false
+      const refetches = Array.from(this.pendingRefetches.entries())
+      this.pendingRefetches.clear()
+
+      refetches.forEach(([serializedKey, reason]) => {
+        const entry = this.entries.get(serializedKey)
+        if (!entry) return
+        entry.subscribers.forEach((subscriber) => subscriber(reason))
+      })
+    })
+  }
+
+  reset() {
+    this.entries.clear()
+    this.tagIndex.clear()
+    this.pendingRefetches.clear()
+    this.flushScheduled = false
+    debugLog('reset', { viewerScope: this.viewerScope })
+  }
+
+  getStats() {
+    const inFlightEntries = Array.from(this.entries.values()).filter((entry) => entry.inFlightPromise).length
+
+    return {
+      entries: this.entries.size,
+      tagCount: this.tagIndex.size,
+      pendingRefetches: this.pendingRefetches.size,
+      inFlightEntries,
+      viewerScope: this.viewerScope,
+    }
+  }
+}
+
+export const taggedQueryCache = new TaggedQueryCache()
 
 /*
 export const batchDataCache = new APICache({

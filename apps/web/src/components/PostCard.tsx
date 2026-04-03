@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Share, Calendar, MapPin, Plus, Loader2, MoreHorizontal, Edit3, Trash2, Heart, MessageCircle } from "lucide-react"
@@ -31,6 +31,7 @@ import { useToast } from "@/contexts/ToastContext"
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, hasMixedDirectionContent } from "@/utils/rtlUtils"
 import { usePostStateSynchronization } from "@/hooks/useStateSynchronization"
+import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { Post, Author, PostImage } from "@/types/post"
 
 
@@ -274,6 +275,11 @@ export default function PostCard({
         } catch {
           // Reconciliation failure is non-critical — optimistic state is good enough
         }
+        apiClient.invalidateTags([
+          queryTags.post(post.id),
+          queryTags.postReactions(post.id),
+          queryTags.userPosts(currentPost.author.id),
+        ])
       } catch (error) {
         // Rollback on failure
         console.error('Failed to remove reaction:', error)
@@ -358,6 +364,11 @@ export default function PostCard({
       } catch {
         // Reconciliation failure is non-critical
       }
+      apiClient.invalidateTags([
+        queryTags.post(post.id),
+        queryTags.postReactions(post.id),
+        queryTags.userPosts(currentPost.author.id),
+      ])
     } catch (apiError: any) {
       // Rollback on failure
       setCurrentPost(prev => ({
@@ -517,6 +528,11 @@ export default function PostCard({
       } catch {
         // Non-critical — we already have the server comment
       }
+      apiClient.invalidateTags([
+        queryTags.post(post.id),
+        queryTags.postComments(post.id),
+        queryTags.userPosts(currentPost.author.id),
+      ])
     } catch (error: any) {
       // Rollback
       console.error('Failed to post comment:', error)
@@ -548,6 +564,11 @@ export default function PostCard({
       // Reload comments to show the new reply with server data
       const updatedComments = await apiClient.get(`/posts/${post.id}/comments`, { skipCache: true }) as any
       setComments(updatedComments)
+      apiClient.invalidateTags([
+        queryTags.post(post.id),
+        queryTags.postComments(post.id),
+        queryTags.userPosts(currentPost.author.id),
+      ])
     } catch (error: any) {
       // Rollback count
       console.error('Failed to post reply:', error)
@@ -604,6 +625,11 @@ export default function PostCard({
       setComments(prev => prev.map(c =>
         c.id === commentId ? { ...c, content: updatedComment.content, editedAt: updatedComment.editedAt } : c
       ))
+      apiClient.invalidateTags([
+        queryTags.post(post.id),
+        queryTags.postComments(post.id),
+        queryTags.userPosts(currentPost.author.id),
+      ])
 
       return updatedComment
     } catch (error: any) {
@@ -647,6 +673,11 @@ export default function PostCard({
       } catch {
         // Non-critical
       }
+      apiClient.invalidateTags([
+        queryTags.post(post.id),
+        queryTags.postComments(post.id),
+        queryTags.userPosts(currentPost.author.id),
+      ])
     } catch (error: any) {
       // Rollback
       console.error('Failed to delete comment:', error)
@@ -739,6 +770,12 @@ export default function PostCard({
       if (normalized) {
         // Reconcile with full server response
         setCurrentPost(prev => mergePostUpdate(prev, normalized))
+        apiClient.patchTaggedQuery(queryKeys.post(post.id), () => normalized)
+        apiClient.invalidateTags([
+          queryTags.feed,
+          queryTags.userPosts(currentPost.author.id),
+          queryTags.post(post.id),
+        ])
         showDebugSuccess('Post Updated', 'Your post has been updated successfully.')
         if (onEdit) onEdit(post.id, normalized)
       } else {
@@ -784,6 +821,13 @@ export default function PostCard({
       if (response.ok) {
         showDebugSuccess('Post Deleted', 'Your post has been deleted successfully.')
         setShowDeleteModal(false)
+        apiClient.invalidateTags([
+          queryTags.feed,
+          queryTags.userPosts(currentPost.author.id),
+          queryTags.currentUserProfile,
+          queryTags.userProfile(currentPost.author.id),
+          queryTags.post(post.id),
+        ])
 
         // Call the onDelete callback if provided
         if (onDelete) {
@@ -833,8 +877,19 @@ export default function PostCard({
     textSize: 'text-sm'
   }
   const postPrivacyLevel = currentPost.privacyLevel
-  const postPrivacyRules = currentPost.privacyRules
-  const postSpecificUsers = currentPost.specificUsers
+  const postPrivacyRules = useMemo(
+    () => Array.isArray(currentPost.privacyRules) ? currentPost.privacyRules : [],
+    [currentPost.privacyRules]
+  )
+  const postSpecificUsers = useMemo(
+    () => Array.isArray(currentPost.specificUsers) ? currentPost.specificUsers : [],
+    [currentPost.specificUsers]
+  )
+  const badgePostPrivacy = useMemo(() => ({
+    privacyLevel: postPrivacyLevel,
+    privacyRules: postPrivacyRules,
+    specificUsers: postSpecificUsers,
+  }), [postPrivacyLevel, postPrivacyRules, postSpecificUsers])
 
   return (
     <>
@@ -892,11 +947,7 @@ export default function PostCard({
                       privacyRules={postPrivacyRules}
                       specificUsers={postSpecificUsers}
                       isAuthor
-                      postPrivacy={{
-                        privacyLevel: postPrivacyLevel,
-                        privacyRules: Array.isArray(postPrivacyRules) ? postPrivacyRules : [],
-                        specificUsers: Array.isArray(postSpecificUsers) ? postSpecificUsers : [],
-                      }}
+                      postPrivacy={badgePostPrivacy}
                       showQuickPreview
                       hideLabelOnMobile
                       className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600"

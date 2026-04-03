@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Calendar } from "lucide-react"
 import PostCard from "@/components/PostCard"
@@ -12,7 +12,10 @@ import FollowingModal from "@/components/FollowingModal"
 import { transformUserPosts } from "@/lib/transformers"
 import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
-import { Post, Author } from '@/types/post'
+import { Post } from '@/types/post'
+import { useTaggedQuery } from "@/hooks/useTaggedQuery"
+import { queryKeys, queryTags } from "@/utils/queryKeys"
+import { isAuthenticated } from "@/utils/auth"
 
 // Redundant local interfaces removed - using Post and Author from @/types/post
 
@@ -42,6 +45,7 @@ export default function UserProfilePage() {
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
+  const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
 
   // Listen for follower count updates from follow actions
   useEffect(() => {
@@ -61,119 +65,144 @@ export default function UserProfilePage() {
   }, [profile])
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        // Redirect to login if no user after UserContext has loaded
-        if (!userLoading && !currentUser) {
-          router.push("/auth/login")
-          return
-        }
+    if (!userLoading && !currentUser) {
+      router.push("/auth/login")
+      return
+    }
 
-        // Wait for UserContext to load
-        if (userLoading) {
-          return
-        }
+    if (userLoading) return
 
-        const token = localStorage.getItem("access_token")
-        if (!token) {
-          router.push("/auth/login")
-          return
-        }
+    const token = localStorage.getItem("access_token")
+    if (!token) {
+      router.push("/auth/login")
+    }
+  }, [router, currentUser, userLoading])
 
-        // Fetch user profile using optimized API client (skip cache to get fresh data)
-        let profileData: any
-        try {
-          profileData = await apiClient.getUserProfile(userId, { skipCache: true })
-        } catch (error) {
-          if (error instanceof Error && error.message.includes('404')) {
-            setError("User not found")
-          } else {
-            setError("Failed to load user profile")
-          }
-          return
-        }
+  const publicProfileQueryKey = useMemo(
+    () => (userId ? queryKeys.userProfile(userId) : queryKeys.userProfile('pending')),
+    [userId]
+  )
+  const publicProfileTags = useMemo(
+    () => (userId ? [queryTags.userProfile(userId)] : []),
+    [userId]
+  )
+  const publicPostsQueryKey = useMemo(
+    () => (userId ? queryKeys.userPosts(userId) : queryKeys.userPosts('pending')),
+    [userId]
+  )
+  const publicPostsTags = useMemo(
+    () => (userId ? [queryTags.userPosts(userId)] : []),
+    [userId]
+  )
+  const authResolved = hasAccessToken !== null && !userLoading
+  const canQueryProfile = authResolved && !!hasAccessToken && !!userId
+  const fetchPublicProfile = useCallback(
+    async () => apiClient.getUserProfile(userId, { skipCache: true }),
+    [userId]
+  )
+  const fetchPublicPosts = useCallback(async () => {
+    let postsData
+    if (userId === currentUser?.id?.toString()) {
+      postsData = await apiClient.get('/users/me/posts', { skipCache: true })
+    } else {
+      postsData = await apiClient.getUserPosts(userId, { skipCache: true })
+    }
 
-        console.log('Profile data received:', profileData)
+    const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
+    return transformedPosts.sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [currentUser?.id, userId])
 
-        // Ensure we use the correct field names from API response
-        const followersCount = profileData.followersCount || 0
-        const followingCount = profileData.followingCount || 0
+  const {
+    data: profileQueryData,
+    error: profileQueryError,
+    isLoading: profileQueryLoading,
+  } = useTaggedQuery({
+    queryKey: publicProfileQueryKey,
+    tags: publicProfileTags,
+    policy: 'cache-first-until-invalidated',
+    enabled: canQueryProfile,
+    viewerScope: apiClient.getViewerScope(),
+    fetcher: fetchPublicProfile,
+  })
 
-        console.log('API Response - Setting profile with follower counts:', {
-          followersCount,
-          followingCount,
-          userId: profileData.id,
-          username: profileData.username
-        })
+  const {
+    data: postsQueryData,
+    error: postsQueryError,
+    isLoading: postsQueryLoading,
+  } = useTaggedQuery({
+    queryKey: publicPostsQueryKey,
+    tags: publicPostsTags,
+    policy: 'cache-first-until-invalidated',
+    enabled: canQueryProfile,
+    viewerScope: apiClient.getViewerScope(),
+    fetcher: fetchPublicPosts,
+  })
 
-        setProfile({
-          id: profileData.id.toString(),
-          username: profileData.username,
-          email: profileData.email,
-          bio: profileData.bio,
-          profileImageUrl: profileData.profileImageUrl,
-          displayName: profileData.displayName,
-          createdAt: profileData.createdAt,
-          postsCount: profileData.postsCount || 0,
-          followersCount: followersCount,
-          followingCount: followingCount
-        })
+  useEffect(() => {
+    setHasAccessToken(isAuthenticated())
+  }, [])
 
-        console.log('Profile state set with counts:', {
-          followersCount: followersCount,
-          followingCount: followingCount
-        })
+  const normalizedProfileData = useMemo<UserProfile | null>(() => {
+    if (!profileQueryData) return null
 
-        console.log('Profile state set:', {
-          username: profileData.username,
-          displayName: profileData.displayName,
-          profileImageUrl: profileData.profileImageUrl
-        })
+    return {
+      id: profileQueryData.id.toString(),
+      username: profileQueryData.username,
+      email: profileQueryData.email,
+      bio: profileQueryData.bio,
+      profileImageUrl: profileQueryData.profileImageUrl,
+      displayName: profileQueryData.displayName,
+      createdAt: profileQueryData.createdAt,
+      postsCount: profileQueryData.postsCount || 0,
+      followersCount: profileQueryData.followersCount || 0,
+      followingCount: profileQueryData.followingCount || 0
+    }
+  }, [profileQueryData])
 
-        // Fetch user posts using optimized API client
-        try {
-          let postsData
-          if (userId === currentUser?.id?.toString()) {
-            // For current user, use the existing me/posts endpoint
-            postsData = await apiClient.get('/users/me/posts')
-          } else {
-            // For other users, try the dedicated endpoint first
-            try {
-              console.log('Fetching posts for userId:', userId)
-              postsData = await apiClient.getUserPosts(userId)
-              console.log('Successfully fetched user posts:', Array.isArray(postsData) ? postsData.length : 0)
-            } catch (userPostsError) {
-              // Don't use fallback that loads all posts - this causes multiple user requests
-              console.warn('Failed to fetch user posts, no fallback used to prevent multiple user requests:', userPostsError)
-              postsData = [] // Just show empty posts instead of loading all posts
-            }
-          }
+  useEffect(() => {
+    if (normalizedProfileData) {
+      setProfile(normalizedProfileData)
+    }
+  }, [normalizedProfileData])
 
-          // Transform posts from backend format to frontend format
-          const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
-          // Sort posts by creation date (newest first) as a backup
-          const sortedPosts = transformedPosts.sort((a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          )
-          setPosts(sortedPosts)
-        } catch (postsError) {
-          console.error('Error fetching posts:', postsError)
-          // Don't fail the whole page if posts can't be loaded
-          setPosts([])
-        }
+  useEffect(() => {
+    if (postsQueryData !== undefined) {
+      setPosts(postsQueryData)
+    }
+  }, [postsQueryData])
 
-      } catch (error) {
-        console.error('Error fetching user profile:', error)
+  useEffect(() => {
+    if (!authResolved) {
+      setIsLoading(true)
+      return
+    }
+
+    if (!hasAccessToken) {
+      setIsLoading(false)
+      return
+    }
+
+    if (profileQueryError) {
+      if (profileQueryError.message.includes('404')) {
+        setError("User not found")
+      } else {
         setError("Failed to load user profile")
-      } finally {
-        setIsLoading(false)
       }
+    } else if (postsQueryError) {
+      setError("Failed to load user profile")
+    } else {
+      setError(null)
     }
-
-    if (userId) {
-      fetchUserProfile()
-    }
-  }, [userId, router, currentUser, userLoading])
+    setIsLoading(
+      canQueryProfile && (
+        profileQueryLoading ||
+        postsQueryLoading ||
+        (!profileQueryData && !profileQueryError)
+      )
+    )
+  }, [authResolved, canQueryProfile, hasAccessToken, userId, profileQueryData, profileQueryError, postsQueryError, profileQueryLoading, postsQueryLoading])
 
   const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
     // heart is now handled via handleReaction as a unified emoji code.
@@ -277,6 +306,17 @@ export default function UserProfilePage() {
   }
 
   if (!profile) {
+    if (!authResolved || (canQueryProfile && !profileQueryError && !profile)) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading profile...</p>
+          </div>
+        </div>
+      )
+    }
+
     return null
   }
 

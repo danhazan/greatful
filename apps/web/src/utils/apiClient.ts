@@ -2,9 +2,10 @@
  * Optimized API Client with caching and deduplication
  */
 
-import { apiCache, userProfileCache, followStateCache, postsCache, notificationCache } from './apiCache'
+import { apiCache, userProfileCache, followStateCache, postsCache, notificationCache, QueryKey, taggedQueryCache } from './apiCache'
 import { requestDeduplicator } from './requestDeduplicator'
 import { getAccessToken } from './auth'
+import { queryTags } from './queryKeys'
 
 interface APIResponse<T = any> {
   success: boolean
@@ -213,6 +214,7 @@ class OptimizedAPIClient {
 
     // Also cancel any pending requests
     requestDeduplicator.cancelAll()
+    taggedQueryCache.reset()
   }
 
   /**
@@ -225,8 +227,65 @@ class OptimizedAPIClient {
       followState: followStateCache.getStats(),
       posts: postsCache.getStats(),
       notifications: notificationCache.getStats(),
-      deduplicator: requestDeduplicator.getStats()
+      deduplicator: requestDeduplicator.getStats(),
+      taggedQueries: taggedQueryCache.getStats(),
     }
+  }
+
+  setViewerScope(viewerScope: string) {
+    taggedQueryCache.setViewerScope(viewerScope)
+  }
+
+  getViewerScope() {
+    return taggedQueryCache.getViewerScope()
+  }
+
+  invalidateTags(tags: string[]) {
+    taggedQueryCache.invalidateTags(tags, { viewerScope: this.getViewerScope() })
+  }
+
+  patchTaggedQuery<T>(queryKey: QueryKey, updater: (current: T | undefined) => T | undefined) {
+    taggedQueryCache.patchData<T>(queryKey, updater)
+  }
+
+  invalidateUserPosts(userId: string) {
+    this.invalidateTags([queryTags.userPosts(userId)])
+  }
+
+  invalidatePostDetails(postId: string) {
+    this.invalidateTags([
+      queryTags.post(postId),
+      queryTags.postComments(postId),
+      queryTags.postReactions(postId),
+    ])
+  }
+
+  invalidateFeed() {
+    this.invalidateTags([queryTags.feed])
+  }
+
+  invalidateProfile(userId: string) {
+    this.invalidateTags([
+      queryTags.userProfile(userId),
+      userId === 'me' ? queryTags.currentUserProfile : queryTags.userProfile(userId),
+    ])
+  }
+
+  invalidatePostAuthorGraph(postId: string, authorId: string, options?: { includeFeed?: boolean; includeProfile?: boolean }) {
+    const tags = [
+      queryTags.userPosts(authorId),
+      queryTags.post(postId),
+      queryTags.postComments(postId),
+      queryTags.postReactions(postId),
+    ]
+
+    if (options?.includeFeed) tags.push(queryTags.feed)
+    if (options?.includeProfile) {
+      tags.push(queryTags.currentUserProfile)
+      tags.push(queryTags.userProfile(authorId))
+    }
+
+    this.invalidateTags(tags)
   }
 
   // Specialized methods for common operations
@@ -267,6 +326,10 @@ class OptimizedAPIClient {
 
     // Also invalidate current user's profile (following count changes)
     this.invalidateCache('/users/me/profile')
+    this.invalidateTags([
+      queryTags.currentUserProfile,
+      queryTags.userProfile(userId),
+    ])
 
     return result
   }

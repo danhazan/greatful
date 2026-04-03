@@ -801,6 +801,14 @@ The post toolbar contains four main interaction buttons in this order:
 
 ## Future Enhancements
 
+## Query State Rules
+
+- Do not mirror query results into local component state unless the component truly needs local edits or optimistic mutation handling.
+- Prefer using query data directly or deriving view-only shapes with `useMemo`.
+- If local state is necessary, never write effects like `useEffect(() => setState(queryData || []), [queryData, state])`.
+- Avoid inline fallback identities such as `|| []` or `|| {}` inside sync effects because they create fresh references and can retrigger renders indefinitely.
+- When syncing query data into local state, depend only on the external source and only commit defined query results.
+
 ### Planned Improvements
 
 1. **Virtual Scrolling**: For followers/following lists with 1000+ users

@@ -28,7 +28,9 @@ jest.mock('@/utils/apiClient', () => ({
   apiClient: {
     get: jest.fn(),
     getCurrentUserProfile: jest.fn(),
-    put: jest.fn()
+    put: jest.fn(),
+    getViewerScope: jest.fn(() => 'user:1'),
+    invalidateTags: jest.fn(),
   }
 }))
 

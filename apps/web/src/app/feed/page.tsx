@@ -1,16 +1,18 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, RefreshCw, ArrowDown } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 import { normalizePostFromApi } from "@/utils/normalizePost"
-import { normalizeUserData } from "@/utils/userDataMapping"
 import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
 import Navbar from "@/components/Navbar"
-import { Post, Author } from '@/types/post'
+import { Post } from '@/types/post'
+import { useTaggedQuery } from "@/hooks/useTaggedQuery"
+import { queryKeys, queryTags } from "@/utils/queryKeys"
+import { isAuthenticated } from "@/utils/auth"
 
 function extractPostPrivacy(post: any): {
   privacyLevel?: 'public' | 'private' | 'custom'
@@ -40,14 +42,13 @@ export default function FeedPage() {
   const [isCreatingPost, setIsCreatingPost] = useState(false)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
 
   // Cursor pagination state
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const isLoadingMoreRef = useRef(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
-  const hasInitializedRef = useRef(false)
-
   // Pull-to-refresh state
   const [isPullToRefresh, setIsPullToRefresh] = useState(false)
   const [pullDistance, setPullDistance] = useState(0)
@@ -118,35 +119,41 @@ export default function FeedPage() {
     }
   }, [currentUser?.id])
 
-  // Load posts from API
-  const loadPosts = useCallback(async (token: string, refresh: boolean = false) => {
-    try {
-      setError(null)
+  const fetchFeedQuery = useCallback(async () => {
+    const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>('/posts', {
+      skipCache: true,
+    })
 
-      const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>('/posts', {
-        skipCache: true, // Always fresh for feed
-      })
+    const rawPosts = (data as any)?.posts ?? (data as any)?.data?.posts ?? []
+    if (!Array.isArray(rawPosts)) throw new Error('Invalid posts data format')
 
-      const rawPosts = (data as any)?.posts ?? (data as any)?.data?.posts ?? []
-      if (!Array.isArray(rawPosts)) throw new Error('Invalid posts data format')
+    const normalizedPosts = rawPosts.map((p: any) => normalizePostFromApi(p)).filter(Boolean) as Post[]
+    const hydratedPosts = await hydratePrivacy(normalizedPosts, false)
 
-      const normalizedPosts = rawPosts.map((p: any) => normalizePostFromApi(p)).filter(Boolean) as Post[]
-      const hydratedPosts = await hydratePrivacy(normalizedPosts, refresh)
-
-      setPosts(hydratedPosts)
-      setNextCursor((data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null)
-      populateAuthorCache(hydratedPosts)
-    } catch (error) {
-      console.error('Error loading posts:', error)
-      if (error instanceof Error && error.message.includes('401')) {
-        localStorage.removeItem("access_token")
-        router.push("/auth/login")
-        return
-      }
-      setError(error instanceof Error ? error.message : 'Failed to load posts')
-      setPosts([])
+    return {
+      posts: hydratedPosts,
+      nextCursor: (data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null,
     }
-  }, [currentUser?.id, router, populateAuthorCache, hydratePrivacy])
+  }, [hydratePrivacy])
+
+  const feedQueryKey = useMemo(() => queryKeys.feed(), [])
+  const feedQueryTags = useMemo(() => [queryTags.feed], [])
+  const authResolved = hasAccessToken !== null && !userLoading
+  const canQueryFeed = authResolved && !!hasAccessToken
+
+  const {
+    data: feedQueryData,
+    error: feedQueryError,
+    isLoading: feedQueryLoading,
+    refetch: refetchFeedQuery,
+  } = useTaggedQuery({
+    queryKey: feedQueryKey,
+    tags: feedQueryTags,
+    policy: 'network-first', // TODO: migrate feed to stale-while-revalidate once unified behavior is validated.
+    enabled: canQueryFeed,
+    fetcher: fetchFeedQuery,
+    viewerScope: apiClient.getViewerScope(),
+  })
 
   // Load more posts (appends next page)
   const loadMore = useCallback(async () => {
@@ -177,19 +184,17 @@ export default function FeedPage() {
     }
   }, [nextCursor, populateAuthorCache, hydratePrivacy])
 
-  // Check authentication and load data using UserContext
   useEffect(() => {
-    // First check if we have a token - if not, redirect immediately
+    setHasAccessToken(isAuthenticated())
+  }, [])
+
+  useEffect(() => {
     const token = localStorage.getItem("access_token")
     if (!token) {
       router.push("/auth/login")
       return
     }
-
-    // Wait for UserContext to load
     if (userLoading) return
-
-    // If UserContext finished loading but no user, wait a short moment in case UserContext is still finishing up
     if (!currentUser) {
       const t = setTimeout(() => {
         if (!currentUser) {
@@ -198,25 +203,31 @@ export default function FeedPage() {
       }, 200)
       return () => clearTimeout(t)
     }
+  }, [currentUser, userLoading, router])
 
-    // Prevent re-initialization when loadPosts reference changes
-    if (hasInitializedRef.current) return
-    hasInitializedRef.current = true
-
-    // If we have a user, load posts
-    const initializePage = async () => {
-      try {
-        await loadPosts(token)
-      } catch (error) {
-        console.error('Error loading feed data:', error)
-        setError('Failed to load feed data')
-      } finally {
-        setIsLoading(false)
-      }
+  useEffect(() => {
+    if (!authResolved) {
+      setIsLoading(true)
+      return
     }
 
-    initializePage()
-  }, [currentUser, userLoading, router, loadPosts])
+    if (!hasAccessToken) {
+      setIsLoading(false)
+      return
+    }
+
+    if (feedQueryData?.posts) {
+      setPosts(feedQueryData.posts)
+      setNextCursor(feedQueryData.nextCursor)
+      populateAuthorCache(feedQueryData.posts)
+    } else if (feedQueryError) {
+      setPosts([])
+    }
+
+    setError(feedQueryError ? feedQueryError.message : null)
+    const nextLoadingState = canQueryFeed && (feedQueryLoading || (!feedQueryData && !feedQueryError))
+    setIsLoading(nextLoadingState)
+  }, [authResolved, canQueryFeed, hasAccessToken, feedQueryData, feedQueryError, feedQueryLoading, populateAuthorCache])
 
   // Infinite scroll observer
   useEffect(() => {
@@ -309,13 +320,10 @@ export default function FeedPage() {
     setPosts(posts.filter(post => post.id !== postId))
   }
 
-  const refreshPosts = useCallback(async (skipCache: boolean = false) => {
-    const token = localStorage.getItem("access_token")
-    if (token) {
-      setNextCursor(null)
-      await loadPosts(token, skipCache)
-    }
-  }, [loadPosts])
+  const refreshPosts = useCallback(async () => {
+    setNextCursor(null)
+    await refetchFeedQuery()
+  }, [refetchFeedQuery])
 
   // Touch event handlers for pull-to-refresh
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -338,7 +346,7 @@ export default function FeedPage() {
   const handleTouchEnd = useCallback(async () => {
     if (pullDistance > 60 && !isPullToRefresh) {
       setIsPullToRefresh(true)
-      await refreshPosts(true)
+      await refreshPosts()
       setIsPullToRefresh(false)
     }
     setPullDistance(0)
@@ -472,7 +480,16 @@ export default function FeedPage() {
       }
 
       // Refresh feed with a network read so the newly created post is visible immediately
-      await refreshPosts(true)
+      await refreshPosts()
+
+      if (currentUser?.id) {
+        apiClient.invalidateTags([
+          queryTags.feed,
+          queryTags.userPosts(currentUser.id),
+          queryTags.currentUserProfile,
+          queryTags.userProfile(currentUser.id),
+        ])
+      }
 
       // Close the modal
       setIsCreateModalOpen(false)

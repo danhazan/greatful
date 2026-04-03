@@ -24,6 +24,23 @@ interface PostPrivacyBadgeProps {
   labelClassName?: string
 }
 
+function areResolvedUsersEqual(left: UserSearchResult[], right: UserSearchResult[]) {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+
+  return left.every((user, index) => {
+    const other = right[index]
+    return (
+      user.id === other.id &&
+      user.username === other.username &&
+      user.displayName === other.displayName &&
+      user.profileImageUrl === other.profileImageUrl &&
+      Boolean((user as { unresolved?: boolean }).unresolved) ===
+        Boolean((other as { unresolved?: boolean }).unresolved)
+    )
+  })
+}
+
 export default function PostPrivacyBadge({
   privacyLevel,
   privacyRules,
@@ -79,6 +96,14 @@ export default function PostPrivacyBadge({
     middleware: [offset(8), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   })
+
+  const updateResolvedUsers = useMemo(() => {
+    return (nextUsers: UserSearchResult[]) => {
+      setResolvedUsers((previousUsers) => {
+        return areResolvedUsersEqual(previousUsers, nextUsers) ? previousUsers : nextUsers
+      })
+    }
+  }, [])
 
   useEffect(() => {
     if (!enablePreview) return
@@ -172,19 +197,19 @@ export default function PostPrivacyBadge({
       isFetchingRef.current = false
       resolvedUsersRef.current.clear()
       if (!specificUsersDetails) {
-        setResolvedUsers([])
+        updateResolvedUsers([])
       }
     }
 
     if (specificUsersDetails && specificUsersDetails.length > 0) {
       specificUsersDetails.forEach((user) => resolvedUsersRef.current.set(user.id, user))
-      setResolvedUsers(specificUsersDetails)
+      updateResolvedUsers(specificUsersDetails)
       hasFetchedRef.current = true
       return
     }
 
     if (!specificUserIds.length) {
-      setResolvedUsers([])
+      updateResolvedUsers([])
       return
     }
 
@@ -234,7 +259,7 @@ export default function PostPrivacyBadge({
           }
         )
       })
-      setResolvedUsers(users)
+      updateResolvedUsers(users)
       hasFetchedRef.current = true
       isFetchingRef.current = false
     })
@@ -248,6 +273,7 @@ export default function PostPrivacyBadge({
     specificUsersDetails,
     showTooltip,
     isPreviewOpen,
+    updateResolvedUsers,
   ])
 
   const iconClassName = "h-4 w-4"
