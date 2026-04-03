@@ -66,7 +66,6 @@ describe.skip('Counter Integration Test', () => {
                 name: 'Test Author'
               },
               createdAt: new Date().toISOString(),
-              postType: 'daily',
               heartsCount: 12,
               reactionsCount: 5,
               isHearted: false,

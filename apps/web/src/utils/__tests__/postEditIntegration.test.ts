@@ -14,7 +14,6 @@ describe('Post Edit Integration', () => {
       id: "123",
       authorId: 456,
       content: "Updated content",
-      postType: "daily",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:30:00Z", // Post was edited
       heartsCount: 5,
@@ -66,7 +65,6 @@ describe('Post Edit Integration', () => {
         content: "Updated content",
         createdAt: "2025-09-09T10:00:00Z",
         updatedAt: "2025-09-09T11:30:00Z",
-        postType: "spontaneous",
         author: {
           id: 456,
           username: "testuser"
@@ -87,7 +85,6 @@ describe('Post Edit Integration', () => {
       content: "Original content",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: null, // Never edited
-      postType: "photo",
       author: {
         id: 456,
         username: "testuser"
@@ -113,7 +110,6 @@ describe('Post Edit Integration', () => {
     const malformedResponse = {
       id: "123",
       content: "Content",
-      postType: "daily",
       // Missing createdAt and updatedAt
       author: {
         id: 456,
@@ -152,7 +148,6 @@ describe('Post Edit Integration', () => {
       content: "Updated content",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:30:00Z",
-      postType: "daily",
       author: {
         id: 456,
         username: "testuser",

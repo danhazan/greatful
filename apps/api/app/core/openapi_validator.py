@@ -145,12 +145,7 @@ class OpenAPIValidator:
             }
         }
         
-        # Add enum schemas
-        schemas["PostType"] = {
-            "type": "string",
-            "enum": ["daily", "photo", "spontaneous"],
-            "description": "Type of gratitude post"
-        }
+
         
         schemas["EmojiCode"] = {
             "type": "string",

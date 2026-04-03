@@ -40,6 +40,8 @@ export function normalizePostFromApi(apiResponse: any): Post | null {
   // but the goal is direct casting.
   return {
     ...rawPost,
+    createdAt: rawPost.createdAt || new Date().toISOString(),
+    updatedAt: rawPost.updatedAt || undefined,
     ...privacy,
   } as Post
 }

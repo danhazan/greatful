@@ -8,7 +8,6 @@ describe('normalizePostFromApi', () => {
       content: "Test content",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:00:00Z",
-      postType: "daily",
       imageUrl: "https://example.com/image.jpg",
       heartsCount: 5,
       isHearted: true,
@@ -29,7 +28,6 @@ describe('normalizePostFromApi', () => {
       content: "Test content",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:00:00Z",
-      postType: "daily",
       imageUrl: "https://example.com/image.jpg",
       heartsCount: 5,
       isHearted: true,
@@ -50,7 +48,6 @@ describe('normalizePostFromApi', () => {
         id: "123",
         content: "Test content",
         createdAt: "2025-09-09T10:00:00Z",
-        postType: "spontaneous",
         author: {
           id: 456,
           username: "testuser"
@@ -62,7 +59,6 @@ describe('normalizePostFromApi', () => {
 
     expect(normalized?.id).toBe("123")
     expect(normalized?.createdAt).toBe("2025-09-09T10:00:00Z")
-    expect(normalized?.postType).toBe("spontaneous")
   })
 
   it('should handle all camelCase fields', () => {
@@ -71,7 +67,6 @@ describe('normalizePostFromApi', () => {
       content: "Test content",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:00:00Z",
-      postType: "photo",
       imageUrl: "https://example.com/image.jpg",
       author: {
         id: 456,
@@ -83,7 +78,6 @@ describe('normalizePostFromApi', () => {
 
     expect(normalized?.createdAt).toBe("2025-09-09T10:00:00Z")
     expect(normalized?.updatedAt).toBe("2025-09-09T11:00:00Z")
-    expect(normalized?.postType).toBe("photo")
     expect(normalized?.imageUrl).toBe("https://example.com/image.jpg")
   })
 
@@ -147,6 +141,8 @@ describe('mergePostUpdate', () => {
     const existingPost = {
       id: "123",
       content: "Original content",
+      createdAt: "2025-09-09T10:00:00Z",
+      reactionsCount: 0,
       author: {
         id: "456",
         name: "Test User",
@@ -160,7 +156,6 @@ describe('mergePostUpdate', () => {
       content: "Updated content",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:00:00Z",
-      postType: "daily" as const,
       heartsCount: 0,
       isHearted: false,
       reactionsCount: 0,
@@ -173,7 +168,7 @@ describe('mergePostUpdate', () => {
       }
     }
 
-    const merged = mergePostUpdate(existingPost, normalizedUpdate)
+    const merged = mergePostUpdate(existingPost as any, normalizedUpdate as any)
 
     expect(merged.content).toBe("Updated content") // Updated field
     expect(merged.author.image).toBe("https://example.com/existing-avatar.jpg") // Preserved field
@@ -183,6 +178,9 @@ describe('mergePostUpdate', () => {
   it('should use new author image when provided in update', () => {
     const existingPost = {
       id: "123",
+      content: "Old content",
+      createdAt: "2025-09-09T10:00:00Z",
+      reactionsCount: 0,
       author: {
         id: "456",
         name: "Test User",
@@ -194,7 +192,6 @@ describe('mergePostUpdate', () => {
       id: "123",
       content: "Updated content",
       createdAt: "2025-09-09T10:00:00Z",
-      postType: "daily" as const,
       heartsCount: 0,
       isHearted: false,
       reactionsCount: 0,
@@ -206,7 +203,7 @@ describe('mergePostUpdate', () => {
       }
     }
 
-    const merged = mergePostUpdate(existingPost, normalizedUpdate)
+    const merged = mergePostUpdate(existingPost as any, normalizedUpdate as any)
 
     expect(merged.author.image).toBe("https://example.com/new-avatar.jpg") // Should use new image
   })
@@ -215,6 +212,8 @@ describe('mergePostUpdate', () => {
     const existingPost = {
       id: "123",
       content: "Old content",
+      createdAt: "2025-09-09T10:00:00Z",
+      reactionsCount: 0,
       author: {
         id: "456",
         name: "Old Name"
@@ -225,7 +224,6 @@ describe('mergePostUpdate', () => {
       id: "123",
       content: "New content",
       createdAt: "2025-09-09T10:00:00Z",
-      postType: "daily" as const,
       heartsCount: 0,
       isHearted: false,
       reactionsCount: 0,
@@ -236,7 +234,7 @@ describe('mergePostUpdate', () => {
       }
     }
 
-    const merged = mergePostUpdate(existingPost, normalizedUpdate)
+    const merged = mergePostUpdate(existingPost as any, normalizedUpdate as any)
 
     expect(merged.content).toBe("New content")
     expect(merged.author.name).toBe("Test User")

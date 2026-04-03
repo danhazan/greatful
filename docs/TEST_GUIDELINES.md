@@ -1332,7 +1332,6 @@ describe('PostCard', () => {
     const post = {
       id: '1',
       content: 'I am grateful for testing!',
-      postType: 'daily_gratitude',
       author: { name: 'Test User' }
     }
     
