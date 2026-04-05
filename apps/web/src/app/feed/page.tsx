@@ -10,44 +10,16 @@ import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
 import Navbar from "@/components/Navbar"
 import { Post } from '@/types/post'
-import { useTaggedQuery } from "@/hooks/useTaggedQuery"
-import { queryKeys, queryTags } from "@/utils/queryKeys"
+import { useInfiniteFeed } from "@/hooks/useInfiniteFeed"
+import { queryTags } from "@/utils/queryKeys"
 import { isAuthenticated } from "@/utils/auth"
-
-function extractPostPrivacy(post: any): {
-  privacyLevel?: 'public' | 'private' | 'custom'
-  privacyRules?: string[]
-  specificUsers?: number[]
-} {
-  const privacyLevelRaw = post?.privacyLevel
-  const privacyRulesRaw = post?.privacyRules
-  const specificUsersRaw = post?.specificUsers
-
-  return {
-    privacyLevel:
-      privacyLevelRaw === 'public' || privacyLevelRaw === 'private' || privacyLevelRaw === 'custom'
-        ? privacyLevelRaw
-        : undefined,
-    privacyRules: Array.isArray(privacyRulesRaw) ? privacyRulesRaw : undefined,
-    specificUsers: Array.isArray(specificUsersRaw) ? specificUsersRaw : undefined,
-  }
-}
 
 export default function FeedPage() {
   const router = useRouter()
   const { currentUser, isLoading: userLoading, logout, updateUserProfile, updateFollowState, markDataAsFresh } = useUser()
-  const [posts, setPosts] = useState<Post[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
-
-  // Cursor pagination state
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const isLoadingMoreRef = useRef(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   // Pull-to-refresh state
   const [isPullToRefresh, setIsPullToRefresh] = useState(false)
@@ -82,107 +54,24 @@ export default function FeedPage() {
       })
     }
   }, [currentUser?.id, updateUserProfile, updateFollowState, markDataAsFresh])
-
-  // Hydrate privacy metadata for current user's own posts
-  const hydratePrivacy = useCallback(async (normalizedPosts: Post[], refresh: boolean): Promise<Post[]> => {
-    if (!currentUser?.id) return normalizedPosts
-    const needsHydration = normalizedPosts.some(
-      (post) => post.author?.id === currentUser.id && !post.privacyLevel
-    )
-    if (!needsHydration) return normalizedPosts
-
-    try {
-      const myPostsResponse = await apiClient.get('/users/me/posts', { skipCache: refresh }) as any
-      const myPosts = myPostsResponse?.data || myPostsResponse
-      if (!Array.isArray(myPosts)) return normalizedPosts
-
-      const privacyByPostId = new Map<string, { privacyLevel?: 'public' | 'private' | 'custom'; privacyRules?: string[]; specificUsers?: number[] }>()
-      myPosts.forEach((myPost: any) => {
-        const postId = String(myPost?.id || '')
-        if (postId) privacyByPostId.set(postId, extractPostPrivacy(myPost))
-      })
-
-      return normalizedPosts.map((post) => {
-        if (post.author?.id !== currentUser.id) return post
-        const privacy = privacyByPostId.get(post.id)
-        if (!privacy) return post
-        return {
-          ...post,
-          privacyLevel: privacy.privacyLevel ?? post.privacyLevel,
-          privacyRules: privacy.privacyRules ?? post.privacyRules,
-          specificUsers: privacy.specificUsers ?? post.specificUsers,
-        }
-      })
-    } catch {
-      console.warn('[Feed] Failed to hydrate own post privacy metadata')
-      return normalizedPosts
-    }
-  }, [currentUser?.id])
-
-  const fetchFeedQuery = useCallback(async () => {
-    const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>('/posts', {
-      skipCache: true,
-    })
-
-    const rawPosts = (data as any)?.posts ?? (data as any)?.data?.posts ?? []
-    if (!Array.isArray(rawPosts)) throw new Error('Invalid posts data format')
-
-    const normalizedPosts = rawPosts.map((p: any) => normalizePostFromApi(p)).filter(Boolean) as Post[]
-    const hydratedPosts = await hydratePrivacy(normalizedPosts, false)
-
-    return {
-      posts: hydratedPosts,
-      nextCursor: (data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null,
-    }
-  }, [hydratePrivacy])
-
-  const feedQueryKey = useMemo(() => queryKeys.feed(), [])
-  const feedQueryTags = useMemo(() => [queryTags.feed], [])
   const authResolved = hasAccessToken !== null && !userLoading
   const canQueryFeed = authResolved && !!hasAccessToken
-
   const {
-    data: feedQueryData,
-    error: feedQueryError,
-    isLoading: feedQueryLoading,
-    refetch: refetchFeedQuery,
-  } = useTaggedQuery({
-    queryKey: feedQueryKey,
-    tags: feedQueryTags,
-    policy: 'network-first', // TODO: migrate feed to stale-while-revalidate once unified behavior is validated.
+    items: posts,
+    nextCursor,
+    hasMore,
+    isInitialLoading,
+    isFetchingNextPage,
+    error,
+    refresh,
+    loadNextPage,
+    patchPost,
+    removePost,
+  } = useInfiniteFeed({
     enabled: canQueryFeed,
-    fetcher: fetchFeedQuery,
-    viewerScope: apiClient.getViewerScope(),
+    currentUserId: currentUser?.id,
+    onPostsLoaded: populateAuthorCache,
   })
-
-  // Load more posts (appends next page)
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || isLoadingMoreRef.current) return
-
-    isLoadingMoreRef.current = true
-    setIsLoadingMore(true)
-    try {
-      const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>(
-        `/posts?cursor=${encodeURIComponent(nextCursor)}&page_size=10`,
-        { skipCache: true }
-      )
-
-      const rawPosts = (data as any)?.posts ?? []
-      if (!Array.isArray(rawPosts)) return
-
-      const normalizedPosts = rawPosts.map((p: any) => normalizePostFromApi(p)).filter(Boolean) as Post[]
-      const hydratedPosts = await hydratePrivacy(normalizedPosts, false)
-
-      setPosts(prev => [...prev, ...hydratedPosts])
-      setNextCursor((data as any)?.nextCursor ?? null)
-      populateAuthorCache(hydratedPosts)
-    } catch (error) {
-      console.error('Error loading more posts:', error)
-    } finally {
-      isLoadingMoreRef.current = false
-      setIsLoadingMore(false)
-    }
-  }, [nextCursor, populateAuthorCache, hydratePrivacy])
 
   useEffect(() => {
     setHasAccessToken(isAuthenticated())
@@ -205,33 +94,9 @@ export default function FeedPage() {
     }
   }, [currentUser, userLoading, router])
 
-  useEffect(() => {
-    if (!authResolved) {
-      setIsLoading(true)
-      return
-    }
-
-    if (!hasAccessToken) {
-      setIsLoading(false)
-      return
-    }
-
-    if (feedQueryData?.posts) {
-      setPosts(feedQueryData.posts)
-      setNextCursor(feedQueryData.nextCursor)
-      populateAuthorCache(feedQueryData.posts)
-    } else if (feedQueryError) {
-      setPosts([])
-    }
-
-    setError(feedQueryError ? feedQueryError.message : null)
-    const nextLoadingState = canQueryFeed && (feedQueryLoading || (!feedQueryData && !feedQueryError))
-    setIsLoading(nextLoadingState)
-  }, [authResolved, canQueryFeed, hasAccessToken, feedQueryData, feedQueryError, feedQueryLoading, populateAuthorCache])
-
   // Infinite scroll observer
   useEffect(() => {
-    if (!nextCursor) return
+    if (!hasMore || !nextCursor) return
 
     const sentinel = sentinelRef.current
     if (!sentinel) return
@@ -239,7 +104,7 @@ export default function FeedPage() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          loadMore()
+          void loadNextPage()
         }
       },
       { rootMargin: '200px' }
@@ -247,12 +112,9 @@ export default function FeedPage() {
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [nextCursor, loadMore])
+  }, [hasMore, nextCursor, loadNextPage])
 
   const handleLogout = () => {
-    // Clear local posts state
-    setPosts([])
-
     // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
     logout()
 
@@ -266,30 +128,20 @@ export default function FeedPage() {
   }
 
   const handleReaction = (postId: string, emojiCode: string, reactionSummary?: any) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          reactionsCount: reactionSummary ? reactionSummary.totalCount : (post.reactionsCount || 0) + 1,
-          currentUserReaction: emojiCode,
-          reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
-        }
-      }
-      return post
+    patchPost(postId, (post) => ({
+      ...post,
+      reactionsCount: reactionSummary ? reactionSummary.totalCount : (post.reactionsCount || 0) + 1,
+      currentUserReaction: emojiCode,
+      reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
     }))
   }
 
   const handleRemoveReaction = (postId: string, reactionSummary?: any) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          reactionsCount: reactionSummary ? reactionSummary.totalCount : Math.max(0, (post.reactionsCount || 1) - 1),
-          currentUserReaction: null,
-          reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
-        }
-      }
-      return post
+    patchPost(postId, (post) => ({
+      ...post,
+      reactionsCount: reactionSummary ? reactionSummary.totalCount : Math.max(0, (post.reactionsCount || 1) - 1),
+      currentUserReaction: null,
+      reactionEmojiCodes: reactionSummary?.reactionEmojiCodes ?? post.reactionEmojiCodes
     }))
   }
 
@@ -309,21 +161,16 @@ export default function FeedPage() {
   }
 
   const handleEditPost = (postId: string, updatedPost: Post) => {
-    // Update the post in the local state
-    setPosts(posts.map(post =>
-      post.id === postId ? updatedPost : post
-    ))
+    patchPost(postId, () => updatedPost)
   }
 
   const handleDeletePost = (postId: string) => {
-    // Remove the post from the local state
-    setPosts(posts.filter(post => post.id !== postId))
+    removePost(postId)
   }
 
   const refreshPosts = useCallback(async () => {
-    setNextCursor(null)
-    await refetchFeedQuery()
-  }, [refetchFeedQuery])
+    await refresh()
+  }, [refresh])
 
   // Touch event handlers for pull-to-refresh
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -503,7 +350,7 @@ export default function FeedPage() {
     }
   }
 
-  if (isLoading) {
+  if (!authResolved || (hasAccessToken && isInitialLoading)) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -520,7 +367,7 @@ export default function FeedPage() {
         <div className="text-center">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Feed</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-gray-600 mb-4">{error.message}</p>
           <button
             onClick={() => window.location.reload()}
             className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
@@ -616,7 +463,7 @@ export default function FeedPage() {
           {posts.length > 0 && (
             <>
               <div ref={sentinelRef} className="h-1" />
-              {isLoadingMore && (
+              {isFetchingNextPage && (
                 <div className="flex justify-center py-6">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
                 </div>
