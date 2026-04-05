@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, RefreshCw, ArrowDown } from "lucide-react"
+import { Plus } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
-import { normalizePostFromApi } from "@/utils/normalizePost"
 import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
 import Navbar from "@/components/Navbar"
@@ -13,6 +12,11 @@ import { Post } from '@/types/post'
 import { useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
 import { isAuthenticated } from "@/utils/auth"
+import {
+  getScrollDirection,
+  getTrueScrollTop,
+  shouldTriggerObserverLoad,
+} from "@/utils/feedScrollGuards"
 
 export default function FeedPage() {
   const router = useRouter()
@@ -21,11 +25,10 @@ export default function FeedPage() {
   const [isCreatingPost, setIsCreatingPost] = useState(false)
   const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
-  // Pull-to-refresh state
-  const [isPullToRefresh, setIsPullToRefresh] = useState(false)
-  const [pullDistance, setPullDistance] = useState(0)
-  const touchStartY = useRef(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const scrollDirectionRef = useRef<'up' | 'down' | 'idle'>('idle')
+  const lastKnownScrollTopRef = useRef(0)
+  const observerVisibleRef = useRef(false)
 
   // Populate UserContext cache from post author data
   const populateAuthorCache = useCallback((postList: Post[]) => {
@@ -62,6 +65,7 @@ export default function FeedPage() {
     hasMore,
     isInitialLoading,
     isFetchingNextPage,
+    isRefreshing,
     error,
     refresh,
     loadNextPage,
@@ -72,6 +76,24 @@ export default function FeedPage() {
     currentUserId: currentUser?.id,
     onPostsLoaded: populateAuthorCache,
   })
+
+  const getScrollMetrics = useCallback(() => {
+    const containerScrollTop = scrollContainerRef.current?.scrollTop ?? 0
+    const windowScrollY = typeof window !== 'undefined' ? window.scrollY : 0
+    const documentScrollTop = typeof document !== 'undefined' ? document.documentElement.scrollTop : 0
+    const trueScrollTop = getTrueScrollTop({
+      containerScrollTop,
+      windowScrollY,
+      documentScrollTop,
+    })
+
+    return {
+      containerScrollTop,
+      windowScrollY,
+      documentScrollTop,
+      trueScrollTop,
+    }
+  }, [])
 
   useEffect(() => {
     setHasAccessToken(isAuthenticated())
@@ -94,6 +116,25 @@ export default function FeedPage() {
     }
   }, [currentUser, userLoading, router])
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const metrics = getScrollMetrics()
+      const direction = getScrollDirection(lastKnownScrollTopRef.current, metrics.trueScrollTop)
+      scrollDirectionRef.current = direction
+      lastKnownScrollTopRef.current = metrics.trueScrollTop
+    }
+
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [getScrollMetrics])
+
+  useEffect(() => {
+    observerVisibleRef.current = false
+  }, [nextCursor])
+
   // Infinite scroll observer
   useEffect(() => {
     if (!hasMore || !nextCursor) return
@@ -103,16 +144,28 @@ export default function FeedPage() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        const entry = entries[0]
+        const shouldLoad = shouldTriggerObserverLoad({
+          isIntersecting: entry.isIntersecting,
+          wasIntersecting: observerVisibleRef.current,
+          hasMore,
+          hasCursor: !!nextCursor,
+          isFetching: isFetchingNextPage || isRefreshing,
+          scrollDirection: scrollDirectionRef.current,
+        })
+
+        if (shouldLoad) {
           void loadNextPage()
         }
+
+        observerVisibleRef.current = entry.isIntersecting
       },
       { rootMargin: '200px' }
     )
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore, nextCursor, loadNextPage])
+  }, [hasMore, nextCursor, loadNextPage, isFetchingNextPage, isRefreshing])
 
   const handleLogout = () => {
     // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
@@ -168,37 +221,9 @@ export default function FeedPage() {
     removePost(postId)
   }
 
-  const refreshPosts = useCallback(async () => {
-    await refresh()
+  const refreshPosts = useCallback(async (reason: string) => {
+    await refresh(reason)
   }, [refresh])
-
-  // Touch event handlers for pull-to-refresh
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (scrollContainerRef.current?.scrollTop === 0) {
-      touchStartY.current = e.touches[0].clientY
-    }
-  }, [])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (scrollContainerRef.current?.scrollTop === 0 && !isPullToRefresh) {
-      const currentY = e.touches[0].clientY
-      const distance = Math.max(0, currentY - touchStartY.current)
-
-      if (distance > 0) {
-        setPullDistance(Math.min(distance * 0.5, 100)) // Damping effect
-      }
-    }
-  }, [isPullToRefresh])
-
-  const handleTouchEnd = useCallback(async () => {
-    if (pullDistance > 60 && !isPullToRefresh) {
-      setIsPullToRefresh(true)
-      await refreshPosts()
-      setIsPullToRefresh(false)
-    }
-    setPullDistance(0)
-    touchStartY.current = 0
-  }, [pullDistance, isPullToRefresh, refreshPosts])
 
   const handleCreatePost = async (postData: {
     content: string
@@ -327,7 +352,7 @@ export default function FeedPage() {
       }
 
       // Refresh feed with a network read so the newly created post is visible immediately
-      await refreshPosts()
+      await refreshPosts('post-create')
 
       if (currentUser?.id) {
         apiClient.invalidateTags([
@@ -395,37 +420,7 @@ export default function FeedPage() {
       <main
         className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-20 relative"
         ref={scrollContainerRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {/* Pull-to-refresh indicator */}
-        {pullDistance > 0 && (
-          <div
-            className="absolute top-0 left-0 right-0 flex items-center justify-center bg-purple-50 border-b border-purple-200 transition-all duration-200 z-10"
-            style={{
-              height: `${Math.min(pullDistance, 80)}px`,
-              opacity: pullDistance / 60
-            }}
-          >
-            <div className="flex items-center gap-2 text-purple-600">
-              {pullDistance > 60 ? (
-                <>
-                  <RefreshCw className={`h-4 w-4 ${isPullToRefresh ? 'animate-spin' : ''}`} />
-                  <span className="text-sm font-medium">
-                    {isPullToRefresh ? 'Refreshing...' : 'Release to refresh'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <ArrowDown className="h-4 w-4" />
-                  <span className="text-sm font-medium">Pull to refresh</span>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
         <div className="max-w-2xl mx-auto">
           {/* Posts */}
           <div className="space-y-6">

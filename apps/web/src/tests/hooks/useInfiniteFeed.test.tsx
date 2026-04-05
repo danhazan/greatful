@@ -247,4 +247,49 @@ describe('useInfiniteFeed', () => {
       noProgressCount: 1,
     })
   })
+
+  it('ignores duplicate refresh requests while a refresh is already in flight', async () => {
+    const refreshPage = deferred<any>()
+
+    mockedApiClient.get
+      .mockResolvedValueOnce({
+        posts: [createRawPost('1')],
+        nextCursor: 'cursor-1',
+      } as any)
+      .mockImplementationOnce(() => refreshPage.promise)
+
+    function RefreshTester() {
+      const { refresh } = useInfiniteFeed({
+        enabled: true,
+        currentUserId: undefined,
+      })
+
+      return (
+        <div>
+          <button onClick={() => void refresh('test-refresh')}>refresh</button>
+        </div>
+      )
+    }
+
+    render(<RefreshTester />)
+
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenCalledTimes(1)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('refresh'))
+      fireEvent.click(screen.getByText('refresh'))
+    })
+
+    expect(mockedApiClient.get).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      refreshPage.resolve({
+        posts: [createRawPost('10')],
+        nextCursor: null,
+      } as any)
+      await refreshPage.promise
+    })
+  })
 })

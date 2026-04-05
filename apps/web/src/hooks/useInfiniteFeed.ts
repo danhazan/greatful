@@ -22,8 +22,9 @@ interface UseInfiniteFeedResult {
   hasMore: boolean
   isInitialLoading: boolean
   isFetchingNextPage: boolean
+  isRefreshing: boolean
   error: Error | null
-  refresh: () => Promise<void>
+  refresh: (reason?: string) => Promise<void>
   loadNextPage: () => Promise<void>
   patchPost: (postId: string, updater: (post: Post) => Post) => void
   removePost: (postId: string) => void
@@ -109,6 +110,7 @@ export function useInfiniteFeed({
   const [hasMore, setHasMore] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(false)
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   const itemsRef = useRef<Post[]>([])
@@ -121,6 +123,8 @@ export function useInfiniteFeed({
   const noProgressCountRef = useRef(0)
   const observerCursorGateRef = useRef<string | null>(null)
   const initialLoadStartedRef = useRef(false)
+  const isRefreshingRef = useRef(false)
+  const lastRefreshAtRef = useRef(0)
 
   itemsRef.current = items
 
@@ -198,6 +202,7 @@ export function useInfiniteFeed({
     setItems([])
     setNextCursor(null)
     setHasMore(false)
+    setIsRefreshing(false)
     setError(null)
   }, [])
 
@@ -208,13 +213,18 @@ export function useInfiniteFeed({
     activePaginationCursorRef.current = null
   }, [])
 
-  const runSessionLoad = useCallback(async (refresh: boolean) => {
+  const runSessionLoad = useCallback(async (refresh: boolean, reason: string) => {
     const sessionVersion = sessionVersionRef.current + 1
     sessionVersionRef.current = sessionVersion
     initialLoadStartedRef.current = true
-    debugLog(refresh ? 'refresh start' : 'initial load start', { sessionVersion })
+    debugLog(refresh ? 'refresh start' : 'initial load start', { sessionVersion, reason, timestamp: Date.now() })
     resetSessionState()
     setIsInitialLoading(true)
+    if (refresh) {
+      isRefreshingRef.current = true
+      lastRefreshAtRef.current = Date.now()
+      setIsRefreshing(true)
+    }
 
     try {
       const page = await fetchPage(null, refresh)
@@ -263,10 +273,16 @@ export function useInfiniteFeed({
         setIsInitialLoading(false)
         debugLog(refresh ? 'refresh end' : 'initial load end', {
           sessionVersion,
+          reason,
+          timestamp: Date.now(),
           total: itemsRef.current.length,
           nextCursor: lastResolvedCursorRef.current,
           hasMore: !!lastResolvedCursorRef.current,
         })
+        if (refresh) {
+          isRefreshingRef.current = false
+          setIsRefreshing(false)
+        }
       }
     }
   }, [fetchPage, onPostsLoaded, resetSessionState, stopPagination])
@@ -284,7 +300,7 @@ export function useInfiniteFeed({
     setIsFetchingNextPage(true)
 
     const sessionVersion = sessionVersionRef.current
-    debugLog('loadNextPage', { cursor, sessionVersion })
+    debugLog('loadNextPage triggered', { cursor, sessionVersion, timestamp: Date.now() })
 
     try {
       const page = await fetchPage(cursor, false)
@@ -367,8 +383,25 @@ export function useInfiniteFeed({
     }
   }, [enabled, fetchPage, hasMore, nextCursor, onPostsLoaded, stopPagination])
 
-  const refresh = useCallback(async () => {
-    await runSessionLoad(true)
+  const refresh = useCallback(async (reason: string = 'manual') => {
+    debugLog('refresh triggered', {
+      reason,
+      timestamp: Date.now(),
+      isRefreshing: isRefreshingRef.current,
+      lastRefreshAt: lastRefreshAtRef.current,
+    })
+
+    if (isRefreshingRef.current) {
+      debugLog('refresh skipped', { reason, skipReason: 'already-refreshing', timestamp: Date.now() })
+      return
+    }
+
+    if (reason !== 'post-create' && Date.now() - lastRefreshAtRef.current < 750) {
+      debugLog('refresh skipped', { reason, skipReason: 'cooldown', timestamp: Date.now() })
+      return
+    }
+
+    await runSessionLoad(true, reason)
   }, [runSessionLoad])
 
   const patchPost = useCallback((postId: string, updater: (post: Post) => Post) => {
@@ -402,7 +435,7 @@ export function useInfiniteFeed({
     }
 
     if (initialLoadStartedRef.current) return
-    void runSessionLoad(false)
+    void runSessionLoad(false, 'initial-load')
   }, [enabled, resetSessionState, runSessionLoad])
 
   return {
@@ -411,6 +444,7 @@ export function useInfiniteFeed({
     hasMore,
     isInitialLoading,
     isFetchingNextPage,
+    isRefreshing,
     error,
     refresh,
     loadNextPage,
