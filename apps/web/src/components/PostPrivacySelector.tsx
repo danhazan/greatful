@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, X } from "lucide-react"
+import { ChevronDown, Globe, Lock, Users, X } from "lucide-react"
 import { apiClient } from "@/utils/apiClient"
 import PostPrivacyBadge from "./PostPrivacyBadge"
 import UserMultiSelect from "./UserMultiSelect"
@@ -35,6 +35,28 @@ export default function PostPrivacySelector({
   const [showPrivacyMenu, setShowPrivacyMenu] = useState(false)
   const [showCustomPrivacyModal, setShowCustomPrivacyModal] = useState(false)
   const [customPrivacyError, setCustomPrivacyError] = useState('')
+  const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!showPrivacyMenu) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (
+        menuRef.current?.contains(target) ||
+        triggerRef.current?.contains(target)
+      ) {
+        return
+      }
+      setShowPrivacyMenu(false)
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showPrivacyMenu])
 
   const normalizedPrivacyRules = useMemo(() => {
     if (privacyRules && privacyRules.length > 0) return privacyRules
@@ -105,6 +127,7 @@ export default function PostPrivacySelector({
     <>
       <div className="flex items-center gap-2">
         <button
+          ref={triggerRef}
           type="button"
           onClick={() => setShowPrivacyMenu((prev) => !prev)}
           aria-label={audience.ariaLabel}
@@ -124,12 +147,13 @@ export default function PostPrivacySelector({
       </div>
 
       {showPrivacyMenu && (
-        <div className="absolute right-0 mt-2 w-52 rounded-lg border border-gray-200 bg-white shadow-lg z-50">
+        <div ref={menuRef} className="absolute right-0 mt-2 w-52 rounded-lg border border-gray-200 bg-white shadow-lg z-50">
           <button
             type="button"
             onClick={() => handlePrivacyLevelSelect('public')}
             className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-purple-50"
           >
+            <Globe className="h-4 w-4 text-green-600" aria-hidden="true" />
             Public
           </button>
           <button
@@ -137,6 +161,7 @@ export default function PostPrivacySelector({
             onClick={() => handlePrivacyLevelSelect('custom')}
             className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-purple-50"
           >
+            <Users className="h-4 w-4 text-indigo-600" aria-hidden="true" />
             Custom
           </button>
           <button
@@ -144,6 +169,7 @@ export default function PostPrivacySelector({
             onClick={() => handlePrivacyLevelSelect('private')}
             className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-purple-50"
           >
+            <Lock className="h-4 w-4 text-rose-600" aria-hidden="true" />
             Private
           </button>
         </div>
