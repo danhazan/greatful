@@ -283,7 +283,7 @@ async def oauth_callback(
                     else:
                         detail = f"OAuth error: {error_type} - {error_desc}"
                     
-                    raise HTTPException(status_code=400, detail=detail) from e
+                    raise HTTPException(status_code=400, detail=detail)
                 
                 token = response.json()
                 logger.info("Token exchange succeeded")
