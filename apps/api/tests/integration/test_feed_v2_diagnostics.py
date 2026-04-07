@@ -44,6 +44,10 @@ async def _mk_user(db_session, name):
 
 async def _mk_post(db_session, author, content="Post", age_hours=0, **kwargs):
     created_at = datetime.now(timezone.utc) - timedelta(hours=age_hours)
+    hearts_count = kwargs.pop("hearts_count", 0)
+    # Don't pop reactions_count, it's still a column in the model
+    reactions_count = kwargs.get("reactions_count", 0)
+    
     post = Post(
         id=str(uuid.uuid4()),
         author_id=author.id,
@@ -51,14 +55,36 @@ async def _mk_post(db_session, author, content="Post", age_hours=0, **kwargs):
         is_public=kwargs.pop("is_public", True),
         privacy_level=kwargs.pop("privacy_level", "public"),
         created_at=created_at,
-        hearts_count=kwargs.pop("hearts_count", 0),
-        reactions_count=kwargs.pop("reactions_count", 0),
         comments_count=kwargs.pop("comments_count", 0),
         shares_count=kwargs.pop("shares_count", 0),
         **kwargs,
     )
     db_session.add(post)
     await db_session.commit()
+    
+    # Create heart reactions (dynamic)
+    for i in range(hearts_count):
+        reaction = EmojiReaction(
+            id=str(uuid.uuid4()),
+            user_id=1000 + i,
+            post_id=post.id,
+            emoji_code="heart"
+        )
+        db_session.add(reaction)
+        
+    # Create other reactions (also dynamic for consistency, though model has reactions_count)
+    for i in range(reactions_count):
+        reaction = EmojiReaction(
+            id=str(uuid.uuid4()),
+            user_id=2000 + i,
+            post_id=post.id,
+            emoji_code="pray"
+        )
+        db_session.add(reaction)
+        
+    if hearts_count > 0 or reactions_count > 0:
+        await db_session.commit()
+        
     await db_session.refresh(post)
     return post
 

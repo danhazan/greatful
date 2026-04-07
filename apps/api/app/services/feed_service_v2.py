@@ -134,7 +134,7 @@ class FeedServiceV2(BaseService):
                     "authorId": post.author_id,
                     "userHasReacted": float(row.user_reaction_score) > 0,
                     "rawCounts": {
-                        "hearts": getattr(post, "hearts_count", 0) or 0,
+                        "hearts": int(getattr(row, "hearts_count", 0) or 0),
                         "reactions": getattr(post, "reactions_count", 0) or 0,
                         "comments": getattr(post, "comments_count", 0) or 0,
                         "shares": getattr(post, "shares_count", 0) or 0,
@@ -251,6 +251,7 @@ class FeedServiceV2(BaseService):
         sql = text(f"""
             WITH scored AS (
                 SELECT p.*,
+                    (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') AS hearts_count,
                     -- recency: 10 → 0 over 7 days
                     ({RECENCY_MAX} * GREATEST(0, 1.0 - ({age_pg}) / {RECENCY_WINDOW_SECONDS}.0))
                         AS recency_score,
@@ -259,7 +260,7 @@ class FeedServiceV2(BaseService):
                         + COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                         + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                         + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
-                        + COALESCE(p.hearts_count, 0) * {WEIGHT_HEARTS}
+                        + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}
                     )) AS engagement_score,
                     -- relationship: scaled by recency so it fades with age
                     CASE
@@ -298,7 +299,7 @@ class FeedServiceV2(BaseService):
                              AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                                   + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                                   + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
-                                  + COALESCE(p.hearts_count, 0) * {WEIGHT_HEARTS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
+                                  + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
                              AND p.image_url IS NOT NULL
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
@@ -316,7 +317,7 @@ class FeedServiceV2(BaseService):
                             + COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                             + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                             + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
-                            + COALESCE(p.hearts_count, 0) * {WEIGHT_HEARTS}
+                            + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}
                         ))
                         + LEAST({RECENT_ENGAGEMENT_MAX},
                             LN(1
@@ -349,7 +350,7 @@ class FeedServiceV2(BaseService):
                              AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                                   + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                                   + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
-                                  + COALESCE(p.hearts_count, 0) * {WEIGHT_HEARTS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
+                                  + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
                              AND p.image_url IS NOT NULL
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
@@ -419,6 +420,7 @@ class FeedServiceV2(BaseService):
         sql = text(f"""
             WITH scored AS (
                 SELECT p.*,
+                    (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') AS hearts_count,
                     -- recency: 10 → 0 over 7 days
                     ({RECENCY_MAX} * GREATEST(0, 1.0 - ({age_expr}) / {RECENCY_WINDOW_SECONDS}.0))
                         AS recency_score,
@@ -427,7 +429,7 @@ class FeedServiceV2(BaseService):
                         + COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                         + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                         + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
-                        + COALESCE(p.hearts_count, 0) * {WEIGHT_HEARTS}
+                        + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}
                     )) AS engagement_score,
                     -- relationship: scaled by recency so it fades with age
                     CASE
@@ -464,7 +466,7 @@ class FeedServiceV2(BaseService):
                              AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                                   + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                                   + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
-                                  + COALESCE(p.hearts_count, 0) * {WEIGHT_HEARTS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
+                                  + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
                              AND p.image_url IS NOT NULL
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
@@ -479,7 +481,7 @@ class FeedServiceV2(BaseService):
                             + COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                             + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                             + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
-                            + COALESCE(p.hearts_count, 0) * {WEIGHT_HEARTS}
+                            + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}
                         ))
                         + LEAST({RECENT_ENGAGEMENT_MAX},
                             LN(1
@@ -510,7 +512,7 @@ class FeedServiceV2(BaseService):
                              AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                                   + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                                   + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
-                                  + COALESCE(p.hearts_count, 0) * {WEIGHT_HEARTS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
+                                  + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
                              AND p.image_url IS NOT NULL
                         THEN {DISCOVERY_BOOST}
                         ELSE 0

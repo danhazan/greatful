@@ -73,7 +73,7 @@ class TestPostStyleValidationAPI:
     async def test_create_post_invalid_style_id(self, async_client: AsyncClient, test_user: User, auth_headers: dict):
         """Test creating a post with invalid style ID."""
         invalid_style = {
-            "id": "invalid-style-id",
+            "id": "--invalid--",
             "name": "Invalid Style",
             "backgroundColor": "#FFFFFF"
         }

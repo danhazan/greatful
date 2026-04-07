@@ -60,7 +60,7 @@ describe('AnalyticsService', () => {
       // Local tracking should work
       const score = analyticsService.getPostEngagementScore('post-1')
       expect(score).toBeTruthy()
-      expect(score?.heartsCount).toBe(1)
+      expect(score?.reactionsCount).toBe(1)
     })
 
     it('should track heart remove event locally', async () => {
@@ -124,14 +124,13 @@ describe('AnalyticsService', () => {
       const score = analyticsService.getPostEngagementScore('post-1')
       
       expect(score).toBeTruthy()
-      expect(score!.heartsCount).toBe(2)
-      expect(score!.reactionsCount).toBe(1)
+      expect(score!.reactionsCount).toBe(3) // 2 hearts + 1 reaction_add
       expect(score!.sharesCount).toBe(1)
       expect(score!.viewsCount).toBe(1)
       
-      // Formula: (Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0) + (Views × 0.1)
-      // Expected: (2 × 1.0) + (1 × 1.5) + (1 × 4.0) + (1 × 0.1) = 7.6
-      expect(score!.engagementScore).toBe(7.6)
+      // Formula: (Reactions × 1.5) + (Shares × 4.0) + (Views × 0.1)
+      // Expected: (3 × 1.5) + (1 × 4.0) + (1 × 0.1) = 4.5 + 4.0 + 0.1 = 8.6
+      expect(score!.engagementScore).toBe(8.6)
     })
 
     it('should return null for non-existent post', () => {
@@ -150,8 +149,7 @@ describe('AnalyticsService', () => {
       const metrics = analyticsService.getUserMetrics('user-1')
       
       expect(metrics).toBeTruthy()
-      expect(metrics!.totalReactions).toBe(2)
-      expect(metrics!.totalHearts).toBe(1)
+      expect(metrics!.totalReactions).toBe(3) // 2 reaction_adds + 1 heart
       expect(metrics!.totalShares).toBe(1)
       expect(metrics!.favoriteEmojis).toEqual({
         'heart_eyes': 1,
@@ -163,11 +161,11 @@ describe('AnalyticsService', () => {
   describe('getTopPostsByEngagement', () => {
     it('should return posts sorted by engagement score', async () => {
       // Create posts with different engagement levels
-      await analyticsService.trackHeartEvent('post-1', 'user-1', true) // Score: 1.0
+      await analyticsService.trackHeartEvent('post-1', 'user-1', true) // Score: 1.5 (1 reaction * 1.5)
       
-      await analyticsService.trackHeartEvent('post-2', 'user-1', true) // Score: 5.5
-      await analyticsService.trackReactionEvent('reaction_add', 'post-2', 'user-2', 'heart_eyes')
-      await analyticsService.trackShareEvent('post-2', 'user-3', 'url')
+      await analyticsService.trackHeartEvent('post-2', 'user-1', true) // Score: 1.5
+      await analyticsService.trackReactionEvent('reaction_add', 'post-2', 'user-2', 'heart_eyes') // + 1.5 = 3.0
+      await analyticsService.trackShareEvent('post-2', 'user-3', 'url') // + 4.0 = 7.0
       
       await analyticsService.trackShareEvent('post-3', 'user-1', 'url') // Score: 4.0
 
@@ -233,8 +231,7 @@ describe('AnalyticsService', () => {
       expect(trends).toHaveLength(3)
       expect(trends[2]).toEqual({
         date: '2024-01-15',
-        reactions: 1,
-        hearts: 1,
+        reactions: 2, // 1 reaction_add + 1 heart
         shares: 1
       })
 

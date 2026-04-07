@@ -40,8 +40,6 @@ const mockPost = {
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: new Date().toISOString(),
-  heartsCount: 5,
-  isHearted: false,
   reactionsCount: 2,
   currentUserReaction: undefined,
 }
@@ -147,7 +145,7 @@ describe.skip('PostCard Real-time Updates', () => {
 
   it('should handle heart removal and update count in real-time', async () => {
     const mockOnHeart = jest.fn()
-    const heartedPost = { ...mockPost, heartsCount: 6, isHearted: true }
+    const heartedPost = { ...mockPost, currentUserReaction: 'heart', reactionEmojiCodes: ['heart'] }
     
     // Mock all API calls with a more flexible approach
     ;(fetch as jest.Mock).mockImplementation((url: string, options?: any) => {
@@ -377,7 +375,7 @@ describe.skip('PostCard Real-time Updates', () => {
     expect(heartButton).toHaveClass('text-gray-500')
 
     // Rerender with hearted state
-    const heartedPost = { ...mockPost, isHearted: true }
+    const heartedPost = { ...mockPost, currentUserReaction: 'heart', reactionEmojiCodes: ['heart'] }
     rerender(
       <PostCard
         post={heartedPost}
@@ -405,7 +403,7 @@ describe.skip('PostCard Real-time Updates', () => {
     // Test with different count
     rerender(
       <PostCard
-        post={{ ...mockPost, heartsCount: 42 }}
+        post={{ ...mockPost }}
         currentUserId="current-user"
       />
     )

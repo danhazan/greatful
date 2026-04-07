@@ -25,9 +25,7 @@ const mockPost = {
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: '2025-01-08T10:00:00Z',
-  heartsCount: 5,
   reactionsCount: 3,
-  isHearted: false,
   currentUserReaction: undefined,
 }
 
@@ -90,7 +88,7 @@ describe('PostCard Authentication Controls', () => {
     })
 
     it('should not show user-specific interaction states', () => {
-      const heartedPost = { ...mockPost, isHearted: true, currentUserReaction: 'heart_eyes' }
+      const heartedPost = { ...mockPost, currentUserReaction: 'heart', reactionEmojiCodes: ['heart'], currentUserReaction: 'heart_eyes' }
       render(<PostCard post={heartedPost} {...mockHandlers} />)
       
       // Reaction button should not be filled for unauthenticated users
@@ -133,7 +131,7 @@ describe('PostCard Authentication Controls', () => {
     })
 
     it('should show user-specific interaction states', () => {
-      const heartedPost = { ...mockPost, isHearted: true }
+      const heartedPost = { ...mockPost, currentUserReaction: 'heart', reactionEmojiCodes: ['heart'] }
       render(<PostCard post={heartedPost} currentUserId="current-user-123" {...mockHandlers} />)
       
       // Find the reaction button by title

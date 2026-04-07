@@ -69,7 +69,6 @@ describe('/api/posts', () => {
         imageUrl: null,
         location: null,
         locationData: null,
-        heartsCount: 0,
         reactionsCount: 0,
         currentUserReaction: null
       })
@@ -315,7 +314,6 @@ describe('/api/posts', () => {
           username: 'user1'
         },
         createdAt: '2025-01-08T12:00:00Z',
-        heartsCount: 5,
         reactionsCount: 3
       })
       expect(data.nextCursor).toBeNull()

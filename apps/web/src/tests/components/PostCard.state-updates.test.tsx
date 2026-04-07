@@ -171,10 +171,8 @@ describe('PostCard State Updates', () => {
   it('should display correct emoji when post has current user reaction', () => {
     // Test that the component shows the correct emoji for current user reaction
     const postWithHeartReaction = createTestPost({
-      heartsCount: 0,
       reactionsCount: 1,
       currentUserReaction: 'heart',
-      isHearted: false
     })
 
     render(
@@ -195,10 +193,8 @@ describe('PostCard State Updates', () => {
   it('should display correct emoji when post reaction changes', () => {
     // Test that the component updates the emoji when the post prop changes
     const postWithHeartReaction = createTestPost({
-      heartsCount: 0,
       reactionsCount: 1,
       currentUserReaction: 'heart',
-      isHearted: false
     })
 
     const { rerender } = render(
@@ -217,10 +213,8 @@ describe('PostCard State Updates', () => {
 
     // Update the post to have a pray reaction instead
     const postWithPrayReaction = createTestPost({
-      heartsCount: 0,
       reactionsCount: 1,
       currentUserReaction: 'pray',
-      isHearted: false
     })
 
     rerender(
@@ -242,10 +236,8 @@ describe('PostCard State Updates', () => {
   it('should display empty heart when no reaction exists', () => {
     // Test that the component shows empty heart when user has no reaction
     const postWithNoReaction = createTestPost({
-      heartsCount: 0,
       reactionsCount: 0,
       currentUserReaction: undefined,
-      isHearted: false
     })
 
     render(
@@ -273,10 +265,8 @@ describe('PostCard State Updates', () => {
   it('should update reaction count when post prop changes', () => {
     // Test that the component updates the count when the post prop changes
     const postWithLowCount = createTestPost({
-      heartsCount: 1,
       reactionsCount: 2,
       currentUserReaction: undefined,
-      isHearted: false
     })
 
     const { rerender } = render(
@@ -296,10 +286,8 @@ describe('PostCard State Updates', () => {
 
     // Update the post to have higher counts
     const postWithHighCount = createTestPost({
-      heartsCount: 5,
       reactionsCount: 10,
       currentUserReaction: undefined,
-      isHearted: false
     })
 
     rerender(

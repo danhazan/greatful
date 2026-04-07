@@ -193,7 +193,6 @@ class LoadTestDataGenerator:
                         content=content,
                         is_public=True,
                         created_at=created_at,
-                        hearts_count=0,
                         reactions_count=0,
                         shares_count=0
                     )
@@ -260,7 +259,6 @@ class LoadTestDataGenerator:
                         if interaction_type == 'like':
                             heart = EmojiReaction(post_id=post_id, user_id=user.id, emoji_code='heart')
                             batch_interactions.append(heart)
-                            post_object.hearts_count += 1
                             
                         elif interaction_type == 'reaction':
                             # Use only valid emoji codes from database constraint
@@ -461,7 +459,6 @@ async def large_dataset(load_test_session):
                 content=f"Load test post content for user {user.username}. Post number {j}.",
                 is_public=True,
                 created_at=datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 24)),
-                hearts_count=0,
                 reactions_count=0,
                 shares_count=0
             )

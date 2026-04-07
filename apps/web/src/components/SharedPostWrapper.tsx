@@ -44,9 +44,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
           // Update post with user-specific data
           setPost(prevPost => ({
             ...prevPost,
-            isHearted: postData.isHearted || false,
             currentUserReaction: postData.currentUserReaction || undefined,
-            heartsCount: postData.heartsCount || 0,
             reactionsCount: postData.reactionsCount || prevPost.reactionsCount || 0,
           }))
         }
@@ -62,7 +60,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
   }, [post.id, isUserAuthenticated, currentUserId, isLoading])
 
   // Handle heart interaction
-  const handleHeart = async (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
+  const handleHeart = async (postId: string, isCurrentlyHearted: boolean) => {
     if (!isUserAuthenticated) {
       router.push('/auth/login')
       return

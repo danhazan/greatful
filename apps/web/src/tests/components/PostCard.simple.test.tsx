@@ -58,8 +58,6 @@ const mockPost = {
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: new Date().toISOString(),
-  heartsCount: 5,
-  isHearted: false,
   reactionsCount: 2,
   currentUserReaction: undefined,
 }
@@ -115,8 +113,6 @@ describe('PostCard Simple Tests', () => {
   it('should show heart icon as filled when user has hearted', () => {
     const heartedPost = {
       ...mockPost,
-      isHearted: true,
-      heartsCount: 6
     }
 
     render(
@@ -136,8 +132,6 @@ describe('PostCard Simple Tests', () => {
   it('should show empty heart (♡) when user has not hearted or reacted', () => {
     const postWithNoInteraction = {
       ...mockPost,
-      isHearted: false,
-      heartsCount: 5,
       currentUserReaction: undefined,
       reactionsCount: 2
     }
@@ -160,7 +154,6 @@ describe('PostCard Simple Tests', () => {
   it('should display engagement summary for highly engaged posts', () => {
     const highEngagementPost = {
       ...mockPost,
-      heartsCount: 12,
       reactionsCount: 8
     }
 

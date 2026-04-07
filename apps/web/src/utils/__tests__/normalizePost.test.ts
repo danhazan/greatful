@@ -9,8 +9,6 @@ describe('normalizePostFromApi', () => {
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:00:00Z",
       imageUrl: "https://example.com/image.jpg",
-      heartsCount: 5,
-      isHearted: true,
       reactionsCount: 3,
       currentUserReaction: "heart_eyes",
       author: {
@@ -29,8 +27,6 @@ describe('normalizePostFromApi', () => {
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:00:00Z",
       imageUrl: "https://example.com/image.jpg",
-      heartsCount: 5,
-      isHearted: true,
       reactionsCount: 3,
       currentUserReaction: "heart_eyes",
       author: {
@@ -156,8 +152,6 @@ describe('mergePostUpdate', () => {
       content: "Updated content",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:00:00Z",
-      heartsCount: 0,
-      isHearted: false,
       reactionsCount: 0,
       commentsCount: 0,
       author: {
@@ -192,8 +186,6 @@ describe('mergePostUpdate', () => {
       id: "123",
       content: "Updated content",
       createdAt: "2025-09-09T10:00:00Z",
-      heartsCount: 0,
-      isHearted: false,
       reactionsCount: 0,
       commentsCount: 0,
       author: {
@@ -224,8 +216,6 @@ describe('mergePostUpdate', () => {
       id: "123",
       content: "New content",
       createdAt: "2025-09-09T10:00:00Z",
-      heartsCount: 0,
-      isHearted: false,
       reactionsCount: 0,
       commentsCount: 0,
       author: {

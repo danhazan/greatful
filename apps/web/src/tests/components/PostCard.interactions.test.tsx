@@ -455,7 +455,6 @@ describe('PostCard Interactions', () => {
   it('should display engagement summary for highly engaged posts', () => {
     const highlyEngagedPost = {
       ...mockPost,
-      heartsCount: 10,
       reactionsCount: 5
     }
 
@@ -477,7 +476,6 @@ describe('PostCard Interactions', () => {
   it('should not display engagement summary for low engagement posts', () => {
     const lowEngagedPost = {
       ...mockPost,
-      heartsCount: 2,
       reactionsCount: 1
     }
 
@@ -534,8 +532,6 @@ describe('PostCard Interactions', () => {
     const postWithNoReaction = {
       ...mockPost,
       currentUserReaction: undefined,
-      isHearted: false,
-      heartsCount: 0,
       reactionsCount: 0
     }
 
@@ -588,8 +584,6 @@ describe('PostCard Interactions', () => {
     const postWithNoReaction = {
       ...mockPost,
       currentUserReaction: undefined,
-      isHearted: false,
-      heartsCount: 0,
       reactionsCount: 0
     }
 
@@ -632,9 +626,7 @@ describe('PostCard Interactions', () => {
     const postWithoutReaction = {
       ...mockPost,
       currentUserReaction: undefined,
-      heartsCount: 0,
       reactionsCount: 0,
-      isHearted: false
     }
 
     render(

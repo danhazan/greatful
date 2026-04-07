@@ -65,6 +65,9 @@ async def user_c(db_session):
 async def _create_post(db_session, author, content="Grateful", age_hours=0, **kwargs):
     """Helper to create a post with a specific age."""
     created_at = datetime.now(timezone.utc) - timedelta(hours=age_hours)
+    hearts_count = kwargs.pop("hearts_count", 0)
+    reactions_count = kwargs.pop("reactions_count", 0)
+    
     post = Post(
         id=str(uuid.uuid4()),
         author_id=author.id,
@@ -72,14 +75,36 @@ async def _create_post(db_session, author, content="Grateful", age_hours=0, **kw
         is_public=kwargs.pop("is_public", True),
         privacy_level=kwargs.pop("privacy_level", "public"),
         created_at=created_at,
-        hearts_count=kwargs.pop("hearts_count", 0),
-        reactions_count=kwargs.pop("reactions_count", 0),
+        reactions_count=reactions_count,
         comments_count=kwargs.pop("comments_count", 0),
         shares_count=kwargs.pop("shares_count", 0),
         **kwargs,
     )
     db_session.add(post)
     await db_session.commit()
+    
+    # Insert mock emoji reactions so dynamic SQL queries correctly score them
+    for i in range(hearts_count):
+        reaction = EmojiReaction(
+            id=str(uuid.uuid4()),
+            user_id=1000 + i,  # synthetic mock user ID
+            post_id=post.id,
+            emoji_code="heart",
+        )
+        db_session.add(reaction)
+        
+    for i in range(reactions_count):
+        reaction = EmojiReaction(
+            id=str(uuid.uuid4()),
+            user_id=2000 + i,  # synthetic mock user ID
+            post_id=post.id,
+            emoji_code="pray",
+        )
+        db_session.add(reaction)
+        
+    if hearts_count > 0 or reactions_count > 0:
+        await db_session.commit()
+        
     await db_session.refresh(post)
     return post
 

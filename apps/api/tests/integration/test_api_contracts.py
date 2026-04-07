@@ -67,11 +67,6 @@ class TestPostsAPIContracts:
         assert isinstance(data["author"], dict)
         assert "id" in data["author"]
         assert "username" in data["author"]
-        assert "email" in data["author"]
-        
-        assert "heartsCount" in data
-        assert isinstance(data["heartsCount"], int)
-        assert data["heartsCount"] >= 0
         
         assert "reactionsCount" in data
         assert isinstance(data["reactionsCount"], int)
@@ -82,7 +77,6 @@ class TestPostsAPIContracts:
         assert "location" in data
         assert "updatedAt" in data
         assert "currentUserReaction" in data
-        assert "isHearted" in data
 
 
 

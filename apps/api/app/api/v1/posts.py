@@ -110,11 +110,9 @@ class PostResponse(BaseModel):
     created_at: str = Field(alias="createdAt")
     updated_at: Optional[str] = Field(None, alias="updatedAt")
     author: AuthorResponse
-    hearts_count: int = Field(0, alias="heartsCount")
     reactions_count: int = Field(0, alias="reactionsCount")
     comments_count: int = Field(0, alias="commentsCount")
     current_user_reaction: Optional[str] = Field(None, alias="currentUserReaction")
-    is_hearted: Optional[bool] = Field(False, alias="isHearted")
     reaction_emoji_codes: List[str] = Field(default_factory=list, alias="reactionEmojiCodes")
     emoji_counts: Dict[str, int] = Field(default_factory=dict, alias="emojiCounts")
     privacy_level: Optional[str] = Field(None, alias="privacyLevel")
@@ -575,11 +573,9 @@ async def create_post_json(
                 "name": user.display_name or user.username,
                 "email": user.email
             },
-            hearts_count=0,
             reactions_count=0,
             comments_count=0,
-            current_user_reaction=None,
-            is_hearted=False
+            current_user_reaction=None
         )
 
     except HTTPException:
@@ -933,10 +929,9 @@ async def create_post_with_file(
                 "name": user.display_name or user.username,
                 "email": user.email
             },
-            hearts_count=0,
             reactions_count=0,
-            current_user_reaction=None,
-            is_hearted=False
+            comments_count=0,
+            current_user_reaction=None
         )
 
     except HTTPException:
@@ -1017,77 +1012,11 @@ async def get_post_by_id(
         # Get user ID if authenticated, otherwise None
         current_user_id = await get_optional_user_id(request)
         
-        from sqlalchemy import text
-        from app.models.emoji_reaction import EmojiReaction
-        dialect = db.bind.dialect.name if db.bind is not None else ""
+        from app.repositories.post_repository import PostRepository
+        from app.services.post_privacy_service import PostPrivacyService
         
-        # Hearts are implemented as emoji reactions with emoji_code='heart'
-        has_likes_table = True  # Hearts available through emoji reactions system
-
-        reaction_agg_expression = (
-            "ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code)"
-            if dialect == "postgresql"
-            else "GROUP_CONCAT(DISTINCT emoji_code)"
-        )
-        reaction_default_expression = "ARRAY[]::text[]" if dialect == "postgresql" else "''"
-
-        # Build query with engagement counts using efficient LEFT JOINs
-        query = text(f"""
-            SELECT p.id,
-                   p.author_id,
-                   p.content,
-                   p.rich_content,
-                   p.post_style,
-                   p.image_url,
-                   p.location,
-                   p.location_data,
-                   p.is_public,
-                   p.privacy_level,
-                   p.created_at,
-                   p.updated_at,
-                   p.comments_count,
-                   u.id as author_id,
-                   u.username as author_username,
-                   u.display_name as author_display_name,
-                   u.email as author_email,
-                   u.profile_image_url as author_profile_image,
-                   COALESCE(engagement.hearts_count, 0) as hearts_count,
-                   COALESCE(engagement.reactions_count, 0) as reactions_count,
-                   COALESCE(engagement.reaction_emoji_codes, {reaction_default_expression}) as reaction_emoji_codes,
-                   user_reactions.emoji_code as current_user_reaction,
-                   CASE WHEN user_hearts.user_id IS NOT NULL THEN true ELSE false END as is_hearted,
-                   CASE WHEN user_follows.follower_id IS NOT NULL THEN true ELSE false END as is_following
-            FROM posts p
-            LEFT JOIN users u ON u.id = p.author_id
-            LEFT JOIN (
-                SELECT post_id, 
-                       COUNT(DISTINCT CASE WHEN emoji_code = 'heart' THEN user_id END) as hearts_count,
-                       COUNT(DISTINCT CASE WHEN emoji_code != 'heart' THEN user_id END) as reactions_count,
-                       {reaction_agg_expression} as reaction_emoji_codes
-                FROM emoji_reactions
-                GROUP BY post_id
-            ) engagement ON engagement.post_id = p.id
-            LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
-                AND user_reactions.user_id = :current_user_id AND user_reactions.emoji_code != 'heart'
-            LEFT JOIN emoji_reactions user_hearts ON user_hearts.post_id = p.id 
-                AND user_hearts.user_id = :current_user_id AND user_hearts.emoji_code = 'heart'
-            LEFT JOIN follows user_follows ON user_follows.followed_id = p.author_id
-                AND user_follows.follower_id = :current_user_id AND user_follows.status = 'active'
-            WHERE p.id = :post_id
-        """)
-
-        result = await db.execute(query, {
-            "current_user_id": current_user_id,
-            "post_id": post_id
-        })
-        
-        row = result.fetchone()
-        
-        if not row:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Post not found"
-            )
+        post_repo = PostRepository(db)
+        post = await post_repo.get_by_id_or_404(post_id)
         
         privacy_service = PostPrivacyService(db)
         has_access = await privacy_service.can_user_view_post(post_id, current_user_id)
@@ -1096,75 +1025,33 @@ async def get_post_by_id(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to this post"
             )
-
-        privacy_rules = None
-        specific_users = None
-        is_author_view = bool(current_user_id and current_user_id == row.author_id)
+            
+        # Serialize using repository to preserve field parity and unify engagement logic
+        # If user is guest, we pass -1 so that the user_id matching in repo resolves to no reactions
+        serialized_opts = await post_repo.serialize_posts_for_feed(
+            posts=[post],
+            user_id=current_user_id if current_user_id is not None else -1
+        )
+        
+        if not serialized_opts:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to serialize post"
+            )
+            
+        post_dict = serialized_opts[0]
+        
+        # Merge author privacy rules if requested by author
+        # serialize_posts_for_feed handles the timeline structure; single post includes granular privacy info
+        is_author_view = bool(current_user_id and current_user_id == post.author_id)
         if is_author_view:
             privacy_details = await privacy_service.get_privacy_details_for_posts([post_id])
             details = privacy_details.get(post_id, {})
-            privacy_rules = details.get("privacy_rules", [])
-            specific_users = details.get("specific_users", [])
-
-        # Parse JSON fields
-        post_style = None
-        if row.post_style and row.post_style != 'null':
-            try:
-                post_style = json.loads(row.post_style) if isinstance(row.post_style, str) else row.post_style
-            except (json.JSONDecodeError, TypeError):
-                post_style = None
-        
-        location_data = None
-        if row.location_data and row.location_data != 'null':
-            try:
-                location_data = json.loads(row.location_data) if isinstance(row.location_data, str) else row.location_data
-            except (json.JSONDecodeError, TypeError):
-                location_data = None
-
-        # Fetch post images with full URLs
-        images = await _fetch_post_images(db, post_id)
-
-        # Fetch author stats
-        from app.repositories.user_repository import UserRepository
-        user_repo = UserRepository(db)
-        author_stats = await user_repo.get_user_stats_batch([row.author_id])
-        stats = author_stats.get(row.author_id, {})
-
-        return PostResponse(
-            id=row.id,
-            author_id=row.author_id,
-            content=row.content,
-            rich_content=getattr(row, 'rich_content', None),
-            post_style=post_style,
-            image_url=serialize_image_url(row.image_url),
-            images=images,  # Multi-image support
-            location=row.location,
-            location_data=location_data,
-            is_public=(row.privacy_level == "public") if getattr(row, "privacy_level", None) else row.is_public,
-            privacy_level=getattr(row, "privacy_level", None) if is_author_view else None,
-            privacy_rules=privacy_rules,
-            specific_users=specific_users,
-            created_at=row.created_at.isoformat() if hasattr(row.created_at, 'isoformat') else str(row.created_at),
-            updated_at=row.updated_at.isoformat() if row.updated_at and hasattr(row.updated_at, 'isoformat') else str(row.updated_at) if row.updated_at else None,
-            author={
-                "id": row.author_id,
-                "username": row.author_username,
-                "display_name": row.author_display_name,
-                "name": row.author_display_name or row.author_username,
-                "image": serialize_image_url(getattr(row, 'author_profile_image', None)),
-                "follower_count": stats.get("followers_count", 0),
-                "following_count": stats.get("following_count", 0),
-                "posts_count": stats.get("posts_count", 0),
-                "is_following": bool(row.is_following) if current_user_id and current_user_id != row.author_id else None
-            },
-            hearts_count=int(row.hearts_count) if row.hearts_count else 0,
-            reactions_count=int(row.reactions_count) if row.reactions_count else 0,
-            comments_count=int(row.comments_count) if row.comments_count else 0,
-            current_user_reaction=row.current_user_reaction,
-            is_hearted=bool(row.is_hearted) if hasattr(row, 'is_hearted') else False,
-            algorithm_score=None,  # Individual post view doesn't include algorithm score
-            reaction_emoji_codes=_normalize_reaction_emoji_codes(getattr(row, 'reaction_emoji_codes', None))
-        )
+            post_dict["privacy_rules"] = details.get("privacy_rules", [])
+            post_dict["specific_users"] = details.get("specific_users", [])
+            post_dict["privacy_level"] = post.privacy_level
+            
+        return PostResponse(**post_dict)
 
     except HTTPException:
         raise
@@ -1486,10 +1373,9 @@ async def edit_post(
                 "email": user.email,
                 "profile_image_url": serialize_image_url(user.profile_image_url)
             },
-            hearts_count=post.hearts_count or 0,
             reactions_count=post.reactions_count or 0,
-            current_user_reaction=None,  # Will be populated by frontend if needed
-            is_hearted=False  # Will be populated by frontend if needed
+            comments_count=post.comments_count or 0,
+            current_user_reaction=None  # Will be populated by frontend if needed
         )
 
     except HTTPException:

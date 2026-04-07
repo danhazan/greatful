@@ -41,7 +41,6 @@ class Post(Base):
     updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Engagement count columns for performance optimization
-    hearts_count = Column(Integer, nullable=False, server_default="0")
     reactions_count = Column(Integer, nullable=False, server_default="0")
     shares_count = Column(Integer, nullable=False, server_default="0")
     comments_count = Column(Integer, nullable=False, server_default="0")

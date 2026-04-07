@@ -100,10 +100,8 @@ class UserPostResponse(BaseModel):
     is_public: bool
     created_at: str
     updated_at: Optional[str] = None
-    hearts_count: int = 0
     reactions_count: int = 0
     current_user_reaction: Optional[str] = None
-    is_hearted: bool = False
     reaction_emoji_codes: List[str] = Field(default_factory=list, alias="reactionEmojiCodes")
     emoji_counts: Dict[str, int] = Field(default_factory=dict, alias="emojiCounts")
 

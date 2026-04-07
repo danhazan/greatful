@@ -32,8 +32,6 @@ describe('PostCard Date Link', () => {
       image: 'https://example.com/avatar.jpg'
     },
     createdAt: '2024-01-15T10:30:00Z',
-    heartsCount: 5,
-    isHearted: false,
     reactionsCount: 3,
     currentUserReaction: undefined
   }

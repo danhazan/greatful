@@ -18,7 +18,6 @@ export interface EngagementEvent {
 
 export interface PostEngagementScore {
   postId: string
-  heartsCount: number
   reactionsCount: number
   sharesCount: number
   viewsCount: number
@@ -29,7 +28,6 @@ export interface PostEngagementScore {
 export interface UserEngagementMetrics {
   userId: string
   totalReactions: number
-  totalHearts: number
   totalShares: number
   favoriteEmojis: { [emoji: string]: number }
   engagementRate: number
@@ -137,12 +135,8 @@ class AnalyticsService {
   private async updatePostEngagementScore(postId: string): Promise<void> {
     const postEvents = this.events.filter(e => e.postId === postId)
 
-    const heartsCount = postEvents.filter(e =>
-      e.type === 'heart' && e.metadata?.emojiCode === 'heart'
-    ).length
-
     const reactionsCount = postEvents.filter(e =>
-      e.type === 'reaction_add'
+      e.type === 'reaction_add' || e.type === 'heart'
     ).length
 
     const sharesCount = postEvents.filter(e =>
@@ -154,14 +148,12 @@ class AnalyticsService {
     ).length
 
     // Calculate engagement score using the algorithm from requirements
-    const engagementScore = (heartsCount * 1.0) +
-      (reactionsCount * 1.5) +
+    const engagementScore = (reactionsCount * 1.5) +
       (sharesCount * 4.0) +
       (viewsCount * 0.1)
 
     const score: PostEngagementScore = {
       postId,
-      heartsCount,
       reactionsCount,
       sharesCount,
       viewsCount,
@@ -183,7 +175,6 @@ class AnalyticsService {
     let metrics = this.userMetrics.get(userId) || {
       userId,
       totalReactions: 0,
-      totalHearts: 0,
       totalShares: 0,
       favoriteEmojis: {},
       engagementRate: 0,
@@ -193,13 +184,11 @@ class AnalyticsService {
     // Update counters based on event type
     switch (eventType) {
       case 'reaction_add':
+      case 'heart':
         metrics.totalReactions++
         if (emojiCode) {
           metrics.favoriteEmojis[emojiCode] = (metrics.favoriteEmojis[emojiCode] || 0) + 1
         }
-        break
-      case 'heart':
-        metrics.totalHearts++
         break
       case 'share':
         metrics.totalShares++
@@ -208,7 +197,7 @@ class AnalyticsService {
 
     // Calculate engagement rate (interactions per day)
     const daysSinceFirstEvent = this.getDaysSinceFirstEvent(userId)
-    const totalInteractions = metrics.totalReactions + metrics.totalHearts + metrics.totalShares
+    const totalInteractions = metrics.totalReactions + metrics.totalShares
     metrics.engagementRate = daysSinceFirstEvent > 0 ? totalInteractions / daysSinceFirstEvent : totalInteractions
 
     metrics.lastActive = new Date()
@@ -253,16 +242,16 @@ class AnalyticsService {
   /**
    * Get engagement trends over time
    */
-  getEngagementTrends(days: number = 7): { date: string; reactions: number; hearts: number; shares: number }[] {
+  getEngagementTrends(days: number = 7): { date: string; reactions: number; shares: number }[] {
     const now = new Date()
-    const trends: { [date: string]: { reactions: number; hearts: number; shares: number } } = {}
+    const trends: { [date: string]: { reactions: number; shares: number } } = {}
 
     // Initialize dates
     for (let i = 0; i < days; i++) {
       const date = new Date(now)
       date.setDate(date.getDate() - i)
       const dateStr = date.toISOString().split('T')[0]
-      trends[dateStr] = { reactions: 0, hearts: 0, shares: 0 }
+      trends[dateStr] = { reactions: 0, shares: 0 }
     }
 
     // Count events by date
@@ -271,10 +260,8 @@ class AnalyticsService {
       if (trends[dateStr]) {
         switch (event.type) {
           case 'reaction_add':
-            trends[dateStr].reactions++
-            break
           case 'heart':
-            trends[dateStr].hearts++
+            trends[dateStr].reactions++
             break
           case 'share':
             trends[dateStr].shares++

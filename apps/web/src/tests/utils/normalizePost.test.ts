@@ -8,10 +8,8 @@ describe('normalizePost', () => {
       content: 'Test post',
       authorId: 1,
       createdAt: '2024-01-01T00:00:00Z',
-      heartsCount: 5,
       reactionsCount: 3,
       commentsCount: 10,
-      isHearted: false,
       author: {
         id: 1,
         username: 'testuser',
@@ -31,9 +29,7 @@ describe('normalizePost', () => {
       content: 'Test post',
       authorId: 1,
       createdAt: '2024-01-01T00:00:00Z',
-      heartsCount: 5,
       reactionsCount: 3,
-      isHearted: false,
       author: {
         id: 1,
         username: 'testuser',

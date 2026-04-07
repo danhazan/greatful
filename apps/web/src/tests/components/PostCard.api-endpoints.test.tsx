@@ -35,8 +35,6 @@ const mockPost = {
     image: undefined,
   },
   createdAt: '2024-01-15T12:00:00Z',
-  heartsCount: 3,
-  isHearted: false,
   reactionsCount: 2,
   currentUserReaction: undefined,
 }

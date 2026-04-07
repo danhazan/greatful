@@ -55,8 +55,6 @@ const mockPost = {
     image: 'https://example.com/avatar.jpg',
   },
   createdAt: new Date().toISOString(),
-  heartsCount: 5,
-  isHearted: false,
   reactionsCount: 2,
   currentUserReaction: undefined,
 }

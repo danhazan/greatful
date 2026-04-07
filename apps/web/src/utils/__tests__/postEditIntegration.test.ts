@@ -16,8 +16,6 @@ describe('Post Edit Integration', () => {
       content: "Updated content",
       createdAt: "2025-09-09T10:00:00Z",
       updatedAt: "2025-09-09T11:30:00Z", // Post was edited
-      heartsCount: 5,
-      isHearted: false,
       reactionsCount: 2,
       currentUserReaction: null,
       author: {

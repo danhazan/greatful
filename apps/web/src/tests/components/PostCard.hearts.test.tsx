@@ -12,8 +12,6 @@ const mockPost = {
     image: undefined,
   },
   createdAt: '2024-01-15T12:00:00Z',
-  heartsCount: 3,
-  isHearted: false,
   reactionsCount: 0,
   currentUserReaction: undefined,
 }
@@ -38,7 +36,7 @@ describe('PostCard Hearts Counter', () => {
       { id: 'heart-2', userId: '2', userName: 'user2', userImage: null, createdAt: '2024-01-15T11:30:00Z' },
     ];
 
-    const postWithOnlyHearts = { ...mockPost, heartsCount: 3, reactionsCount: 0 }
+    const postWithOnlyHearts = { ...mockPost, reactionsCount: 0 }
 
     const apiGetSpy = jest.spyOn(apiClient, 'get').mockImplementation(async (url: string) => {
       if (url.includes('/hearts/users')) {
@@ -71,7 +69,7 @@ describe('PostCard Hearts Counter', () => {
     // Mock console.error to avoid test output noise
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
 
-    const postWithOnlyHearts = { ...mockPost, heartsCount: 3, reactionsCount: 0 }
+    const postWithOnlyHearts = { ...mockPost, reactionsCount: 0 }
 
     // Mock apiClient.get to reject for the hearts call
     jest.spyOn(apiClient, 'get').mockImplementation(async (url: string) => {
@@ -100,7 +98,7 @@ describe('PostCard Hearts Counter', () => {
 
 
   it('should show unified counter with 0 when count is 0', () => {
-    const postWithNoHearts = { ...mockPost, heartsCount: 0, reactionsCount: 0 }
+    const postWithNoHearts = { ...mockPost, reactionsCount: 0 }
     render(<PostCard post={postWithNoHearts} onUserClick={jest.fn()} />)
 
     // Unified counter should show 0 - find all buttons with "0" and check the first one (unified reaction button)
