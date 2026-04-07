@@ -153,8 +153,6 @@ const mockPosts = [
     },
     createdAt: new Date(Date.now() - 21600000).toISOString(),
 
-    heartsCount: 12,
-    isHearted: false,
     reactionsCount: 6,
     location: "دبي، الإمارات العربية المتحدة"
   }
@@ -163,17 +161,6 @@ const mockPosts = [
 export default function TestToolbarPage() {
   const [posts, setPosts] = useState(mockPosts)
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
-    setPosts(prev => prev.map(post =>
-      post.id === postId
-        ? {
-          ...post,
-          isHearted: !isCurrentlyHearted,
-          heartsCount: isCurrentlyHearted ? post.heartsCount - 1 : post.heartsCount + 1
-        } as typeof post
-        : post
-    ))
-  }
 
   const handleReaction = (postId: string, emojiCode: string) => {
     setPosts(prev => prev.map(post =>
@@ -224,7 +211,6 @@ export default function TestToolbarPage() {
               key={post.id}
               post={post}
               currentUserId="1"
-              onHeart={handleHeart}
               onReaction={handleReaction}
               onRemoveReaction={handleRemoveReaction}
               onShare={(postId) => console.log('Share:', postId)}

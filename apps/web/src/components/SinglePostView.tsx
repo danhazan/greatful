@@ -147,9 +147,6 @@ export default function SinglePostView({ postId, initialPost = null }: SinglePos
       onUserClick={(userId) => {
         router.push(`/profile/${userId}`)
       }}
-      onHeart={(postId, isCurrentlyHearted, heartInfo) => {
-        // heart is now handled via handleReaction as a unified emoji code.
-      }}
       onReaction={(postId, emojiCode, reactionSummary) => {
         // If no current user, redirect to login
         if (!currentUser) {

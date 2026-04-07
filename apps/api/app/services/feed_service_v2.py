@@ -259,7 +259,7 @@ class FeedServiceV2(BaseService):
                     LEAST({ENGAGEMENT_MAX}, LN(1
                         + COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                         + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
-                        + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
+                        + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id) * {WEIGHT_REACTIONS}
                         + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}
                     )) AS engagement_score,
                     -- relationship: scaled by recency so it fades with age
@@ -428,7 +428,7 @@ class FeedServiceV2(BaseService):
                     LEAST({ENGAGEMENT_MAX}, LN(1
                         + COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                         + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
-                        + COALESCE(p.reactions_count, 0) * {WEIGHT_REACTIONS}
+                        + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id) * {WEIGHT_REACTIONS}
                         + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND emoji_code = 'heart') * {WEIGHT_HEARTS}
                     )) AS engagement_score,
                     -- relationship: scaled by recency so it fades with age

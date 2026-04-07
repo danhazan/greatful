@@ -38,12 +38,7 @@ BATCH_CONFIGS: Dict[str, BatchConfig] = {
         summary_template="{count} people reacted to your post",
         icon_type="reaction"
     ),
-    "like": BatchConfig(
-        notification_type="like", 
-        batch_scope="post",
-        summary_template="{count} people liked your post",
-        icon_type="heart"
-    ),
+
     "post_interaction": BatchConfig(  # Combined likes + reactions
         notification_type="post_interaction",
         batch_scope="post", 
@@ -279,54 +274,37 @@ class PostInteractionBatcher(NotificationBatcher):
     
     async def create_interaction_notification(
         self,
-        notification_type: str,  # "like" or "emoji_reaction"
+        notification_type: str,  # Supported: "emoji_reaction" (legacy "like" should be mapped to "heart")
         post_id: str,
         user_id: int,
         actor_data: dict
     ) -> Optional[Notification]:
-        """Create like or reaction notification with unified batching."""
+        """Create a reaction notification with unified batching."""
         
-        # Create the notification object
-        if notification_type == "like":
-            notification = Notification(
-                user_id=user_id,
-                type="like",
-                title="New Like 💜",  # Purple heart styling
-                message="liked your post 💜",  # Purple heart emoji added to match reaction styling
-                data={
-                    "post_id": post_id,
-                    "liker_username": actor_data["username"],
-                    "actor_user_id": str(actor_data["user_id"]),
-                    "actor_username": actor_data["username"]
-                }
-            )
-        elif notification_type == "emoji_reaction":
+        # Special handling for heart emoji (unified like system)
+        if actor_data.get("emoji_code") == "heart":
+            title = "New Like 💜"
+            message = "liked your post 💜"
+        else:
             from app.models.emoji_reaction import EmojiReaction
             emoji_display = EmojiReaction.VALID_EMOJIS.get(actor_data["emoji_code"], actor_data["emoji_code"])
-            
-            # Special handling for heart emoji (unified like system)
-            if actor_data["emoji_code"] == "heart":
-                title = "New Like 💜"
-                message = f"liked your post 💜"
-            else:
-                title = "New Reaction"
-                message = f"reacted to your post with {emoji_display}"
-            
-            notification = Notification(
-                user_id=user_id,
-                type="emoji_reaction",
-                title=title,
-                message=message,
-                data={
-                    "post_id": post_id,
-                    "reactor_username": actor_data["username"],
-                    "emoji_code": actor_data["emoji_code"],
-                    "actor_user_id": str(actor_data["user_id"]),
-                    "actor_username": actor_data["username"]
-                }
-            )
-        else:
-            raise ValueError(f"Unsupported interaction type: {notification_type}")
+            title = "New Reaction"
+            message = f"reacted to your post with {emoji_display}"
+        
+        # Create the notification object
+        notification = Notification(
+            user_id=user_id,
+            type="emoji_reaction",
+            title=title,
+            message=message,
+            data={
+                "post_id": post_id,
+                "reactor_username": actor_data["username"],
+                "emoji_code": actor_data.get("emoji_code"),
+                "actor_user_id": str(actor_data["user_id"]),
+                "actor_username": actor_data["username"]
+            }
+        )
         
         # Use unified batch key for all post interactions from the start
         batch_key = self.generate_batch_key("post_interaction", post_id, "post")

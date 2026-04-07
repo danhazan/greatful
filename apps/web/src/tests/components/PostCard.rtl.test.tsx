@@ -54,7 +54,6 @@ describe('PostCard RTL Support', () => {
         <PostCard
           post={post}
           currentUserId="1"
-          onHeart={() => {}}
           onReaction={() => {}}
           onRemoveReaction={() => {}}
           onShare={() => {}}

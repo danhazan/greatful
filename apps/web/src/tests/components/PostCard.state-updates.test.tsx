@@ -251,15 +251,15 @@ describe('PostCard State Updates', () => {
       />
     )
 
-    // Should show 0 count and empty heart icon (not filled)
-    const reactionButton = screen.getByTitle('Login to react to posts')
-    expect(reactionButton).toHaveTextContent('0')
-    
-    // Should have heart icon but not filled (no emoji text)
-    const heartIcon = reactionButton.querySelector('svg')
+    // Should show empty heart icon (no emoji text)
+    const heartButton = screen.getByTitle('Login to react to posts')
+    const heartIcon = heartButton.querySelector('svg')
     expect(heartIcon).toBeInTheDocument()
     expect(screen.queryByText('💜')).not.toBeInTheDocument()
     expect(screen.queryByText('🙏')).not.toBeInTheDocument()
+    
+    // Total count should NOT be visible when it's 0 (ReactionsBanner returns null)
+    expect(screen.queryByTitle('Reactions')).not.toBeInTheDocument()
   })
 
   it('should update reaction count when post prop changes', () => {
@@ -280,9 +280,10 @@ describe('PostCard State Updates', () => {
       />
     )
 
-    // Initially should show 3 total (1 + 2)
-    const reactionButton = screen.getByTitle('Login to react to posts')
-    expect(reactionButton).toHaveTextContent('3')
+    // Initially should show 2 total (from mockPost overrides)
+    // ReactionsBanner title is "View reactions" when authenticated
+    const reactionsBanner = screen.getByTitle('View reactions')
+    expect(reactionsBanner).toHaveTextContent('2')
 
     // Update the post to have higher counts
     const postWithHighCount = createTestPost({
@@ -301,7 +302,7 @@ describe('PostCard State Updates', () => {
       />
     )
 
-    // Should now show 15 total (5 + 10)
-    expect(reactionButton).toHaveTextContent('15')
+    // Should now show 10 total
+    expect(screen.getByTitle('View reactions')).toHaveTextContent('10')
   })
 })

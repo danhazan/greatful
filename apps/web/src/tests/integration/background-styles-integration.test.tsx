@@ -4,6 +4,7 @@ import { describe, it, expect, jest } from '@jest/globals'
 import PostCard from '@/components/PostCard'
 import { POST_STYLES } from '@/components/PostStyleSelector'
 import { ToastProvider } from '@/contexts/ToastContext'
+import '@testing-library/jest-dom'
 
 // Mock the router
 jest.mock('next/navigation', () => ({
@@ -52,12 +53,14 @@ describe('Background Styles Integration', () => {
       name: 'Test Author',
       username: 'testauthor',
       display_name: 'Test Author',
-      image: 'https://example.com/author.jpg'
+      image: 'https://example.com/author.jpg',
+      followerCount: 0,
+      followingCount: 0,
+      postsCount: 1,
+      isFollowing: false
     },
     createdAt: '2024-01-01T12:00:00Z',
-    heartsCount: 10,
-    isHearted: false,
-    reactionsCount: 5,
+    reactionsCount: 15,
     currentUserReaction: undefined
   }
 

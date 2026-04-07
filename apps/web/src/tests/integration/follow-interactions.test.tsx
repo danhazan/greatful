@@ -40,11 +40,9 @@ describe.skip('Follow Interactions Integration', () => {
       username: 'testuser',
       profile_image_url: 'https://example.com/avatar.jpg'
     },
-    hearts_count: 5,
-    reactions_count: 3,
-    shares_count: 1,
-    user_has_hearted: false,
-    user_reaction: null,
+    reactionsCount: 3,
+    currentUserReaction: null,
+    reactionEmojiCodes: [],
     image_url: null,
     location: null
   }
@@ -64,7 +62,6 @@ describe.skip('Follow Interactions Integration', () => {
         <PostCard
           post={mockPost}
           currentUserId="1" // Different from post author
-          onHeart={jest.fn()}
           onReaction={jest.fn()}
           onShare={jest.fn()}
           onImageClick={jest.fn()}
@@ -79,7 +76,6 @@ describe.skip('Follow Interactions Integration', () => {
         <PostCard
           post={mockPost}
           currentUserId="2" // Same as post author
-          onHeart={jest.fn()}
           onReaction={jest.fn()}
           onShare={jest.fn()}
           onImageClick={jest.fn()}
@@ -94,7 +90,6 @@ describe.skip('Follow Interactions Integration', () => {
         <PostCard
           post={mockPost}
           currentUserId={undefined} // Not authenticated
-          onHeart={jest.fn()}
           onReaction={jest.fn()}
           onShare={jest.fn()}
           onImageClick={jest.fn()}
@@ -110,7 +105,6 @@ describe.skip('Follow Interactions Integration', () => {
           post={mockPost}
           currentUserId="1"
           hideFollowButton={true}
-          onHeart={jest.fn()}
           onReaction={jest.fn()}
           onShare={jest.fn()}
           onImageClick={jest.fn()}
@@ -408,7 +402,6 @@ describe.skip('Follow Interactions Integration', () => {
         <PostCard
           post={mockPost}
           currentUserId="1"
-          onHeart={jest.fn()}
           onReaction={jest.fn()}
           onShare={jest.fn()}
           onImageClick={jest.fn()}
@@ -428,7 +421,6 @@ describe.skip('Follow Interactions Integration', () => {
         <PostCard
           post={mockPost}
           currentUserId="1"
-          onHeart={jest.fn()}
           onReaction={jest.fn()}
           onShare={jest.fn()}
           onImageClick={jest.fn()}

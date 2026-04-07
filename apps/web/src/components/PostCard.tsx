@@ -6,7 +6,6 @@ import Link from "next/link"
 import { Share, Calendar, MapPin, Plus, Loader2, MoreHorizontal, Edit3, Trash2, Heart, MessageCircle } from "lucide-react"
 import EmojiPicker from "./EmojiPicker"
 import ReactionViewer from "./ReactionViewer"
-import HeartsViewer from "./HeartsViewer"
 import ShareModal from "./ShareModal"
 import CommentsModal from "./CommentsModal"
 import MentionHighlighter from "./MentionHighlighter"
@@ -39,7 +38,6 @@ interface PostCardProps {
   post: Post
   currentUserId?: string
   hideFollowButton?: boolean // New prop to hide follow button in profile context
-  onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => void
   onReaction?: (postId: string, emojiCode: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null, reactionEmojiCodes?: string[] }) => void
   onRemoveReaction?: (postId: string, reactionSummary?: { totalCount: number, reactions: { [key: string]: number }, userReaction: string | null, reactionEmojiCodes?: string[] }) => void
   onShare?: (postId: string) => void
@@ -54,7 +52,6 @@ export default function PostCard({
   post,
   currentUserId,
   hideFollowButton = false,
-  onHeart,
   onReaction,
   onRemoveReaction,
   onShare,
@@ -64,7 +61,6 @@ export default function PostCard({
 }: PostCardProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionViewer, setShowReactionViewer] = useState(false)
-  const [showHeartsViewer, setShowHeartsViewer] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -79,7 +75,6 @@ export default function PostCard({
   const [shareModalPosition, setShareModalPosition] = useState({ x: 0, y: 0 })
   const [locationModalPosition, setLocationModalPosition] = useState({ x: 0, y: 0 })
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
-  const [hearts, setHearts] = useState<any[]>([]) // Will be populated from API
   const [comments, setComments] = useState<any[]>([]) // Will be populated from API
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const [validUsernames, setValidUsernames] = useState<string[]>([])
@@ -100,7 +95,6 @@ export default function PostCard({
   const [isReactionLoading, setIsReactionLoading] = useState(false)
   const [isReactionsViewerLoading, setIsReactionsViewerLoading] = useState(false)
   const [pendingReaction, setPendingReaction] = useState<string | null>(null) // Track pending reaction before API call
-  const [isHeartsViewerLoading, setIsHeartsViewerLoading] = useState(false)
   const [isCommentsLoading, setIsCommentsLoading] = useState(false)
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -429,29 +423,7 @@ export default function PostCard({
     }
   }
 
-  const handleHeartsCountClick = async () => {
-    if (isHeartsViewerLoading) return
 
-    setIsHeartsViewerLoading(true)
-
-    // Fetch hearts from API
-    try {
-      const token = localStorage.getItem("access_token")
-      try {
-        // Use optimized API client for hearts users
-        const heartsData = await apiClient.get(`/posts/${post.id}/hearts/users`) as any
-        setHearts(heartsData)
-        setShowHeartsViewer(true)
-      } catch (apiError) {
-        showError('Failed to Load', 'Unable to load hearts. Please try again.')
-      }
-    } catch (error) {
-      console.error('Failed to fetch hearts:', error)
-      showError('Network Error', 'Please check your connection and try again.')
-    } finally {
-      setIsHeartsViewerLoading(false)
-    }
-  }
 
   const handleUserClick = (userId: number) => {
     if (onUserClick) {
@@ -1252,14 +1224,7 @@ export default function PostCard({
         onUserClick={handleUserClick}
       />
 
-      {/* Hearts Viewer Modal */}
-      <HeartsViewer
-        isOpen={showHeartsViewer}
-        onClose={() => setShowHeartsViewer(false)}
-        postId={post.id}
-        hearts={hearts}
-        onUserClick={handleUserClick}
-      />
+
 
       {/* Share Modal */}
       <ShareModal

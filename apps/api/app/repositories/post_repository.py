@@ -359,19 +359,7 @@ class PostRepository(BaseRepository):
         # Hearts are implemented as emoji reactions with emoji_code='heart'
         has_likes_table = True  # Hearts available through emoji reactions system
         
-        if has_likes_table:
-            query = text("""
-                SELECT 
-                    p.id,
-                    COUNT(DISTINCT er.id) as reactions_count,
-                    COUNT(DISTINCT er.emoji_code) as unique_emoji_count
-                FROM posts p
-                LEFT JOIN emoji_reactions er ON er.post_id = p.id
-                WHERE p.id = :post_id
-                GROUP BY p.id
-            """)
-        else:
-            query = text("""
+        query = text("""
                 SELECT 
                     p.id,
                     COUNT(DISTINCT er.id) as reactions_count,
@@ -418,7 +406,7 @@ class PostRepository(BaseRepository):
                 p.image_url,
                 p.created_at,
                 u.username as author_username,
-                COUNT(DISTINCT CASE WHEN er.emoji_code = 'heart' THEN er.id END) as recent_hearts,
+                COUNT(DISTINCT CASE WHEN er.emoji_code = 'heart' THEN er.id END) as recent_heart_reactions,
                 COUNT(DISTINCT er.id) as recent_reactions,
                 (COUNT(DISTINCT er.id) * 1.5) as engagement_score
             FROM posts p
@@ -428,7 +416,7 @@ class PostRepository(BaseRepository):
             WHERE p.is_public = true
                 AND p.created_at >= NOW() - INTERVAL :hours HOUR
             GROUP BY p.id, p.content, p.image_url, p.created_at, u.username
-            HAVING engagement_score > 0
+            HAVING (COUNT(DISTINCT er.id) * 1.5) > 0
             ORDER BY engagement_score DESC, p.created_at DESC
             LIMIT :limit
         """)
@@ -449,8 +437,8 @@ class PostRepository(BaseRepository):
                 "image_url": image_url,  # ← Full URL now!
                 "created_at": str(row.created_at),
                 "author_username": row.author_username,
-                "recent_hearts": int(row.recent_hearts) if row.recent_hearts else 0,
-                "recent_reactions": int(row.recent_reactions) if row.recent_reactions else 0,
+                "recent_heart_reactions": int(row.recent_heart_reactions) if row.recent_heart_reactions else 0,
+                "recent_reaction_count": int(row.recent_reactions) if row.recent_reactions else 0,
                 "engagement_score": float(row.engagement_score) if row.engagement_score else 0.0
             })
         
@@ -594,24 +582,9 @@ class PostRepository(BaseRepository):
         reactions_result = await self.execute_raw_query(reactions_query, reactions_params)
         user_reactions = {row.post_id: row.emoji_code for row in reactions_result.fetchall()}
         
-        # Get user's hearts in batch
-        if is_postgresql:
-            hearts_query = text("""
-                SELECT post_id
-                FROM emoji_reactions
-                WHERE post_id = ANY(:post_ids) AND user_id = :user_id AND emoji_code = 'heart'
-            """)
-            hearts_params: Dict[str, Any] = {"post_ids": post_ids, "user_id": user_id}
-        else:
-            post_id_placeholders, post_id_params = build_in_clause_params(post_ids, "post_id")
-            hearts_query = text(f"""
-                SELECT post_id
-                FROM emoji_reactions
-                WHERE post_id IN ({post_id_placeholders}) AND user_id = :user_id AND emoji_code = 'heart'
-            """)
-            hearts_params = {**post_id_params, "user_id": user_id}
-        hearts_result = await self.execute_raw_query(hearts_query, hearts_params)
-        user_hearts = {row.post_id for row in hearts_result.fetchall()}
+        # Note: user_hearts check is removed as current_user_reaction already provides emoji_code, 
+        # which can be checked for 'heart' on the client side.
+
         
         # Get images for all posts in batch
         if is_postgresql:

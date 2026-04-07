@@ -126,7 +126,7 @@ class TestAPIContracts:
         post_response = data
         required_fields = [
             "id", "authorId", "content", "isPublic", 
-            "createdAt", "author", "heartsCount", "reactionsCount"
+            "createdAt", "author", "reactionsCount"
         ]
         for field in required_fields:
             assert field in post_response
@@ -135,7 +135,6 @@ class TestAPIContracts:
         assert isinstance(post_response["id"], str)
         assert isinstance(post_response["authorId"], int)
         assert isinstance(post_response["isPublic"], bool)
-        assert isinstance(post_response["heartsCount"], int)
         assert isinstance(post_response["reactionsCount"], int)
         
         # Verify author object

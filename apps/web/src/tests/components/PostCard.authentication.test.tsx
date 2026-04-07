@@ -23,6 +23,10 @@ const mockPost = {
     name: 'Test User',
     username: 'testuser',
     image: 'https://example.com/avatar.jpg',
+    followerCount: 0,
+    followingCount: 0,
+    postsCount: 1,
+    isFollowing: false
   },
   createdAt: '2025-01-08T10:00:00Z',
   reactionsCount: 3,
@@ -30,7 +34,6 @@ const mockPost = {
 }
 
 const mockHandlers = {
-  onHeart: jest.fn(),
   onReaction: jest.fn(),
   onRemoveReaction: jest.fn(),
   onShare: jest.fn(),
@@ -88,7 +91,7 @@ describe('PostCard Authentication Controls', () => {
     })
 
     it('should not show user-specific interaction states', () => {
-      const heartedPost = { ...mockPost, currentUserReaction: 'heart', reactionEmojiCodes: ['heart'], currentUserReaction: 'heart_eyes' }
+      const heartedPost = { ...mockPost, currentUserReaction: 'heart', reactionEmojiCodes: ['heart'] }
       render(<PostCard post={heartedPost} {...mockHandlers} />)
       
       // Reaction button should not be filled for unauthenticated users

@@ -524,9 +524,6 @@ export default function ProfilePage() {
     setPasswordError("")
   }
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean) => {
-    // heart is now handled via handleReaction as a unified emoji code.
-  }
 
   const handleReaction = (postId: string, emojiCode: string, reactionSummary?: any) => {
     setPosts(posts.map(post => {
@@ -1335,7 +1332,6 @@ export default function ProfilePage() {
                   post={post}
                   currentUserId={contextUser?.id}
                   hideFollowButton={true}
-                  onHeart={handleHeart}
                   onReaction={handleReaction}
                   onRemoveReaction={handleRemoveReaction}
                   onShare={handleShare}

@@ -52,7 +52,7 @@ class Notification(Base):
         data = self.data or {}
         
         # Post-based notifications
-        if self.type in ['emoji_reaction', 'like', 'post_shared', 'mention', 'post_interaction']:
+        if self.type in ['emoji_reaction', 'post_shared', 'mention', 'post_interaction']:
             post_id = data.get('post_id')
             if post_id:
                 return f"{self.type}:post:{post_id}"
@@ -61,7 +61,7 @@ class Notification(Base):
                 return f"{self.type}_{self.user_id}"
         
         # User-based notifications  
-        elif self.type in ['new_follower', 'follow']:
+        elif self.type == 'follow':
             return f"{self.type}:user:{self.user_id}"
         
         # Default format for unknown types
@@ -80,19 +80,13 @@ class Notification(Base):
                 return "New Reaction", f"{data.get('reactor_username')} reacted with {emoji_display} to your post"
             else:
                 return "New Reactions", f"{count} people reacted to your post"
-        elif self.type == 'like':
-            data = self.data or {}
-            if count == 1:
-                return "New Like 💜", f"{data.get('liker_username')} liked your post 💜"
-            else:
-                return "New Likes 💜", f"{count} people liked your post 💜"
         elif self.type == 'post_interaction':
             # Combined likes and reactions
             if count == 1:
                 return "New Engagement 💜", "Someone engaged with your post 💜"
             else:
                 return "New Engagement 💜", f"{count} people engaged with your post 💜"
-        elif self.type == 'new_follower' or self.type == 'follow':
+        elif self.type == 'follow':
             data = self.data or {}
             if count == 1:
                 return "New Follower", f"{data.get('follower_username')} started following you"

@@ -83,7 +83,6 @@ export const createMockReactionViewer = () => {
  * Create mock analytics service
  */
 export const createMockAnalyticsService = () => ({
-  trackHeartEvent: jest.fn(),
   trackReactionEvent: jest.fn(),
   trackShareEvent: jest.fn(),
   trackViewEvent: jest.fn(),
@@ -134,14 +133,18 @@ export const createTestPost = (overrides: any = {}) => ({
   author: {
     id: 'author-1',
     name: 'Test Author',
-    image: 'https://example.com/author.jpg'
+    username: 'testauthor',
+    displayName: 'Test Author',
+    image: 'https://example.com/author.jpg',
+    followerCount: 0,
+    followingCount: 0,
+    postsCount: 1,
+    isFollowing: false
   },
   createdAt: '2024-01-15T10:00:00Z',
-
-  heartsCount: 5,
-  isHearted: false,
   reactionsCount: 3,
   currentUserReaction: undefined,
+  reactionEmojiCodes: [],
   ...overrides
 })
 
@@ -212,9 +215,6 @@ export const setupApiMocks = (mockFetch: jest.Mock) => {
       return Promise.resolve(createSuccessResponse([createTestNotification()]))
     }
     if (url.includes('/reactions')) {
-      return Promise.resolve(createSuccessResponse({ success: true }))
-    }
-    if (url.includes('/heart')) {
       return Promise.resolve(createSuccessResponse({ success: true }))
     }
     

@@ -218,6 +218,24 @@ class TestFeedV2Scoring:
         assert result["posts"][0]["content"] == "High engagement"
 
     @pytest.mark.asyncio
+    async def test_only_hearts_boost_ranking(self, db_session, user_a, user_b):
+        # Same age, only hearts
+        await _create_post(db_session, user_b, "Quiet post", age_hours=2)
+        await _create_post(db_session, user_b, "Only hearts", age_hours=2, hearts_count=5)
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id)
+        assert result["posts"][0]["content"] == "Only hearts"
+
+    @pytest.mark.asyncio
+    async def test_only_reactions_boost_ranking(self, db_session, user_a, user_b):
+        # Same age, only other reactions
+        await _create_post(db_session, user_b, "Quiet post", age_hours=2)
+        await _create_post(db_session, user_b, "Only reactions", age_hours=2, reactions_count=5)
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id)
+        assert result["posts"][0]["content"] == "Only reactions"
+
+    @pytest.mark.asyncio
     async def test_followed_user_ranks_higher(self, db_session, user_a, user_b, user_c):
         # user_a follows user_b but not user_c
         await _follow(db_session, user_a, user_b)

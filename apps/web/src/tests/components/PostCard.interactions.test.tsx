@@ -15,7 +15,6 @@ import { describe } from '@jest/globals'
 
 // Mock the analytics service
 jest.mock('@/services/analytics', () => ({
-  trackHeartEvent: jest.fn(),
   trackReactionEvent: jest.fn(),
   trackShareEvent: jest.fn(),
   trackViewEvent: jest.fn(),
@@ -80,7 +79,6 @@ import * as authUtils from '@/utils/auth';
 jest.mock('@/utils/auth');
 
 describe('PostCard Interactions', () => {
-  const mockOnHeart = jest.fn()
   const mockOnReaction = jest.fn()
   const mockOnRemoveReaction = jest.fn()
   const mockOnShare = jest.fn()
@@ -106,7 +104,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -133,7 +130,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -188,7 +184,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -223,7 +218,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -273,7 +267,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={postWithReaction}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -318,7 +311,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -365,7 +357,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={postWithReaction}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -407,7 +398,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={postWithReactions}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -438,7 +428,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -462,7 +451,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={highlyEngagedPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -483,7 +471,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={lowEngagedPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -504,7 +491,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={photoPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -539,7 +525,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={postWithNoReaction}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -591,7 +576,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={postWithNoReaction}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}
@@ -633,7 +617,6 @@ describe('PostCard Interactions', () => {
       <PostCard
         post={postWithoutReaction}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
         onReaction={mockOnReaction}
         onRemoveReaction={mockOnRemoveReaction}
         onShare={mockOnShare}

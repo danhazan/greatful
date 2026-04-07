@@ -101,14 +101,16 @@ describe('useStateSynchronization', () => {
       act(() => {
         stateSyncUtils.updatePost('post789', {
           content: 'Updated content',
-          heartsCount: 5
+          reactionsCount: 5,
+          currentUserReaction: 'heart'
         })
       })
 
       await waitFor(() => {
         expect(onPostUpdate).toHaveBeenCalledWith('post789', {
           content: 'Updated content',
-          heartsCount: 5
+          reactionsCount: 5,
+          currentUserReaction: 'heart'
         })
       })
     })

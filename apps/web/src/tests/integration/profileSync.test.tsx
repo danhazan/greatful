@@ -67,12 +67,15 @@ describe('Profile Synchronization Test', () => {
         name: 'Original Name',
         username: 'testuser',
         display_name: 'Original Name',
-        image: 'original-image.jpg'
+        image: 'original-image.jpg',
+        followerCount: 0,
+        followingCount: 0,
+        postsCount: 1,
+        isFollowing: false
       },
       createdAt: '2023-01-01T00:00:00Z',
-      heartsCount: 0,
-      isHearted: false,
-      reactionsCount: 0
+      reactionsCount: 0,
+      currentUserReaction: undefined
     }
 
     render(
@@ -111,12 +114,15 @@ describe('Profile Synchronization Test', () => {
         name: 'Test User',
         username: 'testuser',
         display_name: 'Test User',
-        image: 'original-image.jpg'
+        image: 'original-image.jpg',
+        followerCount: 0,
+        followingCount: 0,
+        postsCount: 1,
+        isFollowing: false
       },
       createdAt: '2023-01-01T00:00:00Z',
-      heartsCount: 0,
-      isHearted: false,
-      reactionsCount: 0
+      reactionsCount: 0,
+      currentUserReaction: undefined
     }
 
     render(

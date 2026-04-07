@@ -442,7 +442,6 @@ export default function FeedPage() {
                   key={post.id}
                   post={post}
                   currentUserId={currentUser?.id}
-                  onHeart={handleHeart}
                   onReaction={handleReaction}
                   onRemoveReaction={handleRemoveReaction}
                   onShare={handleShare}

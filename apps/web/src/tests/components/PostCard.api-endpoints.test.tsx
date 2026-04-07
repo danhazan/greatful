@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import '@testing-library/jest-dom'
 import PostCard from '../../components/PostCard'
-import { expect, it, describe, beforeEach } from '@jest/globals'
+import { expect, it, describe, beforeEach, jest } from '@jest/globals'
 
 // Mock fetch
 global.fetch = jest.fn()
@@ -20,7 +20,6 @@ Object.defineProperty(window, 'localStorage', {
 
 // Mock analytics
 jest.mock('@/services/analytics', () => ({
-  trackHeartEvent: jest.fn(),
   trackReactionEvent: jest.fn(),
   trackShareEvent: jest.fn(),
   trackViewEvent: jest.fn(),
@@ -32,7 +31,12 @@ const mockPost = {
   author: {
     id: '1',
     name: 'testuser',
+    username: 'testuser',
     image: undefined,
+    followerCount: 0,
+    followingCount: 0,
+    postsCount: 1,
+    isFollowing: false
   },
   createdAt: '2024-01-15T12:00:00Z',
   reactionsCount: 2,
@@ -47,10 +51,9 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
     mockLocalStorage.getItem.mockReturnValue('fake-token')
   })
 
-  describe('Heart Functionality API Calls', () => {
-    it('should call correct /api/posts/ endpoints for heart actions', async () => {
-      // Mock all the API calls that PostCard makes
-      ;(fetch as jest.Mock)
+  describe('Reaction Functionality API Calls', () => {
+    it('should call correct reaction endpoints when hearting', async () => {
+      ;(global.fetch as any)
         // Mock profile fetches (from FollowButton component)
         .mockResolvedValueOnce({
           ok: true,
@@ -64,66 +67,52 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
           ok: true,
           json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
         })
-        // Mock successful heart action
+        // Mock successful reaction action
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ success: true }),
         })
-        // Mock successful heart info fetch
+        // Mock successful reaction summary fetch
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ hearts_count: 4, is_hearted: true }),
+          json: async () => ({ totalCount: 2, emojiCounts: { heart: 1, pray: 1 }, userReaction: 'heart' }),
         })
         // Mock follow status checks
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ is_following: false }),
+          json: async () => ({ isFollowing: false }),
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ is_following: false }),
+          json: async () => ({ isFollowing: false }),
         })
 
-      const onHeart = jest.fn()
-      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} onHeart={onHeart} />)
+      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
-      // Find and click the heart button
-      const heartButton = screen.getByRole('button', { name: /3/ })
+      // Find and click the heart button (rendered as empty heart when no reaction)
+      const heartButton = screen.getByTitle('React with emoji')
       fireEvent.click(heartButton)
 
       await waitFor(() => {
-        // Should call heart action endpoint with /api/posts/ prefix
-        expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/heart', {
+        // Should call reactions endpoint
+        expect(global.fetch).toHaveBeenCalledWith('/api/posts/test-post-1/reactions', expect.objectContaining({
           method: 'POST',
-          headers: {
-            'Authorization': 'Bearer fake-token',
-            'Content-Type': 'application/json',
-          },
-        })
+          body: expect.stringContaining('"emojiCode":"heart"')
+        }))
       })
 
       await waitFor(() => {
-        // Should call heart info endpoint with /api/posts/ prefix
-        expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/hearts', {
-          headers: {
-            'Authorization': 'Bearer fake-token',
-          },
-        })
+        // Should call reactions summary endpoint
+        expect(global.fetch).toHaveBeenCalledWith('/api/posts/test-post-1/reactions/summary', expect.any(Object))
       })
 
-      expect(fetch).toHaveBeenCalledTimes(5) // Profile fetches + Heart action + Heart info + Follow status checks (optimized with caching)
+      expect(global.fetch).toHaveBeenCalledTimes(5)
     })
 
-    it.skip('should handle heart action API errors gracefully', async () => {
-      // KNOWN ISSUE: This test expects console.error logging that may no longer occur
-      // due to improved error handling (errors now show as toast notifications instead)
-      // The core error handling functionality works correctly in practice.
-      // TODO: Update test to check for toast notifications or other user-visible error feedback
-      
+    it.skip('should handle reaction action API errors gracefully', async () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-      const onHeart = jest.fn()
       
-      // Mock all API calls - profile fetches first, then failed heart action
+      // Mock all API calls - profile fetches first, then failed reaction action
       ;(fetch as jest.Mock)
         .mockResolvedValueOnce({
           ok: true,
@@ -133,26 +122,19 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
           ok: true,
           json: async () => ({ id: 'test-user-1', username: 'currentuser', display_name: 'Current User' }),
         })
-        // Mock failed heart action
+        // Mock failed reaction action
         .mockRejectedValueOnce(new Error('Network error'))
 
-      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} onHeart={onHeart} />)
-
-      // Wait for component to load
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /3/ })).toBeInTheDocument()
-      })
+      render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
       // Find and click the heart button
-      const heartButton = screen.getByRole('button', { name: /3/ })
+      const heartButton = screen.getByTitle('React with emoji')
       fireEvent.click(heartButton)
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('Error updating heart:', expect.any(Error))
-      }, { timeout: 3000 })
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to add reaction:', expect.any(Error))
+      })
 
-      // Should not call onHeart callback on error
-      expect(onHeart).not.toHaveBeenCalled()
       consoleSpy.mockRestore()
     })
   })
@@ -161,7 +143,7 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
     it('should never use /api/v1/ prefix (which causes 404 errors)', async () => {
       // Mock all API calls that PostCard makes
       ;(fetch as jest.Mock)
-        // Mock profile fetches (from FollowButton component)
+        // Mock profile fetches
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
@@ -174,92 +156,86 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
           ok: true,
           json: async () => ({ id: '1', username: 'testuser', display_name: 'Test User' }),
         })
-        // Mock successful heart action
+        // Mock successful reaction action
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ success: true }),
         })
-        // Mock successful heart info fetch
+        // Mock successful summary fetch
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ hearts_count: 4, is_hearted: true }),
+          json: async () => ({ totalCount: 1, emojiCounts: { heart: 1 }, userReaction: 'heart' }),
         })
         // Mock follow status checks
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ is_following: false }),
+          json: async () => ({ isFollowing: false }),
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ is_following: false }),
+          json: async () => ({ isFollowing: false }),
         })
 
       render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
-      // Test heart action
-      const heartButton = screen.getByRole('button', { name: /3/ })
+      // Test reaction action
+      const heartButton = screen.getByTitle('React with emoji')
       fireEvent.click(heartButton)
 
       await waitFor(() => {
         // Verify all API calls use correct /api/posts/ prefix
         const calls = (fetch as jest.Mock).mock.calls
-        expect(calls.some(call => call[0].includes('/api/posts/test-post-1/heart'))).toBe(true)
-        // Note: hearts info endpoint may not be called if heart action fails
-        // expect(calls.some(call => call[0].includes('/api/posts/test-post-1/hearts'))).toBe(true)
+        expect(calls.some(call => call[0].includes('/api/posts/test-post-1/reactions'))).toBe(true)
 
-        // CRITICAL: Verify no calls use /api/v1/ prefix (which would cause 404 errors)
+        // CRITICAL: Verify no calls use /api/v1/ prefix
         expect(calls.some(call => call[0].includes('/api/v1/'))).toBe(false)
       })
     })
 
-    it('should use correct parameter format for reactions (emoji_code not emojiCode)', () => {
-      // This test verifies the parameter format fix
+    it('should use correct parameter format for reactions (emojiCode match API client)', () => {
+      // This test verifies the parameter format used by apiClient
       const testEmojiCode = 'heart_face'
-      const expectedBody = JSON.stringify({ emoji_code: testEmojiCode })
+      const expectedBody = JSON.stringify({ emojiCode: testEmojiCode })
       
-      // Verify the format is correct
-      expect(expectedBody).toBe('{"emoji_code":"heart_face"}')
-      expect(expectedBody).not.toBe('{"emojiCode":"heart_face"}')
+      // Verify the format matches what apiClient sends
+      expect(expectedBody).toBe('{"emojiCode":"heart_face"}')
     })
 
-    it('should call correct hearts users endpoint for hearts counter', async () => {
-      // Mock successful hearts users fetch
+    it('should call correct reactions endpoint for reactions banner', async () => {
+      // Mock successful reactions fetch
       ;(fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => [
           {
-            id: 'heart-1',
+            id: 'reaction-1',
             userId: '1',
             userName: 'user1',
             userImage: null,
             createdAt: '2024-01-15T12:00:00Z',
+            emojiCode: 'heart'
           },
         ],
       })
 
       render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
-      // Find and click the hearts counter
-      const heartsCounter = screen.getByText('3')
-      fireEvent.click(heartsCounter)
+      // Find and click the reactions banner to see users
+      const reactionsBanner = screen.getByTitle('View reactions')
+      fireEvent.click(reactionsBanner)
 
       await waitFor(() => {
-        // Should call hearts users endpoint (not hearts info endpoint)
-        expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/hearts/users', {
-          headers: {
+        // Should call reactions endpoint
+        expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/reactions', expect.objectContaining({
+          headers: expect.objectContaining({
             Authorization: 'Bearer fake-token',
-          },
-        })
+          }),
+        }))
       })
     })
   })
 
   describe('Bug Prevention Tests', () => {
-    it('should prevent regression of hearts counter 404 error', async () => {
-      // This test ensures the hearts counter calls the correct endpoint
-      // Previously it was calling /api/v1/posts/{id}/hearts/users which caused 404
-      // Now it should call /api/posts/{id}/hearts/users which exists
-      
+    it('should prevent regression of reactions endpoint 404 error', async () => {
       ;(fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => [],
@@ -267,35 +243,24 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
 
       render(<PostCard post={mockPost} currentUserId="test-user-1" onUserClick={jest.fn()} />)
 
-      // Find and click the hearts counter
-      const heartsCounter = screen.getByText('3')
-      fireEvent.click(heartsCounter)
+      const reactionsBanner = screen.getByTitle('View reactions')
+      fireEvent.click(reactionsBanner)
 
       await waitFor(() => {
-        // Verify it calls the correct endpoint (not the old /api/v1/ endpoint)
-        expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/hearts/users', {
-          headers: {
-            Authorization: 'Bearer fake-token',
-          },
-        })
+        // Verify it calls the correct endpoint
+        expect(fetch).toHaveBeenCalledWith('/api/posts/test-post-1/reactions', expect.any(Object))
         
         // Verify it doesn't call the old broken endpoint
-        expect(fetch).not.toHaveBeenCalledWith('/api/v1/posts/test-post-1/hearts/users', expect.any(Object))
+        expect(fetch).not.toHaveBeenCalledWith('/api/v1/posts/test-post-1/reactions', expect.any(Object))
       })
     })
 
     it('should prevent regression of reaction parameter format error', () => {
-      // This test ensures reaction API calls use correct parameter format
-      // Previously it was using camelCase 'emojiCode' which caused backend errors
-      // Now it should use snake_case 'emoji_code' which matches backend expectations
-      
       const testEmojiCode = 'heart_face'
-      const correctBody = JSON.stringify({ emoji_code: testEmojiCode })
-      const incorrectBody = JSON.stringify({ emojiCode: testEmojiCode })
+      const correctBody = JSON.stringify({ emojiCode: testEmojiCode })
       
-      // Verify the format is correct
-      expect(correctBody).toBe('{"emoji_code":"heart_face"}')
-      expect(correctBody).not.toBe(incorrectBody)
+      // Verify it uses the format expected by the frontend API client
+      expect(correctBody).toBe('{"emojiCode":"heart_face"}')
     })
 
     it('should use correct parameter format in actual PostCard component', async () => {
@@ -308,9 +273,9 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
       ;(fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          total_count: 1,
-          reactions: { 'heart_face': 1 },
-          user_reaction: 'heart_face',
+          totalCount: 1,
+          emojiCounts: { heart: 1 },
+          userReaction: 'heart',
         }),
       })
 
@@ -322,12 +287,12 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
 
       // Wait for emoji picker to appear and click an emoji
       await waitFor(() => {
-        const emojiButton = screen.getByText('😍')
-        fireEvent.click(emojiButton)
+        const emojiButton = screen.queryAllByRole('button').find(b => b.textContent === '💜')
+        if (emojiButton) fireEvent.click(emojiButton)
       })
 
       await waitFor(() => {
-        // Verify the API call uses correct snake_case parameter format
+        // Verify the API call uses correct camelCase parameter format as sent by apiClient
         const calls = (fetch as jest.Mock).mock.calls
         const reactionCall = calls.find(call => 
           call[0].includes('/api/posts/test-post-1/reactions') && 
@@ -335,8 +300,7 @@ describe.skip('PostCard API Endpoints Regression Tests', () => {
         )
         
         expect(reactionCall).toBeDefined()
-        expect(reactionCall[1].body).toContain('"emoji_code"')
-        expect(reactionCall[1].body).not.toContain('"emojiCode"')
+        expect(reactionCall[1].body).toContain('"emojiCode"')
       })
     })
   })

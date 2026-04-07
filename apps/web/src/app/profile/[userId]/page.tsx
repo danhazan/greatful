@@ -204,9 +204,7 @@ export default function UserProfilePage() {
     )
   }, [authResolved, canQueryProfile, hasAccessToken, userId, profileQueryData, profileQueryError, postsQueryError, profileQueryLoading, postsQueryLoading])
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
-    // heart is now handled via handleReaction as a unified emoji code.
-  }
+
 
   const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: any) => {
     setPosts(posts.map(post => {
@@ -454,7 +452,6 @@ export default function UserProfilePage() {
                     post={post}
                     currentUserId={currentUser?.id?.toString()}
                     hideFollowButton={true}
-                    onHeart={handleHeart}
                     onReaction={handleReaction}
                     onRemoveReaction={handleRemoveReaction}
                     onShare={handleShare}

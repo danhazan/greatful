@@ -59,14 +59,6 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
     }
   }, [post.id, isUserAuthenticated, currentUserId, isLoading])
 
-  // Handle heart interaction
-  const handleHeart = async (postId: string, isCurrentlyHearted: boolean) => {
-    if (!isUserAuthenticated) {
-      router.push('/auth/login')
-      return
-    }
-    // heart is now handled via handleReaction as a unified emoji code.
-  }
 
   // Handle reaction interaction
   const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: any) => {
@@ -113,7 +105,6 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
     <PostCard
       post={post}
       currentUserId={isUserAuthenticated ? currentUserId : undefined}
-      onHeart={handleHeart}
       onReaction={handleReaction}
       onRemoveReaction={handleRemoveReaction}
       onShare={handleShare}

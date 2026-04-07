@@ -38,11 +38,7 @@ jest.mock('@/components/ReactionViewer', () => {
   }
 })
 
-jest.mock('@/components/HeartsViewer', () => {
-  return function MockHeartsViewer() {
-    return <div data-testid="hearts-viewer">Hearts Viewer</div>
-  }
-})
+
 
 jest.mock('@/components/ShareModal', () => {
   return function MockShareModal() {
@@ -62,7 +58,12 @@ const mockPost = {
   author: {
     id: '2',
     name: 'Test Author',
-    image: 'https://example.com/avatar.jpg'
+    username: 'testauthor',
+    image: 'https://example.com/avatar.jpg',
+    followerCount: 0,
+    followingCount: 0,
+    postsCount: 1,
+    isFollowing: false
   },
   createdAt: '2023-01-01T00:00:00Z',
   reactionsCount: 3,
@@ -89,7 +90,6 @@ describe('PostCard hideFollowButton prop', () => {
       <PostCard
         post={mockPost}
         currentUserId="1"
-        onHeart={jest.fn()}
         onReaction={jest.fn()}
         onRemoveReaction={jest.fn()}
         onShare={jest.fn()}
@@ -107,7 +107,6 @@ describe('PostCard hideFollowButton prop', () => {
         post={mockPost}
         currentUserId="1"
         hideFollowButton={true}
-        onHeart={jest.fn()}
         onReaction={jest.fn()}
         onRemoveReaction={jest.fn()}
         onShare={jest.fn()}
@@ -125,7 +124,6 @@ describe('PostCard hideFollowButton prop', () => {
         post={mockPost}
         currentUserId="2" // Same as post.author.id
         hideFollowButton={false}
-        onHeart={jest.fn()}
         onReaction={jest.fn()}
         onRemoveReaction={jest.fn()}
         onShare={jest.fn()}
@@ -143,7 +141,6 @@ describe('PostCard hideFollowButton prop', () => {
         post={mockPost}
         currentUserId={undefined} // Not authenticated
         hideFollowButton={false}
-        onHeart={jest.fn()}
         onReaction={jest.fn()}
         onRemoveReaction={jest.fn()}
         onShare={jest.fn()}

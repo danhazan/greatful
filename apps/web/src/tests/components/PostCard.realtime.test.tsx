@@ -5,7 +5,6 @@ import { describe, it, expect, beforeEach } from '@jest/globals'
 
 // Mock the analytics service
 jest.mock('@/services/analytics', () => ({
-  trackHeartEvent: jest.fn(),
   trackViewEvent: jest.fn(),
 }))
 
@@ -53,7 +52,7 @@ describe.skip('PostCard Real-time Updates', () => {
   })
 
   it('should update heart count in real-time when heart button is clicked', async () => {
-    const mockOnHeart = jest.fn()
+    const mockOnReaction = jest.fn()
     
     // Mock all API calls with a more flexible approach
     ;(fetch as jest.Mock).mockImplementation((url: string, options?: any) => {
@@ -106,7 +105,7 @@ describe.skip('PostCard Real-time Updates', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
+        onReaction={mockOnReaction}
       />
     )
 
@@ -144,7 +143,7 @@ describe.skip('PostCard Real-time Updates', () => {
   })
 
   it('should handle heart removal and update count in real-time', async () => {
-    const mockOnHeart = jest.fn()
+    const mockOnReaction = jest.fn()
     const heartedPost = { ...mockPost, currentUserReaction: 'heart', reactionEmojiCodes: ['heart'] }
     
     // Mock all API calls with a more flexible approach
@@ -198,7 +197,7 @@ describe.skip('PostCard Real-time Updates', () => {
       <PostCard
         post={heartedPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
+        onReaction={mockOnReaction}
       />
     )
 
@@ -228,7 +227,7 @@ describe.skip('PostCard Real-time Updates', () => {
   })
 
   it('should fallback to optimistic update if heart info fetch fails', async () => {
-    const mockOnHeart = jest.fn()
+    const mockOnReaction = jest.fn()
     
     // Mock all API calls with a more flexible approach
     ;(fetch as jest.Mock).mockImplementation((url: string, options?: any) => {
@@ -278,7 +277,7 @@ describe.skip('PostCard Real-time Updates', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
+        onReaction={mockOnReaction}
       />
     )
 
@@ -302,7 +301,7 @@ describe.skip('PostCard Real-time Updates', () => {
   })
 
   it('should handle API errors gracefully', async () => {
-    const mockOnHeart = jest.fn()
+    const mockOnReaction = jest.fn()
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
     
     // Mock all API calls with network error for heart action
@@ -343,7 +342,7 @@ describe.skip('PostCard Real-time Updates', () => {
       <PostCard
         post={mockPost}
         currentUserId="current-user"
-        onHeart={mockOnHeart}
+        onReaction={mockOnReaction}
       />
     )
 

@@ -6,7 +6,7 @@
 import { render, screen, act, waitFor } from '@/tests/utils/testUtils'
 import userEvent from '@testing-library/user-event'
 import FeedPage from '../page'
-import { describe, it, beforeEach } from '@jest/globals'
+import { describe, it, beforeEach, jest, expect } from '@jest/globals'
 
 // Mock next/navigation
 const mockPush = jest.fn()
@@ -36,7 +36,6 @@ describe.skip('Counter Integration Test', () => {
     jest.clearAllMocks()
     mockLocalStorage.getItem.mockImplementation((key) => {
       if (key === 'access_token') return 'mock-token'
-      if (key === 'user_current-user_reactions') return JSON.stringify({})
       return null
     })
     
@@ -52,7 +51,7 @@ describe.skip('Counter Integration Test', () => {
           })
         })
       }
-      if (url.includes('/api/posts') && !url.includes('/hearts')) {
+      if (url.includes('/api/posts') && !url.includes('/reactions')) {
         // Return successful posts response for testing
         return Promise.resolve({
           ok: true,
@@ -66,41 +65,37 @@ describe.skip('Counter Integration Test', () => {
                 name: 'Test Author'
               },
               createdAt: new Date().toISOString(),
-              heartsCount: 12,
-              reactionsCount: 5,
-              isHearted: false,
-              currentUserReaction: null
+              reactionsCount: 17,
+              currentUserReaction: null,
+              reactionEmojiCodes: ['heart', 'pray']
             }
           ])
         })
       }
-      if (url.includes('/heart') && options?.method === 'POST') {
-        // Mock heart API response - PostCard expects this format
+      if (url.includes('/reactions') && options?.method === 'POST') {
+        // Mock reaction API response
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
-            hearts_count: 13, // Incremented from 12
-            is_hearted: true
+            success: true,
+            data: {
+              totalCount: 18,
+              reactions: { heart: 13, pray: 5 },
+              userReaction: 'heart',
+              reactionEmojiCodes: ['heart', 'pray']
+            }
           })
         })
       }
-      if (url.includes('/heart') && options?.method === 'DELETE') {
-        // Mock unheart API response - PostCard expects this format
+      if (url.includes('/reactions/summary') && options?.method === 'GET') {
+        // Mock reaction summary API response
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
-            hearts_count: 11, // Decremented from 12
-            is_hearted: false
-          })
-        })
-      }
-      if (url.includes('/hearts') && options?.method === 'GET') {
-        // Mock heart info API response
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({
-            hearts_count: 13,
-            is_hearted: true
+            totalCount: 18,
+            reactions: { heart: 13, pray: 5 },
+            userReaction: 'heart',
+            reactionEmojiCodes: ['heart', 'pray']
           })
         })
       }
@@ -120,16 +115,12 @@ describe.skip('Counter Integration Test', () => {
       expect(screen.getByText('Test gratitude post for integration testing')).toBeInTheDocument()
     }, { timeout: 10000 })
 
-    // Check that server data global counts are displayed in heart buttons
-    const heartButtons = screen.getAllByRole('button').filter(button => 
-      button.textContent?.includes('12')
-    )
-    
-    // Should have heart button with the correct count from server
-    expect(heartButtons.some(btn => btn.textContent?.includes('12'))).toBe(true) // Server hearts count
+    // Check that server data global counts are displayed in reactions banner
+    const reactionsBanner = screen.getByTitle('View reactions')
+    expect(reactionsBanner.textContent).toContain('17')
   })
 
-  it('should handle heart interactions with proper API calls', async () => {
+  it('should handle reaction interactions with proper API calls', async () => {
     const user = userEvent.setup()
     render(<FeedPage />)
     
@@ -138,37 +129,16 @@ describe.skip('Counter Integration Test', () => {
       expect(screen.getByText('Test gratitude post for integration testing')).toBeInTheDocument()
     }, { timeout: 10000 })
 
-    // Verify the server data is loaded correctly by checking for heart button with count
-    const allButtons = screen.getAllByRole('button')
-    const heartButtons = allButtons.filter(button => 
-      button.classList.contains('heart-button') && button.textContent?.includes('12')
-    )
+    // Find and click the reaction button
+    const reactionButton = screen.getByTitle('React with emoji')
+    await user.click(reactionButton)
     
-    // Should have heart button with the expected count
-    expect(heartButtons.length).toBeGreaterThanOrEqual(1)
-    
-    // Verify server count exists in button
-    expect(heartButtons.some(btn => btn.textContent?.includes('12'))).toBe(true)
-  })
-
-  it('should use server data instead of localStorage for reactions', async () => {
-    render(<FeedPage />)
-    
-    // Wait for the loading to complete and posts to appear
+    // Verify API call was made
     await waitFor(() => {
-      expect(screen.getByText('Test gratitude post for integration testing')).toBeInTheDocument()
-    }, { timeout: 10000 })
-
-    // Verify that the component uses server data (isHearted: false from mock)
-    // and doesn't rely on localStorage for reaction state
-    const heartButtons = screen.getAllByRole('button').filter(button => 
-      button.classList.contains('heart-button') && button.textContent?.includes('12')
-    )
-    
-    expect(heartButtons.length).toBeGreaterThan(0)
-    // The heart should not be filled since isHearted is false in server response
-    const heartButton = heartButtons[0]
-    expect(heartButton).toBeDefined()
+      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/posts/test-post-1/reactions'), expect.objectContaining({
+        method: 'POST'
+      }))
+    })
   })
 
   it('should demonstrate proper data separation', async () => {
@@ -179,19 +149,8 @@ describe.skip('Counter Integration Test', () => {
       expect(screen.getByText('Test gratitude post for integration testing')).toBeInTheDocument()
     }, { timeout: 10000 })
 
-    // Find all buttons and verify the expected counts are present
-    const allButtons = screen.getAllByRole('button')
-    
-    // Find buttons by their text content - based on actual rendered output
-    const heartButton12 = allButtons.find(btn => btn.textContent?.includes('12') && btn.classList.contains('heart-button'))
-    const reactionButton5 = allButtons.find(btn => btn.textContent?.includes('5') && !btn.classList.contains('heart-button'))
-
-    // Verify expected buttons exist with correct counts from server
-    expect(heartButton12).toBeDefined()
-    expect(reactionButton5).toBeDefined()
-
-    // Verify the exact counts from server data
-    expect(heartButton12?.textContent).toContain('12')
-    expect(reactionButton5?.textContent).toContain('5')
+    // Find reactions banner and verify the expected counts are present
+    const reactionsBanner = screen.getByTitle('View reactions')
+    expect(reactionsBanner.textContent).toContain('17')
   })
 });

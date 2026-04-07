@@ -308,10 +308,14 @@ export interface BackendUserPost {
     email: string
     profile_image_url?: string
   }
-  hearts_count?: number
-  is_hearted?: boolean
   reactions_count?: number
   current_user_reaction?: string
+  comments_count?: number
+  reaction_emoji_codes?: string[]
+  emoji_counts?: Record<string, number>
+  privacy_level?: string
+  privacy_rules?: string[]
+  specific_users?: number[]
 }
 
 export interface FrontendUserPost {
@@ -368,8 +372,6 @@ export interface FrontendUserPost {
     importance?: number
     type?: string
   }
-  heartsCount: number
-  isHearted: boolean
   reactionsCount: number
   commentsCount: number
   currentUserReaction?: string
@@ -407,8 +409,6 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
   const updatedAt = post.updatedAt || post.updated_at
   const imageUrl = post.imageUrl || post.image_url
   const locationData = post.location_data
-  const heartsCount = post.heartsCount ?? post.hearts_count ?? 0
-  const isHearted = post.isHearted ?? post.is_hearted ?? false
   const reactionsCount = post.reactionsCount ?? post.reactions_count ?? 0
   const commentsCount = post.commentsCount ?? post.comments_count ?? 0
   const currentUserReaction = post.currentUserReaction || post.current_user_reaction
@@ -444,8 +444,6 @@ export function transformUserPost(post: any, userProfile?: any): FrontendUserPos
     images: images,  // Include normalized images array
     location: post.location,
     location_data: locationData,
-    heartsCount: heartsCount,
-    isHearted: isHearted,
     reactionsCount: reactionsCount,
     commentsCount: commentsCount,
     currentUserReaction: currentUserReaction,

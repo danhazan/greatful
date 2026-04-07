@@ -235,12 +235,10 @@ class UserRepository(BaseRepository):
                 u.id,
                 u.username,
                 COUNT(DISTINCT p.id) as posts_count,
-                COUNT(DISTINCT er.id) as reactions_received,
-                COUNT(DISTINCT l.id) as hearts_received
+                COUNT(DISTINCT er.id) as reactions_received
             FROM users u
             LEFT JOIN posts p ON p.author_id = u.id
             LEFT JOIN emoji_reactions er ON er.post_id = p.id
-            LEFT JOIN likes l ON l.post_id = p.id
             WHERE u.id = :user_id
             GROUP BY u.id, u.username
         """)
@@ -251,14 +249,12 @@ class UserRepository(BaseRepository):
         if not row:
             return {
                 "posts_count": 0,
-                "reactions_received": 0,
-                "hearts_received": 0
+                "reactions_received": 0
             }
         
         return {
             "posts_count": int(row.posts_count) if row.posts_count else 0,
-            "reactions_received": int(row.reactions_received) if row.reactions_received else 0,
-            "hearts_received": int(row.hearts_received) if row.hearts_received else 0
+            "reactions_received": int(row.reactions_received) if row.reactions_received else 0
         }
     
     async def get_existing_usernames(self, usernames: List[str]) -> List[str]:

@@ -38,9 +38,7 @@ const mockPost = {
   createdAt: '2025-01-08T18:30:00Z',
   imageUrl: 'https://example.com/sunset.jpg',
   location: 'Beach Park',
-  heartsCount: 12,
   reactionsCount: 8,
-  isHearted: false,
   currentUserReaction: undefined,
 }
 
@@ -99,8 +97,9 @@ describe.skip('Shared Post Authentication Integration', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve({
-            hearts_count: 13,
-            is_hearted: true,
+            total_count: 13,
+            reactions: { 'heart': 1 },
+            user_reaction: 'heart',
           }),
         })
 
@@ -139,9 +138,7 @@ describe.skip('Shared Post Authentication Integration', () => {
           ok: true,
           json: () => Promise.resolve({
             id: 'shared-post-123',
-            is_hearted: false,
             current_user_reaction: null,
-            hearts_count: 12,
             reactions_count: 8,
           }),
         })
@@ -192,7 +189,6 @@ describe.skip('Shared Post Authentication Integration', () => {
     it('should show user-specific interaction states for logged-in users', async () => {
       const heartedPost = { 
         ...mockPost, 
-        isHearted: true, 
         currentUserReaction: 'star' 
       }
 
@@ -205,9 +201,7 @@ describe.skip('Shared Post Authentication Integration', () => {
           ok: true,
           json: () => Promise.resolve({
             id: 'shared-post-123',
-            is_hearted: true,
             current_user_reaction: 'star',
-            hearts_count: 12,
             reactions_count: 8,
           }),
         })
@@ -275,7 +269,6 @@ describe.skip('Shared Post Authentication Integration', () => {
     it('should not show user-specific interaction states for logged-out users', async () => {
       const heartedPost = { 
         ...mockPost, 
-        isHearted: true, 
         currentUserReaction: 'star' 
       }
 

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import PostPage from '@/app/post/[id]/page'
 import { UserProvider } from '@/contexts/UserContext'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
@@ -77,9 +78,8 @@ describe.skip('PostPage Authentication', () => {
                 username: 'testuser'
               },
               createdAt: '2024-01-01T00:00:00Z',
-              heartsCount: 5,
               reactionsCount: 2,
-              isHearted: false
+              currentUserReaction: undefined
             })
           })
         }
@@ -126,9 +126,8 @@ describe.skip('PostPage Authentication', () => {
                 username: 'testuser'
               },
               createdAt: '2024-01-01T00:00:00Z',
-              heartsCount: 5,
               reactionsCount: 2,
-              isHearted: false
+              currentUserReaction: undefined
             })
           })
         }
@@ -186,9 +185,9 @@ describe.skip('PostPage Authentication', () => {
               username: 'testuser'
             },
             createdAt: '2024-01-01T00:00:00Z',
-            heartsCount: 5,
             reactionsCount: 2,
-            isHearted: false
+            currentUserReaction: undefined,
+            reactionEmojiCodes: ['heart', 'pray']
           })
         })
 
@@ -232,9 +231,9 @@ describe.skip('PostPage Authentication', () => {
               username: 'testuser'
             },
             createdAt: '2024-01-01T00:00:00Z',
-            heartsCount: 5,
             reactionsCount: 2,
-            isHearted: false
+            currentUserReaction: undefined,
+            reactionEmojiCodes: ['heart', 'pray']
           })
         })
 
