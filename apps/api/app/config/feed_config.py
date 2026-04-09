@@ -16,7 +16,10 @@ COMBINED_ENGAGEMENT_MAX = 5.0  # cap on engagement_score + recent_engagement_sco
 WEIGHT_COMMENTS = 3
 WEIGHT_SHARES = 4
 WEIGHT_REACTIONS = 2
-WEIGHT_HEARTS = 1
+
+# --- Diversity bonus (rewards posts with varied emoji reactions) ---
+DIVERSITY_BONUS_PER_TYPE = 0.3   # score added per unique emoji type
+DIVERSITY_BONUS_MAX_TYPES = 3    # cap: bonus never exceeds MAX_TYPES * PER_TYPE
 
 # --- Recent engagement boost (posts < 2 days with activity) ---
 RECENT_ENGAGEMENT_WINDOW = 172_800  # 2 days
