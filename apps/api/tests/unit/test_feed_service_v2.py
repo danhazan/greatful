@@ -31,7 +31,6 @@ from app.config.feed_config import (
     WEIGHT_COMMENTS,
     WEIGHT_SHARES,
     WEIGHT_REACTIONS,
-    WEIGHT_HEARTS,
     AUTHOR_SPACING_WINDOW,
     AUTHOR_SPACING_MAX_PER_WINDOW,
 )

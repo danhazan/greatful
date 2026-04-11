@@ -5,6 +5,7 @@ Shared file upload service for handling image uploads across the application.
 import logging
 import uuid
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 import io
@@ -24,6 +25,19 @@ except ImportError:
     raise ImportError("PIL (Pillow) is required for image processing. Install with: pip install Pillow")
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExistingFile:
+    """Existing file metadata returned from hash-only duplicate lookup."""
+
+    image_hash: ImageHash
+    file_path: str
+    original_filename: str
+    reference_count: int
+    width: Optional[int]
+    height: Optional[int]
+    file_size: int
 
 
 class FileUploadService(BaseService):
@@ -127,7 +141,9 @@ class FileUploadService(BaseService):
     async def save_post_image_variants(
         self,
         file: UploadFile,
-        position: int = 0
+        position: int = 0,
+        force_upload: bool = False,
+        uploader_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Save post image with thumbnail, medium, and original variants.
@@ -163,33 +179,28 @@ class FileUploadService(BaseService):
         config = get_variant_config()
 
         try:
-            # Read file content
             content = await file.read()
             file_size = len(content)
+            await file.seek(0)
 
-            # Open and process image with PIL
-            try:
-                image = Image.open(io.BytesIO(content))
-
-                # Store original dimensions before any processing
-                original_width = image.width
-                original_height = image.height
-
-                # Convert to RGB if necessary (handles RGBA, P mode images)
-                if image.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', image.size, (255, 255, 255))
-                    if image.mode == 'P':
-                        image = image.convert('RGBA')
-                    background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-                    image = background
-                elif image.mode != 'RGB':
-                    image = image.convert('RGB')
-
-                # Auto-orient image based on EXIF data
-                image = ImageOps.exif_transpose(image)
-
-            except Exception as e:
-                raise ValidationException(f"Invalid image file: {str(e)}")
+            image, original_width, original_height = self._prepare_post_image(content)
+            should_store_hash = not force_upload
+            if not force_upload:
+                existing = await self.get_existing_file_by_hash(file, upload_context="post")
+                if existing:
+                    existing_variant_paths = self._build_post_variant_paths(existing.file_path)
+                    if existing_variant_paths:
+                        await self.hash_service.increment_reference_count(existing.image_hash)
+                        return self._build_post_variant_result(
+                            position=position,
+                            width=original_width,
+                            height=original_height,
+                            file_size=file_size,
+                            variant_paths=existing_variant_paths,
+                        )
+                    # Only reuse stored hashes when they already point at post variants.
+                    # This avoids mutating unrelated upload flows such as profile photos.
+                    should_store_hash = False
 
             # Generate unique base filename for all variants
             base_filename = str(uuid.uuid4())
@@ -249,19 +260,124 @@ class FileUploadService(BaseService):
                 f"original={original_image.width}x{original_image.height})"
             )
 
-            return {
-                'position': position,
-                'width': original_width,
-                'height': original_height,
-                'file_size': file_size,
-                **variant_paths
-            }
+            if should_store_hash:
+                try:
+                    await self.hash_service.store_image_hash(
+                        file_content=content,
+                        original_filename=file.filename or original_filename,
+                        file_path=variant_paths['medium_url'],
+                        mime_type=file.content_type or "image/jpeg",
+                        upload_context="post",
+                        uploader_id=uploader_id,
+                    )
+                except Exception:
+                    self.cleanup_post_image_variants(
+                        variant_paths.get('thumbnail_url'),
+                        variant_paths.get('medium_url'),
+                        variant_paths.get('original_url'),
+                    )
+                    raise
+
+            return self._build_post_variant_result(
+                position=position,
+                width=original_width,
+                height=original_height,
+                file_size=file_size,
+                variant_paths=variant_paths,
+            )
 
         except ValidationException:
             raise
         except Exception as e:
             logger.error(f"Error creating post image variants: {e}")
             raise BusinessLogicError(f"Failed to process post image: {str(e)}")
+
+    async def get_existing_file_by_hash(
+        self,
+        file: UploadFile,
+        upload_context: str = None,
+    ) -> Optional[ExistingFile]:
+        """
+        Return existing file metadata for an exact duplicate without writing to the DB.
+        """
+        exact_duplicate, _ = await self.check_for_duplicate(file, upload_context)
+        if not exact_duplicate:
+            return None
+
+        return ExistingFile(
+            image_hash=exact_duplicate,
+            file_path=exact_duplicate.file_path,
+            original_filename=exact_duplicate.original_filename,
+            reference_count=exact_duplicate.reference_count,
+            width=exact_duplicate.width,
+            height=exact_duplicate.height,
+            file_size=exact_duplicate.file_size,
+        )
+
+    def _build_post_variant_paths(self, file_path: str) -> Optional[Dict[str, str]]:
+        """Derive post variant paths from an existing post variant file path."""
+        clean_path = storage.normalize_path(file_path)
+        suffixes = {
+            "_thumb.jpg": "thumbnail_url",
+            "_medium.jpg": "medium_url",
+            "_original.jpg": "original_url",
+        }
+
+        base_path = None
+        for suffix in suffixes:
+            if clean_path.endswith(suffix):
+                base_path = clean_path[: -len(suffix)]
+                break
+
+        if base_path is None:
+            return None
+
+        return {
+            "thumbnail_url": f"{base_path}_thumb.jpg",
+            "medium_url": f"{base_path}_medium.jpg",
+            "original_url": f"{base_path}_original.jpg",
+        }
+
+    def _prepare_post_image(self, content: bytes) -> Tuple[Image.Image, int, int]:
+        """Load and normalize a post image while preserving original dimensions."""
+        try:
+            image = Image.open(io.BytesIO(content))
+            original_width = image.width
+            original_height = image.height
+
+            if image.mode in ('RGBA', 'LA', 'P'):
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                image = background
+            elif image.mode != 'RGB':
+                image = image.convert('RGB')
+
+            image = ImageOps.exif_transpose(image)
+            return image, original_width, original_height
+        except Exception as e:
+            raise ValidationException(f"Invalid image file: {str(e)}")
+
+    def _build_post_variant_result(
+        self,
+        *,
+        position: int,
+        width: int,
+        height: int,
+        file_size: int,
+        variant_paths: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """Return a consistent post image payload for both dedup and new uploads."""
+        return {
+            "position": position,
+            "width": width,
+            "height": height,
+            "file_size": file_size,
+            "thumbnail_url": variant_paths["thumbnail_url"],
+            "medium_url": variant_paths["medium_url"],
+            "original_url": variant_paths["original_url"],
+        }
 
     def cleanup_post_image_variants(self, thumbnail_url: str, medium_url: str, original_url: str) -> None:
         """

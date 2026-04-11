@@ -314,7 +314,8 @@ async def _save_post_images(
     files: List[UploadFile],
     db: AsyncSession,
     post_id: str,
-    uploader_id: int
+    uploader_id: int,
+    force_upload: bool = False,
 ) -> List["PostImage"]:
     """
     Save multiple images for a post with variant generation.
@@ -350,7 +351,9 @@ async def _save_post_images(
             # Generate variants (thumbnail, medium, original)
             variant_result = await file_service.save_post_image_variants(
                 file=file,
-                position=position
+                position=position,
+                force_upload=force_upload,
+                uploader_id=uploader_id,
             )
 
             # Create PostImage record
@@ -365,7 +368,6 @@ async def _save_post_images(
                 file_size=variant_result.get('file_size')
             )
 
-            db.add(post_image)
             post_images.append(post_image)
 
         except Exception as e:
@@ -581,7 +583,7 @@ async def create_post_json(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating post: {str(e)}")
+        logger.exception("Error creating post")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create post"
@@ -859,7 +861,8 @@ async def create_post_with_file(
                 files=all_images,
                 db=db,
                 post_id=post_id,
-                uploader_id=current_user_id
+                uploader_id=current_user_id,
+                force_upload=force_upload,
             )
             # Set primary image URL for backward compatibility (first image's medium variant)
             if post_images:
@@ -882,6 +885,10 @@ async def create_post_with_file(
 
         db.add(db_post)
         await db.flush()
+        if post_images:
+            for post_image in post_images:
+                db.add(post_image)
+            await db.flush()
         await privacy_service.apply_post_config(db_post, privacy_config)
         await db.commit()
         await db.refresh(db_post)
@@ -937,7 +944,7 @@ async def create_post_with_file(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating post with file: {str(e)}")
+        logger.exception("Error creating post with file")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create post"
@@ -1016,7 +1023,7 @@ async def get_post_by_id(
         from app.services.post_privacy_service import PostPrivacyService
         
         post_repo = PostRepository(db)
-        post = await post_repo.get_by_id_or_404(post_id)
+        post = await post_repo.get_by_id_or_404(post_id, load_relationships=["author"])
         
         privacy_service = PostPrivacyService(db)
         has_access = await privacy_service.can_user_view_post(post_id, current_user_id)
@@ -1056,7 +1063,7 @@ async def get_post_by_id(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting post {post_id}: {e}")
+        logger.exception("Error getting post %s", post_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get post"

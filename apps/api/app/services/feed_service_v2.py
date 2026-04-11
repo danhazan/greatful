@@ -405,9 +405,52 @@ class FeedServiceV2(BaseService):
         age_expr = f"(julianday(:qt) - julianday(p.created_at)) * 86400"
         # Build visibility clause for SQLite (inline instead of can_view_post function)
         visibility_clause = """
-            (p.author_id = :uid
-             OR p.privacy_level = 'public'
-             OR (p.privacy_level IS NULL AND p.is_public = 1))
+            (
+                p.author_id = :uid
+                OR p.privacy_level = 'public'
+                OR (p.privacy_level IS NULL AND p.is_public = 1)
+                OR (
+                    p.privacy_level = 'custom'
+                    AND (
+                        (
+                            EXISTS (
+                                SELECT 1
+                                FROM post_privacy_rules ppr
+                                WHERE ppr.post_id = p.id
+                                  AND ppr.rule_type = 'followers'
+                            )
+                            AND EXISTS (
+                                SELECT 1
+                                FROM follows vf
+                                WHERE vf.follower_id = :uid
+                                  AND vf.followed_id = p.author_id
+                                  AND vf.status = 'active'
+                            )
+                        )
+                        OR (
+                            EXISTS (
+                                SELECT 1
+                                FROM post_privacy_rules ppr
+                                WHERE ppr.post_id = p.id
+                                  AND ppr.rule_type = 'following'
+                            )
+                            AND EXISTS (
+                                SELECT 1
+                                FROM follows af
+                                WHERE af.follower_id = p.author_id
+                                  AND af.followed_id = :uid
+                                  AND af.status = 'active'
+                            )
+                        )
+                        OR EXISTS (
+                            SELECT 1
+                            FROM post_privacy_users ppu
+                            WHERE ppu.post_id = p.id
+                              AND ppu.user_id = :uid
+                        )
+                    )
+                )
+            )
         """
         # Deterministic jitter for SQLite: lightweight hash from UUID chars + query time
         jitter_sqlite = f"""
