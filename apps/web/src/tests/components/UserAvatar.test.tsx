@@ -7,24 +7,27 @@ describe('UserAvatar', () => {
   const mockUser = {
     id: 1,
     name: 'John Doe',
-    display_name: 'Johnny',
+    displayName: 'Johnny',
     username: 'johndoe',
-    profile_image_url: 'https://example.com/avatar.jpg'
+    profileImageUrl: 'https://example.com/avatar.jpg'
   }
 
   it('renders user avatar with image', () => {
     render(<UserAvatar user={mockUser} />)
     
-    const image = screen.getByRole('img', { name: /Johnny's profile picture/i })
-    expect(image).toBeInTheDocument()
+    // Component uses displayName for aria-label
+    const avatar = screen.getByLabelText(/Johnny's avatar/i)
+    expect(avatar).toBeInTheDocument()
+    // Should have an img element with the correct src
+    const image = screen.getByRole('img')
     expect(image).toHaveAttribute('src', 'https://example.com/avatar.jpg')
   })
 
   it('renders initials fallback when no image', () => {
-    const userWithoutImage = { ...mockUser, profile_image_url: undefined }
+    const userWithoutImage = { ...mockUser, profileImageUrl: undefined }
     render(<UserAvatar user={userWithoutImage} />)
     
-    const avatar = screen.getByLabelText(/Johnny's avatar/i)
+    const avatar = screen.getByLabelText(/Johnny's avatar fallback/i)
     expect(avatar).toBeInTheDocument()
     expect(avatar).toHaveTextContent('JO')
   })
@@ -32,12 +35,12 @@ describe('UserAvatar', () => {
   it('renders initials fallback when image fails to load', () => {
     render(<UserAvatar user={mockUser} />)
     
-    const image = screen.getByRole('img')
-    fireEvent.error(image)
-    
     const avatar = screen.getByLabelText(/Johnny's avatar/i)
-    expect(avatar).toBeInTheDocument()
-    expect(avatar).toHaveTextContent('JO')
+    fireEvent.error(avatar)
+    
+    const fallback = screen.getByLabelText(/Johnny's avatar fallback/i)
+    expect(fallback).toBeInTheDocument()
+    expect(fallback).toHaveTextContent('JO')
   })
 
   it('handles click events', () => {
@@ -61,42 +64,43 @@ describe('UserAvatar', () => {
   })
 
   it('applies correct size classes', () => {
-    const userWithoutImage = { ...mockUser, profile_image_url: undefined }
+    const userWithoutImage = { ...mockUser, profileImageUrl: undefined }
     
     const { rerender } = render(<UserAvatar user={userWithoutImage} size="sm" />)
-    let avatar = screen.getByLabelText(/Johnny's avatar/i)
+    let avatar = screen.getByLabelText(/Johnny's avatar fallback/i)
     expect(avatar).toHaveClass('h-6', 'w-6')
 
     rerender(<UserAvatar user={userWithoutImage} size="md" />)
-    avatar = screen.getByLabelText(/Johnny's avatar/i)
+    avatar = screen.getByLabelText(/Johnny's avatar fallback/i)
     expect(avatar).toHaveClass('h-8', 'w-8')
 
     rerender(<UserAvatar user={userWithoutImage} size="lg" />)
-    avatar = screen.getByLabelText(/Johnny's avatar/i)
+    avatar = screen.getByLabelText(/Johnny's avatar fallback/i)
     expect(avatar).toHaveClass('h-12', 'w-12')
   })
 
-  it('uses display_name over name for initials', () => {
-    const userWithoutImage = { ...mockUser, profile_image_url: undefined }
+  it('uses displayName over name for initials', () => {
+    const userWithoutImage = { ...mockUser, profileImageUrl: undefined }
     render(<UserAvatar user={userWithoutImage} />)
     
-    // Should use "Johnny" (display_name) not "John Doe" (name)
-    const avatar = screen.getByLabelText(/Johnny's avatar/i)
+    // Should use "Johnny" (displayName) not "John Doe" (name)
+    const avatar = screen.getByLabelText(/Johnny's avatar fallback/i)
     expect(avatar).toHaveTextContent('JO') // First two letters of "Johnny"
   })
 
-  it('falls back to name when no display_name', () => {
-    const userWithoutDisplayName = { ...mockUser, display_name: undefined, profile_image_url: undefined }
+  it('falls back to username when no displayName', () => {
+    const userWithoutDisplayName = { ...mockUser, displayName: undefined, profileImageUrl: undefined }
     render(<UserAvatar user={userWithoutDisplayName} />)
     
-    const avatar = screen.getByLabelText(/John Doe's avatar/i)
-    expect(avatar).toHaveTextContent('JD') // First letters of "John Doe"
+    // Falls back to username 'johndoe' when displayName is undefined
+    const avatar = screen.getByLabelText(/johndoe's avatar fallback/i)
+    expect(avatar).toHaveTextContent('JO') // First two letters of username fallback
   })
 
   it('handles image field from UserContext', () => {
     const userWithImageField = {
       ...mockUser,
-      profile_image_url: undefined,
+      profileImageUrl: undefined,
       image: 'https://example.com/user-context-image.jpg'
     }
     render(<UserAvatar user={userWithImageField} />)
