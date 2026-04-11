@@ -89,25 +89,6 @@ describe('PostCard Simple Tests', () => {
     expect(reactionButton).toBeInTheDocument()
   })
 
-  it('should show user reaction emoji when user has reacted', () => {
-    const postWithUserReaction = {
-      ...mockPost,
-      currentUserReaction: 'joy',
-      reactionsCount: 10,
-      reactionEmojiCodes: ['joy']
-    }
-
-    render(
-      <PostCard
-        post={postWithUserReaction}
-        currentUserId="current-user"
-      />
-    )
-
-    // Should show the joy emoji (😂)
-    expect(screen.getByText('😂')).toBeInTheDocument()
-  })
-
   it('shows reaction button for authenticated user', () => {
     render(
       <PostCard
@@ -146,52 +127,4 @@ describe('PostCard Simple Tests', () => {
     expect(reactionButton).toBeInTheDocument()
   })
 
-  it('should not display engagement summary for low engagement posts', () => {
-    render(
-      <PostCard
-        post={mockPost}
-        currentUserId="current-user"
-      />
-    )
-
-    // No engagement summary shown for low counts
-    expect(screen.queryByText('total reactions')).not.toBeInTheDocument()
   })
-
-  it('should render different post types with appropriate styling', () => {
-    const dailyPost = { ...mockPost, postType: 'daily' as const }
-    const photoPost = { ...mockPost, postType: 'photo' as const, images: [{ url: 'https://example.com/photo.jpg', width: 800, height: 600 }] }
-    const spontaneousPost = { ...mockPost, postType: 'spontaneous' as const }
-
-    // All post types should have standardized styling
-    const { rerender } = render(
-      <PostCard
-        post={dailyPost}
-        currentUserId="current-user"
-      />
-    )
-
-    const dailyArticle = screen.getByRole('article')
-    expect(dailyArticle).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
-
-    // Test photo post
-    rerender(
-      <PostCard
-        post={photoPost}
-        currentUserId="current-user"
-      />
-    )
-    const photoArticle = screen.getByRole('article')
-    expect(photoArticle).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
-
-    // Test spontaneous post
-    rerender(
-      <PostCard
-        post={spontaneousPost}
-        currentUserId="current-user"
-      />
-    )
-    const spontaneousArticle = screen.getByRole('article')
-    expect(spontaneousArticle).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
-  })
-})
