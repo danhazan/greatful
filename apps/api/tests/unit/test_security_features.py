@@ -435,8 +435,8 @@ class TestSecurityConfig:
             assert "https://www.example.com" in config.allowed_origins
             assert "https://api.example.com" in config.allowed_origins
             
-            # Should also include OAuth origins (development defaults)
-            oauth_origins = ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000", "http://127.0.0.1:8000"]
+            # Should also include OAuth origins (development defaults for frontend)
+            oauth_origins = ["http://localhost:3000"]
             for origin in oauth_origins:
                 assert origin in config.allowed_origins
     

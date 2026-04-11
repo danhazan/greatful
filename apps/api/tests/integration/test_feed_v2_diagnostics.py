@@ -156,7 +156,7 @@ def _print_breakdown(result, label=""):
         raw = d.get("rawCounts", {})
         if any(raw.values()):
             print(
-                f"       rawCounts: hearts={raw['hearts']} reactions={raw['reactions']} "
+                f"       rawCounts: reactions={raw['reactions']} "
                 f"comments={raw['comments']} shares={raw['shares']}"
             )
     print()

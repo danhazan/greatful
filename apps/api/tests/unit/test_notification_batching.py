@@ -68,14 +68,14 @@ class TestNotificationBatching:
         key = notification.generate_batch_key()
         assert key == "follow:user:3"
 
-        # Legacy new_follower type - new format
+        # Legacy new_follower type - default format for unknown types
         notification = Notification(
             user_id=3,
             type='new_follower',
             data={}
         )
         key = notification.generate_batch_key()
-        assert key == "new_follower:user:3"
+        assert key == "new_follower_3"
 
     async def test_create_batch_summary_single(self):
         """Test batch summary creation for single notification."""

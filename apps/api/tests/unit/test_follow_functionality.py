@@ -334,9 +334,9 @@ class TestFollowService:
         follower_id = 1
         user_ids = [2, 3, 4]
         status_map = {
-            2: "active",
-            3: None,
-            4: "pending"
+            2: True,
+            3: False,
+            4: False
         }
         
         mock_follow_repo.bulk_check_following_status.return_value = status_map
@@ -344,13 +344,10 @@ class TestFollowService:
         # Act
         result = await follow_service.bulk_check_following(follower_id, user_ids)
 
-        # Assert
-        assert result[2]["is_following"] is True
-        assert result[2]["status"] == "active"
-        assert result[3]["is_following"] is False
-        assert result[3]["status"] is None
-        assert result[4]["is_following"] is False
-        assert result[4]["status"] == "pending"
+        # Assert - the repository returns Dict[int, bool] 
+        assert result[2] is True
+        assert result[3] is False
+        assert result[4] is False
 
 
 class TestFollowModel:

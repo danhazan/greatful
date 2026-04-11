@@ -355,9 +355,9 @@ class TestFollowRepository:
         user_ids = [user1.id, user2.id, user3.id]
         status_map = await follow_repo.bulk_check_following_status(main_user.id, user_ids)
         
-        assert status_map[user1.id] == "active"
-        assert status_map[user2.id] == "pending"
-        assert status_map[user3.id] is None
+        assert status_map[user1.id] is True
+        assert status_map[user2.id] is False
+        assert status_map[user3.id] is False
 
     @pytest.mark.asyncio
     async def test_follow_constraints(self, db_session: AsyncSession):

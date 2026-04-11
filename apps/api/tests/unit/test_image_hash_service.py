@@ -118,7 +118,7 @@ class TestImageHashService:
         result = await hash_service.store_image_hash(
             file_content=sample_image_bytes,
             original_filename="test.jpg",
-            file_path="/path/to/test.jpg",
+            file_path="path/to/test.jpg",
             mime_type="image/jpeg",
             upload_context="profile",
             uploader_id=1
@@ -126,7 +126,7 @@ class TestImageHashService:
         
         assert isinstance(result, ImageHash)
         assert result.original_filename == "test.jpg"
-        assert result.file_path == "/path/to/test.jpg"
+        assert result.file_path == "path/to/test.jpg"
         assert result.mime_type == "image/jpeg"
         assert result.upload_context == "profile"
         assert result.first_uploader_id == 1

@@ -128,14 +128,14 @@ class TestBatchBehavior:
         assert title == "New Reactions"
         assert message == "3 people reacted to your post"
         
-        # Test different notification types
-        notification.type = 'like'
-        notification.data = {'liker_username': 'user1'}
+        # Test post_interaction type (handles likes/reactions combined)
+        notification.type = 'post_interaction'
+        notification.data = {'engager_username': 'user1'}
         
         title, message = notification.create_batch_summary(1)
-        assert title == "New Like 💜"  # Updated to include purple heart
-        assert "user1 liked your post" in message
+        assert title == "New Engagement 💜"
+        assert "engaged with your post" in message
         
         title, message = notification.create_batch_summary(5)
-        assert title == "New Likes 💜"  # Updated to include purple heart
-        assert message == "5 people liked your post 💜"
+        assert title == "New Engagement 💜"
+        assert "5 people engaged with your post 💜" in message

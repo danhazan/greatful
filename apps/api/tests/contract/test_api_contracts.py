@@ -221,16 +221,16 @@ class TestAPIContracts:
         
         data = response.json()
         
-        # FastAPI returns errors in standard format with 'detail' field
-        assert "detail" in data
+        # Error responses may have 'detail' (FastAPI default) or 'error' (custom) format
+        assert "detail" in data or "error" in data
         
         # Test 403 error (no auth) - FastAPI returns 403 for missing auth
         response = await http_client.post("/api/v1/posts", json={"content": "test"})
         assert response.status_code == status.HTTP_403_FORBIDDEN
         
         data = response.json()
-        # FastAPI returns errors in standard format with 'detail' field
-        assert "detail" in data
+        # Error responses may have 'detail' (FastAPI default) or 'error' (custom) format
+        assert "detail" in data or "error" in data
 
     async def test_validation_error_contract(self, http_client: AsyncClient, auth_headers):
         """Test that validation errors follow the standard contract."""

@@ -274,12 +274,16 @@ class PostInteractionBatcher(NotificationBatcher):
     
     async def create_interaction_notification(
         self,
-        notification_type: str,  # Supported: "emoji_reaction" (legacy "like" should be mapped to "heart")
+        notification_type: str,  # Supported: "emoji_reaction"
         post_id: str,
         user_id: int,
         actor_data: dict
     ) -> Optional[Notification]:
         """Create a reaction notification with unified batching."""
+        
+        # Validate interaction type
+        if notification_type not in ("emoji_reaction", "like", "react"):
+            raise ValueError(f"Unsupported interaction type: {notification_type}")
         
         # Special handling for heart emoji (unified like system)
         if actor_data.get("emoji_code") == "heart":
