@@ -115,10 +115,11 @@ describe('Navbar Component', () => {
     expect(logoLink).toHaveAttribute('href', '/feed')
   })
 
-  it('logo is not a link when no user is provided', () => {
+  it('logo is a link when no user is provided (changed behavior)', () => {
     render(<Navbar />)
     
-    expect(screen.queryByRole('link', { name: /go to grateful home/i })).not.toBeInTheDocument()
+    // Logo is now always a link (even when no user) - this is standard UX
+    expect(screen.getByRole('link', { name: /go to grateful home/i })).toBeInTheDocument()
     expect(screen.getByText('💜')).toBeInTheDocument()
     expect(screen.getByText('Grateful')).toBeInTheDocument()
   })

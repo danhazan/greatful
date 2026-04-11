@@ -1,14 +1,99 @@
 # Test Refactor Progress
 
 ## Current Phase
-Phase 2.5 Cleanup — Hearts Removal Verification (Completed)
+Phase 3 — Frontend Stabilization (In Progress)
 
 ## Scope
-Cleanup of remaining hearts_count references in test files
+Frontend test failure analysis and stabilization following backend hearts→reactions migration
 
-## Status
-- Total references found: 24
-- Fixed: 24 / 24
+## Status (Phase 1 Complete)
+- Test Suites: 28 failed, 22 skipped, 114 passed (142 total)
+- Tests: 125 failed, 207 skipped, 1071 passed (1403 total)
+- Improvement: -4 failed suites, -8 failed tests from baseline
+
+---
+
+## Phase 3 — Frontend Stabilization
+
+### Baseline (Before Phase 1)
+- Test Suites: 32 failed, 22 skipped, 111 passed (143 total)
+- Tests: 133 failed, 207 skipped, 1059 passed (1399 total)
+
+### Root Cause Clusters Identified
+
+#### 1. Hearts → Reactions API Mismatch
+**Pattern**: Tests expect legacy hearts fields (`hearts_count`, `isHearted`, `HeartsViewer` component)  
+**Backend Truth**: Hearts fully removed; unified into emoji reactions model with `reactionsCount`, `currentUserReaction`, `reactionEmojiCodes`  
+**Status**: Partially addressed - removed HeartsViewer mock, fixed some fixtures
+
+#### 2. Mock Data Integrity Issues
+**Pattern**: Tests pass undefined or incomplete post objects causing `TypeError: Cannot read properties of undefined`  
+**Status**: Fixed PostCard.date-link.test.tsx (added photoPost), PostCard.simple.test.tsx (fixed post type tests)
+
+#### 3. Utility Function Behavior Changes
+**Pattern**: Test assertions don't match actual utility behavior  
+**Status**: 
+- normalizePost: Updated test to expect undefined (not 0) for missing commentsCount
+- userDataMapping: Fixed to include display_name and name fallbacks, URL conversion
+
+#### 4. UI/Component Implementation Changes
+**Pattern**: Tests expect specific UI elements that changed  
+**Status**: Fixed Navbar.test.tsx (logo always a link now)
+
+#### 5. Module Resolution (Removed Components)
+**Pattern**: Module import failures for deleted components  
+**Status**: 
+- Removed HeartsViewer mock (component doesn't exist)
+- Deleted UserListItem.test.tsx (component doesn't exist)
+
+### Fixes Applied
+
+| File | Fix |
+|------|-----|
+| test-helpers.ts | Added createTestPostWithReactions, added commentsCount to default |
+| PostCard.date-link.test.tsx | Added missing photoPost variable |
+| PostCard.simple.test.tsx | Fixed post type test (was passing undefined post) |
+| PostCard.state-updates.test.tsx | Removed HeartsViewer mock (doesn't exist) |
+| UserListItem.test.tsx | Deleted (component doesn't exist) |
+| Navbar.test.tsx | Updated test to expect link (changed behavior) |
+| userDataMapping.ts | Added display_name fallback, fixed URL conversion |
+| userDataMapping.test.ts | Updated expected fields |
+| normalizePost.test.ts | Updated expectation for missing field |
+| normalizePost.test.ts | Removed hearts_count from test data (not in API) |
+
+### Remaining Failures (~125 tests)
+
+Major clusters still failing:
+- **PostCard.interactions** (~10 tests): Reactions callback expectations need alignment
+- **PostCard.simple** (~5 tests): "20 reactions" expectation (likely legacy formula)
+- **CommentsModal** (~5 tests): Placeholder text changed
+- **UserAvatar** (~8 tests): Label text mismatch
+- **RichContentRenderer** (~3 tests): Style assertions
+- **PostPrivacyBadge** (~1 test): API mock expectations
+- Layout/width tests: max-w-2xl vs max-w-4xl
+
+### Observations
+
+1. Backend is confirmed source of truth - no hearts fields in API
+2. Tests using old "hearts + reactions = total" formula are incorrect
+3. Several tests expect components/behavior that changed in actual implementation
+4. Some tests have unrealistic expectations (e.g., specific engagement text)
+
+### Next Phase Plan
+
+**Phase 1B** (continued):
+- Fix remaining PostCard interaction tests (reactions model alignment)
+- Fix CommentsModal placeholder text expectations
+- Fix UserAvatar label queries
+
+**Phase 2** (Styling/Behavior):
+- Investigate "20 reactions" expectation - may be removed feature
+- Fix layout tests (max-w-2xl vs max-w-4xl)
+- Fix RichContentRenderer style assertions
+
+---
+
+## Phase 2.5 Cleanup — Hearts Removal Verification (Completed)
 
 ---
 

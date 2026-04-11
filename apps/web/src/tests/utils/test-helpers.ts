@@ -126,6 +126,7 @@ export const setupServiceMocks = () => {
 
 /**
  * Factory for creating test post data
+ * Uses the unified reactions model (no hearts fields)
  */
 export const createTestPost = (overrides: any = {}) => ({
   id: 'test-post-1',
@@ -136,6 +137,7 @@ export const createTestPost = (overrides: any = {}) => ({
     username: 'testauthor',
     displayName: 'Test Author',
     image: 'https://example.com/author.jpg',
+    profileImageUrl: 'https://example.com/author.jpg',
     followerCount: 0,
     followingCount: 0,
     postsCount: 1,
@@ -145,8 +147,25 @@ export const createTestPost = (overrides: any = {}) => ({
   reactionsCount: 3,
   currentUserReaction: undefined,
   reactionEmojiCodes: [],
+  commentsCount: 0,
   ...overrides
 })
+
+/**
+ * Factory for creating test post with reactions (unified model)
+ */
+export const createTestPostWithReactions = (overrides: any = {}) => {
+  const reactionsCount = overrides.reactionsCount ?? 5
+  const currentUserReaction = overrides.currentUserReaction ?? undefined
+  const reactionEmojiCodes = overrides.reactionEmojiCodes ?? (currentUserReaction ? [currentUserReaction] : [])
+  
+  return createTestPost({
+    reactionsCount,
+    currentUserReaction,
+    reactionEmojiCodes,
+    ...overrides
+  })
+}
 
 /**
  * Factory for creating test user data

@@ -29,11 +29,20 @@ describe('PostCard Date Link', () => {
     author: {
       id: '1',
       name: 'Test User',
+      username: 'testuser',
+      displayName: 'Test User',
       image: 'https://example.com/avatar.jpg'
     },
     createdAt: '2024-01-15T10:30:00Z',
     reactionsCount: 3,
-    currentUserReaction: undefined
+    currentUserReaction: undefined,
+    reactionEmojiCodes: []
+  }
+
+  const photoPost = {
+    ...mockPost,
+    id: 'photo-1',
+    images: [{ url: 'https://example.com/photo.jpg', width: 800, height: 600 }]
   }
 
   it('renders date as clickable link to post page', () => {

@@ -180,35 +180,39 @@ describe('PostCard Simple Tests', () => {
   })
 
   it('should render different post types with appropriate styling', () => {
+    const dailyPost = { ...mockPost, postType: 'daily' as const }
+    const photoPost = { ...mockPost, postType: 'photo' as const, images: [{ url: 'https://example.com/photo.jpg', width: 800, height: 600 }] }
+    const spontaneousPost = { ...mockPost, postType: 'spontaneous' as const }
+
+    // All post types should have standardized styling
     const { rerender } = render(
       <PostCard
-        post={mockPost}
+        post={dailyPost}
         currentUserId="current-user"
       />
     )
 
-    // Daily post should have standardized styling (same as all post types)
-    const dailyPost = screen.getByRole('article')
-    expect(dailyPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
+    const dailyArticle = screen.getByRole('article')
+    expect(dailyArticle).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
 
     // Test photo post
     rerender(
       <PostCard
+        post={photoPost}
         currentUserId="current-user"
       />
     )
-    // Photo post should have same standardized styling
-    const photoPost = screen.getByRole('article')
-    expect(photoPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
+    const photoArticle = screen.getByRole('article')
+    expect(photoArticle).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
 
     // Test spontaneous post
     rerender(
       <PostCard
+        post={spontaneousPost}
         currentUserId="current-user"
       />
     )
-    // Spontaneous post should have same standardized styling
-    const spontaneousPost = screen.getByRole('article')
-    expect(spontaneousPost).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
+    const spontaneousArticle = screen.getByRole('article')
+    expect(spontaneousArticle).toHaveClass('bg-white', 'rounded-lg', 'shadow-md')
   })
 })

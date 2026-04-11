@@ -60,9 +60,8 @@ jest.mock('@/components/ReactionViewer', () => {
   return function MockReactionViewer() { return null }
 })
 
-jest.mock('@/components/HeartsViewer', () => {
-  return function MockHeartsViewer() { return null }
-})
+// HeartsViewer component has been removed - hearts are now part of unified reactions
+// Remove the mock - it's testing removed functionality
 
 jest.mock('@/components/ShareModal', () => {
   return function MockShareModal() { return null }
