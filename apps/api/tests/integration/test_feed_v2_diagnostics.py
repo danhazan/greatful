@@ -44,26 +44,34 @@ async def _mk_user(db_session, name):
 
 async def _mk_post(db_session, author, content="Post", age_hours=0, **kwargs):
     created_at = datetime.now(timezone.utc) - timedelta(hours=age_hours)
-    hearts_count = kwargs.pop("hearts_count", 0)
-    # Don't pop reactions_count, it's still a column in the model
-    reactions_count = kwargs.get("reactions_count", 0)
+    heart_reactions = kwargs.pop("heart_reactions", 0)
+    other_reactions = kwargs.pop("other_reactions", 0)
+    
+    is_public = kwargs.pop("is_public", True)
+    privacy_level = kwargs.pop("privacy_level", "public")
+    comments_count = kwargs.pop("comments_count", 0)
+    shares_count = kwargs.pop("shares_count", 0)
+    image_url = kwargs.pop("image_url", None)
+    
+    total_reactions = heart_reactions + other_reactions
     
     post = Post(
         id=str(uuid.uuid4()),
         author_id=author.id,
         content=content,
-        is_public=kwargs.pop("is_public", True),
-        privacy_level=kwargs.pop("privacy_level", "public"),
+        is_public=is_public,
+        privacy_level=privacy_level,
         created_at=created_at,
-        comments_count=kwargs.pop("comments_count", 0),
-        shares_count=kwargs.pop("shares_count", 0),
-        **kwargs,
+        reactions_count=total_reactions,
+        image_url=image_url,
+        comments_count=comments_count,
+        shares_count=shares_count,
     )
     db_session.add(post)
     await db_session.commit()
     
     # Create heart reactions (dynamic)
-    for i in range(hearts_count):
+    for i in range(heart_reactions):
         reaction = EmojiReaction(
             id=str(uuid.uuid4()),
             user_id=1000 + i,
@@ -72,8 +80,8 @@ async def _mk_post(db_session, author, content="Post", age_hours=0, **kwargs):
         )
         db_session.add(reaction)
         
-    # Create other reactions (also dynamic for consistency, though model has reactions_count)
-    for i in range(reactions_count):
+    # Create other reactions (dynamic)
+    for i in range(other_reactions):
         reaction = EmojiReaction(
             id=str(uuid.uuid4()),
             user_id=2000 + i,
@@ -82,7 +90,7 @@ async def _mk_post(db_session, author, content="Post", age_hours=0, **kwargs):
         )
         db_session.add(reaction)
         
-    if hearts_count > 0 or reactions_count > 0:
+    if heart_reactions > 0 or other_reactions > 0:
         await db_session.commit()
         
     await db_session.refresh(post)
@@ -246,9 +254,9 @@ class TestDiagEngagement:
         """Verify engagement scores reflect actual counts."""
         configs = [
             ("Zero eng", {}),
-            ("Low eng", {"hearts_count": 2, "reactions_count": 1}),
-            ("Med eng", {"hearts_count": 10, "reactions_count": 5, "comments_count": 3}),
-            ("High eng", {"hearts_count": 50, "reactions_count": 20, "comments_count": 10, "shares_count": 5}),
+            ("Low eng", {"heart_reactions": 2, "other_reactions": 1}),
+            ("Med eng", {"heart_reactions": 10, "other_reactions": 5, "comments_count": 3}),
+            ("High eng", {"heart_reactions": 50, "other_reactions": 20, "comments_count": 10, "shares_count": 5}),
         ]
         for label, kwargs in configs:
             await _mk_post(db_session, alice, label, age_hours=12, **kwargs)
@@ -351,7 +359,7 @@ class TestDiagRelationship:
         # Unfollowed bob, newer, moderate engagement
         await _mk_post(
             db_session, bob, "Unfollowed-new-popular", age_hours=6,
-            hearts_count=10, reactions_count=8, comments_count=5,
+            heart_reactions=10, other_reactions=8, comments_count=5,
         )
 
         service = FeedServiceV2(db_session)
@@ -513,7 +521,7 @@ class TestDiagProblemCases:
 
         await _mk_post(
             db_session, alice, "Old-followed-engaged (48h)", age_hours=48,
-            hearts_count=15, reactions_count=10, comments_count=5,
+            heart_reactions=15, other_reactions=10, comments_count=5,
         )
         await _mk_post(db_session, bob, "New-unfollowed-quiet (1h)", age_hours=1)
 
@@ -599,7 +607,7 @@ class TestDiagProblemCases:
 
         await _mk_post(
             db_session, alice, "Alice popular (6h)", age_hours=6,
-            hearts_count=30, reactions_count=15, comments_count=8,
+            heart_reactions=30, other_reactions=15, comments_count=8,
         )
         await _mk_post(db_session, viewer, "My own post (0h)", age_hours=0)
 
@@ -621,18 +629,18 @@ class TestDiagProblemCases:
         # Qualifies for discovery: unfollowed, high engagement, has image
         await _mk_post(
             db_session, alice, "Discoverable", age_hours=12,
-            hearts_count=20, reactions_count=10, comments_count=5, shares_count=3,
+            heart_reactions=20, other_reactions=10, comments_count=5, shares_count=3,
             image_url="https://example.com/photo.jpg",
         )
         # Same engagement but no image
         await _mk_post(
             db_session, alice, "No image", age_hours=12,
-            hearts_count=20, reactions_count=10, comments_count=5, shares_count=3,
+            heart_reactions=20, other_reactions=10, comments_count=5, shares_count=3,
         )
         # Has image but low engagement
         await _mk_post(
             db_session, alice, "Low engagement", age_hours=12,
-            hearts_count=1,
+            heart_reactions=1,
             image_url="https://example.com/photo2.jpg",
         )
 

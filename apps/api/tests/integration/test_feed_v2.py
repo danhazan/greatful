@@ -65,27 +65,33 @@ async def user_c(db_session):
 async def _create_post(db_session, author, content="Grateful", age_hours=0, **kwargs):
     """Helper to create a post with a specific age."""
     created_at = datetime.now(timezone.utc) - timedelta(hours=age_hours)
-    hearts_count = kwargs.pop("hearts_count", 0)
-    reactions_count = kwargs.pop("reactions_count", 0)
-    diverse_reactions = kwargs.pop("diverse_reactions", [])  # list of emoji_code strings
+    heart_reactions = kwargs.pop("heart_reactions", 0)
+    other_reactions = kwargs.pop("other_reactions", 0)
+    diverse_reactions = kwargs.pop("diverse_reactions", [])
+    
+    is_public = kwargs.pop("is_public", True)
+    privacy_level = kwargs.pop("privacy_level", "public")
+    comments_count = kwargs.pop("comments_count", 0)
+    shares_count = kwargs.pop("shares_count", 0)
+
+    total_reactions = heart_reactions + other_reactions + len(diverse_reactions)
 
     post = Post(
         id=str(uuid.uuid4()),
         author_id=author.id,
         content=content,
-        is_public=kwargs.pop("is_public", True),
-        privacy_level=kwargs.pop("privacy_level", "public"),
+        is_public=is_public,
+        privacy_level=privacy_level,
         created_at=created_at,
-        reactions_count=reactions_count,
-        comments_count=kwargs.pop("comments_count", 0),
-        shares_count=kwargs.pop("shares_count", 0),
-        **kwargs,
+        reactions_count=total_reactions,
+        comments_count=comments_count,
+        shares_count=shares_count,
     )
     db_session.add(post)
     await db_session.commit()
 
     # Insert mock emoji reactions so dynamic SQL queries correctly score them
-    for i in range(hearts_count):
+    for i in range(heart_reactions):
         reaction = EmojiReaction(
             id=str(uuid.uuid4()),
             user_id=1000 + i,  # synthetic mock user ID
@@ -94,7 +100,7 @@ async def _create_post(db_session, author, content="Grateful", age_hours=0, **kw
         )
         db_session.add(reaction)
 
-    for i in range(reactions_count):
+    for i in range(other_reactions):
         reaction = EmojiReaction(
             id=str(uuid.uuid4()),
             user_id=2000 + i,  # synthetic mock user ID
@@ -113,7 +119,7 @@ async def _create_post(db_session, author, content="Grateful", age_hours=0, **kw
         )
         db_session.add(reaction)
 
-    if hearts_count > 0 or reactions_count > 0 or diverse_reactions:
+    if heart_reactions > 0 or other_reactions > 0 or diverse_reactions:
         await db_session.commit()
 
     await db_session.refresh(post)
@@ -205,7 +211,7 @@ class TestFeedV2Scoring:
         # user_b's post is 3 days old with high engagement (beyond recent-engagement window)
         await _create_post(
             db_session, user_b, "Popular", age_hours=72,
-            hearts_count=50, reactions_count=20, comments_count=10,
+            heart_reactions=50, other_reactions=20, comments_count=10,
         )
         # user_a's own post is brand new with no engagement
         await _create_post(db_session, user_a, "My own", age_hours=0)
@@ -218,11 +224,11 @@ class TestFeedV2Scoring:
         # Same age, different engagement
         await _create_post(
             db_session, user_b, "Low engagement", age_hours=2,
-            hearts_count=0, reactions_count=0,
+            heart_reactions=0, other_reactions=0,
         )
         await _create_post(
             db_session, user_b, "High engagement", age_hours=2,
-            hearts_count=20, reactions_count=10, comments_count=5, shares_count=3,
+            heart_reactions=20, other_reactions=10, comments_count=5, shares_count=3,
         )
         service = FeedServiceV2(db_session)
         result = await service.get_feed(user_id=user_a.id)
@@ -242,7 +248,7 @@ class TestFeedV2Scoring:
     async def test_only_reactions_boost_ranking(self, db_session, user_a, user_b):
         # Same age, only other reactions
         await _create_post(db_session, user_b, "Quiet post", age_hours=2)
-        await _create_post(db_session, user_b, "Only reactions", age_hours=2, reactions_count=5)
+        await _create_post(db_session, user_b, "Only reactions", age_hours=2, other_reactions=5)
         service = FeedServiceV2(db_session)
         result = await service.get_feed(user_id=user_a.id)
         assert result["posts"][0]["content"] == "Only reactions"
@@ -376,10 +382,11 @@ class TestFeedV2AuthorSpacing:
     @pytest.mark.asyncio
     async def test_consecutive_posts_reordered(self, db_session, user_a, user_b, user_c):
         # Create 4 posts from user_b and 2 from user_c, all similar age
+        # Use slight engagement differences to help spacing work better
         for i in range(4):
-            await _create_post(db_session, user_b, f"B-{i}", age_hours=i * 0.1)
-        await _create_post(db_session, user_c, "C-0", age_hours=0.5)
-        await _create_post(db_session, user_c, "C-1", age_hours=1.0)
+            await _create_post(db_session, user_b, f"B-{i}", age_hours=i * 0.1, other_reactions=i)
+        await _create_post(db_session, user_c, "C-0", age_hours=0.5, other_reactions=1)
+        await _create_post(db_session, user_c, "C-1", age_hours=1.0, other_reactions=2)
 
         service = FeedServiceV2(db_session)
         result = await service.get_feed(user_id=user_a.id)
@@ -496,12 +503,12 @@ class TestFeedV2FollowDominance:
         # Post A: 3 days old, followed, low engagement
         await _create_post(
             db_session, user_b, "Old followed quiet", age_hours=72,
-            hearts_count=1, reactions_count=1,
+            heart_reactions=1, other_reactions=1,
         )
         # Post B: 6 hours old, NOT followed, high engagement
         await _create_post(
             db_session, user_c, "New engaged", age_hours=6,
-            hearts_count=10, reactions_count=8, comments_count=5,
+            heart_reactions=10, other_reactions=8, comments_count=5,
         )
 
         service = FeedServiceV2(db_session)

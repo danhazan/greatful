@@ -1,18 +1,42 @@
 # Test Refactor Progress
 
 ## Current Phase
-Phase 2.5 - Reactions Refactor Alignment (Completed)
+Phase 2.5 Cleanup — Hearts Removal Verification (Completed)
 
 ## Scope
-Backend tests affected by hearts → reactions migration and related fixes
+Cleanup of remaining hearts_count references in test files
 
 ## Status
-- Total failing in Phase 2.5: 18
-- Fixed: 18 / 18
+- Total references found: 24
+- Fixed: 24 / 24
 
 ---
 
-## Phase 2.5 - Reactions Refactor Alignment
+## Phase 2.5 Cleanup — Hearts Removal Verification
+
+### Findings
+- Tests passed despite `hearts_count` references in test files because:
+  - `hearts_count` was used ONLY as a helper parameter name to create test data
+  - When `hearts_count=10`, the code looped 10 times creating `emoji_code="heart"` reactions
+  - Tests NEVER asserted on `post["hearts_count"]` - it's not in API responses
+  - No backend serializers include hearts_count field
+- Backend code had NO references to hearts_count, isHearted, or heartsCount columns
+
+### Actions
+- Removed remaining hearts_count references from test helpers:
+  - `test_feed_v2.py`: Renamed `hearts_count` → `heart_reactions`, `reactions_count` → `other_reactions`
+  - `test_feed_v2_diagnostics.py`: Same refactoring
+- Updated all test calls using new parameter names
+- Fixed `image_url` parameter passing to Post model
+
+### Result
+- No legacy hearts fields remain in test files
+- All tests aligned with reactions model (heart_emoji_code + other reactions)
+- Full test suite passes (878 tests)
+
+---
+
+## Earlier: Phase 2.5 - Reactions Refactor Alignment
 
 ### Context
 The legacy "hearts" system has been fully removed and unified into the reactions model. All engagement now comes from `emoji_reactions` table where `emoji_code = "heart"`.
