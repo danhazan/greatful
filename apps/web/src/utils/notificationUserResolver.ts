@@ -102,7 +102,6 @@ export function extractNotificationUsername(notification: Notification): string 
   const genericFields = [
     data.senderUsername,
     data.username,
-    data.userName,
     data.displayName,
   ]
 
