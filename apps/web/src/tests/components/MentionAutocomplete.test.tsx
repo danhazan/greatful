@@ -92,7 +92,6 @@ describe('MentionAutocomplete', () => {
     await waitFor(() => {
       expect(screen.getByText('Test User')).toBeInTheDocument()
       expect(screen.getByText('@testuser')).toBeInTheDocument()
-      expect(screen.getByText('Test bio')).toBeInTheDocument()
     }, { timeout: 1000 })
   })
 

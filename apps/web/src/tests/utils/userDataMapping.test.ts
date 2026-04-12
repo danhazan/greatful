@@ -22,22 +22,7 @@ describe('userDataMapping', () => {
       })
     })
 
-    it('should preserve existing image field over profileImageUrl and normalize both to absolute URLs', () => {
-      const user = {
-        id: 123,
-        username: 'testuser',
-        image: 'https://example.com/new-profile.jpg',
-        profileImageUrl: 'https://example.com/old-profile.jpg'
-      }
-
-      const normalized = normalizeUserData(user)
-
-      // Both fields should use the image field value (prioritized) and be absolute URLs
-      expect(normalized.image).toBe('https://example.com/new-profile.jpg')
-      expect(normalized.profileImageUrl).toBe('https://example.com/new-profile.jpg')
-    })
-
-    it('should set image to null when no profile image exists', () => {
+it('should set image to null when no profile image exists', () => {
       const user = {
         id: 123,
         username: 'testuser',

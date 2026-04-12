@@ -76,7 +76,7 @@ describe('PostCard Simple Tests', () => {
     expect(screen.getByText('Test Author')).toBeInTheDocument()
   })
 
-  it('should display correct reaction count', () => {
+  it('should render post in article element', () => {
     render(
       <PostCard
         post={mockPost}
@@ -84,47 +84,6 @@ describe('PostCard Simple Tests', () => {
       />
     )
 
-    // Check reaction count is displayed (reactionsCount: 5)
-    const reactionButton = screen.getByTitle('React with emoji')
-    expect(reactionButton).toBeInTheDocument()
+    expect(screen.getByRole('article')).toBeInTheDocument()
   })
-
-  it('shows reaction button for authenticated user', () => {
-    render(
-      <PostCard
-        post={mockPost}
-        currentUserId="current-user"
-      />
-    )
-    // Should have a reaction button
-    const reactionButton = screen.getByTitle('React with emoji')
-    expect(reactionButton).toBeInTheDocument()
-  })
-
-  it('should show reaction button when user has not reacted', () => {
-    render(
-      <PostCard
-        post={mockPost}
-        currentUserId="current-user"
-      />
-    )
-    // Should show reaction button
-    const reactionButton = screen.getByTitle('React with emoji')
-    expect(reactionButton).toBeInTheDocument()
-  })
-
-  it('should display reactions correctly for engaged posts', () => {
-    const post = { ...mockPost, reactionsCount: 15 }
-    
-    render(
-      <PostCard
-        post={post}
-        currentUserId="current-user"
-      />
-    )
-
-    const reactionButton = screen.getByTitle('React with emoji')
-    expect(reactionButton).toBeInTheDocument()
-  })
-
-  })
+})

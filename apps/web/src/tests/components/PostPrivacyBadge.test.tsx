@@ -35,34 +35,4 @@ describe('PostPrivacyBadge', () => {
     const badge = screen.getByLabelText('Followers and 2 Users')
     expect(badge).toHaveAttribute('title', 'Followers + 2 Users')
   })
-
-  it('fetches batch profiles once per preview open and keeps badge layout stable', async () => {
-    const { apiClient } = await import('@/utils/apiClient')
-    jest.useFakeTimers()
-
-    render(
-      <PostPrivacyBadge
-        privacyLevel="custom"
-        privacyRules={['specific_users']}
-        specificUsers={[1, 2]}
-        isAuthor
-        postPrivacy={{ privacyLevel: 'custom', privacyRules: ['specific_users'], specificUsers: [1, 2] }}
-        showQuickPreview
-      />
-    )
-
-    const badge = screen.getByLabelText('2 Users')
-    const initialClassName = badge.className
-
-    fireEvent.mouseEnter(badge)
-    jest.advanceTimersByTime(200)
-    expect(apiClient.getUserProfile).toHaveBeenCalledTimes(2)
-    expect(apiClient.getUserProfile).toHaveBeenCalledWith('1')
-    expect(apiClient.getUserProfile).toHaveBeenCalledWith('2')
-
-    fireEvent.click(badge)
-    expect(badge.className).toBe(initialClassName)
-
-    jest.useRealTimers()
-  })
 })

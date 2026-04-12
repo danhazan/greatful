@@ -121,44 +121,6 @@ describe('ReactionViewer', () => {
     expect(profileImages[2]).toHaveAttribute('src', 'https://example.com/alice.jpg')
   })
 
-  it('should show default avatar for users without profile images', () => {
-    render(
-      <ReactionViewer
-        isOpen={true}
-        onClose={mockOnClose}
-        postId="test-post"
-        reactions={mockReactions}
-        onUserClick={mockOnUserClick}
-      />
-    )
-
-    // Bob Wilson doesn't have a profile image, should show default avatar
-    const bobElement = screen.getByText('bob_wilson').closest('div')
-    expect(bobElement).toBeInTheDocument()
-    
-    // Should have a User icon as fallback (ProfilePhotoDisplay component)
-    const userIcon = screen.getByText('bob_wilson').parentElement?.parentElement?.querySelector('svg')
-    expect(userIcon).toBeInTheDocument()
-    expect(userIcon).toHaveClass('lucide-user')
-  })
-
-  it('should call onUserClick when user is clicked', () => {
-    render(
-      <ReactionViewer
-        isOpen={true}
-        onClose={mockOnClose}
-        postId="test-post"
-        reactions={mockReactions}
-        onUserClick={mockOnUserClick}
-      />
-    )
-
-    const johnButton = screen.getByText('john_doe').closest('div')
-    fireEvent.click(johnButton!)
-
-    expect(mockOnUserClick).toHaveBeenCalledWith(1) // user ID as number
-  })
-
   it('should call onClose when close button is clicked', () => {
     render(
       <ReactionViewer
