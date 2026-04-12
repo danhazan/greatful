@@ -510,6 +510,8 @@ describe.skip('Accessibility Tests', () => {
     }
 
     it.skip('should have proper navigation landmarks (TODO: Update for new navbar structure)', () => {
+      // OBSOLETE: Navbar structure changed - now uses ProfileDropdown instead of menubar
+      // This test needs to be rewritten for the new component structure
       render(
         <TestWrapper>
           <Navbar {...mockProps} />
@@ -525,6 +527,7 @@ describe.skip('Accessibility Tests', () => {
     })
 
     it.skip('should have accessible mobile menu (TODO: Update for profile dropdown)', async () => {
+      // OBSOLETE: Mobile menu replaced with ProfileDropdown - need new tests
       const user = userEvent.setup()
       render(
         <TestWrapper>
@@ -540,6 +543,7 @@ describe.skip('Accessibility Tests', () => {
     })
 
     it.skip('should have accessible menu items (TODO: Update for profile dropdown)', () => {
+      // OBSOLETE: Menu items moved to ProfileDropdown - need new tests
       render(
         <TestWrapper>
           <Navbar {...mockProps} />
