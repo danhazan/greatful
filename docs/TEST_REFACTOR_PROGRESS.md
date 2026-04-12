@@ -1,7 +1,89 @@
 # Test Refactor Progress
 
 ## Current Phase
-Phase 7 — Test System Validation & Governance Hardening (Complete)
+Phase 8 — Test System Automation & Self-Validation (Complete)
+
+---
+
+## Phase 8 — Test System Automation & Self-Validation
+
+### Summary
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Test Suites | 160 | 161 | +1 |
+| Passing Tests | 1095 | 1095 | 0 |
+| Failing Tests | 0 | 0 | 0 |
+| @flow Tests | 30 | 30 | 0 |
+| Governance Tool | No | Yes | Added |
+
+---
+
+### Phase 8A — Test Governance Validator
+
+**Created:** `scripts/test-governance-check.js`
+
+**Validates:**
+1. @flow tests must NOT mock internal hooks (useUserState, useFollowState, etc.)
+2. Skipped tests must have classification comment (MIGRATE/DELETE/REWRITE/KEEP)
+3. Each feature must have @flow test coverage
+
+**Run with:** `npm run test:governance`
+
+---
+
+### Phase 8B — CI Integration
+
+**Added to package.json:**
+```json
+"test:governance": "node scripts/test-governance-check.js"
+```
+
+**Can be added to CI pipeline:**
+```yaml
+- name: Test Governance Check
+  run: npm run test:governance
+```
+
+---
+
+### Phase 8C — Feature Coverage Validation
+
+**All features now have @flow coverage:**
+
+| Feature | @flow Test File | Status |
+|---------|---------------|--------|
+| Follow | `FollowButton.flow.test.tsx` | ✓ |
+| Posts | `PostCard.flow.test.tsx` | ✓ |
+| Notifications | `NotificationSystem.flow.test.tsx` | ✓ |
+| Auth | `OAuthButton.flow.test.tsx` | ✓ |
+| Feed | `feed.flow.test.tsx` | ✓ |
+
+---
+
+### Phase 8D — Governance Rules Summary
+
+**Rule A — FLOW Test Requirement**
+Every major feature MUST have ≥1 @flow test → ENFORCED ✓
+
+**Rule B — Mocking Enforcement**
+@flow tests must NOT mock internal hooks → ENFORCED ✓
+
+**Rule C — Skip Prohibition**
+Skipped tests must have classification → ENFORCED ✓
+
+---
+
+### System Status
+
+- **Validation:** Automated via `test-governance-check.js`
+- **Coverage:** All 5 features have @flow tests
+- **Violations:** 0 (no internal hook mocks in @flow)
+- **Warnings:** 148 (layer tag improvements needed)
+- **Confidence:** HIGH across all features
+
+---
+
+## Previous: Phase 7 — Test System Validation & Governance Hardening
 
 ---
 

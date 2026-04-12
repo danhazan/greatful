@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, jest, afterEach } from '@jest/globals
 // Network fetch mock for @flow tests
 let mockFetch: jest.Mock
 
+// @flow Feed Flow Tests - Verifies feed user journeys
 describe('Feed Flow Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks()

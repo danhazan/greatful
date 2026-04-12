@@ -10,6 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:governance": "node scripts/test-governance-check.js",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
