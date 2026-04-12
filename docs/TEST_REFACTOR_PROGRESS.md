@@ -1,7 +1,174 @@
 # Test Refactor Progress
 
 ## Current Phase
-Phase 4 — Core Test Identification & Protection
+Phase 5A — Skipped Tests Deep Classification
+
+---
+
+## Phase 5A — Skipped Tests Deep Classification
+
+### Classification Summary
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| **RECOVER** | 15 | Fixable - correct behavior, bad mocks/timing |
+| **REWRITE** | 8 | Valid feature, wrong abstraction level |
+| **OBSOLETE** | 5 | Feature removed or fundamentally changed |
+| **UNKNOWN** | 12 | Need more investigation |
+
+---
+
+### RECOVER Tests (Fixable)
+
+| File | Test | Reason | Effort |
+|------|------|--------|--------|
+| `FollowButton.test.tsx` | 'fetches initial follow status on mount' | Good test, caching logic mocking unreliable | MEDIUM |
+| `FollowButton.test.tsx` | 'successfully follows a user' | Good test, complex API mocking | MEDIUM |
+| `FollowButton.test.tsx` | 'successfully unfollows a user' | Good test, complex API mocking | MEDIUM |
+| `FollowButton.test.tsx` | 'handles authentication error' | Good test, auth mocking | MEDIUM |
+| `FollowButton.test.tsx` | 'handles user not found error' | Good test, API error handling | MEDIUM |
+| `FollowButton.test.tsx` | 'handles conflict error (already following)' | Good test, edge case | MEDIUM |
+| `FollowButton.test.tsx` | 'handles validation error (self-follow)' | Good test, edge case | MEDIUM |
+| `FollowButton.test.tsx` | 'handles network error' | Good test, error handling | MEDIUM |
+| `PostCard.api-endpoints.test.tsx` | 'should handle reaction action API errors gracefully' | Good test, error boundary | LOW |
+| `PostCard.realtime.test.tsx` | Entire describe.skip | Timing issues, but valid behavior | HIGH |
+| `PostCard.reactions.realtime.test.tsx` | Entire describe.skip | Timing issues, but valid behavior | HIGH |
+| `follow-interactions.test.tsx` | Entire describe.skip | Timing issues, valid integration test | HIGH |
+| `post-page-authentication.test.tsx` | Entire describe.skip | Auth flow testing | HIGH |
+| `shared-post-authentication.test.tsx` | Entire describe.skip | Auth flow testing | HIGH |
+| `NotificationSystem.test.tsx` | Entire describe.skip | Notification edge cases | HIGH |
+
+**Total RECOVER: 15 tests**
+
+---
+
+### REWRITE Tests (Needs Redesign)
+
+| File | Test | Reason | Effort |
+|------|------|--------|--------|
+| `MentionAutocomplete.test.tsx` | Entire describe.skip | Tightly coupled to old API shape | HIGH |
+| `PostCard.mention-validation.test.tsx` | Entire describe.skip | Complex validation logic | HIGH |
+| `FollowButton-advanced.test.tsx` | Entire describe.skip | Too many edge cases, refactor needed | HIGH |
+| `NotificationSystem.links.test.tsx` | Entire describe.skip | Navigation coupling | MEDIUM |
+| `NotificationSystem.ui-behavior.test.tsx` | Entire describe.skip | UI state complexity | HIGH |
+| `NotificationSystem.batching.test.tsx` | Entire describe.skip | Complex batching logic | HIGH |
+| `CreatePostModal.mention-protection.test.tsx` | Entire describe.skip | Complex mention logic | HIGH |
+| `CreatePostModal.cursor-positioning.test.tsx` | Entire describe.skip | Editor internals | HIGH |
+
+**Total REWRITE: 8 tests**
+
+---
+
+### OBSOLETE Tests (Delete Candidate)
+
+| File | Test | Reason | Justification |
+|------|------|--------|----------------|
+| `accessibility.test.tsx` | 'should have proper navigation landmarks' | Navbar structure changed | ProfileDropdown replaced navbar |
+| `accessibility.test.tsx` | 'should have accessible mobile menu' | Profile dropdown added | New component, needs new test |
+| `accessibility.test.tsx` | 'should have accessible menu items' | Profile dropdown added | New component, needs new test |
+| `post-page-profile-image.test.tsx` | Entire describe.skip | Jest worker crashes | Infrastructure issue - not recoverable |
+| `message-share.test.tsx` | Entire describe.skip | Jest worker crashes | Infrastructure issue - not recoverable |
+| `profile-image-url-fix.test.ts` | Entire describe.skip | Jest worker crashes | Infrastructure issue - not recoverable |
+
+**Total OBSOLETE: 6 tests (3 infra + 3 deprecated)**
+
+---
+
+### High-Value Recoverables (Top 10)
+
+These have HIGH system value and LOW/MEDIUM effort:
+
+1. **'should handle reaction action API errors gracefully'** (PostCard.api-endpoints)
+   - Value: Critical error handling coverage
+   - Effort: LOW
+   - Justification: Tests user-visible error state
+
+2. **'fetches initial follow status on mount'** (FollowButton)
+   - Value: Follow system initialization
+   - Effort: MEDIUM
+   - Justification: Core follow functionality
+
+3. **'successfully follows a user'** (FollowButton)
+   - Value: Primary follow action
+   - Effort: MEDIUM
+   - Justification: Core social feature
+
+4. **'successfully unfollows a user'** (FollowButton)
+   - Value: Primary unfollow action
+   - Effort: MEDIUM
+   - Justification: Core social feature
+
+5. **'handles authentication error'** (FollowButton)
+   - Value: Auth error visibility
+   - Effort: MEDIUM
+   - Justification: User feedback
+
+6-10. Other FollowButton error handling tests (value: error coverage)
+
+---
+
+### REWRITE Clusters
+
+Similar tests grouped by refactor approach:
+
+**Cluster 1: Mention/Validation (3 files)**
+- `MentionAutocomplete.test.tsx`
+- `PostCard.mention-validation.test.tsx`
+- `CreatePostModal.mention-protection.test.tsx`
+- Approach: Simplify to test mentions work, not internal validation
+
+**Cluster 2: Notification Batching (3 files)**
+- `NotificationSystem.test.tsx`
+- `NotificationSystem.batching.test.tsx`
+- `NotificationSystem.ui-behavior.test.tsx`
+- Approach: Focus on user-visible batch results, not internal timing
+
+**Cluster 3: Advanced Follow (2 files)**
+- `FollowButton.test.tsx` (9 skips)
+- `FollowButton-advanced.test.tsx`
+- Approach: Consolidate into single comprehensive test file
+
+---
+
+### Risk Notes (Under-Tested Areas)
+
+| Area | Skipped Tests | Current Status |
+|------|---------------|----------------|
+| **Reactions** | 4 (realtime, API errors) | Partial - core works, error handling gaps |
+| **Follow System** | 12+ (FollowButton, integration) | WEAK - heavy reliance on skips |
+| **Notifications** | 5+ (batching, UI) | MEDIUM - core works |
+| **Real-time** | 3 (PostCard realtime) | WEAK - no coverage |
+| **Auth Flows** | 4 (integration tests) | MEDIUM - some coverage |
+
+**Danger**: Follow system has HIGHEST risk - heavily relies on skipped tests for error handling and edge cases.
+
+---
+
+### Recommended Priority for Phase 5B
+
+1. **Priority 1**: Fix PostCard API error test (LOW effort, HIGH value)
+2. **Priority 2**: Fix FollowButton error handling tests (MEDIUM effort, HIGH value)
+3. **Priority 3**: Rewrite notification batching tests (HIGH effort, needed)
+4. **Priority 4**: Delete OBSOLETE tests (3 files with infrastructure issues)
+5. **Priority 5**: Investigate real-time test gaps
+
+---
+
+### Backend Skipped Tests
+
+| Category | Count | Files | Reason |
+|----------|-------|-------|--------|
+| **INFRA** | 8 | test_security_configuration.py (4), test_corrected_production_config.py (3), test_production_security_validation.py (1) | Connection issues, config missing |
+| **LOAD** | 5 | test_*_load.py (all 5) | Disabled for development - production only |
+| **PRODUCTION** | 3 | test_production_security_validation.py | Designed to fail in dev |
+| **ENV** | 1 | test_security_features.py | Environment detection issues |
+| **SSL** | 1 | test_production_security_validation.py | Requires SKIP_SSL_TESTS=false |
+
+**Backend Total: ~18 skips (mostly intentional for production/load testing)**
+
+---
+
+## Previous: Phase 4 — Core Test Identification & Protection
 
 ---
 
