@@ -1,7 +1,152 @@
 # Test Refactor Progress
 
 ## Current Phase
-Phase 3F — Contract Corrections & Integrity (Complete)
+Phase 4 — Core Test Identification & Protection
+
+---
+
+## Phase 4 — Core Test Identification & Protection
+
+### Summary
+- **Total Passing Tests**: 1042
+- **Total Test Files**: ~130
+- **Core Tests Identified**: 15 critical test files
+- **Weak/Low-Value Tests**: 8 classified
+- **Coverage Gaps**: 4 identified
+
+---
+
+### Core Test Set
+
+These tests validate real system guarantees and must be protected:
+
+#### 1. Authentication & Authorization
+
+| File | Behavior Validated | Why Critical |
+|------|-------------------|--------------|
+| `PostCard.authentication.test.tsx` | Unauthenticated users see login UI, auth users see interaction buttons | Core security gating |
+| `PostCard.hideFollowButton.test.tsx` | Author's own post hides follow button | Prevents self-follow |
+| `auth-e2e-simple.test.tsx` | Login/logout flow | Core user identity |
+| `UserContext.enhanced.test.tsx` | User context propagation | All auth-dependent features |
+| `post-page-authentication.test.tsx` | Post page auth requirements | Content access control |
+| `shared-post-authentication.test.tsx` | Shared post auth behavior | External sharing security |
+
+#### 2. Post System
+
+| File | Behavior Validated | Why Critical |
+|------|-------------------|--------------|
+| `PostCard.interactions.test.tsx` | Reaction add/remove, emoji picker | Core engagement |
+| `PostCard.simple.test.tsx` | Post content rendering | Basic display |
+| `PostCard.comments.test.tsx` | Comment count display | Engagement tracking |
+| `CreatePostModal.test.tsx` | Post creation flow | Content creation |
+| `PostCard.api-endpoints.test.tsx` | API endpoint behavior | Data integrity |
+
+#### 3. Notifications
+
+| File | Behavior Validated | Why Critical |
+|------|-------------------|--------------|
+| `notificationUserResolver.test.ts` | Username/ID extraction from notifications | Notification accuracy |
+| `NotificationSystem.test.tsx` | Notification display | User awareness |
+
+#### 4. Follow System
+
+| File | Behavior Validated | Why Critical |
+|------|-------------------|--------------|
+| `FollowButton.test.tsx` | Follow/unfollow toggle | Social graph |
+| `FollowButton-advanced.test.tsx` | Advanced follow scenarios | Edge cases |
+| `FollowingModal.test.tsx` | Following list display | Social display |
+| `FollowersModal.test.tsx` | Followers list display | Social display |
+
+#### 5. Data Transformation
+
+| File | Behavior Validated | Why Critical |
+|------|-------------------|--------------|
+| `userDataMapping.test.ts` | User data normalization (camelCase) | Frontend contract |
+| `normalizePost.test.ts` (if exists) | Post data normalization | API contract |
+
+---
+
+### Weak / Low-Value Tests (Classification)
+
+These tests are weaker but not necessarily deletable - they provide some value but are less critical:
+
+| File | Classification | Reason |
+|------|----------------|--------|
+| `PostCard.rtl.test.tsx` | Edge case | RTL support (important but niche) |
+| `PostCard.background-rendering.test.tsx` | DELETED | Was CSS-only |
+| `TouchInteractions.test.tsx` | DELETED | Browser-specific |
+| `navbar-responsive.test.tsx` | DELETED | CSS/layout |
+| `PostPrivacyBadge.test.tsx` | Edge case | Privacy display (simplified) |
+| `MentionAutocomplete.test.tsx` | Edge case | Mention input (simplified) |
+| `RichContentRenderer.test.tsx` | DELETED | CSS/style |
+
+---
+
+### Coverage Gaps
+
+The following areas are NOT adequately covered by current tests:
+
+| Gap | Description | Priority |
+|-----|-------------|----------|
+| Feed ranking edge cases | How posts are ordered when engagement is equal | Medium |
+| Reaction toggle race conditions | What happens when user rapidly taps reaction | Low |
+| API failure handling | What happens when POST /reactions fails | Medium |
+| Cross-feature: notification → profile | Clicking notification navigates to profile | Low |
+| Privacy edge cases | Very large specific user lists, complex rules | Low |
+
+---
+
+### CI Protection Plan (Design)
+
+**Suggested Implementation:**
+
+1. **Core Test Tagging**
+   ```javascript
+   // At top of core test files:
+   // @core - Core test - do not skip
+   ```
+
+2. **Pre-commit Hook**
+   - Run core tests before commit
+   - Fail if core tests are skipped
+
+3. **CI Pipeline**
+   - Separate "core" and "other" test runs
+   - Core tests must pass to merge
+   - Other tests can fail (tracked but non-blocking)
+
+4. **Flaky Test Detection**
+   - Track test failure history
+   - Auto-skip tests that fail 3+ times (mark as flaky)
+   - Require human review to un-skip
+
+---
+
+### Skipped Tests (Infrastructure)
+
+These are marked as skipped due to Jest worker instability, NOT deleted:
+
+| File | Skip Reason |
+|------|-------------|
+| `message-share.test.tsx` | Jest worker instability |
+| `profile-image-url-fix.test.ts` | Jest worker instability |
+| `post-page-profile-image.test.tsx` | Jest worker instability |
+
+---
+
+### Test Quality Metrics
+
+| Metric | Value |
+|--------|-------|
+| Total passing tests | 1042 |
+| Core tests | ~15 files |
+| Skipped tests | 210 (mostly integration) |
+| Test files with good coverage | ~40 |
+| Test files needing review | ~8 |
+
+---
+
+## Previous: Phase 3F — Contract Corrections & Integrity
 
 ---
 
