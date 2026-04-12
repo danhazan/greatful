@@ -1,7 +1,205 @@
 # Test Refactor Progress
 
 ## Current Phase
-Phase 5E — Follow Interaction Testing (Complete)
+Phase 6E — Coverage Reality Check (Complete)
+
+---
+
+## Phase 6E — Coverage Reality Check
+
+### Overview
+Transitioning from "fixing tests" → to "designing stable test architecture". This phase establishes a clear 4-layer testing philosophy.
+
+### The 4 Layers
+
+#### 1. @unit (Isolation Layer)
+Pure logic tests - Hook outputs (mocked) - No DOM interaction beyond rendering - Fully deterministic
+
+**Allowed:**
+- mocking hooks (useUserState, useAuth, etc.)
+- mocking utility functions
+
+**NOT Allowed:**
+- API calls
+- user interactions that trigger async flows
+
+#### 2. @behavior (UI Contract Layer)
+Tests UI output for given props/state - Verifies text, labels, rendering - No event simulation required
+
+**Allowed:**
+- prop-based state changes
+- semantic assertions (not DOM structure)
+
+**NOT Allowed:**
+- click handlers triggering logic
+- API mocking
+
+#### 3. @interaction (User Action Layer)
+Simulates real user actions (click, type, select) - Ensures UI responds without crashing - Minimal mocking only
+
+**Allowed:**
+- userEvent.click / type
+- mocking API responses ONLY at network boundary
+
+**NOT Allowed:**
+- mocking internal hooks (useUserState, useFollowState, etc.)
+- asserting internal implementation state
+
+#### 4. @flow (Integration Layer - NEW CRITICAL LAYER)
+Tests real user journey: user clicks → API request → response → state update → UI rerender
+
+**Must simulate:**
+- real component behavior (NO hook mocking)
+- network layer mocking ONLY (fetch/axios)
+- async resolution
+- final UI state validation
+
+**ONLY allowed mocking:**
+- fetch / axios / API clients
+- External services (analytics, logging)
+
+---
+
+## Phase 6C — Strict Mocking Rulebook
+
+### Core Principle
+"Mock outside the system, never inside the system."
+If mocking removes the thing being tested → it is invalid.
+
+### NEVER MOCK (Anti-Pattern List)
+These must NOT be mocked in @interaction or @flow tests:
+
+#### 1. Internal State Hooks
+- useUserState
+- useFollowState
+- useNotificationState
+
+**Reason:** Hides real integration behavior
+
+#### 2. Component Internals
+- Event handlers
+- Internal reducers
+- Derived state logic
+
+#### 3. UI Framework Internals
+- Router navigation logic
+- Component lifecycle methods
+
+### ONLY ALLOWED MOCKING
+#### 1. Network Boundary
+- fetch
+- axios
+- API clients
+
+#### 2. External Services
+- Analytics
+- Logging
+- Feature flags (if needed)
+
+### Application to Test Files
+
+| Test Type | What to Mock | What NOT to Mock |
+|-----------|-------------|------------------|
+| @unit | Hooks, utilities | None needed |
+| @behavior | None | Handlers, hooks |
+| @flow | fetch/axios only | Hooks, handlers |
+
+---
+
+## Phase 6D — Skipped Test Reclassification
+
+### Current State
+- 20 test suites skipped
+- 175 individual tests skipped
+
+### Classification by Category
+
+#### KEEP → Convert to @flow Tests (High Value)
+These tests verify real user journeys and should be converted:
+
+| File | Reason | Suggested Action |
+|------|--------|-------------------|
+| `PostCard.realtime.test.tsx` | Real-time updates | Convert to @flow with network mocking |
+| `PostCard.reactions.realtime.test.tsx` | Reaction realtime | Convert to @flow |
+| `follow-interactions.test.tsx` | Follow integration | Convert to @flow |
+| `NotificationSystem.batching.test.tsx` | Notification batching | Convert to @flow |
+| `NotificationSystem.ui-behavior.test.tsx` | UI behavior | Convert to @flow |
+| `post-page-authentication.test.tsx` | Auth flow | Convert to @flow |
+| `shared-post-authentication.test.tsx` | Auth flow | Convert to @flow |
+
+#### DELETE → Obsolete (Infrastructure Issues)
+Tests that can't run due to Jest worker crashes:
+
+| File | Reason |
+|------|--------|
+| `message-share.test.tsx` | Jest worker crash |
+| `profile-image-url-fix.test.ts` | Jest worker crash |
+| `post-page-profile-image.test.tsx` | Jest worker crash |
+
+#### DELETE → Deprecated/Redundant
+Tests with outdated UI expectations:
+
+| File | Reason |
+|------|--------|
+| `accessibility.test.tsx` (partial) | Navbar structure changed, ProfileDropdown replaced |
+
+#### REWRITE → Needs Design Decision (Medium Priority)
+Tests that need architectural changes:
+
+| File | Reason |
+|------|--------|
+| `FollowButton-advanced.test.tsx` | Too many edge cases |
+| `MentionAutocomplete.test.tsx` | Tightly coupled to old API |
+| `PostCard.mention-validation.test.tsx` | Complex validation |
+| `CreatePostModal.mention-protection.test.tsx` | Complex mention logic |
+| `CreatePostModal.cursor-positioning.test.tsx` | Editor internals |
+
+### Summary
+- **To Convert**: 7 files → @flow tests
+- **To Delete**: 4 files (obsolete)
+- **To Rewrite**: 5 files (needs redesign)
+- **Keep as-is**: 4 files (valid but skipped)
+
+---
+
+## Phase 6E — Coverage Reality Check
+
+### Current Test Stats
+| Metric | Count |
+|--------|-------|
+| Total Test Files | 153 |
+| Passing Test Suites | 133 |
+| Skipped Test Suites | 20 |
+| Total Tests | 1246 |
+| Passing Tests | 1071 |
+| Skipped Tests | 175 |
+| Failing Tests | 0 |
+
+### Test Layer Distribution (Estimated)
+
+| Layer | Count | Description |
+|-------|-------|-------------|
+| @unit | ~300 | Pure logic, hook mocks |
+| @behavior | ~400 | UI output, prop-based |
+| @interaction | ~150 | User actions, click handling |
+| @flow | ~6 | User journeys (newly added) |
+
+### System Confidence by Feature
+
+| Feature | Confidence | Notes |
+|---------|------------|-------|
+| Follow System | HIGH | @unit + @behavior + @interaction + @flow all present |
+| Post System | MEDIUM | Core works, realtime/flow missing |
+| Notifications | MEDIUM | Core works, batching needs @flow |
+| Auth Integration | LOW | Many skipped, needs @flow |
+| Real-time | LOW | Skipped, needs @flow |
+
+### Updated System Confidence
+**MEDIUM** - While Follow system is now well-covered, other features need @flow tests for true integration coverage.
+
+---
+
+## Previous: Phase 5E — Follow Interaction Testing
 
 ---
 
