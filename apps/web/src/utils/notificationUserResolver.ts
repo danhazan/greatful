@@ -102,6 +102,7 @@ export function extractNotificationUsername(notification: Notification): string 
   const genericFields = [
     data.senderUsername,
     data.username,
+    data.userName,
     data.displayName,
   ]
 
@@ -190,12 +191,14 @@ export function resolveNotificationUser(notification: any) {
   }
 
   // Otherwise, resolve from data
-  const img = notification.data?.profileImageUrl ?? null
+  const extractedUsername = extractNotificationUsername(notification)
+  const extractedId = extractNotificationUserId(notification)
+  const img = notification.data?.profileImageUrl ?? notification.data?.image ?? null
 
   return {
-    id: extractNotificationUserId(notification),
-    name: extractNotificationUsername(notification),
-    username: notification.fromUser?.username ?? undefined,
+    id: extractedId,
+    name: extractedUsername,
+    username: extractedUsername !== 'Unknown User' ? extractedUsername : undefined,
     image: img,
   }
 }

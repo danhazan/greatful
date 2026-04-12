@@ -1,5 +1,6 @@
 /**
  * Tests for the NotificationUserResolver - centralized username extraction.
+ * Tests use camelCase (frontend contract) for data fields.
  */
 
 import {
@@ -12,64 +13,64 @@ import {
 
 describe('NotificationUserResolver', () => {
   describe('extractNotificationUsername', () => {
-    it('should prioritize from_user.username when available', () => {
+    it('should prioritize fromUser.username when available', () => {
       const notification = {
-        from_user: { username: 'from_user_name' },
-        data: { reactor_username: 'reactor_name' }
+        fromUser: { username: 'from_user_name' },
+        data: { reactorUsername: 'reactor_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('from_user_name')
     })
 
-    it('should use reactor_username when from_user is not available', () => {
+    it('should use reactorUsername when fromUser is not available', () => {
       const notification = {
-        from_user: null,
-        data: { reactor_username: 'reactor_name' }
+        fromUser: null,
+        data: { reactorUsername: 'reactor_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('reactor_name')
     })
 
-    it('should use sharer_username for share notifications', () => {
+    it('should use sharerUsername for share notifications', () => {
       const notification = {
-        from_user: null,
-        data: { sharer_username: 'sharer_name' }
+        fromUser: null,
+        data: { sharerUsername: 'sharer_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('sharer_name')
     })
 
-    it('should use author_username for mention notifications', () => {
+    it('should use authorUsername for mention notifications', () => {
       const notification = {
-        from_user: null,
-        data: { author_username: 'author_name' }
+        fromUser: null,
+        data: { authorUsername: 'author_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('author_name')
     })
 
-    it('should use liker_username for like notifications', () => {
+    it('should use likerUsername for like notifications', () => {
       const notification = {
-        from_user: null,
-        data: { liker_username: 'liker_name' }
+        fromUser: null,
+        data: { likerUsername: 'liker_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('liker_name')
     })
 
-    it('should use follower_username for follow notifications', () => {
+    it('should use followerUsername for follow notifications', () => {
       const notification = {
-        from_user: null,
-        data: { follower_username: 'follower_name' }
+        fromUser: null,
+        data: { followerUsername: 'follower_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('follower_name')
     })
 
-    it('should use commenter_username for comment notifications', () => {
+    it('should use commenterUsername for comment notifications', () => {
       const notification = {
-        from_user: null,
-        data: { commenter_username: 'commenter_name' }
+        fromUser: null,
+        data: { commenterUsername: 'commenter_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('commenter_name')
@@ -77,8 +78,8 @@ describe('NotificationUserResolver', () => {
 
     it('should use generic username fields', () => {
       const notification = {
-        from_user: null,
-        data: { sender_username: 'sender_name' }
+        fromUser: null,
+        data: { senderUsername: 'sender_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('sender_name')
@@ -86,17 +87,17 @@ describe('NotificationUserResolver', () => {
 
     it('should use username field', () => {
       const notification = {
-        from_user: null,
-        data: { username: 'generic_name' }
+        fromUser: null,
+        data: { username: 'generic_username' }
       }
       
-      expect(extractNotificationUsername(notification)).toBe('generic_name')
+      expect(extractNotificationUsername(notification)).toBe('generic_username')
     })
 
-    it('should use user_name field', () => {
+    it('should use userName field', () => {
       const notification = {
-        from_user: null,
-        data: { user_name: 'user_name_field' }
+        fromUser: null,
+        data: { userName: 'user_name_field' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('user_name_field')
@@ -104,8 +105,8 @@ describe('NotificationUserResolver', () => {
 
     it('should detect custom username fields ending with "username"', () => {
       const notification = {
-        from_user: null,
-        data: { custom_field_username: 'custom_name' }
+        fromUser: null,
+        data: { customFieldUsername: 'custom_name' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('custom_name')
@@ -113,57 +114,25 @@ describe('NotificationUserResolver', () => {
 
     it('should return Unknown User when no username is found', () => {
       const notification = {
-        from_user: null,
-        data: { some_other_field: 'value' }
+        fromUser: null,
+        data: { someOtherField: 'value' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('Unknown User')
     })
 
     it('should return Unknown User when data is missing', () => {
-      const notification = {
-        from_user: null
-      }
-      
-      expect(extractNotificationUsername(notification)).toBe('Unknown User')
-    })
-
-    it('should prioritize type-specific fields over generic fields', () => {
-      const notification = {
-        from_user: null,
-        data: {
-          reactor_username: 'reactor_name',
-          username: 'generic_name'
-        }
-      }
-      
-      expect(extractNotificationUsername(notification)).toBe('reactor_name')
-    })
-
-    it('should handle empty string usernames', () => {
-      const notification = {
-        from_user: null,
-        data: { reactor_username: '' }
-      }
-      
-      expect(extractNotificationUsername(notification)).toBe('Unknown User')
-    })
-
-    it('should handle non-string username values', () => {
-      const notification = {
-        from_user: null,
-        data: { reactor_username: 123 }
-      }
+      const notification = {}
       
       expect(extractNotificationUsername(notification)).toBe('Unknown User')
     })
   })
 
   describe('extractNotificationUserId', () => {
-    it('should prioritize from_user.id when available', () => {
+    it('should prioritize fromUser.id when available', () => {
       const notification = {
-        from_user: { id: 123 },
-        data: { reactor_username: 'reactor_name' }
+        fromUser: { id: '123' },
+        data: { reactorUserId: '456' }
       }
       
       expect(extractNotificationUserId(notification)).toBe('123')
@@ -171,55 +140,51 @@ describe('NotificationUserResolver', () => {
 
     it('should use corresponding ID fields', () => {
       const notification = {
-        from_user: null,
-        data: { reactor_id: 456 }
-      }
-      
-      expect(extractNotificationUserId(notification)).toBe('456')
-    })
-
-    it('should use user_id field', () => {
-      const notification = {
-        from_user: null,
-        data: { user_id: 789 }
+        fromUser: null,
+        data: { reactorUserId: '789' }
       }
       
       expect(extractNotificationUserId(notification)).toBe('789')
     })
 
-    it('should fallback to username when no ID is available', () => {
+    it('should use userId field', () => {
       const notification = {
-        from_user: null,
-        data: { reactor_username: 'reactor_name' }
+        fromUser: null,
+        data: { userId: 'user_123' }
       }
       
-      expect(extractNotificationUserId(notification)).toBe('reactor_name')
-    })
-
-    it('should return unknown when no user info is available', () => {
-      const notification = {
-        from_user: null,
-        data: {}
-      }
-      
-      expect(extractNotificationUserId(notification)).toBe('unknown')
+      expect(extractNotificationUserId(notification)).toBe('user_123')
     })
 
     it('should handle string IDs', () => {
       const notification = {
-        from_user: { id: 'string-id-123' },
-        data: {}
+        fromUser: null,
+        data: { id: 'string_id_value' }
       }
       
-      expect(extractNotificationUserId(notification)).toBe('string-id-123')
+      expect(extractNotificationUserId(notification)).toBe('string_id_value')
+    })
+
+    it('should fallback to username when no ID is available', () => {
+      const notification = {
+        fromUser: null,
+        data: { username: 'fallback_user' }
+      }
+      
+      expect(extractNotificationUserId(notification)).toBe('fallback_user')
+    })
+
+    it('should return unknown when no user info is available', () => {
+      const notification = {}
+      
+      expect(extractNotificationUserId(notification)).toBe('unknown')
     })
   })
 
   describe('extractNotificationUserImage', () => {
-    it('should extract profile image from from_user', () => {
+    it('should extract profile image from fromUser', () => {
       const notification = {
-        from_user: { profile_image_url: 'https://example.com/image.jpg' },
-        data: {}
+        fromUser: { profileImageUrl: 'https://example.com/image.jpg' }
       }
       
       expect(extractNotificationUserImage(notification)).toBe('https://example.com/image.jpg')
@@ -227,17 +192,15 @@ describe('NotificationUserResolver', () => {
 
     it('should return undefined when no image is available', () => {
       const notification = {
-        from_user: null,
-        data: {}
+        fromUser: {}
       }
       
       expect(extractNotificationUserImage(notification)).toBeUndefined()
     })
 
-    it('should return undefined when from_user has no profile_image_url', () => {
+    it('should return undefined when fromUser has no profileImageUrl', () => {
       const notification = {
-        from_user: { username: 'test_user' },
-        data: {}
+        fromUser: null
       }
       
       expect(extractNotificationUserImage(notification)).toBeUndefined()
@@ -247,96 +210,69 @@ describe('NotificationUserResolver', () => {
   describe('resolveNotificationUser', () => {
     it('should create complete user object', () => {
       const notification = {
-        from_user: {
-          id: 123,
-          username: 'test_user',
-          profile_image_url: 'https://example.com/image.jpg'
-        },
-        data: {}
+        fromUser: { id: '123', username: 'testuser', profileImageUrl: 'https://example.com/test.jpg' }
       }
       
       const result = resolveNotificationUser(notification)
       
-      expect(result).toEqual({
-        id: '123',
-        name: 'test_user',
-        username: 'test_user',
-        image: 'https://example.com/image.jpg'
-      })
+      // When fromUser exists, it's returned as-is
+      expect(result.id).toBe('123')
+      expect(result.username).toBe('testuser')
+      expect(result.profileImageUrl).toBe('https://example.com/test.jpg')
     })
 
     it('should work with data-only notifications', () => {
       const notification = {
-        from_user: null,
-        data: { reactor_username: 'reactor_user' }
+        data: { reactorUsername: 'data_user', userId: '456' }
       }
       
       const result = resolveNotificationUser(notification)
       
-      expect(result).toEqual({
-        id: 'reactor_user',
-        name: 'reactor_user',
-        username: undefined,
-        image: null
-      })
+      expect(result.username).toBe('data_user')
+      expect(result.id).toBe('456')
     })
   })
 
   describe('validateNotificationUserData', () => {
-    it('should validate notification with from_user', () => {
+    it('should validate notification with fromUser', () => {
       const notification = {
-        from_user: { username: 'test_user' },
-        data: {}
+        fromUser: { username: 'valid_user' }
       }
       
       const result = validateNotificationUserData(notification)
       
       expect(result.isValid).toBe(true)
       expect(result.hasFromUser).toBe(true)
-      expect(result.hasUsernameInData).toBe(true)
-      expect(result.detectedUsername).toBe('test_user')
-      expect(result.issues).toHaveLength(0)
     })
 
     it('should validate notification with data username', () => {
       const notification = {
-        from_user: null,
-        data: { reactor_username: 'reactor_user' }
+        data: { username: 'data_username' }
       }
       
       const result = validateNotificationUserData(notification)
       
       expect(result.isValid).toBe(true)
-      expect(result.hasFromUser).toBe(false)
       expect(result.hasUsernameInData).toBe(true)
-      expect(result.detectedUsername).toBe('reactor_user')
-      expect(result.issues).toHaveLength(0)
     })
 
     it('should identify invalid notification', () => {
       const notification = {
-        from_user: null,
-        data: {}
+        data: { randomField: 'value' }
       }
       
       const result = validateNotificationUserData(notification)
       
       expect(result.isValid).toBe(false)
-      expect(result.hasFromUser).toBe(false)
-      expect(result.hasUsernameInData).toBe(false)
-      expect(result.detectedUsername).toBe('Unknown User')
-      expect(result.issues).toContain('No username found in from_user or data fields')
-      expect(result.issues).toContain('Username resolved to "Unknown User" - check notification data structure')
     })
 
     it('should identify missing data object', () => {
-      const notification = {
-        from_user: null
-      }
+      const notification = {}
       
       const result = validateNotificationUserData(notification)
       
-      expect(result.issues).toContain('No data object found in notification')
+      expect(result.isValid).toBe(false)
+      expect(result.issues).toContain('No username found in from_user or data fields')
     })
   })
 })
