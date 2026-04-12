@@ -1,7 +1,91 @@
 # Test Refactor Progress
 
 ## Current Phase
-Phase 9 — Cleanup & Skipped Test Resolution (Complete)
+Phase 10 — Test Pruning & Optimization (Complete)
+
+---
+
+## Phase 10 — Test Pruning & Optimization
+
+### Summary
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Test Suites | 161 | 161 | 0 |
+| Passing Tests | 1106 | 1106 | 0 |
+| Failing Tests | 0 | 0 | 0 |
+| @flow Tests | 38 | 38 | 0 |
+
+---
+
+### Phase 10A — Test Prune Engine
+
+**Created:** `scripts/test-prune-engine.js`
+
+**Decision System:**
+- Scores each skipped test 0-10 based on:
+  - User value (0-3)
+  - Uniqueness (0-2)
+  - Stability (0-2)
+  - Maintainability (0-2)
+  - Overlap penalty (-3)
+
+**Run with:** `npm run test:prune`
+
+---
+
+### Phase 10B — Test Value Scoring Results
+
+| Decision | Count | Criteria |
+|----------|-------|-----------|
+| UPGRADE | 0 | Score 8+ (real user journeys) |
+| MERGE | 7 | Score 5-7 (already covered) |
+| DELETE | 15 | Score 0-4 (obsolete/low-value) |
+| KEEP | 0 | Score 8+ (unique value) |
+
+**Tests to DELETE (15):**
+- PostCard.realtime.test.tsx (timing unstable)
+- PostCard.reactions.realtime.test.tsx (timing unstable)
+- follow-interactions.test.tsx (timing unstable)
+- NotificationSystem.*.test.tsx (various - covered by @flow)
+- MentionAutocomplete.test.tsx (old API)
+- CreatePostModal.mention-protection.test.tsx (complex)
+- CreatePostModal.cursor-positioning.test.tsx (editor internals)
+- FollowButton-advanced.test.tsx (edge cases)
+- ShareModal.test.tsx (complex)
+
+**Tests to MERGE (7):**
+- auth-e2e-simple.test.tsx
+- post-page-authentication.test.tsx
+- shared-post-authentication.test.tsx
+- UserContext.enhanced.test.tsx
+
+---
+
+### Phase 10C — Safe Mode Pruning
+
+No deletions executed in this phase - marked for future cleanup.
+
+---
+
+### Phase 10D — Test Budget Rule
+
+**Enforced:**
+```
+@unit   → minimal (logic only)
+@behavior → UI contract only  
+@interaction → thin layer
+@flow   → STABLE CAP (do NOT expand further)
+```
+
+---
+
+### Phase 10E — Final Report
+
+See `TEST_HEALTH_REPORT.md` for comprehensive metrics.
+
+---
+
+## Previous: Phase 9 — Cleanup & Skipped Test Resolution
 
 ---
 
