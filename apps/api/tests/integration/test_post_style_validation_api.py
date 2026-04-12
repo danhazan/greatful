@@ -11,6 +11,14 @@ from app.models.user import User
 from app.models.post import Post
 
 
+@pytest.fixture(autouse=True)
+def clear_rate_limits():
+    """Clear rate limits before each test to prevent 429 errors."""
+    from app.core.rate_limiting import get_rate_limiter
+    rate_limiter = get_rate_limiter()
+    rate_limiter.clear_all_limits()
+
+
 @pytest.mark.asyncio
 class TestPostStyleValidationAPI:
     """Test post style validation in API endpoints."""
