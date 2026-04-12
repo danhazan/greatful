@@ -1,7 +1,82 @@
 # Test Refactor Progress
 
 ## Current Phase
-Phase 6E — Coverage Reality Check (Complete)
+Phase 6F — Test System Consolidation & Enforcement (Complete)
+
+---
+
+## Phase 6F — Test System Consolidation & Enforcement
+
+### Summary
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Test Suites | 153 | 156 | +3 |
+| Passing Tests | 1071 | 1085 | +14 |
+| Failing Tests | 0 | 0 | 0 |
+| Skipped Tests | 175 | 175 | 0 |
+| @flow Tests | 6 | 20 | +14 |
+
+### 6F.1 — 4-Layer Tagging Enforcement
+- All new tests explicitly tagged with @unit/@behavior/@interaction/@flow
+- Existing tests annotated with appropriate tags
+- Tagging pattern: `// @layer Test Name`
+
+### 6F.2 — FLOW Test Expansion
+
+**New FLOW Tests Added:**
+
+| File | Tests | Feature |
+|------|-------|---------|
+| `PostCard.flow.test.tsx` | 7 | Post system user journeys |
+| `NotificationSystem.flow.test.tsx` | 3 | Notification UI behavior |
+| `OAuthButton.flow.test.tsx` | 4 | Auth flow buttons |
+| `FollowButton.flow.test.tsx` | 6 | Follow system (from Phase 6B) |
+
+**Coverage by Feature:**
+- Follow System: @unit + @behavior + @interaction + @flow ✓
+- Post System: @flow now added (7 tests)
+- Notifications: @flow now added (3 tests)
+- Auth: @flow now added (4 tests)
+
+### 6F.3 — Skipped Test Resolution
+
+| Category | Count | Status |
+|----------|-------|--------|
+| KEEP (MIGRATE to @flow) | 7 files | Pending - complex real-time logic |
+| DELETE (Obsolete) | 4 files | Worker crash infrastructure |
+| REWRITE (Needs redesign) | 5 files | Complex edge cases |
+| KEEP (Valid but skipped) | 4 files | Auth integration tests |
+
+**Note:** Remaining 175 skipped tests are classified but require migration effort beyond current phase scope.
+
+### 6F.4 — Mocking Rulebook Enforcement
+
+**Violations Fixed:**
+- Removed internal hook mocking from @flow tests
+- Replaced with network boundary mocking only
+
+**Enforcement Status:** ✓ Active
+
+### 6F.5 — Final Coverage Audit
+
+| Layer | Est. Count | Coverage |
+|-------|------------|----------|
+| @unit | ~300 | High - pure logic tests |
+| @behavior | ~400 | High - UI contract tests |
+| @interaction | ~150 | Medium - action tests |
+| @flow | 20 | Growing - integration tests |
+
+**System Confidence by Feature:**
+| Feature | Confidence | Notes |
+|---------|------------|-------|
+| Follow System | HIGH | All layers covered |
+| Post System | HIGH | Core + @flow added |
+| Notifications | MEDIUM | Core + @flow added |
+| Auth | MEDIUM | Buttons + @flow added |
+
+---
+
+## Previous: Phase 6E — Coverage Reality Check
 
 ---
 
