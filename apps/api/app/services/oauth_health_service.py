@@ -159,7 +159,7 @@ class OAuthHealthService(BaseService):
             # Simple query to test database connectivity
             from sqlalchemy import text
             result = await self.db.execute(text("SELECT 1"))
-            result.scalar()
+            await result.scalar()
             
             return {
                 'status': 'healthy',
