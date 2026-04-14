@@ -38,7 +38,6 @@ interface NotificationData {
   commenterId?: string
 
   // Generic username fields (for future notification types)
-  senderUsername?: string
   senderUserId?: string
   username?: string
   displayName?: string
@@ -99,7 +98,6 @@ export function extractNotificationUsername(notification: Notification): string 
   }
 
   const genericFields = [
-    data.senderUsername,
     data.username,
     data.displayName,
   ]
@@ -143,7 +141,7 @@ export function extractNotificationUserId(notification: Notification): string {
     data.likerUserId || data.likerId,
     data.followerUserId || data.followerId,
     data.commenterUserId || data.commenterId,
-    data.senderUsername || data.senderUserId, // Fallback to username for IDs if needed
+    data.senderUserId,
     data.userId,
     data.id
   ]

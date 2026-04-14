@@ -12,7 +12,7 @@ The current state represents the optimal balance between coverage and maintainab
 | Metric | Value |
 |--------|-------|
 | Test Suites | 140 |
-| Total Tests | 1100 |
+| Total Tests | 1099 |
 | Status | ALL PASSING |
 | @flow tests | 41 (frozen) |
 | Skipped | 0 |
@@ -92,9 +92,6 @@ npm run test:governance    # Frontend test rules
 
 # Contract verification  
 npm run test:contract      # System contract check
-
-# Prune engine (disabled)
-npm run test:prune        # Advisory only
 ```
 
 ---
@@ -102,6 +99,7 @@ npm run test:prune        # Advisory only
 ## Documentation
 
 - `SYSTEM_CONTRACT_MAP.md` - Core architecture document
+- `USERNAME_CONTRACT_AUDIT.md` - Username resolution contract analysis
 - `TEST_GUIDELINES.md` - Test writing guidelines
 - This file - Current test status
 

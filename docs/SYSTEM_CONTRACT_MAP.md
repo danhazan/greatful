@@ -25,8 +25,15 @@ This is a **system architecture document** — not a test coverage map. Tests se
 - **Backend → Frontend**: All API responses use `snake_case` for field names
 - **Frontend → Backend**: All API requests use `snake_case` for field names
 - **Transformation**: Frontend MUST transform snake_case → camelCase for internal use
+- **Exception**: Notification data fields may arrive in either format (defensive handling in `notificationMapping.ts`)
 
-### 2. Authentication Contract
+### 2. Username Contract
+- Backend sends `*_username` fields in snake_case (e.g., `reactor_username`)
+- Frontend transformers convert to camelCase (e.g., `reactorUsername`)
+- Notification resolver accepts both formats via `notificationMapping.ts` backward compatibility
+- Only canonical fields: `username`, `displayName`, type-specific `*Username` (e.g., `followerUsername`)
+
+### 3. Authentication Contract
 - JWT tokens stored in HTTP-only cookies
 - Token validation happens at API gateway level
 - Frontend receives authenticated state via UserContext

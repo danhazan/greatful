@@ -76,15 +76,6 @@ describe('NotificationUserResolver', () => {
       expect(extractNotificationUsername(notification)).toBe('commenter_name')
     })
 
-    it('should use generic username fields', () => {
-      const notification = {
-        fromUser: null,
-        data: { senderUsername: 'sender_name' }
-      }
-      
-      expect(extractNotificationUsername(notification)).toBe('sender_name')
-    })
-
     it('should use username field', () => {
       const notification = {
         fromUser: null,
