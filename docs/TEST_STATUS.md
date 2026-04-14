@@ -348,3 +348,64 @@ def test_emoji_reactions_concurrent_load(self, large_dataset, load_test_tokens):
 **Re-enable When**: Deploying to production environment with proper infrastructure setup
 
 ---
+
+## Warning Baseline (Post-Phase 27)
+
+### Current State
+
+- Backend Tests: 878 passing
+- Skipped: 25
+- Warnings: 44 (NO runtime errors)
+
+### Warning Breakdown
+
+#### 1. SQLAlchemy SAWarnings (~43)
+
+**Origin**:
+- `test_feed_v2.py` (23 warnings)
+- `test_feed_v2_diagnostics.py` (18 warnings)
+- `test_custom_post_privacy_visibility.py` (2 warnings)
+
+**Type**:
+```
+SAWarning: Object of type <Post> not in session, add operation along 'User.posts' will not proceed
+```
+
+**Root Cause**:
+- Occurs during SQLAlchemy autoflush when partially constructed objects exist
+- Triggered by complex test fixture patterns (NOT application logic)
+
+**Why This Is Acceptable**:
+- Tests do NOT rely on ORM relationship traversal
+- Queries use explicit IDs (`post_id`, `author_id`)
+- No data inconsistency or loss occurs
+- Behavior is fully validated by passing tests
+
+**Status**:
+- ✅ UNDERSTOOD
+- ✅ ACCEPTED
+- ❌ NOT suppressed
+- ❌ NOT a production issue
+
+#### 2. RuntimeWarnings (Async)
+
+**Status**:
+- ✅ RESOLVED in Phase 27B
+- All async calls properly awaited
+
+### Policy
+
+- These warnings are considered **test-layer artifacts**
+- They MUST NOT be suppressed globally
+- They do NOT block CI or development
+
+### Future Guidance
+
+- New tests SHOULD prefer:
+  ```python
+  Post(author=user)  # NOT author_id=user.id
+  ```
+
+- Avoid creating partially attached ORM objects when possible
+
+- Do NOT refactor existing tests solely to remove these warnings unless behavior is affected
