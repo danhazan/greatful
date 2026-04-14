@@ -411,11 +411,12 @@ class TestAuthenticationSecurityVerification:
         # Test that authentication dependency exists and works
         from app.core.dependencies import get_current_user
         from fastapi import HTTPException
+        import asyncio
         
         # Test the dependency directly
         try:
-            # This should raise an exception when no token is provided
-            result = get_current_user(None, None)
+            # Run the async dependency in an event loop
+            result = asyncio.run(get_current_user(None, None))
             if hasattr(result, '__await__'):
                 # If it's async, we can't easily test it here
                 print("Authentication dependency exists (async)")

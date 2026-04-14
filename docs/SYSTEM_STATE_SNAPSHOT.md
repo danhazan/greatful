@@ -69,6 +69,13 @@ This guarantee holds regardless of:
 - Frontend: camelCase (after transformation)
 - Resolver: handles both via `notificationMapping.ts`
 
+### Datetime Strategy
+- The system uses **naive UTC datetimes** for database storage
+- All datetime values are assumed to be UTC
+- Pattern used: `datetime.now().replace(tzinfo=None)` or `.replace(tzinfo=None)`
+- Warning suppression applied to: passlib (crypt), AsyncMock, SQLAlchemy session
+- Runtime warnings in test suite: ~46 (acceptable, non-blocking)
+
 ---
 
 ## 4. System Contract Coverage

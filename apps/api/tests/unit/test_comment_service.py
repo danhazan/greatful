@@ -9,7 +9,7 @@ from app.models.comment import Comment
 from app.models.post import Post
 from app.models.user import User
 from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError, BusinessLogicError
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def sample_comment():
         post_id="post-123",
         user_id=1,
         content="Test comment",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
     return comment
 
@@ -77,7 +77,7 @@ class TestCreateComment:
             post_id="post-123",
             user_id=1,
             content="Great post!",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         comment_service.create_entity = AsyncMock(return_value=created_comment)
         
@@ -118,7 +118,7 @@ class TestCreateComment:
             post_id="post-123",
             user_id=1,
             content="Great post!",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         comment_service.create_entity = AsyncMock(return_value=created_comment)
         
@@ -153,7 +153,7 @@ class TestCreateComment:
             post_id="post-123",
             user_id=1,
             content="My own comment",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         comment_service.create_entity = AsyncMock(return_value=created_comment)
         
@@ -182,7 +182,7 @@ class TestCreateComment:
             user_id=1,
             parent_comment_id="comment-123",
             content="Great comment!",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         comment_service.create_entity = AsyncMock(return_value=created_reply)
         comment_service.get_by_id = AsyncMock(return_value=sample_comment)
@@ -215,7 +215,7 @@ class TestCreateComment:
             user_id=1,
             parent_comment_id="comment-123",
             content="Great comment!",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         comment_service.create_entity = AsyncMock(return_value=created_reply)
         comment_service.get_by_id = AsyncMock(return_value=sample_comment)
@@ -340,7 +340,7 @@ class TestGetPostComments:
             post_id="post-123",
             user_id=1,
             content="First comment",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         comment1.user = sample_user
         
@@ -372,7 +372,7 @@ class TestGetPostComments:
             post_id="post-123",
             user_id=1,
             content="First comment",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         comment1.user = sample_user
         
@@ -398,7 +398,7 @@ class TestGetCommentReplies:
             user_id=1,
             parent_comment_id="comment-123",
             content="First reply",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         reply1.user = sample_user
         
@@ -465,7 +465,7 @@ class TestDeleteComment:
     async def test_delete_reply_with_later_siblings_blocked(self, comment_service, sample_comment):
         """Deleting a non-last reply is blocked."""
         sample_comment.parent_comment_id = "parent-1"
-        sample_comment.created_at = datetime.utcnow()
+        sample_comment.created_at = datetime.now(timezone.utc)
         comment_service.get_by_id_or_404 = AsyncMock(return_value=sample_comment)
 
         count_result = MagicMock()

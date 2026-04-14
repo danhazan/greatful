@@ -4,6 +4,7 @@ Authentication service with standardized patterns.
 
 import logging
 from typing import Dict, Optional
+from datetime import datetime as dt, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.service_base import BaseService
 from app.core.exceptions import (
@@ -272,7 +273,7 @@ class AuthService(BaseService):
         result = await self.db.execute(query)
         reset_token = result.scalar_one_or_none()
 
-        if not reset_token or reset_token.is_used or reset_token.expires_at < datetime.datetime.utcnow():
+        if not reset_token or reset_token.is_used or reset_token.expires_at < dt.now().replace(tzinfo=None):
             raise AuthenticationError("Invalid or expired password reset token")
 
         # Get the user associated with the token

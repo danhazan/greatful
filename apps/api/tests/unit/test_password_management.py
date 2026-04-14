@@ -5,7 +5,7 @@ Unit tests for password management functionality in the service layer.
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-import datetime
+from datetime import datetime as dt, timedelta
 
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
@@ -106,7 +106,7 @@ async def test_reset_password_with_valid_token(mock_auth_service, password_user)
     valid_token = PasswordResetToken(
         user_id=password_user.id,
         token="valid-token",
-        expires_at=datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        expires_at=dt.now().replace(tzinfo=None) + timedelta(hours=1),
         is_used=False
     )
     
@@ -139,7 +139,7 @@ async def test_reset_password_fails_with_expired_token(mock_auth_service, passwo
     expired_token = PasswordResetToken(
         user_id=password_user.id,
         token="expired-token",
-        expires_at=datetime.datetime.utcnow() - datetime.timedelta(minutes=1),
+        expires_at=dt.now().replace(tzinfo=None) - timedelta(minutes=1),
         is_used=False
     )
     result = MagicMock()
@@ -154,7 +154,7 @@ async def test_reset_password_fails_with_used_token(mock_auth_service, password_
     used_token = PasswordResetToken(
         user_id=password_user.id,
         token="used-token",
-        expires_at=datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        expires_at=dt.now().replace(tzinfo=None) + timedelta(hours=1),
         is_used=True
     )
     result = MagicMock()

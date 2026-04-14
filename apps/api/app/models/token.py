@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
+from datetime import datetime, timedelta
 from app.core.database import Base
-import datetime
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
@@ -17,4 +17,4 @@ class PasswordResetToken(Base):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if not self.expires_at:
-            self.expires_at = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+            self.expires_at = datetime.now().replace(tzinfo=None) + timedelta(hours=1)
