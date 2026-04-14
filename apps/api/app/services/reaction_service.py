@@ -85,7 +85,18 @@ class ReactionService(BaseService):
                 except Exception as e:
                     logger.error(f"Failed to create notification for reaction update: {e}")
                     # Don't fail the reaction if notification fails
-                
+            
+            # Runtime invariant check: At most one reaction per user per post
+            reaction_count = await self.reaction_repo.get_user_reaction_count(user_id, post_id)
+            if reaction_count > 1:
+                logger.error(
+                    f"[REACTION_UNIQUENESS_ERROR] User {user_id} has {reaction_count} reactions on post {post_id}. "
+                    f"Invariant violated: at most one reaction per user per post. "
+                    f"See SYSTEM_CONTRACT_MAP.md#reaction-system"
+                )
+                from app.core.exceptions import InternalServerError
+                raise InternalServerError("Reaction uniqueness invariant violated")
+            
             return {
                 "id": updated_reaction.id,
                 "user_id": updated_reaction.user_id,

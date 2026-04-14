@@ -1,7 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * Test Prune Engine
+ * ARCHIVED: Test Prune Engine (Phase 10-11)
+ *
+ * This script was used during large-scale test refactoring.
+ * It is no longer part of the active test system.
+ *
+ * Reason:
+ * - Test architecture is now stable
+ * - Pruning decisions are manual and governed
+ *
+ * DO NOT USE for automatic deletion.
+ */
  * 
  * Decision system for ALL remaining skipped tests (175)
  * Classifies each into: KEEP, MERGE, DELETE, UPGRADE
@@ -237,14 +247,11 @@ console.log('  @interaction → thin layer');
 console.log('  @flow   → STABLE CAP (do NOT expand further)');
 console.log('');
 
-// Exit code based on results
-const exitCode = decisions.DELETE.length > 0 ? 1 : 0;
+// Exit code - always 0 (advisory mode only)
 console.log('═══════════════════════════════════════════════════════════════');
-if (exitCode === 1) {
-  console.log('⚠️  Tests to prune detected - review above before committing');
-} else {
-  console.log('✅ No immediate pruning required');
-}
+console.log('ℹ️  System at optimal state - pruning disabled');
+console.log('    This script is now advisory only.');
+console.log('    Do NOT delete tests without explicit approval.');
 console.log('═══════════════════════════════════════════════════════════════\n');
 
-process.exit(exitCode);
+process.exit(0);

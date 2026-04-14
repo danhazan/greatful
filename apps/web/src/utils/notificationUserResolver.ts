@@ -98,7 +98,6 @@ export function extractNotificationUsername(notification: Notification): string 
     }
   }
 
-  // Try generic username fields
   const genericFields = [
     data.senderUsername,
     data.username,

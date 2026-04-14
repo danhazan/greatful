@@ -36,6 +36,33 @@ class EmojiReactionRepository(BaseRepository):
             "user_id": user_id,
             "post_id": post_id
         })
+
+    async def get_user_reaction_count(
+        self, 
+        user_id: int, 
+        post_id: str
+    ) -> int:
+        """
+        Get count of reactions for a user on a post.
+        Used for invariant verification.
+        
+        Args:
+            user_id: ID of the user
+            post_id: ID of the post
+            
+        Returns:
+            int: Count of reactions (should be 0 or 1)
+        """
+        result = await self.db.execute(
+            select(func.count(EmojiReaction.id))
+            .where(
+                and_(
+                    EmojiReaction.user_id == user_id,
+                    EmojiReaction.post_id == post_id
+                )
+            )
+        )
+        return result.scalar() or 0
     
     async def get_post_reactions(
         self, 

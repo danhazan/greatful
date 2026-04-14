@@ -214,6 +214,20 @@ class FeedServiceV2(BaseService):
                 "candidateCount": len(candidates),
                 "spacingMoves": spacing_log,
             }
+        
+        # Runtime invariant check: No private post leakage
+        for post_dict in serialized:
+            privacy = post_dict.get("privacy_level") or (post_dict.get("is_public") and "public")
+            if privacy == "private" and post_dict.get("author_id") != user_id:
+                logger.error(
+                    f"[FEED_PRIVACY_ERROR] Private post leaked to user {user_id}: post_id={post_dict['id']}, "
+                    f"author_id={post_dict.get('author_id')}. Invariant violated: private posts must not "
+                    f"appear in other users' feeds. "
+                    f"See SYSTEM_CONTRACT_MAP.md#feed-rendering"
+                )
+                from app.core.exceptions import InternalServerError
+                raise InternalServerError("Feed privacy invariant violated: private post leaked to unauthorized user")
+        
         return response
 
     # ------------------------------------------------------------------

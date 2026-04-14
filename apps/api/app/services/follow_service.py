@@ -86,6 +86,7 @@ class FollowService(BaseService):
         logger.info(f"User {follower_id} started following user {followed_id}")
         
         # Create notification for followed user using factory
+        notification_created = False
         try:
             from app.core.notification_factory import NotificationFactory
             notification_factory = NotificationFactory(self.db)
@@ -94,9 +95,18 @@ class FollowService(BaseService):
                 follower_username=follower.username,
                 follower_id=follower_id
             )
+            notification_created = True
         except Exception as e:
             logger.error(f"Failed to create follow notification: {e}")
             # Don't fail the follow if notification fails
+        
+        # Runtime invariant check: Every follow action MUST generate notification
+        if not notification_created:
+            logger.error(
+                f"[FOLLOW_INVARIANT_ERROR] Follow created but notification not generated. "
+                f"follower_id={follower_id}, followed_id={followed_id}. "
+                f"See SYSTEM_CONTRACT_MAP.md#follow-user"
+            )
         
         return {
             "id": follow.id,

@@ -16,7 +16,9 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 - **[Post Privacy System](POST_PRIVACY_SYSTEM.md)** - Post-level privacy architecture and feed visibility rules
 
 ### 🧪 Testing & Quality
-- **[Test Guidelines](TEST_GUIDELINES.md)** - Comprehensive testing guidelines and best practices
+- **[Test Guidelines](TEST_GUIDELINES.md)** - Test layer architecture and governance rules
+- **[Test Status](TEST_STATUS.md)** - Current test status, coverage, and system confidence
+- **[System Contract Map](SYSTEM_CONTRACT_MAP.md)** - Core system architecture and guarantees
 
 ### 🛠️ Development & Operations
 - **[Useful Commands](USEFUL_COMMANDS.md)** - All development commands and database operations
@@ -25,7 +27,6 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 ### 📋 Project Management
 - **[Known Issues](KNOWN_ISSUES.md)** - Troubleshooting guide and common solutions
 - **[Common Fixes](COMMON_FIXES.md)** - Solutions to recurring development issues
-- **[Test Status](TESTS_STATUS.md)** - Current test status and coverage information
 
 ## 🚀 Quick Start
 

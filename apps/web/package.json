@@ -11,7 +11,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:governance": "node scripts/test-governance-check.js",
-    "test:prune": "node scripts/test-prune-engine.js",
+    "test:contract": "node scripts/system-contract-check.js",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

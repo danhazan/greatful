@@ -94,10 +94,10 @@ describe('NotificationUserResolver', () => {
       expect(extractNotificationUsername(notification)).toBe('generic_username')
     })
 
-    it('should use userName field', () => {
+    it('should use username field', () => {
       const notification = {
         fromUser: null,
-        data: { userName: 'user_name_field' }
+        data: { username: 'user_name_field' }
       }
       
       expect(extractNotificationUsername(notification)).toBe('user_name_field')

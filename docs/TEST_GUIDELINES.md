@@ -4,6 +4,35 @@
 
 This document provides guidelines for writing and organizing tests in the Grateful project. We follow a structured approach to testing with clear separation between unit, integration, contract, and end-to-end tests. The testing strategy includes comprehensive validation of shared type contracts and API consistency.
 
+## Test Layer Architecture
+
+### Frontend Layers
+| Tag | Purpose | Example |
+|-----|---------|---------|
+| @unit | Isolated logic tests | `*.utils.test.ts` |
+| @behavior | UI output validation | `*.behavior.test.tsx` |
+| @interaction | API endpoint behavior | `*.interaction.test.tsx` |
+| @flow | Full user journey tests | `*.flow.test.tsx` |
+
+### Backend Layers
+| Tag | Purpose | Example |
+|-----|---------|---------|
+| @unit | Service/repository logic | `test_*.py` in unit/ |
+| @contract | API contract tests | `test_*.py` in contract/ |
+| @integration | Full API integration | `test_*.py` in integration/ |
+
+### Test Budget Rule
+- @unit → minimal (logic only)
+- @behavior → UI contract only  
+- @interaction → thin layer
+- @flow → STABLE CAP (do NOT expand further)
+
+### Governance Rules
+1. **No internal hook mocks in @flow tests** - User journeys must use real hooks
+2. **No skipped tests without classification** - Must have MIGRATE/DELETE/KEEP comment
+3. **Deterministic tests only** - No timing-dependent or flaky tests
+4. **@flow count frozen** - Never expand beyond current count
+
 ## Current Test Status
 
 ### ✅ Backend Tests
