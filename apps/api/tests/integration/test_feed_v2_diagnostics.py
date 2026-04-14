@@ -37,8 +37,7 @@ async def _mk_user(db_session, name):
         hashed_password=get_password_hash("pw"),
     )
     db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
+    await db_session.flush()
     return user
 
 
@@ -57,7 +56,7 @@ async def _mk_post(db_session, author, content="Post", age_hours=0, **kwargs):
     
     post = Post(
         id=str(uuid.uuid4()),
-        author_id=author.id,
+        author=author,
         content=content,
         is_public=is_public,
         privacy_level=privacy_level,
@@ -68,7 +67,7 @@ async def _mk_post(db_session, author, content="Post", age_hours=0, **kwargs):
         shares_count=shares_count,
     )
     db_session.add(post)
-    await db_session.commit()
+    await db_session.flush()
     
     # Create heart reactions (dynamic)
     for i in range(heart_reactions):

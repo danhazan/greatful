@@ -29,7 +29,32 @@ async def user_a(db_session):
         hashed_password=get_password_hash("password"),
     )
     db_session.add(user)
-    await db_session.flush()  # Flush to attach to session before creating posts
+    await db_session.flush()
+    return user
+
+@pytest_asyncio.fixture
+async def user_b(db_session):
+    """Second user."""
+    user = User(
+        email="user_b@test.com",
+        username="user_b",
+        hashed_password=get_password_hash("password"),
+    )
+    db_session.add(user)
+    await db_session.flush()
+    return user
+
+
+@pytest_asyncio.fixture
+async def user_c(db_session):
+    """Third user."""
+    user = User(
+        email="user_c@test.com",
+        username="user_c",
+        hashed_password=get_password_hash("password"),
+    )
+    db_session.add(user)
+    await db_session.flush()
     return user
 
 @pytest_asyncio.fixture
@@ -101,7 +126,7 @@ async def _create_post(db_session, author, content="Grateful", age_hours=0, **kw
 
     post = Post(
         id=str(uuid.uuid4()),
-        author_id=author.id,
+        author=author,
         content=content,
         is_public=is_public,
         privacy_level=privacy_level,
