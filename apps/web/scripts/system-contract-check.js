@@ -249,6 +249,43 @@ console.log(`  Partial:  ${partialCount} flows`);
 console.log(`  Missing:  ${missingCount} flows`);
 console.log();
 
+// Username Contract Check
+console.log('\nUsername Contract Check:');
+console.log('-'.repeat(40));
+
+const resolverPath = path.join(BASE_DIR, 'src', 'utils', 'notificationUserResolver.ts');
+if (fs.existsSync(resolverPath)) {
+  const resolverContent = fs.readFileSync(resolverPath, 'utf-8');
+  
+  // Check for invalid fields
+  const invalidFields = [];
+  if (resolverContent.includes('senderUsername')) {
+    invalidFields.push('senderUsername');
+  }
+  
+  // Check for allowed fields
+  const allowedFields = ['username', 'displayName', 'reactorUsername', 'followerUsername', 'sharerUsername', 'authorUsername', 'commenterUsername', 'likerUsername'];
+  const missingAllowed = allowedFields.filter(f => !resolverContent.includes(f));
+  
+  if (invalidFields.length === 0) {
+    console.log('✓ Invalid Fields — NONE FOUND');
+  } else {
+    console.log(`✗ Invalid Fields: ${invalidFields.join(', ')}`);
+  }
+  
+  // Check transformation coverage
+  const transformPath = path.join(BASE_DIR, 'src', 'utils', 'notificationMapping.ts');
+  if (fs.existsSync(transformPath)) {
+    console.log('✓ Transformation Layer — HANDLED');
+  } else {
+    console.log('⚠ Transformation Layer — NOT FOUND');
+  }
+} else {
+  console.log('⚠ Resolver — NOT SCANNED');
+}
+
+console.log();
+
 // Only warn about critical flow gaps
 if (criticalGaps.length > 0) {
   console.log('⚠ WARNINGS: Critical flows lack complete coverage');

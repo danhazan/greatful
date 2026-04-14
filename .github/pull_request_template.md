@@ -18,6 +18,24 @@ Describe what this PR does.
 
 ---
 
+## 🔒 Contract Awareness
+
+- [ ] Does this change affect any system contract defined in SYSTEM_CONTRACT_MAP.md?
+- [ ] If yes, has the contract document been updated?
+- [ ] Are @flow / @contract test tags still valid?
+- [ ] No fields removed that are used in resolver (username, displayName, *_Username)
+
+---
+
+## 🧪 Test Coverage
+
+- [ ] Existing tests cover this change
+- [ ] No core flow behavior altered unintentionally
+- [ ] No new @flow tests added (frozen at 41)
+- [ ] No internal mocks added in @flow tests
+
+---
+
 ## Checklist
 
 - [ ] All tests passing (`npm test`)

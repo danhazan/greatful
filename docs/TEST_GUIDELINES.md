@@ -33,6 +33,29 @@ This document provides guidelines for writing and organizing tests in the Gratef
 3. **Deterministic tests only** - No timing-dependent or flaky tests
 4. **@flow count frozen** - Never expand beyond current count
 
+---
+
+## Safe vs Unsafe Changes
+
+### SAFE Changes
+- Adding new features with appropriate tests
+- Extending existing flows with new scenarios
+- Adding new API fields (non-breaking)
+- Fixing bugs in existing test coverage
+
+### UNSAFE Changes
+- Changing response shape of API endpoints
+- Removing fields used in resolver (username, displayName, *_Username)
+- Modifying contract invariants
+- Bypassing transformation layer
+- Adding internal mocks to @flow tests
+- Adding skipped tests without classification
+- Expanding @flow test count
+
+### Known Exceptions
+- Share flow has partial frontend coverage (intentional, non-critical)
+- Backend transformation inconsistency handled defensively in resolver
+
 ## Current Test Status
 
 ### ✅ Backend Tests
