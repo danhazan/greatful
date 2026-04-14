@@ -26,12 +26,12 @@ class TestPostImageEdit:
         # Create a post without an image
         post = Post(
             id="test-post-id",
-            author_id=test_user.id,
+            author=test_user,
             content="Original content without image",
             image_url=None
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
         
         # Update post to add an image
         update_data = {
@@ -50,12 +50,12 @@ class TestPostImageEdit:
         # Create a post with an image
         post = Post(
             id="test-post-id-2",
-            author_id=test_user.id,
+            author=test_user,
             content="Content with image",
             image_url="https://example.com/old-image.jpg"
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
         
         # Update post to change the image
         update_data = {
@@ -74,12 +74,12 @@ class TestPostImageEdit:
         # Create a post with an image
         post = Post(
             id="test-post-id-3",
-            author_id=test_user.id,
+            author=test_user,
             content="Content with image to be removed",
             image_url="https://example.com/image-to-remove.jpg"
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
         
         # Update post to remove the image
         update_data = {
@@ -100,12 +100,12 @@ class TestPostImageEdit:
         # Create a post
         post = Post(
             id="test-post-id-5",
-            author_id=test_user.id,
+            author=test_user,
             content="Original content",
             image_url="https://example.com/old-image.jpg"
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
         
         # Update both content and image
         update_data = {
@@ -126,12 +126,12 @@ class TestPostImageEdit:
         test_user.profile_image_url = "profile_photos/editor.jpg"
         post = Post(
             id="test-post-id-6",
-            author_id=test_user.id,
+            author=test_user,
             content="Author image serialization",
             image_url=None
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
 
         response = await async_client.put(
             f"/api/v1/posts/{post.id}",

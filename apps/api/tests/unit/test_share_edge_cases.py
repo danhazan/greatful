@@ -53,7 +53,7 @@ class TestShareEdgeCases:
         posts = []
         for i, user in enumerate(test_users[:3]):  # Create posts for first 3 users
             post = Post(
-                author_id=user.id,
+                author=user,
                 content=f"Test gratitude post {i}",
                 is_public=True
             )
@@ -327,7 +327,7 @@ class TestShareEdgeCases:
         
         # Create a public post
         public_post = Post(
-            author_id=user.id,
+            author=user,
             content="Public post",
             is_public=True
         )
@@ -342,7 +342,7 @@ class TestShareEdgeCases:
         
         # Now test creating a private post
         private_post = Post(
-            author_id=user.id,
+            author=user,
             content="Private post",
             is_public=False
         )

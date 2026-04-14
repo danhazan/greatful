@@ -43,11 +43,11 @@ async def another_user(db_session: AsyncSession):
 async def test_post(db_session: AsyncSession, test_user: User):
     """Create a test post."""
     post = Post(
-        author_id=test_user.id,
+        author=test_user,
         content="Test post for comments"
     )
     db_session.add(post)
-    await db_session.commit()
+    await db_session.flush()
     await db_session.refresh(post)
     return post
 

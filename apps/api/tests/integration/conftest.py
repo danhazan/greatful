@@ -61,7 +61,7 @@ async def test_user_and_post(setup_test_database):
         # Create post
         post = Post(
             id=str(uuid.uuid4()),
-            author_id=user.id,
+            author=user,
             content="I'm grateful for testing!",
             is_public=True
         )

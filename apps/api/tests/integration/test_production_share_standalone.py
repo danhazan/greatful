@@ -48,12 +48,12 @@ class TestProductionShareStandalone:
             
             # Create test post
             test_post = Post(
-                author_id=test_user.id,
+                author=test_user,
                 content="Test post for production share testing",
                 is_public=True
             )
             db_session.add(test_post)
-            await db_session.commit()
+            await db_session.flush()
             await db_session.refresh(test_post)
             logger.info(f"Created test post: {test_post.id}")
             

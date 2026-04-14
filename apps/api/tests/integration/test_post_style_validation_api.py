@@ -185,12 +185,12 @@ class TestPostStyleValidationAPI:
         # Create a post first
         post = Post(
             id="test-post-id",
-            author_id=test_user.id,
+            author=test_user,
             content="Original content",
             post_style={"id": "default", "name": "Default", "backgroundColor": "#FFFFFF"}
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
         
         # Update with new style
         new_style = {
@@ -215,12 +215,12 @@ class TestPostStyleValidationAPI:
         # Create a post first
         post = Post(
             id="test-post-id-2",
-            author_id=test_user.id,
+            author=test_user,
             content="Original content",
             post_style={"id": "default", "name": "Default", "backgroundColor": "#FFFFFF"}
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
         
         # Update with style containing font properties
         style_with_fonts = {

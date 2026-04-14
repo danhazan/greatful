@@ -21,11 +21,11 @@ async def test_get_batch_user_profiles_integration(
     """Test that batch user profiles endpoint works correctly and efficiently."""
     
     # 1. Ensure test users have some posts/stats
-    post1 = Post(author_id=test_user.id, content="Post 1", is_public=True)
-    post2 = Post(author_id=test_user_2.id, content="Post 2", is_public=True)
-    post3 = Post(author_id=test_user_2.id, content="Post 3", is_public=False)
+    post1 = Post(author=test_user, content="Post 1", is_public=True)
+    post2 = Post(author=test_user_2, content="Post 2", is_public=True)
+    post3 = Post(author=test_user_2, content="Post 3", is_public=False)
     db_session.add_all([post1, post2, post3])
-    await db_session.commit()
+    await db_session.flush()
     
     user_ids = [test_user.id, test_user_2.id, test_user_3.id]
     

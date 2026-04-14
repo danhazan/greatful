@@ -187,7 +187,7 @@ class TestGetMyPosts:
         for i in range(3):
             post = Post(
                 id=str(uuid.uuid4()),
-                author_id=test_user.id,
+                author=test_user,
                 content=f"Post {i}",
                 is_public=True
             )
@@ -257,7 +257,7 @@ class TestProfileDataIntegrity:
         for i in range(post_count):
             post = Post(
                 id=str(uuid.uuid4()),
-                author_id=test_user.id,
+                author=test_user,
                 content=f"Test post {i}",
                 is_public=True
             )

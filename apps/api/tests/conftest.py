@@ -215,12 +215,12 @@ async def test_post(db_session, test_user):
     """Create a test post."""
     post = Post(
         id=str(uuid.uuid4()),
-        author_id=test_user.id,
+        author=test_user,
         content="I'm grateful for testing!",
         is_public=True
     )
     db_session.add(post)
-    await db_session.commit()
+    await db_session.flush()
     await db_session.refresh(post)
     return post
 

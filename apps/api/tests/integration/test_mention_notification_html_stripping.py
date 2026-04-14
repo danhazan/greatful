@@ -43,14 +43,14 @@ class TestMentionNotificationHtmlStripping:
         
         post = Post(
             id="test-post-123",
-            author_id=author.id,
+            author=author,
             content="Thanks @mentioned_user for the amazing work on the project!",  # Plain text version
             rich_content=html_content,  # HTML version
             
         )
         
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
 
         # Process mentions using the service
         mention_service = MentionService(db_session)
@@ -113,13 +113,13 @@ class TestMentionNotificationHtmlStripping:
         
         post = Post(
             id="test-post-456",
-            author_id=author.id,
+            author=author,
             content="@mentioned2 check this <code> example & \"quotes\"",
             rich_content=html_content
         )
         
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
 
         # Process mentions
         mention_service = MentionService(db_session)

@@ -48,10 +48,10 @@ class TestShareNotificationFixes:
         post = Post(
             id="test-post-123",
             content="Test post for sharing",
-            author_id=post_author.id
+            author=post_author
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
         
         # Share the post via message
         share_service = ShareService(db_session)

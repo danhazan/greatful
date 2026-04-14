@@ -38,11 +38,11 @@ class TestNotificationIntegration:
         # Create a post by the author
         post = Post(
             id="test-post-1",
-            author_id=author.id,
+            author=author,
             content="Test gratitude post"
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
 
         # Add a reaction from the reactor
         reaction_service = ReactionService(db_session)
@@ -89,7 +89,7 @@ class TestNotificationIntegration:
         # Create a post by the user
         post = Post(
             id="test-post-2",
-            author_id=user.id,
+            author=user,
             content="Test gratitude post"
         )
         db_session.add(post)
@@ -138,7 +138,7 @@ class TestNotificationIntegration:
         # Create a post by the author
         post = Post(
             id="test-post-3",
-            author_id=author.id,
+            author=author,
             content="Test gratitude post"
         )
         db_session.add(post)
@@ -206,7 +206,7 @@ class TestNotificationIntegration:
         # Create a post by the author
         post = Post(
             id="test-post-4",
-            author_id=author.id,
+            author=author,
             content="Test gratitude post"
         )
         db_session.add(post)

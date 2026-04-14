@@ -59,14 +59,14 @@ async def test_user_with_posts(db_session: AsyncSession, test_user: User):
     for i in range(3):
         post = Post(
             id=str(uuid.uuid4()),
-            author_id=test_user.id,
+            author=test_user,
             content=f"I'm grateful for test post {i+1}!",
             is_public=True
         )
         db_session.add(post)
         posts.append(post)
     
-    await db_session.commit()
+    await db_session.flush()
     for post in posts:
         await db_session.refresh(post)
     

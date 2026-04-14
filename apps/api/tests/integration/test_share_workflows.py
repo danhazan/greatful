@@ -69,12 +69,12 @@ class TestShareWorkflows:
     async def test_post(self, db_session: AsyncSession, test_users: dict):
         """Create a test post."""
         post = Post(
-            author_id=test_users['author'].id,
+            author=test_users['author'],
             content="Amazing gratitude post about testing workflows!",
             is_public=True
         )
         db_session.add(post)
-        await db_session.commit()
+        await db_session.flush()
         await db_session.refresh(post)
         return post
 
@@ -263,12 +263,12 @@ class TestShareWorkflows:
         
         # Create a private post
         private_post = Post(
-            author_id=test_users['author'].id,
+            author=test_users['author'],
             content="Private gratitude post",
             privacy_level="private"  # Private post
         )
         db_session.add(private_post)
-        await db_session.commit()
+        await db_session.flush()
         await db_session.refresh(private_post)
         
         share_data = {"share_method": "url"}
@@ -359,7 +359,7 @@ class TestShareWorkflows:
         from app.models.post import Post
         
         test_post_for_recipient = Post(
-            author_id=test_users['author'].id,
+            author=test_users['author'],
             content="Test post for nonexistent recipient",
             is_public=True
         )

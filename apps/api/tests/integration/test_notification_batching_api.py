@@ -166,7 +166,7 @@ async def test_add_to_existing_batch(
         reactor_username=test_user_2.username,
         reactor_id=test_user_2.id,
         post_id=test_post.id,
-        emoji_code='star'
+        emoji_code='heart_eyes'
     )
     
     # Refresh batch
@@ -204,16 +204,16 @@ async def test_different_post_notifications_separate_batches(
     # Create two posts
     post1 = Post(
         id="post-1",
-        author_id=test_user.id,
+        author=test_user,
         content="First post"
     )
     post2 = Post(
         id="post-2", 
-        author_id=test_user.id,
+        author=test_user,
         content="Second post"
     )
     db_session.add_all([post1, post2])
-    await db_session.commit()
+    await db_session.flush()
     
     # Create notifications for both posts
     factory = NotificationFactory(db_session)
