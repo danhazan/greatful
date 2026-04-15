@@ -12,7 +12,7 @@ RECENCY_MAX = 10.0
 
 # --- Engagement ---
 ENGAGEMENT_MAX = 5.0
-COMBINED_ENGAGEMENT_MAX = 5.0  # cap on engagement_score + recent_engagement_score
+COMBINED_ENGAGEMENT_MAX = 6.0  # cap on engagement_score + diversity + recent_engagement
 WEIGHT_COMMENTS = 3
 WEIGHT_SHARES = 4
 WEIGHT_REACTIONS = 2
@@ -26,9 +26,9 @@ RECENT_ENGAGEMENT_WINDOW = 172_800  # 2 days
 RECENT_ENGAGEMENT_MAX = 1.5
 
 # --- Relationship ---
-RELATIONSHIP_MUTUAL = 4.5
-RELATIONSHIP_FOLLOWING = 3.0
-RELATIONSHIP_FOLLOWED_BY = 1.5
+RELATIONSHIP_MUTUAL = 6.5
+RELATIONSHIP_FOLLOWING = 5.0
+RELATIONSHIP_FOLLOWED_BY = 2.0
 
 # --- Own post boost (two-phase decay over 6 hours) ---
 OWN_POST_PHASE1_MAX = 6.0
@@ -40,8 +40,12 @@ OWN_POST_PHASE2_SECONDS = 18_000  # 5 hours (1h–6h)
 USER_REACTION_BOOST = 1.0
 
 # --- Discovery boost (unfollowed high-engagement image posts) ---
+# Threshold candidates considered:
+#   25 → ~12 reactions (still too easy to hit)
+#   35 → ~17 reactions (chosen default: meaningful engagement required)
+#   50 → ~25 reactions (conservative; may suppress too much discovery)
 DISCOVERY_BOOST = 2.0
-DISCOVERY_ENGAGEMENT_THRESHOLD = 10
+DISCOVERY_ENGAGEMENT_THRESHOLD = 35
 
 # --- Deterministic jitter ---
 JITTER_MAX = 0.2  # effective range: +/- 0.1

@@ -299,11 +299,11 @@ class FeedServiceV2(BaseService):
                         THEN {OWN_POST_PHASE2_MAX} * GREATEST(0, 1.0 - (({age_pg}) - {OWN_POST_PHASE1_SECONDS}.0) / {OWN_POST_PHASE2_SECONDS}.0)
                         ELSE 0
                     END AS own_post_score,
-                    -- recent engagement: boost recent posts with activity
+                    -- recent engagement: boost recent posts with live reaction count
                     LEAST({RECENT_ENGAGEMENT_MAX},
                         LN(1
                             + COALESCE(p.comments_count, 0) * 2
-                            + COALESCE(p.reactions_count, 0)
+                            + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id)
                         )
                         * GREATEST(0, 1.0 - ({age_pg}) / {RECENT_ENGAGEMENT_WINDOW}.0)
                     ) AS recent_engagement_score,
@@ -340,7 +340,7 @@ class FeedServiceV2(BaseService):
                         + LEAST({RECENT_ENGAGEMENT_MAX},
                             LN(1
                                 + COALESCE(p.comments_count, 0) * 2
-                                + COALESCE(p.reactions_count, 0)
+                                + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id)
                             )
                             * GREATEST(0, 1.0 - ({age_pg}) / {RECENT_ENGAGEMENT_WINDOW}.0)
                         )
@@ -511,11 +511,11 @@ class FeedServiceV2(BaseService):
                         THEN {OWN_POST_PHASE2_MAX} * GREATEST(0, 1.0 - (({age_expr}) - {OWN_POST_PHASE1_SECONDS}.0) / {OWN_POST_PHASE2_SECONDS}.0)
                         ELSE 0
                     END AS own_post_score,
-                    -- recent engagement: boost recent posts with activity
+                    -- recent engagement: boost recent posts with live reaction count
                     LEAST({RECENT_ENGAGEMENT_MAX},
                         LN(1
                             + COALESCE(p.comments_count, 0) * 2
-                            + COALESCE(p.reactions_count, 0)
+                            + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id)
                         )
                         * GREATEST(0, 1.0 - ({age_expr}) / {RECENT_ENGAGEMENT_WINDOW}.0)
                     ) AS recent_engagement_score,
@@ -549,7 +549,7 @@ class FeedServiceV2(BaseService):
                         + LEAST({RECENT_ENGAGEMENT_MAX},
                             LN(1
                                 + COALESCE(p.comments_count, 0) * 2
-                                + COALESCE(p.reactions_count, 0)
+                                + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id)
                             )
                             * GREATEST(0, 1.0 - ({age_expr}) / {RECENT_ENGAGEMENT_WINDOW}.0)
                         )
