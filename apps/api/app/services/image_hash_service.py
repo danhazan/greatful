@@ -272,12 +272,13 @@ class ImageHashService(BaseService):
         logger.info(f"Incremented reference count for hash {image_hash.file_hash[:8]}... to {image_hash.reference_count}")
         return image_hash
 
-    async def decrement_reference_count(self, image_hash: ImageHash) -> bool:
+    async def decrement_reference_count(self, image_hash: ImageHash, delete_when_zero: bool = True) -> bool:
         """
         Decrement reference count for an image. Delete from database if count reaches 0.
         
         Args:
             image_hash: ImageHash object to update
+            delete_when_zero: Whether to delete the hash row immediately when count reaches 0
             
         Returns:
             True if image was deleted (reference count reached 0)
@@ -285,10 +286,13 @@ class ImageHashService(BaseService):
         image_hash.reference_count = max(0, image_hash.reference_count - 1)
         
         if image_hash.reference_count == 0:
-            # Actually delete the record from database when no references remain
-            logger.info(f"Deleting image hash record {image_hash.file_hash[:8]}... (no references)")
-            await self.db.delete(image_hash)
+            if delete_when_zero:
+                # Actually delete the record from database when no references remain
+                logger.info(f"Deleting image hash record {image_hash.file_hash[:8]}... (no references)")
+                await self.db.delete(image_hash)
             await self.db.commit()
+            if not delete_when_zero:
+                await self.db.refresh(image_hash)
             return True
         else:
             await self.db.commit()

@@ -937,12 +937,35 @@ class FileUploadService(BaseService):
             
             if image_hash:
                 # Decrement reference count
-                should_delete = await self.hash_service.decrement_reference_count(image_hash)
+                should_delete = await self.hash_service.decrement_reference_count(
+                    image_hash, delete_when_zero=False
+                )
                 
                 if should_delete:
-                    # Actually delete the file using storage adapter
-                    storage.delete_file(clean_path)
-                    logger.info(f"Deleted file: {clean_path}")
+                    # Delete all related variants before removing the hash row.
+                    # If any variant deletion fails, restore ref_count so state remains consistent.
+                    variant_paths = self._build_related_variant_paths(clean_path)
+                    failed_paths = []
+                    for variant_path in variant_paths:
+                        try:
+                            storage.delete_file(variant_path)
+                        except Exception as delete_error:
+                            failed_paths.append((variant_path, str(delete_error)))
+
+                    if failed_paths:
+                        image_hash.reference_count = 1
+                        await self.db.commit()
+                        await self.db.refresh(image_hash)
+                        logger.warning(
+                            "Failed to delete one or more variants for %s; restored reference_count. failures=%s",
+                            clean_path,
+                            failed_paths,
+                        )
+                        return False
+
+                    await self.db.delete(image_hash)
+                    await self.db.commit()
+                    logger.info(f"Deleted all variants for deduplicated file: {variant_paths}")
                     return True
                 else:
                     logger.info(f"File {clean_path} still has {image_hash.reference_count} references, not deleting")
@@ -956,6 +979,34 @@ class FileUploadService(BaseService):
         except Exception as e:
             logger.warning(f"Failed to delete file with deduplication {file_path}: {e}")
             return False
+
+    def _build_related_variant_paths(self, file_path: str) -> List[str]:
+        """Build all related variant paths for a post/profile image from any one variant path."""
+        clean_path = storage.normalize_path(file_path)
+
+        post_variant_paths = self._build_post_variant_paths(clean_path)
+        if post_variant_paths:
+            # Keep deterministic order for logs and easier debugging.
+            return [
+                post_variant_paths["thumbnail_url"],
+                post_variant_paths["medium_url"],
+                post_variant_paths["original_url"],
+            ]
+
+        path_obj = Path(clean_path)
+        parent = path_obj.parent.as_posix()
+        stem = path_obj.stem
+        suffix = path_obj.suffix
+
+        profile_sizes = ("thumbnail", "small", "medium", "large")
+        for size in profile_sizes:
+            token = f"_{size}"
+            if stem.endswith(token):
+                base_stem = stem[: -len(token)]
+                prefix = "" if parent in ("", ".") else f"{parent}/"
+                return [f"{prefix}{base_stem}_{name}{suffix}" for name in profile_sizes]
+
+        return [clean_path]
 
     def _apply_circular_crop(self, image: Image.Image, crop_data: Dict[str, Any]) -> Image.Image:
         """
