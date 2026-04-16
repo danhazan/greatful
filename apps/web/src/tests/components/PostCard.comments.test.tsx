@@ -7,7 +7,6 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 jest.mock('@/services/analytics', () => ({
   trackReactionEvent: jest.fn(),
   trackViewEvent: jest.fn(),
-  trackHeartEvent: jest.fn(),
   trackShareEvent: jest.fn(),
 }))
 

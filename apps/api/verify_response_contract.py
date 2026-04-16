@@ -63,7 +63,6 @@ async def verify_contracts():
             "is_public": True,
             "created_at": "2024-01-01T00:00:00Z",
             "author": raw_author_data,
-            "hearts_count": 0,
             "reactions_count": 0,
             "comments_count": 0
         }
@@ -100,6 +99,15 @@ async def verify_contracts():
             print("❌ Mismatch: top-level follow indicator still present!")
             sys.exit(1)
             
+        # Guard: hearts_count must NEVER appear in serialized output
+        # If this assertion fires, a legacy field has been reintroduced
+        hearts_legacy_keys = ["hearts_count", "heartsCount", "is_hearted", "isHearted"]
+        for key in hearts_legacy_keys:
+            if key in serialized_json:
+                print(f"❌ REGRESSION: Legacy hearts field '{key}' found in PostResponse output!")
+                sys.exit(1)
+        print("✅ No legacy hearts fields in serialized output")
+
         print("\n✅ SUCCESS: Structural integrity and camelCase contract verified! 🎉")
         break
 

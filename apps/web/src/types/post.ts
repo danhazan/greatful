@@ -67,8 +67,6 @@ export interface Post {
     privacyLevel?: 'public' | 'private' | 'custom'
     privacyRules?: string[]
     specificUsers?: number[]
-    heartsCount?: number   // @deprecated — unified into reactionsCount
-    isHearted?: boolean    // @deprecated — unified into currentUserReaction
     reactionsCount: number
     currentUserReaction?: string | null
     reactionEmojiCodes?: string[]

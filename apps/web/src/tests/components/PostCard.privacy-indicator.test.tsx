@@ -6,7 +6,6 @@ import PostCard from '@/components/PostCard'
 jest.mock('@/services/analytics', () => ({
   trackReactionEvent: jest.fn(),
   trackViewEvent: jest.fn(),
-  trackHeartEvent: jest.fn(),
   trackShareEvent: jest.fn(),
 }))
 

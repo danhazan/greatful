@@ -4,7 +4,7 @@
  */
 
 export interface EngagementEvent {
-  type: 'reaction_add' | 'reaction_remove' | 'reaction_change' | 'heart' | 'share' | 'view'
+  type: 'reaction_add' | 'reaction_remove' | 'reaction_change' | 'share' | 'view'
   postId: string
   userId: string
   metadata?: {
@@ -65,25 +65,6 @@ class AnalyticsService {
     // this.sendToBackend(event) - commented out
   }
 
-  /**
-   * Track a heart event
-   */
-  async trackHeartEvent(postId: string, userId: string, isAdd: boolean): Promise<void> {
-    const event: EngagementEvent = {
-      type: 'heart',
-      postId,
-      userId,
-      metadata: { emojiCode: isAdd ? 'heart' : 'heart_remove' },
-      timestamp: new Date()
-    }
-
-    this.events.push(event)
-    await this.updatePostEngagementScore(postId)
-    await this.updateUserMetrics(userId, 'heart')
-
-    // Backend API calls are disabled to prevent UI interference
-    // this.sendToBackend(event) - commented out
-  }
 
   /**
    * Track a share event
@@ -136,7 +117,7 @@ class AnalyticsService {
     const postEvents = this.events.filter(e => e.postId === postId)
 
     const reactionsCount = postEvents.filter(e =>
-      e.type === 'reaction_add' || e.type === 'heart'
+      e.type === 'reaction_add'
     ).length
 
     const sharesCount = postEvents.filter(e =>
@@ -184,7 +165,6 @@ class AnalyticsService {
     // Update counters based on event type
     switch (eventType) {
       case 'reaction_add':
-      case 'heart':
         metrics.totalReactions++
         if (emojiCode) {
           metrics.favoriteEmojis[emojiCode] = (metrics.favoriteEmojis[emojiCode] || 0) + 1
@@ -260,7 +240,6 @@ class AnalyticsService {
       if (trends[dateStr]) {
         switch (event.type) {
           case 'reaction_add':
-          case 'heart':
             trends[dateStr].reactions++
             break
           case 'share':

@@ -7,7 +7,6 @@ const mockedAuthUtils = authUtils as jest.Mocked<typeof authUtils>;
 // Mock analytics service
 jest.mock('@/services/analytics', () => ({
   trackViewEvent: jest.fn(),
-  trackHeartEvent: jest.fn(),
   trackReactionEvent: jest.fn(),
   trackShareEvent: jest.fn(),
 }))

@@ -31,7 +31,7 @@ export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapp
       try {
         const token = getAccessToken()
 
-        // Fetch user-specific post data (hearts and reactions)
+        // Fetch user-specific reaction data
         const postResponse = await fetch(`/api/posts/${post.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,

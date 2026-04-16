@@ -53,24 +53,6 @@ describe('AnalyticsService', () => {
     })
   })
 
-  describe('trackHeartEvent', () => {
-    it('should track heart add event locally', async () => {
-      await analyticsService.trackHeartEvent('post-1', 'user-1', true)
-
-      // Local tracking should work
-      const score = analyticsService.getPostEngagementScore('post-1')
-      expect(score).toBeTruthy()
-      expect(score?.reactionsCount).toBe(1)
-    })
-
-    it('should track heart remove event locally', async () => {
-      await analyticsService.trackHeartEvent('post-1', 'user-1', false)
-
-      // Local tracking should work
-      const score = analyticsService.getPostEngagementScore('post-1')
-      expect(score).toBeTruthy()
-    })
-  })
 
   describe('trackShareEvent', () => {
     it('should track share via URL locally', async () => {
@@ -115,8 +97,8 @@ describe('AnalyticsService', () => {
   describe('getPostEngagementScore', () => {
     it('should calculate engagement score correctly', async () => {
       // Add some events
-      await analyticsService.trackHeartEvent('post-1', 'user-1', true)
-      await analyticsService.trackHeartEvent('post-1', 'user-2', true)
+      await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart')
+      await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-2', 'heart')
       await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-3', 'heart_eyes')
       await analyticsService.trackShareEvent('post-1', 'user-4', 'url')
       await analyticsService.trackViewEvent('post-1', 'user-5')
@@ -124,7 +106,7 @@ describe('AnalyticsService', () => {
       const score = analyticsService.getPostEngagementScore('post-1')
       
       expect(score).toBeTruthy()
-      expect(score!.reactionsCount).toBe(3) // 2 hearts + 1 reaction_add
+      expect(score!.reactionsCount).toBe(3) // 2 hearts (reactions) + 1 reaction_add
       expect(score!.sharesCount).toBe(1)
       expect(score!.viewsCount).toBe(1)
       
@@ -143,17 +125,18 @@ describe('AnalyticsService', () => {
     it('should track user metrics correctly', async () => {
       await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart_eyes')
       await analyticsService.trackReactionEvent('reaction_add', 'post-2', 'user-1', 'fire')
-      await analyticsService.trackHeartEvent('post-3', 'user-1', true)
+      await analyticsService.trackReactionEvent('reaction_add', 'post-3', 'user-1', 'heart')
       await analyticsService.trackShareEvent('post-4', 'user-1', 'url')
 
       const metrics = analyticsService.getUserMetrics('user-1')
       
       expect(metrics).toBeTruthy()
-      expect(metrics!.totalReactions).toBe(3) // 2 reaction_adds + 1 heart
+      expect(metrics!.totalReactions).toBe(3) // 2 other reaction_adds + 1 heart reaction
       expect(metrics!.totalShares).toBe(1)
       expect(metrics!.favoriteEmojis).toEqual({
         'heart_eyes': 1,
-        'fire': 1
+        'fire': 1,
+        'heart': 1
       })
     })
   })
@@ -161,9 +144,9 @@ describe('AnalyticsService', () => {
   describe('getTopPostsByEngagement', () => {
     it('should return posts sorted by engagement score', async () => {
       // Create posts with different engagement levels
-      await analyticsService.trackHeartEvent('post-1', 'user-1', true) // Score: 1.5 (1 reaction * 1.5)
+      await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart') // Score: 1.5 (1 reaction * 1.5)
       
-      await analyticsService.trackHeartEvent('post-2', 'user-1', true) // Score: 1.5
+      await analyticsService.trackReactionEvent('reaction_add', 'post-2', 'user-1', 'heart') // Score: 1.5
       await analyticsService.trackReactionEvent('reaction_add', 'post-2', 'user-2', 'heart_eyes') // + 1.5 = 3.0
       await analyticsService.trackShareEvent('post-2', 'user-3', 'url') // + 4.0 = 7.0
       
@@ -180,7 +163,7 @@ describe('AnalyticsService', () => {
     it('should limit results correctly', async () => {
       // Create 5 posts
       for (let i = 1; i <= 5; i++) {
-        await analyticsService.trackHeartEvent(`post-${i}`, 'user-1', true)
+        await analyticsService.trackReactionEvent('reaction_add', `post-${i}`, 'user-1', 'heart')
       }
 
       const topPosts = analyticsService.getTopPostsByEngagement(3)
@@ -223,7 +206,7 @@ describe('AnalyticsService', () => {
       })
 
       await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart_eyes')
-      await analyticsService.trackHeartEvent('post-2', 'user-1', true)
+      await analyticsService.trackReactionEvent('reaction_add', 'post-2', 'user-1', 'heart')
       await analyticsService.trackShareEvent('post-3', 'user-1', 'url')
 
       const trends = analyticsService.getEngagementTrends(3)
@@ -231,7 +214,7 @@ describe('AnalyticsService', () => {
       expect(trends).toHaveLength(3)
       expect(trends[2]).toEqual({
         date: '2024-01-15',
-        reactions: 2, // 1 reaction_add + 1 heart
+        reactions: 2, // 1 reaction_add + 1 heart reaction
         shares: 1
       })
 
@@ -245,14 +228,14 @@ describe('AnalyticsService', () => {
       ;(fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
 
       // Should not throw
-      await expect(analyticsService.trackHeartEvent('post-1', 'user-1', true)).resolves.toBeUndefined()
+      await expect(analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart')).resolves.toBeUndefined()
     })
 
     it('should handle missing token gracefully', async () => {
       mockLocalStorage.getItem.mockReturnValue(null)
 
       // Should not throw and should not call fetch
-      await analyticsService.trackHeartEvent('post-1', 'user-1', true)
+      await analyticsService.trackReactionEvent('reaction_add', 'post-1', 'user-1', 'heart')
       expect(fetch).not.toHaveBeenCalled()
     })
   })
