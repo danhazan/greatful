@@ -9,7 +9,8 @@ import json
 from typing import Dict, Any, Optional, List, Callable
 from functools import wraps
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
+UTC = timezone.utc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, event
 from sqlalchemy.engine import Engine

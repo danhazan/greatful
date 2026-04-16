@@ -286,7 +286,7 @@ class TestScoringFormula:
         user_reaction = USER_REACTION_BOOST  # 1.0
         jitter = JITTER_MAX / 2  # 0.1
         total = recency + combined_eng + relationship + own_boost + user_reaction + jitter
-        assert abs(total - 26.6) < 0.01
+        assert abs(total - 29.6) < 0.01
 
     def test_score_range_bounded(self):
         """All components should be non-negative and bounded."""
@@ -339,7 +339,7 @@ class TestScoringFormula:
         """Discovery boost requires: no follow + high engagement + image."""
         # All conditions met
         has_follow = False
-        weighted_engagement = 15  # above threshold of 10
+        weighted_engagement = 40  # above current threshold of 35
         has_image = True
         score = DISCOVERY_BOOST if (not has_follow and weighted_engagement >= DISCOVERY_ENGAGEMENT_THRESHOLD and has_image) else 0
         assert score == DISCOVERY_BOOST

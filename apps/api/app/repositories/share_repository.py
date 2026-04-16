@@ -3,7 +3,8 @@ Share repository with specialized query methods.
 """
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
+UTC = timezone.utc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, desc, text, and_
