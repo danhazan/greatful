@@ -190,7 +190,6 @@ CREATE TABLE posts (
 ## 6. MODULE 3: Social Interactions & Engagement
 
 ### 6.1 Technical Requirements
-- Heart/like system (no negative reactions)
 - Emoji reaction system with 8 positive emotion options (😍, 🤗, 🙏, 💪, 🌟, 🔥, 🥰, 👏)
 - Reaction viewer (see who reacted and with what)
 - One reaction per user per post (can change)
@@ -213,8 +212,7 @@ As an engaged community member, I want to send meaningful posts directly to spec
 ```
 
 ### 6.3 Interaction Types (MVP)
-- **Hearts:** Primary positive reaction (unlimited)
-- **Emoji Reactions:** Extended positive emotional responses (😍, 🤗, 🙏, 💪, 🌟, 🔥, 🥰, 👏)
+- **Emoji Reactions:** Positive emotional responses (😍, 🤗, 🙏, 💪, 🌟, 🔥, 🥰, 👏)
 - **Reaction Viewer:** Pop-up showing all users and their specific reactions
 - **Shares:** Multi-modal sharing system with popup interface
 - **Bookmarks:** Private saving for later
@@ -225,7 +223,7 @@ As an engaged community member, I want to send meaningful posts directly to spec
 - **Comment Threading:** Max 2 levels deep - moved from MVP
 
 ### 6.5 Emoji Reaction System
-- **Initial State:** Heart button and reaction button (😊+) visible on posts
+- **Initial State:** Reaction button (😊+) visible on posts
 - **First Interaction:** User taps reaction button to open emoji selector
 - **Emoji Selection:** Choose from a variety of positive emotion emojis organized by category
 - **Post-Reaction State:** Reaction button shows count, tapping opens reaction viewer
@@ -279,12 +277,12 @@ CREATE TABLE interactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
-  interaction_type VARCHAR(20) NOT NULL, -- 'heart', 'emoji_reaction', 'share', 'bookmark'
+  interaction_type VARCHAR(20) NOT NULL, -- 'emoji_reaction', 'share', 'bookmark'
   emoji_code VARCHAR(20), -- for emoji reactions (e.g., 'heart_eyes', 'pray', 'star')
   content TEXT, -- reserved for future comment system
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(user_id, post_id, interaction_type) WHERE interaction_type IN ('heart', 'emoji_reaction')
+  UNIQUE(user_id, post_id, interaction_type) WHERE interaction_type IN ('emoji_reaction')
 );
 
 CREATE TABLE shares (
@@ -324,7 +322,7 @@ CREATE TABLE shares (
 
 ### 7.4 Content Scoring Formula
 ```
-Post Score = (Hearts × 1.0) + (Comments × 2.0) + (Shares × 4.0) + 
+Post Score = (Reactions × reaction_weight) + (Comments × comment_weight) + (Shares × share_weight) + 
             (Completion Rate × 1.5) - (Reports × 10.0) + 
             (Recency Bonus) + (Relationship Multiplier)
 
@@ -407,7 +405,7 @@ CREATE TABLE user_preferences (
 - Analytics tracking
 
 ### 9.2 Notification Types
-- **Social:** Hearts, emoji reactions, follows, mentions, **post shares**
+- **Social:** Emoji reactions, follows, mentions, **post shares**
 - **Content:** Weekly gratitude reminders, achievement unlocks
 - **Community:** Featured in trending, milestone celebrations
 - **System:** Account security, feature updates
@@ -595,7 +593,7 @@ CREATE TABLE notifications (
 - [ ] Content scoring algorithm - **PENDING**
 **Status:** Basic feed working, advanced features pending
 
-#### **TASK 5: Social Interactions - Hearts & Emoji Reactions** ✅ **COMPLETED**
+#### **TASK 5: Social Interactions & Engagement** ✅ **COMPLETED**
 **Module Reference:** Section 6 - Social Interactions & Engagement
 - [x] Heart/like functionality (no negative reactions)
 - [x] Emoji reaction system with 8 positive emotion options (😍, 🤗, 🙏, 💪, 🌟, 🔥, 🥰, 👏)
@@ -678,7 +676,6 @@ CREATE TABLE notifications (
 - **Post Creation**: Text and image posts with basic validation
 - **Feed System**: Chronological feed with responsive design
 - **Emoji Reactions**: Full emoji reaction system with variety of emojis organized by category
-- **Hearts/Likes**: Basic heart functionality
 - **Reaction Viewer**: Modal showing who reacted with what emoji
 - **Notification Backend**: Database models and API endpoints for notifications
 - **Notification Frontend**: Purple bell UI with dropdown and unread count

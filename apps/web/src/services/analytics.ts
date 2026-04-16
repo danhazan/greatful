@@ -111,7 +111,7 @@ class AnalyticsService {
 
   /**
    * Calculate engagement score for a post based on interactions
-   * Formula: (Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0) + (Views × 0.1)
+   * Formula: (Reactions × 1.5) + (Shares × 4.0) + (Views × 0.1)
    */
   private async updatePostEngagementScore(postId: string): Promise<void> {
     const postEvents = this.events.filter(e => e.postId === postId)

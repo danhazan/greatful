@@ -101,7 +101,7 @@ async def verify_contracts():
             
         # Guard: hearts_count must NEVER appear in serialized output
         # If this assertion fires, a legacy field has been reintroduced
-        hearts_legacy_keys = ["hearts_count", "heartsCount", "is_hearted", "isHearted"]
+        hearts_legacy_keys = ["hearts", "hearts_count", "heartsCount", "is_hearted", "isHearted"]
         for key in hearts_legacy_keys:
             if key in serialized_json:
                 print(f"❌ REGRESSION: Legacy hearts field '{key}' found in PostResponse output!")

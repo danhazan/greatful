@@ -102,12 +102,6 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **Real-time Updates**: Reaction counts update immediately with optimistic UI updates
 - **Reaction Viewer**: Modal showing all users and their reactions for each post
 
-#### 💜 Hearts/Likes System
-- **Heart Posts**: Users can heart/like posts with visual feedback
-- **Heart Counter**: Display of total hearts with click-to-view functionality
-- **Hearts Viewer**: Modal showing all users who hearted a specific post
-- **Optimistic Updates**: Immediate UI feedback with server synchronization
-
 #### 🔗 Share System
 - **URL Sharing**: Copy post links to clipboard with success feedback
 - **Share Modal**: Clean popup interface for sharing options
@@ -123,7 +117,7 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **Smart Highlighting**: Only validated usernames (existing users) get purple highlighting
 
 #### 🔔 Enhanced Notification System
-- **Multiple Types**: Emoji reactions, hearts, mentions, follows, shares
+- **Multiple Types**: Emoji reactions, mentions, follows, shares
 - **Rate Limiting**: Configurable limits per notification type (max 5/hour per type)
 - **Real-time Updates**: Polling-based updates every 30 seconds
 - **Batch Operations**: Mark individual or all notifications as read
@@ -133,7 +127,7 @@ The Grateful platform includes a comprehensive social interaction system with th
 - **SQL-Computed Scoring**: High-performance ranking calculated directly in PostgreSQL using CTEs.
 - **Scoring Signals**:
   - **Recency**: Linear decay over 7 days.
-  - **Engagement**: Log-scaled counts of hearts, reactions, comments, and shares.
+  - **Engagement**: Log-scaled counts of reactions, comments, and shares.
   - **Relationships**: Boosts for mutual follows and followed users (scaled by recency).
   - **Intentional Boosts**: Recovery boosts for own posts, trending/recent engagement, and user-reacted content.
   - **Discovery**: Boosted high-engagement image posts from unfollowed users.
@@ -832,7 +826,7 @@ export ALGORITHM_MAX_FEED_SIZE=100
 ```python
 # Development: Higher randomization, lower thresholds
 'development': {
-    'scoring_weights': {'hearts': 1.2, 'reactions': 1.8},
+    'scoring_weights': {'reactions': 1.8},
     'own_post_factors': {'max_bonus_multiplier': 75.0},
     'diversity_limits': {'randomization_factor': 0.25}
 }
@@ -2055,7 +2049,6 @@ The Grateful platform includes a comprehensive notification link system that pro
 
 **Post-Related Notifications**:
 - **Emoji Reactions**: Navigate to the post where the reaction occurred
-- **Likes/Hearts**: Navigate to the liked post
 - **Mentions**: Navigate to the post containing the mention
 - **Shares**: Navigate to the shared post
 

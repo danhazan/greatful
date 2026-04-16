@@ -356,8 +356,6 @@ class PostRepository(BaseRepository):
         Returns:
             Dict containing post statistics
         """
-        # Hearts are implemented as emoji reactions with emoji_code='heart'
-        has_likes_table = True  # Hearts available through emoji reactions system
         
         query = text("""
                 SELECT 

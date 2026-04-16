@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
 #### Symptoms:
 - Backend API returns field correctly (verified with direct API testing)
 - Frontend receives response but field is missing
-- Other similar fields (e.g., `heartsCount`, `reactionsCount`) work correctly
+- Other similar fields (e.g., `reactionsCount`) work correctly
 - Browser Network tab shows field is missing from the response
 - Field appears in backend response but not in Next.js proxy response
 
@@ -189,7 +189,7 @@ Identify all Next.js API routes that transform post responses and add the missin
 **1. Locate all API proxy transformation points:**
 ```bash
 # Find all places where similar fields are transformed
-grep -r "heartsCount.*hearts_count" apps/web/src/app/api/
+grep -r "reactionsCount.*reactions_count" apps/web/src/app/api/
 ```
 
 **2. Add missing field to each transformation:**
@@ -200,7 +200,6 @@ const transformedPosts = posts.map((post: any) => ({
   id: post.id,
   content: post.content,
   // ... other fields ...
-  heartsCount: post.hearts_count || 0,
   reactionsCount: post.reactions_count || 0,
   commentsCount: post.comments_count || 0,  // ✅ ADD THIS
   // ... other fields ...
@@ -212,7 +211,6 @@ const transformedPosts = posts.map((post: any) => ({
 const transformedPost = {
   id: createdPost.id,
   // ... other fields ...
-  heartsCount: createdPost.hearts_count || 0,
   reactionsCount: createdPost.reactions_count || 0,
   commentsCount: createdPost.comments_count || 0,  // ✅ ADD THIS
   // ... other fields ...
@@ -224,7 +222,6 @@ const transformedPost = {
 const transformedPost = {
   id: post.id,
   // ... other fields ...
-  heartsCount: post.hearts_count || 0,
   reactionsCount: post.reactions_count || 0,
   commentsCount: post.comments_count || 0,  // ✅ ADD THIS
   // ... other fields ...
@@ -236,7 +233,6 @@ const transformedPost = {
 const transformedPost = {
   id: data.id,
   // ... other fields ...
-  heartsCount: data.hearts_count || 0,
   reactionsCount: data.reactions_count || 0,
   commentsCount: data.comments_count || 0,  // ✅ ADD THIS
   // ... other fields ...
@@ -245,7 +241,7 @@ const transformedPost = {
 
 #### Benefits:
 - ✅ Field now appears in frontend API responses
-- ✅ Consistent with other count fields (`heartsCount`, `reactionsCount`)
+- ✅ Consistent with other count fields (`reactionsCount`)
 - ✅ No backend changes required
 - ✅ Works across all API endpoints (feed, single post, create, update)
 
@@ -271,7 +267,7 @@ const transformedPost = {
 **3. Use grep to find all transformation points:**
 ```bash
 # Find all places where a similar field is transformed
-grep -r "heartsCount.*hearts_count" apps/web/src/app/api/
+grep -r "reactionsCount.*reactions_count" apps/web/src/app/api/
 
 # This will show you all the places you need to add your new field
 ```

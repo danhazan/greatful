@@ -175,10 +175,7 @@ export default function FeedPage() {
     router.push("/")
   }
 
-  const handleHeart = (postId: string, isCurrentlyHearted: boolean, heartInfo?: { heartsCount: number, isHearted: boolean }) => {
-    // heart is now handled via handleReaction as a unified emoji code.
-    // This handler is preserved as a no-op for backward compatibility with component props.
-  }
+
 
   const handleReaction = (postId: string, emojiCode: string, reactionSummary?: any) => {
     patchPost(postId, (post) => ({

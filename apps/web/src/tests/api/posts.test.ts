@@ -31,7 +31,6 @@ describe('/api/posts', () => {
         image_url: null,
         location: null,
         location_data: null,
-        hearts_count: 0,
         reactions_count: 0,
         current_user_reaction: null
       }
@@ -129,7 +128,6 @@ describe('/api/posts', () => {
           },
           created_at: '2023-01-01T00:00:00Z',
           image_url: 'http://localhost:8000/uploads/test-image.jpg',
-          hearts_count: 0,
           reactions_count: 0
         })
       } as Response)
@@ -269,7 +267,6 @@ describe('/api/posts', () => {
               name: 'User One'
             },
             created_at: '2025-01-08T12:00:00Z',
-            hearts_count: 5,
             reactions_count: 3
           },
           {
@@ -281,7 +278,6 @@ describe('/api/posts', () => {
               name: 'User Two'
             },
             created_at: '2025-01-08T11:00:00Z',
-            hearts_count: 2,
             reactions_count: 1
           }
         ],

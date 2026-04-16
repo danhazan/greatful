@@ -642,13 +642,12 @@ Final Score = Base × Engagement × Content × Mention × Relationship × Unread
 Every post starts with a base score of 1.0 to prevent zero multiplication problems.
 
 #### 2. Engagement Multiplier
-**Formula**: `min(1.0 + (hearts × 1.2) + (reactions × 1.8) + (shares × 5.0), max_cap)`
+**Formula**: `min(1.0 + (reactions × reaction_weight) + (shares × share_weight), max_cap)`
 
 **Examples:**
 - No engagement: 1.0
-- 1 heart: 2.2
-- 5 hearts + 2 reactions + 1 share: 15.6
-- Viral post (200 hearts, 100 reactions, 50 shares): 30.0 (capped)
+- 5 emoji reactions + 1 share: [Example score]
+- Viral post (300 reactions, 50 shares): 30.0 (capped)
 
 **Engagement Cap**: Prevents explosive growth from viral content while maintaining linear scaling for normal posts.
 
@@ -692,19 +691,19 @@ Final Score = 1.0 × 1.0 × 1.0 × 1.0 × 1.0 × 1.0 × 6.0 × 79.0 = 474 points
 **Result**: 🥇 **Highest priority** - appears first in your feed
 
 #### Example 2: Friend's Engaging Post
-**Scenario**: Friend posted daily gratitude with photo, got 3 hearts, 2 reactions, 1 share
+**Scenario**: Friend posted daily gratitude with photo, got 5 reactions, 1 share
 
 ```
-Final Score = 1.0 × 12.4 × 3.0 × 1.0 × 7.5 × 3.0 × 2.0 × 1.0 = 1,674 points
+Final Score = 1.0 × engagement_boost × content_bonus × 1.0 × 7.5 × 3.0 × 2.0 × 1.0 = [Example score]
 ```
 
 **Result**: 🥈 **High visibility** - appears after your recent posts
 
 #### Example 3: Stranger's Viral Post
-**Scenario**: Viral post with 20 hearts, 15 reactions, 5 shares
+**Scenario**: Viral post with 35 reactions, 5 shares
 
 ```
-Final Score = 1.0 × 76.0 × 2.5 × 1.0 × 1.0 × 3.0 × 1.5 × 1.0 = 855 points
+Final Score = 1.0 × engagement_boost × content_bonus × 1.0 × 1.0 × 3.0 × 1.5 × 1.0 = [Example score]
 ```
 
 **Result**: 🥉 **Moderate visibility** - quality content gets discovered
@@ -713,7 +712,7 @@ Final Score = 1.0 × 76.0 × 2.5 × 1.0 × 1.0 × 3.0 × 1.5 × 1.0 = 855 points
 
 #### Case 1: Super Viral vs Your Recent Post
 ```
-Viral Post (100 hearts, 50 reactions, 20 shares): 3,499 points
+Viral Post (150 reactions, 20 shares): [High score]
 Your Recent Post: 474 points
 ```
 **Result**: Viral post wins (this is rare but acceptable for truly exceptional content)
@@ -839,7 +838,6 @@ The transition to multiplicative scoring affected 12 out of 43 algorithm tests (
 #### Current Configuration (Development Environment)
 
 **Base Scoring Weights:**
-- Hearts: 1.2 points each
 - Reactions: 1.8 points each  
 - Shares: 5.0 points each
 - Photo bonus: +1.5 points
@@ -880,7 +878,7 @@ The transition to multiplicative scoring affected 12 out of 43 algorithm tests (
 #### Edge Cases Analysis
 
 **Very Active User:**
-If someone has 100 hearts, 50 reactions, 10 shares:
+If someone has 150 reactions (including heart reactions), 10 shares:
 - Uncapped engagement: 261.0 (1.0 + 120 + 90 + 50)
 - **Capped engagement**: 30.0 (prevents explosive growth)
 - Final score remains manageable while still rewarding viral content
@@ -1097,7 +1095,6 @@ GET /api/v1/database/indexes/unused?min_size_mb=1.0
 # Production-optimized settings
 'production': {
     'scoring_weights': {
-        'hearts': 1.0,
         'reactions': 1.5,
         'shares': 4.0,
         'photo_bonus': 1.5,

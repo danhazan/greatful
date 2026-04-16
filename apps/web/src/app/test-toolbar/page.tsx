@@ -21,8 +21,6 @@ const mockPosts = [
     },
     createdAt: new Date().toISOString(),
 
-    heartsCount: 15,
-    isHearted: true,
     reactionsCount: 8,
     currentUserReaction: "heart_eyes",
     location: "San Francisco, CA",
@@ -54,8 +52,6 @@ const mockPosts = [
     createdAt: new Date(Date.now() - 3600000).toISOString(),
 
     imageUrl: "/api/placeholder/400/300",
-    heartsCount: 3,
-    isHearted: false,
     reactionsCount: 2,
     location: "New York"
   },
@@ -74,8 +70,6 @@ const mockPosts = [
     },
     createdAt: new Date(Date.now() - 7200000).toISOString(),
 
-    heartsCount: 1,
-    isHearted: false,
     reactionsCount: 0
   },
   {
@@ -93,8 +87,6 @@ const mockPosts = [
     },
     createdAt: new Date(Date.now() - 10800000).toISOString(),
 
-    heartsCount: 25,
-    isHearted: true,
     reactionsCount: 12,
     currentUserReaction: "pray"
   },
@@ -113,8 +105,6 @@ const mockPosts = [
     },
     createdAt: new Date(Date.now() - 14400000).toISOString(),
 
-    heartsCount: 8,
-    isHearted: false,
     reactionsCount: 3,
     location: "תל אביב, ישראל"
   },
@@ -133,8 +123,6 @@ const mockPosts = [
     },
     createdAt: new Date(Date.now() - 18000000).toISOString(),
 
-    heartsCount: 5,
-    isHearted: true,
     reactionsCount: 2,
     currentUserReaction: "star"
   },

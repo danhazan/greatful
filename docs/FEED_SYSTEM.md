@@ -25,7 +25,7 @@ The final `feed_score` for a post is the sum of several weighted signals. All co
 
 ### 2. Engagement Score
 - **Weight**: Max 5.0 (log-scaled)
-- **Logic**: `LN(1 + (comments * 3) + (shares * 4) + (reactions * 2) + (hearts * 1))`
+- **Logic**: `LN(1 + (comments * 3) + (shares * 4) + (reactions * 2))`
 - **Purpose**: Boosts posts that have generated interaction, with diminishing returns via logarithmic scaling.
 
 ### 3. Relationship Score
@@ -119,7 +119,7 @@ Visibility is enforced **at the database level** within the scoring query using 
       "authorId": 123,
       "imageUrl": "...",
       "createdAt": "2026-03-31T...",
-      "heartsCount": 5,
+      "reactionsCount": 8,
       ...
     }
   ],
@@ -136,4 +136,5 @@ The following systems were **removed** during the March 2026 refactor and should
 - `BatchPreferenceService`: Preference-based re-ranking is handled by SQL.
 - `post_type`: The gratitude/photo/meditation type system is removed in favor of a unified post model.
 - **Read-Status Tracking**: Engagement is now the primary signal for "read" or "interacted" state.
+- **Hearts/Likes System**: Separate hearts system removed in favor of unified reactions.
 - **Offset Pagination**: Removed to prevent item skipping during high-frequency posting.

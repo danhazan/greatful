@@ -35,12 +35,12 @@ The conversion boundary is implemented in frontend API/proxy/service layers, not
 ### Backend (FastAPI)
 - **Standard**: snake_case (Python convention)
 - All Pydantic models use snake_case field names
-- Examples: `comments_count`, `hearts_count`, `reactions_count`, `created_at`, `profile_image_url`
+- Examples: `comments_count`, `reactions_count`, `created_at`, `profile_image_url`
 
 ### Frontend (Next.js/React)
 - **Standard**: camelCase (JavaScript/TypeScript convention)
 - React components expect camelCase
-- Examples: `commentsCount`, `heartsCount`, `reactionsCount`, `createdAt`, `profileImageUrl`
+- Examples: `commentsCount`, `reactionsCount`, `createdAt`, `profileImageUrl`
 
 ### OAuth Example (Current)
 
@@ -89,11 +89,10 @@ Frontend shape after normalization in `oauthService` (camelCase):
 
 **Example**:
 ```typescript
-// Backend returns: { hearts_count: 5, reactions_count: 3, comments_count: 2 }
-// Next.js transforms to: { heartsCount: 5, reactionsCount: 3, commentsCount: 2 }
+// Backend returns: { reactions_count: 3, comments_count: 2 }
+// Next.js transforms to: { reactionsCount: 3, commentsCount: 2 }
 
 const transformedPost = {
-  heartsCount: post.hearts_count || 0,
   reactionsCount: post.reactions_count || 0,
   commentsCount: post.comments_count || 0,
   // ... other fields
@@ -124,8 +123,8 @@ const transformedPost = {
 
 **Example**:
 ```typescript
-// Backend returns: { hearts_count: 5, reactions_count: 3, comments_count: 2 }
-// Frontend receives: { hearts_count: 5, reactions_count: 3, comments_count: 2 }
+// Backend returns: { reactions_count: 3, comments_count: 2 }
+// Frontend receives: { reactions_count: 3, comments_count: 2 }
 
 return proxyApiRequest(request, `/api/v1/users/me/posts`, { 
   requireAuth: true 
@@ -157,7 +156,6 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
 
   return {
     // Handles both snake_case and camelCase
-    heartsCount: post.hearts_count ?? post.heartsCount ?? 0,
     reactionsCount: post.reactions_count ?? post.reactionsCount ?? 0,
     commentsCount: post.comments_count ?? post.commentsCount ?? 0,
     createdAt: post.created_at ?? post.createdAt ?? new Date().toISOString(),
@@ -185,7 +183,7 @@ export function normalizePostFromApi(apiResponse: any): NormalizedPost | null {
 
 **Example**: `comments_count` was added to backend but missing from Next.js transformations
 - Backend returned: `comments_count: 5`
-- Next.js transformed to: `{ heartsCount: 0, reactionsCount: 0 }` (missing commentsCount!)
+- Next.js transformed to: `{ reactionsCount: 0 }` (missing commentsCount!)
 - Frontend showed: 0 comments
 
 **Solution**: Added `commentsCount: post.comments_count || 0` to all 4 transformation points
@@ -495,13 +493,13 @@ export async function GET(request: NextRequest) {
 import { transformApiRequest } from '@/lib/caseTransform'
 
 const requestData = {
-  heartsCount: 5,
+  reactionsCount: 5,
   createdAt: new Date().toISOString()
 }
 
 // Transform to snake_case for backend
 const backendData = transformApiRequest(requestData)
-// Result: { hearts_count: 5, created_at: "..." }
+// Result: { reactions_count: 5, created_at: "..." }
 ```
 
 ## Next Steps

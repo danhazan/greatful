@@ -106,7 +106,7 @@ describe('AnalyticsService', () => {
       const score = analyticsService.getPostEngagementScore('post-1')
       
       expect(score).toBeTruthy()
-      expect(score!.reactionsCount).toBe(3) // 2 hearts (reactions) + 1 reaction_add
+      expect(score!.reactionsCount).toBe(3) // 3 reactions (including heart emoji reactions)
       expect(score!.sharesCount).toBe(1)
       expect(score!.viewsCount).toBe(1)
       
@@ -131,7 +131,7 @@ describe('AnalyticsService', () => {
       const metrics = analyticsService.getUserMetrics('user-1')
       
       expect(metrics).toBeTruthy()
-      expect(metrics!.totalReactions).toBe(3) // 2 other reaction_adds + 1 heart reaction
+      expect(metrics!.totalReactions).toBe(3) // 3 reactions (including heart emoji reactions)
       expect(metrics!.totalShares).toBe(1)
       expect(metrics!.favoriteEmojis).toEqual({
         'heart_eyes': 1,
@@ -214,7 +214,7 @@ describe('AnalyticsService', () => {
       expect(trends).toHaveLength(3)
       expect(trends[2]).toEqual({
         date: '2024-01-15',
-        reactions: 2, // 1 reaction_add + 1 heart reaction
+        reactions: 2, // 2 reactions (including heart emoji reactions)
         shares: 1
       })
 

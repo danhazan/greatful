@@ -54,9 +54,7 @@ describe('SharedPostWrapper', () => {
           ok: true,
           json: () => Promise.resolve({
             id: 'test-post-1',
-            is_hearted: false,
             current_user_reaction: null,
-            hearts_count: 5,
             reactions_count: 3,
             author_id: '1'
           }),
@@ -224,9 +222,7 @@ describe('SharedPostWrapper', () => {
             ok: true,
             json: () => Promise.resolve({
               id: 'test-post-1',
-              is_hearted: false,
               current_user_reaction: null,
-              hearts_count: 5,
               reactions_count: 3,
             }),
           })

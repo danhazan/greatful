@@ -58,7 +58,7 @@ export default function DeleteConfirmationModal({
                 </p>
                 <ul className="mt-2 text-sm text-red-700 space-y-1">
                   <li>• The post content and any images</li>
-                  <li>• All hearts and reactions</li>
+                  <li>• All emoji reactions</li>
                   <li>• All comments and shares</li>
                   <li>• Related notifications</li>
                 </ul>

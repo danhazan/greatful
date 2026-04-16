@@ -42,7 +42,6 @@
 > 📚 **For detailed troubleshooting guides and historical fixes, see [`COMMON_FIXES.md`](./COMMON_FIXES.md)**
 
 ### 📊 System Health Status
-- ✅ **Heart Counter**: Working perfectly with real-time updates
 - ✅ **Reaction Counter**: Working perfectly with real-time updates  
 - ❌ **Background Styles**: Create/edit modal styling and text visibility issues persist
 - ❌ **Share Functionality**: Critical production failure - 500 errors on all share requests
@@ -56,7 +55,10 @@
 
 ## ✅ Recently Resolved Issues
 
-### Heart Counter Real-time Updates - COMPLETED ✅
+### (LEGACY) Heart Counter Real-time Updates - COMPLETED ✅
+> [!NOTE]
+> This system has been retired in favor of the unified Reactions API.
+
 **Issue**: Heart counter displayed correct values but only updated after page refresh  
 **Status**: ✅ RESOLVED  
 **Resolution Date**: August 15, 2025  
@@ -279,7 +281,7 @@ The original approach tried to overlay the search on top of navbar elements, cre
 
 **What was Fixed**:
 - The UI for reaction buttons now immediately reflects the server state after API calls complete.
-- This ensures that after adding or removing a reaction, the button's visual state (e.g., filled/unfilled heart) is in sync with the backend without requiring a page refresh.
+- This ensures that after adding or removing a reaction, the button's visual state is in sync with the backend without requiring a page refresh.
 - This also prevents the issue where buttons appeared out of sync due to delayed UI updates after API operations.
 
 **Technical Implementation**:
@@ -313,8 +315,7 @@ The original approach tried to overlay the search on top of navbar elements, cre
 **Technical Implementation**:
 - **EmojiPicker**: Removed spinner animation wrapper from selected emoji display
 - **PostCard**: Fixed `setCurrentPost` calls to properly merge server response data
-- **State Sync**: Updated reaction removal to use `reactionSummary.is_hearted` from server
-- **State Sync**: Updated reaction addition to include both `isHearted` and `heartsCount` from server
+- **State Sync**: Updated reaction addition to include reaction summary data from server
 - **UX**: Added close-on-selected-emoji functionality in EmojiPicker mock and real component
 - **Tests**: Updated test expectations to match new deferred reaction behavior
 
@@ -636,14 +637,14 @@ The issue appears to be related to how HTML formatting interacts with RTL text d
 
 
 ### Engagement Summary Auto-Popup
-**Issue**: Metrics popup automatically appears when posts reach 6+ total reactions (hearts + emoji reactions)  
+**Issue**: Metrics popup automatically appears when posts reach 6+ total reactions  
 **Status**: ⚠️ Active Issue  
 **Priority**: Medium  
 **Impact**: User Experience & UI Clutter  
 **Discovered**: August 30, 2025  
 
 **Description**:
-An "Engagement Summary" popup automatically appears on posts when the total engagement count (hearts + emoji reactions) exceeds 5. This creates visual clutter and may be unexpected behavior for users, as the popup appears without user interaction.
+An "Engagement Summary" popup automatically appears on posts when the total engagement count (emoji reactions) exceeds 5. This creates visual clutter and may be unexpected behavior for users, as the popup appears without user interaction.
 
 **Technical Details**:
 - Backend: Engagement counts are calculated correctly ✅
@@ -652,8 +653,8 @@ An "Engagement Summary" popup automatically appears on posts when the total enga
 - Issue: No user control over when engagement summary appears
 
 **Current Behavior**:
-- Popup shows: "❤️ 3 • 😊 3 • 6 total reactions"
-- Appears automatically when (heartsCount + reactionsCount) > 5
+- Popup shows: "😊 6 total reactions"
+- Appears automatically when reactionsCount > 5
 - Takes up additional space in post layout
 - No way for users to dismiss or control this popup
 
@@ -677,7 +678,7 @@ An "Engagement Summary" popup automatically appears on posts when the total enga
 **Code Location**: 
 ```typescript
 // apps/web/src/components/PostCard.tsx line ~570
-{((post.heartsCount || 0) + (post.reactionsCount || 0)) > 5 && (
+{post.reactionsCount > 5 && (
   <div className="mb-2 px-2 py-1 bg-gradient-to-r from-purple-50 to-red-50 rounded-full">
     {/* Engagement summary content */}
   </div>
@@ -841,7 +842,7 @@ Emojis in notification messages sometimes render differently than they appear in
 **Discovered**: August 27, 2025  
 
 **Description**:
-When a user receives a notification (bell icon updates with new count), the corresponding post in the feed doesn't immediately reflect the new interaction (like updated reaction counts or heart counts). Users have to manually refresh or navigate away and back to see the updated post state.
+When a user receives a notification (bell icon updates with new count), the corresponding post in the feed doesn't immediately reflect the new interaction (like updated reaction counts). Users have to manually refresh or navigate away and back to see the updated post state.
 
 **Technical Details**:
 - Backend: Notifications and post updates happen correctly ✅
@@ -1473,19 +1474,16 @@ When users change their password in the profile settings, the browser's password
 ## 📊 Test Status Summary
 
 ### Backend Tests
-- ✅ **Likes API**: 3/3 passing
 - ✅ **Reactions API**: 10/10 passing  
 - ✅ **Emoji Reactions**: 16/16 passing
 - ✅ **User Profile**: 17/17 passing
 - ⚠️ **Profile API**: 22/22 passing individually, test isolation issue when run together
 
 ### Frontend Tests
-- ✅ **Heart Counter Real-time**: 6/6 passing
 - ✅ **PostCard Simple**: 8/8 passing
 - ⚠️ **Reaction Real-time**: 2/6 passing (4 tests skipped due to emoji picker complexity)
 
 ### Integration Tests
-- ✅ **Heart Counter Integration**: Full workflow passing
 - ✅ **API Endpoints**: All core functionality working
 - ✅ **Database Operations**: CRUD operations working
 
@@ -1494,7 +1492,6 @@ When users change their password in the profile settings, the browser's password
 ## 🎯 System Health
 
 ### Core Functionality Status
-- ✅ **Heart Counter**: Working perfectly with real-time updates
 - ✅ **Reaction Counter**: Working perfectly with real-time updates
 - ✅ **User Authentication**: Working correctly
 - ✅ **Post Creation**: Working correctly
@@ -1558,7 +1555,7 @@ const authOptions: NextAuthOptions = {
 
 ### Problem
 ```
-Error: Route "/api/posts/[id]/hearts" used `params.id`. `params` should be awaited before using its properties.
+Error: Route "/api/posts/[id]/reactions" used `params.id`. `params` should be awaited before using its properties.
 ```
 
 ### Root Cause
@@ -1726,7 +1723,7 @@ Integration tests are using `async_client` incorrectly with `await` syntax.
 ## Issue #7: Legacy Params Pattern Workaround (Temporary)
 
 ### Problem
-To avoid runtime errors in dynamic API routes (e.g., `/api/posts/[id]/hearts`), the handler signature is reverted to the legacy form:
+To avoid runtime errors in dynamic API routes (e.g., `/api/posts/[id]/reactions`), the handler signature is reverted to the legacy form:
 
 ```ts
 export async function GET(request: NextRequest, params: any) {

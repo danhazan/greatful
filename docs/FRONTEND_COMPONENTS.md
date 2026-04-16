@@ -702,7 +702,7 @@ The component implements intelligent navigation with the following priority:
 
 ### PostCard
 
-The main component for displaying gratitude posts with social interactions including hearts, reactions, comments, and sharing.
+The main component for displaying gratitude posts with social interactions including reactions, comments, and sharing.
 
 **Location:** `apps/web/src/components/PostCard.tsx`
 
@@ -713,7 +713,6 @@ interface PostCardProps {
   post: Post
   currentUserId?: string
   hideFollowButton?: boolean
-  onHeart?: (postId: string, isCurrentlyHearted: boolean, heartInfo?: any) => void
   onReaction?: (postId: string, emojiCode: string, reactionSummary?: any) => void
   onRemoveReaction?: (postId: string, reactionSummary?: any) => void
   onShare?: (postId: string) => void
@@ -725,7 +724,7 @@ interface PostCardProps {
 
 #### Features
 
-- **Social Interactions**: Heart/like, emoji reactions, comments, and sharing
+- **Social Interactions**: Emoji reactions, comments, and sharing
 - **Comments System**: View and add comments with reply support
 - **Real-time Updates**: Synchronizes post state across components
 - **Authentication Handling**: Graceful handling for logged-out users
@@ -762,7 +761,6 @@ className="text-gray-400 cursor-pointer hover:bg-gray-50"
 <PostCard
   post={post}
   currentUserId={currentUser?.id}
-  onHeart={handleHeart}
   onReaction={handleReaction}
   onShare={handleShare}
 />
@@ -784,14 +782,11 @@ When the comments button is clicked, the `CommentsModal` component is opened wit
 - `POST /api/posts/{postId}/comments` - Submit new comment
 - `GET /api/comments/{commentId}/replies` - Load comment replies
 
-#### Button Layout
+The post toolbar contains three main interaction buttons in this order:
 
-The post toolbar contains four main interaction buttons in this order:
-
-1. **Heart Button** (💜) - Like/unlike the post
-2. **Reaction Button** (😊+) - Add emoji reactions
-3. **Comments Button** (💬) - View and add comments
-4. **Share Button** (Share) - Share the post
+1. **Reaction Button** (😊+) - Add emoji reactions
+2. **Comments Button** (💬) - View and add comments
+3. **Share Button** (Share) - Share the post
 
 **Responsive Spacing:**
 - Desktop: `gap-8` (2rem spacing between buttons)

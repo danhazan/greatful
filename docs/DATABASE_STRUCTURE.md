@@ -65,8 +65,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 ```
 
 **Relationships:**
-- `posts` - One-to-Many with Posts (user's posts)
-- `likes` - One-to-Many with Likes (user's likes)
+- `reactions` - One-to-Many with EmojiReactions (user's reactions)
 - `comments` - One-to-Many with Comments (user's comments)
 - `followers` - One-to-Many with Follows (users following this user)
 - `following` - One-to-Many with Follows (users this user follows)
@@ -90,7 +89,6 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `privacy_level` | String(20) | Not Null, Default: 'public', Index | Privacy level: public, private, custom |
 | `created_at` | DateTime | Default: now() | Post creation timestamp |
 | `updated_at` | DateTime | On Update | Last modification timestamp |
-| `hearts_count` | Integer | Not Null, Default: 0 | Cached count of hearts/likes |
 | `reactions_count` | Integer | Not Null, Default: 0 | Cached count of emoji reactions |
 | `shares_count` | Integer | Not Null, Default: 0 | Cached count of shares |
 
@@ -129,13 +127,12 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 **Performance Indexes:**
 - `idx_posts_created_at_desc` - For chronological feeds (created_at DESC)
 - `idx_posts_author_created_desc` - For user-specific feeds (author_id, created_at DESC)
-- `idx_posts_engagement` - For engagement-based sorting (hearts_count, reactions_count, shares_count)
+- `idx_posts_engagement` - For engagement-based sorting (reactions_count, shares_count)
 - `idx_posts_privacy_created_at` - For privacy-aware feed retrieval (privacy_level, created_at)
 - `idx_posts_author_created_at` - For author + recency filtering
 
 **Relationships:**
 - `author` - Many-to-One with Users (post author)
-- `likes` - One-to-Many with Likes (post likes)
 - `comments` - One-to-Many with Comments (post comments)
 - `privacy_rules` - One-to-Many with PostPrivacyRules (custom rule toggles)
 - `privacy_users` - One-to-Many with PostPrivacyUsers (explicit audience)
@@ -171,23 +168,6 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 - `idx_post_privacy_users_post_user` on (`post_id`, `user_id`)
 - `idx_post_privacy_users_user_post` on (`user_id`, `post_id`)
 
-### Likes Table (`likes`)
-
-**Tracks user likes on posts.**
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | String (UUID) | Primary Key | Unique like identifier |
-| `user_id` | Integer | Foreign Key (users.id), Not Null | User who liked |
-| `post_id` | String | Foreign Key (posts.id), Not Null | Post that was liked |
-| `created_at` | DateTime | Default: now() | Like timestamp |
-
-**Constraints:**
-- Unique constraint on (user_id, post_id) - prevents duplicate likes
-
-**Relationships:**
-- `user` - Many-to-One with Users (user who liked)
-- `post` - Many-to-One with Posts (post that was liked)
 
 ### Comments Table (`comments`)
 
@@ -278,12 +258,11 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `last_updated_at` | DateTime | Default: now() | When notification was last updated |
 
 **Enhanced Notification Types:**
-- `like` - Someone liked your post (💜 purple heart styling)
 - `emoji_reaction` - Someone reacted to your post with an emoji
 - `post_shared` - Someone shared your post
 - `mention` - Someone mentioned you in a post
 - `follow` - Someone started following you
-- `post_interaction` - Combined likes and reactions (unified batching)
+- `post_interaction` - Combined reactions (unified batching)
 
 **Notification Batching Schema:**
 
@@ -306,14 +285,14 @@ INSERT INTO notifications (
     id, user_id, type, title, message,
     parent_id, data
 ) VALUES 
-    ('child-uuid-1', 1, 'like', 'New Like 💜', 'alice liked your post', 'batch-uuid-123', '{"post_id": "post-456", "liker_username": "alice"}'),
+    ('child-uuid-1', 1, 'emoji_reaction', 'New Reaction', 'alice reacted with 💜', 'batch-uuid-123', '{"post_id": "post-456", "emoji_code": "heart"}'),
     ('child-uuid-2', 1, 'emoji_reaction', 'New Reaction', 'bob reacted with 🔥', 'batch-uuid-123', '{"post_id": "post-456", "emoji_code": "fire"}');
 ```
 
 **Batch Key Format:**
 - **Post-based**: `{notification_type}:post:{post_id}` (e.g., `emoji_reaction:post:post-123`)
 - **User-based**: `{notification_type}:user:{user_id}` (e.g., `follow:user:456`)
-- **Unified interactions**: `post_interaction:post:{post_id}` (combines likes and reactions)
+- **Unified interactions**: `post_interaction:post:{post_id}` (combines reactions)
 
 **Batching Behavior:**
 1. **Single Notification**: First interaction creates a single notification
@@ -358,12 +337,6 @@ BATCH_CONFIGS = {
         summary_template="{count} people reacted to your post",
         icon_type="reaction"
     ),
-    "like": BatchConfig(
-        notification_type="like",
-        batch_scope="post", 
-        summary_template="{count} people liked your post",
-        icon_type="heart"
-    ),
     "follow": BatchConfig(
         notification_type="follow",
         batch_scope="user",
@@ -390,10 +363,8 @@ BATCH_CONFIGS = {
 
 ### One-to-Many Relationships
 - **User → Posts**: A user can have multiple posts
-- **User → Likes**: A user can like multiple posts
 - **User → Comments**: A user can make multiple comments
 - **User → Notifications**: A user can have multiple notifications
-- **Post → Likes**: A post can have multiple likes
 - **Post → Comments**: A post can have multiple comments
 - **Comment → Replies**: A comment can have multiple replies
 
@@ -407,7 +378,6 @@ BATCH_CONFIGS = {
 - `users.username` - For username lookups
 - `posts.author_id` - For user's posts queries
 - `posts.created_at` - For chronological post ordering
-- `likes.post_id` - For post likes queries
 - `comments.post_id` - For post comments queries
 - `follows.follower_id` - For user's following list
 - `follows.followed_id` - For user's followers list
@@ -418,14 +388,13 @@ BATCH_CONFIGS = {
 
 ### Foreign Key Constraints
 - All foreign keys are properly defined with CASCADE delete options
-- User deletion cascades to their posts, likes, comments, and notifications
-- Post deletion cascades to its likes and comments
+- User deletion cascades to their posts, comments, and notifications
+- Post deletion cascades to its comments
 - Comment deletion cascades to its replies
 
 ### Unique Constraints
 - User email addresses must be unique
 - User usernames must be unique
-- Users cannot like the same post twice
 - Users cannot follow the same user twice
 
 ### Check Constraints
@@ -493,7 +462,6 @@ The application uses a standardized repository pattern for data access:
 - **UserRepository**: User data access with profile and relationship queries
 - **PostRepository**: Post data access with engagement metrics and feed generation
 - **EmojiReactionRepository**: Reaction data access with aggregation and validation
-- **LikeRepository**: Like/heart data access with user relationship tracking
 - **NotificationRepository**: Notification data access with batching and filtering
 - **FollowRepository**: Follow relationship data access with specialized queries and bulk operations
 
@@ -721,7 +689,7 @@ The database uses Alembic for migrations with proper versioning:
 - `000_create_base_tables.py` - Initial users and posts tables
 - `001_create_emoji_reactions_table.py` - Emoji reactions system
 - `002_add_user_profile_fields.py` - User profile enhancements
-- `003_create_likes_table.py` - Hearts/likes system
+- `003_create_likes_table.py` - (LEGACY) Initial likes system (deprecated)
 - `004_add_notification_batching_fields.py` - Notification batching support
 - `005_add_last_updated_at_field.py` - Timestamp tracking improvements
 
@@ -743,7 +711,7 @@ The database includes comprehensive indexing for optimal query performance:
 **Posts Table Indexes:**
 - `idx_posts_created_at_desc` - Optimizes chronological feed queries (`ORDER BY created_at DESC`)
 - `idx_posts_author_created_desc` - Optimizes user-specific feed queries (`WHERE author_id = ? ORDER BY created_at DESC`)
-- `idx_posts_engagement` - Optimizes engagement-based sorting using cached counts (`hearts_count`, `reactions_count`, `shares_count`)
+- `idx_posts_engagement` - Optimizes engagement-based sorting using cached counts (`reactions_count`, `shares_count`)
 
 **Follows Table Indexes:**
 - `idx_follows_follower_id` - Optimizes "who am I following" queries
@@ -753,19 +721,18 @@ The database includes comprehensive indexing for optimal query performance:
 - `idx_follows_created_at` - Optimizes chronological follow ordering
 
 **Engagement Count Caching:**
-Posts table includes denormalized engagement counts (`hearts_count`, `reactions_count`, `shares_count`) to avoid expensive JOIN operations in feed algorithms. These counts are automatically updated when engagement actions occur.
+Posts table includes denormalized engagement counts (`reactions_count`, `shares_count`) to avoid expensive JOIN operations in feed algorithms. These counts are automatically updated when engagement actions occur.
 
 **Algorithm Service Optimization:**
 The database schema has been optimized specifically for the AlgorithmService with the following enhancements:
 
 **Engagement Count Caching:**
 Posts table includes denormalized engagement counts that are automatically updated:
-- `hearts_count` - Cached count of hearts/likes for fast algorithm scoring
 - `reactions_count` - Cached count of emoji reactions for engagement calculation  
 - `shares_count` - Cached count of shares for viral content detection
 
 **Algorithm-Specific Indexes:**
-- `idx_posts_engagement` - Composite index on (hearts_count, reactions_count, shares_count) for fast engagement-based sorting
+- `idx_posts_engagement` - Composite index on (reactions_count, shares_count) for fast engagement-based sorting
 - `idx_posts_created_at_desc` - Optimized for chronological fallback and 20% recent content in algorithm feed
 - `idx_posts_author_created_desc` - Optimized for user-specific content and relationship-based scoring
 
@@ -816,10 +783,9 @@ CREATE TABLE notifications (
 Batch keys follow a consistent format for grouping similar notifications:
 
 ```sql
--- Post-based notifications (reactions, likes, shares on same post)
+-- Post-based notifications (reactions, shares on same post)
 'emoji_reaction:post:post-123'
-'like:post:post-123' 
-'post_interaction:post:post-123'  -- Unified likes + reactions
+'post_interaction:post:post-123'  -- Unified reactions
 'post_shared:post:post-123'
 'mention:post:post-123'
 
@@ -984,7 +950,7 @@ ALTER TABLE notifications ADD COLUMN last_updated_at TIMESTAMP DEFAULT NOW();
 -- Update existing notifications with batch keys
 UPDATE notifications 
 SET batch_key = CASE 
-  WHEN type IN ('emoji_reaction', 'like', 'post_shared', 'mention') 
+  WHEN type IN ('emoji_reaction', 'post_shared', 'mention') 
     THEN type || ':post:' || (data->>'post_id')
   WHEN type IN ('follow', 'new_follower') 
     THEN type || ':user:' || user_id::text
@@ -1009,7 +975,6 @@ The posts table includes cached engagement counts to avoid expensive JOIN operat
 
 ```sql
 -- Engagement count columns added to posts table
-ALTER TABLE posts ADD COLUMN hearts_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE posts ADD COLUMN reactions_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE posts ADD COLUMN shares_count INTEGER NOT NULL DEFAULT 0;
 ```
@@ -1021,7 +986,7 @@ Strategic indexes support the AlgorithmService scoring and ranking operations:
 
 ```sql
 -- Engagement-based sorting index
-CREATE INDEX idx_posts_engagement ON posts (hearts_count, reactions_count, shares_count);
+CREATE INDEX idx_posts_engagement ON posts (reactions_count, shares_count);
 
 -- Chronological ordering index (for 20% recent content and fallback)
 CREATE INDEX idx_posts_created_at_desc ON posts (created_at DESC);
@@ -1063,7 +1028,7 @@ The AlgorithmService includes built-in performance monitoring:
 - **Connection Management**: Proper session management with automatic cleanup
 
 ### Data Types & Performance
-- **UUID Usage**: Posts, likes, comments, follows, and notifications use UUID primary keys for scalability
+- **UUID Usage**: Posts, comments, follows, and notifications use UUID primary keys for scalability
 - **Integer IDs**: Users use integer primary keys for performance and foreign key efficiency
 - **Timestamp Indexing**: Strategic indexes on created_at and updated_at fields
 - **Relationship Optimization**: Efficient loading strategies for complex relationships

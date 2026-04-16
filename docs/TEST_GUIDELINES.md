@@ -226,7 +226,6 @@ apps/api/tests/
 ├── conftest.py                           # Test configuration and fixtures
 ├── integration/                          # API endpoint integration tests
 │   ├── test_api_contracts.py            # API response structure validation
-│   ├── test_likes_api.py                 # Heart/like system API tests
 │   ├── test_profile_api.py               # User profile API tests
 │   ├── test_reactions_api.py             # Emoji reactions API tests
 │   ├── test_notifications_api.py         # Notification system API tests
@@ -442,7 +441,7 @@ describe('API Contract Validation', () => {
 **Test Scenarios**:
 - User registration and login
 - Post creation and interaction
-- Social features (likes, comments, follows, mentions)
+- Social features (reactions, comments, follows, mentions)
 - Profile management
 - Search and discovery
 - Mention workflows (autocomplete, validation, navigation)
@@ -1393,14 +1392,14 @@ describe('PostCard', () => {
     expect(screen.getByText('Test User')).toBeInTheDocument()
   })
   
-  it('handles like button click', () => {
-    const mockOnLike = jest.fn()
+  it('handles reaction button click', () => {
+    const mockOnReaction = jest.fn()
     const post = { id: '1', content: 'Test post' }
     
-    render(<PostCard post={post} onLike={mockOnLike} />)
+    render(<PostCard post={post} onReaction={mockOnReaction} />)
     
-    fireEvent.click(screen.getByRole('button', { name: /like/i }))
-    expect(mockOnLike).toHaveBeenCalledWith('1')
+    fireEvent.click(screen.getByRole('button', { name: /react/i }))
+    expect(mockOnReaction).toHaveBeenCalledWith('1', expect.any(String), expect.any(Object))
   })
 })
 ```
@@ -2334,7 +2333,6 @@ async def test_notification_type_methods():
     await factory.create_share_notification(...)
     await factory.create_mention_notification(...)
     await factory.create_reaction_notification(...)
-    await factory.create_like_notification(...)
     await factory.create_follow_notification(...)
 ```
 
@@ -2362,7 +2360,6 @@ describe('NotificationUserResolver', () => {
     // Test reactor_username (reactions)
     // Test sharer_username (shares)  
     // Test author_username (mentions)
-    // Test liker_username (likes)
     // Test follower_username (follows)
     // Test custom fields ending with 'username'
   })
@@ -2384,7 +2381,6 @@ async def test_service_uses_factory():
     # Test MentionService creates mention notifications
     # Test ShareService creates share notifications  
     # Test ReactionService creates reaction notifications
-    # Test LikesAPI creates like notifications
     
     # Verify notifications are created with correct data structure
     # Verify usernames are stored in standardized fields
@@ -3322,8 +3318,8 @@ test('mobile navigation works correctly', async ({ page }) => {
   await expect(page.locator('[data-testid="mobile-menu"]')).toBeVisible()
   
   // Test touch interactions
-  await page.tap('[data-testid="post-like-button"]')
-  await expect(page.locator('[data-testid="like-count"]')).toContainText('1')
+  await page.tap('[data-testid="post-reaction-button"]')
+  await expect(page.locator('[data-testid="reaction-summary"]')).toBeVisible()
 })
 ```
 

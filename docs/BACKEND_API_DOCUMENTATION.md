@@ -36,7 +36,6 @@ apps/api/
 │   │   ├── user_repository.py   # User data access operations
 │   │   ├── post_repository.py   # Post data access operations
 │   │   ├── emoji_reaction_repository.py # Reaction data access
-│   │   ├── like_repository.py   # Like/heart data access
 │   │   ├── notification_repository.py # Notification data access
 │   │   └── follow_repository.py   # Follow relationship data access
 │   ├── models/           # SQLAlchemy database models
@@ -124,7 +123,7 @@ See **[Common Fixes](COMMON_FIXES.md#fastapi-route-registration-with-nextjs-prox
 #### 1. **Database Models & Schema**
 - **User Model**: Complete user management with profile data
 - **Post Model**: Gratitude posts with types (daily, photo, spontaneous)
-- **Interaction Models**: Likes, comments, follows with proper relationships
+- **Interaction Models**: Unified reactions, comments, follows with proper relationships
 - **Pydantic Schemas**: Full validation and serialization
 
 #### 2. **Service Layer Architecture**
@@ -187,7 +186,7 @@ The feed system includes a sophisticated, configurable algorithm service that pr
 
 **Enhanced Scoring Formula**:
 ```
-Base Score = (Hearts × 1.0) + (Reactions × 1.5) + (Shares × 4.0)
+Base Score = (Reactions × reaction_weight) + (Shares × share_weight)
 Content Bonus = Photo posts (+1.5) OR Daily gratitude posts (+2.0)
 Time Multiplier = Recent boost (0-1hr: +4.0, 1-6hr: +2.0, 6-24hr: +1.0) × Decay factor
 Relationship Multiplier = Follow bonuses (New: 6.0x, Established: 5.0x, Mutual: 7.0x, Second-tier: 1.5x)
@@ -259,9 +258,6 @@ await factory.create_mention_notification(mentioned_user_id, author_username, au
 # Reaction notifications
 await factory.create_reaction_notification(post_author_id, reactor_username, reactor_id, post_id, emoji_code)
 
-# Like notifications
-await factory.create_like_notification(post_author_id, liker_username, liker_id, post_id)
-
 # Follow notifications
 await factory.create_follow_notification(followed_user_id, follower_username, follower_id)
 
@@ -304,12 +300,6 @@ BATCH_CONFIGS = {
         max_age_hours=24,
         summary_template="{count} people reacted to your post",
         icon_type="reaction"
-    ),
-    "like": BatchConfig(
-        notification_type="like",
-        batch_scope="post", 
-        summary_template="{count} people liked your post",
-        icon_type="heart"
     ),
     "follow": BatchConfig(
         notification_type="follow",
@@ -428,8 +418,7 @@ follow_bonuses = config.follow_bonuses
 
 **Scoring Weights** (`ScoringWeights`):
 ```python
-hearts: float = 1.0                    # Base heart/like weight
-reactions: float = 1.5                 # Emoji reaction weight (higher value)
+reactions: float = 1.8                 # Emoji reaction weight
 shares: float = 4.0                    # Share weight (highest engagement value)
 photo_bonus: float = 1.5               # Photo post content bonus
 daily_gratitude_bonus: float = 2.0     # Daily gratitude post bonus
@@ -476,7 +465,7 @@ config_summary = get_config_manager().get_config_summary()
 # Environment-specific overrides
 ENVIRONMENT_OVERRIDES = {
     'development': {
-        'scoring_weights': {'hearts': 1.2, 'reactions': 1.8},
+        'scoring_weights': {'reactions': 1.8},
         'own_post_factors': {'max_bonus_multiplier': 75.0}
     }
 }
@@ -498,7 +487,6 @@ ENVIRONMENT_OVERRIDES = {
 CREATE INDEX idx_posts_created_at_desc ON posts(created_at DESC);
 CREATE INDEX idx_posts_user_id_created_at ON posts(user_id, created_at DESC);
 CREATE INDEX idx_follows_follower_followed ON follows(follower_id, followed_id);
-CREATE INDEX idx_likes_post_id ON likes(post_id);
 CREATE INDEX idx_emoji_reactions_post_id ON emoji_reactions(post_id);
 CREATE INDEX idx_shares_post_id ON shares(post_id);
 
@@ -508,7 +496,7 @@ CREATE INDEX idx_follows_status_created_at ON follows(status, created_at DESC) W
 
 -- Performance-optimized composite indexes
 CREATE INDEX idx_posts_user_created_at ON posts(author_id, created_at);
-CREATE INDEX idx_posts_engagement_created_at ON posts(hearts_count, reactions_count, shares_count, created_at);
+CREATE INDEX idx_posts_engagement_created_at ON posts(reactions_count, shares_count, created_at);
 CREATE INDEX idx_users_last_feed_view ON users(last_feed_view);
 CREATE INDEX idx_user_interactions_user_created_at ON user_interactions(user_id, created_at);
 CREATE INDEX idx_user_interactions_target_created_at ON user_interactions(target_user_id, created_at);
@@ -612,7 +600,7 @@ async def run_performance_diagnostics(db: AsyncSession):
 
 **Efficient Scoring Calculations**:
 - **Pre-calculated Time Buckets**: 169 time buckets (0-168 hours) for instant time factor lookup (~95% faster)
-- **Batch Engagement Loading**: Single queries for hearts, reactions, and shares for multiple posts (~70% faster)
+- **Batch Engagement Loading**: Single queries for reactions and shares for multiple posts (~70% faster)
 - **User Preference Caching**: 30-minute TTL cache for user interaction patterns (~90% faster on cache hits)
 - **Read Status Batch Processing**: Efficient batch queries for read status determination
 - **Performance Target**: <300ms feed loading achieved (Cold cache: 180-250ms, Warm cache: 80-150ms)
@@ -1097,8 +1085,6 @@ GET    /api/v1/posts/trending            # Get trending posts with time-window f
 GET    /api/v1/posts/{post_id}           # Get specific post
 PUT    /api/v1/posts/{post_id}           # Update post
 DELETE /api/v1/posts/{post_id}           # Delete post
-POST   /api/v1/posts/{post_id}/heart     # Heart/like post
-DELETE /api/v1/posts/{post_id}/heart     # Remove heart from post
 POST   /api/v1/posts/mark-read           # Mark posts as read for algorithm optimization
 ```
 
@@ -1188,7 +1174,6 @@ Content-Type: application/json
       "display_name": "Alice Smith",
       "profile_image_url": "/uploads/profile_photos/profile_abc123_medium.jpg"
     },
-    "hearts_count": 0,
     "reactions_count": 0,
     "shares_count": 0,
     "created_at": "2025-01-01T10:00:00Z",
@@ -1231,7 +1216,6 @@ Content-Type: multipart/form-data
       "username": "bob",
       "display_name": "Bob Johnson"
     },
-    "hearts_count": 0,
     "reactions_count": 0,
     "shares_count": 0,
     "created_at": "2025-01-01T11:00:00Z"
@@ -1272,8 +1256,7 @@ X-Feed-Debug: true  # Optional: Returns _debug info for each post
         "displayName": "Alice Smith",
         "profileImageUrl": "https://..."
       },
-      "heartsCount": 15,
-      "reactionsCount": 8,
+      "reactionsCount": 23,
       "commentsCount": 3,
       "createdAt": "2026-03-31T10:00:00Z",
       "privacyLevel": "public",
@@ -1315,8 +1298,7 @@ Authorization: Bearer <token>
       "trending_score": 89.3,
       "engagement_velocity": 12.5,
       "time_window_hours": 24,
-      "hearts_count": 45,
-      "reactions_count": 23,
+      "reactions_count": 68,
       "shares_count": 8,
       "created_at": "2025-01-01T18:00:00Z"
     }
@@ -1429,14 +1411,15 @@ Authorization: Bearer <token>
   "data": [
     {
       "id": "child-uuid-1",
-      "type": "like",
-      "title": "New Like 💜",
-      "message": "bob liked your post",
+      "type": "emoji_reaction",
+      "title": "New Reaction",
+      "message": "bob reacted to your post with 💜",
       "parent_id": "batch-uuid-123",
       "created_at": "2025-01-01T10:00:00Z",
       "data": {
         "post_id": "post-123",
-        "liker_username": "bob",
+        "reactor_username": "bob",
+        "emoji_code": "heart",
         "actor_user_id": "2",
         "actor_username": "bob"
       }
@@ -2500,7 +2483,6 @@ Authorization: Bearer <token>
       "name": "alice",
       "profile_image_url": "https://example.com/avatar.jpg"
     },
-    "hearts_count": 15,
     "reactions_count": 8,
     "current_user_reaction": "heart_eyes",
     "is_hearted": true
@@ -2514,7 +2496,7 @@ Authorization: Bearer <token>
 The AlgorithmService calculates post scores using a weighted formula that considers:
 
 **Base Engagement Metrics:**
-- Hearts/Likes: 1.0x weight
+- Reactions: weighted engagement signal
 - Emoji Reactions: 1.5x weight  
 - Shares: 4.0x weight (highest impact)
 
@@ -2546,7 +2528,7 @@ Authorization: Bearer <token>
 
 **Trending Score Formula:**
 ```
-Base Engagement = (Hearts × 2.0) + (Reactions × 3.0) + (Shares × 8.0)
+Base Engagement = (Reactions × reaction_weight) + (Shares × share_weight)
 Recency Bonus = max(0, (time_window - hours_old) / time_window × 5.0)
 Trending Score = Base Engagement + Recency Bonus
 ```

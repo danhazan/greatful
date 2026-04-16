@@ -4,7 +4,7 @@ import { transformApiResponse } from '../caseTransform'
 describe('Selective Case Transformation', () => {
     it('should camelize standard fields but preserve protected dictionary keys', () => {
         const apiPayload = {
-            hearts_count: 5,
+            reactions_count: 5,
             reaction_summary: {
                 total_count: 1,
                 emoji_counts: {
@@ -18,7 +18,7 @@ describe('Selective Case Transformation', () => {
         const transformed = transformApiResponse(apiPayload);
 
         // Standard fields should be camelized
-        expect(transformed.heartsCount).toBe(5);
+        expect(transformed.reactionsCount).toBe(5);
         expect(transformed.reactionSummary.totalCount).toBe(1);
         expect(transformed.reactionSummary.userReaction).toBe('heart_eyes');
 

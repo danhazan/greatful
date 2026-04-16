@@ -66,7 +66,6 @@ describe('Auth Header Forwarding', () => {
       status: 200,
       text: async () => JSON.stringify({ 
         id: 'test-post',
-        is_hearted: true,
         current_user_reaction: '❤️'
       }),
       headers: {
@@ -113,7 +112,6 @@ describe('Auth Header Forwarding', () => {
     expect(response.status).toBe(200)
     
     const responseData = JSON.parse(await response.text())
-    expect(responseData.isHearted).toBe(true)
     expect(responseData.currentUserReaction).toBe('❤️')
   })
 
@@ -124,7 +122,6 @@ describe('Auth Header Forwarding', () => {
       status: 200,
       text: async () => JSON.stringify({ 
         id: 'test-post',
-        is_hearted: false,
         current_user_reaction: null
       }),
       headers: {
@@ -164,7 +161,6 @@ describe('Auth Header Forwarding', () => {
     expect(response.status).toBe(200)
     
     const responseData = JSON.parse(await response.text())
-    expect(responseData.isHearted).toBe(false)
     expect(responseData.currentUserReaction).toBeNull()
   })
 

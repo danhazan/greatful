@@ -79,9 +79,9 @@ export function transformApiResponse<T = any>(data: any): T {
  * @returns The transformed data with snake_case keys
  * 
  * @example
- * // Frontend sends: { heartsCount: 5, createdAt: "2024-01-01" }
- * // Backend receives: { hearts_count: 5, created_at: "2024-01-01" }
- * const requestData = { heartsCount: 5, createdAt: "2024-01-01" }
+ * // Frontend sends: { reactionsCount: 5, createdAt: "2024-01-01" }
+ * // Backend receives: { reactions_count: 5, created_at: "2024-01-01" }
+ * const requestData = { reactionsCount: 5, createdAt: "2024-01-01" }
  * const transformed = transformApiRequest(requestData)
  * await fetch('/api/posts', { body: JSON.stringify(transformed) })
  */
