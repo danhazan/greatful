@@ -6,7 +6,6 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, BusinessLogicError
-from app.core.query_monitor import monitor_query
 from app.repositories.share_repository import ShareRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.post_repository import PostRepository
@@ -50,7 +49,6 @@ class ShareService(BaseService):
         self.user_repo = UserRepository(db)
         self.post_repo = PostRepository(db)
 
-    @monitor_query("generate_share_url")
     async def generate_share_url(self, post_id: str) -> str:
         """
         Generate a shareable URL for a post.
@@ -67,8 +65,10 @@ class ShareService(BaseService):
         # Verify post exists
         post = await self.post_repo.get_by_id_or_404(post_id)
         
-        # Get base URL from environment or use default
-        base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+        # Get base URL from environment or RAISE if missing
+        base_url = os.getenv("FRONTEND_BASE_URL")
+        if not base_url:
+            raise BusinessLogicError("FRONTEND_BASE_URL environment variable is not set")
         
         # Generate SEO-friendly URL
         share_url = f"{base_url}/post/{post_id}"
@@ -76,7 +76,6 @@ class ShareService(BaseService):
         logger.info(f"Generated share URL for post {post_id}: {share_url}")
         return share_url
 
-    @monitor_query("share_via_url")
     async def share_via_url(
         self, 
         user_id: int, 
@@ -147,7 +146,6 @@ class ShareService(BaseService):
             "created_at": share.created_at.isoformat()
         }
 
-    @monitor_query("share_via_whatsapp")
     async def share_via_whatsapp(
         self, 
         user_id: int, 
@@ -233,7 +231,6 @@ class ShareService(BaseService):
             "created_at": share.created_at.isoformat()
         }
 
-    @monitor_query("share_via_message")
     async def share_via_message(
         self, 
         sender_id: int, 
@@ -329,7 +326,6 @@ class ShareService(BaseService):
             "created_at": share.created_at.isoformat()
         }
 
-    @monitor_query("check_rate_limit")
     async def check_rate_limit(self, user_id: int) -> Dict[str, Any]:
         """
         Check if user has exceeded share rate limit (20 shares per hour).
@@ -346,7 +342,6 @@ class ShareService(BaseService):
             max_shares=20
         )
 
-    @monitor_query("track_share_analytics")
     async def track_share_analytics(
         self, 
         user_id: int, 
@@ -365,7 +360,6 @@ class ShareService(BaseService):
         # For now, we just log the event
         logger.info(f"Share analytics: user={user_id}, post={post_id}, method={method}")
 
-    @monitor_query("get_post_shares")
     async def get_post_shares(self, post_id: str) -> List[Dict[str, Any]]:
         """
         Get all shares for a specific post with user information.
@@ -396,7 +390,6 @@ class ShareService(BaseService):
             for share in shares
         ]
 
-    @monitor_query("get_share_counts")
     async def get_share_counts(self, post_id: str) -> Dict[str, Any]:
         """
         Get share counts for a post.
@@ -418,7 +411,6 @@ class ShareService(BaseService):
             "by_method": counts_by_method
         }
 
-    @monitor_query("get_recent_recipients")
     async def get_recent_recipients(self, user_id: int) -> List[Dict[str, Any]]:
         """
         Get recently messaged users for quick-select in share modal.

@@ -189,6 +189,27 @@ if not user:
 - `mark_as_read()` - Mark notifications as read
 - `get_unread_count()` - Get unread notification count
 
+## Core vs. Resilience Layer Pattern
+
+For high-traffic or mission-critical services, we use a composition-based wrapper pattern to separate deterministic business logic from production resilience and infrastructure concerns.
+
+### 1. Core Service (e.g., `ShareService`)
+- **Responsibility**: Pure business logic, core rules, and deterministic flows.
+- **Fail-Fast**: Raises exceptions immediately for logic errors, missing configuration, or invariant violations.
+- **Infrastructure-Agnostic**: Keeps methods focused on logic. Avoids infrastructure decorators (like `@monitor_query`) to ensure the core remains fast and testable in isolation.
+
+### 2. Resilience Wrapper (e.g., `EnhancedShareService`)
+- **Responsibility**: Production-grade resilience, monitoring, and infrastructure-aware fallbacks.
+- **Composition**: Implemented as a wrapper that takes the core service as a dependency.
+- **Infrastructure Fallbacks (Soft-Fails)**: Catches transient infrastructure exceptions (e.g., `SQLAlchemyError`, `ConnectionError`, `asyncio.TimeoutError`) and provides graceful degradation (e.g., using a static fallback URL or allowing a bypass of non-critical checks).
+- **Monitoring**: Serves as the primary host for observability decorators and metrics emission.
+
+### When NOT to use this pattern
+- **Simple CRUD**: For internal or basic services with minimal external dependencies.
+- **Low-Traffic Paths**: Where the overhead of maintaining two layers exceeds the benefit of resilience.
+- **Administrative Tools**: Where explicit failure is often more helpful for debugging than a silent fallback.
+- **Early Prototypes**: Use a single service until resilience needs are clearly identified to avoid premature complexity.
+
 ## API Endpoint Patterns
 
 ### Thin Controllers

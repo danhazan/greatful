@@ -23,6 +23,7 @@ from app.core.security import decode_token
 from app.models.post import Post
 from app.models.user import User
 from app.services.share_service import ShareService
+from app.services.enhanced_share_service import EnhancedShareService
 from app.core.storage import storage
 from app.services.mention_service import MentionService
 from app.services.post_privacy_service import PostPrivacyService
@@ -270,6 +271,14 @@ async def get_optional_user_id(request: Request) -> Optional[int]:
         return user_id
     except Exception:
         return None
+
+
+def get_share_service(db: AsyncSession):
+    """Factory to get the appropriate share service based on environment."""
+    core = ShareService(db)
+    if os.getenv("ENVIRONMENT") == "production":
+        return EnhancedShareService(core)
+    return core
 
 
 # Removed old create_post function - replaced with create_post_with_file below
@@ -1085,19 +1094,7 @@ async def share_post(
     - **WhatsApp sharing**: Generates WhatsApp Web/app URL with formatted text (no rate limit)
     """
     try:
-        # Use enhanced ShareService for better production error handling in production
-        # Use regular ShareService in development/testing for compatibility
-        if os.getenv("ENVIRONMENT") == "production":
-            try:
-                from app.services.enhanced_share_service import EnhancedShareService
-                share_service = EnhancedShareService(db)
-                logger.info("Using EnhancedShareService for production reliability")
-            except ImportError:
-                share_service = ShareService(db)
-                logger.warning("Enhanced ShareService not available, using regular ShareService")
-        else:
-            # Use regular ShareService in development/testing for test compatibility
-            share_service = ShareService(db)
+        share_service = get_share_service(db)
         
         if share_data.share_method == "url":
             # Share via URL
@@ -1158,7 +1155,7 @@ async def share_post(
         # Import custom exceptions
         from app.core.exceptions import (
             NotFoundError, ValidationException, BusinessLogicError, 
-            PermissionDeniedError, RateLimitError
+            PermissionDeniedError, RateLimitError, DatabaseError, ConflictError
         )
         
         # Handle specific custom exceptions
@@ -1191,7 +1188,17 @@ async def share_post(
             )
         elif isinstance(e, RateLimitError):
             raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, # Map to 422 for frontend compatibility
+                detail=str(e)
+            )
+        elif isinstance(e, DatabaseError):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="A database error occurred while sharing the post"
+            )
+        elif isinstance(e, ConflictError):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
                 detail=str(e)
             )
         else:
