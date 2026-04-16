@@ -259,10 +259,10 @@ class TestShareEdgeCases:
             assert url.startswith('https://custom-domain.com')
             assert f"/post/{post.id}" in url
         
-        # Test with no environment variable (should use default)
+        # Test with no environment variable (should fail fast)
         with patch.dict('os.environ', {}, clear=True):
-            url = await share_service.generate_share_url(post.id)
-            assert url.startswith('http://localhost:3000')
+            with pytest.raises(BusinessLogicError, match="FRONTEND_BASE_URL environment variable is not set"):
+                await share_service.generate_share_url(post.id)
 
     async def test_share_service_notification_failure_handling(
         self, 
