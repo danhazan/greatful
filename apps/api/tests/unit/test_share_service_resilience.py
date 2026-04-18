@@ -66,6 +66,47 @@ class TestEnhancedShareService:
             assert "grateful-net.vercel.app" in url
 
     @pytest.mark.asyncio
+    async def test_share_via_url_resilience(self, enhanced_service, mock_core_service):
+        """Verify share_via_url returns fallback response in production when core fails."""
+        mock_core_service.share_via_url = AsyncMock(side_effect=SQLAlchemyError("DB Down"))
+        # Force the second call (generate_share_url) to also fail to trigger static fallback
+        mock_core_service.generate_share_url = AsyncMock(side_effect=SQLAlchemyError("DB Still Down"))
+        
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+            result = await enhanced_service.share_via_url(1, "post-123")
+            
+            assert result["is_fallback"] is True
+            assert "grateful-net.vercel.app" in result["share_url"]
+            assert result["id"] is None
+
+    @pytest.mark.asyncio
+    async def test_share_via_whatsapp_signature(self, enhanced_service, mock_core_service):
+        """Verify share_via_whatsapp correctly delegates without extra args."""
+        mock_core_service.share_via_whatsapp = AsyncMock(return_value={"status": "whatsapp_sent"})
+        
+        # Call with optional phone_number (which should be ignored during delegation)
+        result = await enhanced_service.share_via_whatsapp(1, "post-123", phone_number="+12345")
+        
+        # Verify delegation call DOES NOT include phone_number
+        mock_core_service.share_via_whatsapp.assert_called_once_with(1, "post-123")
+        assert result == {"status": "whatsapp_sent"}
+
+    @pytest.mark.asyncio
+    async def test_share_via_message_rate_limit_flow(self, enhanced_service, mock_core_service):
+        """Verify share_via_message exercises the wrapper's rate limit check."""
+        # Setup mocks
+        mock_core_service.check_rate_limit = AsyncMock(return_value={"is_exceeded": False})
+        mock_core_service.share_via_message = AsyncMock(return_value={"status": "sent"})
+        
+        # We need to wrap the service to trace internal calls if possible,
+        # or simply rely on the fact that check_rate_limit is called.
+        with patch.object(EnhancedShareService, 'check_rate_limit', wraps=enhanced_service.check_rate_limit) as mock_check:
+            await enhanced_service.share_via_message(1, "post-123", [2], "Hello")
+            
+            mock_check.assert_called_once_with(1)
+            mock_core_service.share_via_message.assert_called_once_with(1, "post-123", [2], "Hello")
+
+    @pytest.mark.asyncio
     async def test_passthrough_getattr(self, enhanced_service, mock_core_service):
         """Verify __getattr__ passes un-wrapped methods to core."""
         mock_core_service.get_share_counts = AsyncMock(return_value={"total": 10})
