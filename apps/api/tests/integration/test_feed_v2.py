@@ -9,6 +9,7 @@ import pytest_asyncio
 from datetime import datetime, timedelta, timezone
 
 from app.models.post import Post
+from app.models.post_image import PostImage
 from app.models.emoji_reaction import EmojiReaction
 from app.models.follow import Follow
 from app.models.user import User
@@ -121,6 +122,8 @@ async def _create_post(db_session, author, content="Grateful", age_hours=0, **kw
     privacy_level = kwargs.pop("privacy_level", "public")
     comments_count = kwargs.pop("comments_count", 0)
     shares_count = kwargs.pop("shares_count", 0)
+    image_url = kwargs.pop("image_url", None)
+    location = kwargs.pop("location", None)
 
     total_reactions = heart_reactions + other_reactions + len(diverse_reactions)
 
@@ -134,6 +137,8 @@ async def _create_post(db_session, author, content="Grateful", age_hours=0, **kw
         reactions_count=total_reactions,
         comments_count=comments_count,
         shares_count=shares_count,
+        image_url=image_url,
+        location=location,
     )
     db_session.add(post)
     await db_session.flush()  # Ensure post is in session before adding reactions
@@ -293,13 +298,60 @@ class TestFeedV2Scoring:
         assert result["posts"][0]["content"] == "Only reactions"
 
     @pytest.mark.asyncio
-    async def test_only_reactions_boost_ranking(self, db_session, user_a, user_b):
-        # Same age, only other reactions
-        await _create_post(db_session, user_b, "Quiet post", age_hours=2)
-        await _create_post(db_session, user_b, "Only reactions", age_hours=2, other_reactions=5)
+    async def test_today_required_filters_recent_posts_only(self, db_session, user_a, user_b):
+        recent = await _create_post(db_session, user_b, "Today post", age_hours=6)
+        await _create_post(db_session, user_b, "Old post", age_hours=48)
+
         service = FeedServiceV2(db_session)
-        result = await service.get_feed(user_id=user_a.id)
-        assert result["posts"][0]["content"] == "Only reactions"
+        result = await service.get_feed(user_id=user_a.id, required_filters=["today"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert recent.id in returned_ids
+        assert all(post["content"] != "Old post" for post in result["posts"])
+
+    @pytest.mark.asyncio
+    async def test_last_3_days_required_filters_correct_window(self, db_session, user_a, user_b):
+        in_window = await _create_post(db_session, user_b, "In 3 days", age_hours=48)
+        await _create_post(db_session, user_b, "Outside 3 days", age_hours=120)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, required_filters=["last_3_days"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert in_window.id in returned_ids
+        assert all(post["content"] != "Outside 3 days" for post in result["posts"])
+
+    @pytest.mark.asyncio
+    async def test_last_week_required_filters_correct_window(self, db_session, user_a, user_b):
+        in_window = await _create_post(db_session, user_b, "In week", age_hours=120)
+        await _create_post(db_session, user_b, "Outside week", age_hours=200)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, required_filters=["last_week"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert in_window.id in returned_ids
+        assert all(post["content"] != "Outside week" for post in result["posts"])
+
+    @pytest.mark.asyncio
+    async def test_time_boost_reorders_within_required_subset(self, db_session, user_a, user_b):
+        await _follow(db_session, user_a, user_b)
+        older = await _create_post(db_session, user_b, "Older followed", age_hours=30)
+        recent = await _create_post(db_session, user_b, "Recent followed", age_hours=6)
+
+        service = FeedServiceV2(db_session)
+        baseline = await service.get_feed(
+            user_id=user_a.id,
+            required_filters=["followed"],
+        )
+        boosted = await service.get_feed(
+            user_id=user_a.id,
+            required_filters=["followed"],
+            boost_filters=["today"],
+        )
+
+        baseline_ids = {post["id"] for post in baseline["posts"]}
+        boosted_ids = {post["id"] for post in boosted["posts"]}
+        assert baseline_ids == boosted_ids
+        assert boosted["posts"][0]["id"] == recent.id
+        assert older.id in boosted_ids
 
     @pytest.mark.asyncio
     async def test_followed_user_ranks_higher(self, db_session, user_a, user_b, user_c):
@@ -419,6 +471,157 @@ class TestFeedV2Privacy:
         result = await service.get_feed(user_id=user_a.id)
         assert len(result["posts"]) == 1
         assert result["posts"][0]["content"] == "My private"
+
+
+# ---------------------------------------------------------------------------
+# Test: Feed filters
+# ---------------------------------------------------------------------------
+
+class TestFeedV2Filters:
+
+    @pytest.mark.asyncio
+    async def test_required_filters_use_or_union(self, db_session, user_a, user_b, user_c):
+        await _follow(db_session, user_a, user_b)  # followed
+        await _follow(db_session, user_c, user_a)  # follower
+        outsider = User(
+            email="user_d@test.com",
+            username="user_d",
+            hashed_password=get_password_hash("password"),
+        )
+        db_session.add(outsider)
+        await db_session.flush()
+
+        followed_post = await _create_post(db_session, user_b, "Followed post", age_hours=1)
+        follower_post = await _create_post(db_session, user_c, "Follower post", age_hours=1)
+        await _create_post(db_session, outsider, "Outsider post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            required_filters=["followed", "followers"],
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert followed_post.id in returned_ids
+        assert follower_post.id in returned_ids
+        assert all(post["content"] != "Outsider post" for post in result["posts"])
+
+    @pytest.mark.asyncio
+    async def test_public_filter_returns_unrelated_only(self, db_session, user_a, user_b, user_c):
+        await _follow(db_session, user_a, user_b)  # followed
+        await _follow(db_session, user_c, user_a)  # follower
+        outsider = User(
+            email="user_public@test.com",
+            username="user_public",
+            hashed_password=get_password_hash("password"),
+        )
+        db_session.add(outsider)
+        await db_session.flush()
+
+        await _create_post(db_session, user_a, "Mine post", age_hours=1)
+        await _create_post(db_session, user_b, "Followed post", age_hours=1)
+        await _create_post(db_session, user_c, "Follower post", age_hours=1)
+        outsider_post = await _create_post(db_session, outsider, "Public unrelated", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            required_filters=["public"],
+        )
+
+        assert len(result["posts"]) == 1
+        assert result["posts"][0]["id"] == outsider_post.id
+
+    @pytest.mark.asyncio
+    async def test_images_filter_covers_legacy_and_multi_image(self, db_session, user_a, user_b):
+        legacy = await _create_post(db_session, user_b, "Legacy image", age_hours=1, image_url="/uploads/legacy.jpg")
+        multi = await _create_post(db_session, user_b, "Multi image", age_hours=1)
+        db_session.add(PostImage(
+            post_id=multi.id,
+            position=0,
+            thumbnail_url="/uploads/thumb.jpg",
+            medium_url="/uploads/medium.jpg",
+            original_url="/uploads/original.jpg",
+        ))
+        await db_session.flush()
+        await _create_post(db_session, user_b, "No image", age_hours=1)
+        await db_session.commit()
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            required_filters=["images"],
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert legacy.id in returned_ids
+        assert multi.id in returned_ids
+        assert all(post["content"] != "No image" for post in result["posts"])
+
+    @pytest.mark.asyncio
+    async def test_no_boost_filters_preserve_baseline_order(self, db_session, user_a, user_b):
+        await _create_post(db_session, user_b, "A", age_hours=1, comments_count=3)
+        await _create_post(db_session, user_b, "B", age_hours=2, comments_count=1)
+        await _create_post(db_session, user_b, "C", age_hours=3, comments_count=0)
+
+        service = FeedServiceV2(db_session)
+        baseline = await service.get_feed(user_id=user_a.id)
+        with_empty_boosts = await service.get_feed(user_id=user_a.id, boost_filters=[])
+
+        baseline_ids = [post["id"] for post in baseline["posts"]]
+        empty_boost_ids = [post["id"] for post in with_empty_boosts["posts"]]
+        assert baseline_ids == empty_boost_ids
+
+    @pytest.mark.asyncio
+    async def test_boost_score_is_capped(self, db_session, user_a, user_b):
+        await _follow(db_session, user_a, user_b)
+        await _follow(db_session, user_b, user_a)
+        await _create_post(
+            db_session,
+            user_b,
+            "Boost target",
+            age_hours=1,
+            image_url="/uploads/boost.jpg",
+        )
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            boost_filters=["followed", "followers", "images", "today", "last_3_days", "last_week"],
+            debug=True,
+        )
+
+        assert result["posts"][0]["_debug"]["filterBoost"] == 3.0
+
+    @pytest.mark.asyncio
+    async def test_required_subset_then_boost_reorders_inside_subset(self, db_session, user_a, user_b, user_c):
+        await _follow(db_session, user_a, user_b)  # followed users are eligible
+        followed_plain = await _create_post(db_session, user_b, "Followed plain", age_hours=1)
+        followed_image = await _create_post(
+            db_session,
+            user_b,
+            "Followed image",
+            age_hours=1,
+            image_url="/uploads/followed-image.jpg",
+        )
+        await _create_post(db_session, user_c, "Unrelated image", age_hours=1, image_url="/uploads/public-image.jpg")
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            required_filters=["followed"],
+            boost_filters=["images"],
+            debug=True,
+        )
+
+        # Required filter keeps only followed-author posts
+        assert all(post["author_id"] == user_b.id for post in result["posts"])
+        # Boost reorders only inside required subset
+        assert result["posts"][0]["id"] == followed_image.id
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert followed_plain.id in returned_ids
+        assert followed_image.id in returned_ids
+        assert all(post["content"] != "Unrelated image" for post in result["posts"])
 
 
 # ---------------------------------------------------------------------------

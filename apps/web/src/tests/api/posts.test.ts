@@ -347,6 +347,30 @@ describe('/api/posts', () => {
       )
     })
 
+    it('forwards filter query parameters', async () => {
+      ;(fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ posts: [], next_cursor: null })
+      })
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/posts?page_size=10&required_filters=today&required_filters=images&boost_filters=mine&boost_filters=last_week',
+        {
+          method: 'GET',
+          headers: {
+            'authorization': 'Bearer test-token'
+          }
+        }
+      )
+
+      await GET(request)
+
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:8000/api/v1/posts/feed?page_size=10&required_filters=today&required_filters=images&boost_filters=mine&boost_filters=last_week',
+        expect.any(Object)
+      )
+    })
+
     it('returns 401 when no authorization header', async () => {
       const request = new NextRequest('http://localhost:3000/api/posts', {
         method: 'GET'

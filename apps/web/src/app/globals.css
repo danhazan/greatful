@@ -196,6 +196,17 @@ body {
   background: #a8a8a8;
 }
 
+/* Feed filter row should scroll without visible scrollbar */
+.feed-filter-scroll {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+  touch-action: pan-x; /* Enable horizontal scroll on touch devices */
+}
+
+.feed-filter-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Touch interaction enhancements */
 .touch-manipulation {
   -webkit-touch-callout: none;

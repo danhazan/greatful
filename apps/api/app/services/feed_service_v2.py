@@ -47,6 +47,9 @@ from app.config.feed_config import (
     JITTER_MAX,
     AUTHOR_SPACING_WINDOW,
     AUTHOR_SPACING_MAX_PER_WINDOW,
+    SUPPORTED_FEED_FILTERS,
+    FILTER_BOOST_WEIGHT,
+    FILTER_BOOST_MAX,
 )
 from app.core.service_base import BaseService
 from app.models.post import Post
@@ -79,6 +82,8 @@ class FeedServiceV2(BaseService):
         cursor: Optional[str] = None,
         page_size: int = DEFAULT_PAGE_SIZE,
         debug: bool = False,
+        required_filters: Optional[List[str]] = None,
+        boost_filters: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Get the user's feed with cursor-based pagination.
@@ -96,9 +101,32 @@ class FeedServiceV2(BaseService):
             cursor_data = None
             query_time = datetime.now(timezone.utc)
 
+        normalized_filters = self._normalize_feed_filters(
+            required_filters=required_filters,
+            boost_filters=boost_filters,
+        )
+        logger.info(
+            "[FEED_FILTERS][service-entry] user_id=%s required=%s boost=%s",
+            user_id,
+            normalized_filters["required_filters"],
+            normalized_filters["boost_filters"],
+        )
+
         # Fetch a wider candidate pool so author spacing has room to diversify
         fetch_size = page_size * CANDIDATE_MULTIPLIER
-        query, params = self._build_feed_query(user_id, query_time, cursor_data, fetch_size)
+        query, params = self._build_feed_query(
+            user_id=user_id,
+            query_time=query_time,
+            cursor_data=cursor_data,
+            page_size=fetch_size,
+            required_filters=normalized_filters["required_filters"],
+            boost_filters=normalized_filters["boost_filters"],
+        )
+        logger.info(
+            "[FEED_FILTERS][query-exec] user_id=%s params_keys=%s",
+            user_id,
+            sorted(params.keys()),
+        )
         result = await self.db.execute(query, params)
         rows = result.fetchall()
 
@@ -130,6 +158,7 @@ class FeedServiceV2(BaseService):
                     "recentEngagement": round(float(row.recent_engagement_score), 4),
                     "userReaction": round(float(row.user_reaction_score), 4),
                     "discovery": round(float(row.discovery_score), 4),
+                    "filterBoost": round(float(getattr(row, "filter_boost_score", 0) or 0), 4),
                     "jitter": round(float(row.jitter_score), 4),
                     "postAgeHours": round(age_seconds / 3600, 2),
                     "authorId": post.author_id,
@@ -240,12 +269,87 @@ class FeedServiceV2(BaseService):
         query_time: datetime,
         cursor_data: Optional[Dict],
         page_size: int,
+        required_filters: List[str],
+        boost_filters: List[str],
     ) -> Tuple[Any, Dict]:
         """Build the CTE-based scored feed query."""
         if self._is_pg:
-            return self._build_pg_query(user_id, query_time, cursor_data, page_size)
+            return self._build_pg_query(
+                user_id,
+                query_time,
+                cursor_data,
+                page_size,
+                required_filters,
+                boost_filters,
+            )
         else:
-            return self._build_sqlite_query(user_id, query_time, cursor_data, page_size)
+            return self._build_sqlite_query(
+                user_id,
+                query_time,
+                cursor_data,
+                page_size,
+                required_filters,
+                boost_filters,
+            )
+
+    @staticmethod
+    def _normalize_feed_filters(
+        required_filters: Optional[List[str]],
+        boost_filters: Optional[List[str]],
+    ) -> Dict[str, Any]:
+        allowed = set(SUPPORTED_FEED_FILTERS)
+
+        def _normalize(values: Optional[List[str]]) -> List[str]:
+            normalized: List[str] = []
+            for value in values or []:
+                key = str(value).strip().lower()
+                if key in allowed and key not in normalized:
+                    normalized.append(key)
+            return normalized
+
+        required = _normalize(required_filters)
+        boost = _normalize(boost_filters)
+
+        return {
+            "required_filters": required,
+            "boost_filters": boost,
+        }
+
+    @staticmethod
+    def _build_filter_clauses(required_filters: List[str], boost_filters: List[str], age_seconds_expr: str) -> Dict[str, Any]:
+        base_predicates = {
+            "mine": "p.author_id = :uid",
+            "followed": "f_out.id IS NOT NULL",
+            "followers": "f_in.id IS NOT NULL",
+            # Public is strictly derived from existing relationship predicates.
+            "public": "NOT ((p.author_id = :uid) OR (f_out.id IS NOT NULL) OR (f_in.id IS NOT NULL))",
+            "images": "(p.image_url IS NOT NULL OR EXISTS (SELECT 1 FROM post_images pi WHERE pi.post_id = p.id))",
+            "today": f"({age_seconds_expr}) <= 86400",
+            "last_3_days": f"({age_seconds_expr}) <= 259200",
+            "last_week": f"({age_seconds_expr}) <= 604800",
+        }
+
+        required_predicates = [base_predicates[name] for name in required_filters if name in base_predicates]
+        required_clause = ""
+        if required_predicates:
+            required_clause = " AND (" + " OR ".join(required_predicates) + ")"
+
+        boost_predicates = [base_predicates[name] for name in boost_filters if name in base_predicates]
+        if boost_predicates:
+            boost_sum = " + ".join(
+                f"(CASE WHEN ({predicate}) THEN {FILTER_BOOST_WEIGHT} ELSE 0 END)"
+                for predicate in boost_predicates
+            )
+            boost_expr = f"LEAST({FILTER_BOOST_MAX}, ({boost_sum}))"
+        else:
+            boost_expr = "0"
+
+        return {
+            "required_clause": required_clause,
+            "boost_expr": boost_expr,
+            "required_predicates": required_predicates,
+            "boost_predicates": boost_predicates,
+        }
 
     def _build_pg_query(
         self,
@@ -253,6 +357,8 @@ class FeedServiceV2(BaseService):
         query_time: datetime,
         cursor_data: Optional[Dict],
         page_size: int,
+        required_filters: List[str],
+        boost_filters: List[str],
     ) -> Tuple[Any, Dict]:
         """PostgreSQL query with CTE and can_view_post."""
         cursor_filter = ""
@@ -262,6 +368,14 @@ class FeedServiceV2(BaseService):
             )
 
         age_pg = "EXTRACT(EPOCH FROM (CAST(:qt AS timestamptz) - p.created_at))"
+        filter_clauses = self._build_filter_clauses(required_filters, boost_filters, age_pg)
+        logger.info(
+            "[FEED_FILTERS][sql] dialect=postgres required=%s boost=%s required_clause=%s boost_count=%s",
+            required_filters,
+            boost_filters,
+            filter_clauses["required_clause"] or "(none)",
+            len(filter_clauses["boost_predicates"]),
+        )
 
         sql = text(f"""
             WITH scored AS (
@@ -320,6 +434,7 @@ class FeedServiceV2(BaseService):
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
                     END AS discovery_score,
+                    {filter_clauses["boost_expr"]} AS filter_boost_score,
                     -- jitter: deterministic randomness based on post id + query time
                     ({JITTER_MAX} * (
                         (('x' || SUBSTR(MD5(p.id || ({age_pg})::text), 1, 8))::bit(32)::int
@@ -372,6 +487,7 @@ class FeedServiceV2(BaseService):
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
                       END
+                    + {filter_clauses["boost_expr"]}
                     + ({JITTER_MAX} * (
                         (('x' || SUBSTR(MD5(p.id || ({age_pg})::text), 1, 8))::bit(32)::int
                         & 65535) / 65535.0
@@ -387,6 +503,7 @@ class FeedServiceV2(BaseService):
                 LEFT JOIN emoji_reactions er_user
                     ON er_user.post_id = p.id AND er_user.user_id = :uid
                 WHERE can_view_post(:uid, p.id::uuid)
+                {filter_clauses["required_clause"]}
             )
             SELECT * FROM scored
             WHERE 1=1 {cursor_filter}
@@ -408,6 +525,8 @@ class FeedServiceV2(BaseService):
         query_time: datetime,
         cursor_data: Optional[Dict],
         page_size: int,
+        required_filters: List[str],
+        boost_filters: List[str],
     ) -> Tuple[Any, Dict]:
         """SQLite query for tests. Uses julianday for time math, LN/GREATEST registered as custom functions."""
         cursor_filter = ""
@@ -417,6 +536,14 @@ class FeedServiceV2(BaseService):
             )
 
         age_expr = f"(julianday(:qt) - julianday(p.created_at)) * 86400"
+        filter_clauses = self._build_filter_clauses(required_filters, boost_filters, age_expr)
+        logger.info(
+            "[FEED_FILTERS][sql] dialect=sqlite required=%s boost=%s required_clause=%s boost_count=%s",
+            required_filters,
+            boost_filters,
+            filter_clauses["required_clause"] or "(none)",
+            len(filter_clauses["boost_predicates"]),
+        )
         # Build visibility clause for SQLite (inline instead of can_view_post function)
         visibility_clause = """
             (
@@ -532,6 +659,7 @@ class FeedServiceV2(BaseService):
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
                     END AS discovery_score,
+                    {filter_clauses["boost_expr"]} AS filter_boost_score,
                     -- jitter: deterministic randomness
                     ({jitter_sqlite}) AS jitter_score,
 
@@ -579,6 +707,7 @@ class FeedServiceV2(BaseService):
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
                       END
+                    + {filter_clauses["boost_expr"]}
                     + ({jitter_sqlite})
                     AS feed_score
                 FROM posts p
@@ -591,6 +720,7 @@ class FeedServiceV2(BaseService):
                 LEFT JOIN emoji_reactions er_user
                     ON er_user.post_id = p.id AND er_user.user_id = :uid
                 WHERE {visibility_clause}
+                {filter_clauses["required_clause"]}
             )
             SELECT * FROM scored
             WHERE 1=1 {cursor_filter}
