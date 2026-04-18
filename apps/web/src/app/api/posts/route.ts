@@ -269,8 +269,12 @@ export async function GET(request: NextRequest) {
     const queryParams = new URLSearchParams()
     const cursor = searchParams.get('cursor')
     const pageSize = searchParams.get('page_size') || '10'
+    const requiredFilters = searchParams.getAll('required_filters')
+    const boostFilters = searchParams.getAll('boost_filters')
     if (cursor) queryParams.set('cursor', cursor)
     queryParams.set('page_size', pageSize)
+    requiredFilters.forEach((filter) => queryParams.append('required_filters', filter))
+    boostFilters.forEach((filter) => queryParams.append('boost_filters', filter))
 
     const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed?${queryParams}`, {
       method: 'GET',

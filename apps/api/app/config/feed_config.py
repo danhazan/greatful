@@ -53,3 +53,18 @@ JITTER_MAX = 0.2  # effective range: +/- 0.1
 # --- Author spacing ---
 AUTHOR_SPACING_WINDOW = 6  # look-back window size
 AUTHOR_SPACING_MAX_PER_WINDOW = 2  # max posts from same author in window
+
+# --- Feed filters (v1) ---
+SUPPORTED_FEED_FILTERS = (
+    "mine",
+    "followed",
+    "followers",
+    "public",
+    "images",
+    "today",
+    "last_3_days",
+    "last_week",
+)
+
+FILTER_BOOST_WEIGHT = 1.0
+FILTER_BOOST_MAX = 3.0

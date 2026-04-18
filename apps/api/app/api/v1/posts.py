@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -975,6 +975,8 @@ async def get_feed(
     db: AsyncSession = Depends(get_db),
     cursor: Optional[str] = None,
     page_size: Optional[int] = None,
+    required_filters: Optional[List[str]] = Query(default=None),
+    boost_filters: Optional[List[str]] = Query(default=None),
 ):
     """
     Feed endpoint with cursor-based pagination.
@@ -994,6 +996,14 @@ async def get_feed(
         )
 
     debug = request.headers.get("X-Feed-Debug", "").lower() == "true"
+    logger.info(
+        "[FEED_FILTERS][api] user_id=%s required=%s boost=%s cursor_present=%s page_size=%s",
+        current_user_id,
+        required_filters or [],
+        boost_filters or [],
+        bool(cursor),
+        page_size,
+    )
 
     try:
         service = FeedServiceV2(db)
@@ -1002,6 +1012,8 @@ async def get_feed(
             cursor=cursor,
             page_size=page_size,
             debug=debug,
+            required_filters=required_filters,
+            boost_filters=boost_filters,
         )
         return result
     except ValueError as e:

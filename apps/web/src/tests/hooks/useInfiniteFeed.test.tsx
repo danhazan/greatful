@@ -1,7 +1,7 @@
 import React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
-import { useInfiniteFeed } from '@/hooks/useInfiniteFeed'
+import { FeedFiltersPayload, useInfiniteFeed } from '@/hooks/useInfiniteFeed'
 import { apiClient } from '@/utils/apiClient'
 
 const mockedApiClient = apiClient as unknown as { get: jest.Mock }
@@ -37,7 +37,7 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function TestInfiniteFeed({ enabled = true }: { enabled?: boolean }) {
+function TestInfiniteFeed({ enabled = true, feedFilters }: { enabled?: boolean; feedFilters?: FeedFiltersPayload }) {
   const {
     items,
     nextCursor,
@@ -50,6 +50,7 @@ function TestInfiniteFeed({ enabled = true }: { enabled?: boolean }) {
   } = useInfiniteFeed({
     enabled,
     currentUserId: undefined,
+    feedFilters,
   })
 
   return (
@@ -99,6 +100,70 @@ describe('useInfiniteFeed', () => {
 
     expect(screen.getByTestId('has-more')).toHaveTextContent('false')
     expect(mockedApiClient.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('sends selected filters as query params', async () => {
+    mockedApiClient.get.mockResolvedValueOnce({
+      posts: [createRawPost('1')],
+      nextCursor: null,
+    } as any)
+
+    render(
+      <TestInfiniteFeed
+        feedFilters={{
+          requiredFilters: ['today', 'images'],
+          boostFilters: ['mine', 'last_week'],
+        }}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('item-ids')).toHaveTextContent('1')
+    })
+
+    expect(mockedApiClient.get).toHaveBeenCalledWith(
+      '/posts?page_size=10&required_filters=today&required_filters=images&boost_filters=mine&boost_filters=last_week',
+      { skipCache: true }
+    )
+  })
+
+  it('keeps filters on pagination requests', async () => {
+    mockedApiClient.get
+      .mockResolvedValueOnce({
+        posts: [createRawPost('1')],
+        nextCursor: 'cursor-1',
+      } as any)
+      .mockResolvedValueOnce({
+        posts: [createRawPost('2')],
+        nextCursor: null,
+      } as any)
+
+    render(
+      <TestInfiniteFeed
+        feedFilters={{
+          requiredFilters: ['last_3_days'],
+          boostFilters: ['followed'],
+        }}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('item-ids')).toHaveTextContent('1')
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('load-next'))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('item-ids')).toHaveTextContent('1,2')
+    })
+
+    expect(mockedApiClient.get).toHaveBeenNthCalledWith(
+      2,
+      '/posts?page_size=10&cursor=cursor-1&required_filters=last_3_days&boost_filters=followed',
+      { skipCache: true }
+    )
   })
 
   it('prevents concurrent requests for the same cursor', async () => {
