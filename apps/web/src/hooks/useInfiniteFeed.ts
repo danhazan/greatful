@@ -4,16 +4,27 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiClient } from '@/utils/apiClient'
 import { normalizePostFromApi } from '@/utils/normalizePost'
 import { Post } from '@/types/post'
+import { requestDeduplicator } from '@/utils/requestDeduplicator'
+import { FEED_CONFIG } from '@/config/feed'
 
 type FeedPageResponse = {
   posts: any[]
   nextCursor: string | null
 }
 
+export type FeedFilterKey = 'mine' | 'followed' | 'followers' | 'public' | 'images' | 'today' | 'last_3_days' | 'last_week' | 'last_2_weeks' | 'last_month'
+export type FeedFilterMode = 'off' | 'boost' | 'required'
+
+export interface FeedFiltersPayload {
+  requiredFilters: FeedFilterKey[]
+  boostFilters: FeedFilterKey[]
+}
+
 interface UseInfiniteFeedOptions {
   enabled: boolean
   currentUserId?: string
   onPostsLoaded?: (posts: Post[]) => void
+  feedFilters?: FeedFiltersPayload
 }
 
 interface UseInfiniteFeedResult {
@@ -24,7 +35,7 @@ interface UseInfiniteFeedResult {
   isFetchingNextPage: boolean
   isRefreshing: boolean
   error: Error | null
-  refresh: (reason?: string) => Promise<void>
+  refresh: (reason?: string, options?: { preserveExistingItems?: boolean }) => Promise<void>
   loadNextPage: () => Promise<void>
   patchPost: (postId: string, updater: (post: Post) => Post) => void
   removePost: (postId: string) => void
@@ -100,10 +111,29 @@ function mergeFeedItems(existingItems: Post[], incomingPosts: Post[], seenIds: S
   }
 }
 
+function buildFeedQuery(cursor: string | null, filters?: FeedFiltersPayload): string {
+  const params = new URLSearchParams()
+  params.set('page_size', String(FEED_CONFIG.DEFAULT_PAGE_SIZE))
+
+  if (cursor) {
+    params.set('cursor', cursor)
+  }
+
+  for (const filterName of filters?.requiredFilters ?? []) {
+    params.append('required_filters', filterName)
+  }
+  for (const filterName of filters?.boostFilters ?? []) {
+    params.append('boost_filters', filterName)
+  }
+
+  return `/posts?${params.toString()}`
+}
+
 export function useInfiniteFeed({
   enabled,
   currentUserId,
   onPostsLoaded,
+  feedFilters,
 }: UseInfiniteFeedOptions): UseInfiniteFeedResult {
   const [items, setItems] = useState<Post[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -125,6 +155,8 @@ export function useInfiniteFeed({
   const initialLoadStartedRef = useRef(false)
   const isRefreshingRef = useRef(false)
   const lastRefreshAtRef = useRef(0)
+  const filterChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastFilterSignatureRef = useRef<string | null>(null)
 
   itemsRef.current = items
 
@@ -169,7 +201,7 @@ export function useInfiniteFeed({
   }, [currentUserId])
 
   const fetchPage = useCallback(async (cursor: string | null, refresh: boolean): Promise<FeedPageResponse> => {
-    const query = cursor ? `/posts?cursor=${encodeURIComponent(cursor)}&page_size=10` : '/posts'
+    const query = buildFeedQuery(cursor, feedFilters)
     const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>(query, {
       skipCache: true,
     })
@@ -188,9 +220,11 @@ export function useInfiniteFeed({
       posts: hydratedPosts,
       nextCursor: (data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null,
     }
-  }, [hydratePrivacy])
-
-  const resetSessionState = useCallback(() => {
+  }, [feedFilters, hydratePrivacy])
+  const feedFilterSignature = JSON.stringify(feedFilters || { requiredFilters: [], boostFilters: [] })
+  
+  const resetSessionState = useCallback((options?: { clearItems?: boolean }) => {
+    const clearItems = options?.clearItems ?? true
     seenIdsRef.current = new Set()
     requestedCursorsRef.current = new Set()
     activePaginationCursorRef.current = null
@@ -198,8 +232,10 @@ export function useInfiniteFeed({
     repeatCursorCountRef.current = 0
     noProgressCountRef.current = 0
     observerCursorGateRef.current = null
-    itemsRef.current = []
-    setItems([])
+    if (clearItems) {
+      itemsRef.current = []
+      setItems([])
+    }
     setNextCursor(null)
     setHasMore(false)
     setIsRefreshing(false)
@@ -213,12 +249,18 @@ export function useInfiniteFeed({
     activePaginationCursorRef.current = null
   }, [])
 
-  const runSessionLoad = useCallback(async (refresh: boolean, reason: string) => {
+  const runSessionLoad = useCallback(async (
+    refresh: boolean,
+    reason: string,
+    options?: { preserveExistingItems?: boolean }
+  ) => {
+    const preserveExistingItems = options?.preserveExistingItems ?? false
     const sessionVersion = sessionVersionRef.current + 1
     sessionVersionRef.current = sessionVersion
     initialLoadStartedRef.current = true
     debugLog(refresh ? 'refresh start' : 'initial load start', { sessionVersion, reason, timestamp: Date.now() })
-    resetSessionState()
+    requestDeduplicator.cancel('/api/posts')
+    resetSessionState({ clearItems: !preserveExistingItems })
     setIsInitialLoading(true)
     if (refresh) {
       isRefreshingRef.current = true
@@ -383,7 +425,7 @@ export function useInfiniteFeed({
     }
   }, [enabled, fetchPage, hasMore, nextCursor, onPostsLoaded, stopPagination])
 
-  const refresh = useCallback(async (reason: string = 'manual') => {
+  const refresh = useCallback(async (reason: string = 'manual', options?: { preserveExistingItems?: boolean }) => {
     debugLog('refresh triggered', {
       reason,
       timestamp: Date.now(),
@@ -396,12 +438,14 @@ export function useInfiniteFeed({
       return
     }
 
-    if (reason !== 'post-create' && Date.now() - lastRefreshAtRef.current < 750) {
+    if (reason !== 'post-create' && Date.now() - lastRefreshAtRef.current < FEED_CONFIG.REFRESH_COOLDOWN_MS) {
       debugLog('refresh skipped', { reason, skipReason: 'cooldown', timestamp: Date.now() })
       return
     }
 
-    await runSessionLoad(true, reason)
+    await runSessionLoad(true, reason, {
+      preserveExistingItems: options?.preserveExistingItems ?? false,
+    })
   }, [runSessionLoad])
 
   const patchPost = useCallback((postId: string, updater: (post: Post) => Post) => {
@@ -437,7 +481,32 @@ export function useInfiniteFeed({
     if (initialLoadStartedRef.current) return
     void runSessionLoad(false, 'initial-load')
   }, [enabled, resetSessionState, runSessionLoad])
+  useEffect(() => {
+    if (!enabled) return
 
+    if (lastFilterSignatureRef.current === null) {
+      lastFilterSignatureRef.current = feedFilterSignature
+      return
+    }
+
+    if (lastFilterSignatureRef.current === feedFilterSignature) return
+    lastFilterSignatureRef.current = feedFilterSignature
+
+    if (filterChangeTimeoutRef.current) {
+      clearTimeout(filterChangeTimeoutRef.current)
+    }
+
+    filterChangeTimeoutRef.current = setTimeout(() => {
+      void refresh('filter-change', { preserveExistingItems: true })
+    }, FEED_CONFIG.FILTER_DEBOUNCE_MS)
+
+    return () => {
+      if (filterChangeTimeoutRef.current) {
+        clearTimeout(filterChangeTimeoutRef.current)
+      }
+    }
+  }, [enabled, feedFilterSignature, refresh])
+  
   return {
     items,
     nextCursor,

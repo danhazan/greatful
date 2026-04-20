@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
 import Navbar from "@/components/Navbar"
 import { Post } from '@/types/post'
-import { useInfiniteFeed } from "@/hooks/useInfiniteFeed"
+import { FeedFilterKey, FeedFilterMode, FeedFiltersPayload, useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
 import { isAuthenticated } from "@/utils/auth"
 import {
@@ -17,6 +17,32 @@ import {
   getTrueScrollTop,
   shouldTriggerObserverLoad,
 } from "@/utils/feedScrollGuards"
+
+const FILTER_CHIPS: Array<{ key: FeedFilterKey; label: string }> = [
+  { key: 'mine', label: 'Mine' },
+  { key: 'followed', label: 'Followed' },
+  { key: 'followers', label: 'Followers' },
+  { key: 'public', label: 'Public' },
+  { key: 'images', label: 'Images' },
+  { key: 'today', label: 'Today' },
+  { key: 'last_3_days', label: 'Last 3 Days' },
+  { key: 'last_week', label: 'Last Week' },
+  { key: 'last_2_weeks', label: 'Last 2 Weeks' },
+  { key: 'last_month', label: 'Last Month' },
+]
+
+const DEFAULT_FILTER_MODES: Record<FeedFilterKey, FeedFilterMode> = {
+  mine: 'off',
+  followed: 'off',
+  followers: 'off',
+  public: 'off',
+  images: 'off',
+  today: 'off',
+  last_3_days: 'off',
+  last_week: 'off',
+  last_2_weeks: 'off',
+  last_month: 'off',
+}
 
 export default function FeedPage() {
   const router = useRouter()
@@ -29,6 +55,45 @@ export default function FeedPage() {
   const scrollDirectionRef = useRef<'up' | 'down' | 'idle'>('idle')
   const lastKnownScrollTopRef = useRef(0)
   const observerVisibleRef = useRef(false)
+  const filterScrollRef = useRef<HTMLDivElement | null>(null)
+  const [filterModes, setFilterModes] = useState<Record<FeedFilterKey, FeedFilterMode>>(DEFAULT_FILTER_MODES)
+  const [appliedFilterModes, setAppliedFilterModes] = useState<Record<FeedFilterKey, FeedFilterMode>>(DEFAULT_FILTER_MODES)
+
+  const feedFilters = useMemo<FeedFiltersPayload>(() => {
+    const requiredFilters = FILTER_CHIPS
+      .filter(({ key }) => filterModes[key] === 'required')
+      .map(({ key }) => key)
+    const boostFilters = FILTER_CHIPS
+      .filter(({ key }) => filterModes[key] === 'boost')
+      .map(({ key }) => key)
+
+    return {
+      requiredFilters,
+      boostFilters,
+    }
+  }, [filterModes])
+
+  // Order filters: REQUIRED first, then BOOST, then inactive
+  // Use appliedFilterModes so reordering happens only after feed refresh
+  // FILTER_CHIPS is never mutated - only used as source of truth
+  const orderedFilterChips = useMemo(() => {
+    const required: typeof FILTER_CHIPS = []
+    const boost: typeof FILTER_CHIPS = []
+    const inactive: typeof FILTER_CHIPS = []
+
+    for (const filter of FILTER_CHIPS) {
+      const mode = appliedFilterModes[filter.key]
+      if (mode === 'required') {
+        required.push(filter)
+      } else if (mode === 'boost') {
+        boost.push(filter)
+      } else {
+        inactive.push(filter)
+      }
+    }
+
+    return [...required, ...boost, ...inactive]
+  }, [appliedFilterModes])
 
   // Populate UserContext cache from post author data
   const populateAuthorCache = useCallback((postList: Post[]) => {
@@ -75,7 +140,35 @@ export default function FeedPage() {
     enabled: canQueryFeed,
     currentUserId: currentUser?.id,
     onPostsLoaded: populateAuthorCache,
+    feedFilters,
   })
+
+  // Sync appliedFilterModes only when:
+  // 1. Initial load completes (not during pagination)
+  // 2. Filter change refresh completes (not just any state change)
+  const isFilterChanged = Object.keys(filterModes).some(
+    key => filterModes[key as FeedFilterKey] !== appliedFilterModes[key as FeedFilterKey]
+  )
+  
+  const wasInitialLoading = useRef(canQueryFeed && isInitialLoading)
+  const wasRefreshing = useRef(false)
+  
+  useEffect(() => {
+    if (!canQueryFeed) return
+
+    // Initial load completed
+    const initialComplete = wasInitialLoading.current && !isInitialLoading && !isFetchingNextPage
+    
+    // Filter change refresh completed (was refreshing, now not, AND filters changed)
+    const refreshComplete = wasRefreshing.current && !isRefreshing && !isFetchingNextPage && isFilterChanged
+
+    if (initialComplete || refreshComplete) {
+      setAppliedFilterModes(filterModes)
+    }
+
+    wasInitialLoading.current = isInitialLoading
+    wasRefreshing.current = isRefreshing
+  }, [canQueryFeed, isInitialLoading, isFetchingNextPage, isRefreshing, isFilterChanged, filterModes])
 
   const getScrollMetrics = useCallback(() => {
     const containerScrollTop = scrollContainerRef.current?.scrollTop ?? 0
@@ -134,6 +227,39 @@ export default function FeedPage() {
   useEffect(() => {
     observerVisibleRef.current = false
   }, [nextCursor])
+
+  const getNextFilterMode = useCallback((mode: FeedFilterMode): FeedFilterMode => {
+    if (mode === 'off') return 'boost'
+    if (mode === 'boost') return 'required'
+    return 'off'
+  }, [])
+
+  const toggleFilterMode = useCallback((filterKey: FeedFilterKey) => {
+    setFilterModes((prev) => ({
+      ...prev,
+      [filterKey]: getNextFilterMode(prev[filterKey]),
+    }))
+  }, [getNextFilterMode])
+
+  const getFilterChipClassName = useCallback((mode: FeedFilterMode) => {
+    if (mode === 'required') {
+      return 'border-purple-700 bg-purple-600 text-white shadow-sm'
+    }
+    if (mode === 'boost') {
+      return 'border-purple-500 bg-gradient-to-r from-purple-200 via-purple-100 to-white text-purple-700'
+    }
+    return 'border-gray-300 bg-white text-gray-700 hover:border-purple-300 hover:text-purple-700'
+  }, [])
+
+  const scrollFilterBar = useCallback((direction: 'left' | 'right') => {
+    const node = filterScrollRef.current
+    if (!node) return
+
+    node.scrollBy({
+      left: direction === 'left' ? -220 : 220,
+      behavior: 'smooth',
+    })
+  }, [])
 
   // Infinite scroll observer
   useEffect(() => {
@@ -419,6 +545,55 @@ export default function FeedPage() {
         ref={scrollContainerRef}
       >
         <div className="max-w-2xl mx-auto">
+          <div className="mb-4">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scrollFilterBar('left')}
+                className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-purple-300 hover:text-purple-700"
+                aria-label="Scroll filters left"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <div className="relative flex-1 overflow-hidden">
+                <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-white to-transparent md:hidden" />
+                <div
+                  ref={filterScrollRef}
+                  className="feed-filter-scroll overflow-x-auto overflow-y-hidden whitespace-nowrap scroll-smooth"
+                >
+                  <div className="inline-flex items-center gap-2 py-1">
+                    {orderedFilterChips.map(({ key, label }) => {
+                      const mode = filterModes[key]
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => toggleFilterMode(key)}
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${getFilterChipClassName(mode)}`}
+                          aria-label={`${label} filter ${mode}`}
+                        >
+                          {label}
+                          {mode === 'required' && <Check className="h-3.5 w-3.5" />}
+                        </button>
+                      )
+                    })}
+
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => scrollFilterBar('right')}
+                className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-purple-300 hover:text-purple-700"
+                aria-label="Scroll filters right"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
           {/* Posts */}
           <div className="space-y-6">
             {posts.length === 0 ? (
