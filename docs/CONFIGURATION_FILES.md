@@ -250,6 +250,24 @@ startCommand = "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $
 - **Module Transform**: Uses `ts-jest` for TypeScript compilation
 - **Test Matching**: Finds tests in `src/tests/` and `src/app/` directories
 
+### Frontend Feature Configuration
+**File**: `apps/web/src/config/feed.ts`
+**Purpose**: Feed system configuration constants
+**Content**:
+```typescript
+export const FEED_CONFIG = {
+  FILTER_DEBOUNCE_MS: parseInt(process.env['NEXT_PUBLIC_FEED_FILTER_DEBOUNCE_MS'] || '400', 10),
+  REFRESH_COOLDOWN_MS: parseInt(process.env['NEXT_PUBLIC_FEED_REFRESH_COOLDOWN_MS'] || '750', 10),
+  DEFAULT_PAGE_SIZE: parseInt(process.env['NEXT_PUBLIC_FEED_DEFAULT_PAGE_SIZE'] || '10', 10),
+} as const
+```
+**Environment Variables**:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NEXT_PUBLIC_FEED_FILTER_DEBOUNCE_MS` | 400 | Debounce delay for filter changes |
+| `NEXT_PUBLIC_FEED_REFRESH_COOLDOWN_MS` | 750 | Refresh cooldown in milliseconds |
+| `NEXT_PUBLIC_FEED_DEFAULT_PAGE_SIZE` | 10 | Default page size for feed requests |
+
 ### Test Setup
 **File**: `apps/web/src/tests/setup.ts`
 **Purpose**: Global test configuration and mocks
