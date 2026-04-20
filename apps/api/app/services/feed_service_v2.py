@@ -316,7 +316,16 @@ class FeedServiceV2(BaseService):
         }
 
     @staticmethod
-    def _build_filter_clauses(required_filters: List[str], boost_filters: List[str], age_seconds_expr: str) -> Dict[str, Any]:
+    def _build_filter_clauses(required_filters: List[str], boost_filters: List[str]) -> Dict[str, Any]:
+        """Build filter predicates using timestamp-based comparisons."""
+        from app.config.feed_config import TIME_FILTER_DAYS
+
+        # Time filter predicates use named cutoff parameters (timestamp-based)
+        time_predicates = {
+            name: f"p.created_at >= :cutoff_{name}"
+            for name in TIME_FILTER_DAYS.keys()
+        }
+
         base_predicates = {
             "mine": "p.author_id = :uid",
             "followed": "f_out.id IS NOT NULL",
@@ -324,16 +333,16 @@ class FeedServiceV2(BaseService):
             # Public is strictly derived from existing relationship predicates.
             "public": "NOT ((p.author_id = :uid) OR (f_out.id IS NOT NULL) OR (f_in.id IS NOT NULL))",
             "images": "(p.image_url IS NOT NULL OR EXISTS (SELECT 1 FROM post_images pi WHERE pi.post_id = p.id))",
-            "today": f"({age_seconds_expr}) <= 86400",
-            "last_3_days": f"({age_seconds_expr}) <= 259200",
-            "last_week": f"({age_seconds_expr}) <= 604800",
+            **time_predicates,
         }
 
+        # REQUIRED filters: AND semantics (all conditions must match)
         required_predicates = [base_predicates[name] for name in required_filters if name in base_predicates]
         required_clause = ""
         if required_predicates:
-            required_clause = " AND (" + " OR ".join(required_predicates) + ")"
+            required_clause = " AND (" + " AND ".join(required_predicates) + ")"
 
+        # BOOST filters: ranking boost only (same predicates used)
         boost_predicates = [base_predicates[name] for name in boost_filters if name in base_predicates]
         if boost_predicates:
             boost_sum = " + ".join(
@@ -344,11 +353,18 @@ class FeedServiceV2(BaseService):
         else:
             boost_expr = "0"
 
+        # Track which time filters are active for param injection
+        active_time_filters = [
+            name for name in boost_filters + required_filters
+            if name in TIME_FILTER_DAYS
+        ]
+
         return {
             "required_clause": required_clause,
             "boost_expr": boost_expr,
             "required_predicates": required_predicates,
             "boost_predicates": boost_predicates,
+            "active_time_filters": active_time_filters,
         }
 
     def _build_pg_query(
@@ -361,14 +377,24 @@ class FeedServiceV2(BaseService):
         boost_filters: List[str],
     ) -> Tuple[Any, Dict]:
         """PostgreSQL query with CTE and can_view_post."""
+        from app.config.feed_config import TIME_FILTER_DAYS
+        from datetime import timedelta
+
         cursor_filter = ""
         if cursor_data:
             cursor_filter = (
                 "AND (feed_score, created_at, id) < (:cursor_s, CAST(:cursor_t AS timestamptz), :cursor_id)"
             )
 
+        # Compute time cutoffs once per request
+        now = query_time
+        time_cutoffs = {
+            name: now - timedelta(days=days)
+            for name, days in TIME_FILTER_DAYS.items()
+        }
+
         age_pg = "EXTRACT(EPOCH FROM (CAST(:qt AS timestamptz) - p.created_at))"
-        filter_clauses = self._build_filter_clauses(required_filters, boost_filters, age_pg)
+        filter_clauses = self._build_filter_clauses(required_filters, boost_filters)
         logger.info(
             "[FEED_FILTERS][sql] dialect=postgres required=%s boost=%s required_clause=%s boost_count=%s",
             required_filters,
@@ -517,6 +543,10 @@ class FeedServiceV2(BaseService):
             params["cursor_t"] = cursor_data["created_at"]
             params["cursor_id"] = cursor_data["id"]
 
+        # Inject time cutoff params for active time filters
+        for filter_name in filter_clauses.get("active_time_filters", []):
+            params[f"cutoff_{filter_name}"] = time_cutoffs[filter_name]
+
         return sql, params
 
     def _build_sqlite_query(
@@ -529,14 +559,24 @@ class FeedServiceV2(BaseService):
         boost_filters: List[str],
     ) -> Tuple[Any, Dict]:
         """SQLite query for tests. Uses julianday for time math, LN/GREATEST registered as custom functions."""
+        from app.config.feed_config import TIME_FILTER_DAYS
+        from datetime import timedelta
+
         cursor_filter = ""
         if cursor_data:
             cursor_filter = (
                 "AND (feed_score, created_at, id) < (:cursor_s, :cursor_t, :cursor_id)"
             )
 
+        # Compute time cutoffs once per request
+        now = query_time
+        time_cutoffs = {
+            name: now - timedelta(days=days)
+            for name, days in TIME_FILTER_DAYS.items()
+        }
+
         age_expr = f"(julianday(:qt) - julianday(p.created_at)) * 86400"
-        filter_clauses = self._build_filter_clauses(required_filters, boost_filters, age_expr)
+        filter_clauses = self._build_filter_clauses(required_filters, boost_filters)
         logger.info(
             "[FEED_FILTERS][sql] dialect=sqlite required=%s boost=%s required_clause=%s boost_count=%s",
             required_filters,
@@ -739,6 +779,10 @@ class FeedServiceV2(BaseService):
             # Match this format for correct text comparison
             params["cursor_t"] = cursor_data["created_at"].strftime("%Y-%m-%d %H:%M:%S.%f")
             params["cursor_id"] = cursor_data["id"]
+
+        # Inject time cutoff params for active time filters
+        for filter_name in filter_clauses.get("active_time_filters", []):
+            params[f"cutoff_{filter_name}"] = time_cutoffs[filter_name]
 
         return sql, params
 

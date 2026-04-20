@@ -27,6 +27,8 @@ const FILTER_CHIPS: Array<{ key: FeedFilterKey; label: string }> = [
   { key: 'today', label: 'Today' },
   { key: 'last_3_days', label: 'Last 3 Days' },
   { key: 'last_week', label: 'Last Week' },
+  { key: 'last_2_weeks', label: 'Last 2 Weeks' },
+  { key: 'last_month', label: 'Last Month' },
 ]
 
 const DEFAULT_FILTER_MODES: Record<FeedFilterKey, FeedFilterMode> = {
@@ -38,6 +40,8 @@ const DEFAULT_FILTER_MODES: Record<FeedFilterKey, FeedFilterMode> = {
   today: 'off',
   last_3_days: 'off',
   last_week: 'off',
+  last_2_weeks: 'off',
+  last_month: 'off',
 }
 
 export default function FeedPage() {

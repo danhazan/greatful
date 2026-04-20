@@ -11,7 +11,7 @@ type FeedPageResponse = {
   nextCursor: string | null
 }
 
-export type FeedFilterKey = 'mine' | 'followed' | 'followers' | 'public' | 'images' | 'today' | 'last_3_days' | 'last_week'
+export type FeedFilterKey = 'mine' | 'followed' | 'followers' | 'public' | 'images' | 'today' | 'last_3_days' | 'last_week' | 'last_2_weeks' | 'last_month'
 export type FeedFilterMode = 'off' | 'boost' | 'required'
 
 export interface FeedFiltersPayload {

@@ -64,7 +64,18 @@ SUPPORTED_FEED_FILTERS = (
     "today",
     "last_3_days",
     "last_week",
+    "last_2_weeks",
+    "last_month",
 )
 
 FILTER_BOOST_WEIGHT = 1.0
 FILTER_BOOST_MAX = 3.0
+
+# --- Time filters (timestamp-based) ---
+TIME_FILTER_DAYS = {
+    "today": 1,
+    "last_3_days": 3,
+    "last_week": 7,
+    "last_2_weeks": 14,
+    "last_month": 30,
+}

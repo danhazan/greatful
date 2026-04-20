@@ -502,9 +502,46 @@ class TestFeedV2Filters:
         )
 
         returned_ids = {post["id"] for post in result["posts"]}
-        assert followed_post.id in returned_ids
-        assert follower_post.id in returned_ids
-        assert all(post["content"] != "Outsider post" for post in result["posts"])
+        # AND semantics: only posts from users who are BOTH followed AND followers (mutual)
+        # Since user_b is not a follower and user_c is not followed, result should be empty
+        assert len(returned_ids) == 0
+
+    @pytest.mark.asyncio
+    async def test_required_and_mutual_filter_returns_intersection(self, db_session, user_a, user_b, user_c):
+        """Test REQUIRED AND with mutual - should return only mutual relationships."""
+        await _follow(db_session, user_a, user_b)  # user_a follows user_b
+        await _follow(db_session, user_b, user_a)  # user_b follows user_a (mutual)
+        
+        await _create_post(db_session, user_b, "Mutual post", age_hours=1)
+        await _create_post(db_session, user_a, "User A post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            required_filters=["followed", "followers"],
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        # Only the mutual user's post should be returned
+        assert len(returned_ids) == 1
+
+    @pytest.mark.asyncio
+    async def test_required_and_time_filter_both_applied(self, db_session, user_a, user_b):
+        """Test REQUIRED AND with time filter - both conditions must match."""
+        # Create posts from user_a (own posts) so "mine" filter can apply
+        await _create_post(db_session, user_a, "Old own post", age_hours=48)
+        recent = await _create_post(db_session, user_a, "Recent own post", age_hours=6)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            required_filters=["mine", "today"],
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        # Should only get today's own post
+        assert recent.id in returned_ids
+        assert all(post["content"] != "Old own post" for post in result["posts"])
 
     @pytest.mark.asyncio
     async def test_public_filter_returns_unrelated_only(self, db_session, user_a, user_b, user_c):
