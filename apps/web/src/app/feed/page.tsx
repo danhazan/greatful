@@ -57,6 +57,7 @@ export default function FeedPage() {
   const observerVisibleRef = useRef(false)
   const filterScrollRef = useRef<HTMLDivElement | null>(null)
   const [filterModes, setFilterModes] = useState<Record<FeedFilterKey, FeedFilterMode>>(DEFAULT_FILTER_MODES)
+  const [appliedFilterModes, setAppliedFilterModes] = useState<Record<FeedFilterKey, FeedFilterMode>>(DEFAULT_FILTER_MODES)
 
   const feedFilters = useMemo<FeedFiltersPayload>(() => {
     const requiredFilters = FILTER_CHIPS
@@ -71,6 +72,28 @@ export default function FeedPage() {
       boostFilters,
     }
   }, [filterModes])
+
+  // Order filters: REQUIRED first, then BOOST, then inactive
+  // Use appliedFilterModes so reordering happens only after feed refresh
+  // FILTER_CHIPS is never mutated - only used as source of truth
+  const orderedFilterChips = useMemo(() => {
+    const required: typeof FILTER_CHIPS = []
+    const boost: typeof FILTER_CHIPS = []
+    const inactive: typeof FILTER_CHIPS = []
+
+    for (const filter of FILTER_CHIPS) {
+      const mode = appliedFilterModes[filter.key]
+      if (mode === 'required') {
+        required.push(filter)
+      } else if (mode === 'boost') {
+        boost.push(filter)
+      } else {
+        inactive.push(filter)
+      }
+    }
+
+    return [...required, ...boost, ...inactive]
+  }, [appliedFilterModes])
 
   // Populate UserContext cache from post author data
   const populateAuthorCache = useCallback((postList: Post[]) => {
@@ -119,6 +142,33 @@ export default function FeedPage() {
     onPostsLoaded: populateAuthorCache,
     feedFilters,
   })
+
+  // Sync appliedFilterModes only when:
+  // 1. Initial load completes (not during pagination)
+  // 2. Filter change refresh completes (not just any state change)
+  const isFilterChanged = Object.keys(filterModes).some(
+    key => filterModes[key as FeedFilterKey] !== appliedFilterModes[key as FeedFilterKey]
+  )
+  
+  const wasInitialLoading = useRef(canQueryFeed && isInitialLoading)
+  const wasRefreshing = useRef(false)
+  
+  useEffect(() => {
+    if (!canQueryFeed) return
+
+    // Initial load completed
+    const initialComplete = wasInitialLoading.current && !isInitialLoading && !isFetchingNextPage
+    
+    // Filter change refresh completed (was refreshing, now not, AND filters changed)
+    const refreshComplete = wasRefreshing.current && !isRefreshing && !isFetchingNextPage && isFilterChanged
+
+    if (initialComplete || refreshComplete) {
+      setAppliedFilterModes(filterModes)
+    }
+
+    wasInitialLoading.current = isInitialLoading
+    wasRefreshing.current = isRefreshing
+  }, [canQueryFeed, isInitialLoading, isFetchingNextPage, isRefreshing, isFilterChanged, filterModes])
 
   const getScrollMetrics = useCallback(() => {
     const containerScrollTop = scrollContainerRef.current?.scrollTop ?? 0
@@ -513,7 +563,7 @@ export default function FeedPage() {
                   className="feed-filter-scroll overflow-x-auto overflow-y-hidden whitespace-nowrap scroll-smooth"
                 >
                   <div className="inline-flex items-center gap-2 py-1">
-                    {FILTER_CHIPS.map(({ key, label }) => {
+                    {orderedFilterChips.map(({ key, label }) => {
                       const mode = filterModes[key]
                       return (
                         <button

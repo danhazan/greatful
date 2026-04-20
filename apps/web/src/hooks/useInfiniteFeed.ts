@@ -5,6 +5,7 @@ import { apiClient } from '@/utils/apiClient'
 import { normalizePostFromApi } from '@/utils/normalizePost'
 import { Post } from '@/types/post'
 import { requestDeduplicator } from '@/utils/requestDeduplicator'
+import { FEED_CONFIG } from '@/config/feed'
 
 type FeedPageResponse = {
   posts: any[]
@@ -112,7 +113,7 @@ function mergeFeedItems(existingItems: Post[], incomingPosts: Post[], seenIds: S
 
 function buildFeedQuery(cursor: string | null, filters?: FeedFiltersPayload): string {
   const params = new URLSearchParams()
-  params.set('page_size', '10')
+  params.set('page_size', String(FEED_CONFIG.DEFAULT_PAGE_SIZE))
 
   if (cursor) {
     params.set('cursor', cursor)
@@ -437,7 +438,7 @@ export function useInfiniteFeed({
       return
     }
 
-    if (reason !== 'post-create' && Date.now() - lastRefreshAtRef.current < 750) {
+    if (reason !== 'post-create' && Date.now() - lastRefreshAtRef.current < FEED_CONFIG.REFRESH_COOLDOWN_MS) {
       debugLog('refresh skipped', { reason, skipReason: 'cooldown', timestamp: Date.now() })
       return
     }
@@ -497,7 +498,7 @@ export function useInfiniteFeed({
 
     filterChangeTimeoutRef.current = setTimeout(() => {
       void refresh('filter-change', { preserveExistingItems: true })
-    }, 400)
+    }, FEED_CONFIG.FILTER_DEBOUNCE_MS)
 
     return () => {
       if (filterChangeTimeoutRef.current) {
