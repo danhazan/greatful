@@ -116,3 +116,12 @@ class TestEnhancedShareService:
         
         mock_core_service.get_share_counts.assert_called_once_with("post-123")
         assert result == {"total": 10}
+    async def test_passthrough_getattr(self, enhanced_service, mock_core_service):
+        """Verify __getattr__ passes un-wrapped methods to core."""
+        mock_core_service.get_share_counts = AsyncMock(return_value={"total": 10})
+        
+        # get_share_counts is not explicitly wrapped in EnhancedShareService
+        result = await enhanced_service.get_share_counts("post-123")
+        
+        mock_core_service.get_share_counts.assert_called_once_with("post-123")
+        assert result == {"total": 10}
