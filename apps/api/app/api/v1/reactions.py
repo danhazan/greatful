@@ -20,6 +20,8 @@ router = APIRouter()
 class ReactionRequest(BaseModel):
     """Request model for adding/updating reactions."""
     emoji_code: str = Field(..., description="Emoji code (e.g., 'heart_eyes', 'pray')")
+    object_type: str = Field(default="post", description="Type of object being reacted to (post, image, comment)")
+    object_id: str | None = Field(default=None, description="ID of specific object being reacted to")
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -57,6 +59,8 @@ class ReactionResponse(BaseModel):
     id: str
     user_id: int
     post_id: str
+    object_type: str = Field(default="post", alias="objectType")
+    object_id: str | None = Field(default=None, alias="objectId")
     emoji_code: str
     emoji_display: str
     created_at: str
@@ -108,7 +112,9 @@ async def add_reaction(
     reaction_data = await reaction_service.add_reaction(
         user_id=current_user_id,
         post_id=post_id,
-        emoji_code=reaction_request.emoji_code
+        emoji_code=reaction_request.emoji_code,
+        object_type=reaction_request.object_type,
+        object_id=reaction_request.object_id
     )
     
     return success_response(reaction_data, getattr(request.state, 'request_id', None))
@@ -118,6 +124,8 @@ async def add_reaction(
 async def remove_reaction(
     post_id: str,
     request: Request,
+    object_type: str = "post",
+    object_id: str | None = None,
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
@@ -131,7 +139,9 @@ async def remove_reaction(
     reaction_service = ReactionService(db)
     removed = await reaction_service.remove_reaction(
         user_id=current_user_id,
-        post_id=post_id
+        post_id=post_id,
+        object_type=object_type,
+        object_id=object_id
     )
     
     if not removed:
@@ -191,3 +201,47 @@ async def get_reaction_summary(
     )
     
     return success_response(summary.model_dump(by_alias=True), getattr(request.state, 'request_id', None))
+
+@router.get("/posts/{post_id}/image-reactions")
+async def get_image_reactions(
+    post_id: str,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all image reactions for a specific post.
+    Returns a mapping of image_id -> reaction summary object (Option B).
+    """
+    reaction_service = ReactionService(db)
+    # Fetch all image reactions linked to this post
+    reactions = await reaction_service.get_post_reactions(
+        post_id=post_id, 
+        object_type="image", 
+        object_id=None
+    )
+    
+    grouped = {}
+    for r in reactions:
+        obj_id = r["object_id"] or post_id
+        if obj_id not in grouped:
+            grouped[obj_id] = {
+                "totalCount": 0,
+                "emojiCounts": {},
+                "userReaction": None,
+                "reactions": [] # Optional, maybe useful for showing list of who reacted
+            }
+        
+        group = grouped[obj_id]
+        group["totalCount"] += 1
+        
+        code = r["emoji_code"]
+        group["emojiCounts"][code] = group["emojiCounts"].get(code, 0) + 1
+        
+        if r["user_id"] == current_user_id:
+            group["userReaction"] = code
+            
+        group["reactions"].append(r)
+    
+    # Exclude images natively with no reactions implicitly by returning exactly the sparse dict
+    return success_response(grouped, getattr(request.state, 'request_id', None))

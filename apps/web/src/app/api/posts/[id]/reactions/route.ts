@@ -79,6 +79,8 @@ export async function POST(
     const body = await request.json()
 
     const emojiCode = body.emojiCode ?? body.emoji_code
+    const objectType = body.objectType ?? body.object_type ?? 'post'
+    const objectId = body.objectId ?? body.object_id ?? null
 
     // Validate required fields
     if (!emojiCode) {
@@ -90,7 +92,9 @@ export async function POST(
       method: 'POST',
       authHeaders,
       body: JSON.stringify({
-        emoji_code: emojiCode
+        emoji_code: emojiCode,
+        object_type: objectType,
+        object_id: objectId
       })
     })
 
@@ -135,8 +139,20 @@ export async function DELETE(
     
     const authHeaders = createAuthHeaders(request)
 
+    const searchParams = new URL(request.url).searchParams
+    const objectType = searchParams.get('objectType') || searchParams.get('object_type') || 'post'
+    const objectId = searchParams.get('objectId') || searchParams.get('object_id') || ''
+
+    let queryParams = ''
+    if (objectType !== 'post' || objectId) {
+      const params = new URLSearchParams()
+      params.append('object_type', objectType)
+      if (objectId) params.append('object_id', objectId)
+      queryParams = `?${params.toString()}`
+    }
+
     // Forward the request to the FastAPI backend
-    const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions`, {
+    const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions${queryParams}`, {
       method: 'DELETE',
       authHeaders,
     })
