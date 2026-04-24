@@ -20,45 +20,47 @@ class EmojiReactionRepository(BaseRepository):
     async def get_user_reaction(
         self, 
         user_id: int, 
-        post_id: str
+        post_id: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None
     ) -> Optional[EmojiReaction]:
         """
-        Get a specific user's reaction to a post.
+        Get a specific user's reaction to a post or object.
         
         Args:
             user_id: ID of the user
-            post_id: ID of the post
+            post_id: ID of the post (acts as parent grouping)
+            object_type: Type of object being reacted to
+            object_id: ID of specific object (defaults to post_id if purely a post reaction)
             
         Returns:
             Optional[EmojiReaction]: The user's reaction if it exists
         """
+        actual_object_id = object_id if object_id is not None else post_id
         return await self.find_one({
             "user_id": user_id,
-            "post_id": post_id
+            "object_type": object_type,
+            "object_id": actual_object_id
         })
 
     async def get_user_reaction_count(
         self, 
         user_id: int, 
-        post_id: str
+        post_id: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None
     ) -> int:
         """
-        Get count of reactions for a user on a post.
-        Used for invariant verification.
-        
-        Args:
-            user_id: ID of the user
-            post_id: ID of the post
-            
-        Returns:
-            int: Count of reactions (should be 0 or 1)
+        Get count of reactions for a user on a specific object.
         """
+        actual_object_id = object_id if object_id is not None else post_id
         result = await self.db.execute(
             select(func.count(EmojiReaction.id))
             .where(
                 and_(
                     EmojiReaction.user_id == user_id,
-                    EmojiReaction.post_id == post_id
+                    EmojiReaction.object_type == object_type,
+                    EmojiReaction.object_id == actual_object_id
                 )
             )
         )
@@ -67,41 +69,50 @@ class EmojiReactionRepository(BaseRepository):
     async def get_post_reactions(
         self, 
         post_id: str,
-        load_users: bool = True
+        load_users: bool = True,
+        object_type: str = "post",
+        object_id: Optional[str] = None
     ) -> List[EmojiReaction]:
         """
-        Get all reactions for a specific post.
-        
-        Args:
-            post_id: ID of the post
-            load_users: Whether to load user relationships
-            
-        Returns:
-            List[EmojiReaction]: List of reactions for the post
+        Get all reactions for a specific post or its child objects.
         """
         load_relationships = ["user"] if load_users else None
         
+        filters = {"post_id": post_id, "object_type": object_type}
+        if object_id is not None:
+            filters["object_id"] = object_id
+        elif object_type == "post":
+            filters["object_id"] = post_id
+            
         return await self.find_all(
-            filters={"post_id": post_id},
+            filters=filters,
             order_by=desc(EmojiReaction.created_at),
             load_relationships=load_relationships
         )
     
-    async def get_reaction_counts(self, post_id: str) -> Dict[str, int]:
+    async def get_reaction_counts(
+        self, 
+        post_id: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None
+    ) -> Dict[str, int]:
         """
-        Get reaction counts grouped by emoji for a post.
-        
-        Args:
-            post_id: ID of the post
+        Get reaction counts grouped by emoji for an object or group.
+        """
+        conditions = [
+            EmojiReaction.post_id == post_id,
+            EmojiReaction.object_type == object_type
+        ]
+        if object_id is not None:
+            conditions.append(EmojiReaction.object_id == object_id)
+        elif object_type == "post":
+            conditions.append(EmojiReaction.object_id == post_id)
             
-        Returns:
-            Dict: Dictionary with emoji codes as keys and counts as values
-        """
         query = select(
             EmojiReaction.emoji_code, 
             func.count(EmojiReaction.id)
         ).where(
-            EmojiReaction.post_id == post_id
+            and_(*conditions)
         ).group_by(EmojiReaction.emoji_code)
         
         result = await self._execute_query(query, "get reaction counts")
@@ -112,17 +123,21 @@ class EmojiReactionRepository(BaseRepository):
             
         return counts
     
-    async def get_total_reaction_count(self, post_id: str) -> int:
+    async def get_total_reaction_count(
+        self, 
+        post_id: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None
+    ) -> int:
         """
-        Get total number of reactions for a post.
-        
-        Args:
-            post_id: ID of the post
-            
-        Returns:
-            int: Total reaction count
+        Get total number of reactions for an object.
         """
-        return await self.count({"post_id": post_id})
+        filters = {"post_id": post_id, "object_type": object_type}
+        if object_id is not None:
+            filters["object_id"] = object_id
+        elif object_type == "post":
+            filters["object_id"] = post_id
+        return await self.count(filters)
     
     async def get_user_reactions(
         self, 
@@ -286,18 +301,17 @@ class EmojiReactionRepository(BaseRepository):
             order_by=desc(EmojiReaction.created_at)
         )
     
-    async def delete_user_reaction(self, user_id: int, post_id: str) -> bool:
+    async def delete_user_reaction(
+        self, 
+        user_id: int, 
+        post_id: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None
+    ) -> bool:
         """
-        Delete a user's reaction from a post.
-        
-        Args:
-            user_id: ID of the user
-            post_id: ID of the post
-            
-        Returns:
-            bool: True if reaction was deleted, False if no reaction existed
+        Delete a user's reaction from an object.
         """
-        reaction = await self.get_user_reaction(user_id, post_id)
+        reaction = await self.get_user_reaction(user_id, post_id, object_type, object_id)
         
         if reaction:
             await self.delete(reaction)
@@ -305,51 +319,44 @@ class EmojiReactionRepository(BaseRepository):
         
         return False
     
-    async def delete_all_post_reactions(self, post_id: str) -> int:
+    async def delete_all_post_reactions(
+        self, 
+        post_id: str,
+        object_type: Optional[str] = None,
+        object_id: Optional[str] = None
+    ) -> int:
         """
-        Delete all reactions for a specific post.
-        
-        Args:
-            post_id: ID of the post
-            
-        Returns:
-            int: Number of reactions deleted
+        Delete reactions for a specific post (or specific object if params provided).
         """
         from sqlalchemy import text
         
-        # Count reactions before deletion
-        count_result = await self.db.execute(
-            text("SELECT COUNT(*) FROM emoji_reactions WHERE post_id = :post_id"),
-            {"post_id": post_id}
-        )
-        count = count_result.scalar() or 0
+        query = "DELETE FROM emoji_reactions WHERE post_id = :post_id"
+        params = {"post_id": post_id}
         
-        # Delete all reactions for the post
-        await self.db.execute(
-            text("DELETE FROM emoji_reactions WHERE post_id = :post_id"),
-            {"post_id": post_id}
-        )
-        
-        return count
+        if object_type:
+            query += " AND object_type = :object_type"
+            params["object_type"] = object_type
+        if object_id:
+            query += " AND object_id = :object_id"
+            params["object_id"] = object_id
+            
+        # We assume count is not perfectly tracking with text queries since we removed SELECT COUNT(*), 
+        # but execute returns ResultProxy and rowcount works nicely
+        result = await self.db.execute(text(query), params)
+        return result.rowcount
     
     async def update_user_reaction(
         self, 
         user_id: int, 
         post_id: str, 
-        new_emoji_code: str
+        new_emoji_code: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None
     ) -> Optional[EmojiReaction]:
         """
         Update a user's existing reaction to a new emoji.
-        
-        Args:
-            user_id: ID of the user
-            post_id: ID of the post
-            new_emoji_code: New emoji code
-            
-        Returns:
-            Optional[EmojiReaction]: Updated reaction or None if no existing reaction
         """
-        reaction = await self.get_user_reaction(user_id, post_id)
+        reaction = await self.get_user_reaction(user_id, post_id, object_type, object_id)
         
         if reaction:
             return await self.update(reaction, emoji_code=new_emoji_code)

@@ -34,19 +34,15 @@ class ReactionService(BaseService):
         self, 
         user_id: int, 
         post_id: str, 
-        emoji_code: str
+        emoji_code: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Add or update a user's emoji reaction to a post.
+        Add or update a user's emoji reaction to a post or object.
         
-        Args:
-            db: Database session
-            user_id: ID of the user reacting
-            post_id: ID of the post being reacted to
-            emoji_code: Code for the emoji (e.g., 'heart_eyes', 'pray')
-            
         Returns:
-            EmojiReaction: The created or updated reaction
+            Dict[str, Any]: The created or updated reaction
             
         Raises:
             ValueError: If emoji_code is invalid
@@ -61,15 +57,15 @@ class ReactionService(BaseService):
         user = await self.user_repo.get_by_id_or_404(user_id)
         post = await self.post_repo.get_by_id_or_404(post_id)
         
-        # Check if user already has a reaction on this post
-        existing_reaction = await self.reaction_repo.get_user_reaction(user_id, post_id)
+        # Check if user already has a reaction on this object
+        existing_reaction = await self.reaction_repo.get_user_reaction(user_id, post_id, object_type, object_id)
         
         if existing_reaction:
             # Update existing reaction
             updated_reaction = await self.reaction_repo.update(existing_reaction, emoji_code=emoji_code)
             # Load the user relationship
             updated_reaction.user = user
-            logger.info(f"Updated reaction for user {user_id} on post {post_id} to {emoji_code}")
+            logger.info(f"Updated reaction for user {user_id} on {object_type} {object_id or post_id} to {emoji_code}")
             
             # Create notification for updated reaction using NotificationFactory
             if post.author_id != user_id:  # Don't notify if user reacts to their own post
@@ -86,12 +82,12 @@ class ReactionService(BaseService):
                     logger.error(f"Failed to create notification for reaction update: {e}")
                     # Don't fail the reaction if notification fails
             
-            # Runtime invariant check: At most one reaction per user per post
-            reaction_count = await self.reaction_repo.get_user_reaction_count(user_id, post_id)
+            # Runtime invariant check: At most one reaction per user per object
+            reaction_count = await self.reaction_repo.get_user_reaction_count(user_id, post_id, object_type, object_id)
             if reaction_count > 1:
                 logger.error(
-                    f"[REACTION_UNIQUENESS_ERROR] User {user_id} has {reaction_count} reactions on post {post_id}. "
-                    f"Invariant violated: at most one reaction per user per post. "
+                    f"[REACTION_UNIQUENESS_ERROR] User {user_id} has {reaction_count} reactions on {object_type} {object_id or post_id}. "
+                    f"Invariant violated: at most one reaction per user per object. "
                     f"See SYSTEM_CONTRACT_MAP.md#reaction-system"
                 )
                 from app.core.exceptions import InternalServerError
@@ -101,6 +97,8 @@ class ReactionService(BaseService):
                 "id": updated_reaction.id,
                 "user_id": updated_reaction.user_id,
                 "post_id": updated_reaction.post_id,
+                "object_type": updated_reaction.object_type,
+                "object_id": updated_reaction.object_id,
                 "emoji_code": updated_reaction.emoji_code,
                 "emoji_display": updated_reaction.emoji_display,
                 "created_at": updated_reaction.created_at.isoformat(),
@@ -112,14 +110,17 @@ class ReactionService(BaseService):
             }
         else:
             # Create new reaction
+            actual_object_id = object_id if object_id is not None else post_id
             reaction = await self.reaction_repo.create(
                 user_id=user_id,
                 post_id=post_id,
+                object_type=object_type,
+                object_id=actual_object_id,
                 emoji_code=emoji_code
             )
             # Load the user relationship
             reaction.user = user
-            logger.info(f"Created new reaction for user {user_id} on post {post_id}: {emoji_code}")
+            logger.info(f"Created new reaction for user {user_id} on {object_type} {actual_object_id}: {emoji_code}")
             
             # Create notification for new reaction using NotificationFactory
             if post.author_id != user_id:  # Don't notify if user reacts to their own post
@@ -140,6 +141,8 @@ class ReactionService(BaseService):
                 "id": reaction.id,
                 "user_id": reaction.user_id,
                 "post_id": reaction.post_id,
+                "object_type": reaction.object_type,
+                "object_id": reaction.object_id,
                 "emoji_code": reaction.emoji_code,
                 "emoji_display": reaction.emoji_display,
                 "created_at": reaction.created_at.isoformat(),
@@ -151,42 +154,31 @@ class ReactionService(BaseService):
             }
 
     @monitor_query("remove_reaction")
-    async def remove_reaction(self, user_id: int, post_id: str) -> bool:
+    async def remove_reaction(self, user_id: int, post_id: str, object_type: str = "post", object_id: Optional[str] = None) -> bool:
         """
-        Remove a user's reaction from a post.
-        
-        Args:
-            user_id: ID of the user
-            post_id: ID of the post
-            
-        Returns:
-            bool: True if reaction was removed, False if no reaction existed
+        Remove a user's reaction from an object.
         """
-        removed = await self.reaction_repo.delete_user_reaction(user_id, post_id)
+        removed = await self.reaction_repo.delete_user_reaction(user_id, post_id, object_type, object_id)
         
         if removed:
-            logger.info(f"Removed reaction for user {user_id} on post {post_id}")
+            logger.info(f"Removed reaction for user {user_id} on {object_type} {object_id or post_id}")
         
         return removed
 
     @monitor_query("get_post_reactions")
-    async def get_post_reactions(self, post_id: str) -> List[Dict[str, Any]]:
+    async def get_post_reactions(self, post_id: str, object_type: str = "post", object_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Get all reactions for a specific post with user information.
-        
-        Args:
-            post_id: ID of the post
-            
-        Returns:
-            List[Dict]: List of reaction dictionaries with user data
+        Get all reactions for a specific object with user information.
         """
-        reactions = await self.reaction_repo.get_post_reactions(post_id, load_users=True)
+        reactions = await self.reaction_repo.get_post_reactions(post_id, load_users=True, object_type=object_type, object_id=object_id)
         
         return [
             {
                 "id": reaction.id,
                 "user_id": reaction.user_id,
                 "post_id": reaction.post_id,
+                "object_type": reaction.object_type,
+                "object_id": reaction.object_id,
                 "emoji_code": reaction.emoji_code,
                 "emoji_display": reaction.emoji_display,
                 "created_at": reaction.created_at.isoformat(),
@@ -199,62 +191,39 @@ class ReactionService(BaseService):
             for reaction in reactions
         ]
 
-    async def delete_all_post_reactions(self, post_id: str) -> int:
+    async def delete_all_post_reactions(self, post_id: str, object_type: Optional[str] = None, object_id: Optional[str] = None) -> int:
         """
-        Delete all reactions for a specific post.
-        
-        Args:
-            post_id: ID of the post
-            
-        Returns:
-            int: Number of reactions deleted
+        Delete all reactions for a specific post (or object).
         """
-        count = await self.reaction_repo.delete_all_post_reactions(post_id)
-        logger.info(f"Deleted {count} reactions for post {post_id}")
+        count = await self.reaction_repo.delete_all_post_reactions(post_id, object_type, object_id)
+        logger.info(f"Deleted {count} reactions for {object_type or 'post'} {object_id or post_id}")
         return count
 
     async def get_user_reaction(
         self, 
         user_id: int, 
-        post_id: str
+        post_id: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None
     ) -> Optional[EmojiReaction]:
         """
-        Get a specific user's reaction to a post.
-        
-        Args:
-            user_id: ID of the user
-            post_id: ID of the post
-            
-        Returns:
-            Optional[EmojiReaction]: The user's reaction if it exists
+        Get a specific user's reaction to an object.
         """
-        return await self.reaction_repo.get_user_reaction(user_id, post_id)
+        return await self.reaction_repo.get_user_reaction(user_id, post_id, object_type, object_id)
 
     @monitor_query("get_reaction_counts")
-    async def get_reaction_counts(self, post_id: str) -> Dict[str, int]:
+    async def get_reaction_counts(self, post_id: str, object_type: str = "post", object_id: Optional[str] = None) -> Dict[str, int]:
         """
-        Get reaction counts grouped by emoji for a post.
-        
-        Args:
-            post_id: ID of the post
-            
-        Returns:
-            dict: Dictionary with emoji codes as keys and counts as values
+        Get reaction counts grouped by emoji for an object or group.
         """
-        return await self.reaction_repo.get_reaction_counts(post_id)
+        return await self.reaction_repo.get_reaction_counts(post_id, object_type, object_id)
 
     @monitor_query("get_total_reaction_count")
-    async def get_total_reaction_count(self, post_id: str) -> int:
+    async def get_total_reaction_count(self, post_id: str, object_type: str = "post", object_id: Optional[str] = None) -> int:
         """
-        Get total number of reactions for a post.
-        
-        Args:
-            post_id: ID of the post
-            
-        Returns:
-            int: Total reaction count
+        Get total number of reactions for an object.
         """
-        return await self.reaction_repo.get_total_reaction_count(post_id)
+        return await self.reaction_repo.get_total_reaction_count(post_id, object_type, object_id)
 
     async def get_user_interaction(self, user_id: int, post_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -314,13 +283,13 @@ class ReactionService(BaseService):
         """
         return await self.remove_reaction(user_id, post_id)
     @monitor_query("get_reaction_summary")
-    async def get_reaction_summary(self, post_id: str) -> Dict[str, Any]:
+    async def get_reaction_summary(self, post_id: str, object_type: str = "post", object_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        Get a comprehensive summary of reactions for a post.
+        Get a comprehensive summary of reactions for an object.
         Enforces invariant: total_count === sum(emoji_counts.values())
         """
         # Fetch counts from repository (which should now return unified counts)
-        emoji_counts = await self.get_reaction_counts(post_id)
+        emoji_counts = await self.get_reaction_counts(post_id, object_type, object_id)
         
         # Calculate total directly from the map to guarantee the invariant
         calculated_total = sum(emoji_counts.values())
