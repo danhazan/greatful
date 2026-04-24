@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { getAvailableEmojis } from "@/utils/emojiMapping"
 import { createTouchHandlers } from "@/utils/hapticFeedback"
@@ -128,6 +129,7 @@ export default function EmojiPicker({
   }, [isOpen, onCancel])
 
   if (!isOpen) return null
+  if (typeof document === 'undefined') return null
 
   // Handle emoji selection - immediately sends reaction and closes
   const handleEmojiClick = (emojiCode: string) => {
@@ -150,11 +152,11 @@ export default function EmojiPicker({
     onCancel()
   }
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop - blocks interaction with background */}
       <div
-        className="fixed inset-0 bg-gray-900 bg-opacity-20 z-40"
+        className="fixed inset-0 bg-gray-900 bg-opacity-20 z-[9998]"
         // Prevent any scroll/touch events from reaching the page
         onWheel={(e) => e.preventDefault()}
         onTouchMove={(e) => e.preventDefault()}
@@ -166,10 +168,10 @@ export default function EmojiPicker({
         role="dialog"
         aria-modal="true"
         aria-labelledby="emoji-picker-title"
-        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[340px]"
+        className="fixed z-[9999] bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[340px]"
         style={{
-          left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 356)),
-          bottom: Math.max(16, window.innerHeight - position.y + 24),
+          left: Math.max(16, Math.min(position.x - 160, window.innerWidth - 356)),
+          top: position.y,
         }}
         tabIndex={-1}
       >
@@ -242,6 +244,7 @@ export default function EmojiPicker({
 
         {/* Footer removed - keyboard shortcuts (1-8) and caption removed as redundant */}
       </div>
-    </>
+    </>,
+    document.body
   )
 }

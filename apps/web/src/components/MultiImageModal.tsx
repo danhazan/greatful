@@ -1,8 +1,13 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react"
+import { X, ChevronLeft, ChevronRight, Maximize2, Heart } from "lucide-react"
 import ImageModal from "./ImageModal"
+import { useImageReactions } from '@/hooks/useImageReactions'
+import { useReactionMutation } from '@/hooks/useReactionMutation'
+import EmojiPicker from './EmojiPicker'
+import ReactionViewer from './ReactionViewer'
+import { getEmojiFromCode, getTopEmojis } from '@/utils/emojiMapping'
 
 /**
  * Image data for multi-image posts.
@@ -18,6 +23,7 @@ interface PostImage {
 }
 
 interface MultiImageModalProps {
+  postId: string
   images: PostImage[]
   initialIndex: number
   isOpen: boolean
@@ -37,16 +43,13 @@ interface MultiImageModalProps {
  * - Background scroll lock
  */
 export default function MultiImageModal({
+  postId,
   images,
   initialIndex,
   isOpen,
   onClose
 }: MultiImageModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
-  const [scale, setScale] = useState(1)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isFading, setIsFading] = useState(false)
   const [showExpandedView, setShowExpandedView] = useState(false)
@@ -54,7 +57,12 @@ export default function MultiImageModal({
   // Touch tracking for swipe
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
-  const [lastTouchDistance, setLastTouchDistance] = useState(0)
+
+  // Reactions state
+  const { data: reactionsData, isLoading: isLoadingReactions, getReactionForImage, forceSetData, refetch } = useImageReactions(postId || "")
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showReactionViewer, setShowReactionViewer] = useState(false)
+  const [pickerPosition, setPickerPosition] = useState({ x: 0, y: 0 })
 
   const imageRef = useRef<HTMLImageElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
@@ -64,17 +72,34 @@ export default function MultiImageModal({
   const totalImages = sortedImages.length
   const currentImage = sortedImages[currentIndex]
 
+  // Initialize unified reaction mutation
+  const currentReactionState = getReactionForImage(currentImage?.id || "")
+  const { handleReaction, isInFlight } = useReactionMutation({
+    postId,
+    objectType: 'image',
+    objectId: currentImage?.id || "",
+    currentReactionState,
+    onStateChange: (newState) => {
+      forceSetData(prev => ({
+        ...prev,
+        [currentImage?.id || ""]: newState
+      }))
+    }
+  })
+
   // Reset state when modal opens or initialIndex changes
   useEffect(() => {
     if (isOpen) {
       setCurrentIndex(initialIndex)
-      setScale(1)
-      setPosition({ x: 0, y: 0 })
       setIsLoading(true)
       setIsFading(false)
       setShowExpandedView(false)
+      setShowEmojiPicker(false)
+      setShowReactionViewer(false)
+      // We also trigger refetch safely in case gallery re-opens from stale cache
+      refetch()
     }
-  }, [isOpen, initialIndex])
+  }, [isOpen, initialIndex, refetch])
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -94,10 +119,10 @@ export default function MultiImageModal({
     setIsFading(true)
     setTimeout(() => {
       setCurrentIndex(index)
-      setScale(1)
-      setPosition({ x: 0, y: 0 })
       setIsLoading(true)
       setIsFading(false)
+      setShowEmojiPicker(false)
+      setShowReactionViewer(false)
     }, 150) // Half of fade duration for smooth transition
   }, [currentIndex, totalImages])
 
@@ -141,58 +166,16 @@ export default function MultiImageModal({
   const minSwipeDistance = 50
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      // Pinch zoom start
-      setLastTouchDistance(getTouchDistance(e.touches))
-      return
-    }
-
-    // Single touch - potential swipe
     setTouchEnd(null)
     setTouchStart(e.targetTouches[0].clientX)
-
-    // Also track for drag when zoomed
-    if (scale > 1) {
-      setIsDragging(true)
-      setDragStart({
-        x: e.touches[0].clientX - position.x,
-        y: e.touches[0].clientY - position.y
-      })
-    }
   }
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      // Pinch zoom
-      const currentDistance = getTouchDistance(e.touches)
-      if (lastTouchDistance > 0) {
-        const scaleChange = currentDistance / lastTouchDistance
-        const newScale = Math.max(0.5, Math.min(5, scale * scaleChange))
-        setScale(newScale)
-      }
-      setLastTouchDistance(currentDistance)
-      return
-    }
-
-    if (scale > 1 && isDragging) {
-      // Pan when zoomed
-      setPosition({
-        x: e.touches[0].clientX - dragStart.x,
-        y: e.touches[0].clientY - dragStart.y
-      })
-      return
-    }
-
-    // Track swipe end position
     setTouchEnd(e.targetTouches[0].clientX)
   }
 
   const onTouchEnd = () => {
-    setIsDragging(false)
-    setLastTouchDistance(0)
-
     if (!touchStart || !touchEnd) return
-    if (scale > 1) return // Don't swipe when zoomed
 
     const distance = touchStart - touchEnd
     const isLeftSwipe = distance > minSwipeDistance
@@ -206,48 +189,6 @@ export default function MultiImageModal({
 
     setTouchStart(null)
     setTouchEnd(null)
-  }
-
-  const getTouchDistance = (touches: React.TouchList) => {
-    if (touches.length < 2) return 0
-    const touch1 = touches[0]
-    const touch2 = touches[1]
-    return Math.sqrt(
-      Math.pow(touch2.clientX - touch1.clientX, 2) +
-      Math.pow(touch2.clientY - touch1.clientY, 2)
-    )
-  }
-
-  // Mouse wheel zoom
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    const delta = e.deltaY > 0 ? -0.1 : 0.1
-    const newScale = Math.max(0.5, Math.min(5, scale + delta))
-    setScale(newScale)
-  }
-
-  // Mouse drag when zoomed
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (scale > 1) {
-      setIsDragging(true)
-      setDragStart({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y
-      })
-    }
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && scale > 1) {
-      setPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      })
-    }
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
   }
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -267,10 +208,6 @@ export default function MultiImageModal({
       ref={modalRef}
       className="fixed inset-0 z-50 bg-black bg-opacity-95 flex items-center justify-center"
       onClick={handleBackdropClick}
-      onWheel={handleWheel}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
       {/* Top right controls */}
       <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
@@ -296,6 +233,36 @@ export default function MultiImageModal({
       {/* Image counter */}
       <div className="absolute top-4 left-4 z-20 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
         {currentIndex + 1} / {totalImages}
+      </div>
+
+      {/* Top Center User Reaction Button */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            if (isLoadingReactions || isInFlight) return
+            
+            // Re-trigger emoji picker via direct top UI anchoring
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+            setPickerPosition({ x: rect.left + rect.width / 2, y: rect.bottom + 12 })
+            setShowEmojiPicker(true)
+          }}
+          disabled={isLoadingReactions}
+          className={`p-2 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-colors flex items-center justify-center ${
+            isLoadingReactions || isInFlight ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          aria-label="React to image"
+        >
+          {isLoadingReactions ? (
+            <div className="h-6 w-6 border-b-2 border-white rounded-full animate-spin"></div>
+          ) : currentReactionState.userReaction ? (
+            <span className="text-xl leading-none">
+              {getEmojiFromCode(currentReactionState.userReaction)}
+            </span>
+          ) : (
+            <Heart className="h-6 w-6 text-white" />
+          )}
+        </button>
       </div>
 
       {/* Previous button (desktop) */}
@@ -335,19 +302,12 @@ export default function MultiImageModal({
         style={{
           width: '90vw',
           height: '90vh',
-          transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-          cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
-          transition: isDragging ? 'opacity 0.3s' : 'transform 0.1s ease-out, opacity 0.3s'
+          cursor: 'default'
         }}
-        onMouseDown={handleMouseDown}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        onClick={(e) => {
-          if (e.target === imageRef.current) {
-            e.stopPropagation()
-          }
-        }}
+        onClick={(e) => e.stopPropagation()}
       >
         <img
           ref={imageRef}
@@ -385,10 +345,60 @@ export default function MultiImageModal({
         </div>
       )}
 
-      {/* Mobile swipe hint (shown briefly) */}
-      <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 rounded-full px-4 py-2 md:hidden">
-        Swipe to navigate • Pinch to zoom
+      {/* Bottom Reactions Bar */}
+      <div 
+        className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20 flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isLoadingReactions ? (
+          <div className="flex items-center space-x-2 bg-black bg-opacity-50 rounded-full px-4 py-2">
+            <div className="h-4 w-4 border-b-2 border-white rounded-full animate-spin"></div>
+            <span className="text-white text-sm">Loading...</span>
+          </div>
+        ) : currentReactionState.totalCount > 0 ? (
+          <button
+            onClick={() => setShowReactionViewer(true)}
+            className="flex items-center space-x-2 bg-black bg-opacity-60 hover:bg-opacity-80 transition-colors rounded-full px-4 py-2"
+          >
+            <div className="flex -space-x-1">
+              {getTopEmojis(currentReactionState.emojiCounts, 3).map(({ code }) => (
+                <span key={code} className="text-base leading-none relative z-10 z-[1] drop-shadow-md">
+                  {getEmojiFromCode(code)}
+                </span>
+              ))}
+            </div>
+            <span className="text-white text-sm font-medium">
+              {currentReactionState.totalCount}
+            </span>
+          </button>
+        ) : null}
       </div>
+
+      {/* Overlays / Modals */}
+      {showEmojiPicker && (
+        <EmojiPicker
+          isOpen={showEmojiPicker}
+          onClose={() => setShowEmojiPicker(false)}
+          onCancel={() => setShowEmojiPicker(false)}
+          onEmojiSelect={(emoji) => {
+            handleReaction(emoji)
+            setShowEmojiPicker(false)
+          }}
+          currentReaction={currentReactionState.userReaction}
+          position={pickerPosition}
+          isLoading={isInFlight}
+        />
+      )}
+
+      {showReactionViewer && currentReactionState.totalCount > 0 && (
+        <ReactionViewer
+          isOpen={showReactionViewer}
+          onClose={() => setShowReactionViewer(false)}
+          postId={postId}
+          objectType="image"
+          objectId={currentImage.id}
+        />
+      )}
 
       {/* Full resolution ImageModal - shared with single-image posts */}
       <ImageModal
