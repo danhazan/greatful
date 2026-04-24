@@ -174,7 +174,7 @@ class PostRepository(BaseRepository):
                            COUNT(DISTINCT user_id) as reactions_count,
                            {reaction_agg_expression} as reaction_emoji_codes
                     FROM emoji_reactions
-                    WHERE post_id IN ({post_id_placeholders})
+                    WHERE post_id IN ({post_id_placeholders}) AND object_type = 'post'
                     GROUP BY post_id
                 ) engagement ON engagement.post_id = p.id
                 LEFT JOIN (
@@ -509,7 +509,7 @@ class PostRepository(BaseRepository):
                                COUNT(DISTINCT user_id) as reactions_count,
                                ARRAY_AGG(DISTINCT emoji_code ORDER BY emoji_code) as reaction_emoji_codes
                         FROM emoji_reactions
-                        WHERE post_id = ANY(:post_ids)
+                        WHERE post_id = ANY(:post_ids) AND object_type = 'post'
                         GROUP BY post_id
                     ) reactions ON reactions.post_id = p.id
                     LEFT JOIN (
@@ -535,7 +535,7 @@ class PostRepository(BaseRepository):
                                COUNT(DISTINCT user_id) as reactions_count,
                                GROUP_CONCAT(DISTINCT emoji_code) as reaction_emoji_codes
                         FROM emoji_reactions
-                        WHERE post_id IN ({post_id_placeholders})
+                        WHERE post_id IN ({post_id_placeholders}) AND object_type = 'post'
                         GROUP BY post_id
                     ) reactions ON reactions.post_id = p.id
                     LEFT JOIN (
@@ -566,7 +566,7 @@ class PostRepository(BaseRepository):
             reactions_query = text("""
                 SELECT post_id, emoji_code
                 FROM emoji_reactions
-                WHERE post_id = ANY(:post_ids) AND user_id = :user_id
+                WHERE post_id = ANY(:post_ids) AND user_id = :user_id AND object_type = 'post'
             """)
             reactions_params: Dict[str, Any] = {"post_ids": post_ids, "user_id": user_id}
         else:
@@ -574,7 +574,7 @@ class PostRepository(BaseRepository):
             reactions_query = text(f"""
                 SELECT post_id, emoji_code
                 FROM emoji_reactions
-                WHERE post_id IN ({post_id_placeholders}) AND user_id = :user_id
+                WHERE post_id IN ({post_id_placeholders}) AND user_id = :user_id AND object_type = 'post'
             """)
             reactions_params = {**post_id_params, "user_id": user_id}
         reactions_result = await self.execute_raw_query(reactions_query, reactions_params)

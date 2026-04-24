@@ -210,3 +210,14 @@ export function getAvailableEmojis(): { code: string; emoji: string; label: stri
     { code: 'salute', emoji: '🫡', label: 'Salute' },
   ]
 }
+
+/**
+ * Gets the top N emojis by count, sorted descending.
+ */
+export function getTopEmojis(emojiCounts: Record<string, number>, limit: number = 3): { code: string; count: number }[] {
+  if (!emojiCounts) return [];
+  return Object.entries(emojiCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([code, count]) => ({ code, count }));
+}

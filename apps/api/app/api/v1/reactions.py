@@ -155,18 +155,26 @@ async def remove_reaction(
 async def get_post_reactions(
     post_id: str,
     request: Request,
+    object_type: str = "post",
+    object_id: str | None = None,
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get all reactions for a specific post.
+    Get all reactions for a specific post or sub-object (image, comment).
     
-    - **post_id**: ID of the post to get reactions for
+    - **post_id**: ID of the primary post
+    - **object_type**: Type of object ('post', 'image', 'comment')
+    - **object_id**: Specific ID of the sub-object
     
     Returns a list of all reactions with user information.
     """
     reaction_service = ReactionService(db)
-    reactions = await reaction_service.get_post_reactions(post_id=post_id)
+    reactions = await reaction_service.get_post_reactions(
+        post_id=post_id,
+        object_type=object_type,
+        object_id=object_id
+    )
     
     return success_response(reactions, getattr(request.state, 'request_id', None))
 
@@ -211,37 +219,36 @@ async def get_image_reactions(
 ):
     """
     Get all image reactions for a specific post.
-    Returns a mapping of image_id -> reaction summary object (Option B).
+    Returns a sparse mapping of image_id -> lightweight reaction summary.
     """
     reaction_service = ReactionService(db)
-    # Fetch all image reactions linked to this post
-    reactions = await reaction_service.get_post_reactions(
+    # Fetch all reactions for 'image' type linked to this post
+    # We use the raw list to aggregate both counts and current user's reaction in one pass
+    reactions = await reaction_service.reaction_repo.get_post_reactions(
         post_id=post_id, 
-        object_type="image", 
-        object_id=None
+        load_users=False, # We don't need user details for the summary
+        object_type="image"
     )
     
     grouped = {}
     for r in reactions:
-        obj_id = r["object_id"] or post_id
+        obj_id = r.object_id
+        if not obj_id: continue # Should not happen for image reactions
+        
         if obj_id not in grouped:
             grouped[obj_id] = {
                 "totalCount": 0,
                 "emojiCounts": {},
-                "userReaction": None,
-                "reactions": [] # Optional, maybe useful for showing list of who reacted
+                "userReaction": None
             }
         
         group = grouped[obj_id]
         group["totalCount"] += 1
         
-        code = r["emoji_code"]
+        code = r.emoji_code
         group["emojiCounts"][code] = group["emojiCounts"].get(code, 0) + 1
         
-        if r["user_id"] == current_user_id:
+        if r.user_id == current_user_id:
             group["userReaction"] = code
             
-        group["reactions"].append(r)
-    
-    # Exclude images natively with no reactions implicitly by returning exactly the sparse dict
     return success_response(grouped, getattr(request.state, 'request_id', None))

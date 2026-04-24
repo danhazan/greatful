@@ -22,6 +22,11 @@ export async function GET(
 
     const { id } = params
 
+    // Get query parameters for polymorphic support
+    const searchParams = request.nextUrl.searchParams
+    const objectType = searchParams.get('object_type') || 'post'
+    const objectId = searchParams.get('object_id')
+    
     // Check authorization
     if (!hasValidAuth(request)) {
       return createErrorResponse('Authorization header required', 401)
@@ -29,8 +34,14 @@ export async function GET(
     
     const authHeaders = createAuthHeaders(request)
 
+    // Build backend URL with query params
+    let backendUrl = `/api/v1/posts/${id}/reactions?object_type=${objectType}`
+    if (objectId) {
+      backendUrl += `&object_id=${objectId}`
+    }
+
     // Forward the request to the FastAPI backend
-    const response = await makeBackendRequest(`/api/v1/posts/${id}/reactions`, {
+    const response = await makeBackendRequest(backendUrl, {
       method: 'GET',
       authHeaders,
     })

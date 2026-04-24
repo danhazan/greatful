@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X } from "lucide-react"
+import { X, Loader2 } from "lucide-react"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
+import { getAccessToken } from "@/utils/auth"
 import UserItem from "./UserItem"
 
 interface Reaction {
@@ -18,14 +19,59 @@ interface ReactionViewerProps {
   isOpen: boolean
   onClose: () => void
   postId: string
-  reactions: Reaction[]
+  objectId?: string
+  objectType?: 'post' | 'image' | 'comment'
+  reactions?: Reaction[]
   onUserClick?: (userId: number) => void
 }
 
-// Remove old emoji mapping - now using utility function
-
-export default function ReactionViewer({ isOpen, onClose, postId, reactions, onUserClick }: ReactionViewerProps) {
+export default function ReactionViewer({ 
+  isOpen, 
+  onClose, 
+  postId, 
+  objectId, 
+  objectType = 'post', 
+  reactions: initialReactions, 
+  onUserClick 
+}: ReactionViewerProps) {
   const modalRef = useRef<HTMLDivElement>(null)
+  const [reactions, setReactions] = useState<Reaction[]>(initialReactions || [])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch reactions if not provided
+  useEffect(() => {
+    if (isOpen && (!initialReactions || initialReactions.length === 0)) {
+      const loadReactions = async () => {
+        setIsLoading(true)
+        setError(null)
+        try {
+          const token = getAccessToken()
+          const url = `/api/posts/${postId}/reactions?object_type=${objectType}${objectId ? `&object_id=${objectId}` : ''}`
+          
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            setReactions(data)
+          } else {
+            setError('Failed to load reactions')
+          }
+        } catch (err) {
+          setError('Network error. Please try again.')
+        } finally {
+          setIsLoading(false)
+        }
+      }
+      loadReactions()
+    } else if (initialReactions) {
+      setReactions(initialReactions)
+    }
+  }, [isOpen, initialReactions, postId, objectId, objectType])
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -96,7 +142,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
   }, [isOpen, onClose])
 
   // Group reactions by emoji code
-  const groupedReactions = reactions.reduce((acc, reaction) => {
+  const groupedReactions = reactions.reduce((acc: Record<string, Reaction[]>, reaction: Reaction) => {
     const emoji = getEmojiFromCode(reaction.emojiCode)
     if (!acc[emoji]) {
       acc[emoji] = []
@@ -142,7 +188,22 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto custom-scrollbar" role="main">
-            {totalCount === 0 ? (
+            {isLoading ? (
+              <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                <Loader2 className="h-8 w-8 text-purple-500 animate-spin" />
+                <p className="text-gray-500 text-sm">Loading reactions...</p>
+              </div>
+            ) : error ? (
+              <div className="p-12 text-center">
+                <p className="text-red-500 mb-4">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="text-purple-500 font-medium hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : totalCount === 0 ? (
               <div className="p-6 sm:p-8 text-center" role="status" aria-label="No reactions yet">
                 <div className="text-gray-400 text-4xl mb-4" aria-hidden="true">😊</div>
                 <p className="text-gray-500">No reactions yet</p>
@@ -165,7 +226,7 @@ export default function ReactionViewer({ isOpen, onClose, postId, reactions, onU
                     
                     {/* Users who reacted with this emoji */}
                     <div className="space-y-2" role="list" aria-label={`Users who reacted with ${emoji}`}>
-                      {emojiReactions.map((reaction) => (
+                      {emojiReactions.map((reaction: Reaction) => (
                         <UserItem
                           key={reaction.id}
                           mode="navigation"
