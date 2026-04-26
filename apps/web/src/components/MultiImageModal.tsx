@@ -59,7 +59,8 @@ export default function MultiImageModal({
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
 
   // Reactions state
-  const { data: reactionsData, isLoading: isLoadingReactions, getReactionForImage, forceSetData } = useImageReactions(postId || "", isOpen)
+  // Reactions state
+  const { data: reactionsData, isLoading: isLoadingReactions, getReactionForImage } = useImageReactions(postId || "", isOpen)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionViewer, setShowReactionViewer] = useState(false)
   const [pickerPosition, setPickerPosition] = useState({ x: 0, y: 0 })
@@ -78,13 +79,7 @@ export default function MultiImageModal({
     postId,
     objectType: 'image',
     objectId: currentImage?.id || "",
-    currentReactionState,
-    onStateChange: (newState) => {
-      forceSetData(prev => ({
-        ...prev,
-        [currentImage?.id || ""]: newState
-      }))
-    }
+    currentReactionState
   })
 
   // Reset state when modal opens or initialIndex changes

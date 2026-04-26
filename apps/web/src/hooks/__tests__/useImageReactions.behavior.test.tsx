@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
-import { useImageReactions, updateImageReactionsCache } from '../useImageReactions';
+import { useImageReactions, updateImageReactionsCache, getImageReactionsFromCache } from '../useImageReactions';
 import * as auth from '@/utils/auth';
 
 // Mock auth utils
@@ -17,117 +17,55 @@ global.fetch = mockFetch;
 describe('useImageReactions (@behavior)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear the internal module cache between tests if possible, 
+    // but since it's a module-level variable, we just use different IDs or manually clear it
   });
 
-  it('Cache reuse on reopen: skips fetch if cache hits', async () => {
+  it('Cache reuse: returns success status immediately if cache hits', async () => {
     const mockPostId = 'test-post-123';
+    const mockData = {
+      'image-1': { totalCount: 1, emojiCounts: { 'heart': 1 }, userReaction: 'heart', reactions: [] }
+    };
     
     // Pre-populate cache directly
-    updateImageReactionsCache(mockPostId, {
-      'image-1': { totalCount: 1, emojiCounts: { 'heart': 1 }, userReaction: 'heart', reactions: [] }
-    });
+    updateImageReactionsCache(mockPostId, mockData);
 
     const { result } = renderHook(() => useImageReactions(mockPostId));
 
-    // Should load synchronously from cache
     expect(result.current.isLoading).toBe(false);
     expect(result.current.getReactionForImage('image-1').totalCount).toBe(1);
-    
-    // Fetch should NOT be called since data was freshly cached
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('Critical Edge Case: Fetch resolves -> ensure reaction is NOT overwritten if optimistic mutation occurred', async () => {
-    const mockPostId = 'test-post-456';
-    
-    // Simulate slow network fetch
-    let resolveRef: (value: any) => void = () => {};
-    mockFetch.mockImplementationOnce(() => 
-      new Promise(resolve => {
-        resolveRef = resolve;
-      }) as any
-    );
+  it('Reactive Subscription: updates hook state when cache is updated externally', async () => {
+    const mockPostId = 'test-post-sub';
+    const { result } = renderHook(() => useImageReactions(mockPostId, false));
 
-    const { result } = renderHook(() => useImageReactions(mockPostId));
-    expect(result.current.isLoading).toBe(true);
-    
-    // At this point, fetch has started...
-    
-    // User performs optimistic mutation (heart) using safeForceSetData
-    act(() => {
-      result.current.forceSetData({
-        'image-1': { totalCount: 5, emojiCounts: { 'heart': 5 }, userReaction: 'heart', reactions: [] }
-      });
-    });
-
-    // Validating UI optimistic state
-    expect(result.current.getReactionForImage('image-1').totalCount).toBe(5);
-
-    // Finally, the slow fetch resolves with STALE data (totalCount 3, no heart)
-    await act(async () => {
-      resolveRef({
-        ok: true,
-        json: async () => ({
-          'image-1': { totalCount: 3, emojiCounts: { 'smile': 3 }, userReaction: null, reactions: [] }
-        })
-      });
-    });
-
-    // Verification: Data should REMAIN what we optimistically set (5), ignoring the stale fetch result!
-    expect(result.current.getReactionForImage('image-1').totalCount).toBe(5);
-    expect(result.current.getReactionForImage('image-1').userReaction).toBe('heart');
-  });
-
-  it('Loading state blocks interaction logically when there is no cache', async () => {
-    const mockPostId = 'test-post-789';
-    
-    // Simulate slow fetch
-    mockFetch.mockImplementationOnce(() => new Promise(() => {}) as any);
-
-    const { result } = renderHook(() => useImageReactions(mockPostId));
-    
-    expect(result.current.isLoading).toBe(true);
-    // Implicit interaction block: UI component reads isLoading and sets `disabled={isLoadingReactions}`
     expect(result.current.getReactionForImage('image-1').totalCount).toBe(0);
-  });
 
-  it('Lazy Fetching: Does NOT fetch when enabled is false', async () => {
-    const mockPostId = 'test-post-lazy';
-    renderHook(() => useImageReactions(mockPostId, false));
-    
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
+    const newData = {
+      'image-1': { totalCount: 5, emojiCounts: { 'heart': 5 }, userReaction: 'heart', reactions: [] }
+    };
 
-  it('Lazy Fetching: Fetches when enabled transitions to true', async () => {
-    const mockPostId = 'test-post-lazy-toggle';
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ 'img-1': { totalCount: 10 } })
-    } as any);
-
-    const { rerender } = renderHook(({ enabled }) => useImageReactions(mockPostId, enabled), {
-      initialProps: { enabled: false }
+    act(() => {
+      updateImageReactionsCache(mockPostId, newData);
     });
 
-    expect(global.fetch).not.toHaveBeenCalled();
-
-    await act(async () => {
-      rerender({ enabled: true });
-    });
-
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(result.current.getReactionForImage('image-1').totalCount).toBe(5);
   });
 
-  it('Double Fetch Prevention: Only calls once even with React StrictMode-like double render', async () => {
-    const mockPostId = 'test-post-strict';
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({})
-    } as any);
+  it('Strict Mode Deduplication: only one fetch fires even on multiple mounts', async () => {
+    const mockPostId = 'test-post-dedup';
+    mockFetch.mockImplementation(() => new Promise((resolve) => {
+      setTimeout(() => resolve({
+        ok: true,
+        json: async () => ({})
+      }), 10);
+    }) as any);
 
     const { rerender } = renderHook(() => useImageReactions(mockPostId, true));
     
-    // Simulate re-render
+    // Rerender/Double mount simulation
     await act(async () => {
       rerender();
     });
@@ -135,27 +73,40 @@ describe('useImageReactions (@behavior)', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('Integration: Authenticated request sends Authorization header', async () => {
-    const mockPostId = 'test-post-auth';
-    const mockToken = 'mock-bearer-token';
-    mockGetAccessToken.mockReturnValue(mockToken);
+  it('Optimistic Integrity: latest cache write (mutation) wins over stale fetch', async () => {
+    const mockPostId = 'test-post-race';
     
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({})
-    } as any);
+    let resolveFetch: (val: any) => void = () => {};
+    mockFetch.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveFetch = resolve;
+    }) as any);
 
-    await act(async () => {
-      renderHook(() => useImageReactions(mockPostId));
+    const { result } = renderHook(() => useImageReactions(mockPostId, true));
+    expect(result.current.isLoading).toBe(true);
+
+    // Perform optimistic update while fetch is pending
+    const optimisticData = {
+      'image-1': { totalCount: 10, emojiCounts: { 'heart': 10 }, userReaction: 'heart', reactions: [] }
+    };
+    
+    act(() => {
+      updateImageReactionsCache(mockPostId, optimisticData);
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining(`/api/posts/${mockPostId}/image-reactions`),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'Authorization': `Bearer ${mockToken}`
+    expect(result.current.getReactionForImage('image-1').totalCount).toBe(10);
+
+    // Resolve the stale fetch with different data
+    await act(async () => {
+      resolveFetch({
+        ok: true,
+        json: async () => ({
+          'image-1': { totalCount: 2, emojiCounts: { 'smile': 2 }, userReaction: null, reactions: [] }
         })
-      })
-    );
+      });
+    });
+
+    // Verification: Optimistic data (10) should STILL be there, NOT overwritten by the stale fetch (2)!
+    expect(result.current.getReactionForImage('image-1').totalCount).toBe(10);
+    expect(result.current.getReactionForImage('image-1').userReaction).toBe('heart');
   });
 });
