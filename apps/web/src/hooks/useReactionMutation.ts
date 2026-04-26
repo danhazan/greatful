@@ -1,6 +1,6 @@
 import { useRef, useCallback } from 'react';
 import { useOptimisticMutation } from './useOptimisticMutation';
-import { updateImageReactionsCache, getImageReactionsFromCache, type ReactionSummaryData, type ImageReactionsMap } from './useImageReactions';
+import { updateImageReactionsCache, getImageReactionsMapFromCache, type ReactionSummaryData, type ImageReactionsMap } from './useImageReactions';
 import { getAccessToken } from '@/utils/auth';
 
 export interface ReactionMutationOptions {
@@ -9,16 +9,13 @@ export interface ReactionMutationOptions {
   objectId: string;
   /** Current state snapshot injected from parent (post state or image map state) */
   currentReactionState: ReactionSummaryData;
-  /** Callback to push optimistic updates instantly to the UI (e.g. setState) */
-  onStateChange: (newState: ReactionSummaryData) => void;
 }
 
 export function useReactionMutation({
   postId,
   objectType,
   objectId,
-  currentReactionState,
-  onStateChange
+  currentReactionState
 }: ReactionMutationOptions) {
   
   // Ref to hold the interaction intent (null means delete, string means add/update)
@@ -55,7 +52,7 @@ export function useReactionMutation({
 
   const applyToCacheIfImage = (newState: ReactionSummaryData) => {
     if (objectType !== 'image') return;
-    const currentCache = getImageReactionsFromCache(postId) || {};
+    const currentCache = getImageReactionsMapFromCache(postId) || {};
     const newCache: ImageReactionsMap = {
       ...currentCache,
       [objectId]: newState
@@ -69,10 +66,7 @@ export function useReactionMutation({
       const emojiCode = pendingEmojiRef.current;
       const newState = computeNewState(emojiCode);
       
-      // Update UI local hook strictly
-      onStateChange(newState);
-      
-      // Update DB cache directly strictly
+      // Update DB cache directly strictly — this will notify all hook subscribers
       applyToCacheIfImage(newState);
     },
     apiCall: async (signal) => {
@@ -122,7 +116,6 @@ export function useReactionMutation({
     errorTitle: 'Reaction failed',
     errorMessage: (err) => err.message || 'Could not update your reaction. Please try again.',
     rollback: (snapshot) => {
-      onStateChange(snapshot);
       applyToCacheIfImage(snapshot);
     },
     skipDebugToast: true
