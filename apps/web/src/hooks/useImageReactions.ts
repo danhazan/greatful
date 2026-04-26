@@ -28,12 +28,12 @@ export function getImageReactionsFromCache(postId: string): ImageReactionsMap | 
   return cached.data;
 }
 
-export function useImageReactions(postId: string) {
+export function useImageReactions(postId: string, enabled: boolean = true) {
   const [data, setData] = useState<ImageReactionsMap>(() => getImageReactionsFromCache(postId) || {});
-  const [isLoading, setIsLoading] = useState<boolean>(!getImageReactionsFromCache(postId));
+  const [isLoading, setIsLoading] = useState<boolean>(enabled && !getImageReactionsFromCache(postId));
   const [error, setError] = useState<Error | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const lastMutationTimeRef = useRef<number>(0);
+  const didSucceedRef = useRef<boolean>(false);
 
   // Expose a safe force-set that updates the mutation timestamp
   const safeForceSetData = useCallback((updater: React.SetStateAction<ImageReactionsMap>) => {
@@ -41,18 +41,17 @@ export function useImageReactions(postId: string) {
     setData(updater);
   }, []);
 
-  const fetchReactions = useCallback(async () => {
+  const fetchReactions = useCallback(async (signal: AbortSignal) => {
+    if (!enabled || didSucceedRef.current) return;
+
     const cached = getImageReactionsFromCache(postId);
-    // If not cached, we load. If cached, we skip fetch to prevent race conditions during rapid reopen
     if (cached) {
       setData(cached);
+      didSucceedRef.current = true;
       return;
     }
 
     setIsLoading(true);
-
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
     const fetchStartTime = Date.now();
 
     try {
@@ -64,7 +63,7 @@ export function useImageReactions(postId: string) {
 
       const response = await fetch(`/api/posts/${postId}/image-reactions`, {
         headers,
-        signal: abortControllerRef.current.signal
+        signal
       });
 
       if (!response.ok) {
@@ -76,31 +75,46 @@ export function useImageReactions(postId: string) {
       // Strategy: Ignore fetch if optimistic mutation occurred while fetching
       setData(prev => {
         if (lastMutationTimeRef.current > fetchStartTime) {
-          // A mutation happened during this fetch. The local optimistic state is the source of truth now.
-          // We safely discard this fetch result to prevent overwriting the user reaction.
           return prev;
         }
         
-        // Otherwise, update external cache and internal state safely
         updateImageReactionsCache(postId, jsonData);
         return jsonData;
       });
+      
+      didSucceedRef.current = true;
       setError(null);
     } catch (err: any) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError') {
+        return;
+      }
       setError(err);
     } finally {
       setIsLoading(false);
     }
-  }, [postId]);
+  }, [postId, enabled]);
 
   useEffect(() => {
-    fetchReactions();
+    if (!enabled || didSucceedRef.current) return;
+
+    let isCancelled = false;
+    let abortCurrentFetch: (() => void) | null = null;
+
+    const timeoutId = setTimeout(() => {
+      if (isCancelled) return;
+
+      const controller = new AbortController();
+      abortCurrentFetch = () => controller.abort();
+      
+      fetchReactions(controller.signal);
+    }, 0);
+
     return () => {
-      // Abort only the fetch cycle when unmounted
-      abortControllerRef.current?.abort();
+      isCancelled = true;
+      clearTimeout(timeoutId);
+      if (abortCurrentFetch) abortCurrentFetch();
     };
-  }, [fetchReactions]);
+  }, [enabled, fetchReactions, postId]);
 
   /** Helper to safely get data for an image */
   const getReactionForImage = useCallback((imageId: string): ReactionSummaryData => {
@@ -112,7 +126,10 @@ export function useImageReactions(postId: string) {
     isLoading,
     error,
     getReactionForImage,
-    refetch: fetchReactions,
+    refetch: () => {
+      const controller = new AbortController();
+      return fetchReactions(controller.signal);
+    },
     // Provide a way for the mutation to forcibly override state when pushing optimistics
     forceSetData: safeForceSetData
   };

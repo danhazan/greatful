@@ -1285,7 +1285,7 @@ export default function PostCard({
       />
 
       {/* Multi-Image Modal */}
-      {currentPost.images && currentPost.images.length > 0 && (
+      {showMultiImageModal && currentPost.images && currentPost.images.length > 0 && (
         <MultiImageModal
           postId={currentPost.id}
           images={currentPost.images}
