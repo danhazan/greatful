@@ -59,7 +59,7 @@ export default function MultiImageModal({
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
 
   // Reactions state
-  const { data: reactionsData, isLoading: isLoadingReactions, getReactionForImage, forceSetData, refetch } = useImageReactions(postId || "")
+  const { data: reactionsData, isLoading: isLoadingReactions, getReactionForImage, forceSetData } = useImageReactions(postId || "", isOpen)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionViewer, setShowReactionViewer] = useState(false)
   const [pickerPosition, setPickerPosition] = useState({ x: 0, y: 0 })
@@ -96,10 +96,8 @@ export default function MultiImageModal({
       setShowExpandedView(false)
       setShowEmojiPicker(false)
       setShowReactionViewer(false)
-      // We also trigger refetch safely in case gallery re-opens from stale cache
-      refetch()
     }
-  }, [isOpen, initialIndex, refetch])
+  }, [isOpen, initialIndex])
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -242,12 +240,18 @@ export default function MultiImageModal({
             e.stopPropagation()
             if (isLoadingReactions || isInFlight) return
             
-            // Re-trigger emoji picker via direct top UI anchoring
+            // If already reacted, clicking removes the reaction (parity with PostCard)
+            if (currentReactionState.userReaction) {
+              handleReaction(null)
+              return
+            }
+
+            // Otherwise, open emoji picker
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
             setPickerPosition({ x: rect.left + rect.width / 2, y: rect.bottom + 12 })
             setShowEmojiPicker(true)
           }}
-          disabled={isLoadingReactions}
+          disabled={isLoadingReactions || isInFlight}
           className={`p-2 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-colors flex items-center justify-center ${
             isLoadingReactions || isInFlight ? 'opacity-50 cursor-not-allowed' : ''
           }`}

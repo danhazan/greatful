@@ -91,6 +91,50 @@ describe('useImageReactions (@behavior)', () => {
     expect(result.current.getReactionForImage('image-1').totalCount).toBe(0);
   });
 
+  it('Lazy Fetching: Does NOT fetch when enabled is false', async () => {
+    const mockPostId = 'test-post-lazy';
+    renderHook(() => useImageReactions(mockPostId, false));
+    
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('Lazy Fetching: Fetches when enabled transitions to true', async () => {
+    const mockPostId = 'test-post-lazy-toggle';
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ 'img-1': { totalCount: 10 } })
+    } as any);
+
+    const { rerender } = renderHook(({ enabled }) => useImageReactions(mockPostId, enabled), {
+      initialProps: { enabled: false }
+    });
+
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      rerender({ enabled: true });
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('Double Fetch Prevention: Only calls once even with React StrictMode-like double render', async () => {
+    const mockPostId = 'test-post-strict';
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({})
+    } as any);
+
+    const { rerender } = renderHook(() => useImageReactions(mockPostId, true));
+    
+    // Simulate re-render
+    await act(async () => {
+      rerender();
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('Integration: Authenticated request sends Authorization header', async () => {
     const mockPostId = 'test-post-auth';
     const mockToken = 'mock-bearer-token';

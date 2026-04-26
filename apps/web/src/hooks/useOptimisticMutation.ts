@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { useToast } from '@/contexts/ToastContext'
 
 export interface UseOptimisticMutationOptions<TSnapshot, TResult> {
@@ -62,7 +62,7 @@ export function useOptimisticMutation<TSnapshot, TResult = unknown>(
   const mountedRef = useRef(true)
   const abortControllerRef = useRef<AbortController | null>(null)
   const mutationVersionRef = useRef(0)
-  const isInFlightRef = useRef(false)
+  const [isInFlight, setIsInFlight] = useState(false)
 
   useEffect(() => {
     mountedRef.current = true
@@ -76,7 +76,7 @@ export function useOptimisticMutation<TSnapshot, TResult = unknown>(
   const cancel = useCallback(() => {
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
-    isInFlightRef.current = false
+    setIsInFlight(false)
   }, [])
 
   const execute = useCallback(async () => {
@@ -85,7 +85,7 @@ export function useOptimisticMutation<TSnapshot, TResult = unknown>(
     abortControllerRef.current?.abort()
     const abortController = new AbortController()
     abortControllerRef.current = abortController
-    isInFlightRef.current = true
+    setIsInFlight(true)
 
     // Capture snapshot BEFORE optimistic update (fresh, not stale closure)
     const snapshot = getSnapshot()
@@ -146,7 +146,7 @@ export function useOptimisticMutation<TSnapshot, TResult = unknown>(
       }
     } finally {
       if (version === mutationVersionRef.current) {
-        isInFlightRef.current = false
+        setIsInFlight(false)
       }
     }
   }, [
@@ -170,9 +170,7 @@ export function useOptimisticMutation<TSnapshot, TResult = unknown>(
 
   return {
     execute,
-    get isInFlight() {
-      return isInFlightRef.current
-    },
+    isInFlight,
     cancel,
   }
 }

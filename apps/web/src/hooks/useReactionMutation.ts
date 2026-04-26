@@ -128,9 +128,9 @@ export function useReactionMutation({
     skipDebugToast: true
   });
 
-  const handleReaction = useCallback((emojiCode: string) => {
-    // If clicking same emoji -> intend to remove
-    if (currentReactionState.userReaction === emojiCode) {
+  const handleReaction = useCallback((emojiCode: string | null) => {
+    // If null is passed or it matches the current reaction, we remove it
+    if (emojiCode === null || currentReactionState.userReaction === emojiCode) {
       pendingEmojiRef.current = null;
     } else {
       pendingEmojiRef.current = emojiCode;
