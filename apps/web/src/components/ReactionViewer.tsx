@@ -6,14 +6,11 @@ import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getAccessToken } from "@/utils/auth"
 import UserItem from "./UserItem"
 
-interface Reaction {
-  id: string
-  userId: string
-  userName: string
-  userImage?: string
-  emojiCode: string
-  createdAt: string
-}
+import { 
+  getDetailedReactionsFromCache, 
+  updateDetailedReactionsCache, 
+  type Reaction 
+} from "@/hooks/useImageReactions"
 
 interface ReactionViewerProps {
   isOpen: boolean
@@ -43,6 +40,14 @@ export default function ReactionViewer({
   useEffect(() => {
     if (isOpen && (!initialReactions || initialReactions.length === 0)) {
       const loadReactions = async () => {
+        // 1. Check central cache first
+        const cacheKey = `${postId}:${objectType}:${objectId || 'none'}`
+        const cached = getDetailedReactionsFromCache(cacheKey)
+        if (cached) {
+          setReactions(cached)
+          return
+        }
+
         setIsLoading(true)
         setError(null)
         try {
@@ -58,6 +63,8 @@ export default function ReactionViewer({
           if (response.ok) {
             const data = await response.json()
             setReactions(data)
+            // 2. Update central cache
+            updateDetailedReactionsCache(cacheKey, data)
           } else {
             setError('Failed to load reactions')
           }

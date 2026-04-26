@@ -8,6 +8,15 @@ export interface ReactionSummaryData {
   reactions?: any[];
 }
 
+export interface Reaction {
+  id: string
+  userId: string | number
+  userName: string
+  userImage?: string
+  emojiCode: string
+  createdAt: string
+}
+
 export type ImageReactionsMap = Record<string, ReactionSummaryData>;
 
 type CacheStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -22,10 +31,12 @@ interface CacheEntry {
 // --- Global Data Layer ---
 
 const reactionMapCache = new Map<string, CacheEntry>();
+const detailedReactionsCache = new Map<string, { data: Reaction[]; timestamp: number }>();
 const pendingFetches = new Map<string, Promise<ImageReactionsMap>>();
 const subscribers = new Map<string, Set<(entry: CacheEntry) => void>>();
 
-const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes hard expiry
+const SOFT_CACHE_TTL = 1000 * 60; // 1 minute soft invalidation
 
 /**
  * Update the global cache and notify all active subscribers
@@ -97,6 +108,34 @@ function subscribeToImageReactions(postId: string, callback: (entry: CacheEntry)
 }
 
 /**
+ * For testing purposes only: Get total subscribers for a post
+ */
+export function getSubscribersCount(postId: string): number {
+  return subscribers.get(postId)?.size || 0;
+}
+
+/**
+ * Helpers for detailed reaction list (ReactionViewer)
+ */
+export function getDetailedReactionsFromCache(key: string): Reaction[] | null {
+  const cached = detailedReactionsCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.timestamp > CACHE_TTL) {
+    detailedReactionsCache.delete(key);
+    return null;
+  }
+  return cached.data;
+}
+
+export function updateDetailedReactionsCache(key: string, data: Reaction[]) {
+  detailedReactionsCache.set(key, { data, timestamp: Date.now() });
+}
+
+export function invalidateDetailedReactionsCache(key: string) {
+  detailedReactionsCache.delete(key);
+}
+
+/**
  * Deduplicated fetch logic
  */
 async function fetchImageReactions(postId: string): Promise<ImageReactionsMap> {
@@ -148,7 +187,12 @@ export function useImageReactions(postId: string, enabled: boolean = true) {
 
   // 2. Lifecycle: Trigger lazy fetching
   useEffect(() => {
-    if (!enabled || !postId || entry.status === 'success' || entry.status === 'loading') {
+    if (!enabled || !postId || entry.status === 'loading') {
+      return;
+    }
+
+    const isStale = Date.now() - entry.timestamp > SOFT_CACHE_TTL;
+    if (entry.status === 'success' && !isStale) {
       return;
     }
 

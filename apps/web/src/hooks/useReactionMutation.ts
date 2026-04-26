@@ -1,6 +1,6 @@
 import { useRef, useCallback } from 'react';
 import { useOptimisticMutation } from './useOptimisticMutation';
-import { updateImageReactionsCache, getImageReactionsMapFromCache, type ReactionSummaryData, type ImageReactionsMap } from './useImageReactions';
+import { updateImageReactionsCache, getImageReactionsMapFromCache, invalidateDetailedReactionsCache, type ReactionSummaryData, type ImageReactionsMap } from './useImageReactions';
 import { getAccessToken } from '@/utils/auth';
 
 export interface ReactionMutationOptions {
@@ -50,14 +50,20 @@ export function useReactionMutation({
     };
   };
 
-  const applyToCacheIfImage = (newState: ReactionSummaryData) => {
-    if (objectType !== 'image') return;
-    const currentCache = getImageReactionsMapFromCache(postId) || {};
-    const newCache: ImageReactionsMap = {
-      ...currentCache,
-      [objectId]: newState
-    };
-    updateImageReactionsCache(postId, newCache);
+  const syncGlobalCaches = (newState: ReactionSummaryData) => {
+    // 1. If it's an image, update the multi-image summary cache
+    if (objectType === 'image') {
+      const currentCache = getImageReactionsMapFromCache(postId) || {};
+      const newCache: ImageReactionsMap = {
+        ...currentCache,
+        [objectId]: newState
+      };
+      updateImageReactionsCache(postId, newCache);
+    }
+
+    // 2. ALWAYS invalidate the detailed User List cache for this specific object
+    const detailCacheKey = `${postId}:${objectType}:${objectId || 'none'}`;
+    invalidateDetailedReactionsCache(detailCacheKey);
   };
 
   const mutation = useOptimisticMutation<ReactionSummaryData, void>({
@@ -66,8 +72,8 @@ export function useReactionMutation({
       const emojiCode = pendingEmojiRef.current;
       const newState = computeNewState(emojiCode);
       
-      // Update DB cache directly strictly — this will notify all hook subscribers
-      applyToCacheIfImage(newState);
+      // Update DB caches directly — this notifies hook subscribers and clears stale user lists
+      syncGlobalCaches(newState);
     },
     apiCall: async (signal) => {
       const emojiCode = pendingEmojiRef.current;
@@ -116,7 +122,7 @@ export function useReactionMutation({
     errorTitle: 'Reaction failed',
     errorMessage: (err) => err.message || 'Could not update your reaction. Please try again.',
     rollback: (snapshot) => {
-      applyToCacheIfImage(snapshot);
+      syncGlobalCaches(snapshot);
     },
     skipDebugToast: true
   });
