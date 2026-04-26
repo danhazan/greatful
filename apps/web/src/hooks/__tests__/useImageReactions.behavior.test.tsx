@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
-import { useImageReactions, updateImageReactionsCache, getImageReactionsFromCache } from '../useImageReactions';
+import { useImageReactions, updateImageReactionsCache, getImageReactionsFromCache, getSubscribersCount } from '../useImageReactions';
 import * as auth from '@/utils/auth';
 
 // Mock auth utils
@@ -108,5 +108,30 @@ describe('useImageReactions (@behavior)', () => {
     // Verification: Optimistic data (10) should STILL be there, NOT overwritten by the stale fetch (2)!
     expect(result.current.getReactionForImage('image-1').totalCount).toBe(10);
     expect(result.current.getReactionForImage('image-1').userReaction).toBe('heart');
+  });
+
+  it('Subscription Lifecycle: cleans up on unmount and prevents duplicates on remount', async () => {
+    const mockPostId = 'lifecycle-test';
+    
+    // 1. Mount first instance
+    const { unmount } = renderHook(() => useImageReactions(mockPostId, false));
+    expect(getSubscribersCount(mockPostId)).toBe(1);
+    
+    // 2. Unmount first instance
+    unmount();
+    expect(getSubscribersCount(mockPostId)).toBe(0);
+    
+    // 3. Mount second instance
+    const { result } = renderHook(() => useImageReactions(mockPostId, false));
+    expect(getSubscribersCount(mockPostId)).toBe(1);
+    
+    // 4. Trigger cache update
+    act(() => {
+      updateImageReactionsCache(mockPostId, {
+        'img': { totalCount: 1, emojiCounts: {}, userReaction: null }
+      });
+    });
+    
+    expect(result.current.getReactionForImage('img').totalCount).toBe(1);
   });
 });
