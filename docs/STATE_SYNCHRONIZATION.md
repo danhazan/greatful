@@ -209,3 +209,48 @@ function Feed({ posts }) {
 - Offline state management with sync on reconnect
 - Advanced caching strategies
 - State persistence across sessions
+
+---
+
+## Image Reaction Cache (Global Subscriber Pattern)
+
+Image reactions use a **different, self-contained synchronization architecture** from the event-emitter system above. Because image reactions are scoped to `(postId, imageId)` pairs and shared between multiple mounts (feed card, gallery modal, reaction viewer), they use a global `Map`-based cache with a direct subscription model.
+
+### Why a Separate Pattern
+
+The `useStateSynchronization` event bus is designed for coarse-grained cross-component events (profile updates, follow state). Image reactions require **fine-grained, per-entity subscriptions** where every component instance receives the exact data it needs without broadcasting to the entire app.
+
+### Architecture
+
+```
+                    ┌─────────────────────────────────────┐
+                    │         reactionMapCache (Map)       │
+                    │  "postId" → CacheEntry               │
+                    │    data, status, version, retryCount │
+                    └────────┬────────────────────────────┘
+                             │ notify
+                    ┌────────▼─────────────────────────────┐
+                    │         subscribers (Map)             │
+                    │  "postId" → Set<(entry) => void>      │
+                    └──────┬──────────────────┬────────────┘
+                           │                  │
+                  ┌────────▼────────┐ ┌───────▼────────────┐
+                  │ MultiImageModal │ │  ReactionViewer     │
+                  │ useImageReactions│ │ (same hook instance)│
+                  └─────────────────┘ └────────────────────┘
+```
+
+### Key Differences vs Event Emitter
+
+| Aspect | Event Emitter (`stateSynchronization`) | Image Reaction Cache |
+|--------|---------------------------------------|---------------------|
+| Scope | App-wide broadcast | Per-`postId` subscription |
+| Data | Event payloads (type + payload) | Full `CacheEntry` snapshots |
+| Dedup | Not applicable | `pendingFetches` map (single in-flight) |
+| Retry | Manual in components | Automatic exponential backoff |
+| Race protection | Not applicable | Monotonic `version` counter |
+
+### When to Use Each
+
+- **stateSynchronization event bus**: Profile updates, follow state changes, notification counts — events where many unrelated components need to react.
+- **useImageReactions cache**: Fine-grained entity state that is shared between a small number of tightly-coupled components displaying the same post.
