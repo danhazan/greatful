@@ -172,9 +172,10 @@ When a user reacts to a post (heart, fire, etc.), the system MUST:
 **Data:** PostCard receives `currentUserReaction`, `reactionEmojiCodes` from API
 
 #### System Invariants
-1. **Reaction uniqueness**: At most one `EmojiReaction` per (user_id, post_id) pair
+1. **Reaction uniqueness**: At most one `EmojiReaction` per `(user_id, post_id, object_type, object_id)` tuple
 2. **Notification threshold**: Notification generated only when `reactor_id != author_id`
 3. **Count accuracy**: Post's reaction count = count of EmojiReaction records for that post
+4. **Polymorphic scope**: Image reactions (`object_type=image`) do NOT inflate post-level reaction counts
 
 ---
 
@@ -334,6 +335,51 @@ When a user shares a post, the system MUST:
 
 ---
 
+### Flow 8: Image Reactions
+
+#### User Guarantee
+When a user reacts to an individual image inside a multi-image post, the system MUST:
+1. Record the reaction scoped to that specific image (`object_type=image`, `object_id=<imageId>`)
+2. Show the updated reaction count on the image immediately (optimistic update)
+3. NOT affect the post-level reaction count
+4. Synchronize the reacted state across all views (feed card, gallery modal, reaction viewer)
+5. Retry automatically on transient network failure and show a manual retry prompt after 3 attempts
+
+#### Backend Guarantees
+| Guarantee | Implementation |
+|-----------|---------------|
+| Polymorphic scope | `EmojiReaction.object_type` + `object_id` columns on existing table |
+| Unique constraint | One reaction per `(user_id, post_id, object_type, object_id)` |
+| Batched retrieval | `GET /api/posts/{postId}/image-reactions` returns all images in one call |
+| No post count pollution | Image reactions excluded from `reactions_count` aggregation |
+
+**API Endpoints:**
+- `POST /api/v1/posts/{post_id}/reactions` with `object_type=image`, `object_id=<imageId>` — Add reaction
+- `DELETE /api/v1/posts/{post_id}/reactions?object_type=image&object_id=<imageId>` — Remove reaction
+- `GET /api/posts/{post_id}/image-reactions` — Batched summary for all images in post
+
+#### Frontend Guarantees
+| Guarantee | Implementation |
+|-----------|---------------|
+| Optimistic update | `useReactionMutation` updates cache synchronously before network call |
+| Race-condition safety | Cache versioning (`version` counter) prevents stale overwrites |
+| Retry on failure | Exponential backoff (1s, 2s, 4s), max 3 attempts via `useImageReactions` |
+| Manual recovery | "Sync Error. Tap to retry" shown after retry exhaustion |
+| Cross-view sync | Global subscriber cache ensures feed card + gallery always agree |
+| Ghost request prevention | Retry timers cleared on unmount and manual refetch |
+
+**Hooks:** `useImageReactions`, `useReactionMutation`
+**Components:** `MultiImageModal`, `ReactionViewer`, `EmojiPicker`
+**Config:** `src/config/reactions.ts`
+
+#### System Invariants
+1. **Domain isolation**: Image reactions MUST NOT appear in post-level reaction queries unless `object_type=image` is specified
+2. **Cache consistency**: `updateImageReactionsCache` is the only write path; direct state mutation is forbidden
+3. **Stale guard**: A scheduled retry MUST be a no-op if the cache status is no longer `error` with the same `retryCount`
+4. **Timer lifecycle**: All `pendingRetryTimeouts` for a `postId` MUST be cleared when the last subscriber unmounts
+
+---
+
 ## System-Wide Invariants
 
 These invariants MUST hold across all flows:
@@ -383,6 +429,7 @@ The following tests provide verification evidence for these guarantees. They are
 | Follow + Notify | `test_follow_notifications.py` | Follow → notification |
 | Post | `test_posts_api.py` | CRUD operations |
 | Reactions | `test_reactions_api.py` | Reaction add/remove |
+| Image Reactions | `test_image_reactions_api.py` | Polymorphic reaction add/remove/batch |
 | Notifications | `test_notifications_api.py` | List, read status |
 | Auth | `test_oauth_endpoints.py` | OAuth flows |
 | Feed | `test_feed_v2.py` | Feed generation |
@@ -390,6 +437,6 @@ The following tests provide verification evidence for these guarantees. They are
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: Phase 15 - Cross-System Contract Unification*
+*Document Version: 1.1*
+*Last Updated: Phase 16 — Polymorphic Reaction System & Image Reactions*
 *Classification: System Architecture — Not Test Coverage*

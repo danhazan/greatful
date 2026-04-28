@@ -1469,14 +1469,18 @@ Authorization: Bearer <token>
 ```
 
 ### Reactions (Emoji)
+
 ```
-POST   /api/v1/posts/{post_id}/reactions # Add emoji reaction to post
-DELETE /api/v1/posts/{post_id}/reactions # Remove user's reaction from post
-GET    /api/v1/posts/{post_id}/reactions # Get all reactions for post
-GET    /api/v1/posts/{post_id}/reactions/summary # Get reaction summary & counts
+POST   /api/v1/posts/{post_id}/reactions              # Add/replace emoji reaction (post or image)
+DELETE /api/v1/posts/{post_id}/reactions              # Remove reaction (post or image)
+GET    /api/v1/posts/{post_id}/reactions              # Get all reactions (filterable by object)
+GET    /api/v1/posts/{post_id}/reactions/summary      # Get reaction summary & counts
+GET    /api/posts/{post_id}/image-reactions           # Batched image reaction maps (all images in post)
 ```
 
-**Add/Update Reaction**
+> **Polymorphic Reactions**: All reaction endpoints now accept optional `object_type` and `object_id` query/body parameters. If omitted, they default to `object_type=post`, preserving full backward compatibility.
+
+**Add/Update Reaction (Post-level — unchanged)**
 ```http
 POST /api/v1/posts/{post_id}/reactions
 Authorization: Bearer <token>
@@ -1487,7 +1491,26 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Add/Update Reaction (Image-level)**
+```http
+POST /api/v1/posts/{post_id}/reactions
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "emoji_code": "heart_eyes",
+  "object_type": "image",
+  "object_id": "img-uuid-123"
+}
+```
+
+**Remove Reaction (Image-level)**
+```http
+DELETE /api/v1/posts/{post_id}/reactions?object_type=image&object_id=img-uuid-123
+Authorization: Bearer <token>
+```
+
+**Response (both):**
 ```json
 {
   "success": true,
@@ -1495,6 +1518,8 @@ Content-Type: application/json
     "id": "reaction-uuid",
     "user_id": 123,
     "post_id": "post-uuid",
+    "object_type": "image",
+    "object_id": "img-uuid-123",
     "emoji_code": "heart_eyes",
     "emoji_display": "😍",
     "created_at": "2025-12-16T10:00:00Z",
@@ -1523,8 +1548,10 @@ Validation is performed at the Python application layer via `EmojiReaction.is_va
 | Legacy | Backward compat | `pray` (maps to 🙏) |
 
 **Business Rules:**
-- One reaction per user per post (enforced by unique constraint)
-- Users can change their reaction by posting a new one
+- One reaction per user per `(post_id, object_type, object_id)` tuple (enforced by unique constraint)
+- Users can change their reaction by posting a new one (upsert behavior)
+- `object_type` must be one of: `post`, `image`, `comment` — defaults to `post`
+- `object_id` is required when `object_type != post`; ignored when `object_type == post`
 - Invalid emoji codes return HTTP 422 with validation error
 
 **Get Reaction Summary**
@@ -1550,6 +1577,31 @@ Authorization: Bearer <token>
   }
 }
 ```
+
+**Get All Image Reactions for a Post (Batched)**
+```http
+GET /api/posts/{post_id}/image-reactions
+Authorization: Bearer <token>
+```
+
+Returns a flat map of `imageId → ReactionSummary` for all images in the post, in a single request. Used by the frontend `useImageReactions` hook to avoid N+1 fetches.
+
+**Response:**
+```json
+{
+  "img-uuid-1": {
+    "totalCount": 12,
+    "emojiCounts": { "heart": 8, "fire": 4 },
+    "userReaction": "heart"
+  },
+  "img-uuid-2": {
+    "totalCount": 3,
+    "emojiCounts": { "party": 3 },
+    "userReaction": null
+  }
+}
+```
+
 
 ### Comments & Replies
 ```
