@@ -20,6 +20,7 @@ This document provides comprehensive documentation for the React components used
   - [ShareModal](#sharemodal)
   - [EmojiPicker](#emojipicker)
   - [ReactionViewer](#reactionviewer)
+  - [MultiImageModal](#multiimagemmodal)
 - [User Interface Components](#user-interface-components)
   - [UserListItem](#userlistitem)
   - [ProfilePhotoDisplay](#profilephotodisplay)
@@ -29,6 +30,11 @@ This document provides comprehensive documentation for the React components used
 - [Post Components](#post-components)
   - [PostCard](#postcard)
   - [CreatePostModal](#createpostmodal)
+- [Hooks](#hooks)
+  - [useImageReactions](#useimagereactions)
+  - [useReactionMutation](#usereactionmutation)
+- [Utilities](#utilities)
+  - [ScrollLockManager](#scrolllockmanager)
 
 ---
 
@@ -323,7 +329,7 @@ function PostCard() {
 
 ### ReactionViewer
 
-A modal component that displays all users who have reacted to a post, grouped by emoji type.
+A modal component that displays all users who have reacted to a post or image, grouped by emoji type. Supports the polymorphic reaction system via `objectType` and `objectId` props.
 
 **Location:** `apps/web/src/components/ReactionViewer.tsx`
 
@@ -334,21 +340,88 @@ interface ReactionViewerProps {
   isOpen: boolean
   onClose: () => void
   postId: string
-  reactions: Array<{
-    id: string
-    emoji_code: string
-    user: { id: number, username: string, name: string, image?: string }
-  }>
+  objectType?: 'post' | 'image' | 'comment'  // defaults to 'post'
+  objectId?: string                           // required when objectType !== 'post'
+  initialReactions?: Reaction[]
   onUserClick?: (userId: string) => void
 }
 ```
 
 #### Features
 
-- **Grouped Display**: Reactions grouped by emoji type with counts
-- **User List**: Shows users who reacted with each emoji
-- **Profile Navigation**: Click user to view their profile
-- **Responsive Design**: Works on mobile and desktop
+- **Polymorphic Scope**: Correctly fetches reactions for the specified `objectType + objectId` pair, preventing post and image reaction data from mixing.
+- **Cache Integration**: Reads from and writes to the shared detailed reaction cache (`getDetailedReactionsFromCache` / `updateDetailedReactionsCache`) to avoid redundant network calls.
+- **Grouped Display**: Groups reactions by emoji type with per-emoji user lists and counts.
+- **Scroll Lock**: Calls `lockScroll` / `unlockScroll` on mount/unmount to integrate safely with nested overlays.
+- **Profile Navigation**: Click any user row to navigate to their profile.
+- **Dev Assertion**: In development, warns if `objectType === 'image'` but `objectId` is missing.
+
+#### Usage Example
+
+```typescript
+// Image-scoped reaction viewer (inside MultiImageModal)
+<ReactionViewer
+  isOpen={showReactionViewer}
+  onClose={() => setShowReactionViewer(false)}
+  postId={postId}
+  objectType="image"
+  objectId={currentImageId}
+/>
+
+// Post-scoped (legacy default)
+<ReactionViewer
+  isOpen={showReactionViewer}
+  onClose={() => setShowReactionViewer(false)}
+  postId={postId}
+/>
+```
+
+#### API Integration
+
+- **Endpoint**: `GET /api/v1/posts/{postId}/reactions?object_type={objectType}&object_id={objectId}`
+- **Authentication**: Requires Bearer token
+
+---
+
+### MultiImageModal
+
+The fullscreen image gallery component for multi-image posts. Extended with per-image emoji reactions, summary bar, and viewer integration.
+
+**Location:** `apps/web/src/components/MultiImageModal.tsx`
+
+#### Props Interface
+
+```typescript
+interface MultiImageModalProps {
+  isOpen: boolean
+  onClose: () => void
+  postId?: string
+  images: PostImage[]
+  initialIndex?: number
+}
+```
+
+#### Features
+
+- **Gallery Navigation**: Swipe (mobile) and arrow keys (desktop), thumbnail strip, keyboard `Escape` to close.
+- **Image Reactions**: Heart/emoji button (top-center) triggers `EmojiPicker` or removes the current reaction on tap.
+- **Reaction Summary Bar**: Bottom-center strip shows aggregate emoji counts for the current image. Tapping opens `ReactionViewer`.
+- **Optimistic Updates**: Uses `useReactionMutation` so reaction state is updated instantly without waiting for the server.
+- **Error Recovery**: If the reaction sync fails after retries, the summary bar switches to a "Sync Error. Tap to retry" prompt that calls `refetch()`.
+- **Zoom Pill UI**: Standardized floating zoom indicator for both gallery and full-resolution views.
+- **Scroll Lock**: Properly integrates with `ScrollLockManager` for nested overlay support.
+
+#### Usage Example
+
+```typescript
+<MultiImageModal
+  isOpen={isGalleryOpen}
+  onClose={() => setIsGalleryOpen(false)}
+  postId={post.id}
+  images={post.images}
+  initialIndex={clickedIndex}
+/>
+```
 
 ---
 
@@ -819,3 +892,160 @@ The post toolbar contains three main interaction buttons in this order:
 - **AdvancedShareModal**: Additional sharing platforms
 - **UserAnalyticsModal**: User engagement statistics
 - **BulkActionModal**: Batch operations on users
+
+---
+
+## Hooks
+
+### useImageReactions
+
+A hook backed by a global reactive cache that manages per-image reaction state for a post. Handles fetching, deduplication, staleness, retries, and subscription.
+
+**Location:** `apps/web/src/hooks/useImageReactions.ts`
+
+#### Return Type
+
+```typescript
+{
+  data: ImageReactionsMap          // keyed by imageId
+  isLoading: boolean
+  error: Error | undefined
+  retryCount: number
+  getReactionForImage: (imageId: string) => ReactionSummaryData
+  refetch: () => void              // clears error and resets to 'idle'
+}
+```
+
+#### Key Behaviours
+
+- **Single in-flight request per post**: A `pendingFetches` map ensures concurrent hook instances share the same network call.
+- **Retry policy**: On fetch failure, automatically retries up to `MAX_RETRIES` (default 3) times with exponential backoff (`RETRY_DELAY_MS * RETRY_BACKOFF_FACTOR ^ attempt`). Configured in `src/config/reactions.ts`.
+- **Version-based race protection**: Each cache write increments a monotonic `version` counter. A network response is silently discarded if the cache version has advanced since the request was issued, preventing stale data from overwriting optimistic updates.
+- **Automatic cleanup**: All scheduled retry `setTimeout`s are tracked per `postId`. When the last subscriber for a post unmounts, pending timers are canceled—no ghost requests.
+- **Manual refetch**: Calling `refetch()` cancels any pending timer, resets `retryCount` to `0`, and transitions status back to `'idle'`, triggering a fresh fetch on the next render.
+
+#### Usage Example
+
+```typescript
+import { useImageReactions } from '@/hooks/useImageReactions'
+
+function ImageReactionBar({ postId, imageId }) {
+  const { data, isLoading, error, refetch } = useImageReactions(postId)
+  const reaction = data[imageId] ?? { totalCount: 0, emojiCounts: {}, userReaction: null }
+
+  if (error) return <button onClick={refetch}>Sync Error. Tap to retry.</button>
+  if (isLoading) return <Spinner />
+  return <span>{reaction.totalCount} reactions</span>
+}
+```
+
+#### Cache API (exported)
+
+| Function | Description |
+|----------|-------------|
+| `updateImageReactionsCache(postId, data, status?, error?, retryCount?)` | Write a new entry and notify all subscribers |
+| `getImageReactionsFromCache(postId)` | Read the full `CacheEntry` (respects TTL) |
+| `getImageReactionsMapFromCache(postId)` | Convenience shorthand that returns only `data: ImageReactionsMap` |
+| `clearPendingRetries(postId)` | Cancel any scheduled retry timer |
+| `getSubscribersCount(postId)` | *(testing utility)* Returns the number of active subscribers |
+
+---
+
+### useReactionMutation
+
+Optimistic mutation hook for adding or removing reactions on any polymorphic object (post, image, comment).
+
+**Location:** `apps/web/src/hooks/useReactionMutation.ts`
+
+#### Options
+
+```typescript
+interface ReactionMutationOptions {
+  postId: string
+  objectType: 'post' | 'image' | 'comment'
+  objectId: string
+  currentReactionState: ReactionSummaryData
+}
+```
+
+#### Return Type
+
+```typescript
+{
+  handleReaction: (emojiCode: string | null) => Promise<void>
+  isInFlight: boolean
+}
+```
+
+#### Key Behaviours
+
+- **Optimistic update**: `updateImageReactionsCache` is called synchronously before the network request, so the UI responds instantly.
+- **Rollback on failure**: If the server rejects the mutation, the previous state is restored and an error toast is shown.
+- **Deduplication**: Uses an `isInFlight` ref to prevent concurrent mutations from interfering.
+- **Domain-safe**: Passes `object_type` and `object_id` query params so the backend applies the reaction to the correct entity.
+
+#### Usage Example
+
+```typescript
+import { useReactionMutation } from '@/hooks/useReactionMutation'
+
+function ImageReactionButton({ postId, imageId, currentState }) {
+  const { handleReaction, isInFlight } = useReactionMutation({
+    postId,
+    objectType: 'image',
+    objectId: imageId,
+    currentReactionState: currentState,
+  })
+
+  return (
+    <button
+      onClick={() => handleReaction(currentState.userReaction ? null : 'heart')}
+      disabled={isInFlight}
+    >
+      {currentState.userReaction ?? '🤍'}
+    </button>
+  )
+}
+```
+
+---
+
+## Utilities
+
+### ScrollLockManager
+
+A stack-aware utility that prevents body scrolling while one or more overlays are open. Uses a reference counter so nested modals (e.g., `MultiImageModal → ReactionViewer → EmojiPicker`) work correctly regardless of close order.
+
+**Location:** `apps/web/src/utils/scrollLock.ts`
+
+#### API
+
+```typescript
+ScrollLockManager.lock()     // Increment ref count; locks scroll on first call
+ScrollLockManager.unlock()   // Decrement ref count; restores scroll on last call
+ScrollLockManager.getCount() // Returns current ref count (testing utility)
+
+// Convenience wrappers (compatible with legacy direct calls)
+lockScroll()
+unlockScroll()
+```
+
+#### Guarantees
+
+- **No layout shift**: Captures scrollbar width before locking and applies equivalent `paddingRight` to prevent content reflow.
+- **Nested safety**: `lock` can be called N times; scroll is only restored after N matching `unlock` calls.
+- **Underflow protection**: Calling `unlock` when `lockCount === 0` is a no-op (warns in development).
+- **Complete restoration**: On final unlock, `overflow`, `paddingRight`, and `html.overflow` are all restored to their original values.
+
+#### Usage Pattern
+
+```typescript
+import { lockScroll, unlockScroll } from '@/utils/scrollLock'
+
+useEffect(() => {
+  if (isOpen) {
+    lockScroll()
+    return () => unlockScroll()
+  }
+}, [isOpen])
+```
