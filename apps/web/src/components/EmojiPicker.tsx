@@ -42,10 +42,15 @@ export default function EmojiPicker({
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
-      const originalOverflow = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+      document.documentElement.style.overflow = 'hidden';
+      
       return () => {
-        document.body.style.overflow = originalOverflow
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.overflow = '';
       }
     }
   }, [isOpen])
@@ -156,10 +161,11 @@ export default function EmojiPicker({
     <>
       {/* Backdrop - blocks interaction with background */}
       <div
-        className="fixed inset-0 bg-gray-900 bg-opacity-20 z-[9998]"
+        className="fixed inset-0 bg-gray-900 bg-opacity-20 z-[80]"
         // Prevent any scroll/touch events from reaching the page
         onWheel={(e) => e.preventDefault()}
         onTouchMove={(e) => e.preventDefault()}
+        style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
       />
 
       {/* Modal */}
@@ -168,7 +174,7 @@ export default function EmojiPicker({
         role="dialog"
         aria-modal="true"
         aria-labelledby="emoji-picker-title"
-        className="fixed z-[9999] bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[340px]"
+        className="fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[340px]"
         style={{
           left: Math.max(16, Math.min(position.x - 160, window.innerWidth - 356)),
           top: position.y,

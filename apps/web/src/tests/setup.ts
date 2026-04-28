@@ -69,4 +69,13 @@ if (typeof window !== 'undefined') {
   if (!window.URL.revokeObjectURL) {
     window.URL.revokeObjectURL = jest.fn() as any
   }
+
+  // Mock ResizeObserver
+  if (!window.ResizeObserver) {
+    window.ResizeObserver = jest.fn().mockImplementation(() => ({
+      observe: jest.fn(),
+      unobserve: jest.fn(),
+      disconnect: jest.fn(),
+    }))
+  }
 }

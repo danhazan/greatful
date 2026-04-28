@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { X, Loader2 } from "lucide-react"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getAccessToken } from "@/utils/auth"
+import { lockScroll, unlockScroll } from "@/utils/scrollLock"
 import UserItem from "./UserItem"
 
 import { 
@@ -36,9 +38,16 @@ export default function ReactionViewer({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Dev-only integrity check
+  if (process.env.NODE_ENV === 'development') {
+    if (objectType === 'image' && !objectId) {
+      console.warn('[ReactionViewer] objectType is "image" but no objectId provided. This will likely cause reaction leakage.');
+    }
+  }
+
   // Fetch reactions if not provided
   useEffect(() => {
-    if (isOpen && (!initialReactions || initialReactions.length === 0)) {
+    if (isOpen && initialReactions === undefined) {
       const loadReactions = async () => {
         // 1. Check central cache first
         const cacheKey = `${postId}:${objectType}:${objectId || 'none'}`
@@ -83,19 +92,8 @@ export default function ReactionViewer({
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
-      const scrollY = window.scrollY
-      document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.top = `-${scrollY}px`
-      document.body.style.width = '100%'
-      
-      return () => {
-        document.body.style.overflow = ''
-        document.body.style.position = ''
-        document.body.style.top = ''
-        document.body.style.width = ''
-        window.scrollTo(0, scrollY)
-      }
+      lockScroll()
+      return () => unlockScroll()
     }
   }, [isOpen])
 
@@ -112,6 +110,29 @@ export default function ReactionViewer({
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen, onClose])
+
+  // Prevent background scroll events (wheel/touch) explicitly
+  useEffect(() => {
+    const preventDefault = (e: Event) => {
+      // If we're scrolling inside the content area, allow it
+      const target = e.target as HTMLElement;
+      const isInsideScrollable = target.closest('.overflow-y-auto');
+      
+      if (!isInsideScrollable) {
+        e.preventDefault();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('wheel', preventDefault, { passive: false });
+      window.addEventListener('touchmove', preventDefault, { passive: false });
+      
+      return () => {
+        window.removeEventListener('wheel', preventDefault);
+        window.removeEventListener('touchmove', preventDefault);
+      };
+    }
+  }, [isOpen])
 
   // Handle escape key and keyboard navigation
   useEffect(() => {
@@ -163,20 +184,26 @@ export default function ReactionViewer({
 
   if (!isOpen) return null
 
-  return (
+  if (typeof window === 'undefined') return null
+
+  return createPortal(
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 z-[80]" 
+        onClick={onClose} 
+        style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+      />
       
       {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 sm:p-6">
+      <div className="fixed inset-0 flex items-center justify-center z-[81] p-4 sm:p-6 pointer-events-none">
         <div 
           ref={modalRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="reaction-viewer-title"
           aria-describedby="reaction-viewer-description"
-          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[85vh] sm:max-h-[80vh] flex flex-col touch-manipulation"
+          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[85vh] sm:max-h-[80vh] flex flex-col touch-manipulation pointer-events-auto"
           tabIndex={-1}
         >
           {/* Header */}
@@ -270,6 +297,7 @@ export default function ReactionViewer({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }

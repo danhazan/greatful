@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { X, ChevronLeft, ChevronRight, Maximize2, Heart } from "lucide-react"
 import ImageModal from "./ImageModal"
 import { useImageReactions } from '@/hooks/useImageReactions'
+import { lockScroll, unlockScroll } from '@/utils/scrollLock'
 import { useReactionMutation } from '@/hooks/useReactionMutation'
 import EmojiPicker from './EmojiPicker'
 import ReactionViewer from './ReactionViewer'
@@ -38,7 +39,6 @@ interface MultiImageModalProps {
  * - Arrow key navigation on desktop
  * - On-screen arrow buttons
  * - Image counter (e.g., "1 / 5")
- * - Zoom and pan support (inherited from ImageModal pattern)
  * - Simple fade transition between images
  * - Background scroll lock
  */
@@ -60,7 +60,7 @@ export default function MultiImageModal({
 
   // Reactions state
   // Reactions state
-  const { data: reactionsData, isLoading: isLoadingReactions, getReactionForImage } = useImageReactions(postId || "", isOpen)
+  const { data: reactionsData, isLoading: isLoadingReactions, getReactionForImage, error, refetch } = useImageReactions(postId || "", isOpen)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionViewer, setShowReactionViewer] = useState(false)
   const [pickerPosition, setPickerPosition] = useState({ x: 0, y: 0 })
@@ -96,11 +96,22 @@ export default function MultiImageModal({
 
   // Lock body scroll when modal is open
   useEffect(() => {
+    const preventDefault = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+
     if (isOpen) {
-      document.body.style.overflow = 'hidden'
+      lockScroll();
+
+      // Event-level scroll lock for wheel/mouse/touch
+      window.addEventListener('wheel', preventDefault, { passive: false });
+      window.addEventListener('touchmove', preventDefault as unknown as EventListener, { passive: false });
     }
+    
     return () => {
-      document.body.style.overflow = 'unset'
+      unlockScroll();
+      window.removeEventListener('wheel', preventDefault);
+      window.removeEventListener('touchmove', preventDefault as unknown as EventListener);
     }
   }, [isOpen])
 
@@ -201,6 +212,7 @@ export default function MultiImageModal({
       ref={modalRef}
       className="fixed inset-0 z-50 bg-black bg-opacity-95 flex items-center justify-center"
       onClick={handleBackdropClick}
+      style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
     >
       {/* Top right controls */}
       <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
@@ -231,8 +243,18 @@ export default function MultiImageModal({
       {/* Top Center User Reaction Button */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
         <button
+          disabled={isLoadingReactions || isInFlight}
+          className={`p-2 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-colors flex items-center justify-center ${
+            (isLoadingReactions || isInFlight) ? 'opacity-50 cursor-not-allowed' : ''
+          } ${error ? 'ring-2 ring-red-500 ring-opacity-50' : ''}`}
+          aria-label={error ? "Reaction sync error" : "React to image"}
+          title={error ? "Synchronization error. Click to retry." : undefined}
           onClick={(e) => {
             e.stopPropagation()
+            if (error) {
+              refetch()
+              return
+            }
             if (isLoadingReactions || isInFlight) return
             
             // If already reacted, clicking removes the reaction (parity with PostCard)
@@ -246,14 +268,13 @@ export default function MultiImageModal({
             setPickerPosition({ x: rect.left + rect.width / 2, y: rect.bottom + 12 })
             setShowEmojiPicker(true)
           }}
-          disabled={isLoadingReactions || isInFlight}
-          className={`p-2 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-colors flex items-center justify-center ${
-            isLoadingReactions || isInFlight ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-          aria-label="React to image"
         >
           {isLoadingReactions ? (
             <div className="h-6 w-6 border-b-2 border-white rounded-full animate-spin"></div>
+          ) : error ? (
+            <div className="h-6 w-6 flex items-center justify-center">
+              <span className="text-red-500 font-bold" title="Sync Error">!</span>
+            </div>
           ) : currentReactionState.userReaction ? (
             <span className="text-xl leading-none">
               {getEmojiFromCode(currentReactionState.userReaction)}
@@ -354,6 +375,13 @@ export default function MultiImageModal({
             <div className="h-4 w-4 border-b-2 border-white rounded-full animate-spin"></div>
             <span className="text-white text-sm">Loading...</span>
           </div>
+        ) : error ? (
+          <button 
+            onClick={refetch}
+            className="flex items-center space-x-2 bg-red-900 bg-opacity-60 hover:bg-opacity-80 transition-colors rounded-full px-4 py-2 border border-red-500"
+          >
+            <span className="text-white text-xs font-medium">Sync Error. Tap to retry.</span>
+          </button>
         ) : currentReactionState.totalCount > 0 ? (
           <button
             onClick={() => setShowReactionViewer(true)}

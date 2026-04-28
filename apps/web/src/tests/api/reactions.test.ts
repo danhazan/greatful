@@ -66,7 +66,7 @@ describe('/api/posts/[id]/reactions', () => {
       })
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/v1/posts/post-123/reactions',
+        'http://localhost:8000/api/v1/posts/post-123/reactions?object_type=post',
         {
           method: 'GET',
           headers: {
@@ -162,7 +162,9 @@ describe('/api/posts/[id]/reactions', () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            emoji_code: 'heart_eyes'
+            emoji_code: 'heart_eyes',
+            object_type: 'post',
+            object_id: null
           })
         }
       )
@@ -201,7 +203,9 @@ describe('/api/posts/[id]/reactions', () => {
         'http://localhost:8000/api/v1/posts/post-123/reactions',
         expect.objectContaining({
           body: JSON.stringify({
-            emoji_code: 'pray'
+            emoji_code: 'pray',
+            object_type: 'post',
+            object_id: null
           })
         })
       )
