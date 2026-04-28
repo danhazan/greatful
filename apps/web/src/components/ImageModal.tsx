@@ -1,7 +1,10 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
+import { lockScroll, unlockScroll } from '@/utils/scrollLock'
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch"
 
 interface ImageModalProps {
   src: string
@@ -11,24 +14,17 @@ interface ImageModalProps {
 }
 
 export default function ImageModal({ src, alt, isOpen, onClose }: ImageModalProps) {
-  const [scale, setScale] = useState(1)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const imageRef = useRef<HTMLImageElement>(null)
-  const modalRef = useRef<HTMLDivElement>(null)
 
-  // Reset state when modal opens
+  // Reset loading state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setScale(1)
-      setPosition({ x: 0, y: 0 })
       setIsLoading(true)
     }
   }, [isOpen])
 
-  // Handle escape key
+  // Handle escape key and scroll lock
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -36,104 +32,34 @@ export default function ImageModal({ src, alt, isOpen, onClose }: ImageModalProp
       }
     }
 
+    const preventDefault = (e: Event) => {
+      // If we're scaling/zooming, let the library handle it, but block document scroll
+      e.preventDefault();
+    };
+
     if (isOpen) {
       document.addEventListener('keydown', handleEscape)
-      document.body.style.overflow = 'hidden'
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape)
-      document.body.style.overflow = 'unset'
+      lockScroll()
+      
+      // Event-level scroll lock
+      window.addEventListener('wheel', preventDefault, { passive: false });
+      window.addEventListener('touchmove', preventDefault, { passive: false });
+      
+      return () => {
+        document.removeEventListener('keydown', handleEscape)
+        unlockScroll()
+        window.removeEventListener('wheel', preventDefault);
+        window.removeEventListener('touchmove', preventDefault);
+      }
     }
   }, [isOpen, onClose])
 
   // Handle click outside modal
   const handleBackdropClick = (e: React.MouseEvent) => {
-    // Close if clicking on the backdrop (the modal container itself)
-    if (e.target === e.currentTarget) {
+    // Close if clicking directly on the backdrop area outside the image
+    if (e.currentTarget === e.target) {
       onClose()
     }
-  }
-
-  // Handle zoom with mouse wheel
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    const delta = e.deltaY > 0 ? -0.1 : 0.1
-    const newScale = Math.max(0.5, Math.min(5, scale + delta))
-    setScale(newScale)
-  }
-
-  // Handle touch zoom (pinch)
-  const [lastTouchDistance, setLastTouchDistance] = useState(0)
-
-  const getTouchDistance = (touches: React.TouchList) => {
-    if (touches.length < 2) return 0
-    const touch1 = touches[0]
-    const touch2 = touches[1]
-    return Math.sqrt(
-      Math.pow(touch2.clientX - touch1.clientX, 2) +
-      Math.pow(touch2.clientY - touch1.clientY, 2)
-    )
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      setLastTouchDistance(getTouchDistance(e.touches))
-    } else if (e.touches.length === 1) {
-      setIsDragging(true)
-      setDragStart({
-        x: e.touches[0].clientX - position.x,
-        y: e.touches[0].clientY - position.y
-      })
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault()
-    
-    if (e.touches.length === 2) {
-      const currentDistance = getTouchDistance(e.touches)
-      if (lastTouchDistance > 0) {
-        const scaleChange = currentDistance / lastTouchDistance
-        const newScale = Math.max(0.5, Math.min(5, scale * scaleChange))
-        setScale(newScale)
-      }
-      setLastTouchDistance(currentDistance)
-    } else if (e.touches.length === 1 && isDragging) {
-      setPosition({
-        x: e.touches[0].clientX - dragStart.x,
-        y: e.touches[0].clientY - dragStart.y
-      })
-    }
-  }
-
-  const handleTouchEnd = () => {
-    setIsDragging(false)
-    setLastTouchDistance(0)
-  }
-
-  // Handle mouse drag
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (scale > 1) {
-      setIsDragging(true)
-      setDragStart({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y
-      })
-    }
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && scale > 1) {
-      setPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      })
-    }
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
   }
 
   const handleImageLoad = () => {
@@ -142,20 +68,19 @@ export default function ImageModal({ src, alt, isOpen, onClose }: ImageModalProp
 
   if (!isOpen) return null
 
-  return (
+  // Ensure this runs only on client logic (due to createPortal needing document).
+  if (typeof window === 'undefined') return null
+
+  return createPortal(
     <div
-      ref={modalRef}
-      className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center"
+      className="fixed inset-0 z-[70] bg-black bg-opacity-95 flex items-center justify-center w-screen h-screen overflow-hidden"
       onClick={handleBackdropClick}
-      onWheel={handleWheel}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      style={{ touchAction: 'none' }}
     >
       {/* Close button */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-colors"
+        className="absolute top-4 right-4 z-[90] p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-colors"
         aria-label="Close image modal"
       >
         <X className="h-6 w-6" />
@@ -163,77 +88,88 @@ export default function ImageModal({ src, alt, isOpen, onClose }: ImageModalProp
 
       {/* Loading indicator */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[60]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
         </div>
       )}
 
-      {/* Image container */}
-      <div
-        className="relative flex items-center justify-center"
-        style={{
-          width: '90vw',
-          height: '90vh',
-          transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-          cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
-          transition: isDragging ? 'none' : 'transform 0.1s ease-out'
-        }}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={(e) => {
-          // Only stop propagation if clicking directly on the image
-          if (e.target === imageRef.current) {
-            e.stopPropagation()
-          }
-        }}
-      >
-        <img
-          ref={imageRef}
-          src={src}
-          alt={alt}
-          className="max-w-full max-h-full object-contain select-none"
-          onLoad={handleImageLoad}
-          draggable={false}
-        />
-      </div>
+      {/* Transform Wrapper */}
+      <div className="w-full h-full flex items-center justify-center overflow-hidden">
+        <TransformWrapper
+          centerOnInit
+          minScale={0.5}
+          maxScale={5}
+          initialScale={1}
+          doubleClick={{ mode: "toggle" }}
+          wheel={{ step: 0.003 }}
+        >
+          {({ zoomIn, zoomOut, resetTransform, state }) => (
+            <>
+              <TransformComponent
+                wrapperStyle={{
+                  width: '100vw',
+                  height: '100vh',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                contentStyle={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  height: '100%',
+                }}
+              >
+                <img
+                  ref={imageRef}
+                  src={src}
+                  alt={alt}
+                  className="max-w-full max-h-full object-contain select-none"
+                  style={{
+                    display: 'block',
+                    maxWidth: '100vw',
+                    maxHeight: '100vh',
+                  }}
+                  onLoad={handleImageLoad}
+                  draggable={false}
+                />
+              </TransformComponent>
 
-      {/* Zoom controls for desktop */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 bg-black bg-opacity-50 rounded-full px-4 py-2 hidden md:flex">
-        <button
-          onClick={() => setScale(Math.max(0.5, scale - 0.25))}
-          className="text-white hover:text-gray-300 text-xl font-bold w-8 h-8 flex items-center justify-center"
-          aria-label="Zoom out"
-        >
-          −
-        </button>
-        <span className="text-white text-sm min-w-[3rem] text-center">
-          {Math.round(scale * 100)}%
-        </span>
-        <button
-          onClick={() => setScale(Math.min(5, scale + 0.25))}
-          className="text-white hover:text-gray-300 text-xl font-bold w-8 h-8 flex items-center justify-center"
-          aria-label="Zoom in"
-        >
-          +
-        </button>
-        <button
-          onClick={() => {
-            setScale(1)
-            setPosition({ x: 0, y: 0 })
-          }}
-          className="text-white hover:text-gray-300 text-xs px-2 py-1 ml-2"
-          aria-label="Reset zoom"
-        >
-          Reset
-        </button>
+              {/* Zoom controls - Always visible, centered at bottom */}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center space-x-2 bg-black bg-opacity-50 rounded-full px-5 py-2.5 z-[80] shadow-lg border border-white/10 backdrop-blur-sm">
+                <button
+                  onClick={() => zoomOut()}
+                  className="text-white hover:text-gray-300 transition-colors h-10 w-10 flex items-center justify-center active:scale-95"
+                  aria-label="Zoom out"
+                >
+                  <span className="text-2xl font-light">−</span>
+                </button>
+                <div className="w-[1px] h-4 bg-white/20 mx-1" />
+                <span className="text-white text-sm font-medium min-w-[3.5rem] text-center select-none">
+                  {Math.round(state.scale * 100)}%
+                </span>
+                <div className="w-[1px] h-4 bg-white/20 mx-1" />
+                <button
+                  onClick={() => zoomIn()}
+                  className="text-white hover:text-gray-300 transition-colors h-10 w-10 flex items-center justify-center active:scale-95"
+                  aria-label="Zoom in"
+                >
+                  <span className="text-2xl font-light">+</span>
+                </button>
+                <button
+                  onClick={() => resetTransform()}
+                  className="ml-2 px-3 py-1 bg-white/10 text-white text-xs font-medium rounded-full hover:bg-white/20 transition-colors active:scale-95"
+                  aria-label="Reset zoom"
+                >
+                  Reset
+                </button>
+              </div>
+            </>
+          )}
+        </TransformWrapper>
       </div>
-
-      {/* Mobile instructions */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 rounded-full px-4 py-2 md:hidden">
-        Pinch to zoom • Drag to pan
-      </div>
-    </div>
+    </div>,
+    document.body
   )
 }
