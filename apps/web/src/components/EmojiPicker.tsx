@@ -72,28 +72,7 @@ export default function EmojiPicker({
     }
   }, [isOpen, onCancel])
 
-  // Block scroll events on backdrop (scroll outside tray)
-  useEffect(() => {
-    const handleBackdropScroll = (event: Event) => {
-      // If the scroll is not within our scroll container, prevent it
-      if (scrollContainerRef.current && !scrollContainerRef.current.contains(event.target as Node)) {
-        event.preventDefault()
-        event.stopPropagation()
-      }
-    }
 
-    if (isOpen) {
-      // Use capture phase to intercept scroll events before they bubble
-      document.addEventListener('scroll', handleBackdropScroll, { capture: true, passive: false })
-      document.addEventListener('wheel', handleBackdropScroll, { capture: true, passive: false })
-      document.addEventListener('touchmove', handleBackdropScroll, { capture: true, passive: false })
-      return () => {
-        document.removeEventListener('scroll', handleBackdropScroll, { capture: true })
-        document.removeEventListener('wheel', handleBackdropScroll, { capture: true })
-        document.removeEventListener('touchmove', handleBackdropScroll, { capture: true })
-      }
-    }
-  }, [isOpen])
 
   // Handle keyboard navigation - only Escape key kept
   useEffect(() => {
@@ -162,9 +141,6 @@ export default function EmojiPicker({
       {/* Backdrop - blocks interaction with background */}
       <div
         className="fixed inset-0 bg-gray-900 bg-opacity-20 z-[80]"
-        // Prevent any scroll/touch events from reaching the page
-        onWheel={(e) => e.preventDefault()}
-        onTouchMove={(e) => e.preventDefault()}
         style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
       />
 
@@ -198,6 +174,7 @@ export default function EmojiPicker({
         {/* Scrollable Emoji Grid Container */}
         <div
           ref={scrollContainerRef}
+          data-allow-scroll="true"
           className="max-h-[280px] overflow-y-auto overflow-x-hidden overscroll-contain"
           style={{
             // Prevent scroll events from propagating to parent

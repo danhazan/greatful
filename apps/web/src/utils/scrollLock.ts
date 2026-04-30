@@ -3,6 +3,21 @@ let originalOverflow = '';
 let originalPaddingRight = '';
 let originalHtmlOverflow = '';
 
+function shouldAllowScroll(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return !!target.closest('[data-allow-scroll="true"]');
+}
+
+function handleTouchMove(e: TouchEvent) {
+  if (shouldAllowScroll(e.target)) return;
+  e.preventDefault();
+}
+
+function handleWheel(e: WheelEvent) {
+  if (shouldAllowScroll(e.target)) return;
+  e.preventDefault();
+}
+
 /**
  * Robust scroll lock utility that handles nested modals correctly.
  */
@@ -24,6 +39,9 @@ export const ScrollLockManager = {
       if (scrollBarWidth > 0) {
         document.body.style.paddingRight = `${scrollBarWidth}px`;
       }
+
+      window.addEventListener('wheel', handleWheel, { passive: false });
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
     }
   },
 
@@ -46,6 +64,9 @@ export const ScrollLockManager = {
       originalOverflow = '';
       originalPaddingRight = '';
       originalHtmlOverflow = '';
+
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchmove', handleTouchMove);
     }
   },
 
@@ -55,4 +76,3 @@ export const ScrollLockManager = {
 // Also export as individual functions for compatibility with previous edits
 export function lockScroll() { ScrollLockManager.lock(); }
 export function unlockScroll() { ScrollLockManager.unlock(); }
-

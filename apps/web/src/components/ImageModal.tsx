@@ -32,24 +32,13 @@ export default function ImageModal({ src, alt, isOpen, onClose }: ImageModalProp
       }
     }
 
-    const preventDefault = (e: Event) => {
-      // If we're scaling/zooming, let the library handle it, but block document scroll
-      e.preventDefault();
-    };
-
     if (isOpen) {
       document.addEventListener('keydown', handleEscape)
       lockScroll()
       
-      // Event-level scroll lock
-      window.addEventListener('wheel', preventDefault, { passive: false });
-      window.addEventListener('touchmove', preventDefault, { passive: false });
-      
       return () => {
         document.removeEventListener('keydown', handleEscape)
         unlockScroll()
-        window.removeEventListener('wheel', preventDefault);
-        window.removeEventListener('touchmove', preventDefault);
       }
     }
   }, [isOpen, onClose])

@@ -96,22 +96,12 @@ export default function MultiImageModal({
 
   // Lock body scroll when modal is open
   useEffect(() => {
-    const preventDefault = (e: WheelEvent) => {
-      e.preventDefault();
-    };
-
     if (isOpen) {
       lockScroll();
-
-      // Event-level scroll lock for wheel/mouse/touch
-      window.addEventListener('wheel', preventDefault, { passive: false });
-      window.addEventListener('touchmove', preventDefault as unknown as EventListener, { passive: false });
     }
     
     return () => {
       unlockScroll();
-      window.removeEventListener('wheel', preventDefault);
-      window.removeEventListener('touchmove', preventDefault as unknown as EventListener);
     }
   }, [isOpen])
 
@@ -244,7 +234,7 @@ export default function MultiImageModal({
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
         <button
           disabled={isLoadingReactions || isInFlight}
-          className={`p-2 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-colors flex items-center justify-center ${
+          className={`p-3 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-transform active:scale-90 flex items-center justify-center ${
             (isLoadingReactions || isInFlight) ? 'opacity-50 cursor-not-allowed' : ''
           } ${error ? 'ring-2 ring-red-500 ring-opacity-50' : ''}`}
           aria-label={error ? "Reaction sync error" : "React to image"}
@@ -270,17 +260,17 @@ export default function MultiImageModal({
           }}
         >
           {isLoadingReactions ? (
-            <div className="h-6 w-6 border-b-2 border-white rounded-full animate-spin"></div>
+            <div className="h-8 w-8 border-b-2 border-white rounded-full animate-spin"></div>
           ) : error ? (
-            <div className="h-6 w-6 flex items-center justify-center">
-              <span className="text-red-500 font-bold" title="Sync Error">!</span>
+            <div className="h-8 w-8 flex items-center justify-center">
+              <span className="text-red-500 font-bold text-2xl" title="Sync Error">!</span>
             </div>
           ) : currentReactionState.userReaction ? (
-            <span className="text-xl leading-none">
+            <span className="text-3xl leading-none">
               {getEmojiFromCode(currentReactionState.userReaction)}
             </span>
           ) : (
-            <Heart className="h-6 w-6 text-white" />
+            <Heart className="h-8 w-8 text-white" />
           )}
         </button>
       </div>

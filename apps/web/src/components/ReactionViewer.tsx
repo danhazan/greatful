@@ -111,28 +111,7 @@ export default function ReactionViewer({
     }
   }, [isOpen, onClose])
 
-  // Prevent background scroll events (wheel/touch) explicitly
-  useEffect(() => {
-    const preventDefault = (e: Event) => {
-      // If we're scrolling inside the content area, allow it
-      const target = e.target as HTMLElement;
-      const isInsideScrollable = target.closest('.overflow-y-auto');
-      
-      if (!isInsideScrollable) {
-        e.preventDefault();
-      }
-    };
 
-    if (isOpen) {
-      window.addEventListener('wheel', preventDefault, { passive: false });
-      window.addEventListener('touchmove', preventDefault, { passive: false });
-      
-      return () => {
-        window.removeEventListener('wheel', preventDefault);
-        window.removeEventListener('touchmove', preventDefault);
-      };
-    }
-  }, [isOpen])
 
   // Handle escape key and keyboard navigation
   useEffect(() => {
@@ -221,7 +200,7 @@ export default function ReactionViewer({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar" role="main">
+          <div className="flex-1 overflow-y-auto custom-scrollbar" role="main" data-allow-scroll="true">
             {isLoading ? (
               <div className="p-12 flex flex-col items-center justify-center space-y-4">
                 <Loader2 className="h-8 w-8 text-purple-500 animate-spin" />
