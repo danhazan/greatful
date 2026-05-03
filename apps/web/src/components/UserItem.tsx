@@ -8,7 +8,7 @@ import React from 'react'
 import Link from 'next/link'
 import UserAvatar from './UserAvatar'
 import { UserSearchResult } from '@/types/userSearch'
-import { createTouchHandlers } from '@/utils/hapticFeedback'
+import { triggerHaptic } from '@/utils/hapticFeedback'
 import { formatTimeAgo } from '@/utils/timeAgo'
 
 /**
@@ -119,6 +119,7 @@ const UserItemNavigation = ({
       ref={setItemRef && index !== undefined ? (setItemRef(index) as any) : undefined}
       className={baseClassName}
       onClick={(e) => {
+        triggerHaptic('light')
         // Explicitly side-effects ONLY. Do NOT call preventDefault().
         if (onClick) {
           onClick(e)
@@ -126,7 +127,6 @@ const UserItemNavigation = ({
       }}
       onMouseEnter={() => onMouseEnter && index !== undefined && onMouseEnter(index)}
       aria-label={baseProps.ariaLabel || `Go to ${user.displayName || user.username}'s profile`}
-      {...createTouchHandlers(undefined, 'light')}
     >
       <UserItemLayout user={user} {...baseProps} />
     </Link>
@@ -159,10 +159,12 @@ const UserItemSelection = ({
         // Prevent focus stealing from input in dropdown contexts
         e.preventDefault()
       }}
-      onClick={() => onClick(user)}
+      onClick={() => {
+        triggerHaptic('light')
+        onClick(user)
+      }}
       onMouseEnter={() => onMouseEnter && index !== undefined && onMouseEnter(index)}
       aria-label={baseProps.ariaLabel || `Select ${user.displayName || user.username}`}
-      {...createTouchHandlers(undefined, 'light')}
     >
       <UserItemLayout user={user} {...baseProps} />
     </button>
@@ -184,10 +186,12 @@ const UserItemStatic = ({
     return (
       <button
         type="button"
-        onClick={onClick}
+        onClick={() => {
+          triggerHaptic('light')
+          onClick()
+        }}
         className={baseClassName}
         aria-label={`Action for ${user.displayName || user.username}`}
-        {...createTouchHandlers(undefined, 'light')}
       >
         <UserItemLayout user={user} {...baseProps} />
       </button>

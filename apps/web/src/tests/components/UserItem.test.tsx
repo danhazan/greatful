@@ -3,9 +3,9 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import UserItem from '@/components/UserItem'
 import { UserSearchResult } from '@/types/userSearch'
 
-// Mock createTouchHandlers to avoid external dependency issues in tests
+// Mock triggerHaptic to avoid external dependency issues in tests
 jest.mock('@/utils/hapticFeedback', () => ({
-  createTouchHandlers: () => ({})
+  triggerHaptic: jest.fn()
 }))
 
 describe('UserItem', () => {

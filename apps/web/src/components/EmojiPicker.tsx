@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { getAvailableEmojis } from "@/utils/emojiMapping"
-import { createTouchHandlers } from "@/utils/hapticFeedback"
+import { triggerHaptic } from "@/utils/hapticFeedback"
 
 interface EmojiPickerProps {
   isOpen: boolean
@@ -126,6 +126,7 @@ export default function EmojiPicker({
     }
 
     // Select the emoji, send to backend, and close
+    triggerHaptic('light')
     setSelectedEmoji(emojiCode)
     onEmojiSelect(emojiCode)
     onClose()
@@ -213,7 +214,6 @@ export default function EmojiPicker({
                   title={option.label}
                   aria-label={`React with ${option.label}.${currentReaction === option.code ? ' Currently selected.' : ''}`}
                   aria-pressed={currentReaction === option.code}
-                  {...createTouchHandlers(undefined, 'medium')}
                 >
                   <span className="text-2xl sm:text-3xl block pointer-events-none">{option.emoji}</span>
                   {currentReaction === option.code && (

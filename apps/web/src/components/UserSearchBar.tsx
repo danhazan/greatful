@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
-import { createTouchHandlers } from '@/utils/hapticFeedback'
+import { triggerHaptic } from '@/utils/hapticFeedback'
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { getCompleteInputStyling } from '@/utils/inputStyles'
 import { useUserSearch } from '@/hooks/useUserSearch'
@@ -230,13 +230,13 @@ export default function UserSearchBar({
                     <button
                       type="button"
                       onClick={() => {
+                        triggerHaptic('light')
                         setSearchQuery("")
                         setIsExpanded(false)
                       }}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 active:text-gray-700 transition-colors min-w-[44px] min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
                       aria-label="Close search"
                       title="Close search"
-                      {...createTouchHandlers(undefined, 'light')}
                     >
                       <X className="h-4 w-4" aria-hidden="true" />
                     </button>
@@ -290,11 +290,13 @@ export default function UserSearchBar({
             {searchQuery && (
               <button
                 type="button"
-                onClick={handleClearSearch}
+                onClick={() => {
+                  triggerHaptic('light')
+                  handleClearSearch()
+                }}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 active:text-gray-700 transition-colors min-w-[32px] min-h-[32px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md"
                 aria-label="Clear search"
                 title="Clear search"
-                {...createTouchHandlers(undefined, 'light')}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>

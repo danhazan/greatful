@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Heart, Loader2 } from 'lucide-react'
 import { isAuthenticated, getAccessToken } from '@/utils/auth'
-import { createTouchHandlers } from '@/utils/hapticFeedback'
+import { triggerHaptic } from '@/utils/hapticFeedback'
 import { useToast } from '@/contexts/ToastContext'
 import { useUserState } from '@/hooks/useUserState'
 
@@ -116,6 +116,7 @@ export default function FollowButton({
   }, [effectiveFollowState, onFollowChange])
 
   const handleFollowToggle = async () => {
+    triggerHaptic('light')
     const token = getAccessToken()
     if (!token) {
       showError('Authentication Required', 'Please log in to follow users')
@@ -189,7 +190,6 @@ export default function FollowButton({
         aria-label={effectiveFollowState ? `Unfollow user ${userId}` : `Follow user ${userId}`}
         aria-pressed={effectiveFollowState}
         aria-describedby={error ? `follow-error-${userId}` : undefined}
-        {...createTouchHandlers(undefined, 'light')}
       >
         {shouldShowLoading ? (
           <Loader2 className={`${heartSizes[size]} animate-spin`} />

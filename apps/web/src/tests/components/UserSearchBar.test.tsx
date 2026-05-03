@@ -20,7 +20,7 @@ jest.mock('next/navigation', () => ({
 
 // Mock haptic feedback
 jest.mock('@/utils/hapticFeedback', () => ({
-  createTouchHandlers: () => ({}),
+  triggerHaptic: jest.fn(),
 }))
 
 // Mock ProfilePhotoDisplay

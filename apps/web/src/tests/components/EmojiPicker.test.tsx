@@ -20,8 +20,16 @@ describe('EmojiPicker', () => {
   const mockOnCancel = jest.fn()
   const mockOnEmojiSelect = jest.fn()
 
+  let mockVibrate: jest.Mock
+
   beforeEach(() => {
     jest.clearAllMocks()
+    mockVibrate = jest.fn()
+    Object.defineProperty(navigator, 'vibrate', {
+      value: mockVibrate,
+      writable: true,
+      configurable: true
+    })
   })
 
   it('renders when open', () => {
@@ -115,6 +123,45 @@ describe('EmojiPicker', () => {
 
     expect(mockOnEmojiSelect).toHaveBeenCalledWith('heart_eyes')
     expect(mockOnClose).toHaveBeenCalled()
+  })
+
+  it('triggers vibration ONLY when an emoji is clicked', () => {
+    render(
+      <EmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+      />
+    )
+    
+    expect(mockVibrate).not.toHaveBeenCalled()
+    
+    const heartButton = screen.getByTitle('Heart')
+    fireEvent.click(heartButton)
+    
+    expect(mockVibrate).toHaveBeenCalledWith(10) // 'light' intensity
+  })
+
+  it('does NOT trigger vibration on touch start or scroll (mobile safe)', () => {
+    render(
+      <EmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+      />
+    )
+    
+    const heartButton = screen.getByTitle('Heart')
+    
+    // Simulate touch start
+    fireEvent.touchStart(heartButton, { touches: [{ clientX: 0, clientY: 0 }] })
+    expect(mockVibrate).not.toHaveBeenCalled()
+    
+    // Simulate touch move (scrolling)
+    fireEvent.touchMove(heartButton, { touches: [{ clientX: 0, clientY: 50 }] })
+    expect(mockVibrate).not.toHaveBeenCalled()
   })
 
   it('highlights current reaction', () => {
