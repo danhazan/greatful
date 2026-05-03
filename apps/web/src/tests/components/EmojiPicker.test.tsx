@@ -21,9 +21,15 @@ describe('EmojiPicker', () => {
   const mockOnEmojiSelect = jest.fn()
 
   let mockVibrate: jest.Mock
+  let currentTime = 1000
 
   beforeEach(() => {
     jest.clearAllMocks()
+    
+    // Advance time to bypass haptic debounce
+    currentTime += 100
+    jest.spyOn(Date, 'now').mockReturnValue(currentTime)
+    
     mockVibrate = jest.fn()
     Object.defineProperty(navigator, 'vibrate', {
       value: mockVibrate,
@@ -162,6 +168,111 @@ describe('EmojiPicker', () => {
     // Simulate touch move (scrolling)
     fireEvent.touchMove(heartButton, { touches: [{ clientX: 0, clientY: 50 }] })
     expect(mockVibrate).not.toHaveBeenCalled()
+  })
+
+  it('handles rapid tap spam safely', () => {
+    render(
+      <EmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+      />
+    )
+    
+    const heartButton = screen.getByTitle('Heart')
+    
+    // Simulate rapid clicking
+    fireEvent.click(heartButton)
+    fireEvent.click(heartButton)
+    fireEvent.click(heartButton)
+    
+    // onClose is called once if implementation manages disabled state or unmounts,
+    // but the vibrate is called 3 times or 1 time depending on how React handles batching
+    // We just want to ensure it doesn't crash.
+    expect(mockVibrate).toHaveBeenCalled()
+  })
+
+  it('prevents event bubbling (Nested Click Safety)', () => {
+    const parentClick = jest.fn()
+    
+    render(
+      <div onClick={parentClick}>
+        <EmojiPicker
+          isOpen={true}
+          onClose={mockOnClose}
+          onCancel={mockOnCancel}
+          onEmojiSelect={mockOnEmojiSelect}
+        />
+      </div>
+    )
+    
+    const heartButton = screen.getByTitle('Heart')
+    fireEvent.click(heartButton)
+    
+    // The event should NOT bubble up to the parent
+    expect(parentClick).not.toHaveBeenCalled()
+    expect(mockVibrate).toHaveBeenCalledWith(10)
+  })
+
+  it('prevents click after scroll edge case (Mobile Tap vs Scroll)', () => {
+    render(
+      <EmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+      />
+    )
+    
+    // We simulate touch events on the grid container since that's where tracking is attached
+    const gridContainer = screen.getByRole('grid')
+    const heartButton = screen.getByTitle('Heart')
+    
+    // 1. Simulate Touch Start
+    fireEvent.touchStart(gridContainer, { touches: [{ clientX: 0, clientY: 0 }] })
+    
+    // 2. Simulate Touch Move (Scroll) -> 50px difference
+    fireEvent.touchMove(gridContainer, { touches: [{ clientX: 0, clientY: 50 }] })
+    
+    // 3. Simulate rogue click event that some browsers fire after scroll
+    fireEvent.click(heartButton)
+    
+    // Should NOT trigger haptics or select emoji because it was a scroll
+    expect(mockVibrate).not.toHaveBeenCalled()
+    expect(mockOnEmojiSelect).not.toHaveBeenCalled()
+  })
+
+  it('integration: successfully selects emoji after scrolling (Scroll then Tap)', () => {
+    render(
+      <EmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+      />
+    )
+    
+    const gridContainer = screen.getByRole('grid')
+    const heartButton = screen.getByTitle('Heart')
+    
+    // 1. User scrolls
+    fireEvent.touchStart(gridContainer, { touches: [{ clientX: 0, clientY: 0 }] })
+    fireEvent.touchMove(gridContainer, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchEnd(gridContainer)
+    
+    // (Simulate rogue click being dropped, which our component handles and resets the flag)
+    fireEvent.click(heartButton)
+    expect(mockVibrate).not.toHaveBeenCalled() // dropped
+    
+    // 2. User then intentionally taps an emoji
+    fireEvent.touchStart(heartButton, { touches: [{ clientX: 0, clientY: 0 }] })
+    fireEvent.touchEnd(heartButton)
+    fireEvent.click(heartButton)
+    
+    // Exactly one haptic call and selection should occur
+    expect(mockVibrate).toHaveBeenCalledTimes(1)
+    expect(mockOnEmojiSelect).toHaveBeenCalledWith('heart')
   })
 
   it('highlights current reaction', () => {

@@ -32,6 +32,30 @@ export default function EmojiPicker({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
 
+  // Mobile Edge Case: Disambiguate tap vs scroll to prevent rogue clicks.
+  // We use `onClick` as the primary, safe trigger for selection and haptics,
+  // but some rogue browsers fire `click` immediately after `touchMove`.
+  // We track touch explicitly on the container to safely drop these rogue clicks
+  // without re-introducing complex custom touch handlers everywhere.
+  const isScrollingRef = useRef(false)
+  const touchStartRef = useRef({ x: 0, y: 0 })
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    }
+    isScrollingRef.current = false
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = Math.abs(e.touches[0].clientX - touchStartRef.current.x)
+    const dy = Math.abs(e.touches[0].clientY - touchStartRef.current.y)
+    if (dx > 10 || dy > 10) {
+      isScrollingRef.current = true
+    }
+  }
+
   // Reset selected emoji when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -189,12 +213,19 @@ export default function EmojiPicker({
             className="grid grid-cols-4 gap-2 sm:gap-3 pr-1"
             role="grid"
             aria-label="Emoji reactions"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
           >
             {EMOJI_OPTIONS.map((option) => (
               <div key={option.code} role="gridcell">
                 <button
                   onClick={(e) => {
                     e.preventDefault()
+                    e.stopPropagation()
+                    if (isScrollingRef.current) {
+                      isScrollingRef.current = false
+                      return
+                    }
                     handleEmojiClick(option.code)
                   }}
                   disabled={isLoading}
