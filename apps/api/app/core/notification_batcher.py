@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.notification_repository import NotificationRepository
 from app.models.notification import Notification
+from app.core.notification_formatters import format_reaction_notification
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +278,8 @@ class PostInteractionBatcher(NotificationBatcher):
         notification_type: str,  # Supported: "emoji_reaction"
         post_id: str,
         user_id: int,
-        actor_data: dict
+        actor_data: dict,
+        target_data: Optional[dict] = None
     ) -> Optional[Notification]:
         """Create a reaction notification with unified batching."""
         
@@ -285,15 +287,29 @@ class PostInteractionBatcher(NotificationBatcher):
         if notification_type not in ("emoji_reaction", "like", "react"):
             raise ValueError(f"Unsupported interaction type: {notification_type}")
         
-        # Special handling for heart emoji (unified like system)
-        if actor_data.get("emoji_code") == "heart":
-            title = "New Like 💜"
-            message = "liked your post 💜"
-        else:
-            from app.models.emoji_reaction import EmojiReaction
-            emoji_display = EmojiReaction.VALID_EMOJIS.get(actor_data["emoji_code"], actor_data["emoji_code"])
-            title = "New Reaction"
-            message = f"reacted to your post with {emoji_display}"
+        target_data = target_data or {
+            "post_id": post_id,
+            "object_type": "post",
+            "object_id": post_id,
+            "target": "post"
+        }
+        object_type = target_data.get("object_type", "post")
+        title, message = format_reaction_notification(actor_data["emoji_code"], object_type)
+
+        notification_data = {
+            "post_id": post_id,
+            "object_type": object_type,
+            "object_id": target_data.get("object_id", post_id),
+            "target": target_data.get("target", "post"),
+            "reactor_username": actor_data["username"],
+            "emoji_code": actor_data.get("emoji_code"),
+            "actor_user_id": str(actor_data["user_id"]),
+            "actor_username": actor_data["username"]
+        }
+        if object_type == "image":
+            notification_data["thumbnail_type"] = "image"
+            if target_data.get("thumbnail_url"):
+                notification_data["thumbnail_url"] = target_data["thumbnail_url"]
         
         # Create the notification object
         notification = Notification(
@@ -301,16 +317,11 @@ class PostInteractionBatcher(NotificationBatcher):
             type="emoji_reaction",
             title=title,
             message=message,
-            data={
-                "post_id": post_id,
-                "reactor_username": actor_data["username"],
-                "emoji_code": actor_data.get("emoji_code"),
-                "actor_user_id": str(actor_data["user_id"]),
-                "actor_username": actor_data["username"]
-            }
+            data=notification_data
         )
         
         # Use unified batch key for all post interactions from the start
+        # Future object-level batching may split this as post_interaction:post:{post_id}:object:{object_id}.
         batch_key = self.generate_batch_key("post_interaction", post_id, "post")
         notification.batch_key = batch_key
         

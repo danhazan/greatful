@@ -11,6 +11,7 @@ from app.core.notification_batcher import (
     UserInteractionBatcher,
     BATCH_CONFIGS
 )
+from app.core.notification_formatters import format_reaction_notification
 from app.models.notification import Notification
 from app.models.user import User
 import datetime
@@ -64,6 +65,25 @@ class TestGenericNotificationBatcher:
         follow_config = BATCH_CONFIGS["follow"]
         assert follow_config.batch_scope == "user"
         assert follow_config.notification_type == "follow"
+
+    def test_reaction_notification_formatter(self):
+        """Test canonical reaction notification captions."""
+        assert format_reaction_notification("heart", "post") == (
+            "New Like 💜",
+            "liked your post 💜"
+        )
+        assert format_reaction_notification("heart_eyes", "post") == (
+            "New Reaction",
+            "reacted to your post with 😍"
+        )
+        assert format_reaction_notification("heart", "image") == (
+            "New Like 💜",
+            "liked an image in your post 💜"
+        )
+        assert format_reaction_notification("heart_eyes", "image") == (
+            "New Reaction",
+            "reacted to an image in your post with 😍"
+        )
 
     def test_generate_batch_key(self, notification_batcher):
         """Test generic batch key generation."""
@@ -162,6 +182,47 @@ class TestPostInteractionBatcher:
         
         assert result == mock_created
         post_interaction_batcher.notification_repo.create.assert_called_once()
+        call_args = post_interaction_batcher.notification_repo.create.call_args
+        assert call_args.kwargs["type"] == "emoji_reaction"
+        assert call_args.kwargs["message"] == "reacted to your post with 😍"
+        assert call_args.kwargs["batch_key"] == "post_interaction:post:post-123"
+        assert call_args.kwargs["data"]["object_type"] == "post"
+        assert call_args.kwargs["data"]["object_id"] == "post-123"
+        assert call_args.kwargs["data"]["target"] == "post"
+
+    async def test_create_image_reaction_notification_payload(self, post_interaction_batcher, mock_db):
+        """Test image reactions keep object identity in flat notification data."""
+        post_interaction_batcher.notification_repo.find_existing_batch = AsyncMock(return_value=None)
+        post_interaction_batcher._find_existing_interaction_notification = AsyncMock(return_value=None)
+
+        mock_created = Notification(id="reaction-123", user_id=1, type="emoji_reaction")
+        post_interaction_batcher.notification_repo.create = AsyncMock(return_value=mock_created)
+
+        result = await post_interaction_batcher.create_interaction_notification(
+            notification_type="emoji_reaction",
+            post_id="post-123",
+            user_id=1,
+            actor_data={"user_id": 2, "username": "reactor", "emoji_code": "heart_eyes"},
+            target_data={
+                "post_id": "post-123",
+                "object_type": "image",
+                "object_id": "image-456",
+                "target": "post"
+            }
+        )
+
+        assert result == mock_created
+        post_interaction_batcher.notification_repo.create.assert_called_once()
+        call_args = post_interaction_batcher.notification_repo.create.call_args
+        assert call_args.kwargs["type"] == "emoji_reaction"
+        assert call_args.kwargs["message"] == "reacted to an image in your post with 😍"
+        assert call_args.kwargs["batch_key"] == "post_interaction:post:post-123"
+        assert call_args.kwargs["data"]["post_id"] == "post-123"
+        assert call_args.kwargs["data"]["object_type"] == "image"
+        assert call_args.kwargs["data"]["object_id"] == "image-456"
+        assert call_args.kwargs["data"]["target"] == "post"
+        assert call_args.kwargs["data"]["thumbnail_type"] == "image"
+        assert "thumbnail_url" not in call_args.kwargs["data"]
 
     async def test_combined_batching_heart_then_reaction(self, post_interaction_batcher, mock_db):
         """Test combined batching when heart emoji is followed by another reaction."""
@@ -556,8 +617,8 @@ class TestNotificationModelBatchSummary:
         )
         
         title, message = notification.create_batch_summary(1)
-        assert title == "New Reaction"
-        assert message == "john reacted with 💜 to your post"
+        assert title == "New Like 💜"
+        assert message == "liked your post 💜"
 
     def test_heart_emoji_batch_summary_multiple(self):
         """Test heart emoji reaction notification batch summary for multiple notifications."""
@@ -598,6 +659,44 @@ class TestNotificationModelBatchSummary:
             type="post_interaction",
             data={"post_id": "post-123"}
         )
-        
+
         batch_key = notification.generate_batch_key()
         assert batch_key == "post_interaction:post:post-123"
+
+    async def test_image_reaction_without_thumbnail_url_fallback(self, post_interaction_batcher, mock_db):
+        """Regression: Image reaction with missing thumbnail_url should not include thumbnail_url field."""
+        from app.models.notification import Notification
+        from unittest.mock import AsyncMock
+
+        mock_created = Notification(
+            id="notif-789",
+            user_id=1,
+            type="emoji_reaction",
+            title="New Reaction 😍",
+            message="reactor reacted to an image in your post with 😍",
+            data={}
+        )
+        post_interaction_batcher.notification_repo.create = AsyncMock(return_value=mock_created)
+        post_interaction_batcher.notification_repo.find_existing_batch = AsyncMock(return_value=None)
+        post_interaction_batcher._find_existing_interaction_notification = AsyncMock(return_value=None)
+
+        result = await post_interaction_batcher.create_interaction_notification(
+            notification_type="emoji_reaction",
+            post_id="post-123",
+            user_id=1,
+            actor_data={"user_id": 2, "username": "reactor", "emoji_code": "heart_eyes"},
+            target_data={
+                "post_id": "post-123",
+                "object_type": "image",
+                "object_id": "image-456",
+                "target": "post"
+                # No thumbnail_url - simulates edge case where image was deleted
+            }
+        )
+
+        assert result == mock_created
+        post_interaction_batcher.notification_repo.create.assert_called_once()
+        call_args = post_interaction_batcher.notification_repo.create.call_args
+        assert call_args.kwargs["data"]["thumbnail_type"] == "image"
+        # thumbnail_url should NOT be present when it's missing (safe fallback)
+        assert "thumbnail_url" not in call_args.kwargs["data"]

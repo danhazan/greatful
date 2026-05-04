@@ -72,12 +72,14 @@ class Notification(Base):
         """Create batch summary title and message."""
         if self.type == 'emoji_reaction':
             data = self.data or {}
-            # Use the official emoji mapping from EmojiReaction model
-            from app.models.emoji_reaction import EmojiReaction
-            emoji_display = EmojiReaction.VALID_EMOJIS.get(data.get('emoji_code', ''), '😊')
+            from app.core.notification_formatters import format_reaction_notification
+            title, message = format_reaction_notification(
+                data.get('emoji_code', ''),
+                data.get('object_type', 'post')
+            )
             
             if count == 1:
-                return "New Reaction", f"{data.get('reactor_username')} reacted with {emoji_display} to your post"
+                return title, message
             else:
                 return "New Reactions", f"{count} people reacted to your post"
         elif self.type == 'post_interaction':
@@ -116,17 +118,19 @@ class Notification(Base):
         post_id: str
     ) -> "Notification":
         """Create a notification for emoji reaction."""
-        # Use the official emoji mapping from EmojiReaction model
-        from app.models.emoji_reaction import EmojiReaction
-        emoji_display = EmojiReaction.VALID_EMOJIS.get(emoji_code, '😊')
+        from app.core.notification_formatters import format_reaction_notification
+        title, message = format_reaction_notification(emoji_code, 'post')
         
         notification = cls(
             user_id=user_id,
             type='emoji_reaction',
-            title='New Reaction',
-            message=f'{reactor_username} reacted with {emoji_display} to your post',
+            title=title,
+            message=message,
             data={
                 'post_id': post_id,
+                'object_type': 'post',
+                'object_id': post_id,
+                'target': 'post',
                 'emoji_code': emoji_code,
                 'reactor_username': reactor_username
             }

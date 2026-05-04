@@ -3,6 +3,7 @@ ReactionService for handling emoji reactions business logic using repository pat
 """
 
 from typing import List, Optional, Dict, Any
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, BusinessLogicError
@@ -11,6 +12,7 @@ from app.repositories.emoji_reaction_repository import EmojiReactionRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.post_repository import PostRepository
 from app.models.emoji_reaction import EmojiReaction
+from app.models.post_image import PostImage
 from app.models.user import User
 from app.models.post import Post
 from app.core.notification_factory import NotificationFactory
@@ -28,6 +30,40 @@ class ReactionService(BaseService):
         self.reaction_repo = EmojiReactionRepository(db)
         self.user_repo = UserRepository(db)
         self.post_repo = PostRepository(db)
+
+    async def _resolve_reaction_object_id(
+        self,
+        post_id: str,
+        object_type: str,
+        object_id: Optional[str]
+    ) -> str:
+        """Resolve and validate the concrete object receiving the reaction."""
+        if object_type == "post":
+            return post_id
+
+        if object_type == "image":
+            if not object_id:
+                raise ValidationException("Image reactions require an image object_id")
+
+            result = await self.db.execute(
+                select(PostImage.id).where(
+                    PostImage.id == object_id,
+                    PostImage.post_id == post_id
+                )
+            )
+            if result.scalar_one_or_none() is None:
+                raise ValidationException("Image reaction target does not belong to the post")
+            return object_id
+
+        return object_id if object_id is not None else post_id
+
+    async def _get_image_thumbnail_url(self, image_id: str) -> Optional[str]:
+        """Resolve thumbnail URL for image reactions (enrichment layer)."""
+        result = await self.db.execute(
+            select(PostImage.thumbnail_url).where(PostImage.id == image_id)
+        )
+        thumbnail_url = result.scalar_one_or_none()
+        return serialize_image_url(thumbnail_url)
 
     @monitor_query("add_reaction")
     async def add_reaction(
@@ -56,9 +92,10 @@ class ReactionService(BaseService):
         # Check if user and post exist
         user = await self.user_repo.get_by_id_or_404(user_id)
         post = await self.post_repo.get_by_id_or_404(post_id)
+        actual_object_id = await self._resolve_reaction_object_id(post_id, object_type, object_id)
         
         # Check if user already has a reaction on this object
-        existing_reaction = await self.reaction_repo.get_user_reaction(user_id, post_id, object_type, object_id)
+        existing_reaction = await self.reaction_repo.get_user_reaction(user_id, post_id, object_type, actual_object_id)
         
         if existing_reaction:
             # Update existing reaction
@@ -68,7 +105,10 @@ class ReactionService(BaseService):
             logger.info(f"Updated reaction for user {user_id} on {object_type} {object_id or post_id} to {emoji_code}")
             
             # Create notification for updated reaction using NotificationFactory
-            if post.author_id != user_id:  # Don't notify if user reacts to their own post
+            if post.author_id != user_id:
+                thumbnail_url = None
+                if object_type == "image":
+                    thumbnail_url = await self._get_image_thumbnail_url(actual_object_id)
                 try:
                     notification_factory = NotificationFactory(self.db)
                     await notification_factory.create_reaction_notification(
@@ -76,14 +116,17 @@ class ReactionService(BaseService):
                         reactor_username=user.username,
                         reactor_id=user_id,
                         post_id=post_id,
-                        emoji_code=emoji_code
+                        emoji_code=emoji_code,
+                        object_type=object_type,
+                        object_id=actual_object_id,
+                        thumbnail_url=thumbnail_url
                     )
                 except Exception as e:
                     logger.error(f"Failed to create notification for reaction update: {e}")
                     # Don't fail the reaction if notification fails
             
             # Runtime invariant check: At most one reaction per user per object
-            reaction_count = await self.reaction_repo.get_user_reaction_count(user_id, post_id, object_type, object_id)
+            reaction_count = await self.reaction_repo.get_user_reaction_count(user_id, post_id, object_type, actual_object_id)
             if reaction_count > 1:
                 logger.error(
                     f"[REACTION_UNIQUENESS_ERROR] User {user_id} has {reaction_count} reactions on {object_type} {object_id or post_id}. "
@@ -110,7 +153,6 @@ class ReactionService(BaseService):
             }
         else:
             # Create new reaction
-            actual_object_id = object_id if object_id is not None else post_id
             reaction = await self.reaction_repo.create(
                 user_id=user_id,
                 post_id=post_id,
@@ -123,7 +165,10 @@ class ReactionService(BaseService):
             logger.info(f"Created new reaction for user {user_id} on {object_type} {actual_object_id}: {emoji_code}")
             
             # Create notification for new reaction using NotificationFactory
-            if post.author_id != user_id:  # Don't notify if user reacts to their own post
+            if post.author_id != user_id:
+                thumbnail_url = None
+                if object_type == "image":
+                    thumbnail_url = await self._get_image_thumbnail_url(actual_object_id)
                 try:
                     notification_factory = NotificationFactory(self.db)
                     await notification_factory.create_reaction_notification(
@@ -131,7 +176,10 @@ class ReactionService(BaseService):
                         reactor_username=user.username,
                         reactor_id=user_id,
                         post_id=post_id,
-                        emoji_code=emoji_code
+                        emoji_code=emoji_code,
+                        object_type=object_type,
+                        object_id=actual_object_id,
+                        thumbnail_url=thumbnail_url
                     )
                 except Exception as e:
                     logger.error(f"Failed to create notification for new reaction: {e}")

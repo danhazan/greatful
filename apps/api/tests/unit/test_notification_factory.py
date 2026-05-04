@@ -232,6 +232,49 @@ class TestNotificationFactory:
                 "user_id": 456,
                 "username": "reactor_user",
                 "emoji_code": "clap"
+            },
+            target_data={
+                "post_id": "post-123",
+                "object_type": "post",
+                "object_id": "post-123",
+                "target": "post"
+            }
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_image_reaction_notification(self, notification_factory, mock_notification_repo):
+        """Test image reaction target metadata is forwarded separately from actor data."""
+        # Arrange
+        mock_notification = MagicMock()
+        notification_factory.post_interaction_batcher.create_interaction_notification = AsyncMock(return_value=mock_notification)
+
+        # Act
+        result = await notification_factory.create_reaction_notification(
+            post_author_id=123,
+            reactor_username="reactor_user",
+            reactor_id=456,
+            post_id="post-123",
+            emoji_code="clap",
+            object_type="image",
+            object_id="image-456"
+        )
+
+        # Assert
+        assert result == mock_notification
+        notification_factory.post_interaction_batcher.create_interaction_notification.assert_called_once_with(
+            notification_type="emoji_reaction",
+            post_id="post-123",
+            user_id=123,
+            actor_data={
+                "user_id": 456,
+                "username": "reactor_user",
+                "emoji_code": "clap"
+            },
+            target_data={
+                "post_id": "post-123",
+                "object_type": "image",
+                "object_id": "image-456",
+                "target": "post"
             }
         )
 

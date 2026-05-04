@@ -53,6 +53,10 @@ export function mapBackendNotificationToFrontend(n: any) {
   // Handle timestamp fields (both camelCase and snake_case)
   const createdAt = n.createdAt || n.created_at
   const lastUpdatedAt = n.lastUpdatedAt || n.last_updated_at || n.updatedAt || n.updated_at
+  const data = n.data ? { ...n.data } : undefined
+  if (data?.thumbnail_url || data?.thumbnailUrl) {
+    data.thumbnailUrl = toAbsoluteUrl(data.thumbnailUrl || data.thumbnail_url)
+  }
 
   return {
     id: n.id,
@@ -74,6 +78,7 @@ export function mapBackendNotificationToFrontend(n: any) {
     isBatch: n.isBatch || n.is_batch || false,
     batchCount: n.batchCount || n.batch_count || 1,
     parentId: n.parentId || n.parent_id || null,
+    ...(data ? { data } : {}),
     // Normalized fromUser object
     fromUser,
   }

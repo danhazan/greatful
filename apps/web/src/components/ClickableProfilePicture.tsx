@@ -12,6 +12,7 @@ interface ClickableProfilePictureProps {
   size?: 'small' | 'medium' | 'large'
   className?: string
   onClick?: (e: React.MouseEvent) => void
+  disableProfileNavigation?: boolean
 }
 
 /**
@@ -25,7 +26,8 @@ export default function ClickableProfilePicture({
   displayName,
   size = 'medium',
   className,
-  onClick 
+  onClick,
+  disableProfileNavigation = false
 }: ClickableProfilePictureProps) {
   const [imageError, setImageError] = useState(false)
 
@@ -67,16 +69,7 @@ export default function ClickableProfilePicture({
     setImageError(true)
   }
 
-  // Don't render link if we have no profile destination
-  if (!userId && !username) {
-    return (
-      <div className={`${sizeClasses[size]} rounded-full bg-gray-200 flex items-center justify-center ${className || ''}`}>
-        <span className={`text-gray-400 ${textSizeClasses[size]} font-medium`}>?</span>
-      </div>
-    )
-  }
-
-  const fallbackName = displayName || username || `User ${userId}`
+  const fallbackName = displayName || username || (userId ? `User ${userId}` : '?')
   const fallbackInitial = fallbackName.charAt(0).toUpperCase()
 
   // Inner content — image or letter avatar
@@ -102,6 +95,11 @@ export default function ClickableProfilePicture({
         </span>
       </div>
     )
+  }
+
+  // Don't render link if the thumbnail represents content or has no profile destination.
+  if (disableProfileNavigation || (!userId && !username)) {
+    return renderContent()
   }
 
   // If no valid href, render non-linked content

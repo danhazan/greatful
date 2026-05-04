@@ -11,6 +11,10 @@ import { getTextAlignmentClass, getDirectionAttribute } from "@/utils/rtlUtils"
 import { smartNotificationPoller } from "@/utils/smartNotificationPoller"
 import { apiClient } from "@/utils/apiClient"
 import { useToast } from "@/contexts/ToastContext"
+import {
+  resolveNotificationThumbnailUrl,
+  shouldDisableNotificationProfileNavigation
+} from "@/utils/notificationThumbnails"
 
 import { Notification } from "@/types/notification"
 
@@ -319,9 +323,10 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                               <ClickableProfilePicture
                                 userId={notification.fromUser?.id}
                                 username={(notification.fromUser?.username as string) || (notification.data?.['actorUsername'] as string) || (notification.data?.['actor_username'] as string) || (notification.fromUser?.name as string)}
-                                imageUrl={notification.fromUser?.image}
+                                imageUrl={resolveNotificationThumbnailUrl(notification)}
                                 displayName={notification.fromUser?.name}
                                 size="medium"
+                                disableProfileNavigation={shouldDisableNotificationProfileNavigation(notification)}
                               />
                             )}
                           </div>
@@ -391,9 +396,10 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                   <ClickableProfilePicture
                                     userId={child.fromUser?.id}
                                     username={child.fromUser?.username || child.fromUser?.name}
-                                    imageUrl={child.fromUser?.image}
+                                    imageUrl={resolveNotificationThumbnailUrl(child)}
                                     displayName={child.fromUser?.name}
                                     size="small"
+                                    disableProfileNavigation={shouldDisableNotificationProfileNavigation(child)}
                                   />
                                 </div>
 

@@ -206,6 +206,38 @@ describe('notificationMapping', () => {
       expect(result.postId).toBe('post-from-data')
     })
 
+    it('should preserve notification data and normalize thumbnail URLs', () => {
+      const backendNotification = {
+        id: 'notif-image-123',
+        type: 'emoji_reaction',
+        message: 'User reacted to an image in your post',
+        data: {
+          post_id: 'post-123',
+          object_type: 'image',
+          object_id: 'image-456',
+          thumbnail_type: 'image',
+          thumbnail_url: '/uploads/posts/image_thumb.jpg'
+        },
+        from_user: {
+          id: 'user-789',
+          name: 'John Doe',
+          username: 'johndoe',
+          image: '/uploads/profile.jpg'
+        }
+      }
+
+      const result = mapBackendNotificationToFrontend(backendNotification)
+
+      expect(result.data).toEqual({
+        post_id: 'post-123',
+        object_type: 'image',
+        object_id: 'image-456',
+        thumbnail_type: 'image',
+        thumbnail_url: '/uploads/posts/image_thumb.jpg',
+        thumbnailUrl: 'http://localhost:8000/uploads/posts/image_thumb.jpg'
+      })
+    })
+
     it('should handle batch children with nested from_user in data', () => {
       // Simulate batch child notification structure
       const batchChildNotification = {

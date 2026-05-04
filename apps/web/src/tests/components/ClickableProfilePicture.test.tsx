@@ -188,6 +188,21 @@ describe('ClickableProfilePicture', () => {
 
       expect(mockOnClick).toHaveBeenCalled()
     })
+
+    it('should not render a profile link when profile navigation is disabled', () => {
+      render(
+        <ClickableProfilePicture
+          userId="123"
+          username="testuser"
+          imageUrl="https://example.com/image-thumb.jpg"
+          displayName="Test User"
+          disableProfileNavigation
+        />
+      )
+
+      expect(screen.queryByRole('link')).not.toBeInTheDocument()
+      expect(screen.getByRole('img')).toHaveAttribute('src', 'https://example.com/image-thumb.jpg')
+    })
   })
 
   describe('Accessibility', () => {

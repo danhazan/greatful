@@ -172,7 +172,10 @@ class NotificationFactory:
         reactor_username: str,
         reactor_id: int,
         post_id: str,
-        emoji_code: str
+        emoji_code: str,
+        object_type: str = "post",
+        object_id: Optional[str] = None,
+        thumbnail_url: Optional[str] = None
     ) -> Optional[Any]:
         """Create a reaction notification with batching support."""
         # Prevent self-notifications
@@ -190,6 +193,13 @@ class NotificationFactory:
                     "user_id": reactor_id,
                     "username": reactor_username,
                     "emoji_code": emoji_code
+                },
+                target_data={
+                    "post_id": post_id,
+                    "object_type": object_type,
+                    "object_id": object_id or post_id,
+                    "target": "post",
+                    **({"thumbnail_url": thumbnail_url} if thumbnail_url else {})
                 }
             )
             
