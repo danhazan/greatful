@@ -185,6 +185,7 @@ class PostRepository(BaseRepository):
                 ) comments ON comments.post_id = p.id
                 LEFT JOIN emoji_reactions user_reactions ON user_reactions.post_id = p.id 
                     AND user_reactions.user_id = :viewer_id
+                    AND user_reactions.object_type = 'post'
                 WHERE p.id IN ({post_id_placeholders})
                 ORDER BY p.created_at DESC
             """)
