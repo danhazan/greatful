@@ -11,6 +11,7 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 from sqlalchemy import event, text
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,8 @@ async def get_db() -> AsyncSession:
         try:
             yield session
         except Exception as e:
-            logger.exception(f"Database session {session_id} error: {e}")
+            if not isinstance(e, HTTPException):
+                logger.exception(f"Database session {session_id} error: {e}")
             await session.rollback()
             raise
         finally:

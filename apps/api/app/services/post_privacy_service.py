@@ -171,11 +171,8 @@ class PostPrivacyService:
 
     @classmethod
     def public_visibility_clause(cls):
-        # Legacy fallback for historical rows before privacy_level migration.
-        return or_(
-            Post.privacy_level == cls.PUBLIC,
-            and_(Post.privacy_level.is_(None), Post.is_public.is_(True)),
-        )
+        """Strict public visibility condition: ONLY privacy_level == 'public'."""
+        return Post.privacy_level == cls.PUBLIC
 
     @classmethod
     def visible_to_user_clause(cls, viewer_id: Optional[int]):
@@ -256,8 +253,11 @@ class PostPrivacyService:
     def visibility_filter_clause(cls, viewer_id: Optional[int], db: AsyncSession):
         if viewer_id is None:
             return cls.public_visibility_clause()
+            
         if cls.supports_db_visibility_function(db):
+            # Security: Use the hardened DB function for performance and correctness
             return func.can_view_post(viewer_id, cast(Post.id, PG_UUID))
+            
         return cls.visible_to_user_clause(viewer_id)
 
     async def can_user_view_post(self, post_id: str, viewer_id: Optional[int]) -> bool:

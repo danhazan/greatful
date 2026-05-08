@@ -148,6 +148,7 @@ export const createTestPost = (overrides: any = {}) => ({
   currentUserReaction: undefined,
   reactionEmojiCodes: [],
   commentsCount: 0,
+  privacyLevel: 'public',
   ...overrides
 })
 

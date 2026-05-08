@@ -30,6 +30,7 @@ This document provides comprehensive documentation for the React components used
 - [Post Components](#post-components)
   - [PostCard](#postcard)
   - [CreatePostModal](#createpostmodal)
+  - [SinglePostView](#singlepostview)
 - [Hooks](#hooks)
   - [useImageReactions](#useimagereactions)
   - [useReactionMutation](#usereactionmutation)
@@ -798,6 +799,50 @@ interface PostCardProps {
 #### Features
 
 - **Social Interactions**: Emoji reactions, comments, and sharing
+
+---
+
+### SinglePostView
+
+The authoritative hydration controller for post detail views. It manages the transition from anonymous SSR bootstrap data to user-scoped authenticated state.
+
+**Location:** `apps/web/src/components/SinglePostView.tsx`
+
+#### Props Interface
+
+```typescript
+interface SinglePostViewProps {
+  postId: string
+  bootstrapPost?: Post | null
+}
+```
+
+#### Hydration Strategy (SSR → CSR)
+
+SinglePostView implements the platform's **mandatory hydration invariant**:
+
+1. **Bootstrap Phase**: Receives `bootstrapPost` from the server (rendered anonymously). This is used for SEO and to prevent "flash of empty content."
+2. **Authoritative Phase**: Upon hydration, if a user is logged in (or if no bootstrap data exists), the component performs an authenticated fetch via `apiClient.get('/posts/${postId}', { skipCache: true })`.
+3. **Canonical Normalization**: All incoming data is processed through `normalizePostFromApi` to ensure absolute URLs and privacy rule compliance.
+4. **Full Replacement**: The component **completely replaces** the bootstrap state with the authenticated CSR data. It never performs partial merges, as guest-scoped fields must be entirely flushed.
+
+#### Features
+
+- **Personalized State**: Loads `currentUserReaction` and `isFollowing` status that are missing in SSR.
+- **Fail-Closed Privacy**: If a post is private, the CSR fetch will return a 403, and the component will transition from the anonymous bootstrap placeholder to a "Private Post" error state.
+- **Network Error Handling**: Integrated with `ToastContext` for user-facing error reporting.
+
+#### Usage Example
+
+```typescript
+// pages/post/[id].tsx
+export default async function PostPage({ params }) {
+  const post = await fetchPublicPost(params.id)
+  return <SinglePostView postId={params.id} bootstrapPost={post} />
+}
+```
+
+---
 - **Comments System**: View and add comments with reply support
 - **Real-time Updates**: Synchronizes post state across components
 - **Authentication Handling**: Graceful handling for logged-out users

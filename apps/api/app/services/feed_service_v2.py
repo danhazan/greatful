@@ -246,7 +246,7 @@ class FeedServiceV2(BaseService):
         
         # Runtime invariant check: No private post leakage
         for post_dict in serialized:
-            privacy = post_dict.get("privacy_level") or (post_dict.get("is_public") and "public")
+            privacy = post_dict.get("privacy_level")
             if privacy == "private" and post_dict.get("author_id") != user_id:
                 logger.error(
                     f"[FEED_PRIVACY_ERROR] Private post leaked to user {user_id}: post_id={post_dict['id']}, "
@@ -589,7 +589,6 @@ class FeedServiceV2(BaseService):
             (
                 p.author_id = :uid
                 OR p.privacy_level = 'public'
-                OR (p.privacy_level IS NULL AND p.is_public = 1)
                 OR (
                     p.privacy_level = 'custom'
                     AND (
@@ -833,13 +832,11 @@ class FeedServiceV2(BaseService):
         def _pick_best(candidates: List[Post]) -> Optional[int]:
             """Return index of the candidate with lowest recent author count, or None."""
             best_idx = None
-            best_count = max_per_window  # only consider posts below the limit
+            best_count = max_per_window
             for i, post in enumerate(candidates):
                 count = _recent_count(post.author_id)
                 if count < best_count:
                     best_count = count
-                    best_idx = i
-                elif count == best_count and best_idx is None:
                     best_idx = i
             return best_idx
 

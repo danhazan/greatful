@@ -14,14 +14,14 @@ interface PostStateHook {
   updatePost: (updates: Partial<Post>) => void
 }
 
-export function usePostState({ post: initialPost, onPostUpdate }: UsePostStateOptions): PostStateHook {
-  const [post, setPost] = useState(initialPost)
+export function usePostState({ post: bootstrapPost, onPostUpdate }: UsePostStateOptions): PostStateHook {
+  const [post, setPost] = useState(bootstrapPost)
   const { subscribeToStateUpdates } = useUser()
 
   // Sync with prop changes
   useEffect(() => {
-    setPost(initialPost)
-  }, [initialPost])
+    setPost(bootstrapPost)
+  }, [bootstrapPost])
 
   // Subscribe to user profile updates that affect this post
   useEffect(() => {

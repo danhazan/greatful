@@ -797,6 +797,21 @@ DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 - Verify database connections
 - Monitor JWT token validation
 
+## Authentication in SSR and Hydration
+The platform uses a bifurcated authentication model to support both SEO and personalized state:
+
+### Anonymous SSR
+- Server-side rendering is performed without user credentials.
+- Calls like `fetchPublicPost` use anonymous access.
+- Data returned is "guest-scoped" and suitable for public caching/SEO.
+- **Caching Invariant**: While public feeds may use Incremental Static Regeneration (ISR), individual post fetching is strictly authorization-sensitive. Such fetches MUST bypass the Next.js cache completely using `cache: 'no-store'` in `fetch` options. This prevents temporal privacy leaks where a post changed from public to private is still served from a stale SSR cache. `revalidate: 0` is insufficient.
+- **Database Consistency (`posts_visibility_consistency_chk`)**: A CHECK constraint ensures `privacy_level` and `is_public` are always synchronized at the database level (`privacy_level = 'public'` implies `is_public = true`, and `private/custom` implies `false`). This acts as a hard boundary to prevent data drift and silent privacy leaks. The canonical source of truth for post visibility is `privacy_level`. The legacy `is_public` column is maintained only for backward compatibility, is deprecated, and should not be used for authorization logic.
+
+### Authenticated CSR
+- All client-side requests utilize the `apiClient`, which automatically injects Bearer tokens from `localStorage`.
+- Upon hydration, views that were pre-rendered anonymously must perform an authenticated CSR fetch to retrieve user-scoped state (e.g., `currentUserReaction`, private content access).
+- **Security Invariant**: Client-side authenticated data always supersedes SSR data.
+
 ---
 
 *Last updated: [Current Date]* 

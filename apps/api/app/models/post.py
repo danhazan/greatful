@@ -27,7 +27,7 @@ class Post(Base):
     image_url = Column(String, nullable=True)
     location = Column(String, nullable=True)  # Keep for backward compatibility
     location_data = Column(JSON, nullable=True)  # New structured location data (JSON for SQLite compatibility)
-    is_public = Column(Boolean, default=True)
+    is_public = Column(Boolean, default=False)
     privacy_level = Column(
         String(20),
         nullable=False,

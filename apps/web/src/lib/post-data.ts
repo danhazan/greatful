@@ -1,52 +1,37 @@
 import { transformApiResponse } from '@/lib/caseTransform'
+import { normalizePostFromApi } from '@/utils/normalizePost'
 
 interface FetchPostOptions {
   authorization?: string | null
   cookie?: string | null
-  revalidate?: number
 }
 
 function getApiBaseUrl(): string {
   return (process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000').replace(/\/$/, '')
 }
 
-function toAbsoluteUrl(url: string | null | undefined): string | null | undefined {
-  if (!url) return url
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url
-  }
-
-  return `${getApiBaseUrl()}${url.startsWith('/') ? url : `/${url}`}`
-}
-
+/**
+ * @deprecated Use normalizePostFromApi from @/utils/normalizePost instead.
+ * Kept temporarily for backward compatibility with tests.
+ */
 export function normalizePostPayload(post: any): any {
   const transformedPost = transformApiResponse(post)
-
-  if (transformedPost.author) {
-    transformedPost.author.id = String(transformedPost.author.id)
-
-    const authorImage = transformedPost.author.image || transformedPost.author.profileImageUrl
-    if (authorImage) {
-      const normalizedAuthorImage = toAbsoluteUrl(authorImage)
-      transformedPost.author.profileImageUrl = normalizedAuthorImage
-      transformedPost.author.image = normalizedAuthorImage
-    }
-  }
-
-  if (transformedPost.imageUrl) {
-    transformedPost.imageUrl = toAbsoluteUrl(transformedPost.imageUrl)
-  }
-
-  if (Array.isArray(transformedPost.images)) {
-    transformedPost.images.forEach((img: any) => {
-      img.thumbnailUrl = toAbsoluteUrl(img.thumbnailUrl) || ''
-      img.mediumUrl = toAbsoluteUrl(img.mediumUrl) || ''
-      img.originalUrl = toAbsoluteUrl(img.originalUrl) || ''
-    })
-  }
-
-  return transformedPost
+  return normalizePostFromApi(transformedPost) ?? transformedPost
 }
+
+/**
+ * FETCH POST FROM BACKEND
+ * 
+ * ARCHITECTURAL SECURITY INVARIANT:
+ * Individual post visibility is strictly authorization-sensitive.
+ * This fetch MUST NEVER use ISR or Next.js revalidation (e.g., `revalidate: 60`).
+ * 
+ * Historical Context: A temporal privacy leak occurred when a post transitioned
+ * from public to private, but the frontend served a stale ISR cached response
+ * to guest users for up to 60 seconds.
+ * 
+ * To prevent this class of bugs, `cache: 'no-store'` is mandatory.
+ */
 
 async function fetchPostFromBackend(postId: string, options: FetchPostOptions = {}): Promise<Response> {
   const headers = new Headers({
@@ -61,13 +46,14 @@ async function fetchPostFromBackend(postId: string, options: FetchPostOptions = 
     headers.set('Cookie', options.cookie)
   }
 
-  const fetchOptions: RequestInit & { next?: { revalidate: number } } = {
+  // SECURITY INVARIANT: Individual post visibility is authorization-sensitive.
+  // Anonymous/unauthenticated fetches MUST use cache: 'no-store' to prevent
+  // stale ISR cache from serving content that has transitioned to private.
+  // Authenticated fetches also bypass cache to reflect current user permissions.
+  const fetchOptions: RequestInit = {
     method: 'GET',
     headers,
-  }
-
-  if (!options.authorization && !options.cookie) {
-    fetchOptions.next = { revalidate: options.revalidate ?? 60 }
+    cache: 'no-store',
   }
 
   return fetch(`${getApiBaseUrl()}/api/v1/posts/${postId}`, fetchOptions)
@@ -92,7 +78,28 @@ export async function fetchNormalizedPost(
   }
 }
 
+/**
+ * FETCH PUBLIC POST
+ * 
+ * Used during the SSR phase to bootstrap public post data.
+ * 
+ * SECURITY INVARIANT:
+ * This function relies on `fetchPostFromBackend` which is hardcoded to `cache: 'no-store'`.
+ * Do NOT add Next.js caching options (like `revalidate`) here. If a public post is transitioned
+ * to private, it must immediately return a 404 or access denied to guest users. Stale cache
+ * serving is unacceptable for privacy-sensitive user content.
+ */
+
 export async function fetchPublicPost(postId: string): Promise<any | null> {
-  const result = await fetchNormalizedPost(postId, { revalidate: 60 })
-  return result.post
+  const result = await fetchNormalizedPost(postId)
+  const post = result.post
+
+  // Security Hardening: Ensure SSR ONLY returns globally public content.
+  // Anonymous bootstrap payloads must never contain private or custom-restricted data.
+  if (post && post.privacyLevel !== 'public') {
+    console.warn(`[SECURITY] Private post ${postId} leaked to anonymous SSR fetch. Blocking bootstrap payload.`)
+    return null
+  }
+
+  return post
 }

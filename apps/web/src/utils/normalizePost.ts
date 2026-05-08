@@ -6,13 +6,30 @@ import { assertNoSnakeCase } from './contractAssertion'
  * Primarily serves as a Guard Layer ensuring strict camelCase contract compliance.
  */
 
-/**
- * Normalizes API post response to frontend Post interface.
- * Handles both direct post objects and wrapped responses ({ data: ... }).
- * 
- * In the new unified contract, the API returns camelCase directly.
- * This function asserts that correctness and casts to the canonical Post type.
- */
+function getApiBaseUrl(): string {
+  // Authoritative: Environment variable (set in CI/prod)
+  const envUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_BASE_URL']
+  if (envUrl) return envUrl.replace(/\/$/, '')
+
+  // Fallback for browser-only scenarios without ENV (rare)
+  if (typeof window !== 'undefined') {
+    return (window.location.origin).replace(/\/$/, '')
+  }
+
+  // Final deterministic fallback for local dev/tests
+  return 'http://localhost:8000'
+}
+
+function toAbsoluteUrl(url: string | null | undefined): string | null | undefined {
+  if (!url) return url
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+
+  const baseUrl = getApiBaseUrl()
+  return `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`
+}
+
 function extractPostPrivacyFromApi(post: any): PostPrivacy {
   const level = post?.privacyLevel
   return {
@@ -22,6 +39,14 @@ function extractPostPrivacyFromApi(post: any): PostPrivacy {
   }
 }
 
+/**
+ * Canonical post normalizer. ALL post data in the app must pass through this function.
+ *
+ * INVARIANTS:
+ * - This function NEVER mutates its input. It produces a fresh, immutable copy.
+ * - The returned Post object is the sole authoritative shape for rendering.
+ * - SSR payloads are bootstrap-only; authenticated CSR fetches fully replace them.
+ */
 export function normalizePostFromApi(apiResponse: any): Post | null {
   if (!apiResponse) return null
 
@@ -36,10 +61,36 @@ export function normalizePostFromApi(apiResponse: any): Post | null {
   // Preserve canonical privacy fields even if upstream casing drifts.
   const privacy = extractPostPrivacyFromApi(rawPost)
 
-  // We still do minimal transformation for legacy or edge cases if necessary, 
-  // but the goal is direct casting.
+  // Build normalized author (immutable — never mutate rawPost)
+  let normalizedAuthor = rawPost.author
+  if (rawPost.author) {
+    const authorImage = rawPost.author.image || rawPost.author.profileImageUrl
+    const normalizedAuthorImage = authorImage ? toAbsoluteUrl(authorImage) : undefined
+    normalizedAuthor = {
+      ...rawPost.author,
+      id: String(rawPost.author.id),
+      ...(normalizedAuthorImage ? {
+        profileImageUrl: normalizedAuthorImage,
+        image: normalizedAuthorImage,
+      } : {}),
+    }
+  }
+
+  // Build normalized images array (immutable — never mutate rawPost.images)
+  const normalizedImages = Array.isArray(rawPost.images)
+    ? rawPost.images.map((img: any) => ({
+        ...img,
+        thumbnailUrl: toAbsoluteUrl(img.thumbnailUrl) || '',
+        mediumUrl: toAbsoluteUrl(img.mediumUrl) || '',
+        originalUrl: toAbsoluteUrl(img.originalUrl) || '',
+      }))
+    : rawPost.images
+
   return {
     ...rawPost,
+    author: normalizedAuthor,
+    imageUrl: rawPost.imageUrl ? toAbsoluteUrl(rawPost.imageUrl) : rawPost.imageUrl,
+    images: normalizedImages,
     createdAt: rawPost.createdAt || new Date().toISOString(),
     updatedAt: rawPost.updatedAt || undefined,
     ...privacy,

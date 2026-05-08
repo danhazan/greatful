@@ -139,7 +139,7 @@ async def test_custom_specific_users_visibility_pipeline(
         viewer_id=test_user_3.id,
         post_id=post_id,
         author_id=test_user.id,
-        expected_direct_status=403,
+        expected_direct_status=404,
     )
 
     svc = PostPrivacyService(db_session)

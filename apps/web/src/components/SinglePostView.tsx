@@ -6,62 +6,78 @@ import PostCard from './PostCard'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
+import { normalizePostFromApi } from '@/utils/normalizePost'
 import { Post } from '@/types/post'
 
 interface SinglePostViewProps {
   postId: string
-  initialPost?: Post | null
+  bootstrapPost?: Post | null
 }
 
-export default function SinglePostView({ postId, initialPost = null }: SinglePostViewProps) {
-  const [post, setPost] = useState<Post | null>(initialPost)
-  const [loading, setLoading] = useState(!initialPost)
+export default function SinglePostView({ postId, bootstrapPost = null }: SinglePostViewProps) {
+  // SSR Hydration Guard: Fail-closed verification.
+  // Anonymous bootstrap payloads must never contain private or custom-restricted data.
+  // If bootstrap data is present but not explicitly public, do NOT render until CSR verification.
+  const isBootstrapValid = !bootstrapPost || bootstrapPost.privacyLevel === 'public'
+  
+  const [post, setPost] = useState<Post | null>(isBootstrapValid ? bootstrapPost : null)
+  const [loading, setLoading] = useState(!isBootstrapValid || !bootstrapPost)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const { showError } = useToast()
   const { currentUser, loading: userLoading } = useUser()
 
+  // When postId changes, reset to the new SSR bootstrap (if any)
   useEffect(() => {
-    setPost(initialPost)
-    setLoading(!initialPost)
+    const valid = !bootstrapPost || bootstrapPost.privacyLevel === 'public'
+    setPost(valid ? bootstrapPost : null)
+    setLoading(!valid || !bootstrapPost)
     setError(null)
-  }, [initialPost, postId])
+  }, [bootstrapPost, postId])
 
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        setLoading(true)
+        // Only show loading spinner if we have no bootstrap data at all
+        if (!bootstrapPost) {
+          setLoading(true)
+        }
         setError(null)
 
-        console.log('[SinglePostView] Fetching post:', postId)
+        // Fetch with authentication (apiClient automatically attaches Authorization header)
+        const postData = await apiClient.get(`/posts/${postId}`, { skipCache: true }) as any
 
-        // Use optimized API client with deduplication
-        try {
-          const postData = await apiClient.get(`/posts/${postId}`) as any
-          setPost(postData)
-          console.log('[SinglePostView] Post loaded')
-        } catch (apiError: any) {
-          // Handle API client errors
-          if (apiError.message?.includes('404') || apiError.status === 404) {
-            setError('Post not found')
-          } else if (apiError.message?.includes('403') || apiError.status === 403) {
-            setError('This post is private')
-          } else if (apiError.message?.includes('401') || apiError.status === 401) {
-            const token = localStorage.getItem('access_token')
-            if (!token) {
-              setError('Authentication required to view this post')
-            } else {
-              setError('Failed to load post')
-            }
+        // INVARIANT: Full replacement through canonical normalization.
+        // No partial merge. The authenticated payload is the sole source of truth.
+        const normalized = normalizePostFromApi(postData)
+
+        if (!normalized) {
+          // Fail closed: do NOT silently accept unnormalized payloads.
+          // This prevents reintroducing the divergence we just fixed.
+          console.error('[SinglePostView] Canonical normalization returned null for non-empty payload:', postData)
+          setError('Failed to load post')
+          return
+        }
+
+        setPost(normalized)
+      } catch (apiError: any) {
+        // Handle API client errors
+        if (apiError.message?.includes('404') || apiError.status === 404) {
+          setError('Post not found')
+        } else if (apiError.message?.includes('403') || apiError.status === 403) {
+          setError('This post is private')
+        } else if (apiError.message?.includes('401') || apiError.status === 401) {
+          const token = localStorage.getItem('access_token')
+          if (!token) {
+            setError('Authentication required to view this post')
           } else {
             setError('Failed to load post')
           }
-          throw apiError
-        }
-      } catch (error) {
-        console.error('Error fetching post:', error)
-        if (!error || typeof error !== 'object' || !('message' in error)) {
+        } else {
           setError('Failed to load post')
+        }
+        console.error('Error fetching post:', apiError)
+        if (!apiError || typeof apiError !== 'object' || !('message' in apiError)) {
           showError('Network Error', 'Failed to load post. Please check your connection.')
         }
       } finally {
@@ -71,10 +87,19 @@ export default function SinglePostView({ postId, initialPost = null }: SinglePos
 
     if (!postId) return
     if (userLoading) return
-    if (initialPost) return
 
-    fetchPost()
-  }, [postId, userLoading, showError, initialPost])
+    // ALWAYS fetch if user is authenticated, even if bootstrapPost exists.
+    // The SSR payload is anonymous and lacks user-scoped fields.
+    if (currentUser) {
+      fetchPost()
+      return
+    }
+
+    // Guest user: only fetch if we have no SSR bootstrap data
+    if (!bootstrapPost) {
+      fetchPost()
+    }
+  }, [postId, userLoading, currentUser, showError, bootstrapPost])
 
   if (loading) {
     return (

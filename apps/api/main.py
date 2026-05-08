@@ -95,6 +95,28 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized successfully")
     
+    # --- DRIFT DETECTION ---
+    try:
+        from app.core.database import async_session
+        from sqlalchemy import text
+        async with async_session() as db_session:
+            result = await db_session.execute(text("""
+                SELECT privacy_level, is_public, COUNT(*) as count
+                FROM posts 
+                WHERE (privacy_level = 'private' AND is_public = true)
+                   OR (privacy_level = 'custom' AND is_public = true)
+                   OR (privacy_level = 'public' AND is_public = false)
+                GROUP BY privacy_level, is_public
+            """))
+            drifted_rows = result.fetchall()
+            if drifted_rows:
+                logger.error(f"CRITICAL PRIVACY DRIFT DETECTED: Found inconsistent posts: {drifted_rows}")
+            else:
+                logger.info("Privacy drift check passed: 0 inconsistent rows found.")
+    except Exception as e:
+        logger.error(f"Failed to run privacy drift check: {e}")
+    # --- END DRIFT DETECTION ---
+    
     # Initialize OAuth providers with proper error handling
     try:
         oauth_instance = initialize_oauth_providers()

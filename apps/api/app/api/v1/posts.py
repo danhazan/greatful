@@ -55,7 +55,7 @@ class PostCreate(BaseModel):
     image_url: Optional[str] = None
     location: Optional[str] = Field(None, max_length=150)
     location_data: Optional[dict] = Field(None, description="Structured location data from LocationService")
-    is_public: bool = True
+    is_public: bool = False
     privacy_level: Optional[str] = Field(None, description="Post privacy: public, private, custom")
     rules: List[str] = Field(default_factory=list, description="Custom privacy rules")
     specific_users: List[int] = Field(default_factory=list, description="Explicit user IDs for custom privacy")
@@ -259,17 +259,62 @@ async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(secur
 
 
 async def get_optional_user_id(request: Request) -> Optional[int]:
-    """Extract user ID from JWT token if present, otherwise return None."""
+    """
+    Extract user ID from JWT token if present, otherwise return None.
+    Handles 'Bearer' case-insensitively and provides structured logging.
+    """
     try:
         auth_header = request.headers.get("authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
+        if not auth_header:
             return None
         
-        token = auth_header.split(" ")[1]
+        # Robust parsing: split on whitespace and validate scheme
+        parts = auth_header.strip().split()
+        
+        if len(parts) != 2:
+            logger.warning(
+                "Malformed Authorization header",
+                extra={
+                    "auth_header_present": True,
+                    "auth_scheme": "invalid_format",
+                    "part_count": len(parts)
+                }
+            )
+            return None
+            
+        scheme, token = parts
+        if scheme.lower() != "bearer":
+            logger.warning(
+                "Unsupported auth scheme",
+                extra={
+                    "auth_header_present": True,
+                    "auth_scheme": scheme.lower(),
+                }
+            )
+            return None
+            
+        # Decode and extract sub
         payload = decode_token(token)
         user_id = int(payload.get("sub"))
+        
+        logger.debug(
+            "Optional auth successful",
+            extra={
+                "auth_header_present": True,
+                "auth_scheme": "bearer",
+                "viewer_id": user_id
+            }
+        )
         return user_id
-    except Exception:
+    except Exception as e:
+        logger.warning(
+            "Optional auth failed",
+            extra={
+                "auth_header_present": True,
+                "auth_scheme": "bearer",
+                "error": str(e)
+            }
+        )
         return None
 
 
@@ -745,7 +790,7 @@ async def create_post_with_file(
             "post_style": parsed_post_style,
             "location": location,
             "location_data": parsed_location_data,
-            "is_public": True if is_public is None else bool(is_public),
+            "is_public": False if is_public is None else bool(is_public),
             "privacy_level": privacy_level,
             "rules": parsed_rules,
             "specific_users": parsed_specific_users,
@@ -1041,44 +1086,22 @@ async def get_post_by_id(
         current_user_id = await get_optional_user_id(request)
         
         from app.repositories.post_repository import PostRepository
-        from app.services.post_privacy_service import PostPrivacyService
-        
         post_repo = PostRepository(db)
-        post = await post_repo.get_by_id_or_404(post_id, load_relationships=["author"])
         
-        privacy_service = PostPrivacyService(db)
-        has_access = await privacy_service.can_user_view_post(post_id, current_user_id)
-        if not has_access:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have access to this post"
-            )
-            
-        # Serialize using repository to preserve field parity and unify engagement logic
-        # If user is guest, we pass -1 so that the user_id matching in repo resolves to no reactions
-        serialized_opts = await post_repo.serialize_posts_for_feed(
-            posts=[post],
-            user_id=current_user_id if current_user_id is not None else -1
+        # Enforce privacy at repository level - bit-for-bit parity with feed/profile
+        post_dict = await post_repo.get_single_post_with_engagement(
+            post_id=post_id,
+            viewer_id=current_user_id,
+            include_privacy_details=True  # Return rules if available
         )
         
-        if not serialized_opts:
+        if not post_dict:
+            # 404 is appropriate if not found or unauthorized (prevents existence leaks)
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to serialize post"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Post not found or access denied"
             )
-            
-        post_dict = serialized_opts[0]
         
-        # Merge author privacy rules if requested by author
-        # serialize_posts_for_feed handles the timeline structure; single post includes granular privacy info
-        is_author_view = bool(current_user_id and current_user_id == post.author_id)
-        if is_author_view:
-            privacy_details = await privacy_service.get_privacy_details_for_posts([post_id])
-            details = privacy_details.get(post_id, {})
-            post_dict["privacy_rules"] = details.get("privacy_rules", [])
-            post_dict["specific_users"] = details.get("specific_users", [])
-            post_dict["privacy_level"] = post.privacy_level
-            
         return PostResponse(**post_dict)
 
     except HTTPException:

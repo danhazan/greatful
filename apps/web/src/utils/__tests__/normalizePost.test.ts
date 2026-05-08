@@ -30,7 +30,7 @@ describe('normalizePostFromApi', () => {
       reactionsCount: 3,
       currentUserReaction: "heart_eyes",
       author: {
-        id: 456,
+        id: "456",
         username: "testuser",
         displayName: "Test User",
         profileImageUrl: "https://example.com/avatar.jpg"
@@ -98,7 +98,7 @@ describe('normalizePostFromApi', () => {
     expect(normalized).not.toBeNull()
     expect(normalized?.id).toBe("123")
     expect(normalized?.content).toBe("Test content")
-    expect(normalized?.author.id).toBe(456)
+    expect(normalized?.author.id).toBe("456")
   })
 
   it('should handle author field variations', () => {
@@ -113,7 +113,7 @@ describe('normalizePostFromApi', () => {
 
     const normalized = normalizePostFromApi(responseWithAuthor)
 
-    expect(normalized?.author.id).toBe(456)
+    expect(normalized?.author.id).toBe("456")
     expect(normalized?.author.displayName).toBe("Test User")
   })
 })

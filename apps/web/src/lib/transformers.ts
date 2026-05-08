@@ -3,6 +3,7 @@
  */
 
 import { stripHtmlTags } from '@/utils/htmlUtils'
+import { normalizePostFromApi } from '@/utils/normalizePost'
 
 // Notification transformation types
 export interface BackendNotification {
@@ -400,59 +401,18 @@ function normalizePostImage(img: BackendPostImage): FrontendPostImage {
 
 /**
  * Transform backend user post to frontend format with author info
- * Handles both snake_case (direct backend) and camelCase (Next.js API proxy) formats
+ * Utilizing canonical normalization to ensure contract consistency.
  */
 export function transformUserPost(post: any, userProfile?: any): FrontendUserPost {
-  // Handle both snake_case and camelCase field names
-  const postStyle = post.postStyle || post.post_style
-  const createdAt = post.createdAt || post.created_at
-  const updatedAt = post.updatedAt || post.updated_at
-  const imageUrl = post.imageUrl || post.image_url
-  const locationData = post.location_data
-  const reactionsCount = post.reactionsCount ?? post.reactions_count ?? 0
-  const commentsCount = post.commentsCount ?? post.comments_count ?? 0
-  const currentUserReaction = post.currentUserReaction || post.current_user_reaction
-  const privacyLevel = post.privacyLevel ?? post.privacy_level
-  const privacyRules = post.privacyRules ?? post.privacy_rules ?? post.rules
-  const specificUsers = post.specificUsers ?? post.specific_users
-
-  // Normalize images array for multi-image support
-  const images: FrontendPostImage[] | undefined = post.images && Array.isArray(post.images)
-    ? post.images.map(normalizePostImage).sort((a: FrontendPostImage, b: FrontendPostImage) => a.position - b.position)
-    : undefined
-
-  return {
-    id: post.id,
-    content: post.content,
-    postStyle: postStyle,
-    post_style: postStyle,  // Keep backend field name for compatibility
-    author: {
-      id: post.author.id.toString(),
-      name: post.author.display_name || post.author.name || post.author.username || 'Unknown User',
-      username: post.author.username || 'unknown',
-      displayName: post.author.display_name || post.author.username,
-      profileImageUrl: post.author.profile_image_url || post.author.image,
-      image: post.author.image || post.author.profile_image_url,
-      followerCount: post.author.follower_count || 0,
-      followingCount: post.author.following_count || 0,
-      postsCount: post.author.posts_count || 0,
-      isFollowing: post.author.is_following ?? null
-    },
-    createdAt: ensureTimezoneIndicator(createdAt),
-    updatedAt: updatedAt ? ensureTimezoneIndicator(updatedAt) : undefined,
-    imageUrl: imageUrl,
-    images: images,  // Include normalized images array
-    location: post.location,
-    location_data: locationData,
-    reactionsCount: reactionsCount,
-    commentsCount: commentsCount,
-    currentUserReaction: currentUserReaction,
-    reactionEmojiCodes: post.reactionEmojiCodes || post.reaction_emoji_codes || [],
-    emojiCounts: post.emojiCounts || post.emoji_counts || {},
-    privacyLevel: (typeof privacyLevel === 'string' && ['public', 'private', 'custom'].includes(privacyLevel)) ? (privacyLevel as "public" | "private" | "custom") : undefined,
-    privacyRules: Array.isArray(privacyRules) ? privacyRules : undefined,
-    specificUsers: Array.isArray(specificUsers) ? specificUsers : undefined
+  const normalized = normalizePostFromApi(post)
+  
+  if (!normalized) {
+    throw new Error(`Failed to normalize post: ${post?.id}`)
   }
+
+  // Ensure compatibility with FrontendUserPost interface if it expects specific fields
+  // though Post and FrontendUserPost should ideally be merged.
+  return normalized as unknown as FrontendUserPost
 }
 
 /**

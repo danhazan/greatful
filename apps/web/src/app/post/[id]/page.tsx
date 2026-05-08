@@ -19,5 +19,5 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
 export default async function PostPage({ params }: PostPageProps) {
   const post = await fetchPublicPost(params.id)
 
-  return <PostPageClient postId={params.id} initialPost={post} />
+  return <PostPageClient postId={params.id} bootstrapPost={post} />
 }

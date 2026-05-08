@@ -8,10 +8,10 @@ import { Post } from '@/types/post'
 
 interface PostPageClientProps {
   postId: string
-  initialPost: Post | null
+  bootstrapPost: Post | null
 }
 
-export default function PostPageClient({ postId, initialPost }: PostPageClientProps) {
+export default function PostPageClient({ postId, bootstrapPost }: PostPageClientProps) {
   const router = useRouter()
   const { currentUser, isLoading, logout } = useUser()
 
@@ -47,7 +47,7 @@ export default function PostPageClient({ postId, initialPost }: PostPageClientPr
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-lg shadow-sm">
-            <SinglePostView postId={postId} initialPost={initialPost} />
+            <SinglePostView postId={postId} bootstrapPost={bootstrapPost} />
           </div>
         </div>
       </main>

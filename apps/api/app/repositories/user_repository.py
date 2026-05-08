@@ -95,10 +95,7 @@ class UserRepository(BaseRepository):
         public_sub = select(func.count(Post.id)).where(
             and_(
                 Post.author_id == User.id,
-                or_(
                     Post.privacy_level == "public",
-                    and_(Post.privacy_level.is_(None), Post.is_public == True),
-                ),
             )
         ).scalar_subquery()
         followers_sub = select(func.count(Follow.id)).where(and_(Follow.followed_id == User.id, Follow.status == "active")).scalar_subquery()

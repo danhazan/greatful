@@ -90,6 +90,36 @@ See each folder’s README (if present) for more details.
 
 ---
 
+## 🔄 Data Hydration & Normalization
+
+The platform employs a robust hydration model to reconcile anonymous server-side rendering with authenticated client-side state.
+
+### SSR -> CSR Hydration Invariant
+1. **SSR Phase**: The server fetches post data anonymously (`fetchPublicPost`) to enable SEO and rapid initial rendering. This data is provided as a `bootstrapPost` prop to the view component.
+2. **CSR Phase**: On the client, `apiClient` performs a mandatory authenticated fetch immediately upon hydration.
+3. **State Authority**: The authenticated client-side response **completely replaces** the bootstrap state. Partial merges are forbidden to prevent state drift where anonymous attributes (like privacy flags or missing reactions) overwrite authenticated data.
+
+### Canonical Normalization
+To prevent data divergence across different views (Feed, Profile, Post Detail), all post payloads must pass through the canonical normalization pipeline:
+- **Location**: `apps/web/src/utils/normalizePost.ts`
+- **Function**: `normalizePostFromApi(apiResponse: any): Post | null`
+- **Responsibilities**:
+  - URL absolutization for images and avatars.
+  - ID string coercion.
+  - Privacy rule normalization.
+  - Immutable transformation (never mutates the source payload).
+
+### SSR Caching & Authorization Invariant
+The Next.js App Router caching system must be used carefully with authorization-sensitive resources to prevent temporal privacy leaks (e.g., a post transitioning from public to private).
+- **Public Feeds**: Safe to use Next.js Incremental Static Regeneration (ISR) and revalidation (`revalidate: X`).
+- **Authorization-Sensitive Content**: Individual post visibility is strictly authorization-sensitive.
+- **Strict SSR Bypass**: All fetches for authorization-sensitive content (like a specific post's details via `/api/v1/posts/:id`) **MUST** use `cache: 'no-store'` in the Next.js `fetch()` options. 
+- Using `revalidate: 0` is insufficient as it can still interact with fetch memoization depending on the Next.js deployment platform. This prevents temporal privacy leaks where a post changed from public to private is still served from a stale SSR cache.
+- **Canonical Privacy State**: The canonical source of truth for post visibility is `privacy_level`. The legacy `is_public` column is maintained only for backward compatibility, is deprecated, and should not be used for authorization logic.
+- **Database Consistency (`posts_visibility_consistency_chk`)**: A CHECK constraint ensures `privacy_level` and `is_public` are always synchronized at the database level (`privacy_level = 'public'` implies `is_public = true`, and `private/custom` implies `false`). This acts as a hard boundary to prevent data drift and silent privacy leaks.
+
+---
+
 ## Implemented Features
 
 ### Social Interaction System

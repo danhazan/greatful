@@ -12,9 +12,9 @@ interface SharedPostWrapperProps {
   post: Post
 }
 
-export default function SharedPostWrapper({ post: initialPost }: SharedPostWrapperProps) {
+export default function SharedPostWrapper({ post: bootstrapPost }: SharedPostWrapperProps) {
   const router = useRouter()
-  const [post, setPost] = useState(initialPost)
+  const [post, setPost] = useState(bootstrapPost)
   const { currentUser, isLoading } = useUser()
 
   // Derive authentication state from UserContext

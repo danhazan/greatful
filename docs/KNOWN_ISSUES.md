@@ -37,6 +37,7 @@
 - **Notification HTML Content Display**: ✅ COMPLETED - Notifications now display plain text instead of HTML formatting
 - **RichTextEditor Toolbar Improvements**: ✅ COMPLETED - Added pressed states, emoji repositioning, and dividers
 - **Mobile Search Bar Z-Index Issue**: ✅ COMPLETED - Mobile search bar now appears correctly positioned below navbar
+- **Post Hydration Regression**: ✅ COMPLETED - Authenticated reactions no longer blocked by anonymous SSR data
 
 
 > 📚 **For detailed troubleshooting guides and historical fixes, see [`COMMON_FIXES.md`](./COMMON_FIXES.md)**
@@ -54,6 +55,34 @@
 ---
 
 ## ✅ Recently Resolved Issues
+
+### Post Hydration Regression - COMPLETED ✅
+**Issue**: Authenticated users saw incorrect post state (e.g., missing their own reactions) on hard refresh.  
+**Status**: ✅ RESOLVED  
+**Resolution Date**: May 7, 2026  
+**Impact**: High - Breaks core personalized experience and private content access.
+
+**What was Fixed**:
+- ✅ Removed the "early exit" guard in `SinglePostView` that skipped fetching if SSR data was present.
+- ✅ Implemented mandatory authenticated CSR fetch for all logged-in users during hydration.
+- ✅ Consolidated fragmented normalization logic into a single canonical pipeline (`normalizePostFromApi`).
+- ✅ Enforced a "Full Replacement" pattern where CSR data completely overwrites SSR placeholder state.
+
+**Root Cause**:
+The `SinglePostView` component was incorrectly treating SSR bootstrap data as authoritative. If `initialPost` was provided by the server, the component would skip the client-side authenticated fetch. Since SSR is performed anonymously for SEO, it lacked user-specific fields like `currentUserReaction`, leading to a "ghosting" effect where users appeared to have never reacted to a post after a refresh.
+
+**Technical Implementation**:
+- Renamed `initialPost` to `bootstrapPost` to clarify its non-authoritative status.
+- Updated hydration logic to always trigger an authenticated fetch if a user is present.
+- Added integration tests to verify that SSR data is correctly replaced by CSR data upon hydration.
+
+**Files Modified**:
+- `apps/web/src/components/SinglePostView.tsx` - Hydration controller logic
+- `apps/web/src/utils/normalizePost.ts` - Canonical normalization pipeline
+- `apps/web/src/lib/transformers.ts` - Eliminated legacy normalization paths
+- `README.md` & `docs/` - Documented architectural invariants
+
+---
 
 ### (LEGACY) Heart Counter Real-time Updates - COMPLETED ✅
 > [!NOTE]

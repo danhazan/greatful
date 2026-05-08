@@ -2,11 +2,11 @@ import { Notification } from '@/types/notification'
 import { toAbsoluteUrl } from '@/utils/notificationMapping'
 
 function getThumbnailType(notification: Notification): string | undefined {
-  return notification.data?.thumbnailType ?? notification.data?.thumbnail_type
+  return notification.data?.['thumbnailType'] ?? notification.data?.['thumbnail_type']
 }
 
 function getThumbnailUrl(notification: Notification): string | undefined {
-  return notification.data?.thumbnailUrl ?? notification.data?.thumbnail_url
+  return notification.data?.['thumbnailUrl'] ?? notification.data?.['thumbnail_url']
 }
 
 export function resolveNotificationThumbnailUrl(notification: Notification): string | undefined {
