@@ -162,12 +162,6 @@ Uses Jest with Testing Library. 137 test files organized to mirror component/uti
 - Frontend: `src/app/feed/page.tsx` with infinite scroll via cursor pagination
 - No read-status tracking, no algorithm toggle, no offset-based pagination
 
-### Emoji Reaction System
-- 56 positive emojis organized in 7 rows/categories: original (💜😍🤗🥹💪🙏🙌👏), love/warmth, joy/celebration, encouragement, nature/peace, affection, expressions
-- One reaction per user per post (can be changed)
-- Backend: `EmojiReaction` model in `app/models/emoji_reaction.py`
-- Frontend: `src/utils/emojiMapping.ts` is the source of truth; `EmojiPicker.tsx`, `ReactionsBanner.tsx`, and reaction display in `PostCard.tsx`
-
 ### Real-time Updates
 Reactions update immediately via API calls without page refresh. PostCard fetches updated counts after mutations.
 
