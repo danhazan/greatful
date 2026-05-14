@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
@@ -14,8 +14,14 @@ export default function GoogleOAuthCallbackPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const [isNewUser, setIsNewUser] = useState(false)
+  
+  // Prevent double execution in React Strict Mode
+  const callbackProcessed = useRef(false)
 
   useEffect(() => {
+    if (callbackProcessed.current) return
+    callbackProcessed.current = true
+
     const handleCallback = async () => {
       try {
         const code = searchParams.get('code')
