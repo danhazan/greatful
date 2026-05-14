@@ -69,12 +69,10 @@ export default function EmojiPicker({
       const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
       document.body.style.overflow = 'hidden';
       document.body.style.paddingRight = `${scrollBarWidth}px`;
-      document.documentElement.style.overflow = 'hidden';
       
       return () => {
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
-        document.documentElement.style.overflow = '';
       }
     }
   }, [isOpen])
@@ -177,7 +175,7 @@ export default function EmojiPicker({
         aria-labelledby="emoji-picker-title"
         className="fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[340px]"
         style={{
-          left: Math.max(16, Math.min(position.x - 160, window.innerWidth - 356)),
+          left: position.x,
           top: position.y,
         }}
         tabIndex={-1}

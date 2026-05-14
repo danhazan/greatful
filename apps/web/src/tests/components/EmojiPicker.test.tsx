@@ -387,10 +387,8 @@ describe('EmojiPicker', () => {
     // Check that the modal has the fixed positioning class
     expect(modal).toHaveClass('fixed')
 
-    // Check that inline styles are applied for positioning
-    // The component calculates: left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 356))
-    // With x=100, innerWidth=1024: Math.max(16, Math.min(100-140, 1024-356)) = Math.max(16, Math.min(-40, 668)) = Math.max(16, -40) = 16
-    expect(modal).toHaveStyle({ left: '16px' })
+    // Check that inline styles are applied for positioning (uses position directly)
+    expect(modal).toHaveStyle({ left: '100px', top: '200px' })
   })
 
   it('scrollable container has max-height and scroll containment', () => {

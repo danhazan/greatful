@@ -297,10 +297,36 @@ export default function PostCard({
 
     if (reactionButtonRef.current) {
       const rect = reactionButtonRef.current.getBoundingClientRect()
-      setEmojiPickerPosition({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 8
-      })
+      const buttonCenterX = rect.left + rect.width / 2
+      const buttonTop = rect.top
+      
+      // Standard tray dimensions
+      const TRAY_WIDTH = 320
+      const TRAY_HEIGHT = 380
+      
+      // Calculate centered X position with edge guards
+      const x = Math.max(16, Math.min(buttonCenterX - TRAY_WIDTH / 2, window.innerWidth - TRAY_WIDTH - 16))
+      
+      // Desired Y position when opening above (bottom of tray at button top)
+      const desiredY = buttonTop - TRAY_HEIGHT
+      
+      // If tray doesn't fit above (desiredY < 0), scroll page up just enough
+      if (desiredY < 0) {
+        const scrollAmount = -desiredY + 16
+        
+        // Instant scroll (no animation) so we can immediately open with correct position
+        window.scrollBy({ top: -scrollAmount, behavior: 'auto' })
+        
+        // Get the new button position after scroll and calculate position
+        // After scrolling up, rect.top will be much larger (button moved down in viewport)
+        const newRect = reactionButtonRef.current.getBoundingClientRect()
+        setEmojiPickerPosition({ x, y: newRect.top - TRAY_HEIGHT })
+        setShowEmojiPicker(true)
+        return
+      }
+      
+      // Fits above - set position and open
+      setEmojiPickerPosition({ x, y: desiredY })
     }
 
     setShowEmojiPicker(true)
