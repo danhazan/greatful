@@ -16,6 +16,7 @@ import EditPostModal from "./EditPostModal"
 import DeleteConfirmationModal from "./DeleteConfirmationModal"
 import PostPrivacyBadge from "./PostPrivacyBadge"
 import { apiClient } from "@/utils/apiClient"
+import { openModalAboveButton } from "@/utils/modalPositioning"
 import LocationDisplayModal from "./LocationDisplayModal"
 import OptimizedPostImage from "./OptimizedPostImage"
 import StackedImagePreview from "./StackedImagePreview"
@@ -294,42 +295,13 @@ export default function PostCard({
 
     // No existing reaction — open emoji picker
     setPendingReaction('heart')
-
-    if (reactionButtonRef.current) {
-      const rect = reactionButtonRef.current.getBoundingClientRect()
-      const buttonCenterX = rect.left + rect.width / 2
-      const buttonTop = rect.top
-      
-      // Standard tray dimensions
-      const TRAY_WIDTH = 320
-      const TRAY_HEIGHT = 380
-      
-      // Calculate centered X position with edge guards
-      const x = Math.max(16, Math.min(buttonCenterX - TRAY_WIDTH / 2, window.innerWidth - TRAY_WIDTH - 16))
-      
-      // Desired Y position when opening above (bottom of tray at button top)
-      const desiredY = buttonTop - TRAY_HEIGHT
-      
-      // If tray doesn't fit above (desiredY < 0), scroll page up just enough
-      if (desiredY < 0) {
-        const scrollAmount = -desiredY + 16
-        
-        // Instant scroll (no animation) so we can immediately open with correct position
-        window.scrollBy({ top: -scrollAmount, behavior: 'auto' })
-        
-        // Get the new button position after scroll and calculate position
-        // After scrolling up, rect.top will be much larger (button moved down in viewport)
-        const newRect = reactionButtonRef.current.getBoundingClientRect()
-        setEmojiPickerPosition({ x, y: newRect.top - TRAY_HEIGHT })
-        setShowEmojiPicker(true)
-        return
-      }
-      
-      // Fits above - set position and open
-      setEmojiPickerPosition({ x, y: desiredY })
-    }
-
-    setShowEmojiPicker(true)
+    
+    openModalAboveButton(
+      reactionButtonRef,
+      { width: 320, height: 380 }, // Emoji tray dimensions
+      setEmojiPickerPosition,
+      () => setShowEmojiPicker(true)
+    )
   }
 
   // Handle emoji selection — optimistic update before API call
@@ -1169,15 +1141,12 @@ export default function PostCard({
               onClick={(event) => {
                 event.preventDefault()
 
-                if (shareButtonRef.current) {
-                  const rect = shareButtonRef.current.getBoundingClientRect()
-                  setShareModalPosition({
-                    x: rect.left + rect.width / 2,
-                    y: rect.top
-                  })
-                }
-
-                setShowShareModal(true)
+                openModalAboveButton(
+                  shareButtonRef,
+                  { width: 320, height: 400 },
+                  setShareModalPosition,
+                  () => setShowShareModal(true)
+                )
               }}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 hover:text-green-500 hover:bg-green-50 transition-all duration-200 min-w-[44px] min-h-[44px] ${styling.textSize}`}
               title="Share this post"
@@ -1196,15 +1165,12 @@ export default function PostCard({
                   onClick={(event) => {
                     event.preventDefault()
 
-                    if (locationButtonRef.current) {
-                      const rect = locationButtonRef.current.getBoundingClientRect()
-                      setLocationModalPosition({
-                        x: rect.left + rect.width / 2,
-                        y: rect.top
-                      })
-                    }
-
-                    setShowLocationModal(true)
+                    openModalAboveButton(
+                      locationButtonRef,
+                      { width: 320, height: 220 },
+                      setLocationModalPosition,
+                      () => setShowLocationModal(true)
+                    )
                   }}
                   className="flex items-center justify-end gap-1 flex-1 min-w-0 overflow-hidden text-gray-500 hover:text-purple-600 transition-colors"
                   title={currentPost.locationData ? currentPost.locationData.displayName : currentPost.location}

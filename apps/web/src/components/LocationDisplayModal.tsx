@@ -1,8 +1,9 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useRef } from "react"
 import { X, MapPin } from "lucide-react"
 import { LocationData } from "@/types/post"
+import { useModal } from "@/hooks/useModal"
 
 interface LocationDisplayModalProps {
   isOpen: boolean
@@ -21,37 +22,7 @@ export default function LocationDisplayModal({
 }: LocationDisplayModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
 
-  // Handle click outside to close
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen, onClose])
-
-  // Handle escape key
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      // Focus the modal when it opens
-      if (modalRef.current) {
-        modalRef.current.focus()
-      }
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isOpen, onClose])
+  useModal(modalRef, isOpen, onClose, { enableTabTrap: true })
 
   if (!isOpen) return null
 
@@ -70,10 +41,10 @@ export default function LocationDisplayModal({
         aria-modal="true"
         aria-labelledby="location-modal-title"
         aria-describedby="location-modal-description"
-        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[calc(100vw-32px)]"
+        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-[320px] max-w-[calc(100vw-32px)]"
         style={{
-          left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 320 - 16)),
-          top: Math.max(16, Math.min(position.y - 120, window.innerHeight - 200 - 16)),
+          left: position.x,
+          bottom: window.innerHeight - position.y,
         }}
         tabIndex={-1}
       >

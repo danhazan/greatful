@@ -59,6 +59,10 @@ if (typeof window !== 'undefined') {
       dispatchEvent: jest.fn(),
     })),
   })
+  
+  // Mock window.scrollBy and window.scrollTo
+  window.scrollBy = jest.fn()
+  window.scrollTo = jest.fn()
 }
 
 // Mock URL.createObjectURL and revokeObjectURL

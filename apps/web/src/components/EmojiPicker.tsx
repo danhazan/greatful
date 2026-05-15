@@ -173,10 +173,10 @@ export default function EmojiPicker({
         role="dialog"
         aria-modal="true"
         aria-labelledby="emoji-picker-title"
-        className="fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[340px]"
+        className="fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-[320px] max-w-[calc(100vw-32px)]"
         style={{
           left: position.x,
-          top: position.y,
+          bottom: window.innerHeight - position.y,
         }}
         tabIndex={-1}
       >

@@ -8,6 +8,7 @@ import { generateWhatsAppURL, formatWhatsAppShareText } from "@/utils/mobileDete
 import { htmlToPlainText } from "@/utils/htmlUtils"
 import UserMultiSelect from "./UserMultiSelect"
 import { UserSearchResult } from "@/types/userSearch"
+import { useModal } from "@/hooks/useModal"
 
 interface Post {
   id: string
@@ -49,54 +50,7 @@ export default function ShareModal({
 
 
 
-  // Handle click outside to close
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen, onClose])
-
-  // Handle escape key and keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      } else if (event.key === 'Tab') {
-        // Allow tab navigation within modal
-        const focusableElements = modalRef.current?.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        if (focusableElements && focusableElements.length > 0) {
-          const firstElement = focusableElements[0] as HTMLElement
-          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
-          
-          if (event.shiftKey && document.activeElement === firstElement) {
-            event.preventDefault()
-            lastElement.focus()
-          } else if (!event.shiftKey && document.activeElement === lastElement) {
-            event.preventDefault()
-            firstElement.focus()
-          }
-        }
-      }
-    }
-
-    if (isOpen) {
-      // Focus the modal when it opens
-      if (modalRef.current) {
-        modalRef.current.focus()
-      }
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isOpen, onClose])
+  useModal(modalRef, isOpen, onClose, { enableTabTrap: true })
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -407,10 +361,10 @@ export default function ShareModal({
         aria-modal="true"
         aria-labelledby="share-modal-title"
         aria-describedby="share-modal-description"
-        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] sm:min-w-[320px] max-w-[calc(100vw-32px)]"
+        className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-[320px] max-w-[calc(100vw-32px)]"
         style={{
-          left: Math.max(16, Math.min(position.x - 140, window.innerWidth - 320 - 16)),
-          top: Math.max(16, Math.min(position.y - 120, window.innerHeight - 400 - 16)),
+          left: position.x,
+          bottom: window.innerHeight - position.y,
         }}
         tabIndex={-1}
       >
