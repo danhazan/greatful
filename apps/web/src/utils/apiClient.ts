@@ -17,13 +17,25 @@ interface RequestOptions {
   skipCache?: boolean
   cacheTTL?: number
   retries?: number
+  _retry?: boolean
 }
 
 class OptimizedAPIClient {
   private baseURL: string
+  private isRefreshing = false
+  private refreshSubscribers: ((token: string) => void)[] = []
 
   constructor(baseURL: string = '/api') {
     this.baseURL = baseURL
+  }
+
+  private onRefreshed(token: string) {
+    this.refreshSubscribers.forEach(cb => cb(token))
+    this.refreshSubscribers = []
+  }
+
+  private addRefreshSubscriber(cb: (token: string) => void) {
+    this.refreshSubscribers.push(cb)
   }
 
   /**
@@ -41,7 +53,7 @@ class OptimizedAPIClient {
     endpoint: string,
     options: RequestInit & RequestOptions = {}
   ): Promise<T> {
-    const { skipCache, cacheTTL, retries = 1, ...fetchOptions } = options
+    const { skipCache, cacheTTL, retries = 1, _retry, ...fetchOptions } = options
 
     const url = `${this.baseURL}${endpoint}`
     const authHeaders = this.getAuthHeaders()
@@ -70,25 +82,29 @@ class OptimizedAPIClient {
 
     // Use request deduplicator for GET requests
     if (requestOptions.method === 'GET' || !requestOptions.method) {
-      return requestDeduplicator.dedupe(
-        url,
-        async (abortSignal) => {
-          const response = await cache.fetch<APIResponse<T>>(
-            url,
-            { ...requestOptions, signal: abortSignal },
-            { skipCache, ttl: cacheTTL }
-          )
+      try {
+        return await requestDeduplicator.dedupe(
+          url,
+          async (abortSignal) => {
+            const response = await cache.fetch<APIResponse<T>>(
+              url,
+              { ...requestOptions, signal: abortSignal },
+              { skipCache, ttl: cacheTTL }
+            )
 
-          // Handle wrapped responses
-          if (response && typeof response === 'object' && 'data' in response) {
-            return response.data
-          }
+            // Handle wrapped responses
+            if (response && typeof response === 'object' && 'data' in response) {
+              return response.data
+            }
 
-          return response as T
-        },
-        requestOptions,
-        { retries }
-      )
+            return response as T
+          },
+          requestOptions,
+          { retries }
+        )
+      } catch (error) {
+        return this.handleRequestError<T>(error, endpoint, options)
+      }
     }
 
     // For non-GET requests, use direct cache fetch
@@ -106,12 +122,77 @@ class OptimizedAPIClient {
 
       return response as T
     } catch (error) {
-      if (retries > 0) {
-        console.warn(`Request failed, retrying... (${retries} attempts left)`)
-        return this.request<T>(endpoint, { ...options, retries: retries - 1 })
-      }
-      throw error
+      return this.handleRequestError<T>(error, endpoint, options)
     }
+  }
+
+  /**
+   * Centralized error handler including 401 interception
+   */
+  private async handleRequestError<T>(
+    error: any,
+    endpoint: string,
+    options: RequestInit & RequestOptions
+  ): Promise<T> {
+    if (error instanceof Error && error.message.includes('HTTP 401')) {
+      // If we already retried this request once, fail it
+      if (options._retry) {
+        throw error
+      }
+
+      if (!this.isRefreshing) {
+        this.isRefreshing = true
+        try {
+          // Attempt silent refresh
+          const refreshRes = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            credentials: 'include' // crucial for sending the HttpOnly cookie
+          })
+
+          if (refreshRes.ok) {
+            const data = await refreshRes.json()
+            const newToken = data.access_token || data.accessToken || data.data?.accessToken
+            
+            if (newToken) {
+              // Dynamically import auth to prevent circular dependency issues
+              const { setAccessToken } = await import('./auth')
+              setAccessToken(newToken)
+              this.onRefreshed(newToken)
+              
+              // Retry original request with fresh token
+              return this.request<T>(endpoint, { ...options, _retry: true })
+            }
+          }
+
+          // Refresh failed
+          const { logout } = await import('./auth')
+          logout()
+          this.refreshSubscribers.forEach(cb => cb('')) // Reject all pending
+          this.refreshSubscribers = []
+          throw new Error('Session expired')
+        } finally {
+          this.isRefreshing = false
+        }
+      }
+
+      // If already refreshing, wait for the new token then retry
+      return new Promise<T>((resolve, reject) => {
+        this.addRefreshSubscriber((token) => {
+          if (token) {
+            resolve(this.request<T>(endpoint, { ...options, _retry: true }))
+          } else {
+            reject(new Error('Session expired'))
+          }
+        })
+      })
+    }
+
+    if ((options.retries ?? 1) > 0) {
+      console.warn(`Request failed, retrying... (${options.retries} attempts left)`)
+      return this.request<T>(endpoint, { ...options, retries: (options.retries ?? 1) - 1 })
+    }
+    
+    throw error
   }
 
   /**

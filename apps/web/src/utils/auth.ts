@@ -36,13 +36,18 @@ export function logout(): void {
   if (typeof window === 'undefined') return
 
   // 1. Remove access token
+  const token = localStorage.getItem('access_token')
   localStorage.removeItem('access_token')
 
   // 2. Stop notification polling to prevent polling with old user ID
   smartNotificationPoller.stop()
 
-  // 3. Clear any other auth-related localStorage items
-  // Add more items here if needed in the future
+  // 3. Clear the HttpOnly refresh token cookie via the proxy endpoint
+  // Use a background fetch to not block the UI logout process
+  fetch('/api/auth/logout', { 
+    method: 'POST',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+  }).catch(err => console.warn('Failed to call logout proxy endpoint', err))
 }
 
 /**

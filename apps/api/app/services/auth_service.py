@@ -190,11 +190,12 @@ class AuthService(BaseService):
             if not user:
                 raise AuthenticationError("User not found")
             
-            # Create new access token
+            # Create new access and refresh tokens
             token_data = {"sub": str(user.id), "username": user.username}
             new_access_token = create_access_token(token_data)
+            new_refresh_token = create_refresh_token(token_data)
             
-            logger.info(f"Token refreshed for user: {user.email}")
+            logger.info(f"Token refreshed with rotation for user: {user.email}")
             
             return {
                 "user": {
@@ -203,6 +204,7 @@ class AuthService(BaseService):
                     "username": user.username
                 },
                 "access_token": new_access_token,
+                "refresh_token": new_refresh_token,
                 "token_type": "bearer"
             }
             

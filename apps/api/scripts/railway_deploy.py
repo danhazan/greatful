@@ -100,8 +100,8 @@ class RailwayDeploymentHelper:
             'MAX_REQUEST_SIZE': '10485760',
             'MAX_UPLOAD_SIZE': '10485760',
             'UPLOAD_PATH': '/app/uploads',
-            'ACCESS_TOKEN_EXPIRE_MINUTES': '60',
-            'REFRESH_TOKEN_EXPIRE_DAYS': '7'
+            'ACCESS_TOKEN_EXPIRE_MINUTES': '15',
+            'REFRESH_TOKEN_EXPIRE_DAYS': '30'
         }
         return config
     

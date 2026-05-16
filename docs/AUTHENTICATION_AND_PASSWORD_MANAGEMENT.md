@@ -18,6 +18,28 @@ The Grateful project implements a comprehensive authentication and password mana
 - **Database**: User storage and session management
 - **Endpoints**: `/api/v1/auth/*` for all auth operations
 
+## Security Architecture and Session Persistence
+
+Grateful implements a secure, long-lived session architecture that balances user experience with strict security controls against XSS and CSRF.
+
+### Current Security Properties
+- **Short-lived Access Tokens**: Access tokens (`localStorage`) expire quickly (e.g. 15-60 mins), minimizing the XSS exposure window.
+- **Secure Refresh Cookies**: Refresh tokens are stored in `HttpOnly`, `SameSite=Lax`, `Secure` cookies. They are never exposed to JavaScript.
+- **Silent Refresh Flow**: A client-side API interceptor catches `401 Unauthorized` responses and automatically negotiates a new access token via the Next.js `/api/auth/refresh` proxy.
+- **Concurrency Protections**: The client interceptor queues concurrent failed requests to prevent refresh storms and race conditions.
+- **Token Rotation**: The backend issues a brand new refresh token whenever a refresh occurs.
+
+### Current Limitations (MVP Tradeoffs)
+- **Stateless Refresh Tokens**: The FastAPI backend validates refresh tokens statelessly via JWT signature verification. 
+- **No Reuse Detection**: Because the backend does not track refresh tokens in a database, it cannot detect if a stolen refresh token is reused.
+- **No Revocation / Logout-All-Devices**: It is currently impossible to revoke a specific refresh token server-side before its natural expiration. A stolen refresh token remains valid until it expires.
+- **Rotation Synchronization**: While rotation issues new credentials, the old refresh token technically remains valid on the backend. This guarantees that network failures during rotation do not break legitimate sessions, but limits the security benefit of rotation against active token theft.
+
+### Future Recommended Improvements
+- **Database-Backed Sessions**: Implement a `RefreshSession` table to track valid refresh tokens by device/IP.
+- **Token Family Tracking**: Link rotated tokens to a single family. If an old token from a family is reused, invalidate the entire family (automatic theft detection).
+- **Admin Revocation**: Allow users to view active sessions and remotely log out other devices.
+
 ## Authentication Flow
 
 The Grateful platform supports two authentication methods with comprehensive password management:

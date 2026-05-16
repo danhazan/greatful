@@ -46,9 +46,9 @@ services:
       - key: MAX_UPLOAD_SIZE
         value: 10485760
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: 60
+        value: 15
       - key: REFRESH_TOKEN_EXPIRE_DAYS
-        value: 7
+        value: 30
       - key: UPLOAD_PATH
         value: /tmp/uploads
       - key: OAUTH_REDIRECT_URI

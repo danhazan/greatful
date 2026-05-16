@@ -443,7 +443,7 @@ class ProductionConfigManager:
             # Update refresh token expiration to 7 days for better security
             config_content = re.sub(
                 r'REFRESH_TOKEN_EXPIRE_DAYS=.*',
-                'REFRESH_TOKEN_EXPIRE_DAYS=7',
+                'REFRESH_TOKEN_EXPIRE_DAYS=30',
                 config_content
             )
             

@@ -381,7 +381,7 @@ The API uses a dual-token system for enhanced security:
 ```bash
 # Environment variables
 SECRET_KEY=your-super-secure-secret-key-at-least-32-characters
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=30
 ```
 
@@ -589,7 +589,7 @@ DATABASE_URL=postgresql+asyncpg://user:pass@host:port/db
 
 # Security
 SECRET_KEY=your-super-secure-secret-key-at-least-32-characters-long
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=30
 
 # CORS

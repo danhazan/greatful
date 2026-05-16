@@ -155,8 +155,8 @@ DB_SSL_MODE=require
 
 # Security Configuration
 SECRET_KEY=your-super-secure-secret-key-at-least-64-characters-long-for-production
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=30
 
 # CORS Configuration
 ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
@@ -623,8 +623,8 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 
 # Security (CRITICAL - Generate secure values)
 SECRET_KEY=your-super-secure-secret-key-at-least-64-characters-long
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=30
 
 # CORS (Update with your frontend domain)
 ALLOWED_ORIGINS=https://your-frontend-domain.vercel.app,https://your-custom-domain.com

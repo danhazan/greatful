@@ -8,38 +8,37 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    
-    if (!body.email || !body.password) {
-      return createErrorResponse('Email and password are required', 400)
+    const refreshTokenCookie = request.cookies.get('refresh_token')
+
+    if (!refreshTokenCookie || !refreshTokenCookie.value) {
+      console.warn('[Auth-Refresh] Refresh failed: No refresh token cookie provided')
+      return createErrorResponse('No refresh token provided', 401)
     }
 
-    const response = await makeBackendRequest('/api/v1/auth/login', {
+    const response = await makeBackendRequest('/api/v1/auth/refresh', {
       method: 'POST',
       body: JSON.stringify({
-        email: body.email,
-        password: body.password
+        refresh_token: refreshTokenCookie.value
       }),
     })
+
     if (!response.ok) {
+      console.warn('[Auth-Refresh] Backend refresh failed with status:', response.status)
       return proxyBackendJsonResponse(response)
     }
 
     const data = await response.json()
     
-    // Check for refresh_token either in raw backend format or if already transformed
-    const refreshToken = data.refresh_token || data.refreshToken
+    const newRefreshToken = data.refresh_token || data.refreshToken
     
-    // Remove refresh_token from the payload sent to the client
     if (data.refresh_token) delete data.refresh_token
     if (data.refreshToken) delete data.refreshToken
 
-    // Create the response from transformed data
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedData = transformApiResponse(data)
     const nextResponse = NextResponse.json(transformedData, { status: response.status })
     
-    if (refreshToken) {
+    if (newRefreshToken) {
       const maxAgeSeconds = 30 * 24 * 60 * 60; // 30 days
       const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https'
       const secureFlag = isHttps || process.env.NODE_ENV === 'production'
@@ -53,13 +52,13 @@ export async function POST(request: NextRequest) {
         path: '/'
       };
       
-      nextResponse.cookies.set('refresh_token', refreshToken, cookieOptions)
+      nextResponse.cookies.set('refresh_token', newRefreshToken, cookieOptions)
     } else {
-      console.warn('[Auth-Login] No refresh token returned from backend')
+      console.warn('[Auth-Refresh] Backend returned OK but NO new refresh token was provided for rotation')
     }
     
     return nextResponse
   } catch (error) {
-    return handleApiError(error, 'login')
+    return handleApiError(error, 'refresh')
   }
 }

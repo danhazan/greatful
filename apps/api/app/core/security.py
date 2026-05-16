@@ -5,6 +5,7 @@ Security utilities for JWT token handling and password hashing.
 import jwt
 import os
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from typing import Dict, Any, Optional
@@ -17,7 +18,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-produ
 ALGORITHM = "HS256"
 
 # Production-ready token expiration times with security validation
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))  # 1 hour default
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))  # 15 minutes default
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))  # 30 days default
 
 # Production security validation
@@ -87,7 +88,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
         "exp": expire,
         "iat": current_time,
         "nbf": current_time,  # Not before - token not valid before this time
-        "jti": secrets.token_urlsafe(32),  # JWT ID for token revocation
+        "jti": str(uuid.uuid4()),  # JWT ID for token revocation
         "type": "access",
         "iss": "grateful-api",  # Issuer
         "aud": "grateful-client",  # Audience
@@ -125,7 +126,7 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
         "exp": expire,
         "iat": current_time,
         "nbf": current_time,  # Not before
-        "jti": secrets.token_urlsafe(32),
+        "jti": str(uuid.uuid4()),
         "type": "refresh",
         "iss": "grateful-api",  # Issuer
         "aud": "grateful-client",  # Audience

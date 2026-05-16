@@ -33,8 +33,8 @@ DATABASE_URL=postgresql+asyncpg://postgres:iamgreatful@localhost:5432/grateful
 
 # Security Configuration
 SECRET_KEY=your-super-secret-key-change-this-in-production
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=30
 
 # OAuth Configuration
 GOOGLE_CLIENT_ID=your-google-client-id
@@ -99,8 +99,8 @@ REDIS_URL=redis://user:pass@host:port
 
 # Security
 SECRET_KEY=your-super-secure-secret-key-at-least-64-characters-long
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=30
 
 # CORS Configuration
 ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-custom-domain.com
