@@ -8,12 +8,14 @@ import { useToast } from "@/contexts/ToastContext"
 import MentionAutocomplete from "./MentionAutocomplete"
 import LocationModal from "./LocationModal"
 import MinimalEmojiPicker from "./MinimalEmojiPicker"
-import RichTextEditor, { RichTextEditorRef } from "./RichTextEditor"
-import PostStyleSelector, { PostStyle, POST_STYLES } from "./PostStyleSelector"
+import RichTextEditor from "./RichTextEditor"
+import PostStyleSelector from "./PostStyleSelector"
 import PostPrivacySelector from "./PostPrivacySelector"
 import { usePostPrivacyState } from "@/hooks/usePostPrivacyState"
 import { buildPostPayload } from "@/utils/postPayload"
+import { usePostForm, POST_STYLES, type PostStyle } from "@/hooks/usePostForm"
 import { UserSearchResult } from "@/types/userSearch"
+import InlineError from "./InlineError"
 
 // Gratitude prompts for inspiring users
 const GRATITUDE_PROMPTS = [
@@ -89,62 +91,48 @@ interface CreatePostModalProps {
   }) => void
 }
 
-// Universal character limit for posts
-const MAX_CHARS = 5000
-
-const DEFAULT_EDITOR_MAX_HEIGHT = 300
-const MIN_EDITOR_MAX_HEIGHT = 140
-const EDITOR_TRAY_GAP = 12
-
 export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
   const { showError, showDebugSuccess, showDebugLoading, hideToast } = useToast()
-  const [postData, setPostData] = useState<{
-    content: string
-    imageUrl?: string
-    location?: string
-    locationData?: LocationResult
-  }>({
-    content: '',
-    imageUrl: '',
-    location: ''
-  })
+
+  const {
+    postData, setPostData,
+    isSubmitting, setIsSubmitting,
+    error, setError,
+    richContent, setRichContent,
+    selectedStyle, setSelectedStyle,
+    showBackgrounds, setShowBackgrounds,
+    backgroundsPosition, setBackgroundsPosition,
+    showMentionAutocomplete, setShowMentionAutocomplete,
+    mentionQuery, setMentionQuery,
+    mentionPosition, setMentionPosition,
+    currentMentionStart, setCurrentMentionStart,
+    showLocationModal, setShowLocationModal,
+    isMobileViewport,
+    mobileKeyboardInset,
+    showEmojiPicker, setShowEmojiPicker,
+    emojiEditorMaxHeight,
+    modalRef,
+    scrollableContentRef,
+    emojiTrayRef,
+    richTextEditorRef,
+    contentForAnalysis,
+    maxChars,
+    handleRichTextChange,
+    handleRichTextMentionTrigger,
+    handleRichTextMentionHide,
+    handleMentionSelect,
+    handleMentionClose,
+    handleEmojiPickerToggle,
+    extractErrorMessage,
+  } = usePostForm({ isOpen, onClose })
+
   // Multi-image state: array of images with files, previews, and positions
   const [images, setImages] = useState<ImageUploadState[]>([])
-  // Draft ID for namespacing the cache
   const [draftId, setDraftId] = useState<string>('')
-  // Legacy single image support (deprecated)
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
   const [gratitudePrompt, setGratitudePrompt] = useState('')
-  const modalRef = useRef<HTMLDivElement>(null)
-  const scrollableContentRef = useRef<HTMLDivElement>(null)
-  const emojiTrayRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const richTextEditorRef = useRef<RichTextEditorRef>(null)
-
-  // SOURCE OF TRUTH: richContent is the canonical version of post content (HTML).
-  // postData.content is the plain text fallback, derived from richContent.
-  // Both are kept in sync by handleRichTextChange; richContent takes priority on submit.
-  const [richContent, setRichContent] = useState('')
-  const [selectedStyle, setSelectedStyle] = useState<PostStyle>(POST_STYLES[0])
-  // HTML value to pass to RichTextEditor when restoring a draft
   const [draftHtmlValue, setDraftHtmlValue] = useState<string | null>(null)
-  const [showBackgrounds, setShowBackgrounds] = useState(false)
-  const [backgroundsPosition, setBackgroundsPosition] = useState({ x: 0, y: 0 })
-
-  // Mention autocomplete state
-  const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false)
-  const [mentionQuery, setMentionQuery] = useState('')
-  const [mentionPosition, setMentionPosition] = useState({ x: 0, y: 0 })
-  const [currentMentionStart, setCurrentMentionStart] = useState(-1)
-
-  // Location state
-  const [showLocationModal, setShowLocationModal] = useState(false)
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
-  const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0)
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [emojiEditorMaxHeight, setEmojiEditorMaxHeight] = useState<number | null>(null)
 
   // Privacy state
   const initialPrivacy = useMemo(
@@ -163,19 +151,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
 
 
-  const hasImage = images.length > 0 || Boolean(postData.imageUrl)
-
-  // Always use plain text for analysis to avoid HTML tag length issues
-  const getPlainTextContent = () => {
-    if (richTextEditorRef.current) {
-      return richTextEditorRef.current.getPlainText()
-    }
-    return postData.content
-  }
-
-  const contentForAnalysis = getPlainTextContent()
-  const trimmed = contentForAnalysis.trim()
-  const wordCount = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).filter(w => w.length > 0).length
+  const hasImage = images.length > 0 || Boolean(postData.imageUrl) || Boolean(imageFile)
 
   // Helper function to determine if there's an active draft
   const hasActiveDraft = useCallback(() => {
@@ -191,193 +167,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     )
   }, [postData.content, richContent, postData.imageUrl, imageFile, images.length, privacyLevel, privacyRules.length, specificUsers.length])
 
-  const handleMentionClose = useCallback(() => {
-    setShowMentionAutocomplete(false)
-    setMentionQuery('')
-    setCurrentMentionStart(-1)
-  }, [])
-
-  const maxChars = MAX_CHARS
-
-  // IMPORTANT: We explicitly control scroll via scrollTo({ top: 0 }) on focus/toggle.
-  // Avoid adding new scrollIntoView calls in this modal or editor,
-  // as they will conflict with mobile browser focus behavior.
-  const handleEmojiPickerToggle = useCallback(() => {
-    setShowEmojiPicker(prev => {
-      const next = !prev
-      if (next) {
-        scrollableContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-      }
-      return next
-    })
-  }, [])
-
-  const updateEmojiEditorMaxHeight = useCallback(() => {
-    if (!showEmojiPicker) {
-      setEmojiEditorMaxHeight(null)
-      return
-    }
-
-    const modal = modalRef.current
-    const tray = emojiTrayRef.current
-    const editorShell = richTextEditorRef.current?.getEditorShell()
-
-    if (!modal || !tray || !editorShell) {
-      setEmojiEditorMaxHeight(DEFAULT_EDITOR_MAX_HEIGHT)
-      return
-    }
-
-    const availableShellHeight = tray.getBoundingClientRect().top - editorShell.getBoundingClientRect().top - EDITOR_TRAY_GAP
-    const toolbarHeight = richTextEditorRef.current?.getToolbarHeight() ?? 0
-    const nextMaxHeight = Math.max(
-      MIN_EDITOR_MAX_HEIGHT,
-      Math.floor(availableShellHeight - toolbarHeight)
-    )
-
-    setEmojiEditorMaxHeight(nextMaxHeight)
-  }, [showEmojiPicker])
-
-  // Handle click outside to close
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      const clickedInsideModal = !!modalRef.current?.contains(event.target as Node)
-
-      if (clickedInsideModal) {
-        const editorShell = richTextEditorRef.current?.getEditorShell()
-        const isInsideEditor = !!editorShell?.contains(event.target as Node)
-        const isInsideTray = !!target.closest('[data-minimal-emoji-picker]')
-        const isInsideEmojiTrigger = !!target.closest('[data-emoji-trigger]')
-
-        if (showEmojiPicker && !isInsideEditor && !isInsideTray && !isInsideEmojiTrigger) {
-          setShowEmojiPicker(false)
-        }
-        return
-      }
-
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        // ✅ Ignore clicks inside LocationModal if open
-        if (showLocationModal && target.closest('[data-location-modal]')) {
-          return
-        }
-        // ✅ Ignore clicks inside mention autocomplete dropdown
-        if (target.closest('[data-mention-autocomplete]')) {
-          return
-        }
-
-        // ✅ Ignore clicks inside background selector or its backdrop if open
-        if (showBackgrounds && (target.closest('.background-selector') || target.closest('[data-backgrounds-modal]') || target.closest('[data-backgrounds-backdrop]'))) {
-          return
-        }
-
-        // ✅ Ignore clicks inside rich text editor modals (color pickers, etc.)
-        if (target.closest('.rich-text-toolbar') || target.closest('[data-rich-text-modal]')) {
-          return
-        }
-
-        // Otherwise close post modal
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen, onClose, showBackgrounds, showEmojiPicker, showLocationModal])
-
-  useEffect(() => {
-    if (!isOpen || typeof window === 'undefined') return
-
-    const mediaQuery = window.matchMedia('(max-width: 767px)')
-    const handleViewportMode = () => {
-      setIsMobileViewport(mediaQuery.matches)
-    }
-
-    handleViewportMode()
-    mediaQuery.addEventListener('change', handleViewportMode)
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleViewportMode)
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    if (!isOpen || !isMobileViewport || typeof window === 'undefined') return
-
-    if (!window.visualViewport) {
-      setMobileKeyboardInset(0)
-      return
-    }
-
-    const viewport = window.visualViewport
-    const updateInset = () => {
-      const inset = Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop))
-      setMobileKeyboardInset(inset)
-    }
-
-    updateInset()
-    viewport.addEventListener('resize', updateInset)
-    viewport.addEventListener('scroll', updateInset)
-
-    return () => {
-      viewport.removeEventListener('resize', updateInset)
-      viewport.removeEventListener('scroll', updateInset)
-      setMobileKeyboardInset(0)
-    }
-  }, [isOpen, isMobileViewport])
-
-  useEffect(() => {
-    if (!isOpen) {
-      setShowEmojiPicker(false)
-      setEmojiEditorMaxHeight(null)
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    if (!isOpen || !showEmojiPicker || typeof window === 'undefined') return
-
-    const updateLayout = () => updateEmojiEditorMaxHeight()
-    const frame = window.requestAnimationFrame(updateLayout)
-    window.addEventListener('resize', updateLayout)
-
-    const viewport = window.visualViewport
-    viewport?.addEventListener('resize', updateLayout)
-    viewport?.addEventListener('scroll', updateLayout)
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-      window.removeEventListener('resize', updateLayout)
-      viewport?.removeEventListener('resize', updateLayout)
-      viewport?.removeEventListener('scroll', updateLayout)
-    }
-  }, [isOpen, showEmojiPicker, updateEmojiEditorMaxHeight, mobileKeyboardInset])
-
-  // Handle escape key and mention autocomplete navigation
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // If mention autocomplete is open, let it handle navigation keys
-      if (showMentionAutocomplete && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
-        return // Let MentionAutocomplete handle these
-      }
-
-      if (event.key === 'Escape') {
-        if (showMentionAutocomplete) {
-          handleMentionClose()
-        } else if (showEmojiPicker) {
-          setShowEmojiPicker(false)
-        } else {
-          onClose()
-        }
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isOpen, onClose, showEmojiPicker, showMentionAutocomplete, handleMentionClose])
-
   // Handle keyboard navigation for drag and drop zone
   const handleDragZoneKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -390,16 +179,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
   useEffect(() => {
     if (isOpen && textareaRef.current) {
       textareaRef.current.focus({ preventScroll: true })
-    }
-  }, [isOpen])
-
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    }
-    return () => {
-      document.body.style.overflow = 'unset'
     }
   }, [isOpen])
 
@@ -963,56 +742,6 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
 
 
 
-  const handleMentionSelect = (user: UserSearchResult) => {
-    if (currentMentionStart >= 0 && richTextEditorRef.current) {
-      // Get the current plain text from the editor to ensure accuracy
-      const currentContent = richTextEditorRef.current.getPlainText()
-
-      // Find the end of the current partial mention
-      let mentionEnd = currentMentionStart + 1 // Start after the @
-      while (mentionEnd < currentContent.length &&
-        /[a-zA-Z0-9_\-\.]/.test(currentContent[mentionEnd])) {
-        mentionEnd++
-      }
-
-      // Use the RichTextEditor's insertMention method to handle the insertion properly
-      richTextEditorRef.current.insertMention(user.username, currentMentionStart, mentionEnd)
-    }
-
-    setShowMentionAutocomplete(false)
-    setMentionQuery('')
-    setCurrentMentionStart(-1)
-  }
-
-  // Rich text and styling handlers
-  const handleRichTextChange = (plainText: string, formattedText: string) => {
-    setPostData({ ...postData, content: plainText })
-    setRichContent(formattedText)
-  }
-
-  const handleRichTextMentionTrigger = (query: string, position: { x: number, y: number }, cursorPosition?: number) => {
-    setMentionQuery(query)
-    setMentionPosition(position)
-    setShowMentionAutocomplete(true)
-
-    // Use the provided cursor position to find mention start
-    if (cursorPosition !== undefined) {
-      // Get the current plain text from the editor (not from postData.content which might be stale)
-      const currentContent = richTextEditorRef.current?.getPlainText() || postData.content
-      const textBeforeCursor = currentContent.slice(0, cursorPosition)
-      const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\-\.\?\!\+]*)$/)
-      if (mentionMatch) {
-        setCurrentMentionStart(cursorPosition - mentionMatch[0].length)
-      }
-    }
-  }
-
-  const handleRichTextMentionHide = () => {
-    setShowMentionAutocomplete(false)
-    setMentionQuery('')
-    setCurrentMentionStart(-1)
-  }
-
   const handleShowBackgrounds = (e: React.MouseEvent) => {
     const rect = (e.target as HTMLElement).getBoundingClientRect()
     setBackgroundsPosition({ x: rect.left, y: rect.bottom + 8 })
@@ -1340,13 +1069,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
             </div>
 
             {/* Error Message */}
-            {error && (
-              <div className="px-6 pb-4">
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-600 text-sm">{error}</p>
-                </div>
-              </div>
-            )}
+            <InlineError message={error} />
 
             {showEmojiPicker && (
               <div

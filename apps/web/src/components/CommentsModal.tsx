@@ -7,6 +7,8 @@ import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import { useToast } from "@/contexts/ToastContext"
 import MinimalEmojiPicker from "./MinimalEmojiPicker"
 import { insertEmojiIntoTextarea } from "@/utils/insertEmojiIntoTextarea"
+import { useMobileViewport } from "@/hooks/useMobileViewport"
+import { useMobileKeyboardInset } from "@/hooks/useMobileKeyboardInset"
 
 interface CommentUser {
   id: number
@@ -80,8 +82,8 @@ export default function CommentsModal({
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [textareaSelection, setTextareaSelection] = useState({ start: 0, end: 0 })
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
-  const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0)
+  const isMobileViewport = useMobileViewport()
+  const mobileKeyboardInset = useMobileKeyboardInset(isMobileViewport)
 
   const MAX_CHARS = 500
   const MAX_TEXTAREA_LINES = 4
@@ -196,53 +198,9 @@ export default function CommentsModal({
       // Reset edit/delete state
       setDeleteConfirmCommentId(null)
       setShowEmojiPicker(false)
-      setMobileKeyboardInset(0)
       resetTextarea(commentInputRef.current)
     }
   }, [isOpen])
-
-  // Mobile-only viewport tracking for keyboard adjustments
-  useEffect(() => {
-    if (!isOpen || typeof window === 'undefined') return
-
-    const mediaQuery = window.matchMedia('(max-width: 767px)')
-    const handleViewportMode = () => {
-      setIsMobileViewport(mediaQuery.matches)
-    }
-
-    handleViewportMode()
-    mediaQuery.addEventListener('change', handleViewportMode)
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleViewportMode)
-    }
-  }, [isOpen])
-
-  // Apply keyboard inset only on mobile to avoid desktop regressions
-  useEffect(() => {
-    if (!isOpen || !isMobileViewport || typeof window === 'undefined') return
-
-    if (!window.visualViewport) {
-      setMobileKeyboardInset(0)
-      return
-    }
-
-    const viewport = window.visualViewport
-    const updateInset = () => {
-      const inset = Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop))
-      setMobileKeyboardInset(inset)
-    }
-
-    updateInset()
-    viewport.addEventListener('resize', updateInset)
-    viewport.addEventListener('scroll', updateInset)
-
-    return () => {
-      viewport.removeEventListener('resize', updateInset)
-      viewport.removeEventListener('scroll', updateInset)
-      setMobileKeyboardInset(0)
-    }
-  }, [isOpen, isMobileViewport])
 
   // When the emoji tray opens OR the onscreen keyboard shrinks the modal while
   // an inline edit is active, scroll the container just enough to keep the edit
