@@ -71,8 +71,6 @@ export default function GoogleOAuthCallbackPage() {
           // Trigger UserContext to reload user data
           await reloadUser()
 
-          // optional: save refresh token too
-          if (tokens.refreshToken) localStorage.setItem('refresh_token', tokens.refreshToken)
           console.log('Stored access_token via auth utility and reloaded user context, length:', tokens.accessToken.length)
         } else {
           console.warn('No access_token in callback response; full result:', result)

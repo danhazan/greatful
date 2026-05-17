@@ -94,12 +94,13 @@ class OAuthService {
     state?: string
   ): Promise<OAuthLoginResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/callback/${provider}`, {
+      const response = await fetch(`/api/auth/callback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          provider,
           code,
           state
         }),
