@@ -29,10 +29,13 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
     
-    const newRefreshToken = data.refresh_token || data.refreshToken
+    // The backend uses success_response() which wraps the payload in a 'data' object
+    const payload = data.data || data
     
-    if (data.refresh_token) delete data.refresh_token
-    if (data.refreshToken) delete data.refreshToken
+    const newRefreshToken = payload.refresh_token || payload.refreshToken
+    
+    if (payload.refresh_token) delete payload.refresh_token
+    if (payload.refreshToken) delete payload.refreshToken
 
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedData = transformApiResponse(data)
