@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { useFocusTrap } from "./useFocusTrap"
 
 interface UseModalOptions {
   enableTabTrap?: boolean
@@ -12,6 +13,8 @@ export function useModal(
   options: UseModalOptions = {}
 ) {
   const { enableTabTrap = false, scrollLock: shouldLockScroll = true } = options
+
+  useFocusTrap(modalRef, isOpen && enableTabTrap)
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -41,36 +44,17 @@ export function useModal(
     }
   }, [isOpen, onClose, modalRef])
 
-  // Handle keyboard events (escape + optional tab trap)
+  // Handle escape key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose()
-      } else if (enableTabTrap && event.key === 'Tab') {
-        const focusableElements = modalRef.current?.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        if (focusableElements && focusableElements.length > 0) {
-          const firstElement = focusableElements[0] as HTMLElement
-          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
-
-          if (event.shiftKey && document.activeElement === firstElement) {
-            event.preventDefault()
-            lastElement.focus()
-          } else if (!event.shiftKey && document.activeElement === lastElement) {
-            event.preventDefault()
-            firstElement.focus()
-          }
-        }
       }
     }
 
     if (isOpen) {
-      if (modalRef.current) {
-        modalRef.current.focus()
-      }
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose, modalRef, enableTabTrap])
+  }, [isOpen, onClose])
 }

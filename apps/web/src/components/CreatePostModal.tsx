@@ -16,6 +16,7 @@ import { buildPostPayload } from "@/utils/postPayload"
 import { usePostForm, POST_STYLES, type PostStyle } from "@/hooks/usePostForm"
 import { UserSearchResult } from "@/types/userSearch"
 import InlineError from "./InlineError"
+import { useFocusTrap } from "@/hooks/useFocusTrap"
 
 // Gratitude prompts for inspiring users
 const GRATITUDE_PROMPTS = [
@@ -125,6 +126,8 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePos
     handleEmojiPickerToggle,
     extractErrorMessage,
   } = usePostForm({ isOpen, onClose })
+
+  useFocusTrap(modalRef, isOpen)
 
   // Multi-image state: array of images with files, previews, and positions
   const [images, setImages] = useState<ImageUploadState[]>([])

@@ -13,6 +13,7 @@ import { type PostPrivacy } from "@/types/post"
 import { buildPostPayload } from "@/utils/postPayload"
 import { usePostForm } from "@/hooks/usePostForm"
 import InlineError from "./InlineError"
+import { useFocusTrap } from "@/hooks/useFocusTrap"
 
 // Removed local UserInfo interface in favor of UserSearchResult from @/types/userSearch
 
@@ -135,6 +136,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
       specificUsers: post.specificUsers ?? [],
     },
   })
+  useFocusTrap(modalRef, isOpen)
   const [initialPrivacy, setInitialPrivacy] = useState<PostPrivacy>({
     privacyLevel: post.privacyLevel,
     privacyRules: post.privacyRules ?? [],
