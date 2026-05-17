@@ -37,9 +37,9 @@ export default function PostPrivacySelector({
   const [showCustomPrivacyModal, setShowCustomPrivacyModal] = useState(false)
   const [customPrivacyError, setCustomPrivacyError] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  useClickOutside(menuRef, showPrivacyMenu, () => setShowPrivacyMenu(false))
+  useClickOutside(containerRef, showPrivacyMenu, () => setShowPrivacyMenu(false))
 
   const normalizedPrivacyRules = useMemo(() => {
     if (privacyRules && privacyRules.length > 0) return privacyRules
@@ -107,10 +107,9 @@ export default function PostPrivacySelector({
   const hasSpecificUsers = specificUsers.length > 0
 
   return (
-    <>
+    <div ref={containerRef}>
       <div className="flex items-center gap-2">
         <button
-          ref={triggerRef}
           type="button"
           onClick={() => setShowPrivacyMenu((prev) => !prev)}
           aria-label={audience.ariaLabel}
@@ -241,6 +240,6 @@ export default function PostPrivacySelector({
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

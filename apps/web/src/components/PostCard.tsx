@@ -104,7 +104,7 @@ export default function PostCard({
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const shareButtonRef = useRef<HTMLButtonElement>(null)
   const locationButtonRef = useRef<HTMLButtonElement>(null)
-  const optionsButtonRef = useRef<HTMLButtonElement>(null)
+  const optionsMenuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const { showError, showDebugSuccess, showDebugLoading, hideToast } = useToast()
 
@@ -113,7 +113,7 @@ export default function PostCard({
     setIsUserAuthenticated(isAuthenticated() && !!currentUserId)
   }, [currentUserId])
 
-  useClickOutside(optionsButtonRef, showOptionsMenu, () => setShowOptionsMenu(false))
+  useClickOutside(optionsMenuRef, showOptionsMenu, () => setShowOptionsMenu(false))
 
   // Track post view when component mounts
   useEffect(() => {
@@ -908,9 +908,8 @@ export default function PostCard({
                       className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600"
                       labelClassName="text-gray-600"
                     />
-                    <div className="relative">
+                    <div className="relative" ref={optionsMenuRef}>
                       <button
-                        ref={optionsButtonRef}
                         onClick={() => setShowOptionsMenu(!showOptionsMenu)}
                         className="p-1 hover:bg-gray-100 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                         title="Post options"
