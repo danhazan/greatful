@@ -253,9 +253,11 @@ export default function MultiImageModal({
               return
             }
 
-            // Otherwise, open emoji picker
+            // Otherwise, open emoji picker below the button
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-            setPickerPosition({ x: rect.left + rect.width / 2, y: rect.bottom + 12 })
+            const modalWidth = 320
+            const x = Math.max(16, Math.min(rect.left + rect.width / 2 - modalWidth / 2, window.innerWidth - modalWidth - 16))
+            setPickerPosition({ x, y: rect.bottom + 8 })
             setShowEmojiPicker(true)
           }}
         >
@@ -404,6 +406,7 @@ export default function MultiImageModal({
           currentReaction={currentReactionState.userReaction}
           position={pickerPosition}
           isLoading={isInFlight}
+          anchor="top"
         />
       )}
 

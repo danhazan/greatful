@@ -5,15 +5,17 @@ import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { getAvailableEmojis } from "@/utils/emojiMapping"
 import { triggerHaptic } from "@/utils/hapticFeedback"
+import { useModal } from "@/hooks/useModal"
 
 interface EmojiPickerProps {
   isOpen: boolean
-  onClose: () => void           // Called when emoji is selected (sends reaction)
-  onCancel: () => void          // Called when X clicked or click outside (cancels, no reaction)
+  onClose: () => void
+  onCancel: () => void
   onEmojiSelect: (emojiCode: string) => void
   currentReaction?: string | null
   position?: { x: number, y: number }
   isLoading?: boolean
+  anchor?: 'bottom' | 'top'
 }
 
 // Get emoji options from utility - now includes 56 emojis across 7 rows
@@ -26,7 +28,8 @@ export default function EmojiPicker({
   onEmojiSelect,
   currentReaction,
   position = { x: 0, y: 0 },
-  isLoading = false
+  isLoading = false,
+  anchor = 'bottom'
 }: EmojiPickerProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -63,76 +66,7 @@ export default function EmojiPicker({
     }
   }, [isOpen])
 
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
-      document.body.style.overflow = 'hidden';
-      document.body.style.paddingRight = `${scrollBarWidth}px`;
-      
-      return () => {
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      }
-    }
-  }, [isOpen])
-
-  // Handle click outside to cancel (not close with reaction)
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        // Cancel the reaction - don't send to backend
-        onCancel()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [isOpen, onCancel])
-
-
-
-  // Handle keyboard navigation - only Escape key kept
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isOpen) return
-
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancel() // Cancel on Escape, don't send reaction
-      } else if (event.key === 'Tab') {
-        // Allow tab navigation within modal
-        const focusableElements = modalRef.current?.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        if (focusableElements && focusableElements.length > 0) {
-          const firstElement = focusableElements[0] as HTMLElement
-          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
-
-          if (event.shiftKey && document.activeElement === firstElement) {
-            event.preventDefault()
-            lastElement.focus()
-          } else if (!event.shiftKey && document.activeElement === lastElement) {
-            event.preventDefault()
-            firstElement.focus()
-          }
-        }
-      }
-      // Removed: numeric key shortcuts (1-8) - redundant with click interaction
-    }
-
-    if (isOpen) {
-      if (modalRef.current) {
-        modalRef.current.focus()
-      }
-      document.addEventListener('keydown', handleKeyDown, true)
-      return () => document.removeEventListener('keydown', handleKeyDown, true)
-    }
-  }, [isOpen, onCancel])
+  useModal(modalRef, isOpen, onCancel, { enableTabTrap: true })
 
   if (!isOpen) return null
   if (typeof document === 'undefined') return null
@@ -176,7 +110,9 @@ export default function EmojiPicker({
         className="fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-[320px] max-w-[calc(100vw-32px)]"
         style={{
           left: position.x,
-          bottom: window.innerHeight - position.y,
+          ...(anchor === 'top'
+            ? { top: position.y }
+            : { bottom: window.innerHeight - position.y }),
         }}
         tabIndex={-1}
       >

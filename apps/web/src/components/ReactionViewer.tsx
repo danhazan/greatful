@@ -7,6 +7,7 @@ import { getEmojiFromCode } from "@/utils/emojiMapping"
 import { getAccessToken } from "@/utils/auth"
 import { lockScroll, unlockScroll } from "@/utils/scrollLock"
 import UserItem from "./UserItem"
+import { useModal } from "@/hooks/useModal"
 
 import { 
   getDetailedReactionsFromCache, 
@@ -97,56 +98,7 @@ export default function ReactionViewer({
     }
   }, [isOpen])
 
-  // Handle click outside to close
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen, onClose])
-
-
-
-  // Handle escape key and keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      } else if (event.key === 'Tab') {
-        // Allow tab navigation within modal
-        const focusableElements = modalRef.current?.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        if (focusableElements && focusableElements.length > 0) {
-          const firstElement = focusableElements[0] as HTMLElement
-          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
-          
-          if (event.shiftKey && document.activeElement === firstElement) {
-            event.preventDefault()
-            lastElement.focus()
-          } else if (!event.shiftKey && document.activeElement === lastElement) {
-            event.preventDefault()
-            firstElement.focus()
-          }
-        }
-      }
-    }
-
-    if (isOpen) {
-      // Focus the modal when it opens
-      if (modalRef.current) {
-        modalRef.current.focus()
-      }
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isOpen, onClose])
+  useModal(modalRef, isOpen, onClose, { enableTabTrap: true, scrollLock: false })
 
   // Group reactions by emoji code
   const groupedReactions = reactions.reduce((acc: Record<string, Reaction[]>, reaction: Reaction) => {

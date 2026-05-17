@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 
 interface UseModalOptions {
   enableTabTrap?: boolean
+  scrollLock?: boolean
 }
 
 export function useModal(
@@ -10,9 +11,11 @@ export function useModal(
   onClose: () => void,
   options: UseModalOptions = {}
 ) {
+  const { enableTabTrap = false, scrollLock: shouldLockScroll = true } = options
+
   // Lock body scroll when modal is open
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && shouldLockScroll) {
       const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth
       document.body.style.overflow = 'hidden'
       document.body.style.paddingRight = `${scrollBarWidth}px`
@@ -22,7 +25,7 @@ export function useModal(
         document.body.style.paddingRight = ''
       }
     }
-  }, [isOpen])
+  }, [isOpen, shouldLockScroll])
 
   // Handle click outside to close
   useEffect(() => {
@@ -43,7 +46,7 @@ export function useModal(
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose()
-      } else if (options.enableTabTrap && event.key === 'Tab') {
+      } else if (enableTabTrap && event.key === 'Tab') {
         const focusableElements = modalRef.current?.querySelectorAll(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         )
@@ -69,5 +72,5 @@ export function useModal(
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose, options.enableTabTrap, modalRef])
+  }, [isOpen, onClose, modalRef, enableTabTrap])
 }
