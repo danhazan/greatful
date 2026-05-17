@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { triggerHaptic } from '@/utils/hapticFeedback'
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { useClickOutside } from "@/hooks/useClickOutside"
 import { getCompleteInputStyling } from '@/utils/inputStyles'
 import { useUserSearch } from '@/hooks/useUserSearch'
 import { UserSearchDropdown } from '@/components/user-search'
@@ -115,24 +116,7 @@ export default function UserSearchBar({
     scrollBehavior: 'smooth'
   })
 
-  // Handle click outside to close
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        inputRef.current &&
-        !inputRef.current.contains(event.target as Node)
-      ) {
-        handleClose()
-      }
-    }
-
-    if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isDropdownOpen, handleClose])
+  useClickOutside(dropdownRef, isDropdownOpen, handleClose)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value

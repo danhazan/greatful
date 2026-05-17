@@ -7,6 +7,7 @@ import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import UserAvatar from "./UserAvatar"
 import UserItem from "./UserItem"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { useClickOutside } from "@/hooks/useClickOutside"
 
 interface ProfileDropdownProps {
   user: {
@@ -40,19 +41,7 @@ export default function ProfileDropdown({
     { label: 'Logout', action: () => handleLogoutClick() }
   ]
 
-  // Handle click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen, onClose])
+  useClickOutside(dropdownRef, isOpen, onClose)
 
   // Handle keyboard navigation with scrolling
   const { setItemRef } = useKeyboardNavigation({

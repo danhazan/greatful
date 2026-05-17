@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { useClickOutside } from "@/hooks/useClickOutside"
 import { useUserSearch } from '@/hooks/useUserSearch'
 import { UserSearchDropdown } from '@/components/user-search'
 import { UserSearchResult } from '@/types/userSearch'
@@ -63,16 +64,7 @@ export default function UserMultiSelect({
     onClose: () => setIsOpen(false),
   })
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  useClickOutside(containerRef, isOpen, () => setIsOpen(false))
 
   const handleSelect = (user: UserSearchResult) => {
     if (disabled) {

@@ -31,6 +31,7 @@ import { useToast } from "@/contexts/ToastContext"
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, hasMixedDirectionContent } from "@/utils/rtlUtils"
 import { usePostStateSynchronization } from "@/hooks/useStateSynchronization"
+import { useClickOutside } from "@/hooks/useClickOutside"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { Post, Author, PostImage } from "@/types/post"
 
@@ -112,23 +113,7 @@ export default function PostCard({
     setIsUserAuthenticated(isAuthenticated() && !!currentUserId)
   }, [currentUserId])
 
-  // Handle click outside to close options menu
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (optionsButtonRef.current && !optionsButtonRef.current.contains(event.target as Node)) {
-        const target = event.target as Element
-        // Check if click is outside the options dropdown
-        if (!target.closest('.absolute')) {
-          setShowOptionsMenu(false)
-        }
-      }
-    }
-
-    if (showOptionsMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showOptionsMenu])
+  useClickOutside(optionsButtonRef, showOptionsMenu, () => setShowOptionsMenu(false))
 
   // Track post view when component mounts
   useEffect(() => {

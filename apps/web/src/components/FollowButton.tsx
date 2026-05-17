@@ -5,6 +5,7 @@ import { Heart, Loader2 } from 'lucide-react'
 import { isAuthenticated, getAccessToken } from '@/utils/auth'
 import { triggerHaptic } from '@/utils/hapticFeedback'
 import { useToast } from '@/contexts/ToastContext'
+import { useClickOutside } from "@/hooks/useClickOutside"
 import { useUserState } from '@/hooks/useUserState'
 
 interface FollowButtonProps {
@@ -94,21 +95,7 @@ export default function FollowButton({
     }
   }
 
-  // Handle click outside to close error message
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (errorRef.current && !errorRef.current.contains(event.target as Node)) {
-        setError(null)
-      }
-    }
-
-    if (error) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [error])
+  useClickOutside(errorRef, !!error, () => setError(null))
 
   // Notify parent component of follow state changes
   useEffect(() => {

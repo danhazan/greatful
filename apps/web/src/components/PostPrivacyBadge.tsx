@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useMemo } from "react"
 import { autoUpdate, flip, offset, shift, useFloating, FloatingPortal } from "@floating-ui/react"
+import { useClickOutside } from "@/hooks/useClickOutside"
 import { Globe, Lock, Users } from "lucide-react"
 import { apiClient } from "@/utils/apiClient"
 import { getPostAudience } from "@/utils/privacyUtils"
@@ -105,27 +106,7 @@ export default function PostPrivacyBadge({
     }
   }, [])
 
-  useEffect(() => {
-    if (!enablePreview) return
-
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node
-      const referenceEl = refs.reference.current as Element | null
-      const floatingEl = refs.floating.current as Element | null
-      if (referenceEl?.contains(target) || floatingEl?.contains(target)) {
-        return
-      }
-      setIsPreviewOpen(false)
-      setShowTooltip(false)
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('touchstart', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('touchstart', handleClickOutside)
-    }
-  }, [enablePreview, refs.reference, refs.floating])
+  useClickOutside(refs.floating, enablePreview, () => { setIsPreviewOpen(false); setShowTooltip(false) })
 
   useEffect(() => {
     return () => {

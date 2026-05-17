@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { MapPin, X, Loader2 } from "lucide-react"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { useClickOutside } from "@/hooks/useClickOutside"
 import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 interface LocationResult {
@@ -189,23 +190,7 @@ export default function LocationAutocomplete({
     }
   }
 
-  // Handle click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        inputRef.current &&
-        !inputRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false)
-        setSelectedIndex(-1)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  useClickOutside(dropdownRef, isOpen, () => { setIsOpen(false); setSelectedIndex(-1) })
 
   // Cleanup debounce on unmount
   useEffect(() => {

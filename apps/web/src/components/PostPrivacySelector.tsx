@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { ChevronDown, Globe, Lock, Users, X } from "lucide-react"
 import { apiClient } from "@/utils/apiClient"
 import PostPrivacyBadge from "./PostPrivacyBadge"
@@ -8,6 +8,7 @@ import UserMultiSelect from "./UserMultiSelect"
 import { getPostAudience } from "@/utils/privacyUtils"
 import { PrivacyLevel, PrivacyRule } from "@/hooks/usePostPrivacyState"
 import { UserSearchResult } from "@/types/userSearch"
+import { useClickOutside } from "@/hooks/useClickOutside"
 
 const CUSTOM_PRIVACY_RULES: Array<{ id: PrivacyRule; label: string; description: string }> = [
   { id: 'followers', label: 'Followers', description: 'Users who follow you' },
@@ -38,25 +39,7 @@ export default function PostPrivacySelector({
   const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    if (!showPrivacyMenu) return
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node
-      if (
-        menuRef.current?.contains(target) ||
-        triggerRef.current?.contains(target)
-      ) {
-        return
-      }
-      setShowPrivacyMenu(false)
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showPrivacyMenu])
+  useClickOutside(menuRef, showPrivacyMenu, () => setShowPrivacyMenu(false))
 
   const normalizedPrivacyRules = useMemo(() => {
     if (privacyRules && privacyRules.length > 0) return privacyRules

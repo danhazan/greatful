@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
+import { useClickOutside } from "@/hooks/useClickOutside"
 import { useUserSearch } from '@/hooks/useUserSearch'
 import { getTextAlignmentClass, getDirectionAttribute } from '@/utils/rtlUtils'
 import { UserSearchDropdown } from '@/components/user-search'
@@ -56,19 +57,7 @@ export default function MentionAutocomplete({
     scrollBehavior: 'smooth'
   })
 
-  // Handle click outside to close
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen, onClose])
+  useClickOutside(dropdownRef, isOpen, onClose)
 
   const handleUserSelect = (user: UserSearchResult) => {
     onUserSelect(user)
