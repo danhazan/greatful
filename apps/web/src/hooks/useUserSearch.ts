@@ -11,6 +11,7 @@ interface UseUserSearchOptions {
 }
 
 import { normalizeToUserSearchResult } from '@/utils/userDataMapping'
+import { getAccessToken } from '@/utils/auth'
 
 const identityQuery = (value: string) => value
 
@@ -51,7 +52,7 @@ export function useUserSearch({
 
   const executeSearch = useCallback(async (cleanQuery: string) => {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = getAccessToken()
       if (!token) {
         console.error('No auth token found')
         setUsers([])

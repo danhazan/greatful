@@ -9,6 +9,7 @@ import OAuthIconButton from "@/components/OAuthIconButton"
 import AccountLinkingDialog from "@/components/AccountLinkingDialog"
 import { useOAuth } from "@/hooks/useOAuth"
 import { useUser } from "@/contexts/UserContext"
+import { setAccessToken } from "@/utils/auth"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -53,7 +54,7 @@ export default function LoginPage() {
         const { normalizeAuthResponse } = await import('@/utils/authNormalization')
         const normalized = normalizeAuthResponse(data)
         
-        localStorage.setItem("access_token", normalized.accessToken)
+        setAccessToken(normalized.accessToken)
         
         // Trigger UserContext to reload user data with the new token
         await reloadUser()

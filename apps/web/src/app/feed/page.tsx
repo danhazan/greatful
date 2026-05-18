@@ -11,7 +11,7 @@ import Navbar from "@/components/Navbar"
 import { Post } from '@/types/post'
 import { FeedFilterKey, FeedFilterMode, FeedFiltersPayload, useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
-import { isAuthenticated } from "@/utils/auth"
+import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import {
   getScrollDirection,
   getTrueScrollTop,
@@ -193,8 +193,7 @@ export default function FeedPage() {
   }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token")
-    if (!token) {
+    if (!isAuthenticated()) {
       router.push("/auth/login")
       return
     }
@@ -365,7 +364,7 @@ export default function FeedPage() {
     setIsCreatingPost(true)
 
     try {
-      const token = localStorage.getItem("access_token")
+      const token = getAccessToken()
       if (!token) {
         router.push("/auth/login")
         return

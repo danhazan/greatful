@@ -28,8 +28,10 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
     if (onLogout) {
       onLogout()
     } else {
-      localStorage.removeItem("access_token")
-      router.push("/")
+      import('@/utils/auth').then(({ logout }) => {
+        logout()
+        router.push("/")
+      })
     }
     setIsProfileDropdownOpen(false)
   }

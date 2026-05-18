@@ -2,8 +2,6 @@
  * Authentication utilities
  */
 
-import { smartNotificationPoller } from './smartNotificationPoller'
-
 /**
  * Check if user is authenticated
  */
@@ -40,7 +38,9 @@ export function logout(): void {
   localStorage.removeItem('access_token')
 
   // 2. Stop notification polling to prevent polling with old user ID
-  smartNotificationPoller.stop()
+  import('./smartNotificationPoller').then(({ smartNotificationPoller }) => {
+    smartNotificationPoller.stop()
+  }).catch(err => console.warn('Failed to stop notification poller', err))
 
   // 3. Clear the HttpOnly refresh token cookie via the proxy endpoint
   // Use a background fetch to not block the UI logout process

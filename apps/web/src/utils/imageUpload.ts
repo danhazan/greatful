@@ -13,6 +13,8 @@ export const MAX_POST_IMAGES = parseInt(
   process.env['NEXT_PUBLIC_MAX_POST_IMAGES'] || '7'
 )
 
+import { getAccessToken } from '@/utils/auth'
+
 export const getApiBaseUrl = (): string => {
   return process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 }
@@ -366,7 +368,7 @@ export async function uploadImage(
     const formData = new FormData()
     formData.append('image', fileToUpload)
 
-    const token = localStorage.getItem('access_token')
+    const token = getAccessToken()
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: {

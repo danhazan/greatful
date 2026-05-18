@@ -18,6 +18,7 @@ import {
 
 import { UserPreferences } from '@/types/user'
 import { useToast } from '@/contexts/ToastContext'
+import { getAccessToken } from '@/utils/auth'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -31,7 +32,7 @@ export default function SettingsPage() {
 
   const loadPreferences = useCallback(async () => {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = getAccessToken()
       if (!token) {
         router.push('/auth/login')
         return
@@ -68,7 +69,7 @@ export default function SettingsPage() {
     setError(null)
 
     try {
-      const token = localStorage.getItem('access_token')
+      const token = getAccessToken()
       if (!token) {
         router.push('/auth/login')
         return

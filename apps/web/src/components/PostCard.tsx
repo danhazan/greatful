@@ -384,7 +384,7 @@ export default function PostCard({
 
     // Fetch reactions from API
     try {
-      const token = localStorage.getItem("access_token")
+      const token = getAccessToken()
       const response = await fetch(`/api/posts/${post.id}/reactions`, {
         headers: {
           'Authorization': `Bearer ${token}`

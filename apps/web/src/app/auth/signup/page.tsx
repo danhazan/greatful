@@ -8,6 +8,7 @@ import PasswordInput from "@/components/PasswordInput"
 import OAuthIconButton from "@/components/OAuthIconButton"
 import AccountLinkingDialog from "@/components/AccountLinkingDialog"
 import { useOAuth } from "@/hooks/useOAuth"
+import { setAccessToken } from "@/utils/auth"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -80,7 +81,7 @@ export default function SignupPage() {
         const normalized = normalizeAuthResponse(data)
         
         if (normalized.accessToken) {
-          localStorage.setItem("access_token", normalized.accessToken)
+          setAccessToken(normalized.accessToken)
         }
 
         // Redirect to feed or login

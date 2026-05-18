@@ -15,7 +15,7 @@ import { useUser } from "@/contexts/UserContext"
 import { Post } from '@/types/post'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
-import { isAuthenticated } from "@/utils/auth"
+import { isAuthenticated, getAccessToken } from "@/utils/auth"
 
 // Redundant local interfaces removed - using Post and Author from @/types/post
 
@@ -72,7 +72,7 @@ export default function UserProfilePage() {
 
     if (userLoading) return
 
-    const token = localStorage.getItem("access_token")
+    const token = getAccessToken()
     if (!token) {
       router.push("/auth/login")
     }

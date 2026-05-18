@@ -7,6 +7,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 import { normalizePostFromApi } from '@/utils/normalizePost'
+import { getAccessToken } from '@/utils/auth'
 import { Post } from '@/types/post'
 
 interface SinglePostViewProps {
@@ -67,7 +68,7 @@ export default function SinglePostView({ postId, bootstrapPost = null }: SingleP
         } else if (apiError.message?.includes('403') || apiError.status === 403) {
           setError('This post is private')
         } else if (apiError.message?.includes('401') || apiError.status === 401) {
-          const token = localStorage.getItem('access_token')
+          const token = getAccessToken()
           if (!token) {
             setError('Authentication required to view this post')
           } else {

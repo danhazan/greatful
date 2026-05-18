@@ -5,6 +5,7 @@ import { MapPin, X, Loader2 } from "lucide-react"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { useClickOutside } from "@/hooks/useClickOutside"
 import { getCompleteInputStyling } from '@/utils/inputStyles'
+import { getAccessToken } from '@/utils/auth'
 
 interface LocationResult {
   displayName: string
@@ -61,7 +62,7 @@ export default function LocationAutocomplete({
     setError(null)
 
     try {
-      const token = localStorage.getItem("access_token")
+      const token = getAccessToken()
       if (!token) {
         throw new Error("Authentication required")
       }

@@ -3,14 +3,14 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Heart } from "lucide-react"
+import { isAuthenticated } from "@/utils/auth"
 
 export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
     // Check if user is authenticated
-    const token = localStorage.getItem("access_token")
-    if (token) {
+    if (isAuthenticated()) {
       // Redirect to feed if authenticated
       router.push("/feed")
     }

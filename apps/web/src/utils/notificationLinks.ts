@@ -9,6 +9,7 @@ export interface NotificationLinkData {
 }
 
 import { Notification } from '@/types/notification'
+import { getAccessToken } from '@/utils/auth'
 
 /**
  * Generate appropriate link for a notification based on its type and data
@@ -113,7 +114,7 @@ export async function navigateToUserProfile(
   // If we have a username and resolution is enabled, try to resolve it
   if (userInfo.username && options.resolveUsername) {
     try {
-      const token = localStorage.getItem("access_token")
+      const token = getAccessToken()
       if (!token) {
         console.warn('No access token available for username resolution')
         return

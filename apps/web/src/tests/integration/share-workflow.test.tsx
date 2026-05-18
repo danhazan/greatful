@@ -5,6 +5,7 @@
 import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import ShareModal from '@/components/ShareModal'
 import { describe, it, expect, beforeEach } from '@jest/globals'
+import * as auth from '@/utils/auth'
 
 // Mock clipboard API
 const mockWriteText = jest.fn(() => Promise.resolve())
@@ -45,7 +46,7 @@ describe('Share Workflow Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockWriteText.mockResolvedValue()
-    
+
     // Mock localStorage with auth token
     Object.defineProperty(window, 'localStorage', {
       value: {
@@ -59,26 +60,32 @@ describe('Share Workflow Integration Tests', () => {
       writable: true,
     })
 
-    // Mock UserContext API calls to prevent interference
-    ;(global.fetch as jest.Mock).mockImplementation((url) => {
-      if (url.includes('/api/users/me/profile')) {
+    // Ensure getAccessToken() returns the expected token.
+    // Some test utilities mock @/utils/auth; guard both cases.
+    if (jest.isMockFunction(auth.getAccessToken)) {
+      ;(auth.getAccessToken as jest.Mock).mockReturnValue('valid-auth-token')
+    }
+
+      // Mock UserContext API calls to prevent interference
+      ; (global.fetch as jest.Mock).mockImplementation((url) => {
+        if (url.includes('/api/users/me/profile')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
+          })
+        }
+        // Return undefined for other calls - will be overridden by specific test mocks
         return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
+          ok: false,
+          status: 404
         })
-      }
-      // Return undefined for other calls - will be overridden by specific test mocks
-      return Promise.resolve({
-        ok: false,
-        status: 404
       })
-    })
   })
 
   describe('Complete URL Share Workflow', () => {
     it('should complete full URL share workflow: UI -> Clipboard -> API -> Analytics', async () => {
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-      
+
       // Override the default mock for this test
       mockFetch.mockImplementation((url) => {
         if (url.includes('/api/users/me/profile')) {
@@ -157,7 +164,7 @@ describe('Share Workflow Integration Tests', () => {
 
     it('should handle API failure gracefully without affecting user experience', async () => {
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-      
+
       // Override the default mock for this test
       mockFetch.mockImplementation((url) => {
         if (url.includes('/api/users/me/profile')) {
@@ -219,7 +226,7 @@ describe('Share Workflow Integration Tests', () => {
 
     it('should handle network errors gracefully', async () => {
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-      
+
       // Override the default mock for this test
       mockFetch.mockImplementation((url) => {
         if (url.includes('/api/users/me/profile')) {
@@ -277,6 +284,10 @@ describe('Share Workflow Integration Tests', () => {
         },
         writable: true,
       })
+
+      if (jest.isMockFunction(auth.getAccessToken)) {
+        ;(auth.getAccessToken as jest.Mock).mockReturnValue(null)
+      }
 
       const onShare = jest.fn()
 
@@ -344,7 +355,7 @@ describe('Share Workflow Integration Tests', () => {
       // Mock older browser environment
       const originalClipboard = navigator.clipboard
       const originalIsSecureContext = window.isSecureContext
-      
+
       // Remove modern clipboard API
       Object.defineProperty(navigator, 'clipboard', {
         value: undefined,
@@ -455,7 +466,7 @@ describe('Share Workflow Integration Tests', () => {
       // Click on backdrop (outside modal)
       const backdrop = document.querySelector('.fixed.inset-0.bg-gray-900')
       expect(backdrop).toBeInTheDocument()
-      
+
       fireEvent.mouseDown(backdrop!)
       expect(onClose).toHaveBeenCalledTimes(1)
     })

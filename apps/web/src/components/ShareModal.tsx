@@ -9,6 +9,7 @@ import { htmlToPlainText } from "@/utils/htmlUtils"
 import UserMultiSelect from "./UserMultiSelect"
 import { UserSearchResult } from "@/types/userSearch"
 import { useModal } from "@/hooks/useModal"
+import { getAccessToken } from "@/utils/auth"
 
 interface Post {
   id: string
@@ -29,9 +30,9 @@ interface ShareModalProps {
   isGuest?: boolean
 }
 
-export default function ShareModal({ 
-  isOpen, 
-  onClose, 
+export default function ShareModal({
+  isOpen,
+  onClose,
   post,
   onShare,
   position = { x: 0, y: 0 },
@@ -40,8 +41,8 @@ export default function ShareModal({
   const modalRef = useRef<HTMLDivElement>(null)
   const [copySuccess, setCopySuccess] = useState(false)
   const [shareUrl, setShareUrl] = useState<string>("")
-  const [pendingShare, setPendingShare] = useState<{url: string, timestamp: number} | null>(null)
-  
+  const [pendingShare, setPendingShare] = useState<{ url: string, timestamp: number } | null>(null)
+
   // Message sharing state
   const [showMessageShare, setShowMessageShare] = useState(false)
   const [selectedUsers, setSelectedUsers] = useState<UserSearchResult[]>([])
@@ -69,7 +70,7 @@ export default function ShareModal({
     if (!pendingShare) return
 
     const { url, timestamp } = pendingShare
-    
+
     // Only process if this is a recent share (within 5 seconds)
     if (Date.now() - timestamp > 5000) {
       setPendingShare(null)
@@ -77,7 +78,7 @@ export default function ShareModal({
     }
 
     // Fire-and-forget analytics call
-    const token = localStorage.getItem("access_token")
+    const token = getAccessToken()
     if (token) {
       try {
         const fetchPromise = fetch(`/api/posts/${post.id}/share`, {
@@ -86,11 +87,11 @@ export default function ShareModal({
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
-            share_method: 'url' 
+          body: JSON.stringify({
+            share_method: 'url'
           })
         })
-        
+
         if (fetchPromise && typeof fetchPromise.then === 'function') {
           fetchPromise.then(response => {
             if (response.ok) {
@@ -158,9 +159,9 @@ export default function ShareModal({
           setShareUrl(url)
           setCopySuccess(true)
         })
-        
+
         // Success - no toast needed
-        
+
         // Reset success state and close modal after 1.5 seconds
         setTimeout(() => {
           flushSync(() => {
@@ -169,10 +170,10 @@ export default function ShareModal({
           // Close the modal after showing success message
           onClose()
         }, 1500)
-        
+
         // 3) Trigger analytics call after a delay to avoid any UI interference
         // Only track analytics if user is authenticated
-        const token = localStorage.getItem("access_token")
+        const token = getAccessToken()
         if (token) {
           setTimeout(() => {
             setPendingShare({ url, timestamp: Date.now() })
@@ -187,7 +188,7 @@ export default function ShareModal({
         // Clipboard failed - no toast needed, just log
         console.warn('Clipboard copy failed')
       }
-      
+
     } catch (error) {
       console.warn('Failed to copy link:', error)
       // No toast needed for copy failures
@@ -203,16 +204,16 @@ export default function ShareModal({
     try {
       // Generate the share URL
       const shareUrl = `${window.location.origin}/post/${post.id}`
-      
+
       // Format the WhatsApp share text - strip HTML for clean text
       const cleanContent = htmlToPlainText(post.content)
       const whatsAppText = formatWhatsAppShareText(cleanContent, shareUrl)
-      
+
       // Generate WhatsApp URL based on device
       const whatsAppUrl = generateWhatsAppURL(whatsAppText)
-      
+
       // Track analytics
-      const token = localStorage.getItem("access_token")
+      const token = getAccessToken()
       if (token) {
         try {
           const response = await fetch(`/api/posts/${post.id}/share`, {
@@ -221,43 +222,43 @@ export default function ShareModal({
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-              share_method: 'whatsapp' 
+            body: JSON.stringify({
+              share_method: 'whatsapp'
             })
           })
-          
+
           if (response.ok) {
             const result = await response.json()
-            onShare?.('whatsapp', { 
+            onShare?.('whatsapp', {
               whatsappUrl: whatsAppUrl,
               whatsappText: whatsAppText,
-              shareId: result?.id || null 
+              shareId: result?.id || null
             })
           }
         } catch (error) {
           console.warn('WhatsApp share analytics failed:', error)
-          onShare?.('whatsapp', { 
+          onShare?.('whatsapp', {
             whatsappUrl: whatsAppUrl,
             whatsappText: whatsAppText,
-            shareId: null 
+            shareId: null
           })
         }
       }
-      
+
       // Open WhatsApp
       window.open(whatsAppUrl, '_blank')
-      
+
       // Show success feedback
       showDebugSuccess(
         'Opening WhatsApp...',
         'Share your gratitude with friends!'
       )
-      
+
       // Close modal after a brief delay
       setTimeout(() => {
         onClose()
       }, 1000)
-      
+
     } catch (error) {
       console.error('Failed to share via WhatsApp:', error)
       showError(
@@ -271,15 +272,15 @@ export default function ShareModal({
     if (selectedUsers.length === 0 || sendingMessage) return
 
     setSendingMessage(true)
-    
+
     // Show loading toast
     const loadingToastId = showDebugLoading(
       'Sending post...',
       `Sharing with ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`
     )
-    
+
     try {
-      const token = localStorage.getItem("access_token")
+      const token = getAccessToken()
       if (!token) {
         throw new Error("No authentication token found")
       }
@@ -302,7 +303,7 @@ export default function ShareModal({
       }
 
       const result = await response.json()
-      
+
       // Call onShare callback
       onShare?.('message', {
         recipients: selectedUsers,
@@ -315,16 +316,16 @@ export default function ShareModal({
         'Post Shared!',
         `Successfully sent to ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`
       )
-      
+
       // Reset to main share view
       setShowMessageShare(false)
       setSelectedUsers([])
-      
+
       // Close modal after a brief delay
       setTimeout(() => {
         onClose()
       }, 1000)
-      
+
     } catch (error) {
       console.error('Failed to send message:', error)
       if (loadingToastId) hideToast(loadingToastId)
@@ -353,9 +354,9 @@ export default function ShareModal({
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-gray-900 bg-opacity-20 z-40" onClick={onClose} />
-      
+
       {/* Small Popup Modal */}
-      <div 
+      <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
@@ -390,8 +391,8 @@ export default function ShareModal({
               w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg transition-all duration-200
               min-h-[44px] touch-manipulation select-none
               focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
-              ${copySuccess 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
+              ${copySuccess
+                ? 'bg-green-50 text-green-700 border border-green-200'
                 : 'hover:bg-purple-50 text-gray-700 border border-gray-200 hover:border-purple-200 active:bg-purple-100'
               }
               ${copySuccess ? 'cursor-default' : 'cursor-pointer'}
@@ -412,8 +413,8 @@ export default function ShareModal({
                 {copySuccess ? 'Link Copied!' : 'Copy Link'}
               </p>
               <p className="text-xs text-gray-500">
-                {copySuccess 
-                  ? 'Ready to share' 
+                {copySuccess
+                  ? 'Ready to share'
                   : 'Get shareable URL'
                 }
               </p>
@@ -428,8 +429,8 @@ export default function ShareModal({
               className={`
                 w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg border border-gray-200 transition-all duration-200
                 min-h-[44px] touch-manipulation select-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
-                ${isGuest 
-                  ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400' 
+                ${isGuest
+                  ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400'
                   : 'hover:border-purple-200 hover:bg-purple-50 text-gray-700 active:bg-purple-100'
                 }
               `}

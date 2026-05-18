@@ -151,7 +151,9 @@ class OptimizedAPIClient {
 
           if (refreshRes.ok) {
             const data = await refreshRes.json()
-            const newToken = data.access_token || data.accessToken || data.data?.accessToken
+            const { normalizeAuthResponse } = await import('./authNormalization')
+            const normalized = normalizeAuthResponse(data)
+            const newToken = normalized.accessToken
             
             if (newToken) {
               // Dynamically import auth to prevent circular dependency issues

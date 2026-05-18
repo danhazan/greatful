@@ -20,7 +20,7 @@ import { useToast } from "@/contexts/ToastContext"
 import { Post } from '@/types/post'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
-import { isAuthenticated } from "@/utils/auth"
+import { isAuthenticated, getAccessToken } from "@/utils/auth"
 
 interface UserProfile {
   id: number
@@ -275,7 +275,7 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     if (isSavingProfile) return
 
-    const token = localStorage.getItem("access_token")
+    const token = getAccessToken()
     if (!token) return
 
     // Validate location - if there's text but no valid location selected, revert to original
@@ -366,7 +366,7 @@ export default function ProfilePage() {
   }
 
   const handleSaveAccount = async () => {
-    const token = localStorage.getItem("access_token")
+    const token = getAccessToken()
     if (!token) return
 
     let hasErrors = false
