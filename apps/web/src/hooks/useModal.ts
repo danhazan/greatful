@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useFocusTrap } from "./useFocusTrap"
+import { lockScroll, unlockScroll } from "@/utils/scrollLock"
 
 interface UseModalOptions {
   enableTabTrap?: boolean
@@ -19,14 +20,8 @@ export function useModal(
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen && shouldLockScroll) {
-      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth
-      document.body.style.overflow = 'hidden'
-      document.body.style.paddingRight = `${scrollBarWidth}px`
-
-      return () => {
-        document.body.style.overflow = ''
-        document.body.style.paddingRight = ''
-      }
+      lockScroll()
+      return () => unlockScroll()
     }
   }, [isOpen, shouldLockScroll])
 

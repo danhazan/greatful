@@ -1,7 +1,6 @@
 let lockCount = 0;
 let originalOverflow = '';
 let originalPaddingRight = '';
-let originalHtmlOverflow = '';
 
 function shouldAllowScroll(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -31,10 +30,8 @@ export const ScrollLockManager = {
       
       originalOverflow = document.body.style.overflow;
       originalPaddingRight = document.body.style.paddingRight;
-      originalHtmlOverflow = document.documentElement.style.overflow;
-      
+
       document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
       
       if (scrollBarWidth > 0) {
         document.body.style.paddingRight = `${scrollBarWidth}px`;
@@ -58,12 +55,10 @@ export const ScrollLockManager = {
     if (lockCount === 0) {
       document.body.style.overflow = originalOverflow || '';
       document.body.style.paddingRight = originalPaddingRight || '';
-      document.documentElement.style.overflow = originalHtmlOverflow || '';
-      
+
       // Cleanup tracking variables
       originalOverflow = '';
       originalPaddingRight = '';
-      originalHtmlOverflow = '';
 
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('touchmove', handleTouchMove);
