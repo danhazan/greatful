@@ -376,8 +376,9 @@ export default function MultiImageModal({
           </button>
         ) : currentReactionState.totalCount > 0 ? (
           <button
+            disabled={isInFlight}
             onClick={() => setShowReactionViewer(true)}
-            className="flex items-center space-x-2 bg-black bg-opacity-60 hover:bg-opacity-80 transition-colors rounded-full px-4 py-2"
+            className={`flex items-center space-x-2 bg-black bg-opacity-60 hover:bg-opacity-80 transition-colors rounded-full px-4 py-2 ${isInFlight ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <div className="flex -space-x-1">
               {getTopEmojis(currentReactionState.emojiCounts, 3).map(({ code }) => (
