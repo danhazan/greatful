@@ -122,3 +122,58 @@ def paginated_response(
     """Create a paginated response dictionary."""
     response = PaginatedResponse.create(data, total_count, limit, offset, request_id)
     return response.model_dump()
+
+
+class AuthResponseData(BaseModel):
+    """Canonical authentication response data structure."""
+    user: Dict[str, Any]
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    is_new_user: bool = False
+
+
+class AuthResponse(ApiSuccessResponse):
+    """Canonical authentication success response format."""
+    data: AuthResponseData
+
+
+def build_auth_response(
+    user: Any,
+    access_token: str,
+    refresh_token: str,
+    is_new_user: bool = False,
+    request_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Build a canonical authentication response dictionary.
+    
+    Ensures all authentication endpoints (login, signup, refresh, oauth)
+    return an identical, standardized response schema wrapped in ApiSuccessResponse.
+    """
+    # Normalize user object to dictionary
+    if hasattr(user, "model_dump"):
+        user_dict = user.model_dump()
+    elif hasattr(user, "__table__"):
+        user_dict = {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "display_name": getattr(user, "display_name", None),
+            "profile_image_url": getattr(user, "profile_image_url", None),
+            "oauth_provider": getattr(user, "oauth_provider", None),
+            "created_at": user.created_at.isoformat() if getattr(user, "created_at", None) else None
+        }
+    elif isinstance(user, dict):
+        user_dict = user
+    else:
+        user_dict = dict(user)
+
+    auth_data = {
+        "user": user_dict,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "is_new_user": is_new_user
+    }
+    return success_response(auth_data, request_id)

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from app.core.database import get_db
-from app.core.responses import success_response, error_response
+from app.core.responses import success_response, error_response, AuthResponse, build_auth_response
 from app.core.exceptions import AuthenticationError, ValidationException, BusinessLogicError
 from app.core.oauth_config import (
     get_oauth_config, 
@@ -31,11 +31,7 @@ class OAuthCallbackRequest(BaseModel):
     code: str = Field(..., description="Authorization code from OAuth provider")
     state: Optional[str] = Field(None, description="State parameter for CSRF protection")
 
-class OAuthLoginResponse(BaseModel):
-    """OAuth login response model."""
-    user: Dict[str, Any] = Field(..., description="User information")
-    tokens: Dict[str, Any] = Field(..., description="JWT tokens")
-    is_new_user: bool = Field(..., description="Whether this is a newly created user")
+# OAuthLoginResponse removed in favor of canonical AuthResponse
 
 class OAuthProviderStatus(BaseModel):
     """OAuth provider status model."""
@@ -150,7 +146,7 @@ async def oauth_login(
         log_oauth_security_event('login_error', provider, details={'error': str(e)})
         raise HTTPException(status_code=500, detail="Failed to initiate OAuth login") from e
 
-@router.post("/callback/{provider}", response_model=OAuthLoginResponse)
+@router.post("/callback/{provider}", response_model=AuthResponse)
 async def oauth_callback(
     provider: str,
     callback_data: OAuthCallbackRequest,
@@ -204,6 +200,10 @@ async def oauth_callback(
         if callback_data.state and not validate_oauth_state(callback_data.state):
             log_oauth_security_event('invalid_state', provider, details={'state': callback_data.state})
             raise HTTPException(status_code=400, detail="Invalid state parameter")
+            
+        if not callback_data.code:
+            log_oauth_security_event('empty_code', provider)
+            raise HTTPException(status_code=400, detail="Authorization code is required")
         
         # Get OAuth client for provider
         oauth_client = oauth_config.get_oauth_client(provider)
@@ -315,15 +315,15 @@ async def oauth_callback(
             callback_data.state
         )
         
-        response_data = {
-            'user': user_data['user'],
-            'tokens': user_data['tokens'],
-            'is_new_user': is_new_user
-        }
+        logger.info("OAuth service result", extra={"has_tokens": bool(user_data.get("access_token"))})
         
-        logger.info("OAuth service result", extra={"has_tokens": bool(response_data.get("tokens"))})
-        # Return raw data for Pydantic model validation (don't wrap in success_response)
-        return response_data
+        return build_auth_response(
+            user=user_data["user"],
+            access_token=user_data["access_token"],
+            refresh_token=user_data["refresh_token"],
+            is_new_user=is_new_user,
+            request_id=getattr(request.state, 'request_id', None)
+        )
         
     except HTTPException:
         raise

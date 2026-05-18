@@ -752,11 +752,9 @@ class OAuthService(BaseService):
                 'oauth_provider': user.oauth_provider,
                 'created_at': user.created_at.isoformat() if user.created_at else None
             },
-            'tokens': {
-                'access_token': access_token,
-                'refresh_token': refresh_token,
-                'token_type': 'bearer'
-            }
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'token_type': 'bearer'
         }
     
     async def unlink_oauth_account(self, user_id: int) -> User:
@@ -994,11 +992,7 @@ class OAuthService(BaseService):
                     severity="INFO"
                 )
             
-            return {
-                'success': True,
-                'message': f'{provider.title()} account successfully linked',
-                'user': await self._format_user_response(linked_user)
-            }
+            return await self._format_user_response(linked_user)
             
         except ValidationException:
             raise

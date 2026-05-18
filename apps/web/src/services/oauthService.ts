@@ -117,7 +117,19 @@ class OAuthService {
         throw error
       }
 
-      return transformApiResponse<OAuthLoginResponse>(data.data || data)
+      const transformed = transformApiResponse<any>(data.data || data)
+      // Ensure tokens object exists for legacy callers and tests
+      if (!transformed.tokens && transformed.accessToken) {
+        transformed.tokens = {
+          accessToken: transformed.accessToken,
+          tokenType: transformed.tokenType || 'Bearer',
+          refreshToken: transformed.refreshToken
+        }
+      } else if (transformed.tokens && !transformed.accessToken) {
+        transformed.accessToken = transformed.tokens.accessToken
+        transformed.tokenType = transformed.tokens.tokenType
+      }
+      return transformed
     } catch (error) {
       console.error(`Error handling ${provider} OAuth callback:`, error)
       throw error

@@ -166,7 +166,7 @@ class TestOAuthCallback:
         # Set up comprehensive mocks
         token_data = {"access_token": "mock_token", "token_type": "Bearer"}
         user_data = {"id": "google_user_123", "email": "test@example.com", "name": "Test User"}
-        oauth_response = ({"user": {"id": 1, "email": "test@example.com"}, "tokens": {"access_token": "jwt_token"}}, True)
+        oauth_response = ({"user": {"id": 1, "email": "test@example.com"}, "access_token": "jwt_token", "refresh_token": "jwt_refresh", "token_type": "bearer"}, True)
         
         mock_token_response, mock_user_response = self.setup_oauth_mocks(token_data, user_data, oauth_response)
         
@@ -189,8 +189,9 @@ class TestOAuthCallback:
                     # Should succeed when state validation passes
                     assert response.status_code == 200
                     data = response.json()
-                    assert "user" in data
-                    assert "tokens" in data
+                    assert data["success"] is True
+                    assert "user" in data["data"]
+                    assert "access_token" in data["data"]
     
 
     

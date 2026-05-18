@@ -59,19 +59,19 @@ export default function GoogleOAuthCallbackPage() {
         console.log('Google OAuth callback result', result)
 
         // Get tokens from the response
-        const tokens = result.tokens
-        console.log('resolved tokens', tokens)
+        const accessToken = result.tokens?.accessToken || (result as any).accessToken
+        console.log('resolved accessToken length:', accessToken?.length)
 
         // Store access token using centralized auth utility
-        if (tokens?.accessToken) {
+        if (accessToken) {
           // Use the centralized login function to store token
           const { login } = await import('@/utils/auth')
-          login(tokens.accessToken)
+          login(accessToken)
 
           // Trigger UserContext to reload user data
           await reloadUser()
 
-          console.log('Stored access_token via auth utility and reloaded user context, length:', tokens.accessToken.length)
+          console.log('Stored access_token via auth utility and reloaded user context, length:', accessToken.length)
         } else {
           console.warn('No access_token in callback response; full result:', result)
         }

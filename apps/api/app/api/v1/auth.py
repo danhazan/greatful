@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
 from app.core.database import get_db
 from app.services.auth_service import AuthService
-from app.core.responses import success_response
+from app.core.responses import success_response, AuthResponse, build_auth_response
 from app.core.security_audit import log_login_success, log_login_failure, SecurityAuditor, SecurityEventType
 from app.core.exceptions import AuthenticationError, NotFoundError, ConflictError, ValidationException
 from app.core.input_sanitization import sanitize_request_data
@@ -120,11 +120,7 @@ class OAuthLoginRequest(BaseModel):
         return v
 
 
-class OAuthLoginResponse(BaseModel):
-    """OAuth login response model."""
-    user: dict
-    tokens: dict
-    is_new_user: bool
+# OAuthLoginResponse removed in favor of canonical AuthResponse
 
 
 class AccountLinkingEligibilityRequest(BaseModel):
@@ -163,7 +159,7 @@ class AccountLinkingConfirmationResponse(BaseModel):
     confirmation_required: bool
 
 
-@router.post("/signup", status_code=201)
+@router.post("/signup", status_code=201, response_model=AuthResponse)
 async def signup(
     user: UserCreate, 
     request: Request,
@@ -195,7 +191,13 @@ async def signup(
             severity="INFO"
         )
         
-        return success_response(result, getattr(request.state, 'request_id', None))
+        return build_auth_response(
+            user=result["user"],
+            access_token=result["access_token"],
+            refresh_token=result["refresh_token"],
+            is_new_user=True,
+            request_id=getattr(request.state, 'request_id', None)
+        )
         
     except Exception as e:
         # Log failed registration
@@ -213,7 +215,7 @@ async def signup(
         raise
 
 
-@router.post("/login")
+@router.post("/login", response_model=AuthResponse)
 async def login(
     user: UserLogin, 
     request: Request,
@@ -237,7 +239,13 @@ async def login(
             username=result.get('user', {}).get('username', user.email)
         )
         
-        return success_response(result, getattr(request.state, 'request_id', None))
+        return build_auth_response(
+            user=result["user"],
+            access_token=result["access_token"],
+            refresh_token=result["refresh_token"],
+            is_new_user=False,
+            request_id=getattr(request.state, 'request_id', None)
+        )
         
     except AuthenticationError as e:
         # Log failed login attempt
@@ -302,7 +310,7 @@ async def logout(
     return success_response(result, getattr(request.state, 'request_id', None))
 
 
-@router.post("/refresh")
+@router.post("/refresh", response_model=AuthResponse)
 async def refresh_token(
     refresh_request: RefreshTokenRequest,
     request: Request,
@@ -323,7 +331,13 @@ async def refresh_token(
             severity="INFO"
         )
         
-        return success_response(result, getattr(request.state, 'request_id', None))
+        return build_auth_response(
+            user=result["user"],
+            access_token=result["access_token"],
+            refresh_token=result["refresh_token"],
+            is_new_user=False,
+            request_id=getattr(request.state, 'request_id', None)
+        )
         
     except Exception as e:
         # Log failed token refresh
@@ -572,7 +586,7 @@ async def oauth_facebook_login(
         raise HTTPException(status_code=500, detail="Failed to initiate Facebook OAuth login") from e
 
 
-@router.get("/oauth/callback", response_model=OAuthLoginResponse)
+@router.get("/oauth/callback", response_model=AuthResponse)
 async def oauth_callback(
     request: Request,
     code: str,
@@ -584,7 +598,7 @@ async def oauth_callback(
     return await _handle_oauth_callback(request, code, state, provider, db)
 
 
-@router.post("/oauth/callback/{provider}", response_model=OAuthLoginResponse)
+@router.post("/oauth/callback/{provider}", response_model=AuthResponse)
 async def oauth_callback_post(
     provider: str,
     body: OAuthCallbackRequest,
@@ -614,7 +628,7 @@ async def _handle_oauth_callback(
         db: Database session
         
     Returns:
-        User information and JWT tokens
+        Canonical AuthResponse dictionary
     """
     logger.info(f"=== _handle_oauth_callback STARTED ===")
     logger.info(f"Provider: {provider}, Code length: {len(code) if code else 0}")
@@ -660,17 +674,15 @@ async def _handle_oauth_callback(
             request
         )
         
-        response_data = {
-            'user': user_data['user'],
-            'tokens': user_data['tokens'],
-            'is_new_user': is_new_user
-        }
-        
         logger.info(f"OAuth callback success for {provider}: user_id={user_data['user'].get('id')}, is_new_user={is_new_user}")
-        logger.info(f"Response data structure: {list(response_data.keys())}")
         
-        # Return raw data for Pydantic model validation (don't wrap in success_response)
-        return response_data
+        return build_auth_response(
+            user=user_data["user"],
+            access_token=user_data["access_token"],
+            refresh_token=user_data["refresh_token"],
+            is_new_user=is_new_user,
+            request_id=getattr(request.state, 'request_id', None)
+        )
         
     except HTTPException:
         raise
@@ -804,7 +816,7 @@ async def prepare_oauth_linking_confirmation(
         raise HTTPException(status_code=500, detail="Failed to prepare account linking confirmation") from e
 
 
-@router.post("/oauth/confirm-linking")
+@router.post("/oauth/confirm-linking", response_model=AuthResponse)
 async def confirm_oauth_account_linking(
     confirmation_request: AccountLinkingConfirmationRequest,
     request: Request,
@@ -819,7 +831,7 @@ async def confirm_oauth_account_linking(
         db: Database session
         
     Returns:
-        Account linking result
+        Canonical AuthResponse dictionary
     """
     try:
         oauth_service = OAuthService(db)
@@ -846,7 +858,13 @@ async def confirm_oauth_account_linking(
             request=request
         )
         
-        return success_response(result, getattr(request.state, 'request_id', None))
+        return build_auth_response(
+            user=result["user"],
+            access_token=result["access_token"],
+            refresh_token=result["refresh_token"],
+            is_new_user=False,
+            request_id=getattr(request.state, 'request_id', None)
+        )
         
     except ValidationException as e:
         raise HTTPException(status_code=422, detail=str(e))

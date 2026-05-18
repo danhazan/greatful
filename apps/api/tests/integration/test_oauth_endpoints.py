@@ -351,14 +351,15 @@ class TestOAuthEndpointsIntegration:
                         
                         assert response.status_code == 200
                         data = response.json()
-                        assert 'user' in data
-                        assert 'tokens' in data
-                        assert 'is_new_user' in data
-                        assert data['is_new_user'] is True
-                        assert data['user']['email'] == mock_oauth_user_info['email']
-                        assert data['user']['display_name'] == mock_oauth_user_info['name']
-                        assert 'access_token' in data['tokens']
-                        assert 'refresh_token' in data['tokens']
+                        assert data['success'] is True
+                        auth_data = data['data']
+                        assert 'user' in auth_data
+                        assert 'access_token' in auth_data
+                        assert 'refresh_token' in auth_data
+                        assert 'is_new_user' in auth_data
+                        assert auth_data['is_new_user'] is True
+                        assert auth_data['user']['email'] == mock_oauth_user_info['email']
+                        assert auth_data['user']['display_name'] == mock_oauth_user_info['name']
     
     @patch.dict('os.environ', {
         'FACEBOOK_CLIENT_ID': 'test_facebook_client_id',
@@ -416,9 +417,11 @@ class TestOAuthEndpointsIntegration:
                         
                         assert response.status_code == 200
                         data = response.json()
-                        assert 'user' in data
-                        assert 'tokens' in data
-                        assert data['user']['email'] == facebook_user_info['email']
+                        assert data['success'] is True
+                        auth_data = data['data']
+                        assert 'user' in auth_data
+                        assert 'access_token' in auth_data
+                        assert auth_data['user']['email'] == facebook_user_info['email']
     
     @pytest.mark.asyncio
     async def test_oauth_callback_existing_user_login(self, client, mock_oauth_config, mock_token_response, mock_oauth_user_info, setup_test_database):
@@ -474,8 +477,10 @@ class TestOAuthEndpointsIntegration:
                         
                         assert response.status_code == 200
                         data = response.json()
-                        assert data['is_new_user'] is False
-                        assert data['user']['id'] == existing_user.id
+                        assert data['success'] is True
+                        auth_data = data['data']
+                        assert auth_data['is_new_user'] is False
+                        assert auth_data['user']['id'] == existing_user.id
     
     def test_oauth_callback_authentication_service_failure(self, client, mock_oauth_config, mock_token_response, setup_test_database):
         """Test OAuth callback when authentication service fails."""
@@ -638,25 +643,32 @@ class TestOAuthEndpointsValidation:
         assert empty_code_request.code == ""
     
     def test_oauth_login_response_validation(self):
-        """Test OAuth login response model validation."""
-        from app.api.v1.oauth import OAuthLoginResponse
+        """Test AuthResponse model validation."""
+        from app.core.responses import AuthResponse, AuthResponseData
         from pydantic import ValidationError
         
         # Valid response
-        valid_response = OAuthLoginResponse(
+        valid_data = AuthResponseData(
             user={'id': 1, 'email': 'test@example.com'},
-            tokens={'access_token': 'jwt_token', 'refresh_token': 'refresh_token'},
+            access_token='jwt_token',
+            refresh_token='refresh_token',
+            token_type='bearer',
             is_new_user=True
         )
-        assert valid_response.user['id'] == 1
-        assert valid_response.tokens['access_token'] == 'jwt_token'
-        assert valid_response.is_new_user is True
+        valid_response = AuthResponse(
+            success=True,
+            data=valid_data,
+            timestamp="2026-05-18T12:00:00Z"
+        )
+        assert valid_response.data.user['id'] == 1
+        assert valid_response.data.access_token == 'jwt_token'
+        assert valid_response.data.is_new_user is True
         
         # Invalid response - missing required fields
         with pytest.raises(ValidationError):
-            OAuthLoginResponse(
+            AuthResponseData(
                 user={'id': 1},
-                # Missing tokens and is_new_user
+                # Missing access_token, refresh_token
             )
     
     def test_oauth_provider_status_validation(self):

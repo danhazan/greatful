@@ -118,7 +118,8 @@ class TestOAuthService:
                                 
                                 assert is_new_user is True
                                 assert 'user' in user_data
-                                assert 'tokens' in user_data
+                                assert 'access_token' in user_data
+                                assert 'refresh_token' in user_data
     
     @pytest.mark.asyncio
     async def test_authenticate_oauth_user_existing_oauth_user(self, oauth_service, mock_oauth_user_info, mock_oauth_token, existing_oauth_user):
@@ -151,7 +152,8 @@ class TestOAuthService:
                             
                             assert is_new_user is False
                             assert 'user' in user_data
-                            assert 'tokens' in user_data
+                            assert 'access_token' in user_data
+                            assert 'refresh_token' in user_data
                             assert user_data['user']['id'] == existing_oauth_user.id
                             assert user_data['user']['email'] == existing_oauth_user.email
     
@@ -465,12 +467,11 @@ class TestOAuthService:
         response = await oauth_service._format_user_response(existing_user)
         
         assert 'user' in response
-        assert 'tokens' in response
+        assert 'access_token' in response
+        assert 'refresh_token' in response
         assert response['user']['id'] == existing_user.id
         assert response['user']['email'] == existing_user.email
         assert response['user']['username'] == existing_user.username
-        assert 'access_token' in response['tokens']
-        assert 'refresh_token' in response['tokens']
     
     @pytest.mark.asyncio
     async def test_ensure_unique_username(self, oauth_service):

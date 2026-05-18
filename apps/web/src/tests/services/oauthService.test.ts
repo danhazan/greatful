@@ -93,13 +93,15 @@ describe('OAuthService', () => {
 
       const result = await oauthService.handleCallback('google', 'auth_code_123', 'state_456')
 
-      expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/api/v1/oauth/callback/google', {
+      expect(mockFetch).toHaveBeenCalledWith('/api/auth/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: 'auth_code_123', state: 'state_456' })
+        body: JSON.stringify({ provider: 'google', code: 'auth_code_123', state: 'state_456' })
       })
       expect(result).toEqual({
         user: { id: '1', username: 'testuser', email: 'test@example.com' },
+        accessToken: 'token123',
+        tokenType: 'Bearer',
         tokens: { accessToken: 'token123', tokenType: 'Bearer' },
         isNewUser: false
       })
@@ -121,7 +123,11 @@ describe('OAuthService', () => {
 
       const result = await oauthService.handleCallback('google', 'auth_code_123', 'state_456')
 
-      expect(result).toEqual(mockResponse.data)
+      expect(result).toEqual({
+        ...mockResponse.data,
+        accessToken: 'token123',
+        tokenType: 'Bearer'
+      })
     })
 
     it('handles callback errors', async () => {
