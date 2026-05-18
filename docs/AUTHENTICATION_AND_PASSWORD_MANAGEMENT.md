@@ -1,5 +1,8 @@
 # Authentication and Password Management Documentation
 
+> [!IMPORTANT]
+> **Definitive Specification Notice**: For the authoritative v1.0 specification defining Next.js proxy boundaries, canonical response contracts (`AuthResponse`), and unified OAuth/Email session models, please consult the **[Authentication System Specification v1.0](AUTHENTICATION_SYSTEM_SPEC_v1.md)**. The document below covers additional implementation details, historical context, and password management workflows.
+
 ## Overview
 
 The Grateful project implements a comprehensive authentication and password management system using JWT tokens with the frontend acting as a proxy to the FastAPI backend. This document describes the complete implementation including traditional authentication, OAuth social login, password changes, and password reset functionality.

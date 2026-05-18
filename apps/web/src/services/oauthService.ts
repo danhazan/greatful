@@ -2,6 +2,7 @@
  * OAuth Service for handling social authentication flows
  */
 import { transformApiResponse } from '@/lib/caseTransform'
+import { NormalizedAuthData, normalizeAuthResponse } from '@/utils/authNormalization'
 
 export interface OAuthProvider {
   google: boolean
@@ -15,21 +16,7 @@ export interface OAuthProviderStatus {
   initialized: boolean
 }
 
-export interface OAuthLoginResponse {
-  user: {
-    id: string
-    username: string
-    email: string
-    displayName?: string
-    profileImageUrl?: string
-  }
-  tokens: {
-    accessToken: string
-    tokenType: string
-    refreshToken?: string
-  }
-  isNewUser: boolean
-}
+export type OAuthLoginResponse = NormalizedAuthData
 
 export interface OAuthError {
   error: string
@@ -117,19 +104,7 @@ class OAuthService {
         throw error
       }
 
-      const transformed = transformApiResponse<any>(data.data || data)
-      // Ensure tokens object exists for legacy callers and tests
-      if (!transformed.tokens && transformed.accessToken) {
-        transformed.tokens = {
-          accessToken: transformed.accessToken,
-          tokenType: transformed.tokenType || 'Bearer',
-          refreshToken: transformed.refreshToken
-        }
-      } else if (transformed.tokens && !transformed.accessToken) {
-        transformed.accessToken = transformed.tokens.accessToken
-        transformed.tokenType = transformed.tokens.tokenType
-      }
-      return transformed
+      return normalizeAuthResponse(data)
     } catch (error) {
       console.error(`Error handling ${provider} OAuth callback:`, error)
       throw error

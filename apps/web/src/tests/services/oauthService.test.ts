@@ -81,7 +81,8 @@ describe('OAuthService', () => {
       const mockResponse = {
         data: {
           user: { id: '1', username: 'testuser', email: 'test@example.com' },
-          tokens: { access_token: 'token123', token_type: 'Bearer' },
+          access_token: 'token123',
+          token_type: 'Bearer',
           is_new_user: false
         }
       }
@@ -102,7 +103,6 @@ describe('OAuthService', () => {
         user: { id: '1', username: 'testuser', email: 'test@example.com' },
         accessToken: 'token123',
         tokenType: 'Bearer',
-        tokens: { accessToken: 'token123', tokenType: 'Bearer' },
         isNewUser: false
       })
     })
@@ -111,7 +111,8 @@ describe('OAuthService', () => {
       const mockResponse = {
         data: {
           user: { id: '1', username: 'testuser', email: 'test@example.com' },
-          tokens: { accessToken: 'token123', tokenType: 'Bearer' },
+          accessToken: 'token123',
+          tokenType: 'Bearer',
           isNewUser: true
         }
       }
@@ -124,9 +125,10 @@ describe('OAuthService', () => {
       const result = await oauthService.handleCallback('google', 'auth_code_123', 'state_456')
 
       expect(result).toEqual({
-        ...mockResponse.data,
+        user: { id: '1', username: 'testuser', email: 'test@example.com' },
         accessToken: 'token123',
-        tokenType: 'Bearer'
+        tokenType: 'Bearer',
+        isNewUser: true
       })
     })
 

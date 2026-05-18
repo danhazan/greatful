@@ -29,15 +29,12 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
     
-    // OAuth callback returns { user, tokens: { access_token, refresh_token }, is_new_user }
-    const payload = data.data || data
-    const tokens = payload.tokens || payload
-    
-    const refreshToken = tokens.refresh_token || tokens.refreshToken
+    // Backend returns canonical AuthResponse: { success: true, data: { user, access_token, refresh_token, token_type, is_new_user } }
+    const payload = data.data
+    const refreshToken = payload.refresh_token
     
     // Remove refresh_token from the payload sent to the client
-    if (tokens.refresh_token) delete tokens.refresh_token
-    if (tokens.refreshToken) delete tokens.refreshToken
+    if (payload.refresh_token) delete payload.refresh_token
 
     // Create the response from transformed data
     const { transformApiResponse } = await import('@/lib/caseTransform')

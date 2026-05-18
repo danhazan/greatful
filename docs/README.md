@@ -5,6 +5,7 @@ Welcome to the Grateful project documentation. This directory contains comprehen
 ## 📚 Documentation Index
 
 ### 🏗️ Architecture & Setup
+- **[Authentication System Specification v1.0](AUTHENTICATION_SYSTEM_SPEC_v1.md)** - Single authoritative source of truth for the Grateful v1.0 authentication architecture
 - **[Architecture and Setup Guide](ARCHITECTURE_AND_SETUP.md)** - Technical setup guide and project structure
 - **[Feed System & Ranking Algorithm](FEED_SYSTEM.md)** - New SQL-based feed scoring and architecture
 - **[Configuration Files](CONFIGURATION_FILES.md)** - Environment variables and configuration management

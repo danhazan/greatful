@@ -49,9 +49,11 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Store the access token from normalized camelCase response
-        const accessToken = data.data?.accessToken || data.accessToken
-        localStorage.setItem("access_token", accessToken)
+        // Use centralized normalization to extract auth data
+        const { normalizeAuthResponse } = await import('@/utils/authNormalization')
+        const normalized = normalizeAuthResponse(data)
+        
+        localStorage.setItem("access_token", normalized.accessToken)
         
         // Trigger UserContext to reload user data with the new token
         await reloadUser()

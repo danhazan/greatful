@@ -59,7 +59,7 @@ export default function GoogleOAuthCallbackPage() {
         console.log('Google OAuth callback result', result)
 
         // Get tokens from the response
-        const accessToken = result.tokens?.accessToken || (result as any).accessToken
+        const accessToken = result.accessToken
         console.log('resolved accessToken length:', accessToken?.length)
 
         // Store access token using centralized auth utility

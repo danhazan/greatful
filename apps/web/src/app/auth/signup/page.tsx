@@ -75,14 +75,16 @@ export default function SignupPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Store the access token if returned (normalized camelCase response)
-        const accessToken = data.data?.accessToken || data.accessToken
-        if (accessToken) {
-          localStorage.setItem("access_token", accessToken)
+        // Use centralized normalization to extract auth data
+        const { normalizeAuthResponse } = await import('@/utils/authNormalization')
+        const normalized = normalizeAuthResponse(data)
+        
+        if (normalized.accessToken) {
+          localStorage.setItem("access_token", normalized.accessToken)
         }
 
         // Redirect to feed or login
-        router.push(accessToken ? "/feed" : "/auth/login")
+        router.push(normalized.accessToken ? "/feed" : "/auth/login")
       } else {
         // Handle structured error responses from backend
         let errorMessage = "Signup failed. Please try again."

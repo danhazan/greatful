@@ -27,15 +27,12 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
     
-    // The backend uses success_response() which wraps the payload in a 'data' object
-    const payload = data.data || data
-    
-    // Check for refresh_token either in raw backend format or if already transformed
-    const refreshToken = payload.refresh_token || payload.refreshToken
+    // Backend returns canonical AuthResponse: { success: true, data: { user, access_token, refresh_token, token_type, is_new_user } }
+    const payload = data.data
+    const refreshToken = payload.refresh_token
     
     // Remove refresh_token from the payload sent to the client
     if (payload.refresh_token) delete payload.refresh_token
-    if (payload.refreshToken) delete payload.refreshToken
 
     // Create the response from transformed data
     const { transformApiResponse } = await import('@/lib/caseTransform')
