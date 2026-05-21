@@ -7,6 +7,7 @@ global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>
 
 import { NextRequest } from 'next/server'
 import { GET, POST, DELETE } from '@/app/api/posts/[id]/reactions/route'
+import { GET as GET_COMMENT_REACTIONS } from '@/app/api/posts/[id]/comment-reactions/route'
 
 describe('/api/posts/[id]/reactions', () => {
   beforeEach(() => {
@@ -74,6 +75,28 @@ describe('/api/posts/[id]/reactions', () => {
             'Content-Type': 'application/json',
           },
         }
+      )
+    })
+
+    it('accepts camelCase object params but forwards snake_case', async () => {
+      ;(fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      })
+
+      const request = new NextRequest('http://localhost:3000/api/posts/post-123/reactions?objectType=comment&objectId=comment-1', {
+        method: 'GET',
+        headers: {
+          'authorization': 'Bearer test-token'
+        }
+      })
+
+      const response = await GET(request, { params: { id: 'post-123' } })
+
+      expect(response.status).toBe(200)
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:8000/api/v1/posts/post-123/reactions?object_type=comment&object_id=comment-1',
+        expect.objectContaining({ method: 'GET' })
       )
     })
 
@@ -211,6 +234,49 @@ describe('/api/posts/[id]/reactions', () => {
       )
     })
 
+    it('normalizes camelCase comment reaction body to snake_case', async () => {
+      ;(fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'reaction-comment',
+          user_id: 1,
+          emoji_code: 'heart',
+          created_at: '2025-01-08T12:00:00Z',
+          user: {
+            username: 'testuser',
+            profile_image_url: null
+          }
+        })
+      })
+
+      const request = new NextRequest('http://localhost:3000/api/posts/post-123/reactions', {
+        method: 'POST',
+        headers: {
+          'authorization': 'Bearer test-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          emojiCode: 'heart',
+          objectType: 'comment',
+          objectId: 'comment-1'
+        })
+      })
+
+      const response = await POST(request, { params: { id: 'post-123' } })
+
+      expect(response.status).toBe(201)
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:8000/api/v1/posts/post-123/reactions',
+        expect.objectContaining({
+          body: JSON.stringify({
+            emoji_code: 'heart',
+            object_type: 'comment',
+            object_id: 'comment-1'
+          })
+        })
+      )
+    })
+
     it('validates required fields', async () => {
       const request = new NextRequest('http://localhost:3000/api/posts/post-123/reactions', {
         method: 'POST',
@@ -307,5 +373,64 @@ describe('/api/posts/[id]/reactions', () => {
       expect(response.status).toBe(404)
       expect(data.error).toBe('Reaction not found')
     })
+  })
+})
+
+describe('/api/posts/[id]/comment-reactions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    process.env['API_BASE_URL'] = 'http://localhost:8000'
+  })
+
+  it('fetches comment reaction summaries successfully', async () => {
+    const mockSummary = {
+      data: {
+        'comment-1': {
+          totalCount: 2,
+          emojiCounts: { heart: 1, fire: 1 },
+          userReaction: 'heart'
+        }
+      }
+    }
+
+    ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockSummary
+    })
+
+    const request = new NextRequest('http://localhost:3000/api/posts/post-123/comment-reactions', {
+      method: 'GET',
+      headers: {
+        'authorization': 'Bearer test-token'
+      }
+    })
+
+    const response = await GET_COMMENT_REACTIONS(request, { params: { id: 'post-123' } })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toEqual(mockSummary.data)
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8000/api/v1/posts/post-123/comment-reactions',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer test-token',
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+  })
+
+  it('requires authorization', async () => {
+    const request = new NextRequest('http://localhost:3000/api/posts/post-123/comment-reactions', {
+      method: 'GET'
+    })
+
+    const response = await GET_COMMENT_REACTIONS(request, { params: { id: 'post-123' } })
+    const data = await response.json()
+
+    expect(response.status).toBe(401)
+    expect(data.error).toBe('Authorization header required')
   })
 })

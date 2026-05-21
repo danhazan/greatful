@@ -11,8 +11,8 @@ The current state represents the optimal balance between coverage and maintainab
 
 | Metric | Value |
 |--------|-------|
-| Test Suites | 144 |
-| Total Tests | 1113 |
+| Test Suites | 148 |
+| Total Tests | 1144 |
 | Status | ALL PASSING |
 | @flow tests | 41 (frozen) |
 | Skipped | 0 |
@@ -63,6 +63,7 @@ The current state represents the optimal balance between coverage and maintainab
 | Post Creation | ✓ | ✓ | Complete |
 | Reaction System | ✓ | ✓ | Complete |
 | Image Reactions | ✓ | ✓ | Complete |
+| Comment Reactions | ✓ | ✓ | Complete |
 | Notification System | ✓ | ✓ | Complete |
 | Authentication | ✓ | ✓ | Complete |
 | Feed Rendering | ✓ | ✓ | Complete |

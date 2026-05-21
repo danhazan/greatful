@@ -1,8 +1,8 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { describe, it, expect, jest, beforeEach } from '@jest/globals'
-import CommentsModal from '@/components/CommentsModal'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { describe, it, expect, beforeEach } from '@jest/globals'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { updateCommentReactionsCache } from '@/hooks/useImageReactions'
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
@@ -13,9 +13,50 @@ jest.mock('next/navigation', () => ({
   })
 }))
 
+jest.mock('@/components/EmojiPicker', () => {
+  return {
+    __esModule: true,
+    default: function MockEmojiPicker({ isOpen, onEmojiSelect, onCancel }: any) {
+      if (!isOpen) return null
+      return (
+        <div role="dialog" aria-label="Reaction picker">
+          <button type="button" onClick={() => onEmojiSelect('heart')}>Pick heart</button>
+          <button type="button" onClick={onCancel}>Cancel reaction picker</button>
+        </div>
+      )
+    }
+  }
+})
+
+jest.mock('@/components/ReactionViewer', () => {
+  return {
+    __esModule: true,
+    default: function MockReactionViewer({ isOpen, objectType, objectId }: any) {
+      if (!isOpen) return null
+      return (
+        <div role="dialog" aria-label="Reaction viewer">
+          Reaction viewer {objectType}:{objectId}
+        </div>
+      )
+    }
+  }
+})
+
+import CommentsModal from '@/components/CommentsModal'
+
 // Helper function to render with ToastProvider
 const renderWithToast = (ui: React.ReactElement) => {
   return render(<ToastProvider>{ui}</ToastProvider>)
+}
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
 }
 
 function StatefulCommentsModal(props: any) {
@@ -99,6 +140,11 @@ describe('CommentsModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    updateCommentReactionsCache('post-1', {})
+    ;(global as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({})
+    })
     Object.defineProperty(window, 'scrollTo', {
       writable: true,
       value: jest.fn()
@@ -144,6 +190,132 @@ describe('CommentsModal', () => {
     expect(screen.getByText('I agree! This is inspiring.')).toBeInTheDocument()
     expect(screen.getByText('Test User')).toBeInTheDocument()
     expect(screen.getByText('Another User')).toBeInTheDocument()
+  })
+
+  it('shows React text for initially unreacted comments and replies', async () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const topLevelReactionButtons = screen.getAllByRole('button', { name: /react to comment/i })
+    expect(within(topLevelReactionButtons[0]).getByText('React')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText(/Show 2 replies/i))
+
+    await waitFor(() => {
+      expect(screen.getByText('Thanks for sharing!')).toBeInTheDocument()
+    })
+
+    const allReactionButtons = screen.getAllByRole('button', { name: /react to comment/i })
+    expect(within(allReactionButtons[allReactionButtons.length - 1]).getByText('React')).toBeInTheDocument()
+  })
+
+  it('optimistically changes the comment reaction label to Reacted after selecting an emoji', async () => {
+    updateCommentReactionsCache('post-1', {})
+
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: /react to comment/i })[0])
+    fireEvent.click(screen.getByText('Pick heart'))
+
+    const reactedButton = await screen.findByRole('button', { name: /remove reaction from comment/i })
+    expect(within(reactedButton).getByText('Reacted')).toBeInTheDocument()
+  })
+
+  it('rolls the comment reaction label back to React when optimistic add fails', async () => {
+    updateCommentReactionsCache('post-1', {})
+    const mutation = deferred<Response>()
+    ;(global.fetch as jest.Mock).mockReturnValueOnce(mutation.promise)
+
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: /react to comment/i })[0])
+    fireEvent.click(screen.getByText('Pick heart'))
+
+    const optimisticButton = await screen.findByRole('button', { name: /remove reaction from comment/i })
+    expect(within(optimisticButton).getByText('Reacted')).toBeInTheDocument()
+
+    mutation.reject(new Error('network down'))
+
+    await waitFor(() => {
+      const reactionButtons = screen.getAllByRole('button', { name: /react to comment/i })
+      expect(within(reactionButtons[0]).getByText('React')).toBeInTheDocument()
+    })
+  })
+
+  it('returns the comment reaction label to React when removing a reaction succeeds', async () => {
+    updateCommentReactionsCache('post-1', {
+      '1': { totalCount: 1, emojiCounts: { heart: 1 }, userReaction: 'heart', reactions: [] }
+    })
+
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const reactedButton = screen.getByRole('button', { name: /remove reaction from comment/i })
+    expect(within(reactedButton).getByText('Reacted')).toBeInTheDocument()
+
+    fireEvent.click(reactedButton)
+
+    await waitFor(() => {
+      const reactionButtons = screen.getAllByRole('button', { name: /react to comment/i })
+      expect(within(reactionButtons[0]).getByText('React')).toBeInTheDocument()
+    })
+  })
+
+  it('keeps comment reaction viewer lazy until a banner is opened', async () => {
+    updateCommentReactionsCache('post-1', {
+      '1': { totalCount: 1, emojiCounts: { heart: 1 }, userReaction: null, reactions: [] }
+    })
+
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    expect(screen.queryByLabelText('Reaction viewer')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTitle('View reactions'))
+
+    expect(screen.getByLabelText('Reaction viewer')).toHaveTextContent('comment:1')
+  })
+
+  it('optimistically shows then removes a phantom banner when adding a comment reaction fails', async () => {
+    updateCommentReactionsCache('post-1', {})
+    const mutation = deferred<Response>()
+    ;(global.fetch as jest.Mock).mockReturnValueOnce(mutation.promise)
+
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: /react to comment/i })[0])
+    fireEvent.click(screen.getByText('Pick heart'))
+
+    await waitFor(() => {
+      expect(screen.getByTitle('View reactions')).toBeInTheDocument()
+    })
+
+    mutation.reject(new Error('network down'))
+
+    await waitFor(() => {
+      expect(screen.queryByTitle('View reactions')).not.toBeInTheDocument()
+    })
+  })
+
+  it('optimistically hides then restores the final reaction banner when removal fails', async () => {
+    updateCommentReactionsCache('post-1', {
+      '1': { totalCount: 1, emojiCounts: { heart: 1 }, userReaction: 'heart', reactions: [] }
+    })
+    const mutation = deferred<Response>()
+    ;(global.fetch as jest.Mock).mockReturnValueOnce(mutation.promise)
+
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    expect(screen.getByTitle('View reactions')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /remove reaction from comment/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByTitle('View reactions')).not.toBeInTheDocument()
+    })
+
+    mutation.reject(new Error('network down'))
+
+    await waitFor(() => {
+      expect(screen.getByTitle('View reactions')).toBeInTheDocument()
+    })
   })
 
   it('shows reply count for comments with replies', () => {

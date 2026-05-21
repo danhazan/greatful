@@ -5,10 +5,11 @@ EmojiReaction repository with specialized query methods.
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, desc, text, and_
+from sqlalchemy import func, desc, text, and_, case
 from app.core.repository_base import BaseRepository
 from app.models.emoji_reaction import EmojiReaction
 from app.models.user import User
+from app.models.comment import Comment
 
 
 class EmojiReactionRepository(BaseRepository):
@@ -138,6 +139,70 @@ class EmojiReactionRepository(BaseRepository):
         elif object_type == "post":
             filters["object_id"] = post_id
         return await self.count(filters)
+
+    async def get_comment_reaction_summaries(
+        self,
+        post_id: str,
+        current_user_id: int
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Get reaction summaries for all existing comments/replies on a post.
+
+        This intentionally uses one grouped query joined to comments so large
+        threads do not perform per-comment reaction or current-user lookups.
+        """
+        query = (
+            select(
+                EmojiReaction.object_id.label("comment_id"),
+                EmojiReaction.emoji_code,
+                func.count(EmojiReaction.id).label("count"),
+                func.max(
+                    case(
+                        (EmojiReaction.user_id == current_user_id, EmojiReaction.emoji_code),
+                        else_=None
+                    )
+                ).label("user_reaction")
+            )
+            .join(
+                Comment,
+                and_(
+                    Comment.id == EmojiReaction.object_id,
+                    Comment.post_id == EmojiReaction.post_id
+                )
+            )
+            .where(
+                and_(
+                    EmojiReaction.post_id == post_id,
+                    EmojiReaction.object_type == "comment",
+                    Comment.post_id == post_id
+                )
+            )
+            .group_by(EmojiReaction.object_id, EmojiReaction.emoji_code)
+        )
+
+        result = await self._execute_query(query, "get comment reaction summaries")
+        summaries: Dict[str, Dict[str, Any]] = {}
+
+        for row in result.fetchall():
+            comment_id = row.comment_id
+            if not comment_id:
+                continue
+
+            summary = summaries.setdefault(
+                comment_id,
+                {
+                    "totalCount": 0,
+                    "emojiCounts": {},
+                    "userReaction": None
+                }
+            )
+            count = int(row.count or 0)
+            summary["totalCount"] += count
+            summary["emojiCounts"][row.emoji_code] = count
+            if row.user_reaction:
+                summary["userReaction"] = row.user_reaction
+
+        return summaries
     
     async def get_user_reactions(
         self, 

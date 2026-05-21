@@ -9,8 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.models.post import Post
 from app.models.emoji_reaction import EmojiReaction
+from app.models.comment import Comment
+from app.models.notification import Notification
 from app.services.reaction_service import ReactionService
 import uuid
+from sqlalchemy import event, select
 
 
 # Using shared test_post fixture from conftest.py
@@ -254,3 +257,184 @@ class TestReactionService:
             post_id=test_post.id
         )
         assert count == 1
+
+    async def test_add_comment_reaction_success(self, db_session: AsyncSession, test_user: User, test_user_2: User, test_post: Post):
+        """Test successfully adding a reaction to a comment."""
+        comment = Comment(
+            id=str(uuid.uuid4()),
+            post_id=test_post.id,
+            user_id=test_user_2.id,
+            content="A thoughtful comment"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+
+        service = ReactionService(db_session)
+        reaction_data = await service.add_reaction(
+            user_id=test_user.id,
+            post_id=test_post.id,
+            emoji_code="heart_eyes",
+            object_type="comment",
+            object_id=comment.id
+        )
+
+        assert reaction_data["object_type"] == "comment"
+        assert reaction_data["object_id"] == comment.id
+        assert reaction_data["emoji_code"] == "heart_eyes"
+
+    async def test_comment_reaction_rejects_wrong_post(self, db_session: AsyncSession, test_user: User, test_user_2: User, test_post: Post):
+        """Comment reactions cannot target comments from another post."""
+        other_post = Post(
+            id=str(uuid.uuid4()),
+            author=test_user,
+            content="Another post",
+            is_public=True
+        )
+        db_session.add(other_post)
+        await db_session.flush()
+        comment = Comment(
+            id=str(uuid.uuid4()),
+            post_id=other_post.id,
+            user_id=test_user_2.id,
+            content="Wrong post comment"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+
+        service = ReactionService(db_session)
+        with pytest.raises(Exception, match="Comment reaction target does not belong to the post"):
+            await service.add_reaction(
+                user_id=test_user.id,
+                post_id=test_post.id,
+                emoji_code="heart_eyes",
+                object_type="comment",
+                object_id=comment.id
+            )
+
+    async def test_comment_reaction_summaries_are_grouped(self, db_session: AsyncSession, test_user: User, test_user_2: User, test_user_3: User, test_post: Post):
+        """Comment reaction summaries are aggregated across the post without per-comment lookups."""
+        comment = Comment(
+            id=str(uuid.uuid4()),
+            post_id=test_post.id,
+            user_id=test_user_2.id,
+            content="A thoughtful comment"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+
+        service = ReactionService(db_session)
+        await service.add_reaction(test_user.id, test_post.id, "heart", object_type="comment", object_id=comment.id)
+        await service.add_reaction(test_user_3.id, test_post.id, "fire", object_type="comment", object_id=comment.id)
+
+        summaries = await service.get_comment_reaction_summaries(test_post.id, test_user.id)
+
+        assert summaries[comment.id]["totalCount"] == 2
+        assert summaries[comment.id]["emojiCounts"] == {"heart": 1, "fire": 1}
+        assert summaries[comment.id]["userReaction"] == "heart"
+
+    async def test_comment_reaction_summaries_use_bounded_queries(self, db_session: AsyncSession, test_user: User, test_user_2: User, test_user_3: User, test_post: Post):
+        """Summary aggregation stays bounded for larger comment sets."""
+        comments = [
+            Comment(
+                id=str(uuid.uuid4()),
+                post_id=test_post.id,
+                user_id=test_user_2.id,
+                content=f"Comment {idx}"
+            )
+            for idx in range(10)
+        ]
+        db_session.add_all(comments)
+        await db_session.commit()
+
+        service = ReactionService(db_session)
+        for comment in comments:
+            await service.add_reaction(test_user.id, test_post.id, "heart", object_type="comment", object_id=comment.id)
+            await service.add_reaction(test_user_3.id, test_post.id, "fire", object_type="comment", object_id=comment.id)
+
+        statements = []
+
+        def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+
+        sync_engine = db_session.bind.sync_engine
+        event.listen(sync_engine, "before_cursor_execute", before_cursor_execute)
+        try:
+            summaries = await service.get_comment_reaction_summaries(test_post.id, test_user.id)
+        finally:
+            event.remove(sync_engine, "before_cursor_execute", before_cursor_execute)
+
+        assert len(summaries) == len(comments)
+        assert len(statements) <= 3
+
+    async def test_comment_reaction_notification_targets_comment_author_only(self, db_session: AsyncSession, test_user: User, test_user_2: User, test_user_3: User, test_post: Post):
+        """Reply reactions notify the reply author, not parent comment or post author."""
+        parent = Comment(
+            id=str(uuid.uuid4()),
+            post_id=test_post.id,
+            user_id=test_user_2.id,
+            content="Parent comment"
+        )
+        reply = Comment(
+            id=str(uuid.uuid4()),
+            post_id=test_post.id,
+            user_id=test_user_3.id,
+            parent_comment_id=parent.id,
+            content="Reply comment"
+        )
+        db_session.add_all([parent, reply])
+        await db_session.commit()
+
+        service = ReactionService(db_session)
+        await service.add_reaction(
+            user_id=test_user.id,
+            post_id=test_post.id,
+            emoji_code="heart",
+            object_type="comment",
+            object_id=reply.id
+        )
+
+        result = await db_session.execute(select(Notification))
+        notifications = result.scalars().all()
+
+        assert len(notifications) == 1
+        assert notifications[0].user_id == test_user_3.id
+        assert notifications[0].message == "reacted to your comment"
+        assert notifications[0].data["comment_id"] == reply.id
+
+    async def test_comment_reaction_update_does_not_duplicate_notification(self, db_session: AsyncSession, test_user: User, test_user_2: User, test_post: Post):
+        """Changing an existing comment reaction should not generate another notification."""
+        comment = Comment(
+            id=str(uuid.uuid4()),
+            post_id=test_post.id,
+            user_id=test_user_2.id,
+            content="A thoughtful comment"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+
+        service = ReactionService(db_session)
+        await service.add_reaction(test_user.id, test_post.id, "heart", object_type="comment", object_id=comment.id)
+        await service.add_reaction(test_user.id, test_post.id, "fire", object_type="comment", object_id=comment.id)
+
+        result = await db_session.execute(select(Notification))
+        notifications = result.scalars().all()
+
+        assert len(notifications) == 1
+        assert notifications[0].data["emoji_code"] == "heart"
+
+    async def test_comment_reaction_suppresses_self_notification(self, db_session: AsyncSession, test_user: User, test_post: Post):
+        """Reacting to your own comment should not create a notification."""
+        comment = Comment(
+            id=str(uuid.uuid4()),
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="My own comment"
+        )
+        db_session.add(comment)
+        await db_session.commit()
+
+        service = ReactionService(db_session)
+        await service.add_reaction(test_user.id, test_post.id, "heart", object_type="comment", object_id=comment.id)
+
+        result = await db_session.execute(select(Notification))
+        assert result.scalars().all() == []

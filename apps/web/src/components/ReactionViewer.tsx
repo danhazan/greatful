@@ -41,8 +41,8 @@ export default function ReactionViewer({
 
   // Dev-only integrity check
   if (process.env.NODE_ENV === 'development') {
-    if (objectType === 'image' && !objectId) {
-      console.warn('[ReactionViewer] objectType is "image" but no objectId provided. This will likely cause reaction leakage.');
+    if (objectType !== 'post' && !objectId) {
+      console.warn(`[ReactionViewer] objectType is "${objectType}" but no objectId provided. This will likely cause reaction leakage.`);
     }
   }
 

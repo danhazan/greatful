@@ -15,9 +15,13 @@ def format_reaction_notification(
     if emoji_code == "heart":
         if normalized_object_type == "image":
             return "New Like 💜", "liked an image in your post 💜"
+        if normalized_object_type == "comment":
+            return "New Like 💜", "liked your comment 💜"
         return "New Like 💜", "liked your post 💜"
 
     emoji_display = EmojiReaction.VALID_EMOJIS.get(emoji_code, emoji_code)
     if normalized_object_type == "image":
         return "New Reaction", f"reacted to an image in your post with {emoji_display}"
+    if normalized_object_type == "comment":
+        return "New Reaction", f"reacted to your comment with {emoji_display}"
     return "New Reaction", f"reacted to your post with {emoji_display}"

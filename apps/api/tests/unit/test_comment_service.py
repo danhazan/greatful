@@ -501,16 +501,20 @@ class TestDeleteCommentsForPost:
 
     @pytest.mark.asyncio
     async def test_delete_comments_for_post_set_based(self, comment_service):
-        """Bulk delete for a post uses one set-based delete and no commit by default."""
+        """Bulk delete for a post uses bounded set-based deletes and no commit by default."""
+        ids_result = MagicMock()
+        ids_result.scalars.return_value.all.return_value = ["comment-1", "comment-2"]
         delete_result = MagicMock()
         delete_result.rowcount = 4
-        comment_service.db.execute = AsyncMock(return_value=delete_result)
+        reaction_delete_result = MagicMock()
+        reaction_delete_result.rowcount = 2
+        comment_service.db.execute = AsyncMock(side_effect=[ids_result, delete_result, reaction_delete_result])
         comment_service.db.commit = AsyncMock()
 
         deleted_count = await comment_service.delete_comments_for_post("post-123")
 
         assert deleted_count == 4
-        comment_service.db.execute.assert_awaited_once()
+        assert comment_service.db.execute.await_count == 3
         comment_service.db.commit.assert_not_called()
 
 

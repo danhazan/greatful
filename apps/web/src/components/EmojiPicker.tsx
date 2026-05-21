@@ -98,12 +98,14 @@ export default function EmojiPicker({
       {/* Backdrop - blocks interaction with background */}
       <div
         className="fixed inset-0 bg-gray-900 bg-opacity-20 z-[80]"
+        data-emoji-picker
         style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
       />
 
       {/* Modal */}
       <div
         ref={modalRef}
+        data-emoji-picker
         role="dialog"
         aria-modal="true"
         aria-labelledby="emoji-picker-title"

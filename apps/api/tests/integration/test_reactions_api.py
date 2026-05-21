@@ -171,6 +171,80 @@ class TestReactionsAPI:
         assert "emojiCounts" in data  # API returns emojiCounts instead of reactions
 
     @pytest.mark.asyncio
+    async def test_comment_reaction_summary_endpoint(self, client, test_user_and_post):
+        """Test batched comment reaction summaries."""
+        user_data = test_user_and_post
+
+        comment_response = client.post(
+            f"/api/v1/posts/{user_data['post'].id}/comments",
+            json={"content": "Great comment"},
+            headers={"Authorization": f"Bearer {user_data['token']}"}
+        )
+        assert comment_response.status_code == 201
+        comment_id = comment_response.json()["data"]["id"]
+
+        reaction_response = client.post(
+            f"/api/v1/posts/{user_data['post'].id}/reactions",
+            json={
+                "emoji_code": "heart",
+                "object_type": "comment",
+                "object_id": comment_id
+            },
+            headers={"Authorization": f"Bearer {user_data['token']}"}
+        )
+        assert reaction_response.status_code == 201
+
+        response = client.get(
+            f"/api/v1/posts/{user_data['post'].id}/comment-reactions",
+            headers={"Authorization": f"Bearer {user_data['token']}"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data[comment_id]["totalCount"] == 1
+        assert data[comment_id]["emojiCounts"] == {"heart": 1}
+        assert data[comment_id]["userReaction"] == "heart"
+
+    @pytest.mark.asyncio
+    async def test_comment_reaction_viewer_endpoint_is_scoped(self, client, test_user_and_post):
+        """Detailed reaction viewer endpoint scopes to one comment."""
+        user_data = test_user_and_post
+
+        first = client.post(
+            f"/api/v1/posts/{user_data['post'].id}/comments",
+            json={"content": "First"},
+            headers={"Authorization": f"Bearer {user_data['token']}"}
+        ).json()["data"]
+        second = client.post(
+            f"/api/v1/posts/{user_data['post'].id}/comments",
+            json={"content": "Second"},
+            headers={"Authorization": f"Bearer {user_data['token']}"}
+        ).json()["data"]
+
+        for comment_id, emoji in [(first["id"], "heart"), (second["id"], "fire")]:
+            response = client.post(
+                f"/api/v1/posts/{user_data['post'].id}/reactions",
+                json={
+                    "emoji_code": emoji,
+                    "object_type": "comment",
+                    "object_id": comment_id
+                },
+                headers={"Authorization": f"Bearer {user_data['token']}"}
+            )
+            assert response.status_code == 201
+
+        response = client.get(
+            f"/api/v1/posts/{user_data['post'].id}/reactions?object_type=comment&object_id={first['id']}",
+            headers={"Authorization": f"Bearer {user_data['token']}"}
+        )
+
+        assert response.status_code == 200
+        reactions = response.json()["data"]
+        assert len(reactions) == 1
+        assert reactions[0]["object_id"] == first["id"]
+        assert reactions[0]["emoji_code"] == "heart"
+
+    @pytest.mark.asyncio
     async def test_get_reactions_nonexistent_post(self, client, auth_headers):
         """Test getting reactions for a non-existent post."""
         response = client.get(

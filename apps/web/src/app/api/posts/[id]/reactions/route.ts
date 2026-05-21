@@ -24,8 +24,8 @@ export async function GET(
 
     // Get query parameters for polymorphic support
     const searchParams = request.nextUrl.searchParams
-    const objectType = searchParams.get('object_type') || 'post'
-    const objectId = searchParams.get('object_id')
+    const objectType = searchParams.get('object_type') || searchParams.get('objectType') || 'post'
+    const objectId = searchParams.get('object_id') || searchParams.get('objectId')
     
     // Check authorization
     if (!hasValidAuth(request)) {

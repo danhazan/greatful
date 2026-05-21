@@ -209,6 +209,57 @@ class NotificationFactory:
         except Exception as e:
             logger.error(f"Failed to create emoji_reaction notification for user {post_author_id}: {e}")
             return None
+
+    async def create_comment_reaction_notification(
+        self,
+        comment_author_id: int,
+        reactor_username: str,
+        reactor_id: int,
+        post_id: str,
+        comment_id: str,
+        emoji_code: str
+    ) -> Optional[Any]:
+        """Create a single notification for a reaction on a comment/reply."""
+        if comment_author_id == reactor_id:
+            logger.debug(f"Prevented self-notification for user {comment_author_id}")
+            return None
+
+        try:
+            from app.models.notification import Notification
+
+            notification = Notification(
+                user_id=comment_author_id,
+                type="emoji_reaction",
+                title="New Reaction",
+                message="reacted to your comment",
+                data={
+                    "post_id": post_id,
+                    "comment_id": comment_id,
+                    "object_type": "comment",
+                    "object_id": comment_id,
+                    "target": "comment",
+                    "reactor_username": reactor_username,
+                    "emoji_code": emoji_code,
+                    "actor_user_id": str(reactor_id),
+                    "actor_username": reactor_username
+                }
+            )
+
+            result = await self.notification_repo.create(
+                user_id=notification.user_id,
+                type=notification.type,
+                title=notification.title,
+                message=notification.message,
+                data=notification.data,
+                batch_key=f"emoji_reaction:comment:{comment_id}"
+            )
+
+            logger.info(f"Created comment emoji_reaction notification for user {comment_author_id}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to create comment emoji_reaction notification for user {comment_author_id}: {e}")
+            return None
     
     async def create_like_notification(
         self,

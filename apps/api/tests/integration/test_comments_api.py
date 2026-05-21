@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.models.post import Post
 from app.models.comment import Comment
+from app.models.emoji_reaction import EmojiReaction
 from app.core.security import create_access_token
+from sqlalchemy import select
 
 
 @pytest.fixture
@@ -619,6 +621,68 @@ class TestDeleteComment:
         result = await db_session.execute(count_query)
         count_after = result.scalar()
         assert count_after == 0
+
+    async def test_delete_comment_cleans_up_comment_reactions(
+        self,
+        async_client: AsyncClient,
+        db_session: AsyncSession,
+        test_post: Post,
+        test_user: User,
+        another_user: User,
+        auth_headers: dict
+    ):
+        """Deleting a comment removes reaction rows for the comment and its replies."""
+        parent_comment = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Parent comment"
+        )
+        db_session.add(parent_comment)
+        await db_session.flush()
+
+        reply = Comment(
+            post_id=test_post.id,
+            user_id=test_user.id,
+            content="Reply",
+            parent_comment_id=parent_comment.id
+        )
+        db_session.add(reply)
+        await db_session.flush()
+
+        db_session.add_all([
+            EmojiReaction(
+                user_id=another_user.id,
+                post_id=test_post.id,
+                object_type="comment",
+                object_id=parent_comment.id,
+                emoji_code="heart"
+            ),
+            EmojiReaction(
+                user_id=another_user.id,
+                post_id=test_post.id,
+                object_type="comment",
+                object_id=reply.id,
+                emoji_code="fire"
+            )
+        ])
+        await db_session.commit()
+        parent_id = parent_comment.id
+        reply_id = reply.id
+
+        response = await async_client.delete(
+            f"/api/v1/comments/{parent_id}",
+            headers=auth_headers
+        )
+
+        assert response.status_code == 200
+
+        result = await db_session.execute(
+            select(EmojiReaction).where(
+                EmojiReaction.object_type == "comment",
+                EmojiReaction.object_id.in_([parent_id, reply_id])
+            )
+        )
+        assert result.scalars().all() == []
 
     async def test_delete_reply_with_later_siblings_blocked(
         self,

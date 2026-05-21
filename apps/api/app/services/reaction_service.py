@@ -13,6 +13,7 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.post_repository import PostRepository
 from app.models.emoji_reaction import EmojiReaction
 from app.models.post_image import PostImage
+from app.models.comment import Comment
 from app.models.user import User
 from app.models.post import Post
 from app.core.notification_factory import NotificationFactory
@@ -38,6 +39,9 @@ class ReactionService(BaseService):
         object_id: Optional[str]
     ) -> str:
         """Resolve and validate the concrete object receiving the reaction."""
+        if object_type not in {"post", "image", "comment"}:
+            raise ValidationException("Invalid reaction object_type")
+
         if object_type == "post":
             return post_id
 
@@ -55,6 +59,20 @@ class ReactionService(BaseService):
                 raise ValidationException("Image reaction target does not belong to the post")
             return object_id
 
+        if object_type == "comment":
+            if not object_id:
+                raise ValidationException("Comment reactions require a comment object_id")
+
+            result = await self.db.execute(
+                select(Comment.id).where(
+                    Comment.id == object_id,
+                    Comment.post_id == post_id
+                )
+            )
+            if result.scalar_one_or_none() is None:
+                raise ValidationException("Comment reaction target does not belong to the post")
+            return object_id
+
         return object_id if object_id is not None else post_id
 
     async def _get_image_thumbnail_url(self, image_id: str) -> Optional[str]:
@@ -64,6 +82,16 @@ class ReactionService(BaseService):
         )
         thumbnail_url = result.scalar_one_or_none()
         return serialize_image_url(thumbnail_url)
+
+    async def _get_comment_author_id(self, post_id: str, comment_id: str) -> Optional[int]:
+        """Resolve comment author for comment reaction notifications."""
+        result = await self.db.execute(
+            select(Comment.user_id).where(
+                Comment.id == comment_id,
+                Comment.post_id == post_id
+            )
+        )
+        return result.scalar_one_or_none()
 
     @monitor_query("add_reaction")
     async def add_reaction(
@@ -104,8 +132,9 @@ class ReactionService(BaseService):
             updated_reaction.user = user
             logger.info(f"Updated reaction for user {user_id} on {object_type} {object_id or post_id} to {emoji_code}")
             
-            # Create notification for updated reaction using NotificationFactory
-            if post.author_id != user_id:
+            # Create notification for updated reaction using NotificationFactory.
+            # Comment reaction updates intentionally do not create duplicate notifications.
+            if object_type != "comment" and post.author_id != user_id:
                 thumbnail_url = None
                 if object_type == "image":
                     thumbnail_url = await self._get_image_thumbnail_url(actual_object_id)
@@ -165,12 +194,23 @@ class ReactionService(BaseService):
             logger.info(f"Created new reaction for user {user_id} on {object_type} {actual_object_id}: {emoji_code}")
             
             # Create notification for new reaction using NotificationFactory
-            if post.author_id != user_id:
-                thumbnail_url = None
-                if object_type == "image":
-                    thumbnail_url = await self._get_image_thumbnail_url(actual_object_id)
-                try:
-                    notification_factory = NotificationFactory(self.db)
+            try:
+                notification_factory = NotificationFactory(self.db)
+                if object_type == "comment":
+                    comment_author_id = await self._get_comment_author_id(post_id, actual_object_id)
+                    if comment_author_id and comment_author_id != user_id:
+                        await notification_factory.create_comment_reaction_notification(
+                            comment_author_id=comment_author_id,
+                            reactor_username=user.username,
+                            reactor_id=user_id,
+                            post_id=post_id,
+                            comment_id=actual_object_id,
+                            emoji_code=emoji_code
+                        )
+                elif post.author_id != user_id:
+                    thumbnail_url = None
+                    if object_type == "image":
+                        thumbnail_url = await self._get_image_thumbnail_url(actual_object_id)
                     await notification_factory.create_reaction_notification(
                         post_author_id=post.author_id,
                         reactor_username=user.username,
@@ -181,9 +221,9 @@ class ReactionService(BaseService):
                         object_id=actual_object_id,
                         thumbnail_url=thumbnail_url
                     )
-                except Exception as e:
-                    logger.error(f"Failed to create notification for new reaction: {e}")
-                    # Don't fail the reaction if notification fails
+            except Exception as e:
+                logger.error(f"Failed to create notification for new reaction: {e}")
+                # Don't fail the reaction if notification fails
                 
             return {
                 "id": reaction.id,
@@ -206,7 +246,8 @@ class ReactionService(BaseService):
         """
         Remove a user's reaction from an object.
         """
-        removed = await self.reaction_repo.delete_user_reaction(user_id, post_id, object_type, object_id)
+        actual_object_id = await self._resolve_reaction_object_id(post_id, object_type, object_id)
+        removed = await self.reaction_repo.delete_user_reaction(user_id, post_id, object_type, actual_object_id)
         
         if removed:
             logger.info(f"Removed reaction for user {user_id} on {object_type} {object_id or post_id}")
@@ -218,7 +259,8 @@ class ReactionService(BaseService):
         """
         Get all reactions for a specific object with user information.
         """
-        reactions = await self.reaction_repo.get_post_reactions(post_id, load_users=True, object_type=object_type, object_id=object_id)
+        actual_object_id = await self._resolve_reaction_object_id(post_id, object_type, object_id)
+        reactions = await self.reaction_repo.get_post_reactions(post_id, load_users=True, object_type=object_type, object_id=actual_object_id)
         
         return [
             {
@@ -272,6 +314,13 @@ class ReactionService(BaseService):
         Get total number of reactions for an object.
         """
         return await self.reaction_repo.get_total_reaction_count(post_id, object_type, object_id)
+
+    async def get_comment_reaction_summaries(self, post_id: str, current_user_id: int) -> Dict[str, Dict[str, Any]]:
+        """
+        Get bounded reaction summaries for all existing comments/replies on a post.
+        """
+        await self.post_repo.get_by_id_or_404(post_id)
+        return await self.reaction_repo.get_comment_reaction_summaries(post_id, current_user_id)
 
     async def get_user_interaction(self, user_id: int, post_id: str) -> Optional[Dict[str, Any]]:
         """

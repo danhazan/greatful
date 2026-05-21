@@ -1,6 +1,15 @@
 import { useRef, useCallback } from 'react';
 import { useOptimisticMutation } from './useOptimisticMutation';
-import { updateImageReactionsCache, getImageReactionsMapFromCache, invalidateDetailedReactionsCache, type ReactionSummaryData, type ImageReactionsMap } from './useImageReactions';
+import {
+  updateImageReactionsCache,
+  getImageReactionsMapFromCache,
+  updateCommentReactionsCache,
+  getCommentReactionsMapFromCache,
+  invalidateDetailedReactionsCache,
+  type ReactionSummaryData,
+  type ImageReactionsMap,
+  type CommentReactionsMap
+} from './useImageReactions';
 import { getAccessToken } from '@/utils/auth';
 
 export interface ReactionMutationOptions {
@@ -61,6 +70,15 @@ export function useReactionMutation({
       updateImageReactionsCache(postId, newCache);
     }
 
+    if (objectType === 'comment') {
+      const currentCache = getCommentReactionsMapFromCache(postId) || {};
+      const newCache: CommentReactionsMap = {
+        ...currentCache,
+        [objectId]: newState
+      };
+      updateCommentReactionsCache(postId, newCache);
+    }
+
     // 2. ALWAYS invalidate the detailed User List cache for this specific object
     const detailCacheKey = `${postId}:${objectType}:${objectId || 'none'}`;
     invalidateDetailedReactionsCache(detailCacheKey);
@@ -85,8 +103,8 @@ export function useReactionMutation({
         // DELETE operation
         const params = new URLSearchParams();
         if (objectType !== 'post') {
-          params.append('objectType', objectType);
-          params.append('objectId', objectId);
+          params.append('object_type', objectType);
+          params.append('object_id', objectId);
         }
         
         const res = await fetch(`/api/posts/${postId}/reactions?${params.toString()}`, {
@@ -106,9 +124,9 @@ export function useReactionMutation({
           method: 'POST',
           headers,
           body: JSON.stringify({
-            emojiCode,
-            objectType,
-            objectId
+            emoji_code: emojiCode,
+            object_type: objectType,
+            object_id: objectId
           }),
           signal
         });

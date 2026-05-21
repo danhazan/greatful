@@ -12,6 +12,7 @@ from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError, BusinessLogicError
 from app.core.image_urls import serialize_image_url
 from app.models.comment import Comment
+from app.models.emoji_reaction import EmojiReaction
 from app.models.post import Post
 from app.models.user import User
 from app.core.notification_factory import NotificationFactory
@@ -369,6 +370,19 @@ class CommentService(BaseService):
             await self.db.commit()
         return deleted_count
 
+    async def _delete_comment_reactions(self, comment_ids: List[str]) -> int:
+        """Delete reactions attached to comments/replies being removed."""
+        if not comment_ids:
+            return 0
+
+        result = await self.db.execute(
+            delete(EmojiReaction).where(
+                EmojiReaction.object_type == "comment",
+                EmojiReaction.object_id.in_(comment_ids)
+            )
+        )
+        return result.rowcount or 0
+
     async def delete_comments_for_post(self, post_id: str, commit: bool = False) -> int:
         """
         Delete all comments (top-level + replies) for a post in one set-based query.
@@ -380,7 +394,18 @@ class CommentService(BaseService):
         Returns:
             int: Number of deleted comments
         """
-        return await self._bulk_delete_comments_by_condition(Comment.post_id == post_id, commit=commit)
+        ids_result = await self.db.execute(
+            select(Comment.id).where(Comment.post_id == post_id)
+        )
+        comment_ids = list(ids_result.scalars().all())
+
+        deleted_count = await self._bulk_delete_comments_by_condition(Comment.post_id == post_id, commit=False)
+        await self._delete_comment_reactions(comment_ids)
+
+        if commit:
+            await self.db.commit()
+
+        return deleted_count
 
     async def delete_comment(self, comment_id: str, user_id: int) -> bool:
         """
@@ -438,7 +463,11 @@ class CommentService(BaseService):
                 )
             delete_condition = Comment.id == comment_id
 
+        deleted_ids_result = await self.db.execute(select(Comment.id).where(delete_condition))
+        deleted_comment_ids = list(deleted_ids_result.scalars().all())
+
         deleted_count = await self._bulk_delete_comments_by_condition(delete_condition, commit=False)
+        deleted_reactions_count = await self._delete_comment_reactions(deleted_comment_ids)
 
         # Get the post to update comments_count
         post = await self.get_by_id(Post, comment.post_id)
@@ -449,7 +478,10 @@ class CommentService(BaseService):
         if post:
             await self.db.refresh(post)
 
-        logger.info(f"Deleted comment {comment_id} by user {user_id} (removed {deleted_count} rows)")
+        logger.info(
+            f"Deleted comment {comment_id} by user {user_id} "
+            f"(removed {deleted_count} rows and {deleted_reactions_count} reactions)"
+        )
         return True
 
     async def get_comment_count(self, post_id: str) -> int:

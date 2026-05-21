@@ -252,3 +252,26 @@ async def get_image_reactions(
             group["userReaction"] = code
             
     return success_response(grouped, getattr(request.state, 'request_id', None))
+
+
+@router.get("/posts/{post_id}/comment-reactions")
+async def get_comment_reactions(
+    post_id: str,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all comment/reply reaction summaries for a specific post.
+
+    Returns a sparse mapping of comment_id -> lightweight reaction summary.
+    The service uses bounded grouped aggregation and does not perform per-comment
+    reaction or user-reaction lookups.
+    """
+    reaction_service = ReactionService(db)
+    grouped = await reaction_service.get_comment_reaction_summaries(
+        post_id=post_id,
+        current_user_id=current_user_id
+    )
+
+    return success_response(grouped, getattr(request.state, 'request_id', None))

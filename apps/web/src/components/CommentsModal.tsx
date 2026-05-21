@@ -1,14 +1,20 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Send, Loader2, MessageCircle, Pencil, Trash2, Smile } from "lucide-react"
+import { X, Send, Loader2, MessageCircle, Pencil, Trash2, Smile, Heart } from "lucide-react"
 import { formatTimeAgo } from "@/utils/timeAgo"
 import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import { useToast } from "@/contexts/ToastContext"
 import MinimalEmojiPicker from "./MinimalEmojiPicker"
+import EmojiPicker from "./EmojiPicker"
+import ReactionViewer from "./ReactionViewer"
+import ReactionsBanner from "./ReactionsBanner"
 import { insertEmojiIntoTextarea } from "@/utils/insertEmojiIntoTextarea"
 import { useMobileViewport } from "@/hooks/useMobileViewport"
 import { useMobileKeyboardInset } from "@/hooks/useMobileKeyboardInset"
+import { useCommentReactions, type ReactionSummaryData } from "@/hooks/useImageReactions"
+import { useReactionMutation } from "@/hooks/useReactionMutation"
+import { getEmojiFromCode, getTopEmojis } from "@/utils/emojiMapping"
 
 interface CommentUser {
   id: number
@@ -47,6 +53,81 @@ interface CommentsModalProps {
   isSubmitting?: boolean
 }
 
+interface CommentReactionButtonProps {
+  postId: string
+  commentId: string
+  reactionState: ReactionSummaryData
+}
+
+const COMMENT_REACTION_BUTTON_TEXT = {
+  idle: 'React',
+  active: 'Reacted'
+} as const
+
+function CommentReactionButton({ postId, commentId, reactionState }: CommentReactionButtonProps) {
+  const [showPicker, setShowPicker] = useState(false)
+  const [pickerPosition, setPickerPosition] = useState({ x: 0, y: 0 })
+  const hasUserReaction = Boolean(reactionState.userReaction)
+  const { handleReaction, isInFlight } = useReactionMutation({
+    postId,
+    objectType: 'comment',
+    objectId: commentId,
+    currentReactionState: reactionState
+  })
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(event) => {
+          if (isInFlight) return
+          if (hasUserReaction) {
+            handleReaction(null)
+            return
+          }
+
+          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+          const pickerWidth = 320
+          const x = Math.max(16, Math.min(rect.left + rect.width / 2 - pickerWidth / 2, window.innerWidth - pickerWidth - 16))
+          setPickerPosition({ x, y: rect.bottom + 8 })
+          setShowPicker(true)
+        }}
+        disabled={isInFlight}
+        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded flex items-center space-x-1 transition-colors ${
+          hasUserReaction
+            ? 'text-purple-600 hover:text-purple-700 active:text-purple-800'
+            : 'text-gray-500 hover:text-purple-600 active:text-purple-700'
+        } ${isInFlight ? 'opacity-50 cursor-not-allowed' : ''}`}
+        aria-label={hasUserReaction ? 'Remove reaction from comment' : 'React to comment'}
+        title={hasUserReaction ? 'Remove reaction' : 'React'}
+      >
+        {hasUserReaction && reactionState.userReaction ? (
+          <span className="text-sm leading-none">{getEmojiFromCode(reactionState.userReaction)}</span>
+        ) : (
+          <Heart className="h-3 w-3" />
+        )}
+        <span>{hasUserReaction ? COMMENT_REACTION_BUTTON_TEXT.active : COMMENT_REACTION_BUTTON_TEXT.idle}</span>
+      </button>
+
+      {showPicker && (
+        <EmojiPicker
+          isOpen={showPicker}
+          onClose={() => setShowPicker(false)}
+          onCancel={() => setShowPicker(false)}
+          onEmojiSelect={(emoji) => {
+            handleReaction(emoji)
+            setShowPicker(false)
+          }}
+          currentReaction={reactionState.userReaction}
+          position={pickerPosition}
+          isLoading={isInFlight}
+          anchor="top"
+        />
+      )}
+    </>
+  )
+}
+
 export default function CommentsModal({
   isOpen,
   onClose,
@@ -81,9 +162,16 @@ export default function CommentsModal({
   const [deleteConfirmCommentId, setDeleteConfirmCommentId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [reactionViewerCommentId, setReactionViewerCommentId] = useState<string | null>(null)
   const [textareaSelection, setTextareaSelection] = useState({ start: 0, end: 0 })
   const isMobileViewport = useMobileViewport()
   const mobileKeyboardInset = useMobileKeyboardInset(isMobileViewport)
+  const {
+    isLoading: isLoadingCommentReactions,
+    error: commentReactionsError,
+    getReactionForComment,
+    refetch: refetchCommentReactions
+  } = useCommentReactions(postId, isOpen)
 
   const MAX_CHARS = 500
   const MAX_TEXTAREA_LINES = 4
@@ -198,6 +286,7 @@ export default function CommentsModal({
       // Reset edit/delete state
       setDeleteConfirmCommentId(null)
       setShowEmojiPicker(false)
+      setReactionViewerCommentId(null)
       resetTextarea(commentInputRef.current)
     }
   }, [isOpen])
@@ -228,8 +317,11 @@ export default function CommentsModal({
   // Handle click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (reactionViewerCommentId) return
+
       const target = event.target as Element
       const isInsidePicker = !!target.closest('[data-minimal-emoji-picker]')
+      const isInsideReactionPicker = !!target.closest('[data-emoji-picker]')
       const isInsideInput = !!target.closest('textarea')
       const isInsideEmojiTrigger = !!target.closest('[data-emoji-trigger]')
       const modalElement = modalRef.current
@@ -250,6 +342,8 @@ export default function CommentsModal({
       // 2) inside modal but outside picker => close picker only
       // 3) inside picker => keep both open
       // Modal boundary is authoritative. Only true outside clicks close the modal.
+      if (isInsideReactionPicker) return
+
       if (!isInsideModal) {
         onClose()
         return
@@ -264,12 +358,15 @@ export default function CommentsModal({
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose, showEmojiPicker])
+  }, [isOpen, onClose, showEmojiPicker, reactionViewerCommentId])
 
   // Handle escape key and keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (reactionViewerCommentId) {
+          return
+        }
         if (editingCommentId) {
           clearEditMode()
         } else if (deleteConfirmCommentId) {
@@ -308,7 +405,7 @@ export default function CommentsModal({
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [deleteConfirmCommentId, editingCommentId, isOpen, onClose, replyingTo])
+  }, [deleteConfirmCommentId, editingCommentId, isOpen, onClose, replyingTo, reactionViewerCommentId])
 
   const handleCommentSubmit = async () => {
     if (!commentText.trim() || isSubmitting) return
@@ -570,6 +667,8 @@ export default function CommentsModal({
     const isDeletingThis = deleteConfirmCommentId === comment.id
     const isOwner = isCommentOwner(comment)
     const canDelete = canDeleteComment(comment)
+    const reactionState = getReactionForComment(comment.id)
+    const reactionEmojiCodes = getTopEmojis(reactionState.emojiCounts, 3).map(({ code }) => code)
 
     // Format time to show - use editedAt if available, otherwise createdAt
     const displayTime = comment.editedAt || comment.createdAt
@@ -688,6 +787,25 @@ export default function CommentsModal({
                   </p>
                 </div>
 
+                {reactionState.totalCount > 0 && !commentReactionsError && (
+                  <ReactionsBanner
+                    totalCount={reactionState.totalCount}
+                    emojiCodes={reactionEmojiCodes}
+                    onClick={isLoadingCommentReactions ? undefined : () => setReactionViewerCommentId(comment.id)}
+                    className="mt-1 mb-0"
+                  />
+                )}
+
+                {commentReactionsError && reactionState.totalCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={refetchCommentReactions}
+                    className="mt-1 text-xs text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Reaction sync error. Tap to retry.
+                  </button>
+                )}
+
                 {/* Delete Confirmation */}
                 {isDeletingThis && (
                   <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -721,6 +839,12 @@ export default function CommentsModal({
                 {/* Action Buttons */}
                 {!isDeletingThis && (
                   <div className="flex items-center space-x-4 mt-2">
+                    <CommentReactionButton
+                      postId={postId}
+                      commentId={comment.id}
+                      reactionState={reactionState}
+                    />
+
                     {/* Owner Actions: Edit & Delete */}
                     {isOwner && onCommentEdit && (
                       <button
@@ -1040,6 +1164,16 @@ export default function CommentsModal({
             )}
           </div>
         </div>
+
+        {reactionViewerCommentId && (
+          <ReactionViewer
+            isOpen={!!reactionViewerCommentId}
+            onClose={() => setReactionViewerCommentId(null)}
+            postId={postId}
+            objectType="comment"
+            objectId={reactionViewerCommentId}
+          />
+        )}
       </div>
   )
 }
