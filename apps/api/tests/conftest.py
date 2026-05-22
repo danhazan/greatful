@@ -20,6 +20,8 @@ os.environ.update({
     'SSL_REDIRECT': 'false',
     'SECURE_COOKIES': 'false',
     'LOG_LEVEL': 'WARNING',
+    'GEO_PROVIDER': 'nominatim',
+    'LOCATIONIQ_API_KEY': 'test-key-for-tests',
     # OAuth test configuration
     'GOOGLE_CLIENT_ID': 'test-google-client-id',
     'GOOGLE_CLIENT_SECRET': 'test-google-client-secret',

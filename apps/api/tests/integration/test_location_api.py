@@ -91,11 +91,14 @@ class TestLocationAPI:
             mock_search.assert_called_with(query="New York", limit=10, max_length=150)
 
     def test_location_search_service_error(self, client, auth_headers):
-        """Test location search when service raises error."""
-        from app.core.exceptions import BusinessLogicError
+        """Test location search when service raises upstream error."""
+        from app.core.exceptions import UpstreamServiceError
         
         with patch('app.services.location_service.LocationService.search_locations') as mock_search:
-            mock_search.side_effect = BusinessLogicError("API unavailable", "nominatim_error")
+            mock_search.side_effect = UpstreamServiceError(
+                "Location search service temporarily unavailable.",
+                constraint="upstream_unavailable",
+            )
             
             response = client.post(
                 "/api/v1/users/location/search",
@@ -103,13 +106,13 @@ class TestLocationAPI:
                 headers=auth_headers
             )
             
-            assert response.status_code == 400
+            assert response.status_code == 502
             data = response.json()
             # Should use our standardized error format
             assert "error" in data
-            assert data["error"]["code"] == "business_logic_error"
-            assert "API unavailable" in data["error"]["message"]
-            assert data["error"]["details"]["constraint"] == "nominatim_error"
+            assert data["error"]["code"] == "upstream_error"
+            assert "unavailable" in data["error"]["message"]
+            assert data["error"]["details"]["constraint"] == "upstream_unavailable"
 
     def test_location_search_cleanup(self, client, auth_headers):
         """Test that location service cleanup is called."""

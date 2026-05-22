@@ -73,6 +73,18 @@ class PermissionDeniedError(BaseAPIException):
         )
 
 
+class UpstreamServiceError(BaseAPIException):
+    """Exception for upstream/dependency service failures."""
+
+    def __init__(self, message: str, constraint: str, status_code: int = 502):
+        super().__init__(
+            status_code=status_code,
+            error_code="upstream_error",
+            message=message,
+            details={"constraint": constraint}
+        )
+
+
 class RateLimitError(BaseAPIException):
     """Exception for rate limit exceeded errors."""
     
