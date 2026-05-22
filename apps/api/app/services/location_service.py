@@ -78,10 +78,10 @@ class LocationService(BaseService):
     
     def _format_location_result(self, raw_item: Dict[str, Any], max_length: int = 150) -> Optional[Dict[str, Any]]:
         """
-        Format a raw Nominatim result into our standard format.
+        Format a raw geocoding result into our standard format.
         
         Args:
-            raw_item: Raw result from Nominatim API
+            raw_item: Raw result from the geocoding provider
             max_length: Maximum length for display_name
             
         Returns:

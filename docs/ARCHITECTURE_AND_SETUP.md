@@ -182,10 +182,12 @@ The Grateful platform includes a comprehensive social interaction system with th
   - Daily gratitude: All other content (5000 character limit)
 - **Rich Content Support**: HTML formatted content with `rich_content` field for enhanced display
 - **Post Styling**: JSON-based styling system with `post_style` field for colors, fonts, and themes
-- **Location Integration**: Structured location data with coordinates using existing OpenStreetMap integration
+- **Location Integration**: Structured location data with coordinates using the GeocoderProvider abstraction
+  - Pluggable backend: LocationIQ (production default) or Nominatim (fallback), selected via `GEO_PROVIDER` env var
   - Reuses location services from user profile system
   - Supports both simple location strings and structured JSON data
   - Includes coordinates, place IDs, and address components
+  - Provider retries 502/503/504 with exponential backoff; never retries 429 (rate-limit)
 - **Drag-and-Drop Upload**: Modern image upload interface with preview and validation
 - **Content Analysis Service**: Real-time content analysis for type detection and character limits
 - **Generous Character Limits**: No artificial restrictions - both daily and spontaneous posts support 5000 characters
@@ -1947,6 +1949,16 @@ The Grateful platform features a modern, responsive navbar architecture designed
 
 
 ## Location Management System
+
+### Geocoding Provider Architecture
+
+The location service delegates geocoding requests to a pluggable provider via the `GeocoderProvider` protocol:
+
+- **Interface**: `search(query, limit)` returns Nominatim-compatible JSON
+- **Factory**: `create_provider()` in `app/services/geocoder_provider.py` reads `GEO_PROVIDER` env var
+- **Production**: `LocationIQProvider` (requires `LOCATIONIQ_API_KEY`, 5000 req/day)
+- **Fallback**: `NominatimProvider` (no key, free, may be blocked on shared IPs)
+- **Error semantics**: Upstream failures return 502/503/504 via `UpstreamServiceError`; never 400
 
 ### Location Length Optimization
 

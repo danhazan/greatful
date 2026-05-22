@@ -56,6 +56,7 @@ class UserService(BaseService):
 - `AuthenticationError` - Authentication errors (401)
 - `RateLimitError` - Rate limiting errors (429)
 - `BusinessLogicError` - Business rule violations (400)
+- `UpstreamServiceError` - Upstream dependency failures (502/503/504) with stable constraints (`rate_limited`, `upstream_unavailable`, `request_failed`)
 
 **Example Usage**:
 ```python
@@ -174,6 +175,25 @@ if not user:
 - `remove_reaction(user_id, post_id)` - Remove user's reaction
 - `get_post_reactions(post_id)` - Get all reactions for a post
 - `get_reaction_counts(post_id)` - Get reaction statistics
+
+### LocationService (`app/services/location_service.py`)
+
+**Responsibilities**:
+- Location autocomplete via pluggable geocoding provider
+- Provider lifecycle management (client init, cleanup)
+- Result formatting with configurable display name truncation
+- Upstream error handling with retry orchestration
+
+**Key Methods**:
+- `search_locations(query, limit, max_length)` — Search locations via configured provider
+- `_format_location_result(item, max_length)` — Format raw provider result into API shape
+- `validate_location_data(location_data)` — Validate coordinate ranges and required fields
+
+**Provider Delegation**:
+- `LocationService.__init__()` accepts optional `GeocoderProvider`; if omitted, `create_provider()` reads `GEO_PROVIDER` env var
+- Factory supports: `locationiq` (default, requires `LOCATIONIQ_API_KEY`), `nominatim` (fallback, no key)
+- Provider logs: `query`, `upstream_status_code`, `result_count`, `retry_attempt`
+- LocationService logs: `provider`, `latency_ms`, `result_count`
 
 ### NotificationService (`app/services/notification_service.py`)
 

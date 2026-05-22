@@ -30,6 +30,7 @@
 - **🔁 Dev-Only Duplicate Current Profile Fetch**: In development, `/api/users/me/profile` can still appear twice on refresh due to React Strict Mode remount behavior; production is expected to issue a single request and this is acceptable for now
 
 ### ✅ Recently Resolved
+- **Geocoding Provider Migration**: ✅ COMPLETED - Location search migrated from Nominatim (blocked on Railway shared IP) to LocationIQ (API-key, 5000 req/day). Provider abstraction via `GeocoderProvider` protocol with `GEO_PROVIDER` env var switching. Rollback: set `GEO_PROVIDER=nominatim`.
 - **Toast Notification Focus Stealing**: ✅ COMPLETED - Toasts no longer interrupt typing when closing
 - **Heart Counter Real-time Updates**: ✅ COMPLETED - Real-time updates without page refresh
 - **Missing Emoji Support**: ✅ COMPLETED - Backend now supports all 10 frontend emojis

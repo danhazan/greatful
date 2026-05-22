@@ -60,7 +60,7 @@ class NominatimProvider:
                 if response.status_code == 429:
                     logger.error(
                         "Nominatim returned 429 (blocked/rate limited)",
-                        extra={"query": query},
+                        extra={"query": query, "upstream_status_code": 429},
                     )
                     raise UpstreamServiceError(
                         "Location search rate limited. Please try again.",
@@ -76,6 +76,10 @@ class NominatimProvider:
                         attempt + 1,
                         MAX_RETRIES,
                         wait,
+                        extra={
+                            "upstream_status_code": response.status_code,
+                            "retry_attempt": attempt + 1,
+                        },
                     )
                     await asyncio.sleep(wait)
                     continue
@@ -84,14 +88,26 @@ class NominatimProvider:
                     logger.error(
                         "Nominatim returned unexpected status: %d",
                         response.status_code,
-                        extra={"query": query},
+                        extra={
+                            "query": query,
+                            "upstream_status_code": response.status_code,
+                        },
                     )
                     raise UpstreamServiceError(
                         "Location search service temporarily unavailable.",
                         constraint="upstream_unavailable",
                     )
 
-                return response.json()
+                results = response.json()
+                logger.info(
+                    "Nominatim search succeeded",
+                    extra={
+                        "query": query,
+                        "upstream_status_code": 200,
+                        "result_count": len(results),
+                    },
+                )
+                return results
 
             except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError) as e:
                 last_error = e

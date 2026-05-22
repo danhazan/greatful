@@ -47,6 +47,11 @@ OAUTH_REDIRECT_URI_PRODUCTION=https://yourdomain.com/auth/callback/google
 # CORS Configuration
 ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
+# Geocoding Service (LocationIQ is default, Nominatim available as fallback)
+GEO_PROVIDER=locationiq
+LOCATIONIQ_API_KEY=your-locationiq-api-key
+GEO_REQUEST_TIMEOUT=5.0
+
 # Environment
 ENVIRONMENT=development
 ```
@@ -56,6 +61,7 @@ ENVIRONMENT=development
 - **OAuth Credentials**: Google and Facebook OAuth client credentials
 - **OAuth Redirect URIs**: Callback URLs for OAuth flow (development and production)
 - **CORS Origins**: Allowed frontend origins for API access
+- **Geocoding Provider**: `GEO_PROVIDER=locationiq` (default, also accepts `nominatim`). Requires `LOCATIONIQ_API_KEY` for LocationIQ.
 
 ### Frontend Environment
 **File**: `apps/web/.env.local` (Development)

@@ -23,7 +23,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `city` | String(100) | Nullable, Index | User's city location |
 | `institutions` | JSON | Nullable | Array of institutions (schools, companies) |
 | `websites` | JSON | Nullable | Array of user's websites/social links |
-| `location` | JSON | Nullable | Structured location data from Nominatim |
+| `location` | JSON | Nullable | Structured location data from configured geocoding provider (LocationIQ by default) |
 | `profile_photo_filename` | String(255) | Nullable, Index | Filename for profile photo variants |
 | `profile_preferences` | JSON | Nullable | User preferences and settings |
 
@@ -36,7 +36,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 
 **Location Fields:**
 - `city`: Simple text field for city name (e.g., "New York")
-- `location`: Structured JSON with coordinates and address data from OpenStreetMap
+- `location`: Structured JSON with coordinates and address data from configured geocoding provider (LocationIQ by default)
 
 **Institution and Website Arrays:**
 - `institutions`: JSON array, max 10 entries (e.g., ["Harvard University", "Google Inc."])

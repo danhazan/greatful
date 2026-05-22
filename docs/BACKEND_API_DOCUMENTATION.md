@@ -2199,6 +2199,20 @@ Content-Type: application/json
 }
 ```
 
+**Error Response Semantics:**
+
+Upstream failures return standardized error codes — never wrapped into 400:
+
+| Scenario | Status | `error.code` | `error.details.constraint` |
+|---|---|---|---|
+| Invalid/short query | 422 | `validation_error` | — |
+| Rate-limited (429 from upstream) | 502 | `upstream_error` | `rate_limited` |
+| Upstream unavailable (5xx) | 502/503 | `upstream_error` | `upstream_unavailable` |
+| Request timeout (after retries) | 504 | `upstream_error` | `request_failed` |
+| Bad API key (401 from LocationIQ) | 502 | `upstream_error` | `upstream_unavailable` |
+
+The backend uses a pluggable `GeocoderProvider` (LocationIQ by default, Nominatim fallback via `GEO_PROVIDER` env var). Provider name is logged server-side but never exposed in the API response.
+
 ### Enhanced Profile Update Endpoint
 ```http
 PUT /api/v1/users/me/profile
@@ -2276,13 +2290,14 @@ Content-Type: application/json
 - **City Field**: Location field with autocomplete search integration
 - **Institutions**: Array of up to 10 institutions (schools, companies, foundations)
 - **Websites**: Array of up to 5 validated URLs with protocol checking
-- **Location Data**: Structured location data from OpenStreetMap Nominatim API
+- **Location Data**: Structured location data from the configured geocoding provider (LocationIQ by default)
 
 #### Location Integration
-- **OpenStreetMap Integration**: Uses Nominatim API for location search and validation
+- **Pluggable Provider**: Uses the `GeocoderProvider` protocol — LocationIQ (production default, requires `LOCATIONIQ_API_KEY`) or Nominatim (fallback, via `GEO_PROVIDER=nominatim`)
 - **Structured Data**: Returns coordinates, address components, and place importance
 - **Search Optimization**: Debounced search with minimum 2 character queries
 - **Rate Limiting**: Location search endpoints are rate-limited to prevent API abuse
+- **Error Handling**: Upstream failures return standardized 502/503/504 error codes; never retries 429
 
 #### Security & Validation
 - **File Type Validation**: Strict image file type checking with magic number validation
@@ -2932,6 +2947,18 @@ await factory.create_comment_reply_notification(
 
 
 ## Location Management System
+
+### Provider Abstraction
+
+The geocoding layer uses a pluggable provider pattern:
+
+- **`GeocoderProvider` protocol** (`app/services/geocoder_provider.py`): Defines `search()` and `close()` interface
+- **`create_provider()` factory**: Reads `GEO_PROVIDER` env var (`locationiq` default, `nominatim` fallback)
+- **`LocationIQProvider`** (`app/services/locationiq_provider.py`): API-key based, requires `LOCATIONIQ_API_KEY`
+- **`NominatimProvider`** (`app/services/nominatim_provider.py`): Free, no key, User-Agent header
+- **`UpstreamServiceError`** (`app/core/exceptions.py`): Standardized upstream failure with stable constraints (`rate_limited`, `upstream_unavailable`, `request_failed`)
+
+Both providers implement exponential backoff retry (1s, 2s, max 2 retries) for 502/503/504 and timeouts. 429 and 401 are never retried.
 
 ### Location Length Optimization
 
