@@ -3,11 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import { useRouter } from 'next/navigation'
 import SharedPostWrapper from '@/components/SharedPostWrapper'
 import * as authUtils from '@/utils/auth'
+import { createMockRouter } from '../mocks/nextNavigationMock'
 
 // Mock the router
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
-}))
+jest.mock('next/navigation', () => require('../mocks/nextNavigationMock').mockNavigation)
 
 // Mock the auth utilities
 jest.mock('@/utils/auth', () => ({
@@ -19,9 +18,7 @@ jest.mock('@/utils/auth', () => ({
 global.fetch = jest.fn()
 
 const mockPush = jest.fn()
-const mockRouter = {
-  push: mockPush,
-}
+const mockRouter = createMockRouter({ push: mockPush })
 
 const mockPost = {
   id: 'test-post-1',

@@ -10,10 +10,12 @@ import AccountLinkingDialog from "@/components/AccountLinkingDialog"
 import { useOAuth } from "@/hooks/useOAuth"
 import { useUser } from "@/contexts/UserContext"
 import { setAccessToken } from "@/utils/auth"
+import { usePostLoginRedirect } from "@/hooks/useAuthRedirect"
 
 export default function LoginPage() {
   const router = useRouter()
   const { reloadUser } = useUser()
+  const { redirectTo, clearRedirect } = usePostLoginRedirect()
   const [formData, setFormData] = useState({
     email: "",
     password: ""
@@ -59,8 +61,8 @@ export default function LoginPage() {
         // Trigger UserContext to reload user data with the new token
         await reloadUser()
         
-        // Redirect to feed
-        router.push("/feed")
+        clearRedirect()
+        router.push(redirectTo)
       } else {
         // Handle structured error responses from backend
         let errorMessage = "Login failed. Please try again."

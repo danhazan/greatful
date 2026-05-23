@@ -26,6 +26,7 @@ import analyticsService from "@/services/analytics"
 import { getEmojiFromCode, emojiCodeToEmoji } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
+import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
@@ -72,6 +73,7 @@ export default function PostCard({
   const [showMultiImageModal, setShowMultiImageModal] = useState(false)
   const [multiImageInitialIndex, setMultiImageInitialIndex] = useState(0)
   const [isUserAuthenticated, setIsUserAuthenticated] = useState(false)
+  const requireAuth = useRequireAuth()
 
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [shareModalPosition, setShareModalPosition] = useState({ x: 0, y: 0 })
@@ -1039,6 +1041,7 @@ export default function PostCard({
                 <div className="flex space-x-2 flex-shrink-0">
                   <a
                     href="/auth/login"
+                    onClick={(e) => { e.preventDefault(); requireAuth() }}
                     className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors whitespace-nowrap h-7 flex items-center"
                   >
                     Log In

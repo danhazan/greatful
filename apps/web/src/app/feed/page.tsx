@@ -12,6 +12,7 @@ import { Post } from '@/types/post'
 import { FeedFilterKey, FeedFilterMode, FeedFiltersPayload, useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
+import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import {
   getScrollDirection,
   getTrueScrollTop,
@@ -47,6 +48,7 @@ const DEFAULT_FILTER_MODES: Record<FeedFilterKey, FeedFilterMode> = {
 export default function FeedPage() {
   const router = useRouter()
   const { currentUser, isLoading: userLoading, logout, updateUserProfile, updateFollowState, markDataAsFresh } = useUser()
+  const requireAuth = useRequireAuth()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)
   const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
@@ -194,19 +196,19 @@ export default function FeedPage() {
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.push("/auth/login")
+      requireAuth()
       return
     }
     if (userLoading) return
     if (!currentUser) {
       const t = setTimeout(() => {
         if (!currentUser) {
-          router.push("/auth/login")
+          requireAuth()
         }
       }, 200)
       return () => clearTimeout(t)
     }
-  }, [currentUser, userLoading, router])
+  }, [currentUser, userLoading, requireAuth])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -366,7 +368,7 @@ export default function FeedPage() {
     try {
       const token = getAccessToken()
       if (!token) {
-        router.push("/auth/login")
+        requireAuth()
         return
       }
 

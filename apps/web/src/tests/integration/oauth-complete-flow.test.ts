@@ -5,19 +5,23 @@
 
 // Mock Next.js navigation
 const mockPush = jest.fn()
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
-  useSearchParams: () => ({
-    get: (key: string) => {
-      const params = {
-        code: 'demo_auth_code',
-        state: 'demo_state',
-        provider: 'google'
+jest.mock('next/navigation', () => {
+  const m = require('../mocks/nextNavigationMock')
+  return {
+    ...m.mockNavigation,
+    useRouter: () => m.createMockRouter({ push: mockPush }),
+    useSearchParams: () => ({
+      get: (key: string) => {
+        const params = {
+          code: 'demo_auth_code',
+          state: 'demo_state',
+          provider: 'google'
+        }
+        return params[key as keyof typeof params] || null
       }
-      return params[key as keyof typeof params] || null
-    }
-  })
-}))
+    })
+  }
+})
 
 // Mock localStorage
 const mockLocalStorage = {

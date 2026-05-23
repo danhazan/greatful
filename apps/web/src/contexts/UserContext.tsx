@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { stateSyncUtils } from '@/utils/stateSynchronization'
 import { apiClient } from '@/utils/apiClient'
 import * as auth from '@/utils/auth'
+import { AUTH_LOGOUT_KEY } from '@/hooks/useAuthRedirect'
 
 export interface User {
   id: string
@@ -351,8 +352,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return lastFetchTimes[userId]
   }, [lastFetchTimes])
 
-  // Comprehensive logout function
   const logout = useCallback(() => {
+    try { sessionStorage.setItem(AUTH_LOGOUT_KEY, '1') } catch {}
     clearCurrentUserBootstrap(auth.getAccessToken())
     auth.logout()
     setCurrentUserWithTrace(null, 'logout')

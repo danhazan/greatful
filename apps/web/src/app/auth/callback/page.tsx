@@ -6,11 +6,13 @@ import { Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import oauthService from '@/services/oauthService'
 import { useUser } from '@/contexts/UserContext'
+import { usePostLoginRedirect } from '@/hooks/useAuthRedirect'
 
 export default function OAuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { reloadUser } = useUser()
+  const { redirectTo, clearRedirect } = usePostLoginRedirect()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const [isNewUser, setIsNewUser] = useState(false)
@@ -101,9 +103,9 @@ export default function OAuthCallbackPage() {
             : 'Login successful! Welcome back.'
         )
 
-        // Redirect to feed after a short delay
+        clearRedirect()
         setTimeout(() => {
-          router.push('/feed')
+          router.push(redirectTo)
         }, 2000)
 
       } catch (error: any) {

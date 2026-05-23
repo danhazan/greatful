@@ -5,15 +5,7 @@ import { ToastProvider } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    replace: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
-    refresh: jest.fn(),
-  }),
-}))
+jest.mock('next/navigation', () => require('../mocks/nextNavigationMock').mockNavigation)
 
 jest.mock('@/contexts/UserContext', () => ({
   useUser: jest.fn()

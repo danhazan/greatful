@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   User,
   Shield,
@@ -19,9 +18,10 @@ import {
 import { UserPreferences } from '@/types/user'
 import { useToast } from '@/contexts/ToastContext'
 import { getAccessToken } from '@/utils/auth'
+import { useRequireAuth } from '@/hooks/useAuthRedirect'
 
 export default function SettingsPage() {
-  const router = useRouter()
+  const requireAuth = useRequireAuth()
   const { showError: showErrorToast } = useToast()
   const [preferences, setPreferences] = useState<UserPreferences | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,7 +34,7 @@ export default function SettingsPage() {
     try {
       const token = getAccessToken()
       if (!token) {
-        router.push('/auth/login')
+        requireAuth()
         return
       }
 
@@ -56,7 +56,7 @@ export default function SettingsPage() {
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [requireAuth])
 
   useEffect(() => {
     loadPreferences()
@@ -71,7 +71,7 @@ export default function SettingsPage() {
     try {
       const token = getAccessToken()
       if (!token) {
-        router.push('/auth/login')
+        requireAuth()
         return
       }
 

@@ -4,19 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import UserSearchBar from '@/components/UserSearchBar'
 
-// Mock next/navigation
-const mockPush = jest.fn()
-
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(() => ({
-    push: mockPush,
-    replace: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
-    refresh: jest.fn(),
-    prefetch: jest.fn(),
-  })),
-}))
+jest.mock('next/navigation', () => require('../mocks/nextNavigationMock').mockNavigation)
 
 // Mock haptic feedback
 jest.mock('@/utils/hapticFeedback', () => ({
@@ -66,7 +54,6 @@ describe('UserSearchBar', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockPush.mockClear()
     mockLocalStorage.getItem.mockReturnValue('mock-token')
     mockFetch.mockResolvedValue({
       ok: true,

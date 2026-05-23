@@ -16,6 +16,7 @@ import { Post } from '@/types/post'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
+import { useRequireAuth } from "@/hooks/useAuthRedirect"
 
 // Redundant local interfaces removed - using Post and Author from @/types/post
 
@@ -37,6 +38,7 @@ export default function UserProfilePage() {
   const params = useParams()
   const userId = params['userId'] as string
   const { currentUser, isLoading: userLoading, logout } = useUser()
+  const requireAuth = useRequireAuth()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -66,7 +68,7 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     if (!userLoading && !currentUser) {
-      router.push("/auth/login")
+      requireAuth()
       return
     }
 
@@ -74,9 +76,9 @@ export default function UserProfilePage() {
 
     const token = getAccessToken()
     if (!token) {
-      router.push("/auth/login")
+      requireAuth()
     }
-  }, [router, currentUser, userLoading])
+  }, [requireAuth, currentUser, userLoading])
 
   const publicProfileQueryKey = useMemo(
     () => (userId ? queryKeys.userProfile(userId) : queryKeys.userProfile('pending')),

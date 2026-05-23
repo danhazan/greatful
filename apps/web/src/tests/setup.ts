@@ -44,6 +44,14 @@ if (typeof window !== 'undefined') {
   })
 }
 
+beforeEach(() => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.clear()
+    }
+  } catch {}
+})
+
 // Mock window.matchMedia (only in jsdom environment)
 if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'matchMedia', {

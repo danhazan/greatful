@@ -8,6 +8,7 @@ import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 import { normalizePostFromApi } from '@/utils/normalizePost'
 import { getAccessToken } from '@/utils/auth'
+import { useRequireAuth } from '@/hooks/useAuthRedirect'
 import { Post } from '@/types/post'
 
 interface SinglePostViewProps {
@@ -27,6 +28,7 @@ export default function SinglePostView({ postId, bootstrapPost = null }: SingleP
   const router = useRouter()
   const { showError } = useToast()
   const { currentUser, loading: userLoading } = useUser()
+  const requireAuth = useRequireAuth()
 
   // When postId changes, reset to the new SSR bootstrap (if any)
   useEffect(() => {
@@ -134,12 +136,13 @@ export default function SinglePostView({ postId, bootstrapPost = null }: SingleP
         </p>
         <div className="space-x-4">
           {(error === 'Authentication required to view this post' || error === 'This post is private') && (
-            <button
-              onClick={() => router.push('/auth/login')}
+            <a
+              href="/auth/login"
+              onClick={(e) => { e.preventDefault(); requireAuth() }}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
             >
               Log In
-            </button>
+            </a>
           )}
           <button
             onClick={() => router.push('/')}
@@ -174,9 +177,8 @@ export default function SinglePostView({ postId, bootstrapPost = null }: SingleP
         router.push(`/profile/${userId}`)
       }}
       onReaction={(postId, emojiCode, reactionSummary) => {
-        // If no current user, redirect to login
         if (!currentUser) {
-          router.push('/auth/login')
+          requireAuth()
           return
         }
 
@@ -190,9 +192,8 @@ export default function SinglePostView({ postId, bootstrapPost = null }: SingleP
         }
       }}
       onRemoveReaction={(postId, reactionSummary) => {
-        // If no current user, redirect to login
         if (!currentUser) {
-          router.push('/auth/login')
+          requireAuth()
           return
         }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import PostCard from "./PostCard"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { useUser } from "@/contexts/UserContext"
+import { useRequireAuth } from "@/hooks/useAuthRedirect"
 
 import { Post } from '@/types/post'
 
@@ -16,6 +17,7 @@ export default function SharedPostWrapper({ post: bootstrapPost }: SharedPostWra
   const router = useRouter()
   const [post, setPost] = useState(bootstrapPost)
   const { currentUser, isLoading } = useUser()
+  const requireAuth = useRequireAuth()
 
   // Derive authentication state from UserContext
   const isUserAuthenticated = !!currentUser
@@ -60,10 +62,9 @@ export default function SharedPostWrapper({ post: bootstrapPost }: SharedPostWra
   }, [post.id, isUserAuthenticated, currentUserId, isLoading])
 
 
-  // Handle reaction interaction
   const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: any) => {
     if (!isUserAuthenticated) {
-      router.push('/auth/login')
+      requireAuth()
       return
     }
 
@@ -78,7 +79,7 @@ export default function SharedPostWrapper({ post: bootstrapPost }: SharedPostWra
   // Handle reaction removal
   const handleRemoveReaction = async (postId: string, reactionSummary?: any) => {
     if (!isUserAuthenticated) {
-      router.push('/auth/login')
+      requireAuth()
       return
     }
 

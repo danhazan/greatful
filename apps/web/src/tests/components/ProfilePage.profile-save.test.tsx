@@ -7,18 +7,7 @@ import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 import { stateSyncUtils } from '@/utils/stateSynchronization'
 
-const mockPush = jest.fn()
-const mockRouter = {
-  push: mockPush,
-  replace: jest.fn(),
-  back: jest.fn(),
-  forward: jest.fn(),
-  refresh: jest.fn(),
-}
-
-jest.mock('next/navigation', () => ({
-  useRouter: () => mockRouter,
-}))
+jest.mock('next/navigation', () => require('../mocks/nextNavigationMock').mockNavigation)
 
 jest.mock('@/contexts/UserContext', () => ({
   useUser: jest.fn()

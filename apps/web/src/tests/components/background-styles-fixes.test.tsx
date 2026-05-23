@@ -5,17 +5,6 @@ import RichTextEditor from '@/components/RichTextEditor'
 import { POST_STYLES } from '@/components/PostStyleSelector'
 import { ToastProvider } from '@/contexts/ToastContext'
 
-// Mock the router
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
-    refresh: jest.fn(),
-    replace: jest.fn(),
-    prefetch: jest.fn()
-  })
-}))
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <ToastProvider>

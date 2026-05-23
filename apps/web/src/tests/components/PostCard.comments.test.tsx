@@ -39,16 +39,7 @@ jest.mock('@/utils/apiClient', () => ({
 }))
 
 // Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(() => ({
-    push: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
-    refresh: jest.fn(),
-    replace: jest.fn(),
-    prefetch: jest.fn(),
-  })),
-}))
+jest.mock('next/navigation', () => require('../mocks/nextNavigationMock').mockNavigation)
 
 const mockPost = {
   id: 'test-post-1',

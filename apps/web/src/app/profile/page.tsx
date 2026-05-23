@@ -21,6 +21,7 @@ import { Post } from '@/types/post'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { isAuthenticated, getAccessToken } from "@/utils/auth"
+import { useRequireAuth } from "@/hooks/useAuthRedirect"
 
 interface UserProfile {
   id: number
@@ -50,6 +51,7 @@ interface UserProfile {
 export default function ProfilePage() {
   const router = useRouter()
   const { currentUser: contextUser, isLoading: userLoading, logout } = useUser()
+  const requireAuth = useRequireAuth()
   const { showError, showDebugLoading, showDebugSuccess, hideToast } = useToast()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -112,9 +114,8 @@ export default function ProfilePage() {
 
   // Load user profile data from UserContext
   useEffect(() => {
-    // Redirect to login if no user after UserContext has loaded
     if (!userLoading && !contextUser) {
-      router.push("/auth/login")
+      requireAuth()
       return
     }
 

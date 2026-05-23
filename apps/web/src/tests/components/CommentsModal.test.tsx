@@ -4,14 +4,6 @@ import { describe, it, expect, beforeEach } from '@jest/globals'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { updateCommentReactionsCache } from '@/hooks/useImageReactions'
 
-// Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    replace: jest.fn(),
-    prefetch: jest.fn()
-  })
-}))
 
 jest.mock('@/components/EmojiPicker', () => {
   return {

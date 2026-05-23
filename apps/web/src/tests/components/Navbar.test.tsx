@@ -13,12 +13,7 @@ jest.mock('next/link', () => {
 })
 
 // Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn().mockReturnValue({
-    push: jest.fn(),
-    back: jest.fn(),
-  }),
-}))
+jest.mock('next/navigation', () => require('../mocks/nextNavigationMock').mockNavigation)
 
 // Mock NotificationSystem component
 jest.mock('@/components/NotificationSystem', () => {
