@@ -4,7 +4,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { stateSyncUtils } from '@/utils/stateSynchronization'
 import { apiClient } from '@/utils/apiClient'
 import * as auth from '@/utils/auth'
-import { AUTH_LOGOUT_KEY } from '@/hooks/useAuthRedirect'
+import { AUTH_LOGOUT_KEY, buildLoginRedirectUrl } from '@/hooks/useAuthRedirect'
+import { onSessionExpired } from '@/utils/authFailureHandler'
+import { smartNotificationPoller } from '@/utils/smartNotificationPoller'
 
 export interface User {
   id: string
@@ -145,6 +147,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const currentUserRef = useRef<User | null>(currentUser)
   const isLoadingRef = useRef(isLoading)
   const userProfilesRef = useRef(userProfiles)
+  const isHandlingSessionExpiryRef = useRef(false)
 
   currentUserRef.current = currentUser
   isLoadingRef.current = isLoading
@@ -382,6 +385,35 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     loadUser()
   }, [loadUser])
+
+  // Listen for session-expired events dispatched by apiClient when
+  // a refresh attempt returns 401/403 (session irrecoverably invalid).
+  useEffect(() => {
+    const unsubscribe = onSessionExpired(() => {
+      if (isHandlingSessionExpiryRef.current) return
+      isHandlingSessionExpiryRef.current = true
+
+      smartNotificationPoller.stop()
+
+      clearCurrentUserBootstrap()
+      auth.logout()
+      setCurrentUserWithTrace(null, 'sessionExpired')
+      setUserProfiles({})
+      setFollowStates({})
+      setLastFetchTimes({})
+      setViewerScope('anon')
+      apiClient.clearCache()
+
+      try { sessionStorage.setItem(AUTH_LOGOUT_KEY, '1') } catch {}
+
+      const currentPath = window.location.pathname
+      if (currentPath.startsWith('/auth/') || currentPath === '/') return
+
+      const currentUrl = window.location.pathname + window.location.search
+      window.location.replace(buildLoginRedirectUrl(currentUrl))
+    })
+    return unsubscribe
+  }, [])
 
   const value: UserContextType = {
     currentUser,

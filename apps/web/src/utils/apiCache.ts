@@ -261,12 +261,28 @@ class APICache {
 
   private async executeHttpRequest<T>(url: string, options?: RequestInit): Promise<T> {
     const response = await fetch(url, options)
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+
+    let body: string
+    try {
+      body = await response.text()
+    } catch {
+      // Fallback for test environments where response.text() may be unavailable
+      const json = await response.json()
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${JSON.stringify(json).substring(0, 200)}`)
+      }
+      return json as T
     }
-    
-    return response.json()
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${body.substring(0, 200)}`)
+    }
+
+    try {
+      return JSON.parse(body)
+    } catch {
+      return body as unknown as T
+    }
   }
 
   /**

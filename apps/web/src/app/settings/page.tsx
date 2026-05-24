@@ -17,11 +17,9 @@ import {
 
 import { UserPreferences } from '@/types/user'
 import { useToast } from '@/contexts/ToastContext'
-import { getAccessToken } from '@/utils/auth'
-import { useRequireAuth } from '@/hooks/useAuthRedirect'
+import { apiClient } from '@/utils/apiClient'
 
 export default function SettingsPage() {
-  const requireAuth = useRequireAuth()
   const { showError: showErrorToast } = useToast()
   const [preferences, setPreferences] = useState<UserPreferences | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,31 +30,14 @@ export default function SettingsPage() {
 
   const loadPreferences = useCallback(async () => {
     try {
-      const token = getAccessToken()
-      if (!token) {
-        requireAuth()
-        return
-      }
-
-      const response = await fetch('/api/preferences', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to load preferences')
-      }
-
-      const data = await response.json()
+      const data = await apiClient.get<UserPreferences>('/preferences')
       setPreferences(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load preferences')
     } finally {
       setLoading(false)
     }
-  }, [requireAuth])
+  }, [])
 
   useEffect(() => {
     loadPreferences()
@@ -69,32 +50,12 @@ export default function SettingsPage() {
     setError(null)
 
     try {
-      const token = getAccessToken()
-      if (!token) {
-        requireAuth()
-        return
-      }
-
-      const response = await fetch('/api/preferences', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          allowSharing: preferences.allowSharing,
-          allowMentions: preferences.allowMentions,
-          privacyLevel: preferences.privacyLevel,
-          notificationSettings: preferences.notificationSettings,
-        }),
+      const updatedPreferences = await apiClient.put<UserPreferences>('/preferences', {
+        allowSharing: preferences.allowSharing,
+        allowMentions: preferences.allowMentions,
+        privacyLevel: preferences.privacyLevel,
+        notificationSettings: preferences.notificationSettings,
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to save preferences')
-      }
-
-      const updatedPreferences = await response.json()
       setPreferences(updatedPreferences)
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)

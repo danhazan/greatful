@@ -57,13 +57,16 @@ class OptimizedAPIClient {
 
     const url = `${this.baseURL}${endpoint}`
     const authHeaders = this.getAuthHeaders()
+    const headers: Record<string, string> = {
+      ...authHeaders,
+      ...(fetchOptions.headers as Record<string, string> || {})
+    }
+    if (!(fetchOptions.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json'
+    }
     const requestOptions: RequestInit = {
       ...fetchOptions,
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-        ...fetchOptions.headers
-      }
+      headers
     }
 
     // Use appropriate cache based on endpoint
@@ -167,11 +170,18 @@ class OptimizedAPIClient {
           }
 
           // Refresh failed
-          const { logout } = await import('./auth')
-          logout()
           this.refreshSubscribers.forEach(cb => cb('')) // Reject all pending
           this.refreshSubscribers = []
-          throw new Error('Session expired')
+
+          if (refreshRes.status === 401 || refreshRes.status === 403) {
+            // Session definitively invalid
+            const { handleSessionExpired } = await import('./authFailureHandler')
+            handleSessionExpired()
+            throw new Error('Session expired')
+          }
+
+          // Transient refresh failure (5xx, network, timeout) — don't log out
+          throw new Error(`Refresh failed: ${refreshRes.status}`)
         } finally {
           this.isRefreshing = false
         }
@@ -212,11 +222,12 @@ class OptimizedAPIClient {
     data?: any,
     options: RequestOptions = {}
   ): Promise<T> {
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined)
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-      skipCache: true // POST requests shouldn't be cached
+      body,
+      skipCache: true
     })
   }
 
@@ -228,11 +239,12 @@ class OptimizedAPIClient {
     data?: any,
     options: RequestOptions = {}
   ): Promise<T> {
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined)
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-      skipCache: true // PUT requests shouldn't be cached
+      body,
+      skipCache: true
     })
   }
 
@@ -244,11 +256,12 @@ class OptimizedAPIClient {
     data?: any,
     options: RequestOptions = {}
   ): Promise<T> {
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined)
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
-      skipCache: true // PATCH requests shouldn't be cached
+      body,
+      skipCache: true
     })
   }
 

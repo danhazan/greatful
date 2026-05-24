@@ -11,7 +11,7 @@ import Navbar from "@/components/Navbar"
 import { Post } from '@/types/post'
 import { FeedFilterKey, FeedFilterMode, FeedFiltersPayload, useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
-import { isAuthenticated, getAccessToken } from "@/utils/auth"
+import { isAuthenticated } from "@/utils/auth"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import {
   getScrollDirection,
@@ -366,13 +366,7 @@ export default function FeedPage() {
     setIsCreatingPost(true)
 
     try {
-      const token = getAccessToken()
-      if (!token) {
-        requireAuth()
-        return
-      }
-
-      let response: Response
+      let body: FormData | Record<string, unknown>
 
       // If there are multiple image files, send as FormData with images array
       if (postData.imageFiles && postData.imageFiles.length > 0) {
@@ -385,19 +379,10 @@ export default function FeedPage() {
         if (postData.privacyLevel) formData.append('privacyLevel', postData.privacyLevel)
         if (postData.privacyRules) formData.append('privacyRules', JSON.stringify(postData.privacyRules))
         if (postData.specificUsers) formData.append('specificUsers', JSON.stringify(postData.specificUsers))
-        // Append all images (backend expects 'images' field for multi-image)
         postData.imageFiles.forEach(file => {
           formData.append('images', file)
         })
-
-        response = await fetch('/api/posts', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-            // Don't set Content-Type for FormData
-          },
-          body: formData
-        })
+        body = formData
       } else if (postData.imageFile) {
         // Legacy single image support (deprecated)
         const formData = new FormData()
@@ -410,69 +395,34 @@ export default function FeedPage() {
         if (postData.privacyRules) formData.append('privacyRules', JSON.stringify(postData.privacyRules))
         if (postData.specificUsers) formData.append('specificUsers', JSON.stringify(postData.specificUsers))
         formData.append('image', postData.imageFile)
-
-        response = await fetch('/api/posts', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-            // Don't set Content-Type for FormData
-          },
-          body: formData
-        })
+        body = formData
       } else {
-        // Send as JSON if no image
-        response = await fetch('/api/posts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            content: postData.content.trim(),
-            richContent: postData.richContent,
-            postStyle: postData.postStyle,
-            imageUrl: postData.imageUrl,
-            location: postData.location,
-            location_data: postData.location_data,
-            privacyLevel: postData.privacyLevel,
-            privacyRules: postData.privacyRules,
-            specificUsers: postData.specificUsers
-          })
-        })
+        body = {
+          content: postData.content.trim(),
+          richContent: postData.richContent,
+          postStyle: postData.postStyle,
+          imageUrl: postData.imageUrl,
+          location: postData.location,
+          location_data: postData.location_data,
+          privacyLevel: postData.privacyLevel,
+          privacyRules: postData.privacyRules,
+          specificUsers: postData.specificUsers
+        }
       }
 
-      if (!response.ok) {
-        // Handle non-JSON error responses gracefully (e.g., "Forbidden" from proxy/WAF)
-        let errorMessage = 'Failed to create post'
-        try {
-          const contentType = response.headers.get('content-type') || ''
-          if (contentType.includes('application/json')) {
-            const errorData = await response.json()
-            errorMessage = errorData.error || errorData.detail || errorMessage
-          } else {
-            // Non-JSON response (e.g., proxy error, WAF block)
-            const text = await response.text()
-            if (text.toLowerCase().includes('forbidden')) {
-              errorMessage = 'Upload blocked - the image may be too large or contain unsupported content. Try a smaller image (under 5MB).'
-            } else if (text.toLowerCase().includes('too large') || text.toLowerCase().includes('payload')) {
-              errorMessage = 'Image file is too large. Maximum size is 5MB per image.'
-            } else if (response.status === 413) {
-              errorMessage = 'Image file is too large. Maximum size is 5MB per image.'
-            } else if (response.status === 403) {
-              errorMessage = 'Upload blocked by security rules. Try a different image.'
-            } else {
-              errorMessage = `Upload failed (${response.status}): ${text.substring(0, 100)}`
-            }
-          }
-        } catch {
-          // If even reading the response fails, use status code
-          if (response.status === 413) {
-            errorMessage = 'Image file is too large. Maximum size is 5MB per image.'
-          } else if (response.status === 403) {
-            errorMessage = 'Upload blocked by security rules. Try a different image.'
-          }
+      // apiClient.post handles auth header, 401 refresh, and session-expired dispatch
+      try {
+        await apiClient.post('/posts', body)
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : ''
+        // Map backend/proxy errors to user-friendly messages
+        if (msg.includes('413') || /too large|payload|file size/i.test(msg)) {
+          throw new Error('Image file is too large. Maximum size is 5MB per image.')
         }
-        throw new Error(errorMessage)
+        if (msg.includes('403') || /forbidden|blocked/i.test(msg)) {
+          throw new Error('Upload blocked - the image may be too large or contain unsupported content. Try a smaller image (under 5MB).')
+        }
+        throw error
       }
 
       // Refresh feed with a network read so the newly created post is visible immediately
