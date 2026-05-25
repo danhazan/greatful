@@ -499,9 +499,7 @@ describe('CommentsModal', () => {
   it('shows relative timestamps for comments', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
-    // Should show some time ago format (e.g., "0s", "1m", etc.)
-    const timeElements = screen.getAllByText(/\d+[smhdwy]/)
-    expect(timeElements.length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Just now').length).toBeGreaterThan(0)
   })
 
   it('collapses replies when clicking hide replies button', async () => {

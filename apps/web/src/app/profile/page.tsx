@@ -18,6 +18,7 @@ import { stateSyncUtils } from "@/utils/stateSynchronization"
 import { useUser } from "@/contexts/UserContext"
 import { useToast } from "@/contexts/ToastContext"
 import { Post } from '@/types/post'
+import { formatDate } from '@/utils/formatDate'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
@@ -556,16 +557,6 @@ export default function ProfilePage() {
   const handleDeletePost = (postId: string) => {
     // Remove the post from the local state
     setPosts(posts.filter(post => post.id !== postId))
-  }
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'Unknown'
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Invalid Date'
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long'
-    })
   }
 
   if (isAuthTransitioning) {
@@ -1212,7 +1203,7 @@ export default function ProfilePage() {
                       <div className="flex items-center justify-center sm:justify-start space-x-4 text-xs sm:text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span>Joined {formatDate(user.joinDate)}</span>
+                          <span>Joined {formatDate(user.joinDate, { mode: 'monthYear' })}</span>
                         </div>
                       </div>
 

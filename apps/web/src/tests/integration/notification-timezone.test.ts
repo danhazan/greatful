@@ -23,11 +23,9 @@ describe('Notification Timezone Integration', () => {
     // Simulate the API transformation that adds 'Z' suffix
     const frontendTimestamp = backendTimestamp.replace(' ', 'T') + 'Z'
     
-    // Test that the transformed timestamp is interpreted correctly
     const result = formatTimeAgo(frontendTimestamp)
     
-    // Should show 5 minutes ago (17:00 - 16:55 = 5 minutes)
-    expect(result).toBe('5m')
+    expect(result).toBe('5m ago')
   })
 
   it('should handle timestamps that already have Z suffix', () => {
@@ -37,27 +35,26 @@ describe('Notification Timezone Integration', () => {
     // Should not double-add the Z suffix
     const result = formatTimeAgo(timestampWithZ)
     
-    // Should show 10 minutes ago (17:00 - 16:50 = 10 minutes)
-    expect(result).toBe('10m')
+    expect(result).toBe('10m ago')
   })
 
   it('should correctly calculate time differences for recent notifications', () => {
     const testCases = [
       {
         backendTime: '2025-08-26 16:59:30.000000', // 30 seconds ago
-        expected: '30s'
+        expected: 'Just now'
       },
       {
         backendTime: '2025-08-26 16:58:00.000000', // 2 minutes ago
-        expected: '2m'
+        expected: '2m ago'
       },
       {
         backendTime: '2025-08-26 15:30:00.000000', // 1.5 hours ago
-        expected: '1h'
+        expected: '1h ago'
       },
       {
         backendTime: '2025-08-25 17:00:00.000000', // 1 day ago
-        expected: '1d'
+        expected: '1d ago'
       }
     ]
 
@@ -81,7 +78,7 @@ describe('Notification Timezone Integration', () => {
       return formatTimeAgo(frontendTime)
     })
 
-    expect(results).toEqual(['2m', '5m', '10m'])
+    expect(results).toEqual(['2m ago', '5m ago', '10m ago'])
   })
 
   it('should not show 3h for recent notifications', () => {
@@ -99,8 +96,7 @@ describe('Notification Timezone Integration', () => {
       // None of these should show "3h"
       expect(result).not.toBe('3h')
       
-      // They should show minutes
-      expect(result).toMatch(/^\d+[ms]$/)
+      expect(result).toMatch(/^(Just now|\d+m ago)$/)
     })
   })
 
@@ -110,6 +106,6 @@ describe('Notification Timezone Integration', () => {
     const frontendTime = threeHoursAgo.replace(' ', 'T') + 'Z'
     const result = formatTimeAgo(frontendTime)
     
-    expect(result).toBe('3h')
+    expect(result).toBe('3h ago')
   })
 })

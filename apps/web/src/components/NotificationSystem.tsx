@@ -17,6 +17,7 @@ import {
 } from "@/utils/notificationThumbnails"
 
 import { Notification } from "@/types/notification"
+import { formatDate } from "@/utils/formatDate"
 
 interface NotificationSystemProps {
   userId: string | number
@@ -186,19 +187,8 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
 
 
-  const formatTime = (dateString: string | undefined) => {
-    if (!dateString) return "Unknown time"
-
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return "Invalid date"
-
-    // Use currentTime state instead of new Date() for live updates
-    const diffInMinutes = (currentTime.getTime() - date.getTime()) / (1000 * 60)
-
-    if (diffInMinutes < 1) return "Just now"
-    if (diffInMinutes < 60) return `${Math.floor(diffInMinutes)}m ago`
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
-    return date.toLocaleDateString()
+  const formatNotificationTime = (dateString: string | undefined) => {
+    return formatDate(dateString, { mode: 'adaptive', now: currentTime })
   }
 
   return (
@@ -340,7 +330,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                               {formatNotificationWithEnhancedData(notification as any)}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
-                              {formatTime(notification.lastUpdatedAt || notification.createdAt)}
+                              {formatNotificationTime(notification.lastUpdatedAt || notification.createdAt)}
                             </p>
                           </div>
 
@@ -412,7 +402,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                     {formatNotificationWithEnhancedData(child as any)}
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1">
-                                    {formatTime(child.lastUpdatedAt || child.createdAt)}
+                                    {formatNotificationTime(child.lastUpdatedAt || child.createdAt)}
                                   </p>
                                 </div>
                               </div>

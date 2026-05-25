@@ -25,6 +25,7 @@ import ReactionsBanner from "./ReactionsBanner"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode, emojiCodeToEmoji } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
+import { formatDate } from "@/utils/formatDate"
 
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
@@ -163,25 +164,6 @@ export default function PostCard({
 
     validateMentions()
   }, [currentPost.content, currentUserId])
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "Unknown date"
-
-    const date = new Date(dateString)
-
-    // Check if date is valid
-    if (isNaN(date.getTime())) {
-      console.warn('Invalid date string:', dateString)
-      return "Invalid date"
-    }
-
-    const now = new Date()
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-
-    if (diffInHours < 1) return "Just now"
-    if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`
-    return date.toLocaleDateString()
-  }
 
   // Determine which date to show and whether to indicate it was edited
   const getDisplayDate = () => {

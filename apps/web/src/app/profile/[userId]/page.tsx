@@ -13,6 +13,7 @@ import { transformUserPosts } from "@/lib/transformers"
 import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
 import { Post } from '@/types/post'
+import { formatDate } from '@/utils/formatDate'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
@@ -403,7 +404,7 @@ export default function UserProfilePage() {
                 <div className="flex items-center justify-center md:justify-start space-x-6 text-sm text-gray-500 mb-4">
                   <div className="flex items-center space-x-1">
                     <Calendar className="h-4 w-4" />
-                    <span>Joined {new Date(profile.createdAt).toLocaleDateString()}</span>
+                    <span>Joined {formatDate(profile.createdAt, { mode: 'monthYear' })}</span>
                   </div>
                 </div>
 
