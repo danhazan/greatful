@@ -1,17 +1,11 @@
+import { resolveLocale } from './locale'
+
 export type DateMode = 'relative' | 'adaptive' | 'calendar' | 'monthYear'
 
 export interface FormatDateOptions {
   mode?: DateMode
   now?: Date
   locale?: string
-}
-
-function getLocale(locale?: string): string {
-  if (locale) return locale
-  if (typeof navigator !== 'undefined') {
-    return navigator.language || navigator.languages?.[0] || 'en-US'
-  }
-  return Intl.DateTimeFormat().resolvedOptions().locale || 'en-US'
 }
 
 function formatCalendarDate(date: Date, locale: string): string {
@@ -34,6 +28,7 @@ export function formatDate(
   options?: FormatDateOptions
 ): string {
   const { mode = 'adaptive', now: nowOption, locale: localeOption } = options ?? {}
+  const locale = localeOption ?? resolveLocale()
 
   if (!dateString) return ''
 
@@ -44,11 +39,11 @@ export function formatDate(
   }
 
   if (mode === 'calendar') {
-    return formatCalendarDate(date, getLocale(localeOption))
+    return formatCalendarDate(date, locale)
   }
 
   if (mode === 'monthYear') {
-    return formatMonthYear(date, getLocale(localeOption))
+    return formatMonthYear(date, locale)
   }
 
   const now = nowOption ?? new Date()
@@ -65,7 +60,7 @@ export function formatDate(
   if (diffHours < 24) return `${diffHours}h ago`
 
   if (mode === 'adaptive') {
-    return formatCalendarDate(date, getLocale(localeOption))
+    return formatCalendarDate(date, locale)
   }
 
   const diffDays = Math.floor(diffHours / 24)
