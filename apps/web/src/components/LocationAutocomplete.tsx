@@ -5,7 +5,7 @@ import { MapPin, X, Loader2 } from "lucide-react"
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { useClickOutside } from "@/hooks/useClickOutside"
 import { getCompleteInputStyling } from '@/utils/inputStyles'
-import { getAccessToken } from '@/utils/auth'
+import { apiClient } from '@/utils/apiClient'
 
 interface LocationResult {
   displayName: string
@@ -62,30 +62,11 @@ export default function LocationAutocomplete({
     setError(null)
 
     try {
-      const token = getAccessToken()
-      if (!token) {
-        throw new Error("Authentication required")
-      }
-
-      const response = await fetch('/api/users/location/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          query: query.trim(),
-          limit: 8,
-          max_length: 150
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Search failed')
-      }
-
-      const data = await response.json()
+      const data = await apiClient.post('/users/location/search', {
+        query: query.trim(),
+        limit: 8,
+        max_length: 150
+      }) as any
       setResults(data.data || [])
       setIsOpen(true)
       setSelectedIndex(-1)

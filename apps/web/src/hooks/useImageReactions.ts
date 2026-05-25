@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getAccessToken } from '@/utils/auth'
+import { apiClient } from '@/utils/apiClient'
 import { IMAGE_REACTIONS_CONFIG } from '@/config/reactions'
 
 export interface ReactionSummaryData {
@@ -158,11 +158,7 @@ function createSummaryStore(name: string, endpointForPost: (postId: string) => s
 
     const fetchPromise = (async () => {
       try {
-        const token = getAccessToken();
-        const headers: Record<string, string> = { 'Accept': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const response = await fetch(endpointForPost(postId), { headers });
+        const response = await apiClient.requestRaw(endpointForPost(postId), { method: 'GET' });
         if (!response.ok) throw new Error(`Fetch failed: ${response.statusText} (${response.status})`);
 
         return await response.json();
@@ -246,8 +242,8 @@ function createSummaryStore(name: string, endpointForPost: (postId: string) => s
   };
 }
 
-const imageStore = createSummaryStore('ImageReactions', postId => `/api/posts/${postId}/image-reactions`);
-const commentStore = createSummaryStore('CommentReactions', postId => `/api/posts/${postId}/comment-reactions`);
+const imageStore = createSummaryStore('ImageReactions', postId => `/posts/${postId}/image-reactions`);
+const commentStore = createSummaryStore('CommentReactions', postId => `/posts/${postId}/comment-reactions`);
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).__IMAGE_REACTION_CACHE__ = {

@@ -11,7 +11,7 @@ interface UseUserSearchOptions {
 }
 
 import { normalizeToUserSearchResult } from '@/utils/userDataMapping'
-import { getAccessToken } from '@/utils/auth'
+import { apiClient } from '@/utils/apiClient'
 
 const identityQuery = (value: string) => value
 
@@ -52,30 +52,10 @@ export function useUserSearch({
 
   const executeSearch = useCallback(async (cleanQuery: string) => {
     try {
-      const token = getAccessToken()
-      if (!token) {
-        console.error('No auth token found')
-        setUsers([])
-        return
-      }
-
-      const response = await fetch('/api/users/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          query: cleanQuery,
-          limit,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const data = await apiClient.post('/users/search', {
+        query: cleanQuery,
+        limit,
+      }) as any
       setUsers(normalizeSearchResults(data))
     } catch (error) {
       console.error('User search error:', error)

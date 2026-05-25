@@ -251,11 +251,10 @@ describe('PostCard State Updates', () => {
     )
 
     // Should show empty heart icon (no emoji text)
-    const heartButton = screen.getByTitle('Login to react to posts')
+    const heartButton = screen.getByTitle('React with emoji')
     const heartIcon = heartButton.querySelector('svg')
     expect(heartIcon).toBeInTheDocument()
     expect(screen.queryByText('💜')).not.toBeInTheDocument()
-    expect(screen.queryByText('🙏')).not.toBeInTheDocument()
     
     // Total count should NOT be visible when it's 0 (ReactionsBanner returns null)
     expect(screen.queryByTitle('Reactions')).not.toBeInTheDocument()

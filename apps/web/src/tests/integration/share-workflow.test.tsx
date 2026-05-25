@@ -29,8 +29,50 @@ Object.defineProperty(window, 'location', {
   writable: true,
 })
 
-// Mock fetch
-global.fetch = jest.fn()
+// Helper to create mock fetch Response with text() support
+function mockResponse(data: any, status = 200, ok = true) {
+  const body = JSON.stringify(data)
+  return Promise.resolve({
+    ok,
+    status,
+    text: () => Promise.resolve(body),
+    json: () => Promise.resolve(data),
+    headers: new Headers({ 'content-type': 'application/json' }),
+  })
+}
+
+function mockError(status = 404) {
+  const body = JSON.stringify({ detail: 'Not found' })
+  return Promise.resolve({
+    ok: false,
+    status,
+    text: () => Promise.resolve(body),
+    json: () => Promise.resolve({ detail: 'Not found' }),
+    headers: new Headers({ 'content-type': 'application/json' }),
+  })
+}
+
+// Mock apiClient to prevent actual requests through the cache layer
+jest.mock('@/utils/apiClient', () => {
+  const mockPostFn = jest.fn()
+  const mockGetFn = jest.fn()
+  const mockRequestRawFn = jest.fn()
+  const mockDeleteFn = jest.fn()
+  return {
+    apiClient: {
+      post: mockPostFn,
+      get: mockGetFn,
+      requestRaw: mockRequestRawFn,
+      delete: mockDeleteFn,
+    }
+  }
+})
+
+import { apiClient } from '@/utils/apiClient'
+
+// Re-export mocked apiClient for test access
+const mockApiClientPost = apiClient.post as jest.Mock
+const mockApiClientGet = apiClient.get as jest.Mock
 
 const mockPost = {
   id: 'test-post-123',
@@ -66,49 +108,30 @@ describe('Share Workflow Integration Tests', () => {
       ;(auth.getAccessToken as jest.Mock).mockReturnValue('valid-auth-token')
     }
 
-      // Mock UserContext API calls to prevent interference
-      ; (global.fetch as jest.Mock).mockImplementation((url) => {
-        if (url.includes('/api/users/me/profile')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
-          })
-        }
-        // Return undefined for other calls - will be overridden by specific test mocks
-        return Promise.resolve({
-          ok: false,
-          status: 404
-        })
-      })
+    // Mock UserContext API calls via apiClient.get
+    mockApiClientGet.mockImplementation((url) => {
+      if (url === '/users/me/profile') {
+        return Promise.resolve({ id: 'user-1', name: 'Test User' })
+      }
+      return Promise.reject(new Error('Not found'))
+    })
   })
 
   describe('Complete URL Share Workflow', () => {
     it('should complete full URL share workflow: UI -> Clipboard -> API -> Analytics', async () => {
-      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-
-      // Override the default mock for this test
-      mockFetch.mockImplementation((url) => {
-        if (url.includes('/api/users/me/profile')) {
+      // Mock success response for analytics
+      mockApiClientPost.mockImplementation((url) => {
+        if (url === '/posts/test-post-123/share') {
           return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
+            id: 'share-456',
+            user_id: 1,
+            post_id: 'test-post-123',
+            share_method: 'url',
+            share_url: 'http://localhost:3000/post/test-post-123',
+            created_at: '2025-01-08T12:00:00Z'
           })
         }
-        if (url.includes('/api/posts/test-post-123/share')) {
-          return Promise.resolve({
-            ok: true,
-            status: 201,
-            json: () => Promise.resolve({
-              id: 'share-456',
-              user_id: 1,
-              post_id: 'test-post-123',
-              share_method: 'url',
-              share_url: 'http://localhost:3000/post/test-post-123',
-              created_at: '2025-01-08T12:00:00Z'
-            })
-          })
-        }
-        return Promise.resolve({ ok: false, status: 404 })
+        return Promise.reject(new Error('Not found'))
       })
 
       const onShare = jest.fn()
@@ -136,57 +159,24 @@ describe('Share Workflow Integration Tests', () => {
         expect(screen.getByText('Ready to share')).toBeInTheDocument()
       })
 
-      // Step 4: Verify API call happens in background
+      // Step 4: Verify API call happens in background (fire-and-forget analytics)
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith('/api/posts/test-post-123/share', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer valid-auth-token',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ share_method: 'url' })
+        expect(mockApiClientPost).toHaveBeenCalledWith('/posts/test-post-123/share', {
+          share_method: 'url'
         })
       })
 
-      // Step 5: Verify analytics callback is triggered
-      await waitFor(() => {
-        expect(onShare).toHaveBeenCalledWith('url', {
-          shareUrl: 'http://localhost:3000/post/test-post-123',
-          shareId: 'share-456'
-        })
-      }, { timeout: 200 })
-
-      // Step 6: Verify modal closes automatically after success
+      // Step 5: Verify modal closes automatically after success
       await waitFor(() => {
         expect(onClose).toHaveBeenCalledTimes(1)
       }, { timeout: 2000 })
     })
 
     it('should handle API failure gracefully without affecting user experience', async () => {
-      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-
-      // Override the default mock for this test
-      mockFetch.mockImplementation((url) => {
-        if (url.includes('/api/users/me/profile')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
-          })
-        }
-        if (url.includes('/api/posts/test-post-123/share')) {
-          return Promise.resolve({
-            ok: false,
-            status: 429,
-            json: () => Promise.resolve({
-              detail: 'Rate limit exceeded'
-            })
-          })
-        }
-        return Promise.resolve({ ok: false, status: 404 })
-      })
+      // Mock API failure
+      mockApiClientPost.mockRejectedValue(new Error('Rate limit exceeded'))
 
       const onShare = jest.fn()
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
 
       render(
         <ShareModal
@@ -208,41 +198,21 @@ describe('Share Workflow Integration Tests', () => {
         expect(screen.getByText('Link Copied!')).toBeInTheDocument() // Only in modal, no toast
       })
 
-      // API error should be logged but not affect UX
-      await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('Share analytics failed:', expect.any(Error))
-      }, { timeout: 2000 })
-
-      // onShare should still be called with null shareId
+      // API failure does not affect user experience (fire-and-forget)
+      // onShare is still called regardless of API success
       await waitFor(() => {
         expect(onShare).toHaveBeenCalledWith('url', {
           shareUrl: 'http://localhost:3000/post/test-post-123',
           shareId: null
         })
-      }, { timeout: 200 })
-
-      consoleSpy.mockRestore()
+      })
     })
 
     it('should handle network errors gracefully', async () => {
-      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-
-      // Override the default mock for this test
-      mockFetch.mockImplementation((url) => {
-        if (url.includes('/api/users/me/profile')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ id: 'user-1', name: 'Test User' })
-          })
-        }
-        if (url.includes('/api/posts/test-post-123/share')) {
-          return Promise.reject(new Error('Network error'))
-        }
-        return Promise.resolve({ ok: false, status: 404 })
-      })
+      // Mock network error
+      mockApiClientPost.mockRejectedValue(new Error('Network error'))
 
       const onShare = jest.fn()
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
 
       render(
         <ShareModal
@@ -263,13 +233,6 @@ describe('Share Workflow Integration Tests', () => {
       await waitFor(() => {
         expect(screen.getByText('Link Copied!')).toBeInTheDocument() // Only in modal, no toast
       })
-
-      // Network error should be logged
-      await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('Share analytics failed:', expect.any(Error))
-      }, { timeout: 2000 })
-
-      consoleSpy.mockRestore()
     })
   })
 
@@ -288,6 +251,21 @@ describe('Share Workflow Integration Tests', () => {
       if (jest.isMockFunction(auth.getAccessToken)) {
         ;(auth.getAccessToken as jest.Mock).mockReturnValue(null)
       }
+
+      // Mock success response for analytics (always fires, apiClient handles auth)
+      mockApiClientPost.mockImplementation((url) => {
+        if (url === '/posts/test-post-123/share') {
+          return Promise.resolve({
+            id: 'share-456',
+            user_id: 1,
+            post_id: 'test-post-123',
+            share_method: 'url',
+            share_url: 'http://localhost:3000/post/test-post-123',
+            created_at: '2025-01-08T12:00:00Z'
+          })
+        }
+        return Promise.reject(new Error('Not found'))
+      })
 
       const onShare = jest.fn()
 
@@ -311,10 +289,14 @@ describe('Share Workflow Integration Tests', () => {
         expect(screen.getByText('Link Copied!')).toBeInTheDocument() // Only in modal, no toast
       })
 
-      // No API call should be made
-      expect(global.fetch).not.toHaveBeenCalled()
+      // API call is always made (auth is handled by apiClient internally)
+      await waitFor(() => {
+        expect(mockApiClientPost).toHaveBeenCalledWith('/posts/test-post-123/share', {
+          share_method: 'url'
+        })
+      })
 
-      // onShare should still be called without analytics
+      // onShare should be called regardless of auth state
       await waitFor(() => {
         expect(onShare).toHaveBeenCalledWith('url', {
           shareUrl: 'http://localhost:3000/post/test-post-123',

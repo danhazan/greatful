@@ -20,7 +20,6 @@ import { useToast } from "@/contexts/ToastContext"
 import { Post } from '@/types/post'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
-import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 
 interface UserProfile {
@@ -50,7 +49,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { currentUser: contextUser, isLoading: userLoading, logout } = useUser()
+  const { currentUser: contextUser, isLoading: userLoading, isAuthTransitioning, logout } = useUser()
   const requireAuth = useRequireAuth()
   const { showError, showDebugLoading, showDebugSuccess, hideToast } = useToast()
   const [user, setUser] = useState<UserProfile | null>(null)
@@ -91,7 +90,6 @@ export default function ProfilePage() {
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
-  const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
   const usernameInputRef = useRef<HTMLInputElement>(null)
   const passwordSectionRef = useRef<HTMLDivElement>(null)
 
@@ -139,8 +137,8 @@ export default function ProfilePage() {
     () => (contextUser?.id ? [queryTags.userPosts(contextUser.id)] : []),
     [contextUser?.id]
   )
-  const authResolved = hasAccessToken !== null && !userLoading
-  const canQueryProfile = authResolved && !!hasAccessToken
+  const authResolved = !userLoading
+  const canQueryProfile = authResolved
   const fetchCurrentUserProfile = useCallback(
     async () => normalizeUserData(await apiClient.getCurrentUserProfile({ skipCache: true })),
     []
@@ -179,10 +177,6 @@ export default function ProfilePage() {
     viewerScope: apiClient.getViewerScope(),
     fetcher: fetchCurrentUserPosts,
   })
-
-  useEffect(() => {
-    setHasAccessToken(isAuthenticated())
-  }, [])
 
   const normalizedProfileData = useMemo<UserProfile | null>(() => {
     if (!profileQueryData) return null
@@ -238,11 +232,6 @@ export default function ProfilePage() {
       return
     }
 
-    if (!hasAccessToken) {
-      setIsLoading(false)
-      return
-    }
-
     if (profileQueryError || postsQueryError) {
       console.error('Error loading profile data:', profileQueryError || postsQueryError)
     }
@@ -252,7 +241,7 @@ export default function ProfilePage() {
       (!profileQueryData && !profileQueryError)
     )
     setIsLoading(nextLoadingState)
-  }, [authResolved, canQueryProfile, hasAccessToken, profileQueryData, profileQueryError, postsQueryError, profileQueryLoading, postsQueryLoading])
+  }, [authResolved, canQueryProfile, profileQueryData, profileQueryError, postsQueryError, profileQueryLoading, postsQueryLoading])
 
   const handleEditProfile = () => {
     setIsEditingProfile(true)
@@ -275,9 +264,6 @@ export default function ProfilePage() {
 
   const handleSaveProfile = async () => {
     if (isSavingProfile) return
-
-    const token = getAccessToken()
-    if (!token) return
 
     // Validate location - if there's text but no valid location selected, revert to original
     let locationToSave = selectedLocation
@@ -367,9 +353,6 @@ export default function ProfilePage() {
   }
 
   const handleSaveAccount = async () => {
-    const token = getAccessToken()
-    if (!token) return
-
     let hasErrors = false
     setUsernameError("")
     setPasswordError("")
@@ -583,6 +566,17 @@ export default function ProfilePage() {
       year: 'numeric',
       month: 'long'
     })
+  }
+
+  if (isAuthTransitioning) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    )
   }
 
   if (isLoading) {

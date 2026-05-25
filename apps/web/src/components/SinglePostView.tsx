@@ -177,11 +177,6 @@ export default function SinglePostView({ postId, bootstrapPost = null }: SingleP
         router.push(`/profile/${userId}`)
       }}
       onReaction={(postId, emojiCode, reactionSummary) => {
-        if (!currentUser) {
-          requireAuth()
-          return
-        }
-
         if (reactionSummary) {
           setPost(prev => prev ? {
             ...prev,
@@ -192,11 +187,6 @@ export default function SinglePostView({ postId, bootstrapPost = null }: SingleP
         }
       }}
       onRemoveReaction={(postId, reactionSummary) => {
-        if (!currentUser) {
-          requireAuth()
-          return
-        }
-
         if (reactionSummary) {
           setPost(prev => prev ? {
             ...prev,

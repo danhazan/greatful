@@ -2,7 +2,6 @@
 
 import React, { useEffect, useCallback, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
-import { getAccessToken } from '@/utils/auth'
 import { apiClient } from '@/utils/apiClient'
 
 interface UseUserStateOptions {
@@ -118,11 +117,6 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     setError(null)
 
     try {
-      const token = getAccessToken()
-      if (!token) {
-        throw new Error('Authentication required')
-      }
-
       // Use Promise.allSettled to fetch both profile and follow status concurrently
       // This reduces the number of sequential API calls
       const promises = []
@@ -191,14 +185,6 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
   // Auto-fetch user data when userId changes
   useEffect(() => {
     if (userId && autoFetch) {
-      // Don't throw error immediately if no token, just set error state
-      const token = getAccessToken()
-      if (!token) {
-        setError('Authentication required')
-        setIsLoading(false)
-        return
-      }
-
       // Check if we already have recent cached data
       const { hasProfile, hasFollowState } = getCachedData()
       const lastFetch = getLastFetchTime(userId)
@@ -247,26 +233,7 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     setLocalUserProfile((prev: any) => prev ? { ...prev, ...updates } : null)
 
     try {
-      const token = getAccessToken()
-      if (!token) {
-        throw new Error('Authentication required')
-      }
-
-      const response = await fetch('/api/users/me/profile', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updates)
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to update profile')
-      }
-
-      const result = await response.json()
-      const updatedProfile = result.data || result
+      const updatedProfile = await apiClient.put('/users/me/profile', updates) as any
 
       // Update with server response
       updateUserProfile(userId, {
@@ -304,11 +271,6 @@ export function useUserState(options: UseUserStateOptions = {}): UserStateHook {
     setLocalFollowState(newFollowState)
 
     try {
-      const token = getAccessToken()
-      if (!token) {
-        throw new Error('Authentication required')
-      }
-
       // Use optimized API client with cache invalidation
       await apiClient.toggleFollow(userId, currentFollowState)
 

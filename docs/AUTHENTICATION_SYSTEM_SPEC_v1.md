@@ -295,7 +295,176 @@ To maintain long-term stability and prevent defensive code proliferation, system
 
 ---
 
-## 7. Known Failure Modes (Postmortem Learnings)
+## 7. Session-Expiry & Redirect Pipeline
+
+The frontend implements a centralized, event-driven pipeline for handling session expiry. This pipeline ensures that authentication failures (401/403) are handled uniformly regardless of which component initiated the request, eliminating ad-hoc redirect logic.
+
+```
++-----------------------------------------------------------------------+
+|                    SESSION-EXPIRY & REDIRECT PIPELINE                  |
+|                                                                       |
+|   Any API Request                                                     |
+|       │                                                               |
+|       v                                                               |
+|   +---+-----------------------------------------------------------+   |
+|   |                    apiClient.handleRequestError()              |   |
+|   |                                                                |   |
+|   |   1. Error message includes 'HTTP 401'?                        |   |
+|   |      YES → attemptRefresh() → refresh succeeds?                |   |
+|   |        YES → retry original request with new token              |   |
+|   |        NO  → handleSessionExpired() (dispatch event)           |   |
+|   |      NO  → generic retry logic (retries ?? 1)                  |   |
+|   |      (403 is NOT treated as session-expiry globally)           |   |
+|   +----------------------------+-----------------------------------+   |
+|                                |                                       |
+|                                v                                       |
+|   +----------------------------+-----------------------------------+   |
+|   |               handleSessionExpired() (authFailureHandler.ts)   |   |
+|   |                                                                |   |
+|   |   Dispatches CustomEvent 'auth:session-expired' on window     |   |
+|   |   (Minimal event producer — no side effects in this function)  |   |
+|   +----------------------------+-----------------------------------+   |
+|                                |                                       |
+|                                v                                       |
+|   +----------------------------+-----------------------------------+   |
+|   |           UserContext onSessionExpired callback                 |   |
+|   |                                                                |   |
+|   |   1. Sets isAuthTransitioning = true (spinner guard)           |   |
+|   |   2. Stops notification polling                                |   |
+|   |   3. auth.logout() → clears localStorage access_token          |   |
+|   |   4. setCurrentUser(null) → clears React state                 |   |
+|   |   5. Clears all caches (APICache, TaggedQueryCache)            |   |
+|   |   6. Sets viewerScope to 'anon'                                |   |
+|   |   7. window.location.replace(buildLoginRedirectUrl(...))       |   |
+|   |      → hard browser navigation to login                       |   |
+|   +----------------------------+-----------------------------------+   |
++-----------------------------------------------------------------------+
+```
+
+### 7.1 Auth Truth Hierarchy
+
+Authentication state is determined by the following strict hierarchy. No component may independently determine authentication status:
+
+1. **apiClient** — Makes the actual HTTP request. If the backend returns 401 (expired/invalid token), the client attempts a silent refresh. If the refresh fails, it calls `handleSessionExpired()`.
+2. **UserContext** — React context that listens for `auth:session-expired` events, manages `currentUser` state, `isAuthTransitioning`, and orchestrates the redirect.
+3. **UI rendering** — Components read `currentUser` and `isAuthTransitioning` from `useUser()`. They NEVER check `localStorage` directly or call `isAuthenticated()`.
+
+**Critical rule**: UI must NEVER decide whether a session is valid. Only apiClient + UserContext may determine that. Components must always attempt API calls and let the error pipeline handle auth failures.
+
+### 7.2 Render-Level Safeguards
+
+| State | Type | Set By | Purpose |
+|---|---|---|---|
+| `isAuthTransitioning` | `UserContext` global | `handleSessionExpired` → UserContext listener | Prevents stale authenticated UI during session-expiry redirect |
+| `isRedirectingToAuth` | Component-local state | Error effect in `[userId]/page.tsx` | Prevents fallback UI during SPA navigation redirect (no session to expire case) |
+| `requireAuth()` | `useRequireAuth()` hook | Auth guard effect or explicit call | Calls `router.replace('/auth/login?redirect=...')` for soft redirect |
+
+**`isAuthTransitioning`** is set only when the session-expired event fires (refresh cookie expired/revoked). It triggers a loading spinner and a hard `window.location.replace()` to login. This global guard prevents any component from rendering authenticated content during the redirect.
+
+**`isRedirectingToAuth`** is local to the profile page. It handles the case where there was never a valid session (no token in localStorage) — the session-expired event doesn't fire because there was no session to expire. The profile page's error effect detects the 403 ("Not authenticated" from FastAPI's HTTPBearer), sets `isRedirectingToAuth = true`, and calls `requireAuth()`. The render tree checks this state before any fallback branch and shows a loading spinner instead.
+
+Both guards are read at the top of the render tree, before any data-dependent branches:
+
+```tsx
+if (isAuthTransitioning || isRedirectingToAuth) {
+  return <LoadingSpinner />
+}
+```
+
+### 7.3 Profile Page Redirect Flow (SPA Navigation)
+
+The profile page (`[userId]/page.tsx`) has the most complex auth lifecycle because it fires queries immediately when `authResolved = true`. During SPA navigation, the user's auth state is already known (unlike page refresh where SSR bootstraps first), creating a race between query execution and redirect.
+
+```
+SPA Navigation (feed → /profile/[userId]) with no session:
+
+  1. Profile page mounts
+     └─ currentUser = null, userLoading = false
+     └─ canQueryProfile = true → queries enabled immediately
+
+  2. Auth guard effect fires
+     └─ requireAuth() → router.replace() scheduled
+
+  3. useTaggedQuery fetchers fire (in parallel)
+     └─ apiClient.getUserProfile() with NO auth header
+     └─ apiClient.getUserPosts() with NO auth header
+
+  4. Backend returns HTTP 403 (FastAPI HTTPBearer rejection)
+
+  5. Error effect fires (403 detected + no session)
+     └─ setIsRedirectingToAuth(true)
+     └─ requireAuth()  ← collocated redirect trigger
+     └─ return early   ← NO further state mutations
+
+  6. React commits render
+     └─ isRedirectingToAuth = true
+     └─ Render guard: <LoadingSpinner />
+     └─ navigation completes → /auth/login
+```
+
+**Key design decisions**:
+- `retries: 0` on both profile and posts fetchers to prevent the two independent retry layers (deduplicator default `maxRetries=1`, apiClient default `retries=1`) from issuing 3× repeated 403 requests that keep the component alive.
+- The redirect trigger is collocated with the error detection point (error effect), NOT in a separate effect that may not fire reliably during SPA navigation.
+- After `setIsRedirectingToAuth(true)` + `requireAuth()`, the effect returns immediately — no `setError()`, `setIsLoading()`, or any other state mutation that could populate fallback branches.
+- The fallback render ("Profile not found") cannot execute because the `isRedirectingToAuth` guard is checked first in the render tree.
+
+### 7.4 Context-Aware 403 Classification
+
+The backend returns **403** for two distinct scenarios with different frontend handling:
+
+| Scenario | HTTP Status | Backend Source | Frontend Handling |
+|---|---|---|---|
+| No `Authorization` header | 403 `{"detail": "Not authenticated"}` | FastAPI `HTTPBearer` auto-reject | `currentUser` null → `requireAuth()` redirect |
+| Expired/invalid JWT | 401 `{"error": {...}}` | `dependencies.py` → `AuthenticationError` | apiClient refresh pipeline → `handleSessionExpired()` |
+| Authenticated, profile not found | 404 | Repository `NotFoundError` | Display "User not found" |
+
+**Important**: There is NO private-profile feature. Profile access is always public when authenticated. Any 403 at the profile endpoint is an authentication failure, not a permission denial.
+
+The classification is context-aware — it checks `currentUser` from UserContext rather than relying on HTTP status alone:
+
+```typescript
+// Auth-invalid 403: short-circuit all state mutations
+if (
+  profileQueryError &&
+  !currentUser &&
+  !userLoading &&
+  errorMsg.includes('HTTP 403')
+) {
+  setIsRedirectingToAuth(true)
+  requireAuth()
+  return  // NO setError / setIsLoading
+}
+```
+
+### 7.5 Query Retry Policy for Auth-Sensitive Fetches
+
+Profile page fetchers use `retries: 0` to prevent retry loops from fighting the redirect:
+
+```typescript
+async () => apiClient.getUserProfile(userId, {
+  skipCache: true,
+  retries: 0,
+})
+```
+
+Without this, two independent retry layers produce 3 total HTTP requests:
+- **Deduplicator layer**: `requestDeduplicator.executeRequest()` — `maxRetries = 1` by default → 2 attempts
+- **apiClient layer**: `handleRequestError()` — `(options.retries ?? 1) > 0` → 1 recursive retry
+
+With `retries: 0`, both layers stop: deduplicator `maxRetries = 0` → 1 attempt; apiClient `0 > 0 = false` → no recursive retry.
+
+### 7.6 Documented Remaining Edge Case
+
+A transient render artifact may occur during SPA navigation (feed → profile) with expired session: the profile page briefly shows "Profile not found" before the redirect completes. This is a render-order race — React commits the fallback branch before `router.replace()` takes effect. It is cosmetic only:
+
+- No security impact (redirect always completes)
+- No data exposure (backend rejects unauthenticated requests)
+- Does not occur on page refresh or direct navigation
+- See `KNOWN_ISSUES.md` for details
+
+---
+
+## 8. Known Failure Modes (Postmortem Learnings)
 
 Historical debugging of the Grateful authentication system revealed several critical failure patterns. These are documented below to prevent future regressions.
 
@@ -321,7 +490,7 @@ Historical debugging of the Grateful authentication system revealed several crit
 
 ---
 
-## 8. Migration Summary
+## 9. Migration Summary
 
 The Grateful authentication system evolved through three major architectural phases to reach its current mature state.
 
@@ -366,7 +535,7 @@ The Grateful authentication system evolved through three major architectural pha
 
 ---
 
-## 9. Stability Guarantee Statement
+## 10. Stability Guarantee Statement
 
 > **AUTHORITATIVE GUARANTEE**: As of v1.0, authentication behavior is deterministic, secure, and fully unified across Email and OAuth flows. Any deviation between providers or login mechanisms is a bug in normalization or proxy handling, not expected behavior. The contracts defined in this specification are immutable for the v1.x lifecycle.
 

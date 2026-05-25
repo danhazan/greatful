@@ -25,7 +25,7 @@ import ReactionsBanner from "./ReactionsBanner"
 import analyticsService from "@/services/analytics"
 import { getEmojiFromCode, emojiCodeToEmoji } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
-import { isAuthenticated, getAccessToken } from "@/utils/auth"
+
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
@@ -72,7 +72,6 @@ export default function PostCard({
   const [showOptionsMenu, setShowOptionsMenu] = useState(false)
   const [showMultiImageModal, setShowMultiImageModal] = useState(false)
   const [multiImageInitialIndex, setMultiImageInitialIndex] = useState(0)
-  const [isUserAuthenticated, setIsUserAuthenticated] = useState(false)
   const requireAuth = useRequireAuth()
 
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
@@ -83,6 +82,9 @@ export default function PostCard({
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const [validUsernames, setValidUsernames] = useState<string[]>([])
   const [currentPost, setCurrentPost] = useState(post)
+
+  // Derive auth from React prop only — never read localStorage for rendering decisions
+  const isUserAuthenticated = !!currentUserId
 
   // Sync post prop with local state
   useEffect(() => {
@@ -110,11 +112,6 @@ export default function PostCard({
   const router = useRouter()
   const { showError, showDebugSuccess, showDebugLoading, hideToast } = useToast()
 
-  // Check authentication status on mount and when currentUserId changes
-  useEffect(() => {
-    setIsUserAuthenticated(isAuthenticated() && !!currentUserId)
-  }, [currentUserId])
-
   useClickOutside(optionsMenuRef, showOptionsMenu, () => setShowOptionsMenu(false))
 
   // Track post view when component mounts
@@ -129,7 +126,7 @@ export default function PostCard({
   useEffect(() => {
     const validateMentions = async () => {
 
-      if (!currentPost.content || !isAuthenticated() || !currentUserId) {
+      if (!currentPost.content || !currentUserId) {
         setValidUsernames([])
         return
       }
@@ -149,12 +146,6 @@ export default function PostCard({
       }
 
       try {
-        const token = getAccessToken()
-        if (!token) {
-          setValidUsernames([])
-          return
-        }
-
         // Use batch validation endpoint to avoid 404 errors with optimized API client
         const result = await apiClient.post('/users/validate-batch', {
           usernames: validFormatUsernames
@@ -206,10 +197,6 @@ export default function PostCard({
 
   const handleReactionButtonClick = async (event: React.MouseEvent) => {
     event.preventDefault()
-
-    if (!isUserAuthenticated) {
-      return
-    }
 
     // If user already has a reaction, remove it optimistically
     if (currentPost.currentUserReaction && onRemoveReaction) {
@@ -384,25 +371,13 @@ export default function PostCard({
 
     setIsReactionsViewerLoading(true)
 
-    // Fetch reactions from API
     try {
-      const token = getAccessToken()
-      const response = await fetch(`/api/posts/${post.id}/reactions`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (response.ok) {
-        const reactionsData = await response.json()
-        setReactions(reactionsData)
-        setShowReactionViewer(true)
-      } else {
-        showError('Failed to Load', 'Unable to load reactions. Please try again.')
-      }
+      const reactionsData = await apiClient.get(`/posts/${post.id}/reactions`) as any
+      setReactions(reactionsData)
+      setShowReactionViewer(true)
     } catch (error) {
       console.error('Failed to fetch reactions:', error)
-      showError('Network Error', 'Please check your connection and try again.')
+      showError('Failed to Load', 'Unable to load reactions. Please try again.')
     } finally {
       setIsReactionsViewerLoading(false)
     }
@@ -417,23 +392,12 @@ export default function PostCard({
   }
 
   const handleCommentsButtonClick = async () => {
-    if (!isUserAuthenticated) {
-      // Guest users cannot comment — button is disabled, no redirect
-      return
-    }
-
     if (isCommentsLoading) return
 
     setIsCommentsLoading(true)
 
     // Fetch top-level comments from API
     try {
-      const token = getAccessToken()
-      if (!token) {
-        showError('Authentication Error', 'Please log in to view comments.')
-        return
-      }
-
       const commentsData = await apiClient.get(`/posts/${post.id}/comments`) as any
       setComments(commentsData)
       setShowCommentsModal(true)
@@ -446,12 +410,6 @@ export default function PostCard({
   }
 
   const handleCommentSubmit = async (content: string) => {
-    const token = getAccessToken()
-    if (!token) {
-      showError('Authentication Error', 'Please log in to comment.')
-      return
-    }
-
     // Snapshot for rollback
     const snapshotComments = [...comments]
     const snapshotCount = currentPost.commentsCount || 0
@@ -503,12 +461,6 @@ export default function PostCard({
   }
 
   const handleReplySubmit = async (commentId: string, content: string) => {
-    const token = getAccessToken()
-    if (!token) {
-      showError('Authentication Error', 'Please log in to reply.')
-      return
-    }
-
     // Snapshot for rollback
     const snapshotCount = currentPost.commentsCount || 0
 
@@ -537,12 +489,6 @@ export default function PostCard({
 
   const handleLoadReplies = async (commentId: string): Promise<any[]> => {
     try {
-      const token = getAccessToken()
-      if (!token) {
-        showError('Authentication Error', 'Please log in to view replies.')
-        return []
-      }
-
       // Use skipCache to ensure we get fresh replies after submission
       const replies = await apiClient.get(`/comments/${commentId}/replies`, {
         skipCache: true
@@ -561,11 +507,6 @@ export default function PostCard({
 
   // Edit comment handler — optimistic content update
   const handleCommentEdit = async (commentId: string, content: string): Promise<any> => {
-    const token = getAccessToken()
-    if (!token) {
-      throw new Error('Please log in to edit comments.')
-    }
-
     // Snapshot original content for rollback
     const originalComment = comments.find(c => c.id === commentId)
     const originalContent = originalComment?.content
@@ -604,11 +545,6 @@ export default function PostCard({
 
   // Delete comment handler — optimistic removal
   const handleCommentDelete = async (commentId: string): Promise<void> => {
-    const token = getAccessToken()
-    if (!token) {
-      throw new Error('Please log in to delete comments.')
-    }
-
     // Snapshot for rollback
     const snapshotComments = [...comments]
     const snapshotCount = currentPost.commentsCount || 0
@@ -647,33 +583,11 @@ export default function PostCard({
 
   const handleMentionClick = async (username: string) => {
     try {
-      // Get auth token
-      const token = getAccessToken()
-      if (!token) {
-        console.error('No auth token available for mention navigation')
-        return
-      }
-
-      // URL encode the username to handle special characters
       const encodedUsername = encodeURIComponent(username)
-
-      // Fetch user by username
-      const response = await fetch(`/api/users/username/${encodedUsername}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        const userData = result.data
-
-        // Navigate to user profile
+      const result = await apiClient.get(`/users/username/${encodedUsername}`) as any
+      const userData = result.data || result
+      if (userData?.id) {
         router.push(`/profile/${userData.id}`)
-      } else {
-        console.error('Failed to fetch user by username:', response.status)
-        // Optionally show a toast notification that user was not found
       }
     } catch (error) {
       console.error('Error navigating to user profile:', error)
@@ -692,12 +606,6 @@ export default function PostCard({
     privacyRules?: string[]
     specificUsers?: number[]
   }) => {
-    const token = getAccessToken()
-    if (!token) {
-      showError('Authentication Error', 'Please log in to edit posts.')
-      return
-    }
-
     // Snapshot for rollback (structuredClone for deep copy)
     const snapshot = typeof structuredClone === 'function'
       ? structuredClone(currentPost)
@@ -757,55 +665,31 @@ export default function PostCard({
 
   const handleDeletePost = async () => {
     try {
-      const token = getAccessToken()
-      if (!token) {
-        showError('Authentication Error', 'Please log in to delete posts.')
-        return
-      }
-
       setIsDeleting(true)
       const loadingToastId = showDebugLoading('Deleting Post', 'Removing your post...')
 
-      const response = await fetch(`/api/posts/${post.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      })
+      await apiClient.delete(`/posts/${post.id}`)
 
       if (loadingToastId) hideToast(loadingToastId)
 
-      if (response.ok) {
-        showDebugSuccess('Post Deleted', 'Your post has been deleted successfully.')
-        setShowDeleteModal(false)
-        apiClient.invalidateTags([
-          queryTags.feed,
-          queryTags.userPosts(currentPost.author.id),
-          queryTags.currentUserProfile,
-          queryTags.userProfile(currentPost.author.id),
-          queryTags.post(post.id),
-        ])
+      showDebugSuccess('Post Deleted', 'Your post has been deleted successfully.')
+      setShowDeleteModal(false)
+      apiClient.invalidateTags([
+        queryTags.feed,
+        queryTags.userPosts(currentPost.author.id),
+        queryTags.currentUserProfile,
+        queryTags.userProfile(currentPost.author.id),
+        queryTags.post(post.id),
+      ])
 
-        // Call the onDelete callback if provided
-        if (onDelete) {
-          onDelete(post.id)
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        showError(
-          'Delete Failed',
-          errorData.detail || 'Unable to delete post. Please try again.',
-          {
-            label: 'Retry',
-            onClick: handleDeletePost
-          }
-        )
+      if (onDelete) {
+        onDelete(post.id)
       }
     } catch (error) {
       console.error('Error deleting post:', error)
       showError(
-        'Network Error',
-        'Please check your connection and try again.',
+        'Delete Failed',
+        'Unable to delete post. Please try again.',
         {
           label: 'Retry',
           onClick: handleDeletePost
@@ -1012,13 +896,11 @@ export default function PostCard({
                       setMultiImageInitialIndex(index)
                       setShowMultiImageModal(true)
                     }}
-                    disabled={!isUserAuthenticated}
                   />
                 ) : currentPost.imageUrl && (
                   <OptimizedPostImage
                     src={getImageUrl(currentPost.imageUrl) || currentPost.imageUrl}
                     alt="Post image"
-                    disabled={!isUserAuthenticated}
                   />
                 )}
               </div>
@@ -1074,14 +956,14 @@ export default function PostCard({
             <button
               ref={reactionButtonRef}
               onClick={handleReactionButtonClick}
-              disabled={!isUserAuthenticated || isReactionLoading}
+              disabled={isReactionLoading}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
                 ? 'text-gray-400'
                 : (pendingReaction || currentPost.currentUserReaction)
                   ? 'text-purple-500 hover:text-purple-600 bg-purple-50 hover:bg-purple-100'
                   : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
                 }`}
-              title={!isUserAuthenticated ? 'Login to react to posts' : currentPost.currentUserReaction ? 'Remove reaction' : 'React with emoji'}
+              title={currentPost.currentUserReaction ? 'Remove reaction' : 'React with emoji'}
             >
               {isReactionLoading ? (
                 <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />
@@ -1105,12 +987,12 @@ export default function PostCard({
             {/* Comments Button */}
             <button
               onClick={handleCommentsButtonClick}
-              disabled={!isUserAuthenticated || isCommentsLoading}
+              disabled={isCommentsLoading}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
                 ? 'text-gray-400'
                 : 'text-gray-500 hover:text-purple-500 hover:bg-purple-50'
                 } ${(currentPost.commentsCount || 0) > 0 && isUserAuthenticated ? 'ring-1 ring-purple-200' : ''}`}
-              title={!isUserAuthenticated ? 'Login to comment on posts' : 'View and add comments'}
+              title={isCommentsLoading ? 'Loading comments...' : 'View and add comments'}
             >
               {isCommentsLoading ? (
                 <Loader2 className={`${styling.iconSize} animate-spin flex-shrink-0`} />

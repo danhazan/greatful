@@ -15,7 +15,6 @@ import { useUser } from "@/contexts/UserContext"
 import { Post } from '@/types/post'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
-import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 
 // Redundant local interfaces removed - using Post and Author from @/types/post
@@ -37,17 +36,17 @@ export default function UserProfilePage() {
   const router = useRouter()
   const params = useParams()
   const userId = params['userId'] as string
-  const { currentUser, isLoading: userLoading, logout } = useUser()
+  const { currentUser, isLoading: userLoading, isAuthTransitioning, logout } = useUser()
   const requireAuth = useRequireAuth()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRedirectingToAuth, setIsRedirectingToAuth] = useState(false)
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
-  const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
 
   // Listen for follower count updates from follow actions
   useEffect(() => {
@@ -73,11 +72,6 @@ export default function UserProfilePage() {
     }
 
     if (userLoading) return
-
-    const token = getAccessToken()
-    if (!token) {
-      requireAuth()
-    }
   }, [requireAuth, currentUser, userLoading])
 
   const publicProfileQueryKey = useMemo(
@@ -96,18 +90,18 @@ export default function UserProfilePage() {
     () => (userId ? [queryTags.userPosts(userId)] : []),
     [userId]
   )
-  const authResolved = hasAccessToken !== null && !userLoading
-  const canQueryProfile = authResolved && !!hasAccessToken && !!userId
+  const authResolved = !userLoading
+  const canQueryProfile = authResolved && !!userId
   const fetchPublicProfile = useCallback(
-    async () => apiClient.getUserProfile(userId, { skipCache: true }),
+    async () => apiClient.getUserProfile(userId, { skipCache: true, retries: 0 }),
     [userId]
   )
   const fetchPublicPosts = useCallback(async () => {
     let postsData
     if (userId === currentUser?.id?.toString()) {
-      postsData = await apiClient.get('/users/me/posts', { skipCache: true })
+      postsData = await apiClient.get('/users/me/posts', { skipCache: true, retries: 0 })
     } else {
-      postsData = await apiClient.getUserPosts(userId, { skipCache: true })
+      postsData = await apiClient.getUserPosts(userId, { skipCache: true, retries: 0 })
     }
 
     const transformedPosts = Array.isArray(postsData) ? transformUserPosts(postsData) : []
@@ -141,10 +135,6 @@ export default function UserProfilePage() {
     viewerScope: apiClient.getViewerScope(),
     fetcher: fetchPublicPosts,
   })
-
-  useEffect(() => {
-    setHasAccessToken(isAuthenticated())
-  }, [])
 
   const normalizedProfileData = useMemo<UserProfile | null>(() => {
     if (!profileQueryData) return null
@@ -181,19 +171,37 @@ export default function UserProfilePage() {
       return
     }
 
-    if (!hasAccessToken) {
-      setIsLoading(false)
+    // Auth-invalid 403: short-circuit ALL further state mutations.
+    // Redirect path must be completely inert — no setError, no setIsLoading,
+    // no fallback derivation.  The render guard at the top of the component
+    // catches isRedirectingToAuth before any fallback branch.
+    if (
+      profileQueryError &&
+      !currentUser &&
+      !userLoading &&
+      (profileQueryError.message || '').includes('HTTP 403')
+    ) {
+      setIsRedirectingToAuth(true)
+      requireAuth()
       return
     }
 
     if (profileQueryError) {
-      if (profileQueryError.message.includes('404')) {
+      const msg = profileQueryError.message || ''
+      if (msg.includes('HTTP 401') || msg.includes('Session expired')) {
+        setError(null)
+      } else if (msg.includes('404')) {
         setError("User not found")
       } else {
         setError("Failed to load user profile")
       }
     } else if (postsQueryError) {
-      setError("Failed to load user profile")
+      const msg = postsQueryError.message || ''
+      if (msg.includes('HTTP 401') || msg.includes('Session expired')) {
+        setError(null)
+      } else {
+        setError("Failed to load user profile")
+      }
     } else {
       setError(null)
     }
@@ -204,7 +212,7 @@ export default function UserProfilePage() {
         (!profileQueryData && !profileQueryError)
       )
     )
-  }, [authResolved, canQueryProfile, hasAccessToken, userId, profileQueryData, profileQueryError, postsQueryError, profileQueryLoading, postsQueryLoading])
+  }, [authResolved, canQueryProfile, userId, profileQueryData, profileQueryError, currentUser, userLoading, requireAuth, postsQueryError, profileQueryLoading, postsQueryLoading])
 
 
 
@@ -277,6 +285,17 @@ export default function UserProfilePage() {
     }
   }
 
+  if (isAuthTransitioning || isRedirectingToAuth) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -317,7 +336,19 @@ export default function UserProfilePage() {
       )
     }
 
-    return null
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile not found</h2>
+          <button
+            onClick={() => router.push('/feed')}
+            className="text-purple-600 hover:text-purple-700"
+          >
+            Go to Feed
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (

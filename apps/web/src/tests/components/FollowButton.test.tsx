@@ -187,8 +187,8 @@ describe('FollowButton', () => {
   })
 
   describe('Error Handling', () => {
-    // @behavior User-visible test - verifies error state when no token
-    it('handles missing token gracefully', async () => {
+    // @behavior User-visible test - verifies follow button works without pre-flight auth check
+    it('does not show auth error when unauthenticated (apiClient handles auth)', async () => {
       mockLocalStorage.getItem.mockReturnValue(null)
 
       render(<FollowButton userId={123} />)
@@ -199,8 +199,9 @@ describe('FollowButton', () => {
 
       const button = screen.getByRole('button')
       fireEvent.click(button)
-      
-      expect(screen.getByText(/please log in/i)).toBeInTheDocument()
+
+      // No UI-level auth error shown; apiClient handles auth internally
+      expect(screen.queryByText(/please log in/i)).not.toBeInTheDocument()
     })
 
     // @unit Test renders without crashing when initial state is false

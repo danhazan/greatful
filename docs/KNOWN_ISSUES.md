@@ -21,6 +21,7 @@
 - **🔁 Follow Notification Duplication**: Multiple follow notifications sent when unfollow/follow on same day
 - **🎯 Reaction Notification Duplication**: Changing emoji reactions creates duplicate notifications instead of updating
 - **🔄 Component State Synchronization**: Follow buttons and other interactive components don't update related UI elements
+- **🧭 Profile Page Transient Fallback**: During SPA navigation under expired session, profile page may briefly show "Profile not found" before redirect completes (cosmetic only, auth secure)
 
 - **🔐 Password Manager Not Triggered**: Password manager doesn't save new passwords when changed in profile settings
 - **🖼️ Draft Image Previews**: Draft images are not restored when reopening saved drafts (by design - blob URLs are ephemeral)
@@ -1498,6 +1499,70 @@ When users change their password in the profile settings, the browser's password
 - Use proper `autocomplete="username"` and `autocomplete="new-password"` attributes
 - Populate and submit hidden form after successful API password change
 - Use `setTimeout` to ensure form submission happens after API response
+
+---
+
+### Profile Page Transient Fallback Render During SPA Navigation Under Expired Session
+**Issue**: Feed → user profile navigation with expired session briefly shows "Profile not found" fallback before login redirect resolves  
+**Status**: ⚠️ Active Issue  
+**Priority**: Low  
+**Impact**: User Experience (cosmetic only — no security or data exposure)
+
+**Description**:
+When a user with an expired/invalid session navigates from the feed to a user profile page via client-side (SPA) navigation, the profile may briefly render a "Profile not found" fallback state before the login redirect completes. This is a transient UI artifact — authentication correctness is preserved and the redirect always resolves. The issue does not occur on full page refresh or direct URL navigation.
+
+**Root Cause**:
+The race arises from the intersection of three asynchronous systems:
+1. **SPA navigation** — client-side route transitions bypass the SSR lifecycle
+2. **Query system** — `useTaggedQuery` fires fetchers as soon as `authResolved = true`, which happens immediately during SPA navigation (user state is already known)
+3. **Render commit timing** — React commits the fallback render branch (`!profile`) before `router.replace()` from the redirect system takes effect
+
+The redirect is triggered correctly (`requireAuth()` fires, `router.replace()` is called), but the render tree has already committed the fallback state before the navigation completes. This is an inherent characteristic of SPA + async data fetching — there is no synchronous mechanism to prevent a render commit between error detection and navigation execution.
+
+**Systems Involved**:
+- **apiClient** — Returns 403 for unauthenticated profile requests (FastAPI HTTPBearer rejection when no auth header is present)
+- **UserContext session-expiry pipeline** — Centralized `handleSessionExpired()` dispatches `auth:session-expired` event, triggers state cleanup + hard redirect
+- **useRequireAuth / redirect hook** — `requireAuth()` calls `router.replace()` to navigate to login with return-URL preservation
+- **useTaggedQuery** — Fetches profile data; with `retries: 0` configured, issues a single request pair (profile + posts) before error propagation
+- **`profile/[userId]/page.tsx`** — Local redirect guards (`isRedirectingToAuth`, `isAuthTransitioning`) short-circuit render to spinner during redirect
+
+**Why This Was Not Fully Eliminated**:
+The following issues were identified and resolved during the auth stabilization effort:
+- Retry loops causing repeated 403 requests (3× → 1× per query)
+- Missing error classification (403 treated as "private profile" instead of auth failure)
+- Unreliable auth-guard effect execution during SPA navigation
+- State mutations after redirect trigger that could populate fallback branches
+- Missing render-guard short-circuit for redirect-in-progress state
+
+The remaining artifact is a render-order race condition inherent to the SPA + async data fetching model. Fully eliminating it would require one of:
+- Route-level redirect middleware (adds auth gating at the routing layer)
+- Query suspension or render-blocking during redirect transitions
+- Synchronous navigation before render commit
+
+These approaches would introduce significant architectural complexity for marginal UX gain.
+
+**Why It Is Acceptable**:
+- No incorrect data exposure or security impact
+- No authentication bypass or session confusion
+- Redirect always completes correctly (confirmation via network logs, refreshed page behavior)
+- Full page refresh and direct URL navigation behave correctly
+- The fallback is transient (a single render frame) and visually indistinguishable from the loading spinner for most users
+- Authentication correctness is fully preserved — the centralized session-expiry pipeline is authoritative
+
+**Historical Fixes Attempted**:
+This issue was the final edge case after a comprehensive auth stabilization effort. The following major fixes were applied across the codebase:
+1. **Centralized auth redirect system** — `handleSessionExpired()` event pipeline with `isAuthTransitioning` render guard
+2. **apiClient 401/403 normalization** — Only 401 enters refresh pipeline; 403 propagates as normal error (no global 403→auth mapping)
+3. **Session-expiry event pipeline** — `UserContext` listens for `auth:session-expired`, coordinates state cleanup + redirect
+4. **Removal of UI-level auth gating** — All `isAuthenticated()` and `getAccessToken()` pre-checks removed from components
+5. **Query retry elimination** — `retries: 0` on profile page fetchers eliminated deduplicator + apiClient retry layers
+6. **Context-aware 403 classification** — Profile page distinguishes authenticated (null→redirect) vs unauthenticated (null→redirect, with requireAuth trigger)
+7. **Redirect-state short-circuiting** — `isRedirectingToAuth` local state added to prevent fallback render after redirect trigger
+8. **Render guards** — `isAuthTransitioning || isRedirectingToAuth` check at render top ensures spinner before any fallback branch
+9. **Early-return redirect enforcement** — Error effect returns immediately after `setIsRedirectingToAuth(true)` + `requireAuth()`, skipping all subsequent state mutations
+
+**Final Conclusion**:
+The authentication and redirect system is considered stable and production-ready. The remaining issue is a cosmetic, transient fallback artifact that occurs only during a narrow SPA navigation race condition. No further engineering work is currently planned unless requirements change.
 
 ---
 

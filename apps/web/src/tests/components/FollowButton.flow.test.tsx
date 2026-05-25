@@ -50,8 +50,10 @@ describe('FollowButton Flow Tests', () => {
       const button = await screen.findByRole('button')
       expect(button).toBeInTheDocument()
       
-      // Verify initial state shows Following
-      expect(screen.getByText('Following', { exact: false })).toBeInTheDocument()
+      // Verify initial state shows Following (async: initialFollowState may be overridden by cached getFollowState default)
+      await waitFor(() => {
+        expect(screen.getByText('Following', { exact: false })).toBeInTheDocument()
+      })
 
       // User action: click to unfollow
       expect(() => fireEvent.click(button)).not.toThrow()

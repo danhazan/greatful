@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 
 import UserItem from './UserItem'
 import { UserSearchResult } from '@/types/userSearch'
-import { getAccessToken } from '@/utils/auth'
+import { apiClient } from '@/utils/apiClient'
 
 
 
@@ -28,24 +28,11 @@ export default function FollowingModal({
   const modalRef = useRef<HTMLDivElement>(null)
 
   const fetchFollowing = useCallback(async () => {
-    const token = getAccessToken()
-    if (!token) return
-
     setIsLoading(true)
     setError(null)
 
     try {
-      const response = await fetch(`/api/users/${userId}/following?limit=50&offset=0`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch following')
-      }
-
-      const result = await response.json()
+      const result = await apiClient.get(`/users/${userId}/following?limit=50&offset=0`) as any
       const data = result.data || result
       setFollowing(data.following || [])
     } catch (error) {

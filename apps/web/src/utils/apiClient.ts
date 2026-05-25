@@ -130,6 +130,48 @@ class OptimizedAPIClient {
   }
 
   /**
+   * Attempt a silent token refresh via the HttpOnly-cookie endpoint.
+   *
+   * Returns the new access token on success, or null if the refresh failed
+   * with 401/403 (session expired). Throws on transient errors (5xx, network).
+   *
+   * Handles the subscriber queue: resolves pending waiters on success,
+   * rejects them on session expiry, leaves them hanging on transient.
+   */
+  private async attemptRefresh(): Promise<string | null> {
+    const refreshRes = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    })
+
+    if (refreshRes.ok) {
+      const data = await refreshRes.json()
+      const { normalizeAuthResponse } = await import('./authNormalization')
+      const normalized = normalizeAuthResponse(data)
+      const newToken = normalized.accessToken
+
+      if (newToken) {
+        const { setAccessToken } = await import('./auth')
+        setAccessToken(newToken)
+        this.onRefreshed(newToken)
+        return newToken
+      }
+    }
+
+    // Refresh failed — drain subscriber queue
+    if (refreshRes.status === 401 || refreshRes.status === 403) {
+      this.refreshSubscribers.forEach(cb => cb(''))
+      this.refreshSubscribers = []
+      const { handleSessionExpired } = await import('./authFailureHandler')
+      handleSessionExpired()
+      return null
+    }
+
+    // Transient failure — keep subscribers waiting for next attempt
+    throw new Error(`Refresh failed: ${refreshRes.status}`)
+  }
+
+  /**
    * Centralized error handler including 401 interception
    */
   private async handleRequestError<T>(
@@ -146,42 +188,11 @@ class OptimizedAPIClient {
       if (!this.isRefreshing) {
         this.isRefreshing = true
         try {
-          // Attempt silent refresh
-          const refreshRes = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            credentials: 'include' // crucial for sending the HttpOnly cookie
-          })
-
-          if (refreshRes.ok) {
-            const data = await refreshRes.json()
-            const { normalizeAuthResponse } = await import('./authNormalization')
-            const normalized = normalizeAuthResponse(data)
-            const newToken = normalized.accessToken
-            
-            if (newToken) {
-              // Dynamically import auth to prevent circular dependency issues
-              const { setAccessToken } = await import('./auth')
-              setAccessToken(newToken)
-              this.onRefreshed(newToken)
-              
-              // Retry original request with fresh token
-              return this.request<T>(endpoint, { ...options, _retry: true })
-            }
+          const newToken = await this.attemptRefresh()
+          if (newToken) {
+            return this.request<T>(endpoint, { ...options, _retry: true })
           }
-
-          // Refresh failed
-          this.refreshSubscribers.forEach(cb => cb('')) // Reject all pending
-          this.refreshSubscribers = []
-
-          if (refreshRes.status === 401 || refreshRes.status === 403) {
-            // Session definitively invalid
-            const { handleSessionExpired } = await import('./authFailureHandler')
-            handleSessionExpired()
-            throw new Error('Session expired')
-          }
-
-          // Transient refresh failure (5xx, network, timeout) — don't log out
-          throw new Error(`Refresh failed: ${refreshRes.status}`)
+          throw new Error('Session expired')
         } finally {
           this.isRefreshing = false
         }
@@ -205,6 +216,74 @@ class OptimizedAPIClient {
     }
     
     throw error
+  }
+
+  /**
+   * Make an authenticated request and return the raw Response object
+   * (bypassing cache, deduplication, and JSON parsing).
+   *
+   * Goes through the same refresh pipeline as request() — if the first
+   * attempt gets a 401, it triggers a silent refresh and retries once.
+   *
+   * Useful for callers that need the full Response (e.g. FormData uploads,
+   * blob downloads, or custom status handling).
+   */
+  async requestRaw(
+    endpoint: string,
+    options: RequestInit & { _retry?: boolean } = {}
+  ): Promise<Response> {
+    const url = `${this.baseURL}${endpoint}`
+    const authHeaders = this.getAuthHeaders()
+    const headers: Record<string, string> = {
+      ...authHeaders,
+      ...(options.headers as Record<string, string> || {})
+    }
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json'
+    }
+
+    const firstAttempt = await fetch(url, { ...options, headers })
+
+    if (firstAttempt.status === 401 && !options._retry) {
+      if (!this.isRefreshing) {
+        this.isRefreshing = true
+        try {
+          const newToken = await this.attemptRefresh()
+          if (newToken) {
+            const retryHeaders: Record<string, string> = {
+              ...authHeaders,
+              ...(options.headers as Record<string, string> || {})
+            }
+            // Use the fresh token
+            retryHeaders['Authorization'] = `Bearer ${newToken}`
+            if (!(options.body instanceof FormData) && !retryHeaders['Content-Type']) {
+              retryHeaders['Content-Type'] = 'application/json'
+            }
+            return fetch(url, { ...options, headers: retryHeaders })
+          }
+        } finally {
+          this.isRefreshing = false
+        }
+      } else {
+        // Another tab/request is refreshing — wait for token via subscriber
+        const newToken = await new Promise<string | null>((resolve) => {
+          this.addRefreshSubscriber((token) => resolve(token || null))
+        })
+        if (newToken) {
+          const retryHeaders: Record<string, string> = {
+            ...authHeaders,
+            ...(options.headers as Record<string, string> || {})
+          }
+          retryHeaders['Authorization'] = `Bearer ${newToken}`
+          if (!(options.body instanceof FormData) && !retryHeaders['Content-Type']) {
+            retryHeaders['Content-Type'] = 'application/json'
+          }
+          return fetch(url, { ...options, headers: retryHeaders })
+        }
+      }
+    }
+
+    return firstAttempt
   }
 
   /**

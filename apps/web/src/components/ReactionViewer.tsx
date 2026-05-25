@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { X, Loader2 } from "lucide-react"
 import { getEmojiFromCode } from "@/utils/emojiMapping"
-import { getAccessToken } from "@/utils/auth"
+import { apiClient } from "@/utils/apiClient"
 import { lockScroll, unlockScroll } from "@/utils/scrollLock"
 import UserItem from "./UserItem"
 import { useModal } from "@/hooks/useModal"
@@ -61,25 +61,13 @@ export default function ReactionViewer({
         setIsLoading(true)
         setError(null)
         try {
-          const token = getAccessToken()
-          const url = `/api/posts/${postId}/reactions?object_type=${objectType}${objectId ? `&object_id=${objectId}` : ''}`
-          
-          const response = await fetch(url, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-
-          if (response.ok) {
-            const data = await response.json()
-            setReactions(data)
-            // 2. Update central cache
-            updateDetailedReactionsCache(cacheKey, data)
-          } else {
-            setError('Failed to load reactions')
-          }
+          const queryParams = `?object_type=${objectType}${objectId ? `&object_id=${objectId}` : ''}`
+          const data = await apiClient.get(`/posts/${postId}/reactions${queryParams}`) as any
+          setReactions(data)
+          // 2. Update central cache
+          updateDetailedReactionsCache(cacheKey, data)
         } catch (err) {
-          setError('Network error. Please try again.')
+          setError('Failed to load reactions')
         } finally {
           setIsLoading(false)
         }

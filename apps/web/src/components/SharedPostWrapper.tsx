@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import PostCard from "./PostCard"
-import { isAuthenticated, getAccessToken } from "@/utils/auth"
 import { useUser } from "@/contexts/UserContext"
-import { useRequireAuth } from "@/hooks/useAuthRedirect"
+import { apiClient } from "@/utils/apiClient"
 
 import { Post } from '@/types/post'
 
@@ -17,7 +16,6 @@ export default function SharedPostWrapper({ post: bootstrapPost }: SharedPostWra
   const router = useRouter()
   const [post, setPost] = useState(bootstrapPost)
   const { currentUser, isLoading } = useUser()
-  const requireAuth = useRequireAuth()
 
   // Derive authentication state from UserContext
   const isUserAuthenticated = !!currentUser
@@ -31,14 +29,7 @@ export default function SharedPostWrapper({ post: bootstrapPost }: SharedPostWra
       }
 
       try {
-        const token = getAccessToken()
-
-        // Fetch user-specific reaction data
-        const postResponse = await fetch(`/api/posts/${post.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
+        const postResponse = await apiClient.requestRaw(`/posts/${post.id}`)
 
         if (postResponse.ok) {
           const postData = await postResponse.json()
@@ -63,11 +54,6 @@ export default function SharedPostWrapper({ post: bootstrapPost }: SharedPostWra
 
 
   const handleReaction = async (postId: string, emojiCode: string, reactionSummary?: any) => {
-    if (!isUserAuthenticated) {
-      requireAuth()
-      return
-    }
-
     setPost(prevPost => ({
       ...prevPost,
       reactionsCount: reactionSummary ? reactionSummary.totalCount : (prevPost.reactionsCount || 0) + 1,
@@ -78,11 +64,6 @@ export default function SharedPostWrapper({ post: bootstrapPost }: SharedPostWra
 
   // Handle reaction removal
   const handleRemoveReaction = async (postId: string, reactionSummary?: any) => {
-    if (!isUserAuthenticated) {
-      requireAuth()
-      return
-    }
-
     setPost(prevPost => ({
       ...prevPost,
       reactionsCount: reactionSummary ? reactionSummary.totalCount : Math.max(0, (prevPost.reactionsCount || 0) - 1),

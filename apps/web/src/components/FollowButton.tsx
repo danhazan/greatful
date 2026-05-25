@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { Heart, Loader2 } from 'lucide-react'
-import { isAuthenticated, getAccessToken } from '@/utils/auth'
 import { triggerHaptic } from '@/utils/hapticFeedback'
 import { useToast } from '@/contexts/ToastContext'
 import { useClickOutside } from "@/hooks/useClickOutside"
@@ -104,11 +103,6 @@ export default function FollowButton({
 
   const handleFollowToggle = async () => {
     triggerHaptic('light')
-    const token = getAccessToken()
-    if (!token) {
-      showError('Authentication Required', 'Please log in to follow users')
-      return
-    }
 
     const action = effectiveFollowState ? 'unfollow' : 'follow'
     setError(null)

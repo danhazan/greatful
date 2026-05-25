@@ -13,7 +13,7 @@ interface PostPageClientProps {
 
 export default function PostPageClient({ postId, bootstrapPost }: PostPageClientProps) {
   const router = useRouter()
-  const { currentUser, isLoading, logout } = useUser()
+  const { currentUser, isLoading, isAuthTransitioning, logout } = useUser()
 
   const user = currentUser ? {
     id: currentUser.id,
@@ -29,7 +29,7 @@ export default function PostPageClient({ postId, bootstrapPost }: PostPageClient
     router.push('/')
   }
 
-  if (isLoading) {
+  if (isLoading || isAuthTransitioning) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

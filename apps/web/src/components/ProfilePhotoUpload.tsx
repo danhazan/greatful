@@ -5,7 +5,7 @@ import { Camera, Upload, X, User, Trash2 } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { prepareImageForUpload } from '@/utils/imageUpload'
 import { getImageUrl } from '@/utils/imageUtils'
-import { getAccessToken } from '@/utils/auth'
+import { apiClient } from '@/utils/apiClient'
 import CircularCropModal from './CircularCropModal'
 
 interface ProfilePhotoUploadProps {
@@ -60,12 +60,8 @@ export default function ProfilePhotoUpload({
       formData.append('file', croppedBlob, 'profile-photo.jpg')
       formData.append('crop_data', JSON.stringify(cropData))
 
-      const token = getAccessToken()
-      const response = await fetch('/api/users/me/profile/photo', {
+      const response = await apiClient.requestRaw('/users/me/profile/photo', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
         body: formData
       })
 
@@ -95,20 +91,9 @@ export default function ProfilePhotoUpload({
     setIsUploading(true)
 
     try {
-      const token = getAccessToken()
-      const response = await fetch('/api/users/me/profile/photo', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (response.ok) {
-        onPhotoUpdate(null)
-        showDebugSuccess('Profile photo removed successfully!')
-      } else {
-        throw new Error('Failed to delete photo')
-      }
+      await apiClient.delete('/users/me/profile/photo')
+      onPhotoUpdate(null)
+      showDebugSuccess('Profile photo removed successfully!')
     } catch (error) {
       console.error('Delete error:', error)
       showError('Failed to remove photo')

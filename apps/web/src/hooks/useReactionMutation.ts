@@ -10,7 +10,7 @@ import {
   type ImageReactionsMap,
   type CommentReactionsMap
 } from './useImageReactions';
-import { getAccessToken } from '@/utils/auth';
+import { apiClient } from '@/utils/apiClient';
 
 export interface ReactionMutationOptions {
   postId: string;
@@ -95,21 +95,16 @@ export function useReactionMutation({
     },
     apiCall: async (signal) => {
       const emojiCode = pendingEmojiRef.current;
-      const token = getAccessToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
       
       if (emojiCode === null) {
-        // DELETE operation
         const params = new URLSearchParams();
         if (objectType !== 'post') {
           params.append('object_type', objectType);
           params.append('object_id', objectId);
         }
         
-        const res = await fetch(`/api/posts/${postId}/reactions?${params.toString()}`, {
+        const res = await apiClient.requestRaw(`/posts/${postId}/reactions?${params.toString()}`, {
           method: 'DELETE',
-          headers,
           signal
         });
         
@@ -118,11 +113,9 @@ export function useReactionMutation({
           throw new Error(body.error || "Removal failed");
         }
       } else {
-        // POST/PUT operation
-        headers['Content-Type'] = 'application/json';
-        const res = await fetch(`/api/posts/${postId}/reactions`, {
+        const res = await apiClient.requestRaw(`/posts/${postId}/reactions`, {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             emoji_code: emojiCode,
             object_type: objectType,

@@ -65,8 +65,8 @@ describe('PostCard Authentication Controls', () => {
     it('should show counters but with disabled styling', () => {
       render(<PostCard post={mockPost} {...mockHandlers} />)
       
-      // Reaction button should have disabled styling
-      const reactionButton = screen.getByTitle('Login to react to posts')
+      // Reaction button should have dimmed styling (visual hint only)
+      const reactionButton = screen.getByTitle('React with emoji')
       expect(reactionButton).toHaveClass('text-gray-400')
       expect(reactionButton).toBeInTheDocument()
     })
@@ -75,8 +75,8 @@ describe('PostCard Authentication Controls', () => {
       const heartedPost = { ...mockPost, currentUserReaction: 'heart', reactionEmojiCodes: ['heart'] }
       render(<PostCard post={heartedPost} {...mockHandlers} />)
       
-      // Reaction button should not be filled for unauthenticated users
-      const reactionButton = screen.getByTitle('Login to react to posts')
+      // Reaction button should not be filled for unauthenticated users — shows dimmed styling
+      const reactionButton = screen.getByTitle('Remove reaction')
       expect(reactionButton).toHaveClass('text-gray-400')
     })
 

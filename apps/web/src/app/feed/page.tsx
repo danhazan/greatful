@@ -11,7 +11,6 @@ import Navbar from "@/components/Navbar"
 import { Post } from '@/types/post'
 import { FeedFilterKey, FeedFilterMode, FeedFiltersPayload, useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
-import { isAuthenticated } from "@/utils/auth"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import {
   getScrollDirection,
@@ -47,11 +46,10 @@ const DEFAULT_FILTER_MODES: Record<FeedFilterKey, FeedFilterMode> = {
 
 export default function FeedPage() {
   const router = useRouter()
-  const { currentUser, isLoading: userLoading, logout, updateUserProfile, updateFollowState, markDataAsFresh } = useUser()
+  const { currentUser, isLoading: userLoading, isAuthTransitioning, logout, updateUserProfile, updateFollowState, markDataAsFresh } = useUser()
   const requireAuth = useRequireAuth()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)
-  const [hasAccessToken, setHasAccessToken] = useState<boolean | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const scrollDirectionRef = useRef<'up' | 'down' | 'idle'>('idle')
@@ -124,8 +122,8 @@ export default function FeedPage() {
       })
     }
   }, [currentUser?.id, updateUserProfile, updateFollowState, markDataAsFresh])
-  const authResolved = hasAccessToken !== null && !userLoading
-  const canQueryFeed = authResolved && !!hasAccessToken
+  const authResolved = !userLoading
+  const canQueryFeed = authResolved
   const {
     items: posts,
     nextCursor,
@@ -191,14 +189,6 @@ export default function FeedPage() {
   }, [])
 
   useEffect(() => {
-    setHasAccessToken(isAuthenticated())
-  }, [])
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      requireAuth()
-      return
-    }
     if (userLoading) return
     if (!currentUser) {
       const t = setTimeout(() => {
@@ -449,7 +439,18 @@ export default function FeedPage() {
     }
   }
 
-  if (!authResolved || (hasAccessToken && isInitialLoading)) {
+  if (isAuthTransitioning) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your Grateful feed...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!authResolved || isInitialLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">

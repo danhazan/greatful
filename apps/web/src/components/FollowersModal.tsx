@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 
 import UserItem from './UserItem'
 import { UserSearchResult } from '@/types/userSearch'
-import { getAccessToken } from '@/utils/auth'
+import { apiClient } from '@/utils/apiClient'
 
 
 
@@ -28,24 +28,11 @@ export default function FollowersModal({
   const modalRef = useRef<HTMLDivElement>(null)
 
   const fetchFollowers = useCallback(async () => {
-    const token = getAccessToken()
-    if (!token) return
-
     setIsLoading(true)
     setError(null)
 
     try {
-      const response = await fetch(`/api/users/${userId}/followers?limit=50&offset=0`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch followers')
-      }
-
-      const result = await response.json()
+      const result = await apiClient.get(`/users/${userId}/followers?limit=50&offset=0`) as any
       const data = result.data || result
       setFollowers(data.followers || [])
     } catch (error) {

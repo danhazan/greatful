@@ -58,7 +58,7 @@ interface UserContextType {
   updateFollowState: (userId: string, isFollowing: boolean) => void
   updateCurrentUser: (updates: Partial<User>) => void
   getUserProfile: (userId: string) => UserProfile | null
-  getFollowState: (userId: string) => boolean
+  getFollowState: (userId: string) => boolean | undefined
 
   // Cache management
   markDataAsFresh: (userId: string) => void
@@ -67,6 +67,9 @@ interface UserContextType {
   // Authentication methods
   logout: () => void
   reloadUser: () => Promise<void>
+
+  // Session transition state — true during session-expiry redirect
+  isAuthTransitioning: boolean
 
   // Event subscription for components
   subscribeToStateUpdates: (callback: (event: StateEvent) => void) => () => void
@@ -144,6 +147,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [lastFetchTimes, setLastFetchTimes] = useState<{ [userId: string]: number }>({})
   const [stateEventListeners, setStateEventListeners] = useState<Set<(event: StateEvent) => void>>(new Set())
   const [viewerScope, setViewerScope] = useState('anon')
+  const [isAuthTransitioning, setIsAuthTransitioning] = useState(false)
   const currentUserRef = useRef<User | null>(currentUser)
   const isLoadingRef = useRef(isLoading)
   const userProfilesRef = useRef(userProfiles)
@@ -338,8 +342,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [userProfiles])
 
   // Get follow state
-  const getFollowState = useCallback((userId: string): boolean => {
-    return followStates[userId] || false
+  const getFollowState = useCallback((userId: string): boolean | undefined => {
+    return followStates[userId]
   }, [followStates])
 
   // Mark data as fresh
@@ -388,10 +392,19 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Listen for session-expired events dispatched by apiClient when
   // a refresh attempt returns 401/403 (session irrecoverably invalid).
+  // INVARIANT: After session-expired event fires:
+  //   1. isAuthTransitioning → true (same tick)
+  //   2. currentUser → null (same tick)
+  //   3. viewerScope → 'anon'
+  //   4. All caches cleared
+  //   5. Redirect to login (ensures no component renders authenticated UI post-event)
+  // No component should render authenticated content between steps 1-5.
   useEffect(() => {
     const unsubscribe = onSessionExpired(() => {
       if (isHandlingSessionExpiryRef.current) return
       isHandlingSessionExpiryRef.current = true
+
+      setIsAuthTransitioning(true)
 
       smartNotificationPoller.stop()
 
@@ -420,6 +433,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCurrentUser: (nextUser) => setCurrentUserWithTrace(nextUser, 'contextValue:setCurrentUser'),
     loading: isLoading,
     isLoading,
+    isAuthTransitioning,
     userProfiles,
     followStates,
     updateUserProfile,

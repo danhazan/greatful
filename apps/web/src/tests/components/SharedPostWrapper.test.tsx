@@ -14,7 +14,42 @@ jest.mock('@/utils/auth', () => ({
   getAccessToken: jest.fn(),
 }))
 
-// Mock fetch
+var mockRequestRaw: any | undefined
+jest.mock('@/utils/apiClient', () => {
+  const fn = jest.fn()
+  mockRequestRaw = fn
+  return {
+    apiClient: {
+      requestRaw: fn,
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: jest.fn(),
+      invalidateTags: jest.fn(),
+      invalidateCache: jest.fn(),
+      clearCache: jest.fn(),
+      setViewerScope: jest.fn(),
+      getViewerScope: jest.fn(() => 'anon'),
+      getCurrentUserProfile: jest.fn(() => Promise.resolve({ id: 'current-user-123' })),
+      getPosts: jest.fn(),
+      getUserPosts: jest.fn(),
+      getUserProfile: jest.fn(),
+      getFollowStatus: jest.fn(),
+      toggleFollow: jest.fn(),
+      getNotifications: jest.fn(),
+      getBatchFollowStatuses: jest.fn(),
+      invalidateUserPosts: jest.fn(),
+      invalidatePostDetails: jest.fn(),
+      invalidateFeed: jest.fn(),
+      invalidateProfile: jest.fn(),
+      invalidatePostAuthorGraph: jest.fn(),
+      patchTaggedQuery: jest.fn(),
+      invalidateRelatedCache: jest.fn(),
+    },
+  }
+})
+
+// Mock fetch for any remaining raw fetches
 global.fetch = jest.fn()
 
 const mockPush = jest.fn()
@@ -37,36 +72,12 @@ describe('SharedPostWrapper', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     ;(useRouter as jest.Mock).mockReturnValue(mockRouter)
-    
-    // Default fetch mock implementation - handles multiple concurrent requests
-    ;(fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url.includes('/api/users/me')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ id: 'current-user-123' }),
-        })
-      }
-      if (url.includes('/api/posts/test-post-1')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({
-            id: 'test-post-1',
-            current_user_reaction: null,
-            reactions_count: 3,
-            author_id: '1'
-          }),
-        })
-      }
-      // Return a generic successful response for other requests (profile, follows, etc.)
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({}),
-      })
-    })
   })
 
   describe('when user is not authenticated', () => {
     beforeEach(() => {
+      jest.clearAllMocks()
+      ;(useRouter as jest.Mock).mockReturnValue(mockRouter)
       ;(authUtils.isAuthenticated as jest.Mock).mockReturnValue(false)
       ;(authUtils.getAccessToken as jest.Mock).mockReturnValue(null)
     })
@@ -86,10 +97,10 @@ describe('SharedPostWrapper', () => {
       render(<SharedPostWrapper post={mockPost} />)
       
       await waitFor(() => {
-        // Reaction button should have disabled styling and not have the active title
-        const reactionButton = screen.getByTitle('Login to react to posts')
+        // Reaction button should have dimmed styling
+        const reactionButton = screen.getByTitle('React with emoji')
         expect(reactionButton).toHaveClass('text-gray-400')
-        expect(reactionButton).toBeDisabled()
+        expect(reactionButton).not.toBeDisabled()
       })
     })
 
@@ -105,16 +116,16 @@ describe('SharedPostWrapper', () => {
       })
     })
 
-    it('should not redirect to login when trying to interact (now disabled)', async () => {
+    it('should not redirect to login when trying to interact', async () => {
       render(<SharedPostWrapper post={mockPost} />)
       
       await waitFor(() => {
         expect(screen.getByText('Join to interact with this post!')).toBeInTheDocument()
       })
       
-      // Click reaction button
-      const reactionButton = screen.getByTitle('Login to react to posts')
-      expect(reactionButton).toBeDisabled()
+      // Click reaction button — should not redirect
+      const reactionButton = screen.getByTitle('React with emoji')
+      expect(reactionButton).not.toBeDisabled()
       fireEvent.click(reactionButton)
       
       // Wait a bit to ensure no redirect happens
@@ -163,13 +174,26 @@ describe('SharedPostWrapper', () => {
 
   describe('when user is authenticated', () => {
     beforeEach(() => {
+      jest.clearAllMocks()
+      ;(useRouter as jest.Mock).mockReturnValue(mockRouter)
       ;(authUtils.isAuthenticated as jest.Mock).mockReturnValue(true)
       ;(authUtils.getAccessToken as jest.Mock).mockReturnValue('mock-token')
-      // Default implementation is already set in the top-level beforeEach
+
+      // Mock requestRaw for user-specific post data fetch
+      mockRequestRaw!.mockImplementation(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            id: 'test-post-1',
+            current_user_reaction: null,
+            reactions_count: 3,
+            author_id: '1',
+          }),
+        })
+      )
     })
 
     it('should not show authentication notice', async () => {
-      console.log('DEBUG: Running updated test file version V2')
       render(<SharedPostWrapper post={mockPost} />)
       
       await waitFor(() => {
@@ -193,43 +217,13 @@ describe('SharedPostWrapper', () => {
       render(<SharedPostWrapper post={mockPost} />)
       
       await waitFor(() => {
-        expect(fetch).toHaveBeenCalledWith(
-          '/api/posts/test-post-1',
-          expect.objectContaining({
-            headers: {
-              'Authorization': 'Bearer mock-token',
-            },
-          }),
+        expect(mockRequestRaw!).toHaveBeenCalledWith(
+          '/posts/test-post-1',
         )
       })
     })
 
     it('should handle heart interaction', async () => {
-      // Setup specific overrides if needed, otherwise use default implementation
-      ;(fetch as jest.Mock).mockImplementation((url: string) => {
-        if (url.includes('/api/users/me')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ id: 'current-user-123' }),
-          })
-        }
-        if (url.includes('/api/posts/test-post-1')) {
-          // If we want to simulate the toggle response, we could track state here
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              id: 'test-post-1',
-              current_user_reaction: null,
-              reactions_count: 3,
-            }),
-          })
-        }
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({}),
-        })
-      })
-
       render(<SharedPostWrapper post={mockPost} />)
       
       await waitFor(() => {
@@ -257,7 +251,7 @@ describe('SharedPostWrapper', () => {
     })
 
     it('should handle API errors gracefully', async () => {
-      ;(fetch as jest.Mock).mockRejectedValue(new Error('API Error'))
+      mockRequestRaw!.mockRejectedValue(new Error('API Error'))
       
       render(<SharedPostWrapper post={mockPost} />)
       
@@ -267,15 +261,17 @@ describe('SharedPostWrapper', () => {
       })
     })
 
-    it('should treat user as unauthenticated if API calls fail', async () => {
-      ;(fetch as jest.Mock).mockRejectedValue(new Error('API Error'))
+    it('should handle API errors without showing auth notice', async () => {
+      mockRequestRaw!.mockRejectedValue(new Error('API Error'))
       
       render(<SharedPostWrapper post={mockPost} />)
       
       await waitFor(() => {
-        // Should show authentication notice if API calls fail
-        expect(screen.getByText('Join to interact with this post!')).toBeInTheDocument()
-      }, { timeout: 3000 })
+        // Auth state derived from UserContext, not from API call success
+        expect(screen.queryByText('Join to interact with this post!')).not.toBeInTheDocument()
+        // Post content should still render
+        expect(screen.getByText('Test gratitude post content')).toBeInTheDocument()
+      })
     })
   })
 })

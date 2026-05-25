@@ -9,7 +9,7 @@ import { htmlToPlainText } from "@/utils/htmlUtils"
 import UserMultiSelect from "./UserMultiSelect"
 import { UserSearchResult } from "@/types/userSearch"
 import { useModal } from "@/hooks/useModal"
-import { getAccessToken } from "@/utils/auth"
+import { apiClient } from "@/utils/apiClient"
 
 interface Post {
   id: string
@@ -41,7 +41,6 @@ export default function ShareModal({
   const modalRef = useRef<HTMLDivElement>(null)
   const [copySuccess, setCopySuccess] = useState(false)
   const [shareUrl, setShareUrl] = useState<string>("")
-  const [pendingShare, setPendingShare] = useState<{ url: string, timestamp: number } | null>(null)
 
   // Message sharing state
   const [showMessageShare, setShowMessageShare] = useState(false)
@@ -58,68 +57,12 @@ export default function ShareModal({
     if (isOpen) {
       setCopySuccess(false)
       setShareUrl("")
-      setPendingShare(null)
       setShowMessageShare(false)
       setSelectedUsers([])
       setSendingMessage(false)
     }
   }, [isOpen])
 
-  // Handle analytics call separately from UI updates
-  useEffect(() => {
-    if (!pendingShare) return
-
-    const { url, timestamp } = pendingShare
-
-    // Only process if this is a recent share (within 5 seconds)
-    if (Date.now() - timestamp > 5000) {
-      setPendingShare(null)
-      return
-    }
-
-    // Fire-and-forget analytics call
-    const token = getAccessToken()
-    if (token) {
-      try {
-        const fetchPromise = fetch(`/api/posts/${post.id}/share`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            share_method: 'url'
-          })
-        })
-
-        if (fetchPromise && typeof fetchPromise.then === 'function') {
-          fetchPromise.then(response => {
-            if (response.ok) {
-              return response.json()
-            }
-            throw new Error(`API error: ${response.status}`)
-          }).then(shareData => {
-            onShare?.('url', { shareUrl: url, shareId: shareData?.id || null })
-          }).catch(apiError => {
-            console.warn('Share analytics failed:', apiError)
-            onShare?.('url', { shareUrl: url, shareId: null })
-          }).finally(() => {
-            setPendingShare(null)
-          })
-        } else {
-          onShare?.('url', { shareUrl: url, shareId: null })
-          setPendingShare(null)
-        }
-      } catch (fetchError) {
-        console.warn('Share analytics failed:', fetchError)
-        onShare?.('url', { shareUrl: url, shareId: null })
-        setPendingShare(null)
-      }
-    } else {
-      onShare?.('url', { shareUrl: url, shareId: null })
-      setPendingShare(null)
-    }
-  }, [pendingShare, post.id, onShare])
 
   const handleCopyLink = async () => {
     if (copySuccess) return // Prevent multiple clicks during success state
@@ -171,19 +114,9 @@ export default function ShareModal({
           onClose()
         }, 1500)
 
-        // 3) Trigger analytics call after a delay to avoid any UI interference
-        // Only track analytics if user is authenticated
-        const token = getAccessToken()
-        if (token) {
-          setTimeout(() => {
-            setPendingShare({ url, timestamp: Date.now() })
-          }, 50) // Small delay to let UI settle
-        } else {
-          // Still call onShare for unauthenticated users, but without analytics
-          setTimeout(() => {
-            onShare?.('url', { shareUrl: url, shareId: null })
-          }, 50)
-        }
+        // 3) Fire-and-forget analytics
+        apiClient.post(`/posts/${post.id}/share`, { share_method: 'url' }).catch(() => {})
+        onShare?.('url', { shareUrl: url, shareId: null })
       } else {
         // Clipboard failed - no toast needed, just log
         console.warn('Clipboard copy failed')
@@ -213,36 +146,22 @@ export default function ShareModal({
       const whatsAppUrl = generateWhatsAppURL(whatsAppText)
 
       // Track analytics
-      const token = getAccessToken()
-      if (token) {
-        try {
-          const response = await fetch(`/api/posts/${post.id}/share`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              share_method: 'whatsapp'
-            })
-          })
-
-          if (response.ok) {
-            const result = await response.json()
-            onShare?.('whatsapp', {
-              whatsappUrl: whatsAppUrl,
-              whatsappText: whatsAppText,
-              shareId: result?.id || null
-            })
-          }
-        } catch (error) {
-          console.warn('WhatsApp share analytics failed:', error)
-          onShare?.('whatsapp', {
-            whatsappUrl: whatsAppUrl,
-            whatsappText: whatsAppText,
-            shareId: null
-          })
-        }
+      try {
+        const result = await apiClient.post(`/posts/${post.id}/share`, {
+          share_method: 'whatsapp'
+        }) as any
+        onShare?.('whatsapp', {
+          whatsappUrl: whatsAppUrl,
+          whatsappText: whatsAppText,
+          shareId: result?.id || null
+        })
+      } catch (error) {
+        console.warn('WhatsApp share analytics failed:', error)
+        onShare?.('whatsapp', {
+          whatsappUrl: whatsAppUrl,
+          whatsappText: whatsAppText,
+          shareId: null
+        })
       }
 
       // Open WhatsApp
@@ -280,29 +199,10 @@ export default function ShareModal({
     )
 
     try {
-      const token = getAccessToken()
-      if (!token) {
-        throw new Error("No authentication token found")
-      }
-
-      const response = await fetch(`/api/posts/${post.id}/share`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          share_method: 'message',
-          recipient_ids: selectedUsers.map(u => u.id)
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `Share failed: ${response.status}`)
-      }
-
-      const result = await response.json()
+      const result = await apiClient.post(`/posts/${post.id}/share`, {
+        share_method: 'message',
+        recipient_ids: selectedUsers.map(u => u.id)
+      }) as any
 
       // Call onShare callback
       onShare?.('message', {
