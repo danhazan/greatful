@@ -53,7 +53,10 @@ export default function ClickableUsername({
     <Link 
       href={profileHref}
       className={className}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick?.(e)
+      }}
       aria-label={`View ${nameToDisplay}'s profile`}
     >
       {nameToDisplay}

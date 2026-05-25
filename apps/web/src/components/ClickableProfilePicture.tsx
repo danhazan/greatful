@@ -110,7 +110,10 @@ export default function ClickableProfilePicture({
   return (
     <Link
       href={profileHref}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick?.(e)
+      }}
       className="cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all rounded-full inline-block"
       aria-label={`View ${fallbackName}'s profile`}
     >
