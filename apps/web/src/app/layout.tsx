@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import { headers } from 'next/headers'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { UserProvider } from '@/contexts/UserContext'
+import { LocaleProvider } from '@/contexts/LocaleContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,11 +23,14 @@ export const viewport = {
   userScalable: false,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const headersList = await headers()
+  const country = headersList.get('x-vercel-ip-country') || ''
+
   return (
     <html lang="en">
       <head>
@@ -33,9 +38,11 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <UserProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
+          <LocaleProvider initialCountry={country}>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </LocaleProvider>
         </UserProvider>
       </body>
     </html>

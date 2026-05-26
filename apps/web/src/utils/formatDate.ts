@@ -28,6 +28,7 @@ export function formatDate(
   options?: FormatDateOptions
 ): string {
   const { mode = 'adaptive', now: nowOption, locale: localeOption } = options ?? {}
+
   const locale = localeOption ?? resolveLocale()
 
   if (!dateString) return ''

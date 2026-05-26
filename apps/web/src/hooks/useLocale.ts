@@ -1,24 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { resolveLocale } from '@/utils/locale'
-
-let cached: string | undefined
+import { useLocaleContext } from '@/contexts/LocaleContext'
 
 export function useLocale(): string {
-  const [locale, setLocale] = useState<string>(() => {
-    if (cached) return cached
-    if (typeof navigator === 'undefined') return 'en-US'
-    cached = resolveLocale()
-    return cached
-  })
-
-  useEffect(() => {
-    if (!cached) {
-      cached = resolveLocale()
-    }
-    setLocale(cached)
-  }, [])
-
+  const { locale } = useLocaleContext()
   return locale
+}
+
+export function useLocaleWithUpdate(): { locale: string; updatePreference: (locale: string | null) => void } {
+  const { locale, updatePreference } = useLocaleContext()
+  return { locale, updatePreference }
 }

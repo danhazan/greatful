@@ -2,6 +2,7 @@
 import React from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { UserProvider } from '../../contexts/UserContext';
+import { LocaleProvider } from '../../contexts/LocaleContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import { RouterContext } from 'next/dist/shared/lib/router-context.shared-runtime';
 import { NextRouter } from 'next/router';
@@ -62,7 +63,9 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <RouterContext.Provider value={createMockRouter({})}>
       <ToastProvider>
-        <UserProvider>{children}</UserProvider>
+        <UserProvider>
+          <LocaleProvider>{children}</LocaleProvider>
+        </UserProvider>
       </ToastProvider>
     </RouterContext.Provider>
   );

@@ -521,6 +521,13 @@ async def get_default_avatar(
     return success_response({"avatar_url": avatar_url}, getattr(request.state, 'request_id', None))
 
 
+class PreferencesUpdate(BaseModel):
+    """User preferences update request model."""
+    regional_date_format: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class LocationSearchRequest(BaseModel):
     """Location search request model."""
     query: str
@@ -541,6 +548,42 @@ class LocationResult(BaseModel):
     type: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+@router.get("/me/preferences")
+async def get_my_preferences(
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get current user's preferences."""
+    user_service = UserService(db)
+    user = await user_service.get_by_id(User, current_user_id)
+    prefs = user.profile_preferences or {}
+    return success_response(prefs, getattr(request.state, 'request_id', None))
+
+
+@router.put("/me/preferences")
+async def update_my_preferences(
+    preferences: PreferencesUpdate,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update current user's preferences."""
+    user_service = UserService(db)
+    user = await user_service.get_by_id(User, current_user_id)
+
+    existing = dict(user.profile_preferences or {})
+    update_data = preferences.model_dump(exclude_none=True)
+    existing.update(update_data)
+    user.profile_preferences = existing
+
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    return success_response(existing, getattr(request.state, 'request_id', None))
 
 
 @router.post("/location/search")

@@ -2,6 +2,8 @@ import { describe, it, expect } from '@jest/globals'
 import { render, screen } from '@testing-library/react'
 import PostCard from '@/components/PostCard'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { LocaleProvider } from '@/contexts/LocaleContext'
+import { UserProvider } from '@/contexts/UserContext'
 
 // Mock the RTL utilities
 jest.mock('@/utils/rtlUtils', () => ({
@@ -50,16 +52,20 @@ const mockEnglishPost = {
 describe('PostCard RTL Support', () => {
   const renderPostCard = (post: any) => {
     return render(
-      <ToastProvider>
-        <PostCard
-          post={post}
-          currentUserId="1"
-          onReaction={() => {}}
-          onRemoveReaction={() => {}}
-          onShare={() => {}}
-          onUserClick={() => {}}
-        />
-      </ToastProvider>
+      <UserProvider>
+        <LocaleProvider>
+          <ToastProvider>
+            <PostCard
+              post={post}
+              currentUserId="1"
+              onReaction={() => {}}
+              onRemoveReaction={() => {}}
+              onShare={() => {}}
+              onUserClick={() => {}}
+            />
+          </ToastProvider>
+        </LocaleProvider>
+      </UserProvider>
     )
   }
 

@@ -14,6 +14,7 @@ import { apiClient } from "@/utils/apiClient"
 import { useUser } from "@/contexts/UserContext"
 import { Post } from '@/types/post'
 import { formatDate } from '@/utils/formatDate'
+import { useLocale } from '@/hooks/useLocale'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
@@ -39,6 +40,7 @@ export default function UserProfilePage() {
   const userId = params['userId'] as string
   const { currentUser, isLoading: userLoading, isAuthTransitioning, logout } = useUser()
   const requireAuth = useRequireAuth()
+  const locale = useLocale()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -404,7 +406,7 @@ export default function UserProfilePage() {
                 <div className="flex items-center justify-center md:justify-start space-x-6 text-sm text-gray-500 mb-4">
                   <div className="flex items-center space-x-1">
                     <Calendar className="h-4 w-4" />
-                    <span>Joined {formatDate(profile.createdAt, { mode: 'monthYear' })}</span>
+                    <span>Joined {formatDate(profile.createdAt, { mode: 'monthYear', locale })}</span>
                   </div>
                 </div>
 

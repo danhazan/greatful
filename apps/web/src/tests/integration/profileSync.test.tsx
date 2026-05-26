@@ -3,6 +3,7 @@ import { render, act, waitFor, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { UserProvider } from '@/contexts/UserContext'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { LocaleProvider } from '@/contexts/LocaleContext'
 import PostCard from '@/components/PostCard'
 import { stateSyncUtils } from '@/utils/stateSynchronization'
 
@@ -23,9 +24,11 @@ Object.defineProperty(window, 'localStorage', {
 // Test wrapper with all providers
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <UserProvider>
-    <ToastProvider>
-      {children}
-    </ToastProvider>
+    <LocaleProvider>
+      <ToastProvider>
+        {children}
+      </ToastProvider>
+    </LocaleProvider>
   </UserProvider>
 )
 

@@ -18,6 +18,7 @@ import {
 
 import { Notification } from "@/types/notification"
 import { formatDate } from "@/utils/formatDate"
+import { useLocale } from "@/hooks/useLocale"
 
 interface NotificationSystemProps {
   userId: string | number
@@ -33,6 +34,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
   const [batchChildren, setBatchChildren] = useState<Record<string, Notification[]>>({})
   const [currentTime, setCurrentTime] = useState(new Date())
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const locale = useLocale()
 
 
 
@@ -188,7 +190,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
 
 
   const formatNotificationTime = (dateString: string | undefined) => {
-    return formatDate(dateString, { mode: 'adaptive', now: currentTime })
+    return formatDate(dateString, { mode: 'adaptive', now: currentTime, locale })
   }
 
   return (

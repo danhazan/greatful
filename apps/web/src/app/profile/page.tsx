@@ -19,6 +19,8 @@ import { useUser } from "@/contexts/UserContext"
 import { useToast } from "@/contexts/ToastContext"
 import { Post } from '@/types/post'
 import { formatDate } from '@/utils/formatDate'
+import { useLocaleWithUpdate } from '@/hooks/useLocale'
+import { getUserPreferencesKey } from '@/utils/localStorage'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
@@ -91,8 +93,13 @@ export default function ProfilePage() {
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
   const [postsHighlighted, setPostsHighlighted] = useState(false)
+  const [regionalDateFormat, setRegionalDateFormat] = useState<string | null>(null)
+  const [originalRegionalDateFormat, setOriginalRegionalDateFormat] = useState<string | null>(null)
   const usernameInputRef = useRef<HTMLInputElement>(null)
   const passwordSectionRef = useRef<HTMLDivElement>(null)
+  const { locale: localePref, updatePreference } = useLocaleWithUpdate()
+
+  const isDateFormatDirty = regionalDateFormat !== originalRegionalDateFormat
 
   // Listen for follower count updates from other users following/unfollowing this user
   useEffect(() => {
@@ -226,6 +233,21 @@ export default function ProfilePage() {
       setPosts(postsQueryData)
     }
   }, [postsQueryData])
+
+  useEffect(() => {
+    if (user) {
+      const prefsKey = getUserPreferencesKey(user.id.toString())
+      try {
+        const stored = localStorage.getItem(prefsKey)
+        if (stored) {
+          const prefs = JSON.parse(stored)
+          const val = prefs.regionalDateFormat ?? null
+          setRegionalDateFormat(val)
+          setOriginalRegionalDateFormat(val)
+        }
+      } catch {}
+    }
+  }, [user])
 
   useEffect(() => {
     if (!authResolved) {
@@ -439,6 +461,20 @@ export default function ProfilePage() {
     }
 
     if (!hasErrors) {
+      try {
+        await apiClient.put('/preferences', { regionalDateFormat })
+        if (user) {
+          const prefsKey = getUserPreferencesKey(user.id.toString())
+          const existing = (() => { try { return JSON.parse(localStorage.getItem(prefsKey) || '{}') } catch { return {} } })()
+          existing.regionalDateFormat = regionalDateFormat
+          localStorage.setItem(prefsKey, JSON.stringify(existing))
+        }
+        updatePreference(regionalDateFormat)
+        setOriginalRegionalDateFormat(regionalDateFormat)
+      } catch (error) {
+        console.error('Failed to save date format preference:', error)
+      }
+
       setIsEditingAccount(false)
       setIsUsernameEditable(false)
       setIsPasswordSectionOpen(false)
@@ -478,6 +514,7 @@ export default function ProfilePage() {
         confirmPassword: ""
       })
     }
+    setRegionalDateFormat(originalRegionalDateFormat)
     setIsEditingAccount(false)
     setUsernameError("")
     setPasswordError("")
@@ -925,6 +962,23 @@ export default function ProfilePage() {
                         {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
                       </div>
 
+                      {/* Regional Date Format */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Regional date format
+                        </label>
+                        <select
+                          value={regionalDateFormat ?? ''}
+                          onChange={(e) => setRegionalDateFormat(e.target.value || null)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                        >
+                          <option value="">Auto detect</option>
+                          <option value="en-US">United States (MM/DD/YYYY)</option>
+                          <option value="en-GB">United Kingdom (DD/MM/YYYY)</option>
+                          <option value="sv-SE">International (YYYY-MM-DD)</option>
+                        </select>
+                      </div>
+
                       {/* Save/Cancel Buttons */}
                       <div className="mt-6 flex space-x-2 justify-end">
                         <button
@@ -935,8 +989,8 @@ export default function ProfilePage() {
                         </button>
                         <button
                           onClick={handleSaveAccount}
-                          disabled={!isUsernameEditable && !isPasswordSectionOpen}
-                          className={`px-4 py-2 rounded-lg text-sm transition-colors ${isUsernameEditable || isPasswordSectionOpen
+                          disabled={!isUsernameEditable && !isPasswordSectionOpen && !isDateFormatDirty}
+                          className={`px-4 py-2 rounded-lg text-sm transition-colors ${isUsernameEditable || isPasswordSectionOpen || isDateFormatDirty
                             ? 'bg-purple-600 text-white hover:bg-purple-700'
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
@@ -1203,7 +1257,7 @@ export default function ProfilePage() {
                       <div className="flex items-center justify-center sm:justify-start space-x-4 text-xs sm:text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span>Joined {formatDate(user.joinDate, { mode: 'monthYear' })}</span>
+                          <span>Joined {formatDate(user.joinDate, { mode: 'monthYear', locale: localePref })}</span>
                         </div>
                       </div>
 

@@ -26,6 +26,7 @@ import analyticsService from "@/services/analytics"
 import { getEmojiFromCode, emojiCodeToEmoji } from "@/utils/emojiMapping"
 import { getImageUrl } from "@/utils/imageUtils"
 import { formatDate } from "@/utils/formatDate"
+import { useLocale } from "@/hooks/useLocale"
 
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
@@ -74,6 +75,7 @@ export default function PostCard({
   const [showMultiImageModal, setShowMultiImageModal] = useState(false)
   const [multiImageInitialIndex, setMultiImageInitialIndex] = useState(0)
   const requireAuth = useRequireAuth()
+  const locale = useLocale()
 
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [shareModalPosition, setShareModalPosition] = useState({ x: 0, y: 0 })
@@ -823,7 +825,7 @@ export default function PostCard({
                     className="whitespace-nowrap hover:text-purple-600 hover:underline transition-colors cursor-pointer"
                     title="View post details"
                   >
-                    {formatDate(getDisplayDate().dateString)}
+                    {formatDate(getDisplayDate().dateString, { locale })}
                   </a>
                   {getDisplayDate().wasEdited && (
                     <span className="text-gray-400 text-xs">(edited)</span>

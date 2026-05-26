@@ -33,4 +33,5 @@ export interface UserPreferences {
         reactionNotifications: boolean
         followNotifications: boolean
     }
+    regionalDateFormat?: string | null
 }

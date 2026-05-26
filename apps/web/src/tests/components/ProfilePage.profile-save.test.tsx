@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ProfilePage from '@/app/profile/page'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { LocaleProvider } from '@/contexts/LocaleContext'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 import { stateSyncUtils } from '@/utils/stateSynchronization'
@@ -93,9 +94,11 @@ const mockProfile = {
 
 function renderProfilePage() {
   return render(
-    <ToastProvider>
-      <ProfilePage />
-    </ToastProvider>
+    <LocaleProvider>
+      <ToastProvider>
+        <ProfilePage />
+      </ToastProvider>
+    </LocaleProvider>
   )
 }
 

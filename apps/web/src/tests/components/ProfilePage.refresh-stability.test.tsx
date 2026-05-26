@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import ProfilePage from '@/app/profile/page'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { LocaleProvider } from '@/contexts/LocaleContext'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 
@@ -92,9 +93,11 @@ describe('ProfilePage refresh stability', () => {
 
   it('renders empty query results without repeated fetch loops', async () => {
     render(
-      <ToastProvider>
-        <ProfilePage />
-      </ToastProvider>
+      <LocaleProvider>
+        <ToastProvider>
+          <ProfilePage />
+        </ToastProvider>
+      </LocaleProvider>
     )
 
     await waitFor(() => {
