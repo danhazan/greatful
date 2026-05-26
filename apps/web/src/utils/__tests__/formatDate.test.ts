@@ -126,10 +126,10 @@ describe('formatDate', () => {
       expect(result).toBe('September 2024')
     })
 
-    it('formats in French', () => {
+    it('formats in French with capitalized month', () => {
       const date = '2024-09-15T12:00:00Z'
       const result = formatDate(date, { mode: 'monthYear', locale: 'fr-FR' })
-      expect(result).toBe('septembre 2024')
+      expect(result).toBe('Septembre 2024')
     })
 
     it('formats different months correctly', () => {
@@ -142,6 +142,36 @@ describe('formatDate', () => {
       const date = '2024-09-15T12:00:00Z'
       const result = formatDate(date, { mode: 'monthYear', locale: 'en-US' })
       expect(result).toMatch(/^[A-Z][a-z]+ 2024$/)
+    })
+
+    it('capitalizes German month name', () => {
+      const date = '2024-09-15T12:00:00Z'
+      const result = formatDate(date, { mode: 'monthYear', locale: 'de-DE' })
+      expect(result).toBe('September 2024')
+    })
+
+    it('capitalizes Swedish month name', () => {
+      const date = '2024-09-15T12:00:00Z'
+      const result = formatDate(date, { mode: 'monthYear', locale: 'sv-SE' })
+      expect(result).toBe('September 2024')
+    })
+
+    it('capitalizes Italian month name', () => {
+      const date = '2024-09-15T12:00:00Z'
+      const result = formatDate(date, { mode: 'monthYear', locale: 'it-IT' })
+      expect(result).toBe('Settembre 2024')
+    })
+
+    it('does not affect calendar mode locale format', () => {
+      const date = '2024-09-15T12:00:00Z'
+      const result = formatDate(date, { mode: 'calendar', locale: 'fr-FR' })
+      expect(result).toBe('15/09/2024')
+    })
+
+    it('preserves year in monthYear output', () => {
+      const date = '2024-09-15T12:00:00Z'
+      const result = formatDate(date, { mode: 'monthYear', locale: 'en-US' })
+      expect(result).toContain('2024')
     })
   })
 

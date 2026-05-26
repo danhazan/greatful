@@ -16,11 +16,17 @@ function formatCalendarDate(date: Date, locale: string): string {
   }).format(date)
 }
 
+function capitalizeFirstLetter(value: string): string {
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
 function formatMonthYear(date: Date, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
+  const formatted = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: 'long',
   }).format(date)
+  return capitalizeFirstLetter(formatted)
 }
 
 export function formatDate(
