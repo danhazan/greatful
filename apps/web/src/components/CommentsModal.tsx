@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Send, Loader2, MessageCircle, Pencil, Trash2, Smile, Heart } from "lucide-react"
+import { X, Send, Loader2, MessageCircle, MessagesSquare, Pencil, Trash2, Smile, Heart } from "lucide-react"
 import { formatTimeAgo } from "@/utils/timeAgo"
 import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
 import { useToast } from "@/contexts/ToastContext"
@@ -15,6 +15,7 @@ import { useMobileKeyboardInset } from "@/hooks/useMobileKeyboardInset"
 import { useCommentReactions, type ReactionSummaryData } from "@/hooks/useImageReactions"
 import { useReactionMutation } from "@/hooks/useReactionMutation"
 import { getEmojiFromCode, getTopEmojis } from "@/utils/emojiMapping"
+import { MAX_COMMENT_CHARS } from "@/constants/limits"
 
 interface CommentUser {
   id: number
@@ -104,7 +105,7 @@ function CommentReactionButton({ postId, commentId, reactionState }: CommentReac
         {hasUserReaction && reactionState.userReaction ? (
           <span className="text-sm leading-none">{getEmojiFromCode(reactionState.userReaction)}</span>
         ) : (
-          <Heart className="h-3 w-3" />
+          <Heart className="h-3 w-3 flex-shrink-0" />
         )}
         <span>{hasUserReaction ? COMMENT_REACTION_BUTTON_TEXT.active : COMMENT_REACTION_BUTTON_TEXT.idle}</span>
       </button>
@@ -173,7 +174,7 @@ export default function CommentsModal({
     refetch: refetchCommentReactions
   } = useCommentReactions(postId, isOpen)
 
-  const MAX_CHARS = 500
+  const MAX_CHARS = MAX_COMMENT_CHARS
   const MAX_TEXTAREA_LINES = 4
   const getTextareaHeights = (element: HTMLTextAreaElement) => {
     const computedStyle = window.getComputedStyle(element)
@@ -740,6 +741,7 @@ export default function CommentsModal({
                   />
                   <button
                     onClick={handleCommentSubmit}
+                    onMouseDown={(e) => e.preventDefault()}
                     disabled={!commentText.trim() || isSubmitting}
                     className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     aria-label="Save comment edit"
@@ -838,38 +840,79 @@ export default function CommentsModal({
 
                 {/* Action Buttons */}
                 {!isDeletingThis && (
-                  <div className="flex items-center space-x-4 mt-2">
+                  <div className="flex items-center gap-2 sm:gap-4 mt-2 flex-nowrap min-w-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <CommentReactionButton
                       postId={postId}
                       commentId={comment.id}
                       reactionState={reactionState}
                     />
 
+                    {/* Reply Button - only for top-level comments */}
+                    {!isReply && (
+                      <button
+                        onClick={() => handleReplyToggle(comment)}
+                        className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent]"
+                        aria-label={isReplyingToThis ? `Cancel reply to ${comment.user.displayName || comment.user.username}` : `Reply to ${comment.user.displayName || comment.user.username}'s comment`}
+                      >
+                        {isReplyingToThis ? null : <Send className="h-3 w-3 flex-shrink-0" />}
+                        <span>{isReplyingToThis ? 'Cancel' : 'Reply'}</span>
+                      </button>
+                    )}
+
+                    {/* Show/Hide Replies Button */}
+                    {!isReply && comment.replyCount > 0 && (
+                      <div className="flex justify-start">
+                        <button
+                          onClick={() => toggleReplies(comment.id)}
+                          disabled={isLoadingReplies}
+                          className="text-xs text-purple-600 hover:text-purple-700 transition-colors font-medium flex items-center space-x-1 min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded max-w-full [-webkit-tap-highlight-color:transparent]"
+                          aria-label={isExpanded ? `Hide ${comment.replyCount} replies` : `Show ${comment.replyCount} replies`}
+                          aria-expanded={isExpanded}
+                        >
+                          {isLoadingReplies ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+                              <span className="truncate">Loading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessagesSquare className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">
+                                <span className="hidden min-[400px]:inline">{isExpanded ? 'Hide' : 'Show'} </span>
+                                {comment.replyCount}
+                                <span className="hidden sm:inline"> {comment.replyCount === 1 ? 'reply' : 'replies'}</span>
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
                     {/* Owner Actions: Edit & Delete */}
                     {isOwner && onCommentEdit && (
                       <button
                         onClick={() => handleStartEdit(comment)}
-                        className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded flex items-center space-x-1"
+                        className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent]"
                         aria-label="Edit comment"
                       >
-                        <Pencil className="h-3 w-3" />
+                        <Pencil className="h-3 w-3 flex-shrink-0" />
                         <span>Edit</span>
                       </button>
                     )}
 
                     {isOwner && onCommentDelete && (
-                      <div className="relative group">
+                      <div className="relative group min-w-0 flex-shrink">
                         <button
                           onClick={() => canDelete ? handleShowDeleteConfirm(comment.id) : undefined}
                           disabled={!canDelete}
-                          className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded flex items-center space-x-1 transition-colors ${
+                          className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 transition-colors min-w-0 flex-shrink w-full [-webkit-tap-highlight-color:transparent] ${
                             canDelete
                               ? 'text-red-500 hover:text-red-600 active:text-red-700'
                               : 'text-gray-300 cursor-not-allowed'
                           }`}
                           aria-label={canDelete ? "Delete comment" : (isReply ? "Cannot delete reply with later replies" : "Cannot delete comment with replies")}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-3 w-3 flex-shrink-0" />
                           <span>Delete</span>
                         </button>
                         {!canDelete && (
@@ -881,42 +924,6 @@ export default function CommentsModal({
                           </div>
                         )}
                       </div>
-                    )}
-
-                    {/* Reply Button - only for top-level comments */}
-                    {!isReply && (
-                      <button
-                        onClick={() => handleReplyToggle(comment)}
-                        className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
-                        aria-label={isReplyingToThis ? `Cancel reply to ${comment.user.displayName || comment.user.username}` : `Reply to ${comment.user.displayName || comment.user.username}'s comment`}
-                      >
-                        {isReplyingToThis ? 'Cancel' : 'Reply'}
-                      </button>
-                    )}
-
-                    {/* Show/Hide Replies Button */}
-                    {!isReply && comment.replyCount > 0 && (
-                      <button
-                        onClick={() => toggleReplies(comment.id)}
-                        disabled={isLoadingReplies}
-                        className="text-xs text-purple-600 hover:text-purple-700 transition-colors font-medium flex items-center space-x-1 min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
-                        aria-label={isExpanded ? `Hide ${comment.replyCount} replies` : `Show ${comment.replyCount} replies`}
-                        aria-expanded={isExpanded}
-                      >
-                        {isLoadingReplies ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span>Loading...</span>
-                          </>
-                        ) : (
-                          <>
-                            <MessageCircle className="h-3 w-3" />
-                            <span>
-                              {isExpanded ? 'Hide' : 'Show'} {comment.replyCount} {comment.replyCount === 1 ? 'reply' : 'replies'}
-                            </span>
-                          </>
-                        )}
-                      </button>
                     )}
                   </div>
                 )}
@@ -1033,6 +1040,7 @@ export default function CommentsModal({
                 />
                 <button
                   onClick={handleCommentSubmit}
+                  onMouseDown={(e) => e.preventDefault()}
                   disabled={!commentText.trim() || isSubmitting}
                   className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   aria-label="Post reply"
@@ -1120,6 +1128,7 @@ export default function CommentsModal({
                   />
                   <button
                     onClick={handleCommentSubmit}
+                    onMouseDown={(e) => e.preventDefault()}
                     disabled={!commentText.trim() || isSubmitting}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     aria-label="Post comment"

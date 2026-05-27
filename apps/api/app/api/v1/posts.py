@@ -30,6 +30,7 @@ from app.services.post_privacy_service import PostPrivacyService
 from app.utils.html_sanitizer import sanitize_html
 from app.core.responses import success_response
 from app.core.image_urls import serialize_image_url
+from app.core.constants import POST_MAX_LENGTH
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -511,10 +512,10 @@ async def create_post_json(
             )
 
         # Validate content length
-        if len(post_data.content.strip()) > 5000:
+        if len(post_data.content.strip()) > POST_MAX_LENGTH:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Content too long. Maximum 5000 characters. Current: {len(post_data.content.strip())} characters."
+                detail=f"Content too long. Maximum {POST_MAX_LENGTH} characters. Current: {len(post_data.content.strip())} characters."
             )
 
         # Validate location_data if provided
@@ -857,10 +858,10 @@ async def create_post_with_file(
             )
 
         # Validate content length
-        if len(post_data.content.strip()) > 5000:
+        if len(post_data.content.strip()) > POST_MAX_LENGTH:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Content too long. Maximum 5000 characters. Current: {len(post_data.content.strip())} characters."
+                detail=f"Content too long. Maximum {POST_MAX_LENGTH} characters. Current: {len(post_data.content.strip())} characters."
             )
 
         # Validate location_data if provided
@@ -1341,10 +1342,10 @@ async def edit_post(
         # Validate content length if content is being updated
         if 'content' in update_data:
             content_to_validate = update_data['content']
-            if len(content_to_validate.strip()) > 5000:
+            if len(content_to_validate.strip()) > POST_MAX_LENGTH:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Content too long. Maximum 5000 characters. Current: {len(content_to_validate.strip())} characters."
+                    detail=f"Content too long. Maximum {POST_MAX_LENGTH} characters. Current: {len(content_to_validate.strip())} characters."
                 )
 
         # Validate location_data if provided

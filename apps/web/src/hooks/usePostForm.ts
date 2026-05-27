@@ -5,12 +5,13 @@ import { PostStyle, POST_STYLES } from "@/components/PostStyleSelector"
 import { RichTextEditorRef } from "@/components/RichTextEditor"
 import { useMobileViewport } from "./useMobileViewport"
 import { useMobileKeyboardInset } from "./useMobileKeyboardInset"
+import { MAX_POST_CHARS } from "@/constants/limits"
 
 export { POST_STYLES }
 export type { PostStyle, PostPrivacy }
 
 // Universal character limit for posts
-export const MAX_CHARS = 5000
+export const MAX_CHARS = MAX_POST_CHARS
 
 export const DEFAULT_EDITOR_MAX_HEIGHT = 300
 export const MIN_EDITOR_MAX_HEIGHT = 140

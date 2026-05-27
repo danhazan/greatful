@@ -9,6 +9,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import delete, or_
 from app.core.service_base import BaseService
+from app.core.constants import COMMENT_MAX_LENGTH
 from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError, BusinessLogicError
 from app.core.image_urls import serialize_image_url
 from app.models.comment import Comment
@@ -39,7 +40,7 @@ class CommentService(BaseService):
         Args:
             post_id: ID of the post to comment on
             user_id: ID of the user creating the comment
-            content: Comment content (1-500 characters)
+            content: Comment content (1-{COMMENT_MAX_LENGTH} characters)
             parent_comment_id: Optional ID of parent comment for replies
             
         Returns:
@@ -50,7 +51,7 @@ class CommentService(BaseService):
             ValidationException: If content length is invalid or reply nesting is invalid
         """
         # Validate content length
-        self.validate_field_length(content.strip(), "content", max_length=500, min_length=1)
+        self.validate_field_length(content.strip(), "content", max_length=COMMENT_MAX_LENGTH, min_length=1)
         
         # Verify post exists
         post = await self.get_by_id_or_404(Post, post_id, "Post")
@@ -269,7 +270,7 @@ class CommentService(BaseService):
         Args:
             comment_id: ID of the comment to edit
             user_id: ID of the user attempting to edit
-            content: New comment content (1-500 characters)
+            content: New comment content (1-{COMMENT_MAX_LENGTH} characters)
 
         Returns:
             Dict: Updated comment data with user information and full URLs
@@ -282,7 +283,7 @@ class CommentService(BaseService):
         from datetime import datetime, timezone
 
         # Validate content length
-        self.validate_field_length(content.strip(), "content", max_length=500, min_length=1)
+        self.validate_field_length(content.strip(), "content", max_length=COMMENT_MAX_LENGTH, min_length=1)
 
         # Get the comment
         comment = await self.get_by_id_or_404(Comment, comment_id, "Comment")

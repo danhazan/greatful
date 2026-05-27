@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.datastructures import FormData
+from app.core.constants import POST_MAX_LENGTH
 import bleach
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class InputSanitizer:
         'username': 50,
         'email': 254,
         'bio': 500,
-        'post_content': 5000,  # Match ContentAnalysisService limits
+        'post_content': POST_MAX_LENGTH,  # Match ContentAnalysisService limits
         'display_name': 100,
         'city': 100,
         'institution': 200,

@@ -482,7 +482,7 @@ class TestInputSanitization:
             ("username", "a" * 100, 50),
             ("email", "a" * 300 + "@example.com", 254),
             ("bio", "a" * 1000, 500),
-            ("post_content", "a" * 6000, 5000),
+            ("post_content", "a" * 11000, 10000),
         ]
         
         for field_type, long_input, expected_max in test_cases:

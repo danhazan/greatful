@@ -204,7 +204,7 @@ describe('/api/posts', () => {
           get: () => 'application/json'
         },
         json: async () => ({
-          detail: 'Content too long. Maximum 5000 characters allowed. Current: 5001 characters.'
+          detail: 'Content too long. Maximum 10000 characters allowed. Current: 10001 characters.'
         })
       } as Response)
 
@@ -214,7 +214,7 @@ describe('/api/posts', () => {
           'authorization': 'Bearer test-token'
         },
         body: JSON.stringify({
-          content: 'a'.repeat(5001) // Long content exceeds universal limit
+          content: 'a'.repeat(10001) // Long content exceeds universal limit
         })
       })
 

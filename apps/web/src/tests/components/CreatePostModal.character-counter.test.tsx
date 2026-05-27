@@ -25,7 +25,7 @@ describe('CreatePostModal Character Counter', () => {
       })
   })
 
-  it('should show 0/5000 when text is empty', async () => {
+  it('should show 0/10000 when text is empty', async () => {
     render(
       <CreatePostModal
         isOpen={true}
@@ -39,11 +39,11 @@ describe('CreatePostModal Character Counter', () => {
       expect(screen.getByRole('button', { name: 'Post Gratitude' })).toBeInTheDocument()
     })
 
-    // Check that character counter shows 0/5000 initially
-    expect(screen.getByText('0/5000')).toBeInTheDocument()
+    // Check that character counter shows 0/10000 initially
+    expect(screen.getByText('0/10000')).toBeInTheDocument()
   })
 
-  it('should show 0/5000 when all text is deleted', async () => {
+  it('should show 0/10000 when all text is deleted', async () => {
     render(
       <CreatePostModal
         isOpen={true}
@@ -65,7 +65,7 @@ describe('CreatePostModal Character Counter', () => {
 
     // Wait for character counter to update
     await waitFor(() => {
-      expect(screen.getByText('11/5000')).toBeInTheDocument()
+      expect(screen.getByText('11/10000')).toBeInTheDocument()
     })
 
     // Clear all text by selecting all and deleting
@@ -73,9 +73,9 @@ describe('CreatePostModal Character Counter', () => {
     fireEvent.keyDown(editor, { key: 'Delete' })
     fireEvent.input(editor, { target: { textContent: '' } })
 
-    // Character counter should show 0/5000, not 4/5000 or any other number
+    // Character counter should show 0/10000, not 4/10000 or any other number
     await waitFor(() => {
-      expect(screen.getByText('0/5000')).toBeInTheDocument()
+      expect(screen.getByText('0/10000')).toBeInTheDocument()
     })
   })
 
@@ -98,19 +98,19 @@ describe('CreatePostModal Character Counter', () => {
     // Test typing text
     fireEvent.input(editor, { target: { textContent: 'Test' } })
     await waitFor(() => {
-      expect(screen.getByText('4/5000')).toBeInTheDocument()
+      expect(screen.getByText('4/10000')).toBeInTheDocument()
     })
 
     // Test pasting text (simulate longer content)
     fireEvent.input(editor, { target: { textContent: 'This is a longer test message' } })
     await waitFor(() => {
-      expect(screen.getByText('29/5000')).toBeInTheDocument()
+      expect(screen.getByText('29/10000')).toBeInTheDocument()
     })
 
     // Test cutting all text (simulate Ctrl+A, Ctrl+X)
     fireEvent.input(editor, { target: { textContent: '' } })
     await waitFor(() => {
-      expect(screen.getByText('0/5000')).toBeInTheDocument()
+      expect(screen.getByText('0/10000')).toBeInTheDocument()
     })
   })
 
@@ -135,15 +135,15 @@ describe('CreatePostModal Character Counter', () => {
 
     // Even with HTML formatting like <b>Bold text</b>, the character count should be 9
     await waitFor(() => {
-      expect(screen.getByText('9/5000')).toBeInTheDocument()
+      expect(screen.getByText('9/10000')).toBeInTheDocument()
     })
 
     // Clear the formatted text
     fireEvent.input(editor, { target: { textContent: '' } })
 
-    // Should show 0/5000, not the length of empty HTML tags
+    // Should show 0/10000, not the length of empty HTML tags
     await waitFor(() => {
-      expect(screen.getByText('0/5000')).toBeInTheDocument()
+      expect(screen.getByText('0/10000')).toBeInTheDocument()
     })
   })
 
@@ -173,9 +173,9 @@ describe('CreatePostModal Character Counter', () => {
     // Trigger input event to update the character counter
     fireEvent.input(editor, { target: { textContent: '' } })
 
-    // Character counter should show 0/5000, not 9/5000 (length of '<p><br></p>')
+    // Character counter should show 0/10000, not 9/10000 (length of '<p><br></p>')
     await waitFor(() => {
-      expect(screen.getByText('0/5000')).toBeInTheDocument()
+      expect(screen.getByText('0/10000')).toBeInTheDocument()
     })
   })
 })

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
+from app.core.constants import COMMENT_MAX_LENGTH
 from app.services.comment_service import CommentService
 from app.core.responses import success_response
 from app.core.exceptions import NotFoundError
@@ -19,7 +20,7 @@ router = APIRouter()
 
 class CommentCreateRequest(BaseModel):
     """Request model for creating a comment."""
-    content: str = Field(..., min_length=1, max_length=500, description="Comment content (1-500 characters)")
+    content: str = Field(..., min_length=1, max_length=COMMENT_MAX_LENGTH, description=f"Comment content (1-{COMMENT_MAX_LENGTH} characters)")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -40,7 +41,7 @@ class CommentCreateRequest(BaseModel):
 
 class ReplyCreateRequest(BaseModel):
     """Request model for creating a reply to a comment."""
-    content: str = Field(..., min_length=1, max_length=500, description="Reply content (1-500 characters)")
+    content: str = Field(..., min_length=1, max_length=COMMENT_MAX_LENGTH, description=f"Reply content (1-{COMMENT_MAX_LENGTH} characters)")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -88,7 +89,7 @@ class CommentResponse(BaseModel):
 
 class CommentUpdateRequest(BaseModel):
     """Request model for updating/editing a comment."""
-    content: str = Field(..., min_length=1, max_length=500, description="Updated comment content (1-500 characters)")
+    content: str = Field(..., min_length=1, max_length=COMMENT_MAX_LENGTH, description=f"Updated comment content (1-{COMMENT_MAX_LENGTH} characters)")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -119,7 +120,7 @@ async def create_comment(
     Create a new comment on a post.
     
     - **post_id**: ID of the post to comment on
-    - **content**: Comment content (1-500 characters, supports emojis)
+    - **content**: Comment content (1-{COMMENT_MAX_LENGTH} characters, supports emojis)
     
     Returns the created comment with user information.
     """
@@ -154,7 +155,7 @@ async def create_reply(
     Create a reply to an existing comment.
     
     - **comment_id**: ID of the comment to reply to
-    - **content**: Reply content (1-500 characters, supports emojis)
+    - **content**: Reply content (1-{COMMENT_MAX_LENGTH} characters, supports emojis)
     
     Returns the created reply with user information.
     Note: Only single-level nesting is allowed (cannot reply to a reply).
@@ -280,7 +281,7 @@ async def update_comment(
     Edit/update a comment (owner only).
 
     - **comment_id**: ID of the comment to edit
-    - **content**: New comment content (1-500 characters)
+    - **content**: New comment content (1-{COMMENT_MAX_LENGTH} characters)
 
     Returns the updated comment with user information.
     Only the comment owner can edit their comment.

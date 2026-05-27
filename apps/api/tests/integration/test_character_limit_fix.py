@@ -32,7 +32,7 @@ class TestCharacterLimitFix:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Test content that's longer than the old 200-character limit
-        # but shorter than the new 5000-character limit
+        # but shorter than the new 10000-character limit
         long_content = "a" * 500  # 500 characters - would have failed before, should pass now
         
         post_data = {
@@ -48,8 +48,8 @@ class TestCharacterLimitFix:
         assert response_data["content"] == long_content
 
     @pytest.mark.asyncio
-    async def test_universal_5000_character_limit_enforced(self, client: Client, db_session: AsyncSession):
-        """Test that the universal 5000-character limit is still enforced."""
+    async def test_universal_10000_character_limit_enforced(self, client: Client, db_session: AsyncSession):
+        """Test that the universal 10000-character limit is still enforced."""
         # Create test user
         user = User(
             email="test2@example.com",
@@ -64,8 +64,8 @@ class TestCharacterLimitFix:
         token = create_access_token({"sub": str(user.id)})
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Test content that exceeds the 5000-character limit
-        very_long_content = "a" * 5001  # 5001 characters - should fail
+        # Test content that exceeds the 10000-character limit
+        very_long_content = "a" * 10001  # 10001 characters - should fail
         
         post_data = {
             "content": very_long_content,
@@ -78,11 +78,11 @@ class TestCharacterLimitFix:
         assert response.status_code == 422
         error_data = response.json()
         assert "Content too long" in error_data["detail"]
-        assert "5000" in error_data["detail"]
+        assert "10000" in error_data["detail"]
 
     @pytest.mark.asyncio
     async def test_daily_post_accepts_long_content(self, client: Client, db_session: AsyncSession):
-        """Test that daily posts can accept long content up to 5000 characters."""
+        """Test that daily posts can accept long content up to 10000 characters."""
         # Create test user
         user = User(
             email="test3@example.com",
@@ -97,8 +97,8 @@ class TestCharacterLimitFix:
         token = create_access_token({"sub": str(user.id)})
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Test content that's close to the 5000-character limit
-        long_content = "a" * 4999  # 4999 characters - should pass
+        # Test content that's close to the 10000-character limit
+        long_content = "a" * 9999  # 9999 characters - should pass
         
         post_data = {
             "content": long_content,

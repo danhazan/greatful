@@ -133,8 +133,8 @@ class TestCreateComment:
         test_post: Post,
         auth_headers: dict
     ):
-        """Test comment creation with content exceeding 500 characters fails."""
-        long_content = "a" * 501
+        """Test comment creation with content exceeding 2000 characters fails."""
+        long_content = "a" * 2001
         response = await async_client.post(
             f"/api/v1/posts/{test_post.id}/comments",
             json={"content": long_content},
@@ -969,7 +969,7 @@ class TestUpdateComment:
         test_user: User,
         auth_headers: dict
     ):
-        """Test that content over 500 chars is rejected."""
+        """Test that content over 2000 chars is rejected."""
         # Create a comment
         comment = Comment(
             post_id=test_post.id,
@@ -983,7 +983,7 @@ class TestUpdateComment:
         # Try to update with content too long
         response = await async_client.put(
             f"/api/v1/comments/{comment.id}",
-            json={"content": "x" * 501},
+            json={"content": "x" * 2001},
             headers=auth_headers
         )
 

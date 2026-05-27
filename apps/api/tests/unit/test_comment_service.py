@@ -299,10 +299,10 @@ class TestCreateComment:
 
     @pytest.mark.asyncio
     async def test_create_comment_content_too_long(self, comment_service):
-        """Test that content exceeding 500 characters is rejected."""
-        long_content = "x" * 501
+        """Test that content exceeding 2000 characters is rejected."""
+        long_content = "x" * 2001
         comment_service.validate_field_length = MagicMock(
-            side_effect=ValidationException("Content too long", {"content": "Maximum length is 500"})
+            side_effect=ValidationException("Content too long", {"content": "Maximum length is 2000"})
         )
         
         with pytest.raises(ValidationException):

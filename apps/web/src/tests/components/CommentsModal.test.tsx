@@ -190,7 +190,7 @@ describe('CommentsModal', () => {
     const topLevelReactionButtons = screen.getAllByRole('button', { name: /react to comment/i })
     expect(within(topLevelReactionButtons[0]).getByText('React')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText(/Show 2 replies/i))
+    fireEvent.click(screen.getByRole('button', { name: /show 2 replies/i }))
 
     await waitFor(() => {
       expect(screen.getByText('Thanks for sharing!')).toBeInTheDocument()
@@ -313,13 +313,13 @@ describe('CommentsModal', () => {
   it('shows reply count for comments with replies', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
-    expect(screen.getByText(/Show 2 replies/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /show 2 replies/i })).toBeInTheDocument()
   })
 
   it('loads and displays replies when clicking show replies button', async () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
-    const showRepliesButton = screen.getByText(/Show 2 replies/i)
+    const showRepliesButton = screen.getByRole('button', { name: /show 2 replies/i })
     fireEvent.click(showRepliesButton)
     
     await waitFor(() => {
@@ -363,23 +363,23 @@ describe('CommentsModal', () => {
     
     const textarea = screen.getByPlaceholderText('Add a comment...')
     
-    expect(screen.getByText('0/500')).toBeInTheDocument()
+    expect(screen.getByText('0/2000')).toBeInTheDocument()
     
     fireEvent.change(textarea, { target: { value: 'Test comment' } })
     
-    expect(screen.getByText('12/500')).toBeInTheDocument()
+    expect(screen.getByText('12/2000')).toBeInTheDocument()
   })
 
   it('enforces maximum character limit', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
     const textarea = screen.getByPlaceholderText('Add a comment...') as HTMLTextAreaElement
-    const longText = 'a'.repeat(600)
+    const longText = 'a'.repeat(2500)
     
     fireEvent.change(textarea, { target: { value: longText } })
     
-    expect(textarea.value.length).toBe(500)
-    expect(screen.getByText('500/500')).toBeInTheDocument()
+    expect(textarea.value.length).toBe(2000)
+    expect(screen.getByText('2000/2000')).toBeInTheDocument()
   })
 
   it('disables submit button when comment is empty', () => {
@@ -506,7 +506,7 @@ describe('CommentsModal', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
     // Show replies first
-    const showRepliesButton = screen.getByText(/Show 2 replies/i)
+    const showRepliesButton = screen.getByRole('button', { name: /show 2 replies/i })
     fireEvent.click(showRepliesButton)
     
     await waitFor(() => {
@@ -514,7 +514,7 @@ describe('CommentsModal', () => {
     })
     
     // Hide replies
-    const hideRepliesButton = screen.getByText(/Hide 2 replies/i)
+    const hideRepliesButton = screen.getByRole('button', { name: /hide 2 replies/i })
     fireEvent.click(hideRepliesButton)
     
     await waitFor(() => {
@@ -714,7 +714,7 @@ describe('CommentsModal', () => {
     renderWithToast(<CommentsModal {...defaultProps} />)
     
     // Show replies
-    const showRepliesButton = screen.getByText(/Show 2 replies/i)
+    const showRepliesButton = screen.getByRole('button', { name: /show 2 replies/i })
     fireEvent.click(showRepliesButton)
     
     await waitFor(() => {

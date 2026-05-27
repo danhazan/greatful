@@ -88,8 +88,8 @@ class TestPostsAPIContracts:
         token = create_access_token({"sub": str(test_user.id)})
         headers = {"Authorization": f"Bearer {token}"}
         
-        # Test content too long for any post type (>5000 chars)
-        very_long_content = "a" * 5001
+        # Test content too long for any post type (>10000 chars)
+        very_long_content = "a" * 10001
         invalid_long_post = {
             "content": very_long_content,
             "is_public": True

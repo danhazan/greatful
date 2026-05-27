@@ -6,6 +6,7 @@ from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Text, Chec
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
+from app.core.constants import COMMENT_MAX_LENGTH
 import uuid
 
 
@@ -29,8 +30,9 @@ class Comment(Base):
 
     # Constraints
     __table_args__ = (
-        # Check constraint for content length (1-500 characters)
-        CheckConstraint('LENGTH(content) >= 1 AND LENGTH(content) <= 500', name='check_content_length'),
+        # Check constraint for content length (1-COMMENT_MAX_LENGTH characters)
+        # NOTE: The live DB constraint is managed by Alembic migration 459c70b3db0e.
+        CheckConstraint(f'LENGTH(content) >= 1 AND LENGTH(content) <= {COMMENT_MAX_LENGTH}', name='check_content_length'),
         # Composite index for efficient post comment retrieval (ordered by creation time)
         Index('idx_comments_post_created', 'post_id', 'created_at'),
     )
