@@ -334,6 +334,19 @@ export default function CommentsModal({
     })
   }, [deleteConfirmCommentId])
 
+  // Auto-scroll to bottom when a new top-level comment is submitted optimistically (Issue 1C)
+  useEffect(() => {
+    if (!hasPendingMutation || mutationRef.current !== 'comment') return
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = commentsContainerRef.current
+        if (container) {
+          container.scrollTop = container.scrollHeight
+        }
+      })
+    })
+  }, [hasPendingMutation])
+
   // Handle click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -447,6 +460,10 @@ export default function CommentsModal({
       resetTextarea(commentInputRef.current)
     }
 
+    // Error-recovery context for optimistic reply (Issue 2)
+    let errorCtxReplyTarget: string | null = null
+    let errorCtxTempReplyId: string | null = null
+
     try {
       switch (mode) {
         case 'edit': {
@@ -471,28 +488,62 @@ export default function CommentsModal({
         }
         case 'reply': {
           const targetId = replyingTo!
-          await onReplySubmit(targetId, content)
+          const tempReply: Comment = {
+            id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            postId,
+            userId: currentUserId || 0,
+            content,
+            parentCommentId: targetId,
+            createdAt: new Date().toISOString(),
+            user: {
+              id: currentUserId || 0,
+              username: '',
+              displayName: 'You',
+              profileImageUrl: undefined,
+            },
+            isReply: true,
+            replyCount: 0,
+            canDelete: true,
+          }
+          errorCtxReplyTarget = targetId
+          errorCtxTempReplyId = tempReply.id
+
+          // Optimistic: close reply editor and show temp reply immediately
           setCommentText("")
           resetTextarea(commentInputRef.current)
           setReplyingTo(null)
           unlockCommentsScroll()
-          await loadReplies(targetId, true)
-          // Re-enter pending after loadReplies completes (it's async but non-blocking for UX)
-          return  // skip unlock in common path — already handled above
+          setRepliesCache(prev => ({
+            ...prev,
+            [targetId]: [...(prev[targetId] || []), tempReply],
+          }))
+          setExpandedComments(prev => new Set(prev).add(targetId))
+
+          await onReplySubmit(targetId, content)
+
+          // Refresh with server data
+          const freshReplies = await onLoadReplies(targetId)
+          setRepliesCache(prev => ({ ...prev, [targetId]: freshReplies }))
+          break
         }
         case 'comment': {
           await onCommentSubmit(content)
-          // Auto-scroll to bottom for new comments
-          requestAnimationFrame(() => {
-            if (commentsContainerRef.current) {
-              commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight
-            }
-          })
           break
         }
       }
       unlockCommentsScroll()
     } catch (error) {
+      // Remove optimistic reply on failure (Issue 2)
+      const errTarget = errorCtxReplyTarget
+      const errTempId = errorCtxTempReplyId
+      if (errTarget && errTempId) {
+        setRepliesCache(prev => ({
+          ...prev,
+          [errTarget]: (prev[errTarget] || []).filter(
+            (r: Comment) => r.id !== errTempId
+          ),
+        }))
+      }
       console.error('CommentsModal: Comment submission failed', error)
     } finally {
       mutationRef.current = null
@@ -793,7 +844,7 @@ export default function CommentsModal({
                     onClick={(e) => updateTextareaSelection(e.currentTarget)}
                     onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                     onSelect={(e) => updateTextareaSelection(e.currentTarget)}
-                    className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-purple-50 border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800"
+                    className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-purple-50 border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
                     maxLength={MAX_CHARS}
                     disabled={hasPendingMutation}
                     aria-label="Edit comment"
@@ -1102,7 +1153,7 @@ export default function CommentsModal({
                   onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                   onSelect={(e) => updateTextareaSelection(e.currentTarget)}
                   placeholder={`Reply to ${replyTargetName}...`}
-                  className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800"
+                  className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
                   maxLength={MAX_CHARS}
                   disabled={hasPendingMutation}
                   aria-label={`Reply to ${replyTargetName}`}
@@ -1191,7 +1242,7 @@ export default function CommentsModal({
                     onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                     onSelect={(e) => updateTextareaSelection(e.currentTarget)}
                     placeholder="Add a comment..."
-                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white"
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
                     rows={1}
                     maxLength={MAX_CHARS}
                     disabled={hasPendingMutation}
