@@ -840,7 +840,8 @@ export default function CommentsModal({
 
                 {/* Action Buttons */}
                 {!isDeletingThis && (
-                  <div className="flex items-center gap-2 sm:gap-4 mt-2 flex-nowrap min-w-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  <div className="overflow-x-auto mt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    <div className="inline-flex items-center gap-2 sm:gap-4 flex-nowrap w-max">
                     <CommentReactionButton
                       postId={postId}
                       commentId={comment.id}
@@ -861,31 +862,29 @@ export default function CommentsModal({
 
                     {/* Show/Hide Replies Button */}
                     {!isReply && comment.replyCount > 0 && (
-                      <div className="flex justify-start">
-                        <button
-                          onClick={() => toggleReplies(comment.id)}
-                          disabled={isLoadingReplies}
-                          className="text-xs text-purple-600 hover:text-purple-700 transition-colors font-medium flex items-center space-x-1 min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded max-w-full [-webkit-tap-highlight-color:transparent]"
-                          aria-label={isExpanded ? `Hide ${comment.replyCount} replies` : `Show ${comment.replyCount} replies`}
-                          aria-expanded={isExpanded}
-                        >
-                          {isLoadingReplies ? (
-                            <>
-                              <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
-                              <span className="truncate">Loading...</span>
-                            </>
-                          ) : (
-                            <>
-                              <MessagesSquare className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">
-                                <span className="hidden min-[400px]:inline">{isExpanded ? 'Hide' : 'Show'} </span>
-                                {comment.replyCount}
-                                <span className="hidden sm:inline"> {comment.replyCount === 1 ? 'reply' : 'replies'}</span>
-                              </span>
-                            </>
-                          )}
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => toggleReplies(comment.id)}
+                        disabled={isLoadingReplies}
+                        className="text-xs text-purple-600 hover:text-purple-700 transition-colors font-medium flex items-center space-x-1 min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded [-webkit-tap-highlight-color:transparent]"
+                        aria-label={isExpanded ? `Hide ${comment.replyCount} replies` : `Show ${comment.replyCount} replies`}
+                        aria-expanded={isExpanded}
+                      >
+                        {isLoadingReplies ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+                            <span className="truncate">Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessagesSquare className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">
+                              <span className="hidden min-[400px]:inline">{isExpanded ? 'Hide' : 'Show'} </span>
+                              {comment.replyCount}
+                              <span className="hidden sm:inline"> {comment.replyCount === 1 ? 'reply' : 'replies'}</span>
+                            </span>
+                          </>
+                        )}
+                      </button>
                     )}
 
                     {/* Owner Actions: Edit & Delete */}
@@ -901,35 +900,34 @@ export default function CommentsModal({
                     )}
 
                     {isOwner && onCommentDelete && (
-                      <div className="relative group min-w-0 flex-shrink">
-                        <button
-                          onClick={() => canDelete ? handleShowDeleteConfirm(comment.id) : undefined}
-                          disabled={!canDelete}
-                          className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 transition-colors min-w-0 flex-shrink w-full [-webkit-tap-highlight-color:transparent] ${
-                            canDelete
-                              ? 'text-red-500 hover:text-red-600 active:text-red-700'
-                              : 'text-gray-300 cursor-not-allowed'
-                          }`}
-                          aria-label={canDelete ? "Delete comment" : (isReply ? "Cannot delete reply with later replies" : "Cannot delete comment with replies")}
-                        >
-                          <Trash2 className="h-3 w-3 flex-shrink-0" />
-                          <span>Delete</span>
-                        </button>
+                      <button
+                        onClick={() => canDelete ? handleShowDeleteConfirm(comment.id) : undefined}
+                        disabled={!canDelete}
+                        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 transition-colors min-w-0 flex-shrink relative group [-webkit-tap-highlight-color:transparent] ${
+                          canDelete
+                            ? 'text-red-500 hover:text-red-600 active:text-red-700'
+                            : 'text-gray-300 cursor-not-allowed'
+                        }`}
+                        aria-label={canDelete ? "Delete comment" : (isReply ? "Cannot delete reply with later replies" : "Cannot delete comment with replies")}
+                      >
+                        <Trash2 className="h-3 w-3 flex-shrink-0" />
+                        <span>Delete</span>
                         {!canDelete && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap pointer-events-none z-10 hidden group-hover:block">
                             {isReply
                               ? "Only the last reply in a thread can be deleted."
                               : "This comment has replies and cannot be deleted."}
                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
                           </div>
                         )}
-                      </div>
+                      </button>
                     )}
+                    </div>
                   </div>
                 )}
               </>
             )}
-
+            
           </div>
         </div>
 
