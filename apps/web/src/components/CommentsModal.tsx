@@ -165,6 +165,8 @@ export default function CommentsModal({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [reactionViewerCommentId, setReactionViewerCommentId] = useState<string | null>(null)
   const [textareaSelection, setTextareaSelection] = useState({ start: 0, end: 0 })
+  const mutationRef = useRef<'comment' | 'reply' | 'edit' | 'delete' | null>(null)
+  const [hasPendingMutation, setHasPendingMutation] = useState(false)
   const isMobileViewport = useMobileViewport()
   const mobileKeyboardInset = useMobileKeyboardInset(isMobileViewport)
   const {
@@ -315,6 +317,23 @@ export default function CommentsModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showEmojiPicker, mobileKeyboardInset])
 
+  // Scroll delete confirmation into view (Issue 3)
+  useEffect(() => {
+    if (!deleteConfirmCommentId) return
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = commentsContainerRef.current
+        const el = container?.querySelector<HTMLElement>(`[data-delete-confirm="${deleteConfirmCommentId}"]`)
+        if (!container || !el) return
+        unlockCommentsScroll()
+        const overflow = el.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom
+        if (overflow > 0) {
+          container.scrollTop += overflow + 16
+        }
+      })
+    })
+  }, [deleteConfirmCommentId])
+
   // Handle click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -325,6 +344,7 @@ export default function CommentsModal({
       const isInsideReactionPicker = !!target.closest('[data-emoji-picker]')
       const isInsideInput = !!target.closest('textarea')
       const isInsideEmojiTrigger = !!target.closest('[data-emoji-trigger]')
+      const isInsideSubmit = !!target.closest('[data-submit-button]')
       const modalElement = modalRef.current
       const modalContainsTarget = !!modalElement?.contains(event.target as Node)
       const modalRect = modalElement?.getBoundingClientRect()
@@ -350,7 +370,7 @@ export default function CommentsModal({
         return
       }
 
-      if (showEmojiPicker && !isInsidePicker && !isInsideInput && !isInsideEmojiTrigger) {
+      if (showEmojiPicker && !isInsidePicker && !isInsideInput && !isInsideEmojiTrigger && !isInsideSubmit) {
         setShowEmojiPicker(false)
       }
     }
@@ -409,49 +429,74 @@ export default function CommentsModal({
   }, [deleteConfirmCommentId, editingCommentId, isOpen, onClose, replyingTo, reactionViewerCommentId])
 
   const handleCommentSubmit = async () => {
-    if (!commentText.trim() || isSubmitting) return
+    if (!commentText.trim() || hasPendingMutation || isSubmitting) return
+
+    // Close emoji picker explicitly (Issue 1)
+    if (showEmojiPicker) setShowEmojiPicker(false)
+
+    const content = commentText.trim()
+    const mode = editingCommentId ? 'edit' : replyingTo ? 'reply' : 'comment'
+
+    // Shared pending lifecycle
+    mutationRef.current = mode
+    setHasPendingMutation(true)
+
+    // Optimistic: clear textbox immediately for new comments
+    if (mode === 'comment') {
+      setCommentText("")
+      resetTextarea(commentInputRef.current)
+    }
 
     try {
-      if (editingCommentId && onCommentEdit) {
-        const updatedComment = await onCommentEdit(editingCommentId, commentText.trim())
-
-        setLocalComments(prev =>
-          prev.map(c => c.id === editingCommentId ? { ...c, content: updatedComment.content, editedAt: updatedComment.editedAt } : c)
-        )
-
-        setRepliesCache(prev => {
-          const newCache = { ...prev }
-          for (const parentId of Object.keys(newCache)) {
-            newCache[parentId] = newCache[parentId].map(r =>
-              r.id === editingCommentId ? { ...r, content: updatedComment.content, editedAt: updatedComment.editedAt } : r
-            )
-          }
-          return newCache
-        })
-
-        setEditingCommentId(null)
-        setCommentText("")
-        resetTextarea(commentInputRef.current)
-        unlockCommentsScroll()
-        // Toast ownership: PostCard's handler owns toast lifecycle for comment edits
-      } else if (replyingTo) {
-        await onReplySubmit(replyingTo, commentText.trim())
-
-        const submittedReplyTarget = replyingTo
-        setCommentText("")
-        setReplyingTo(null)
-        resetTextarea(commentInputRef.current)
-        unlockCommentsScroll()
-        await loadReplies(submittedReplyTarget, true)
-      } else {
-        await onCommentSubmit(commentText.trim())
-        setCommentText("")
-        resetTextarea(commentInputRef.current)
-        unlockCommentsScroll()
+      switch (mode) {
+        case 'edit': {
+          if (!onCommentEdit) break
+          const updatedComment = await onCommentEdit(editingCommentId!, content)
+          setLocalComments(prev =>
+            prev.map(c => c.id === editingCommentId ? { ...c, content: updatedComment.content, editedAt: updatedComment.editedAt } : c)
+          )
+          setRepliesCache(prev => {
+            const newCache = { ...prev }
+            for (const parentId of Object.keys(newCache)) {
+              newCache[parentId] = newCache[parentId].map(r =>
+                r.id === editingCommentId ? { ...r, content: updatedComment.content, editedAt: updatedComment.editedAt } : r
+              )
+            }
+            return newCache
+          })
+          setEditingCommentId(null)
+          setCommentText("")
+          resetTextarea(commentInputRef.current)
+          break
+        }
+        case 'reply': {
+          const targetId = replyingTo!
+          await onReplySubmit(targetId, content)
+          setCommentText("")
+          resetTextarea(commentInputRef.current)
+          setReplyingTo(null)
+          unlockCommentsScroll()
+          await loadReplies(targetId, true)
+          // Re-enter pending after loadReplies completes (it's async but non-blocking for UX)
+          return  // skip unlock in common path — already handled above
+        }
+        case 'comment': {
+          await onCommentSubmit(content)
+          // Auto-scroll to bottom for new comments
+          requestAnimationFrame(() => {
+            if (commentsContainerRef.current) {
+              commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight
+            }
+          })
+          break
+        }
       }
+      unlockCommentsScroll()
     } catch (error) {
-      // Error is handled by parent component
       console.error('CommentsModal: Comment submission failed', error)
+    } finally {
+      mutationRef.current = null
+      setHasPendingMutation(false)
     }
   }
 
@@ -534,6 +579,15 @@ export default function CommentsModal({
   const handleConfirmDelete = async (commentId: string) => {
     if (isDeleting || !onCommentDelete) return
 
+    // Find parent comment ID if this is a reply (Issue 4)
+    let parentCommentId: string | null = null
+    for (const [pid, replies] of Object.entries(repliesCache)) {
+      if (replies.some(r => r.id === commentId)) {
+        parentCommentId = pid
+        break
+      }
+    }
+
     setIsDeleting(true)
     try {
       await onCommentDelete(commentId)
@@ -544,13 +598,19 @@ export default function CommentsModal({
       // Also remove from replies cache if it's a reply
       setRepliesCache(prev => {
         const newCache = { ...prev }
-        for (const parentId of Object.keys(newCache)) {
-          newCache[parentId] = newCache[parentId].filter(r => r.id !== commentId)
+        for (const pid of Object.keys(newCache)) {
+          newCache[pid] = newCache[pid].filter(r => r.id !== commentId)
         }
         return newCache
       })
 
       setDeleteConfirmCommentId(null)
+
+      // Refresh parent's replies to get fresh canDelete values (Issue 4)
+      if (parentCommentId) {
+        await loadReplies(parentCommentId, true)
+      }
+
       // Toast ownership: PostCard's handler owns toast lifecycle for comment deletes
     } catch (error: any) {
       showError(error.message || "Failed to delete comment")
@@ -735,19 +795,21 @@ export default function CommentsModal({
                     onSelect={(e) => updateTextareaSelection(e.currentTarget)}
                     className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-purple-50 border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800"
                     maxLength={MAX_CHARS}
+                    disabled={hasPendingMutation}
                     aria-label="Edit comment"
                     aria-describedby="edit-comment-char-count"
                     style={{ boxSizing: 'border-box' }}
                   />
-                  <button
-                    onClick={handleCommentSubmit}
-                    onMouseDown={(e) => e.preventDefault()}
-                    disabled={!commentText.trim() || isSubmitting}
-                    className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    aria-label="Save comment edit"
-                  >
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </button>
+                    <button
+                        onClick={handleCommentSubmit}
+                        onMouseDown={(e) => e.preventDefault()}
+                        disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
+                        data-submit-button
+                        className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        aria-label="Save comment edit"
+                      >
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </button>
                 </div>
                 {/* Controls row */}
                 <div
@@ -810,7 +872,7 @@ export default function CommentsModal({
 
                 {/* Delete Confirmation */}
                 {isDeletingThis && (
-                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg" data-delete-confirm={comment.id}>
                     <p className="text-sm text-red-700 mb-2">Are you sure you want to delete this comment?</p>
                     <div className="flex items-center space-x-3">
                       <button
@@ -852,7 +914,12 @@ export default function CommentsModal({
                     {!isReply && (
                       <button
                         onClick={() => handleReplyToggle(comment)}
-                        className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent]"
+                        disabled={hasPendingMutation}
+                        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent] transition-colors ${
+                          hasPendingMutation
+                            ? 'text-gray-300 cursor-not-allowed'
+                            : 'text-gray-500 hover:text-purple-600 active:text-purple-700'
+                        }`}
                         aria-label={isReplyingToThis ? `Cancel reply to ${comment.user.displayName || comment.user.username}` : `Reply to ${comment.user.displayName || comment.user.username}'s comment`}
                       >
                         {isReplyingToThis ? null : <Send className="h-3 w-3 flex-shrink-0" />}
@@ -891,7 +958,12 @@ export default function CommentsModal({
                     {isOwner && onCommentEdit && (
                       <button
                         onClick={() => handleStartEdit(comment)}
-                        className="text-xs text-gray-500 hover:text-purple-600 transition-colors font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent]"
+                        disabled={hasPendingMutation}
+                        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent] transition-colors ${
+                          hasPendingMutation
+                            ? 'text-gray-300 cursor-not-allowed'
+                            : 'text-gray-500 hover:text-purple-600 active:text-purple-700'
+                        }`}
                         aria-label="Edit comment"
                       >
                         <Pencil className="h-3 w-3 flex-shrink-0" />
@@ -1032,6 +1104,7 @@ export default function CommentsModal({
                   placeholder={`Reply to ${replyTargetName}...`}
                   className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800"
                   maxLength={MAX_CHARS}
+                  disabled={hasPendingMutation}
                   aria-label={`Reply to ${replyTargetName}`}
                   aria-describedby="reply-composer-char-count"
                   style={{ boxSizing: 'border-box' }}
@@ -1039,7 +1112,8 @@ export default function CommentsModal({
                 <button
                   onClick={handleCommentSubmit}
                   onMouseDown={(e) => e.preventDefault()}
-                  disabled={!commentText.trim() || isSubmitting}
+                  disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
+                  data-submit-button
                   className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   aria-label="Post reply"
                 >
@@ -1120,6 +1194,7 @@ export default function CommentsModal({
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white"
                     rows={1}
                     maxLength={MAX_CHARS}
+                    disabled={hasPendingMutation}
                     aria-label="Add a comment"
                     aria-describedby="comment-char-count"
                     style={{ minHeight: '44px', WebkitTextFillColor: '#111827', boxSizing: 'border-box' }}
@@ -1127,7 +1202,8 @@ export default function CommentsModal({
                   <button
                     onClick={handleCommentSubmit}
                     onMouseDown={(e) => e.preventDefault()}
-                    disabled={!commentText.trim() || isSubmitting}
+                    disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
+                    data-submit-button
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     aria-label="Post comment"
                   >

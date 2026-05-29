@@ -738,4 +738,235 @@ describe('CommentsModal', () => {
     
     expect(buttonsWithMinHeight.length).toBeGreaterThan(0)
   })
+
+  // ── Issue 1: Emoji Tray + Submit Button ───────────────────────────────
+  it('submits in one click when emoji picker is open', async () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const textarea = screen.getByPlaceholderText('Add a comment...') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'Comment with emoji open' } })
+
+    // Open emoji picker
+    fireEvent.click(screen.getByRole('button', { name: /Open emoji picker for comment/i }))
+    expect(document.querySelector('[data-minimal-emoji-picker]')).toBeInTheDocument()
+
+    // Submit button should have data-submit-button attribute
+    const submitButton = screen.getByRole('button', { name: /Post comment/i })
+    expect(submitButton).toHaveAttribute('data-submit-button')
+
+    // Click submit
+    fireEvent.click(submitButton)
+
+    await waitFor(() => {
+      expect(defaultProps.onCommentSubmit).toHaveBeenCalledWith('Comment with emoji open')
+    })
+
+    // Picker closed as part of submit flow
+    expect(document.querySelector('[data-minimal-emoji-picker]')).not.toBeInTheDocument()
+  })
+
+  it('submits reply in one click when emoji picker is open', async () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    // Enter reply mode
+    const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
+    fireEvent.click(replyButtons[0])
+
+    const replyTextarea = screen.getByPlaceholderText(/Reply to Test User.../i) as HTMLTextAreaElement
+    fireEvent.change(replyTextarea, { target: { value: 'Reply with emoji open' } })
+
+    // Open emoji picker in reply mode
+    fireEvent.click(screen.getAllByRole('button', { name: /Open emoji picker/i })[0])
+    expect(document.querySelector('[data-minimal-emoji-picker]')).toBeInTheDocument()
+
+    // Submit reply button should have data-submit-button
+    const submitReplyButton = screen.getByRole('button', { name: /Post reply/i })
+    expect(submitReplyButton).toHaveAttribute('data-submit-button')
+
+    // Click submit
+    fireEvent.click(submitReplyButton)
+
+    await waitFor(() => {
+      expect(defaultProps.onReplySubmit).toHaveBeenCalledWith('1', 'Reply with emoji open')
+    })
+
+    // Picker closed
+    expect(document.querySelector('[data-minimal-emoji-picker]')).not.toBeInTheDocument()
+  })
+
+  // ── Issue 3: Delete Confirmation Visibility ───────────────────────────
+  it('renders delete confirmation with data attribute for scroll targeting', async () => {
+    const ownComment = [{
+      id: '5',
+      postId: 'post-1',
+      userId: 1,
+      content: 'My own comment',
+      createdAt: new Date().toISOString(),
+      user: {
+        id: 1,
+        username: 'testuser',
+        displayName: 'Test User',
+        profileImageUrl: null
+      },
+      isReply: false,
+      replyCount: 0
+    }]
+
+    const props = {
+      ...defaultProps,
+      currentUserId: 1,
+      onCommentDelete: jest.fn().mockResolvedValue(undefined),
+      comments: ownComment,
+      totalCommentsCount: 1
+    }
+
+    renderWithToast(<CommentsModal {...props} />)
+
+    const deleteButton = screen.getByRole('button', { name: /Delete comment/i })
+    fireEvent.click(deleteButton)
+
+    const confirmEl = document.querySelector('[data-delete-confirm="5"]')
+    expect(confirmEl).toBeInTheDocument()
+    expect(screen.getByText(/Are you sure/i)).toBeInTheDocument()
+    expect(screen.getByText('Cancel')).toBeInTheDocument()
+  })
+
+  // ── Issue 4: Delete Eligibility Refresh ──────────────────────────────
+  it('refreshes reply cache after deleting a reply', async () => {
+    const myReply = [
+      {
+        id: 'del-reply-1',
+        postId: 'post-1',
+        userId: 1,
+        content: 'My deletable reply',
+        parentCommentId: '1',
+        createdAt: new Date().toISOString(),
+        user: {
+          id: 1,
+          username: 'testuser',
+          displayName: 'Test User',
+          profileImageUrl: null
+        },
+        isReply: true,
+        replyCount: 0,
+        canDelete: true
+      }
+    ]
+
+    const loadRepliesMock = jest.fn().mockResolvedValue(myReply)
+
+    const props = {
+      ...defaultProps,
+      currentUserId: 1,
+      onCommentDelete: jest.fn().mockResolvedValue(undefined),
+      onLoadReplies: loadRepliesMock
+    }
+
+    renderWithToast(<CommentsModal {...props} />)
+
+    // Show replies for comment 1
+    fireEvent.click(screen.getByRole('button', { name: /show 2 replies/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('My deletable reply')).toBeInTheDocument()
+    })
+
+    // Find and click delete on the reply
+    const allDeleteButtons = screen.getAllByRole('button', { name: /Delete comment/i })
+    // The last delete button is the reply's (replies render after parent comment)
+    fireEvent.click(allDeleteButtons[allDeleteButtons.length - 1])
+
+    // Confirm deletion (the confirmation button's name is exactly "Delete", not "Delete comment")
+    const confirmButton = screen.getByRole('button', { name: 'Delete' })
+    fireEvent.click(confirmButton)
+
+    // Verify onLoadReplies was called twice: once for initial load, once to refresh after delete.
+    // (forceReload=true is internal to loadReplies, not passed to the onLoadReplies prop)
+    await waitFor(() => {
+      expect(loadRepliesMock).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  // ── Issue 2: Pending-State Locking ────────────────────────────────────
+  it('disables textarea and submit during pending mutation', async () => {
+    const deferredSubmit = deferred<void>()
+    const props = {
+      ...defaultProps,
+      onCommentSubmit: jest.fn(() => deferredSubmit.promise)
+    }
+
+    renderWithToast(<CommentsModal {...props} />)
+
+    const textarea = screen.getByPlaceholderText('Add a comment...') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'During pending' } })
+
+    const submitButton = screen.getByRole('button', { name: /Post comment/i })
+    fireEvent.click(submitButton)
+
+    // Controls disabled while pending
+    await waitFor(() => {
+      expect(submitButton).toBeDisabled()
+      expect(textarea).toBeDisabled()
+    })
+
+    deferredSubmit.resolve()
+
+    await waitFor(() => {
+      expect(submitButton).toBeDisabled() // disabled because empty text now
+    })
+  })
+
+  it('disables edit and reply buttons during pending mutation', async () => {
+    const deferredSubmit = deferred<void>()
+    const props = {
+      ...defaultProps,
+      onCommentSubmit: jest.fn(() => deferredSubmit.promise),
+      currentUserId: 1,
+      onCommentEdit: jest.fn().mockResolvedValue({ content: '', editedAt: null })
+    }
+
+    renderWithToast(<CommentsModal {...props} />)
+
+    // Type and submit
+    const textarea = screen.getByPlaceholderText('Add a comment...') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'Test' } })
+
+    const submitButton = screen.getByRole('button', { name: /Post comment/i })
+    fireEvent.click(submitButton)
+
+    // Verify reply and edit buttons are disabled during pending
+    await waitFor(() => {
+      const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
+      replyButtons.forEach(btn => expect(btn).toBeDisabled())
+    })
+
+    // Comment 1 (userId: 1) is owned by currentUserId: 1, so Edit button exists
+    const editButton = screen.getByRole('button', { name: /Edit comment/i })
+    expect(editButton).toBeDisabled()
+
+    deferredSubmit.resolve()
+  })
+
+  // ── Issue 2: New Comment Auto-Scroll ─────────────────────────────────
+  it('clears textarea immediately on new comment submit (optimistic)', async () => {
+    const deferredSubmit = deferred<void>()
+    const props = {
+      ...defaultProps,
+      onCommentSubmit: jest.fn(() => deferredSubmit.promise)
+    }
+
+    renderWithToast(<CommentsModal {...props} />)
+
+    const textarea = screen.getByPlaceholderText('Add a comment...') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'Optimistic clear' } })
+
+    const submitButton = screen.getByRole('button', { name: /Post comment/i })
+    fireEvent.click(submitButton)
+
+    // Textarea should clear immediately (optimistically) before API resolves
+    expect(textarea.value).toBe('')
+    expect(textarea).toBeDisabled()
+
+    deferredSubmit.resolve()
+  })
 })
