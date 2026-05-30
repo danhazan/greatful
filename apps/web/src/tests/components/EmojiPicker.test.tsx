@@ -48,8 +48,7 @@ describe('EmojiPicker', () => {
       />
     )
 
-    expect(screen.getByText('React with')).toBeInTheDocument()
-    // Caption text was removed - keyboard shortcuts were redundant
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('does not render when closed', () => {
@@ -62,7 +61,7 @@ describe('EmojiPicker', () => {
       />
     )
 
-    expect(screen.queryByText('React with')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('displays all 56 emoji options in 7 rows', () => {

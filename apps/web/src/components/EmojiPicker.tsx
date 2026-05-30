@@ -127,7 +127,7 @@ export default function EmojiPicker({
         data-emoji-picker
         role="dialog"
         aria-modal="true"
-        aria-labelledby="emoji-picker-title"
+        aria-label="Emoji picker"
         className={`fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 w-[320px] max-w-[calc(100vw-32px)] ${compact ? 'p-2' : 'p-4'}`}
         style={{
           left: position.x,
@@ -137,17 +137,14 @@ export default function EmojiPicker({
         }}
         tabIndex={-1}
       >
-        {/* Header */}
-        <div className={`flex items-center justify-between ${compact ? 'mb-2' : 'mb-3'}`}>
-          <h3 id="emoji-picker-title" className="text-sm font-semibold text-gray-900">
-            {currentReaction ? 'Change reaction' : 'React with'}
-          </h3>
+        {/* Close button */}
+        <div className="flex justify-end mb-1">
           <button
             onClick={handleXButtonClick}
             className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1"
             aria-label="Cancel and close emoji picker"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
