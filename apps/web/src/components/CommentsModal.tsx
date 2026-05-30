@@ -94,7 +94,7 @@ function CommentReactionButton({ postId, commentId, reactionState }: CommentReac
           setShowPicker(true)
         }}
         disabled={isInFlight}
-        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded flex items-center space-x-1 transition-colors ${
+        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none rounded flex items-center space-x-1 transition-colors ${
           hasUserReaction
             ? 'text-purple-600 hover:text-purple-700 active:text-purple-800'
             : 'text-gray-500 hover:text-purple-600 active:text-purple-700'
@@ -149,6 +149,7 @@ export default function CommentsModal({
   const footerRef = useRef<HTMLDivElement>(null)
   const [commentText, setCommentText] = useState("")
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [composerEnabled, setComposerEnabled] = useState(false)
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set())
   const [repliesCache, setRepliesCache] = useState<Record<string, Comment[]>>({})
@@ -166,6 +167,8 @@ export default function CommentsModal({
   const [reactionViewerCommentId, setReactionViewerCommentId] = useState<string | null>(null)
   const [textareaSelection, setTextareaSelection] = useState({ start: 0, end: 0 })
   const mutationRef = useRef<'comment' | 'reply' | 'edit' | 'delete' | null>(null)
+  const lastReplyTargetRef = useRef<string | null>(null)
+  const scrollToThreadBottomRef = useRef(false)
   const [hasPendingMutation, setHasPendingMutation] = useState(false)
   const isMobileViewport = useMobileViewport()
   const mobileKeyboardInset = useMobileKeyboardInset(isMobileViewport)
@@ -226,6 +229,7 @@ export default function CommentsModal({
 
   const clearReplyMode = () => {
     setReplyingTo(null)
+    setComposerEnabled(false)
     setCommentText("")
     resetTextarea(commentInputRef.current)
     unlockCommentsScroll()
@@ -334,18 +338,69 @@ export default function CommentsModal({
     })
   }, [deleteConfirmCommentId])
 
-  // Auto-scroll to bottom when a new top-level comment is submitted optimistically (Issue 1C)
+  // Auto-scroll to bottom when a new comment/reply is submitted optimistically
   useEffect(() => {
-    if (!hasPendingMutation || mutationRef.current !== 'comment') return
+    if (!hasPendingMutation) return
+    const mode = mutationRef.current
+    if (mode !== 'comment' && mode !== 'reply') return
+    // In reply mode, only scroll while thread is visible (not after replyingTo cleared)
+    if (mode === 'reply' && !replyingTo) return
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (mutationRef.current === null) return
         const container = commentsContainerRef.current
         if (container) {
           container.scrollTop = container.scrollHeight
         }
       })
     })
-  }, [hasPendingMutation])
+  }, [hasPendingMutation, replyingTo])
+
+  // OverscrollBehavior during reply mode
+  useEffect(() => {
+    const container = commentsContainerRef.current
+    if (replyingTo) {
+      lastReplyTargetRef.current = replyingTo
+      if (container) container.style.overscrollBehavior = 'contain'
+    }
+    return () => {
+      if (container) container.style.overscrollBehavior = ''
+    }
+  }, [replyingTo])
+
+  // Restore thread position when reply mode exits.
+  // Cancel/failure: scroll parent to top.
+  // Success:        scroll so the last reply is visible at the bottom.
+  useEffect(() => {
+    if (replyingTo || !lastReplyTargetRef.current) return
+    const target = lastReplyTargetRef.current
+    const scrollToBottom = scrollToThreadBottomRef.current
+    lastReplyTargetRef.current = null
+    scrollToThreadBottomRef.current = false
+    const container = commentsContainerRef.current
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!container) return
+        if (scrollToBottom) {
+          // Find the last reply and scroll it into view
+          const repliesSection = container.querySelector(`[data-replies-section="${target}"]`)
+          if (repliesSection?.lastElementChild) {
+            const lastRect = repliesSection.lastElementChild.getBoundingClientRect()
+            const containerRect = container.getBoundingClientRect()
+            if (lastRect.bottom > containerRect.bottom) {
+              container.scrollTop += lastRect.bottom - containerRect.bottom + 16
+            }
+          }
+        } else {
+          // Scroll parent comment to container top
+          const el = container.querySelector<HTMLElement>(`[data-comment-id="${target}"]`)
+          if (el) {
+            container.scrollTop += el.getBoundingClientRect().top - container.getBoundingClientRect().top
+          }
+        }
+      })
+    })
+  }, [replyingTo])
 
   // Handle click outside to close
   useEffect(() => {
@@ -508,11 +563,10 @@ export default function CommentsModal({
           errorCtxReplyTarget = targetId
           errorCtxTempReplyId = tempReply.id
 
-          // Optimistic: close reply editor and show temp reply immediately
+          // Optimistic: hide composer but stay in thread mode
           setCommentText("")
           resetTextarea(commentInputRef.current)
-          setReplyingTo(null)
-          unlockCommentsScroll()
+          setComposerEnabled(false)
           setRepliesCache(prev => ({
             ...prev,
             [targetId]: [...(prev[targetId] || []), tempReply],
@@ -524,6 +578,10 @@ export default function CommentsModal({
           // Refresh with server data
           const freshReplies = await onLoadReplies(targetId)
           setRepliesCache(prev => ({ ...prev, [targetId]: freshReplies }))
+
+          // Exit thread mode and flag scroll-to-thread-bottom
+          scrollToThreadBottomRef.current = true
+          setReplyingTo(null)
           break
         }
         case 'comment': {
@@ -543,6 +601,10 @@ export default function CommentsModal({
             (r: Comment) => r.id !== errTempId
           ),
         }))
+      }
+      // Exit thread mode on reply failure
+      if (errTarget) {
+        setReplyingTo(null)
       }
       console.error('CommentsModal: Comment submission failed', error)
     } finally {
@@ -758,17 +820,24 @@ export default function CommentsModal({
     setDeleteConfirmCommentId(null)
     setCommentText("")
     setReplyingTo(comment.id)
+    setComposerEnabled(true)
 
-    // If replies aren't loaded yet, load them first so they render before we
-    // scroll — the inline composer appears below the last reply.
-    if (comment.replyCount > 0 && !expandedComments.has(comment.id)) {
-      void loadReplies(comment.id).then(() => {
-        scrollCommentToTop(comment.id)
+    // Focus reply composer (parent is at top naturally in thread-only view)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const input = commentInputRef.current
+        if (input) {
+          resizeTextarea(input)
+          input.focus()
+          input.setSelectionRange(input.value.length, input.value.length)
+        }
       })
-      return
-    }
+    })
 
-    scrollCommentToTop(comment.id)
+    // Load replies if needed (they'll appear when loadReplies resolves)
+    if (comment.replyCount > 0 && !expandedComments.has(comment.id)) {
+      void loadReplies(comment.id)
+    }
   }
 
   const renderComment = (comment: Comment, isReply: boolean = false) => {
@@ -1117,7 +1186,9 @@ export default function CommentsModal({
             role="main"
             style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
           >
-            {localComments.length === 0 ? (
+            {replyingTo && replyTargetComment ? (
+              renderComment(replyTargetComment)
+            ) : localComments.length === 0 ? (
               <div className="text-center py-8" role="status" aria-label="No comments yet">
                 <div className="text-gray-400 text-4xl mb-4" aria-hidden="true">💬</div>
                 <p className="text-gray-500">No comments yet</p>
@@ -1138,7 +1209,7 @@ export default function CommentsModal({
           {/* ── Modal-level reply composer ───────────────────────────────────────
                Lives outside the locked scroll container so the emoji tray can sit
                immediately below it with no gap and no scroll adjustment needed.   */}
-          {replyingTo && (
+          {replyingTo && composerEnabled && (
             <div className="border-t border-purple-100 bg-white px-4 sm:px-6 py-3">
               <div className="relative">
                 <textarea

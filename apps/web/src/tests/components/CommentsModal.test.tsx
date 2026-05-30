@@ -628,13 +628,17 @@ describe('CommentsModal', () => {
     // Enter reply mode for first comment
     const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
     fireEvent.click(replyButtons[0])
-    
+
     // Verify first reply target is active
     expect(screen.getByPlaceholderText(/Reply to Test User.../i)).toBeInTheDocument()
 
-    // Switch to second reply target
-    fireEvent.click(replyButtons[1])
-    
+    // Cancel current reply, then switch to second reply target
+    const cancelButtons = screen.getAllByText('Cancel')
+    fireEvent.click(cancelButtons[0])
+
+    const replyButtonsAfterCancel = screen.getAllByRole('button', { name: /Reply to/i })
+    fireEvent.click(replyButtonsAfterCancel[1])
+
     // Verify second reply target is now active
     expect(screen.getByPlaceholderText(/Reply to Another User.../i)).toBeInTheDocument()
   })
