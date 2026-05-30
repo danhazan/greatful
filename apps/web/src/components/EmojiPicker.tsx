@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { getAvailableEmojis } from "@/utils/emojiMapping"
@@ -16,6 +16,7 @@ interface EmojiPickerProps {
   position?: { x: number, y: number }
   isLoading?: boolean
   anchor?: 'bottom' | 'top'
+  compact?: boolean
 }
 
 // Get emoji options from utility - now includes 56 emojis across 7 rows
@@ -29,11 +30,13 @@ export default function EmojiPicker({
   currentReaction,
   position = { x: 0, y: 0 },
   isLoading = false,
-  anchor = 'bottom'
+  anchor = 'bottom',
+  compact = false
 }: EmojiPickerProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
+  const [adjustedY, setAdjustedY] = useState<number | null>(null)
 
   // Mobile Edge Case: Disambiguate tap vs scroll to prevent rogue clicks.
   // We use `onClick` as the primary, safe trigger for selection and haptics,
@@ -65,6 +68,22 @@ export default function EmojiPicker({
       setSelectedEmoji(null)
     }
   }, [isOpen])
+
+  // Lift picker upward if it overflows the viewport bottom
+  useLayoutEffect(() => {
+    if (!isOpen || anchor !== 'top' || !modalRef.current) {
+      setAdjustedY(null)
+      return
+    }
+    const modal = modalRef.current
+    const rect = modal.getBoundingClientRect()
+    const overflow = rect.bottom - window.innerHeight + 16
+    if (overflow > 0) {
+      setAdjustedY(Math.max(16, rect.top - overflow))
+    } else {
+      setAdjustedY(null)
+    }
+  }, [isOpen, anchor])
 
   useModal(modalRef, isOpen, onCancel, { enableTabTrap: true })
 
@@ -109,17 +128,17 @@ export default function EmojiPicker({
         role="dialog"
         aria-modal="true"
         aria-labelledby="emoji-picker-title"
-        className="fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-[320px] max-w-[calc(100vw-32px)]"
+        className={`fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 w-[320px] max-w-[calc(100vw-32px)] ${compact ? 'p-2' : 'p-4'}`}
         style={{
           left: position.x,
           ...(anchor === 'top'
-            ? { top: position.y }
+            ? { top: adjustedY ?? position.y }
             : { bottom: window.innerHeight - position.y }),
         }}
         tabIndex={-1}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
+        <div className={`flex items-center justify-between ${compact ? 'mb-2' : 'mb-3'}`}>
           <h3 id="emoji-picker-title" className="text-sm font-semibold text-gray-900">
             {currentReaction ? 'Change reaction' : 'React with'}
           </h3>
@@ -136,7 +155,7 @@ export default function EmojiPicker({
         <div
           ref={scrollContainerRef}
           data-allow-scroll="true"
-          className="max-h-[280px] overflow-y-auto overflow-x-hidden overscroll-contain"
+          className={`${compact ? 'max-h-[180px]' : 'max-h-[280px]'} overflow-y-auto overflow-x-hidden overscroll-contain`}
           style={{
             // Prevent scroll events from propagating to parent
             overscrollBehavior: 'contain',
@@ -146,7 +165,7 @@ export default function EmojiPicker({
           }}
         >
           <div
-            className="grid grid-cols-4 gap-2 sm:gap-3 pr-1"
+            className={`grid grid-cols-4 ${compact ? 'gap-1' : 'gap-2 sm:gap-3'} pr-1`}
             role="grid"
             aria-label="Emoji reactions"
             onTouchStart={handleTouchStart}
@@ -165,8 +184,8 @@ export default function EmojiPicker({
                     handleEmojiClick(option.code)
                   }}
                   disabled={isLoading}
-                  className={`
-                    relative p-3 sm:p-4 rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
+                    className={`
+                    relative ${compact ? 'p-2' : 'p-3 sm:p-4'} rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
                     min-h-[44px] min-w-[44px] flex items-center justify-center
                     touch-manipulation select-none
                     active:scale-95 active:bg-purple-100
@@ -182,7 +201,7 @@ export default function EmojiPicker({
                   aria-label={`React with ${option.label}.${currentReaction === option.code ? ' Currently selected.' : ''}`}
                   aria-pressed={currentReaction === option.code}
                 >
-                  <span className="text-2xl sm:text-3xl block pointer-events-none">{option.emoji}</span>
+                  <span className={`${compact ? 'text-xl' : 'text-2xl sm:text-3xl'} block pointer-events-none`}>{option.emoji}</span>
                   {currentReaction === option.code && (
                     <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
                   )}

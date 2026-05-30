@@ -123,6 +123,7 @@ function CommentReactionButton({ postId, commentId, reactionState }: CommentReac
           position={pickerPosition}
           isLoading={isInFlight}
           anchor="top"
+          compact
         />
       )}
     </>
