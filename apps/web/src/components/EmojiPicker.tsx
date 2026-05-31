@@ -13,13 +13,11 @@ interface EmojiPickerProps {
   onCancel: () => void
   onEmojiSelect: (emojiCode: string) => void
   currentReaction?: string | null
-  position?: { x: number, y: number }
+  triggerRef: React.RefObject<HTMLElement>
   isLoading?: boolean
-  anchor?: 'bottom' | 'top'
   compact?: boolean
 }
 
-// Get emoji options from utility - now includes 56 emojis across 7 rows
 const EMOJI_OPTIONS = getAvailableEmojis()
 
 export default function EmojiPicker({
@@ -28,21 +26,33 @@ export default function EmojiPicker({
   onCancel,
   onEmojiSelect,
   currentReaction,
-  position = { x: 0, y: 0 },
+  triggerRef,
   isLoading = false,
-  anchor = 'bottom',
   compact = false
 }: EmojiPickerProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
-  const [adjustedY, setAdjustedY] = useState<number | null>(null)
+  const [visible, setVisible] = useState(false)
+  const [position, setPosition] = useState({ left: 0, top: 0 })
+  const hasPositionedRef = useRef(false)
 
-  // Mobile Edge Case: Disambiguate tap vs scroll to prevent rogue clicks.
-  // We use `onClick` as the primary, safe trigger for selection and haptics,
-  // but some rogue browsers fire `click` immediately after `touchMove`.
-  // We track touch explicitly on the container to safely drop these rogue clicks
-  // without re-introducing complex custom touch handlers everywhere.
+  const density = compact
+    ? {
+        cellPadding: 'p-2',
+        gap: 'gap-1',
+        modalPadding: 'p-2',
+        scrollMaxHeight: '180px',
+        emojiFontSize: 'text-xl',
+      }
+    : {
+        cellPadding: 'p-3',
+        gap: 'gap-2',
+        modalPadding: 'p-4',
+        scrollMaxHeight: '280px',
+        emojiFontSize: 'text-2xl',
+      }
+
   const isScrollingRef = useRef(false)
   const touchStartRef = useRef({ x: 0, y: 0 })
 
@@ -62,107 +72,124 @@ export default function EmojiPicker({
     }
   }
 
-  // Reset selected emoji when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedEmoji(null)
     }
   }, [isOpen])
 
-  // Lift picker upward if it overflows the viewport bottom
+  useEffect(() => {
+    if (!isOpen) {
+      setVisible(false)
+      hasPositionedRef.current = false
+    }
+  }, [isOpen])
+
+  // Self-position: measure trigger + own DOM, compute position, reveal
   useLayoutEffect(() => {
-    if (!isOpen || anchor !== 'top' || !modalRef.current) {
-      setAdjustedY(null)
-      return
-    }
-    const modal = modalRef.current
-    const rect = modal.getBoundingClientRect()
-    const overflow = rect.bottom - window.innerHeight + 16
-    if (overflow > 0) {
-      setAdjustedY(Math.max(16, rect.top - overflow))
+    if (!isOpen) return
+    if (hasPositionedRef.current) return
+    if (!triggerRef.current || !modalRef.current) return
+
+    const triggerRect = triggerRef.current.getBoundingClientRect()
+    const modalRect = modalRef.current.getBoundingClientRect()
+
+    const MARGIN = 16
+    const GAP = 8
+
+    const triggerCenter = triggerRect.left + triggerRect.width / 2
+    const left = Math.max(
+      MARGIN,
+      Math.min(triggerCenter - modalRect.width / 2, window.innerWidth - modalRect.width - MARGIN)
+    )
+
+    const spaceBelow = window.innerHeight - triggerRect.bottom - GAP
+    const spaceAbove = triggerRect.top - GAP
+    let top: number
+    if (spaceBelow >= modalRect.height + MARGIN) {
+      top = triggerRect.bottom + GAP
+    } else if (spaceAbove >= modalRect.height + MARGIN) {
+      top = triggerRect.top - modalRect.height - GAP
     } else {
-      setAdjustedY(null)
+      top = Math.max(
+        MARGIN,
+        Math.min(triggerRect.bottom + GAP, window.innerHeight - modalRect.height - MARGIN)
+      )
     }
-  }, [isOpen, anchor])
+
+    setPosition({ left, top })
+    setVisible(true)
+    hasPositionedRef.current = true
+  }, [isOpen, triggerRef])
 
   useModal(modalRef, isOpen, onCancel, { enableTabTrap: true })
 
   if (!isOpen) return null
   if (typeof document === 'undefined') return null
 
-  // Handle emoji selection - immediately sends reaction and closes
   const handleEmojiClick = (emojiCode: string) => {
     if (isLoading) return
-
-    // If clicking on the same emoji that's currently selected, just cancel
     if (currentReaction === emojiCode) {
       onCancel()
       return
     }
-
-    // Select the emoji, send to backend, and close
     triggerHaptic('light')
     setSelectedEmoji(emojiCode)
     onEmojiSelect(emojiCode)
     onClose()
   }
 
-  // Handle X button click - cancel without sending reaction
   const handleXButtonClick = () => {
     onCancel()
   }
 
   return createPortal(
     <>
-      {/* Backdrop - blocks interaction with background */}
       <div
         className="fixed inset-0 bg-gray-900 bg-opacity-20 z-[80]"
         data-emoji-picker
         style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
       />
 
-      {/* Modal */}
       <div
         ref={modalRef}
         data-emoji-picker
         role="dialog"
         aria-modal="true"
         aria-label="Emoji picker"
-        className={`fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200 w-[320px] max-w-[calc(100vw-32px)] ${compact ? 'p-2' : 'p-4'}`}
+        className="fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200"
         style={{
-          left: position.x,
-          ...(anchor === 'top'
-            ? { top: adjustedY ?? position.y }
-            : { bottom: window.innerHeight - position.y }),
+          left: position.left,
+          top: position.top,
+          visibility: visible ? 'visible' : 'hidden',
+          pointerEvents: visible ? 'auto' : 'none',
+          padding: compact ? '8px' : '16px',
         }}
         tabIndex={-1}
       >
-        {/* Close button */}
-        <div className="flex justify-end mb-1">
+        <div className="flex justify-end mb-0">
           <button
             onClick={handleXButtonClick}
             className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1"
             aria-label="Cancel and close emoji picker"
           >
-            <X className="h-5 w-5" />
+            <X className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Scrollable Emoji Grid Container */}
         <div
           ref={scrollContainerRef}
           data-allow-scroll="true"
-          className={`${compact ? 'max-h-[180px]' : 'max-h-[280px]'} overflow-y-auto overflow-x-hidden overscroll-contain`}
+          className="overflow-y-auto overflow-x-hidden overscroll-contain p-2"
           style={{
-            // Prevent scroll events from propagating to parent
+            maxHeight: density.scrollMaxHeight,
             overscrollBehavior: 'contain',
-            // Custom scrollbar styling
             scrollbarWidth: 'thin',
             scrollbarColor: '#d1d5db transparent'
           }}
         >
           <div
-            className={`grid grid-cols-4 ${compact ? 'gap-1' : 'gap-2 sm:gap-3'} pr-1`}
+            className={`grid grid-cols-4 ${density.gap}`}
             role="grid"
             aria-label="Emoji reactions"
             onTouchStart={handleTouchStart}
@@ -182,7 +209,7 @@ export default function EmojiPicker({
                   }}
                   disabled={isLoading}
                     className={`
-                    relative ${compact ? 'p-2' : 'p-3 sm:p-4'} rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
+                    relative ${density.cellPadding} rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
                     min-h-[44px] min-w-[44px] flex items-center justify-center
                     touch-manipulation select-none
                     active:scale-95 active:bg-purple-100
@@ -198,7 +225,7 @@ export default function EmojiPicker({
                   aria-label={`React with ${option.label}.${currentReaction === option.code ? ' Currently selected.' : ''}`}
                   aria-pressed={currentReaction === option.code}
                 >
-                  <span className={`${compact ? 'text-xl' : 'text-2xl sm:text-3xl'} block pointer-events-none`}>{option.emoji}</span>
+                  <span className={`block pointer-events-none ${density.emojiFontSize}`}>{option.emoji}</span>
                   {currentReaction === option.code && (
                     <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
                   )}
@@ -207,8 +234,6 @@ export default function EmojiPicker({
             ))}
           </div>
         </div>
-
-        {/* Footer removed - keyboard shortcuts (1-8) and caption removed as redundant */}
       </div>
     </>,
     document.body

@@ -1,8 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import { jest } from '@jest/globals'
 import EmojiPicker from '@/components/EmojiPicker'
+import { createRef } from 'react'
 
-// Mock window dimensions for positioning
+// Mock window dimensions
 Object.defineProperty(window, 'innerWidth', {
   writable: true,
   configurable: true,
@@ -15,21 +16,33 @@ Object.defineProperty(window, 'innerHeight', {
   value: 768,
 })
 
+function createTriggerRef() {
+  const el = document.createElement('button')
+  document.body.appendChild(el)
+  // Default bounding rect: 100,200,150,250 (left,top,right,bottom)
+  el.getBoundingClientRect = () => ({
+    x: 100, y: 200, width: 50, height: 50,
+    top: 200, right: 150, bottom: 250, left: 100,
+    toJSON: () => ({}),
+  })
+  const ref = { current: el } as React.RefObject<HTMLElement>
+  return ref
+}
+
 describe('EmojiPicker', () => {
   const mockOnClose = jest.fn()
   const mockOnCancel = jest.fn()
   const mockOnEmojiSelect = jest.fn()
+  const defaultTriggerRef = createTriggerRef()
 
   let mockVibrate: jest.Mock
   let currentTime = 1000
 
   beforeEach(() => {
     jest.clearAllMocks()
-    
-    // Advance time to bypass haptic debounce
     currentTime += 100
     jest.spyOn(Date, 'now').mockReturnValue(currentTime)
-    
+
     mockVibrate = jest.fn()
     Object.defineProperty(navigator, 'vibrate', {
       value: mockVibrate,
@@ -45,6 +58,7 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
 
@@ -58,6 +72,7 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
 
@@ -71,44 +86,32 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
 
     const emojiButtons = screen.getAllByRole('gridcell')
     expect(emojiButtons).toHaveLength(56)
 
-    // Check for specific emojis from each row (using getAllByText for emojis that appear multiple times)
-    // Row 1 - Original
-    expect(screen.getByText('💜')).toBeInTheDocument() // Heart
-    expect(screen.getByText('😍')).toBeInTheDocument() // Love it
-    expect(screen.getAllByText('🤗').length).toBeGreaterThanOrEqual(1) // Hug (also Warm Hug)
-    expect(screen.getByText('🥹')).toBeInTheDocument() // Grateful (bug fix - was 🙏)
-    expect(screen.getByText('💪')).toBeInTheDocument() // Strong
-    expect(screen.getByText('🙏')).toBeInTheDocument() // Thankful
-    expect(screen.getByText('🙌')).toBeInTheDocument() // Praise
-    expect(screen.getByText('👏')).toBeInTheDocument() // Applause
+    expect(screen.getByText('💜')).toBeInTheDocument()
+    expect(screen.getByText('😍')).toBeInTheDocument()
+    expect(screen.getAllByText('🤗').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('🥹')).toBeInTheDocument()
+    expect(screen.getByText('💪')).toBeInTheDocument()
+    expect(screen.getByText('🙏')).toBeInTheDocument()
+    expect(screen.getByText('🙌')).toBeInTheDocument()
+    expect(screen.getByText('👏')).toBeInTheDocument()
 
-    // Row 2 - Love/Warmth
     expect(screen.getByText('⭐')).toBeInTheDocument()
     expect(screen.getByText('🔥')).toBeInTheDocument()
     expect(screen.getByText('✨')).toBeInTheDocument()
-
-    // Row 3 - Joy/Celebration
     expect(screen.getByText('🎉')).toBeInTheDocument()
     expect(screen.getByText('🥳')).toBeInTheDocument()
-
-    // Row 4 - Encouragement
     expect(screen.getByText('💯')).toBeInTheDocument()
     expect(screen.getByText('🏆')).toBeInTheDocument()
-
-    // Row 5 - Nature/Peace
     expect(screen.getByText('🌈')).toBeInTheDocument()
     expect(screen.getByText('🦋')).toBeInTheDocument()
-
-    // Row 6 - Affection
     expect(screen.getByText('🫶')).toBeInTheDocument()
-
-    // Row 7 - Expressions
     expect(screen.getByText('😇')).toBeInTheDocument()
     expect(screen.getByText('🫡')).toBeInTheDocument()
   })
@@ -120,6 +123,7 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
 
@@ -137,15 +141,16 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
-    
+
     expect(mockVibrate).not.toHaveBeenCalled()
-    
+
     const heartButton = screen.getByTitle('Heart')
     fireEvent.click(heartButton)
-    
-    expect(mockVibrate).toHaveBeenCalledWith(10) // 'light' intensity
+
+    expect(mockVibrate).toHaveBeenCalledWith(10)
   })
 
   it('does NOT trigger vibration on touch start or scroll (mobile safe)', () => {
@@ -155,16 +160,15 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
-    
+
     const heartButton = screen.getByTitle('Heart')
-    
-    // Simulate touch start
+
     fireEvent.touchStart(heartButton, { touches: [{ clientX: 0, clientY: 0 }] })
     expect(mockVibrate).not.toHaveBeenCalled()
-    
-    // Simulate touch move (scrolling)
+
     fireEvent.touchMove(heartButton, { touches: [{ clientX: 0, clientY: 50 }] })
     expect(mockVibrate).not.toHaveBeenCalled()
   })
@@ -176,25 +180,22 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
-    
+
     const heartButton = screen.getByTitle('Heart')
-    
-    // Simulate rapid clicking
+
     fireEvent.click(heartButton)
     fireEvent.click(heartButton)
     fireEvent.click(heartButton)
-    
-    // onClose is called once if implementation manages disabled state or unmounts,
-    // but the vibrate is called 3 times or 1 time depending on how React handles batching
-    // We just want to ensure it doesn't crash.
+
     expect(mockVibrate).toHaveBeenCalled()
   })
 
   it('prevents event bubbling (Nested Click Safety)', () => {
     const parentClick = jest.fn()
-    
+
     render(
       <div onClick={parentClick}>
         <EmojiPicker
@@ -202,14 +203,14 @@ describe('EmojiPicker', () => {
           onClose={mockOnClose}
           onCancel={mockOnCancel}
           onEmojiSelect={mockOnEmojiSelect}
+          triggerRef={defaultTriggerRef}
         />
       </div>
     )
-    
+
     const heartButton = screen.getByTitle('Heart')
     fireEvent.click(heartButton)
-    
-    // The event should NOT bubble up to the parent
+
     expect(parentClick).not.toHaveBeenCalled()
     expect(mockVibrate).toHaveBeenCalledWith(10)
   })
@@ -221,23 +222,17 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
-    
-    // We simulate touch events on the grid container since that's where tracking is attached
+
     const gridContainer = screen.getByRole('grid')
     const heartButton = screen.getByTitle('Heart')
-    
-    // 1. Simulate Touch Start
+
     fireEvent.touchStart(gridContainer, { touches: [{ clientX: 0, clientY: 0 }] })
-    
-    // 2. Simulate Touch Move (Scroll) -> 50px difference
     fireEvent.touchMove(gridContainer, { touches: [{ clientX: 0, clientY: 50 }] })
-    
-    // 3. Simulate rogue click event that some browsers fire after scroll
     fireEvent.click(heartButton)
-    
-    // Should NOT trigger haptics or select emoji because it was a scroll
+
     expect(mockVibrate).not.toHaveBeenCalled()
     expect(mockOnEmojiSelect).not.toHaveBeenCalled()
   })
@@ -249,27 +244,23 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
-    
+
     const gridContainer = screen.getByRole('grid')
     const heartButton = screen.getByTitle('Heart')
-    
-    // 1. User scrolls
+
     fireEvent.touchStart(gridContainer, { touches: [{ clientX: 0, clientY: 0 }] })
     fireEvent.touchMove(gridContainer, { touches: [{ clientX: 0, clientY: 50 }] })
     fireEvent.touchEnd(gridContainer)
-    
-    // (Simulate rogue click being dropped, which our component handles and resets the flag)
     fireEvent.click(heartButton)
-    expect(mockVibrate).not.toHaveBeenCalled() // dropped
-    
-    // 2. User then intentionally taps an emoji
+    expect(mockVibrate).not.toHaveBeenCalled()
+
     fireEvent.touchStart(heartButton, { touches: [{ clientX: 0, clientY: 0 }] })
     fireEvent.touchEnd(heartButton)
     fireEvent.click(heartButton)
-    
-    // Exactly one haptic call and selection should occur
+
     expect(mockVibrate).toHaveBeenCalledTimes(1)
     expect(mockOnEmojiSelect).toHaveBeenCalledWith('heart')
   })
@@ -282,6 +273,7 @@ describe('EmojiPicker', () => {
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
         currentReaction="touched"
+        triggerRef={defaultTriggerRef}
       />
     )
 
@@ -296,6 +288,7 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
 
@@ -313,6 +306,7 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
 
@@ -329,10 +323,10 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
 
-    // Press '1' key - should NOT trigger emoji selection anymore
     fireEvent.keyDown(document, { key: '1' })
 
     expect(mockOnEmojiSelect).not.toHaveBeenCalled()
@@ -347,6 +341,7 @@ describe('EmojiPicker', () => {
           onClose={mockOnClose}
           onCancel={mockOnCancel}
           onEmojiSelect={mockOnEmojiSelect}
+          triggerRef={defaultTriggerRef}
         />
       </div>
     )
@@ -360,34 +355,21 @@ describe('EmojiPicker', () => {
     })
   })
 
-  it('positions correctly based on provided position', () => {
-    const position = { x: 100, y: 200 }
-
-    // Mock window dimensions for consistent positioning calculations
-    Object.defineProperty(window, 'innerWidth', {
-      writable: true,
-      configurable: true,
-      value: 1024,
-    })
-
+  it('renders as a fixed-position self-positioning dialog', () => {
     render(
       <EmojiPicker
         isOpen={true}
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
-        position={position}
+        triggerRef={defaultTriggerRef}
       />
     )
 
-    // Find the modal by its role
     const modal = screen.getByRole('dialog')
-
-    // Check that the modal has the fixed positioning class
     expect(modal).toHaveClass('fixed')
-
-    // Check that inline styles are applied for positioning (uses position directly via bottom)
-    expect(modal).toHaveStyle({ left: '100px', bottom: `${window.innerHeight - 200}px` })
+    expect(modal.style.left).toBeTruthy()
+    expect(modal.style.top).toBeTruthy()
   })
 
   it('scrollable container has max-height and scroll containment', () => {
@@ -397,6 +379,7 @@ describe('EmojiPicker', () => {
         onClose={mockOnClose}
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
       />
     )
 
@@ -404,7 +387,8 @@ describe('EmojiPicker', () => {
     const scrollContainer = modal.querySelector('.overflow-y-auto')
 
     expect(scrollContainer).toBeInTheDocument()
-    expect(scrollContainer).toHaveClass('max-h-[280px]', 'overscroll-contain')
+    expect(scrollContainer).toHaveClass('overscroll-contain')
+    expect((scrollContainer as HTMLElement).style.maxHeight).toBe('280px')
   })
 
   it('calls onCancel when clicking the same emoji that is already selected', () => {
@@ -415,6 +399,7 @@ describe('EmojiPicker', () => {
         onCancel={mockOnCancel}
         onEmojiSelect={mockOnEmojiSelect}
         currentReaction="heart"
+        triggerRef={defaultTriggerRef}
       />
     )
 

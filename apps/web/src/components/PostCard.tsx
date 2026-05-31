@@ -78,7 +78,6 @@ export default function PostCard({
   const requireAuth = useRequireAuth()
   const locale = useLocale()
 
-  const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 })
   const [shareModalPosition, setShareModalPosition] = useState({ x: 0, y: 0 })
   const [locationModalPosition, setLocationModalPosition] = useState({ x: 0, y: 0 })
   const [reactions, setReactions] = useState<any[]>([]) // Will be populated from API
@@ -119,15 +118,10 @@ export default function PostCard({
   useClickOutside(optionsMenuRef, showOptionsMenu, () => setShowOptionsMenu(false))
 
   const { handlers: longPressHandlers, consumeLongPress } = useLongPress({
-    onLongPress: (target) => {
+    onLongPress: () => {
       if (isReactionLoading || !isUserAuthenticated) return
       setPendingReaction('heart')
-      openModalAboveButton(
-        { current: target } as React.RefObject<HTMLButtonElement>,
-        { width: 320, height: 380 },
-        setEmojiPickerPosition,
-        () => setShowEmojiPicker(true)
-      )
+      setShowEmojiPicker(true)
     },
   })
 
@@ -268,13 +262,7 @@ export default function PostCard({
 
     // No existing reaction — open emoji picker
     setPendingReaction('heart')
-    
-    openModalAboveButton(
-      reactionButtonRef,
-      { width: 320, height: 380 }, // Emoji tray dimensions
-      setEmojiPickerPosition,
-      () => setShowEmojiPicker(true)
-    )
+    setShowEmojiPicker(true)
   }
 
   // Handle emoji selection — optimistic update before API call
@@ -1076,7 +1064,7 @@ export default function PostCard({
         onCancel={handleEmojiPickerCancel}
         onEmojiSelect={handleEmojiSelect}
         currentReaction={currentPost.currentUserReaction}
-        position={emojiPickerPosition}
+        triggerRef={reactionButtonRef}
         isLoading={isReactionLoading}
       />
 

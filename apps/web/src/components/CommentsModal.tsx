@@ -68,7 +68,7 @@ const COMMENT_REACTION_BUTTON_TEXT = {
 
 function CommentReactionButton({ postId, commentId, reactionState }: CommentReactionButtonProps) {
   const [showPicker, setShowPicker] = useState(false)
-  const [pickerPosition, setPickerPosition] = useState({ x: 0, y: 0 })
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const hasUserReaction = Boolean(reactionState.userReaction)
   const { handleReaction, isInFlight } = useReactionMutation({
     postId,
@@ -78,12 +78,8 @@ function CommentReactionButton({ postId, commentId, reactionState }: CommentReac
   })
 
   const { handlers, consumeLongPress } = useLongPress({
-    onLongPress: (target) => {
+    onLongPress: () => {
       if (isInFlight) return
-      const rect = target.getBoundingClientRect()
-      const pickerWidth = 320
-      const x = Math.max(16, Math.min(rect.left + rect.width / 2 - pickerWidth / 2, window.innerWidth - pickerWidth - 16))
-      setPickerPosition({ x, y: rect.bottom + 8 })
       setShowPicker(true)
     },
   })
@@ -91,20 +87,16 @@ function CommentReactionButton({ postId, commentId, reactionState }: CommentReac
   return (
     <>
       <button
+        ref={buttonRef}
         type="button"
         {...handlers}
-        onClick={(event) => {
+        onClick={() => {
           if (consumeLongPress()) return
           if (isInFlight) return
           if (hasUserReaction) {
             handleReaction(null)
             return
           }
-
-          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-          const pickerWidth = 320
-          const x = Math.max(16, Math.min(rect.left + rect.width / 2 - pickerWidth / 2, window.innerWidth - pickerWidth - 16))
-          setPickerPosition({ x, y: rect.bottom + 8 })
           setShowPicker(true)
         }}
         disabled={isInFlight}
@@ -134,9 +126,8 @@ function CommentReactionButton({ postId, commentId, reactionState }: CommentReac
             setShowPicker(false)
           }}
           currentReaction={reactionState.userReaction}
-          position={pickerPosition}
+          triggerRef={buttonRef}
           isLoading={isInFlight}
-          anchor="top"
           compact
         />
       )}

@@ -64,7 +64,7 @@ export default function MultiImageModal({
   const { data: reactionsData, isLoading: isLoadingReactions, getReactionForImage, error, refetch } = useImageReactions(postId || "", isOpen)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionViewer, setShowReactionViewer] = useState(false)
-  const [pickerPosition, setPickerPosition] = useState({ x: 0, y: 0 })
+  const reactionButtonRef = useRef<HTMLButtonElement>(null)
 
   const imageRef = useRef<HTMLImageElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
@@ -84,12 +84,8 @@ export default function MultiImageModal({
   })
 
   const { handlers, consumeLongPress } = useLongPress({
-    onLongPress: (target) => {
+    onLongPress: () => {
       if (isLoadingReactions || isInFlight) return
-      const rect = target.getBoundingClientRect()
-      const modalWidth = 320
-      const x = Math.max(16, Math.min(rect.left + rect.width / 2 - modalWidth / 2, window.innerWidth - modalWidth - 16))
-      setPickerPosition({ x, y: rect.bottom + 8 })
       setShowEmojiPicker(true)
     },
   })
@@ -245,6 +241,7 @@ export default function MultiImageModal({
       {/* Top Center User Reaction Button */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
         <button
+          ref={reactionButtonRef}
           disabled={isLoadingReactions || isInFlight}
           {...handlers}
           className={`p-3 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-transform active:scale-90 flex items-center justify-center ${
@@ -267,11 +264,6 @@ export default function MultiImageModal({
               return
             }
 
-            // Otherwise, open emoji picker below the button
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-            const modalWidth = 320
-            const x = Math.max(16, Math.min(rect.left + rect.width / 2 - modalWidth / 2, window.innerWidth - modalWidth - 16))
-            setPickerPosition({ x, y: rect.bottom + 8 })
             setShowEmojiPicker(true)
           }}
         >
@@ -419,9 +411,8 @@ export default function MultiImageModal({
             setShowEmojiPicker(false)
           }}
           currentReaction={currentReactionState.userReaction}
-          position={pickerPosition}
+          triggerRef={reactionButtonRef}
           isLoading={isInFlight}
-          anchor="top"
         />
       )}
 
