@@ -120,7 +120,6 @@ export default function PostCard({
   const { handlers: longPressHandlers, consumeLongPress } = useLongPress({
     onLongPress: () => {
       if (isReactionLoading || !isUserAuthenticated) return
-      setPendingReaction('heart')
       setShowEmojiPicker(true)
     },
   })
@@ -261,7 +260,6 @@ export default function PostCard({
     }
 
     // No existing reaction — open emoji picker
-    setPendingReaction('heart')
     setShowEmojiPicker(true)
   }
 
