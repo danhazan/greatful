@@ -82,6 +82,9 @@ export function useReactionMutation({
     // 2. ALWAYS invalidate the detailed User List cache for this specific object
     const detailCacheKey = `${postId}:${objectType}:${objectId || 'none'}`;
     invalidateDetailedReactionsCache(detailCacheKey);
+
+    // 3. Invalidate URL-based cache so ReactionViewer fetches fresh data
+    apiClient.invalidateCache(`/posts/${postId}/reactions`);
   };
 
   const mutation = useOptimisticMutation<ReactionSummaryData, void>({

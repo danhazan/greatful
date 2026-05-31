@@ -14,6 +14,7 @@ import { useMobileViewport } from "@/hooks/useMobileViewport"
 import { useMobileKeyboardInset } from "@/hooks/useMobileKeyboardInset"
 import { useCommentReactions, type ReactionSummaryData } from "@/hooks/useImageReactions"
 import { useReactionMutation } from "@/hooks/useReactionMutation"
+import { useLongPress } from "@/hooks/useLongPress"
 import { getEmojiFromCode, getTopEmojis } from "@/utils/emojiMapping"
 import { MAX_COMMENT_CHARS } from "@/constants/limits"
 
@@ -76,11 +77,24 @@ function CommentReactionButton({ postId, commentId, reactionState }: CommentReac
     currentReactionState: reactionState
   })
 
+  const { handlers, consumeLongPress } = useLongPress({
+    onLongPress: (target) => {
+      if (isInFlight) return
+      const rect = target.getBoundingClientRect()
+      const pickerWidth = 320
+      const x = Math.max(16, Math.min(rect.left + rect.width / 2 - pickerWidth / 2, window.innerWidth - pickerWidth - 16))
+      setPickerPosition({ x, y: rect.bottom + 8 })
+      setShowPicker(true)
+    },
+  })
+
   return (
     <>
       <button
         type="button"
+        {...handlers}
         onClick={(event) => {
+          if (consumeLongPress()) return
           if (isInFlight) return
           if (hasUserReaction) {
             handleReaction(null)

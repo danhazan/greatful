@@ -6,6 +6,7 @@ import ImageModal from "./ImageModal"
 import { useImageReactions } from '@/hooks/useImageReactions'
 import { lockScroll, unlockScroll } from '@/utils/scrollLock'
 import { useReactionMutation } from '@/hooks/useReactionMutation'
+import { useLongPress } from '@/hooks/useLongPress'
 import EmojiPicker from './EmojiPicker'
 import ReactionViewer from './ReactionViewer'
 import { getEmojiFromCode, getTopEmojis } from '@/utils/emojiMapping'
@@ -80,6 +81,17 @@ export default function MultiImageModal({
     objectType: 'image',
     objectId: currentImage?.id || "",
     currentReactionState
+  })
+
+  const { handlers, consumeLongPress } = useLongPress({
+    onLongPress: (target) => {
+      if (isLoadingReactions || isInFlight) return
+      const rect = target.getBoundingClientRect()
+      const modalWidth = 320
+      const x = Math.max(16, Math.min(rect.left + rect.width / 2 - modalWidth / 2, window.innerWidth - modalWidth - 16))
+      setPickerPosition({ x, y: rect.bottom + 8 })
+      setShowEmojiPicker(true)
+    },
   })
 
   // Reset state when modal opens or initialIndex changes
@@ -234,6 +246,7 @@ export default function MultiImageModal({
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
         <button
           disabled={isLoadingReactions || isInFlight}
+          {...handlers}
           className={`p-3 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-transform active:scale-90 flex items-center justify-center ${
             (isLoadingReactions || isInFlight) ? 'opacity-50 cursor-not-allowed' : ''
           } ${error ? 'ring-2 ring-red-500 ring-opacity-50' : ''}`}
@@ -241,6 +254,7 @@ export default function MultiImageModal({
           title={error ? "Synchronization error. Click to retry." : undefined}
           onClick={(e) => {
             e.stopPropagation()
+            if (consumeLongPress()) return
             if (error) {
               refetch()
               return

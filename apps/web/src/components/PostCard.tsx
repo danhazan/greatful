@@ -15,6 +15,7 @@ import RichContentRenderer from "./RichContentRenderer"
 import EditPostModal from "./EditPostModal"
 import DeleteConfirmationModal from "./DeleteConfirmationModal"
 import PostPrivacyBadge from "./PostPrivacyBadge"
+import { useLongPress } from "@/hooks/useLongPress"
 import { apiClient } from "@/utils/apiClient"
 import { openModalAboveButton } from "@/utils/modalPositioning"
 import LocationDisplayModal from "./LocationDisplayModal"
@@ -116,6 +117,19 @@ export default function PostCard({
   const { showError, showDebugSuccess, showDebugLoading, hideToast } = useToast()
 
   useClickOutside(optionsMenuRef, showOptionsMenu, () => setShowOptionsMenu(false))
+
+  const { handlers: longPressHandlers, consumeLongPress } = useLongPress({
+    onLongPress: (target) => {
+      if (isReactionLoading || !isUserAuthenticated) return
+      setPendingReaction('heart')
+      openModalAboveButton(
+        { current: target } as React.RefObject<HTMLButtonElement>,
+        { width: 320, height: 380 },
+        setEmojiPickerPosition,
+        () => setShowEmojiPicker(true)
+      )
+    },
+  })
 
   // Track post view when component mounts
   useEffect(() => {
@@ -233,6 +247,7 @@ export default function PostCard({
           queryTags.postReactions(post.id),
           queryTags.userPosts(currentPost.author.id),
         ])
+        apiClient.invalidateCache(`/posts/${post.id}/reactions`)
       } catch (error) {
         // Rollback on failure
         console.error('Failed to remove reaction:', error)
@@ -319,6 +334,7 @@ export default function PostCard({
         queryTags.postReactions(post.id),
         queryTags.userPosts(currentPost.author.id),
       ])
+      apiClient.invalidateCache(`/posts/${post.id}/reactions`)
     } catch (apiError: any) {
       // Rollback on failure
       setCurrentPost(prev => ({
@@ -939,7 +955,11 @@ export default function PostCard({
             {/* Unified Heart/Reaction Button */}
             <button
               ref={reactionButtonRef}
-              onClick={handleReactionButtonClick}
+              {...longPressHandlers}
+              onClick={(e) => {
+                if (consumeLongPress()) return
+                handleReactionButtonClick(e)
+              }}
               disabled={isReactionLoading}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] ${!isUserAuthenticated
                 ? 'text-gray-400'
