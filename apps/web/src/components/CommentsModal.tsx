@@ -1295,85 +1295,87 @@ export default function CommentsModal({
           )}
 
           {/* Footer — new top-level comment only.
-               Edit and reply are both handled inline above their respective comments. */}
-          <div ref={footerRef} className="border-t border-gray-200 bg-gray-50">
-            {editingCommentId || replyingTo ? (
-              /* Neutral placeholder while an inline edit or reply is open */
-              <div className="p-4 sm:p-6">
-                <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white text-sm text-gray-400 select-none">
-                  {editingCommentId ? 'Editing comment above…' : 'Replying above…'}
+               Edit and reply are both handled inline above their respective comments.
+               Hidden entirely during reply mode to avoid duplicate composer UI. */}
+          {!replyingTo && (
+            <div ref={footerRef} className="border-t border-gray-200 bg-gray-50">
+              {editingCommentId ? (
+                <div className="p-4 sm:p-6">
+                  <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white text-sm text-gray-400 select-none">
+                    Editing comment above…
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="p-4 sm:p-6">
-                <div className="relative">
-                  <textarea
-                    ref={commentInputRef}
-                    value={commentText}
-                    onChange={(e) => {
-                      setCommentText(e.target.value.slice(0, MAX_CHARS))
-                      resizeTextarea(e.target)
-                    }}
-                    onFocus={(e) => updateTextareaSelection(e.currentTarget)}
-                    onClick={(e) => updateTextareaSelection(e.currentTarget)}
-                    onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
-                    onSelect={(e) => updateTextareaSelection(e.currentTarget)}
-                    placeholder="Add a comment..."
-                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-                    rows={1}
-                    maxLength={MAX_CHARS}
-                    disabled={hasPendingMutation}
-                    aria-label="Add a comment"
-                    aria-describedby="comment-char-count"
-                    style={{ minHeight: '44px', WebkitTextFillColor: '#111827', boxSizing: 'border-box' }}
-                  />
-                  <button
-                    onClick={handleCommentSubmit}
-                    onMouseDown={(e) => e.preventDefault()}
-                    disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
-                    data-submit-button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    aria-label="Post comment"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Send className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-                <div
-                  id="comment-char-count"
-                  className="mt-1 flex items-center justify-between"
-                  aria-live="polite"
-                >
-                  <div className="flex items-center space-x-2">
+              ) : (
+                <div className="p-4 sm:p-6">
+                  <div className="relative">
+                    <textarea
+                      ref={commentInputRef}
+                      value={commentText}
+                      onChange={(e) => {
+                        setCommentText(e.target.value.slice(0, MAX_CHARS))
+                        resizeTextarea(e.target)
+                      }}
+                      onFocus={(e) => updateTextareaSelection(e.currentTarget)}
+                      onClick={(e) => updateTextareaSelection(e.currentTarget)}
+                      onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
+                      onSelect={(e) => updateTextareaSelection(e.currentTarget)}
+                      placeholder="Add a comment..."
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                      rows={1}
+                      maxLength={MAX_CHARS}
+                      disabled={hasPendingMutation}
+                      aria-label="Add a comment"
+                      aria-describedby="comment-char-count"
+                      style={{ minHeight: '44px', WebkitTextFillColor: '#111827', boxSizing: 'border-box' }}
+                    />
                     <button
-                      type="button"
+                      onClick={handleCommentSubmit}
                       onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => openEmojiPickerForInput(commentInputRef.current)}
-                      data-emoji-trigger
-                      className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      aria-label="Open emoji picker for comment"
+                      disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
+                      data-submit-button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      aria-label="Post comment"
                     >
-                      <Smile className="h-4 w-4" />
+                      {isSubmitting ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Send className="h-5 w-5" />
+                      )}
                     </button>
                   </div>
-                  <div className="text-xs text-gray-400 text-right">
-                    {commentText.length}/{MAX_CHARS}
+                  <div
+                    id="comment-char-count"
+                    className="mt-1 flex items-center justify-between"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => openEmojiPickerForInput(commentInputRef.current)}
+                        data-emoji-trigger
+                        className="p-1 text-purple-600 hover:text-purple-700 transition-colors rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        aria-label="Open emoji picker for comment"
+                      >
+                        <Smile className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="text-xs text-gray-400 text-right">
+                      {commentText.length}/{MAX_CHARS}
+                    </div>
                   </div>
+                  <MinimalEmojiPicker
+                    isOpen={showEmojiPicker}
+                    onClose={() => setShowEmojiPicker(false)}
+                    onEmojiSelect={insertEmojiIntoActiveInput}
+                    variant="inline"
+                    viewportInset={mobileKeyboardInset}
+                    className="mt-4"
+                  />
                 </div>
-                <MinimalEmojiPicker
-                  isOpen={showEmojiPicker}
-                  onClose={() => setShowEmojiPicker(false)}
-                  onEmojiSelect={insertEmojiIntoActiveInput}
-                  variant="inline"
-                  viewportInset={mobileKeyboardInset}
-                  className="mt-4"
-                />
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {reactionViewerCommentId && (
