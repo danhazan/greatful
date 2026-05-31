@@ -26,6 +26,7 @@ export function useLongPress({ onLongPress, threshold = 500 }: UseLongPressOptio
     clear()
     timerRef.current = setTimeout(() => {
       longPressOccurredRef.current = true
+      timerRef.current = undefined
       if (targetRef.current) {
         onLongPressRef.current(targetRef.current)
       }
@@ -67,6 +68,12 @@ export function useLongPress({ onLongPress, threshold = 500 }: UseLongPressOptio
       onPointerCancel,
       onPointerLeave,
       onContextMenu,
+      style: {
+        touchAction: 'manipulation',
+        WebkitTouchCallout: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+      } as React.CSSProperties,
     },
     consumeLongPress,
   }
