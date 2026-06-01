@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { lockScroll, unlockScroll } from '@/utils/scrollLock'
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch"
+import { SharedImageZoom, SharedImageZoomRef } from "./SharedImageZoom"
+import { IMAGE_GALLERY_CONFIG } from "../config/imageGalleryConfig"
 
 interface ImageModalProps {
   src: string
@@ -15,12 +16,17 @@ interface ImageModalProps {
 
 export default function ImageModal({ src, alt, isOpen, onClose }: ImageModalProps) {
   const [isLoading, setIsLoading] = useState(true)
+  const [scale, setScale] = useState<number>(IMAGE_GALLERY_CONFIG.DEFAULT_SCALE)
   const imageRef = useRef<HTMLImageElement>(null)
+  const zoomRef = useRef<SharedImageZoomRef>(null)
 
   // Reset loading state when modal opens
   useEffect(() => {
     if (isOpen) {
       setIsLoading(true)
+      setScale(IMAGE_GALLERY_CONFIG.DEFAULT_SCALE)
+      // Small timeout to ensure DOM is ready before resetting zoom
+      setTimeout(() => zoomRef.current?.resetZoom(), 0)
     }
   }, [isOpen])
 
@@ -84,79 +90,55 @@ export default function ImageModal({ src, alt, isOpen, onClose }: ImageModalProp
 
       {/* Transform Wrapper */}
       <div className="w-full h-full flex items-center justify-center overflow-hidden">
-        <TransformWrapper
-          centerOnInit
-          minScale={0.5}
-          maxScale={5}
-          initialScale={1}
-          doubleClick={{ mode: "toggle" }}
-          wheel={{ step: 0.003 }}
+        <SharedImageZoom
+          ref={zoomRef}
+          isGalleryMode={false}
+          onScaleChange={setScale}
         >
-          {({ zoomIn, zoomOut, resetTransform, state }) => (
-            <>
-              <TransformComponent
-                wrapperStyle={{
-                  width: '100vw',
-                  height: '100vh',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                contentStyle={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '100%',
-                  height: '100%',
-                }}
-              >
-                <img
-                  ref={imageRef}
-                  src={src}
-                  alt={alt}
-                  className="max-w-full max-h-full object-contain select-none"
-                  style={{
-                    display: 'block',
-                    maxWidth: '100vw',
-                    maxHeight: '100vh',
-                  }}
-                  onLoad={handleImageLoad}
-                  draggable={false}
-                />
-              </TransformComponent>
+          <img
+            ref={imageRef}
+            src={src}
+            alt={alt}
+            className="max-w-full max-h-full object-contain select-none"
+            style={{
+              display: 'block',
+              maxWidth: '100vw',
+              maxHeight: '100vh',
+            }}
+            onLoad={handleImageLoad}
+            draggable={false}
+          />
+        </SharedImageZoom>
 
-              {/* Zoom controls - Always visible, centered at bottom */}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center space-x-2 bg-black bg-opacity-50 rounded-full px-5 py-2.5 z-[80] shadow-lg border border-white/10 backdrop-blur-sm">
-                <button
-                  onClick={() => zoomOut()}
-                  className="text-white hover:text-gray-300 transition-colors h-10 w-10 flex items-center justify-center active:scale-95"
-                  aria-label="Zoom out"
-                >
-                  <span className="text-2xl font-light">−</span>
-                </button>
-                <div className="w-[1px] h-4 bg-white/20 mx-1" />
-                <span className="text-white text-sm font-medium min-w-[3.5rem] text-center select-none">
-                  {Math.round(state.scale * 100)}%
-                </span>
-                <div className="w-[1px] h-4 bg-white/20 mx-1" />
-                <button
-                  onClick={() => zoomIn()}
-                  className="text-white hover:text-gray-300 transition-colors h-10 w-10 flex items-center justify-center active:scale-95"
-                  aria-label="Zoom in"
-                >
-                  <span className="text-2xl font-light">+</span>
-                </button>
-                <button
-                  onClick={() => resetTransform()}
-                  className="ml-2 px-3 py-1 bg-white/10 text-white text-xs font-medium rounded-full hover:bg-white/20 transition-colors active:scale-95"
-                  aria-label="Reset zoom"
-                >
-                  Reset
-                </button>
-              </div>
-            </>
-          )}
-        </TransformWrapper>
+        {/* Zoom controls - Always visible, centered at bottom */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center space-x-2 bg-black bg-opacity-50 rounded-full px-5 py-2.5 z-[80] shadow-lg border border-white/10 backdrop-blur-sm">
+          <button
+            onClick={() => zoomRef.current?.zoomOut()}
+            className="text-white hover:text-gray-300 transition-colors h-10 w-10 flex items-center justify-center active:scale-95"
+            aria-label="Zoom out"
+          >
+            <span className="text-2xl font-light">−</span>
+          </button>
+          <div className="w-[1px] h-4 bg-white/20 mx-1" />
+          <span className="text-white text-sm font-medium min-w-[3.5rem] text-center select-none">
+            {Math.round(scale * 100)}%
+          </span>
+          <div className="w-[1px] h-4 bg-white/20 mx-1" />
+          <button
+            onClick={() => zoomRef.current?.zoomIn()}
+            className="text-white hover:text-gray-300 transition-colors h-10 w-10 flex items-center justify-center active:scale-95"
+            aria-label="Zoom in"
+          >
+            <span className="text-2xl font-light">+</span>
+          </button>
+          <button
+            onClick={() => zoomRef.current?.resetZoom()}
+            className="ml-2 px-3 py-1 bg-white/10 text-white text-xs font-medium rounded-full hover:bg-white/20 transition-colors active:scale-95"
+            aria-label="Reset zoom"
+          >
+            Reset
+          </button>
+        </div>
       </div>
     </div>,
     document.body

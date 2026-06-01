@@ -10,6 +10,8 @@ import { useLongPress } from '@/hooks/useLongPress'
 import EmojiPicker from './EmojiPicker'
 import ReactionViewer from './ReactionViewer'
 import { getEmojiFromCode, getTopEmojis } from '@/utils/emojiMapping'
+import { SharedImageZoom, SharedImageZoomRef } from './SharedImageZoom'
+import { isAtDefaultScale } from '@/config/imageGalleryConfig'
 
 /**
  * Image data for multi-image posts.
@@ -68,6 +70,7 @@ export default function MultiImageModal({
 
   const imageRef = useRef<HTMLImageElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef<SharedImageZoomRef>(null)
 
   // Sort images by position
   const sortedImages = [...images].sort((a, b) => a.position - b.position)
@@ -112,6 +115,13 @@ export default function MultiImageModal({
       unlockScroll();
     }
   }, [isOpen])
+
+  // Reset zoom state when the active image changes
+  useEffect(() => {
+    if (isOpen && currentImage?.id) {
+      zoomRef.current?.resetZoom()
+    }
+  }, [currentImage?.id, isOpen])
 
   // Navigate to next/previous image with fade transition
   const navigateTo = useCallback((index: number) => {
@@ -179,6 +189,14 @@ export default function MultiImageModal({
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return
 
+    const currentScale = zoomRef.current?.getScale() ?? 1
+    if (!isAtDefaultScale(currentScale)) {
+      // Do not navigate if the image is zoomed in
+      setTouchStart(null)
+      setTouchEnd(null)
+      return
+    }
+
     const distance = touchStart - touchEnd
     const isLeftSwipe = distance > minSwipeDistance
     const isRightSwipe = distance < -minSwipeDistance
@@ -216,7 +234,10 @@ export default function MultiImageModal({
       <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
         {/* Expand to full resolution button */}
         <button
-          onClick={() => setShowExpandedView(true)}
+          onClick={() => {
+            zoomRef.current?.resetZoom()
+            setShowExpandedView(true)
+          }}
           className="p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-colors"
           aria-label="View full resolution"
           title="View full resolution"
@@ -327,16 +348,18 @@ export default function MultiImageModal({
         onTouchEnd={onTouchEnd}
         onClick={(e) => e.stopPropagation()}
       >
-        <img
-          ref={imageRef}
-          src={currentImage.mediumUrl}
-          alt={`Image ${currentIndex + 1} of ${totalImages}`}
-          className={`max-w-full max-h-full object-contain select-none transition-opacity duration-200 ${
-            isLoading ? 'opacity-0' : 'opacity-100'
-          }`}
-          onLoad={handleImageLoad}
-          draggable={false}
-        />
+        <SharedImageZoom ref={zoomRef} isGalleryMode={true}>
+          <img
+            ref={imageRef}
+            src={currentImage.mediumUrl}
+            alt={`Image ${currentIndex + 1} of ${totalImages}`}
+            className={`max-w-full max-h-full object-contain select-none transition-opacity duration-200 ${
+              isLoading ? 'opacity-0' : 'opacity-100'
+            }`}
+            onLoad={handleImageLoad}
+            draggable={false}
+          />
+        </SharedImageZoom>
       </div>
 
       {/* Thumbnail navigation strip */}
