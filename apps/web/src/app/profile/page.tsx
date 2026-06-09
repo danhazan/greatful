@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { User, Edit3, Calendar, Heart, X, Plus, Trash2, MapPin, Building, Globe, Shield, Eye, EyeOff } from "lucide-react"
+import { User, Edit3, Calendar, Heart, X, Plus, Trash2, MapPin, Building, Globe, Shield, Eye, EyeOff, AlertTriangle } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import Navbar from "@/components/Navbar"
 import ProfilePhotoUpload from "@/components/ProfilePhotoUpload"
@@ -76,6 +76,10 @@ export default function ProfilePage() {
   })
   const [selectedLocation, setSelectedLocation] = useState<any>(null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // State for managing pending institutions and websites
   const [pendingInstitution, setPendingInstitution] = useState("")
@@ -520,6 +524,30 @@ export default function ProfilePage() {
     setPasswordError("")
     setIsUsernameEditable(false)
     setIsPasswordSectionOpen(false)
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== contextUser?.username) {
+      setDeleteError('Username does not match')
+      return
+    }
+
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      await apiClient.delete('/users/me', {
+        body: { confirmation: deleteConfirmation },
+      })
+      logout()
+      router.push('/')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete account'
+      setDeleteError(msg)
+      showError('Deletion Failed', msg)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const handleCancelUsernameEdit = () => {
@@ -998,6 +1026,24 @@ export default function ProfilePage() {
                           Save Changes
                         </button>
                       </div>
+
+                      {/* Delete Account Section */}
+                      <div className="mt-8 pt-6 border-t border-red-200">
+                        <div className="flex items-center space-x-3 mb-3">
+                          <Trash2 className="h-5 w-5 text-red-600" />
+                          <h3 className="text-lg font-semibold text-red-900">Delete Account</h3>
+                        </div>
+                        <p className="text-gray-600 text-sm mb-4">
+                          Permanently delete your account and all associated data. This action cannot be undone.
+                        </p>
+                        <button
+                          onClick={() => setShowDeleteModal(true)}
+                          className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>Delete Account</span>
+                        </button>
+                      </div>
                     </div>
                   ) : isEditingProfile ? (
                     <div className="space-y-4 max-w-2xl">
@@ -1421,6 +1467,70 @@ export default function ProfilePage() {
         userId={user.id}
         username={user.displayName || user.username}
       />
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
+              </div>
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirmation(''); setDeleteError(null) }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              This will permanently delete your account and all associated data.
+              <strong> This action cannot be undone.</strong>
+            </p>
+
+            <p className="text-sm text-gray-600 mb-2">
+              Type <strong>{contextUser?.username}</strong> to confirm:
+            </p>
+
+            <input
+              type="text"
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              placeholder={contextUser?.username}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 placeholder-gray-400 mb-4"
+            />
+
+            {deleteError && (
+              <p className="text-red-600 text-sm mb-4">{deleteError}</p>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirmation(''); setDeleteError(null) }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeleting || deleteConfirmation !== contextUser?.username}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isDeleting ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Deleting...</span>
+                  </div>
+                ) : (
+                  'Delete My Account'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hidden form to trigger browser password manager */}
       <form

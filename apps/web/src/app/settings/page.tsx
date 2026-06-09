@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   User,
   Shield,
@@ -12,20 +13,31 @@ import {
   Users,
   Globe,
   Lock,
-  Save
+  Save,
+  Trash2,
+  AlertTriangle,
+  X
 } from 'lucide-react'
 
 import { UserPreferences } from '@/types/user'
 import { useToast } from '@/contexts/ToastContext'
+import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 
+
 export default function SettingsPage() {
+  const router = useRouter()
   const { showError: showErrorToast } = useToast()
+  const { currentUser, logout } = useUser()
   const [preferences, setPreferences] = useState<UserPreferences | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
 
   const loadPreferences = useCallback(async () => {
@@ -65,6 +77,30 @@ export default function SettingsPage() {
       showErrorToast('Save Failed', msg)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== currentUser?.username) {
+      setDeleteError('Username does not match')
+      return
+    }
+
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      await apiClient.delete('/users/me', {
+        body: { confirmation: deleteConfirmation },
+      })
+      logout()
+      router.push('/')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete account'
+      setDeleteError(msg)
+      showErrorToast('Deletion Failed', msg)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -309,8 +345,90 @@ export default function SettingsPage() {
               )}
             </button>
           </div>
+
+          {/* Delete Account Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <Trash2 className="h-6 w-6 text-red-600" />
+              <h2 className="text-xl font-semibold text-red-900">Delete Account</h2>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </p>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Delete Account</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
+              </div>
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirmation(''); setDeleteError(null) }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              This will permanently delete your account and all associated data.
+              <strong> This action cannot be undone.</strong>
+            </p>
+
+            <p className="text-sm text-gray-600 mb-2">
+              Type <strong>{currentUser?.username}</strong> to confirm:
+            </p>
+
+            <input
+              type="text"
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              placeholder={currentUser?.username}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 placeholder-gray-400 mb-4"
+            />
+
+            {deleteError && (
+              <p className="text-red-600 text-sm mb-4">{deleteError}</p>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirmation(''); setDeleteError(null) }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeleting || deleteConfirmation !== currentUser?.username}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isDeleting ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Deleting...</span>
+                  </div>
+                ) : (
+                  'Delete My Account'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -16,6 +16,7 @@ from app.models.user import User
 from app.models.post import Post
 from app.core.notification_factory import NotificationFactory
 from app.core.image_urls import serialize_image_url
+from app.core.user_serialization import serialize_public_user_reference
 import logging
 
 logger = logging.getLogger(__name__)
@@ -76,10 +77,10 @@ class MentionService(BaseService):
         
         for username in usernames:
             user = await self.user_repo.get_by_username(username)
-            if user:
+            if user and (getattr(user, "account_status", None) or "active") == "active":
                 valid_users.append(user)
             else:
-                logger.warning(f"Mentioned username not found: {username}")
+                logger.warning(f"Mentioned username not found or inactive: {username}")
         
         logger.info(f"Validated {len(valid_users)} out of {len(usernames)} mentioned users")
         return valid_users
@@ -105,8 +106,8 @@ class MentionService(BaseService):
         Raises:
             NotFoundError: If post doesn't exist
         """
-        # Verify post exists
-        post = await self.post_repo.get_by_id_or_404(post_id)
+        # Verify post exists and is not tombstoned
+        post = await self.post_repo.get_active_by_id_or_404(post_id)
         
         # Extract usernames from content
         usernames = await self.extract_mentions(content)
@@ -161,11 +162,7 @@ class MentionService(BaseService):
                 "author_id": mention.author_id,
                 "mentioned_user_id": mention.mentioned_user_id,
                 "created_at": mention.created_at.isoformat(),
-                "mentioned_user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "profile_image_url": serialize_image_url(user.profile_image_url)
-                }
+                "mentioned_user": serialize_public_user_reference(user)
             }
             for mention, user in zip(mentions, valid_users)
         ]
@@ -241,16 +238,8 @@ class MentionService(BaseService):
                 "author_id": mention.author_id,
                 "mentioned_user_id": mention.mentioned_user_id,
                 "created_at": mention.created_at.isoformat(),
-                "author": {
-                    "id": mention.author.id,
-                    "username": mention.author.username,
-                    "profile_image_url": serialize_image_url(mention.author.profile_image_url)
-                },
-                "mentioned_user": {
-                    "id": mention.mentioned_user.id,
-                    "username": mention.mentioned_user.username,
-                    "profile_image_url": serialize_image_url(mention.mentioned_user.profile_image_url)
-                }
+                "author": serialize_public_user_reference(mention.author),
+                "mentioned_user": serialize_public_user_reference(mention.mentioned_user)
             }
             for mention in mentions
         ]
@@ -287,11 +276,7 @@ class MentionService(BaseService):
                 "author_id": mention.author_id,
                 "mentioned_user_id": mention.mentioned_user_id,
                 "created_at": mention.created_at.isoformat(),
-                "author": {
-                    "id": mention.author.id,
-                    "username": mention.author.username,
-                    "profile_image_url": serialize_image_url(mention.author.profile_image_url)
-                },
+                "author": serialize_public_user_reference(mention.author),
                 "post": {
                     "id": mention.post.id,
                     "content": mention.post.content[:100] + "..." if len(mention.post.content) > 100 else mention.post.content,

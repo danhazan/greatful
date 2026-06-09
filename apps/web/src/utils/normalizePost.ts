@@ -69,6 +69,8 @@ export function normalizePostFromApi(apiResponse: any): Post | null {
     normalizedAuthor = {
       ...rawPost.author,
       id: String(rawPost.author.id),
+      isDeleted: rawPost.author.isDeleted ?? rawPost.author.is_deleted ?? false,
+      accountStatus: rawPost.author.accountStatus ?? rawPost.author.account_status ?? 'active',
       ...(normalizedAuthorImage ? {
         profileImageUrl: normalizedAuthorImage,
         image: normalizedAuthorImage,

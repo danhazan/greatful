@@ -15,6 +15,8 @@ class AuthorResponse(BaseModel):
     following_count: int = 0
     posts_count: int = 0
     is_following: Optional[bool] = None
+    is_deleted: bool = False
+    account_status: Optional[str] = None
 
     @field_validator('id', mode='before')
     @classmethod

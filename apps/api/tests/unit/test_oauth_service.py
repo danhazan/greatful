@@ -103,6 +103,9 @@ class TestOAuthService:
                     mock_user.oauth_id = mock_oauth_user_info['id']
                     mock_user.oauth_data = {'last_login_via_oauth': True}
                     mock_user.created_at = datetime.now()
+                    mock_user.account_status = "active"
+                    mock_user.token_version = 0
+                    mock_user.profile_image_url = None
                     
                     # Mock the service's create_entity method
                     with patch.object(oauth_service, 'create_entity', return_value=mock_user):
@@ -138,6 +141,12 @@ class TestOAuthService:
                 updated_user.email = existing_oauth_user.email
                 updated_user.username = existing_oauth_user.username
                 updated_user.oauth_data = {'last_login_via_oauth': True}
+                updated_user.account_status = "active"
+                updated_user.token_version = 0
+                updated_user.created_at = datetime.now()
+                updated_user.display_name = "Updated Name"
+                updated_user.profile_image_url = None
+                updated_user.oauth_provider = "google"
                 
                 with patch.object(oauth_service, 'update_entity', return_value=updated_user):
                     # Mock token creation
@@ -178,6 +187,11 @@ class TestOAuthService:
                     linked_user.oauth_provider = 'google'
                     linked_user.oauth_id = mock_oauth_user_info['id']
                     linked_user.oauth_data = {'linked_via_oauth': True}
+                    linked_user.account_status = "active"
+                    linked_user.token_version = 0
+                    linked_user.created_at = datetime.now()
+                    linked_user.display_name = existing_user.display_name
+                    linked_user.profile_image_url = None
                     
                     # Mock the service's update_entity method
                     with patch.object(oauth_service, 'update_entity', return_value=linked_user):
@@ -515,6 +529,10 @@ class TestOAuthService:
                     mock_user.oauth_provider = 'google'
                     mock_user.oauth_id = mock_oauth_user_info['id']
                     mock_user.oauth_data = {'last_login_via_oauth': True}
+                    mock_user.account_status = "active"
+                    mock_user.token_version = 0
+                    mock_user.created_at = datetime.now()
+                    mock_user.profile_image_url = None
                     
                     # Mock the service's create_entity method
                     with patch.object(oauth_service, 'create_entity', return_value=mock_user):
@@ -553,6 +571,10 @@ class TestOAuthService:
                     mock_user.oauth_provider = 'google'
                     mock_user.oauth_id = mock_oauth_user_info['id']
                     mock_user.oauth_data = {'last_login_via_oauth': True}
+                    mock_user.account_status = "active"
+                    mock_user.token_version = 0
+                    mock_user.created_at = datetime.now()
+                    mock_user.profile_image_url = None
                     
                     # Mock the service's create_entity method
                     with patch.object(oauth_service, 'create_entity', return_value=mock_user):

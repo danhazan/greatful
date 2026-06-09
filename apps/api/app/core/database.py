@@ -154,10 +154,17 @@ async def get_db() -> AsyncSession:
 
 async def init_db():
     """
-    Create database tables.
+    Validate migration state on startup. Schema is managed by Alembic migrations only.
     """
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        if not os.getenv("TESTING"):
+            try:
+                await conn.execute(text("SELECT account_status FROM users LIMIT 0"))
+            except Exception:
+                raise RuntimeError(
+                    "Database migrations not applied: missing 'users.account_status' column. "
+                    "Run 'alembic upgrade head' and restart the application."
+                )
 
 async def get_db_health() -> Dict[str, Any]:
     """

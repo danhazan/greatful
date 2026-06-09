@@ -378,6 +378,62 @@ When a user reacts to an individual image inside a multi-image post, the system 
 3. **Stale guard**: A scheduled retry MUST be a no-op if the cache status is no longer `error` with the same `retryCount`
 4. **Timer lifecycle**: All `pendingRetryTimeouts` for a `postId` MUST be cleared when the last subscriber unmounts
 
+### Flow 9: User Profile Deletion (Tombstone System)
+
+**Flow:** User requests deletion → account tombstoned → auth invalidated → posts tombstoned → PII scrubbed → identity preserved for recovery
+
+#### Component Responsibilities
+
+| Component | Responsibility |
+|-----------|---------------|
+| `UserDeletionService` | Orchestrate idempotent deletion pipeline |
+| `PostDeletionService` | Cascade tombstoning to owned posts |
+| `serialize_public_user_reference()` | Unify deleted-user rendering across ALL API responses |
+| `token_version` | Invalidate all active auth tokens on deletion |
+| `DeletedUserAuthIdentity` | Preserve email hash + OAuth identity for recovery |
+
+#### Data Flow
+
+1. User calls `DELETE /api/v1/users/me` with `{ confirmation: "<username>" }`
+2. `account_status` transitions: `active` → `deletion_pending` → `deleted`
+3. `token_version` incremented → all existing JWT tokens invalidated
+4. Owned posts soft-deleted (content cleared, `deleted_at` set)
+5. All reactions removed
+6. All follow relationships removed
+7. Notifications owned by user removed
+8. Personal data scrubbed: email anonymized, profile fields nulled
+9. OAuth identity preserved in `deleted_user_auth_identities`, then scrubbed from user row
+10. Email changed to `deleted-user-{id}-{token}@deleted.grateful.internal` → original email freed for reuse
+
+#### Tombstone Semantics
+
+| Aspect | Behavior |
+|--------|----------|
+| User row | Retained with `account_status = "deleted"` |
+| Username | Retired — cannot be reused (unique constraint) |
+| Email | Anonymized — original becomes reusable |
+| OAuth | Identity copied to recovery table, then scrubbed from user row → OAuth becomes reusable |
+| Profile URL | Still resolves to `/users/[id]` → returns tombstone view |
+| Owned posts | Soft-deleted, content cleared, excluded from feeds |
+| Comments on others' posts | Remain intact, author shows as "Deleted user" |
+| Notifications | Removed for deleted user, but deleted-actor data renders safely for recipients |
+| Auth tokens | All invalidated via `token_version` increment |
+
+#### Serialization Contract (CRITICAL)
+
+All user references in API responses MUST pass through `serialize_public_user_reference()`:
+
+```
+Used by: CommentService, MentionService, ReactionService, NotificationService
+Not used (raw SQL equivalent): PostRepository._fetch_engagement_data()
+```
+
+Rules:
+- Deleted users always return `is_deleted: true`, `account_status: "deleted"`
+- `display_name` and `profile_image_url` always `None` for deleted users
+- `name` always `"Deleted user"` for deleted users
+- `username` remains the retired username (routing key stays valid)
+
 ---
 
 ## System-Wide Invariants

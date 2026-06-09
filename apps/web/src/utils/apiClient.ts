@@ -347,11 +347,13 @@ class OptimizedAPIClient {
   /**
    * DELETE request
    */
-  async delete<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  async delete<T>(endpoint: string, options: RequestOptions & { body?: any } = {}): Promise<T> {
+    const { body, ...rest } = options
     return this.request<T>(endpoint, {
-      ...options,
+      ...rest,
       method: 'DELETE',
-      skipCache: true // DELETE requests shouldn't be cached
+      body: body ? JSON.stringify(body) : undefined,
+      skipCache: true
     })
   }
 

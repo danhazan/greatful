@@ -11,7 +11,9 @@ from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user_id as get_authenticated_user_id
 from app.core.security import decode_token
+from app.core.user_serialization import serialize_public_user_reference
 from app.models.notification import Notification
 from app.services.notification_service import NotificationService
 from app.services.user_service import UserService
@@ -48,28 +50,6 @@ class NotificationSummary(BaseModel):
     total_count: int
 
 
-async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
-    """Extract user ID from JWT token."""
-    # Check for test authentication bypass
-    from app.core.test_auth import get_test_user_id_from_token, is_test_environment
-    
-    if is_test_environment():
-        test_user_id = get_test_user_id_from_token(auth)
-        if test_user_id is not None:
-            return test_user_id
-    
-    try:
-        payload = decode_token(auth.credentials)
-        user_id = int(payload.get("sub"))
-        return user_id
-    except Exception as e:
-        logger.error(f"Authentication error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token"
-        ) from e
-
-
 async def resolve_user_profile_data(
     db: AsyncSession, 
     user_id: str = None, 
@@ -98,7 +78,9 @@ async def resolve_user_profile_data(
                     'id': str(profile['id']),
                     'name': profile.get('display_name') or profile['username'],
                     'username': profile['username'],
-                    'image': profile.get('profile_image_url')
+                    'image': profile.get('profile_image_url'),
+                    'is_deleted': profile.get('is_deleted', False),
+                    'account_status': profile.get('account_status', 'active'),
                 }
             except (ValueError, Exception):
                 # If user_id is not a valid integer or user not found, try username
@@ -112,7 +94,9 @@ async def resolve_user_profile_data(
                     'id': str(profile['id']),
                     'name': profile.get('display_name') or profile['username'],
                     'username': profile['username'],
-                    'image': profile.get('profile_image_url')
+                    'image': profile.get('profile_image_url'),
+                    'is_deleted': profile.get('is_deleted', False),
+                    'account_status': profile.get('account_status', 'active'),
                 }
             except Exception:
                 # User not found by username
@@ -155,7 +139,9 @@ async def resolve_notification_user(db: AsyncSession, notification_data: dict) -
                 'id': notification_data.get('actor_user_id', '0'),
                 'name': notification_data['actor_username'],
                 'username': notification_data['actor_username'],
-                'image': None
+                'image': None,
+                'is_deleted': False,
+                'account_status': 'unknown',
             }
     
     # Try specific notification type usernames
@@ -171,19 +157,14 @@ async def resolve_notification_user(db: AsyncSession, notification_data: dict) -
             if resolved_user:
                 return resolved_user
             else:
-                return {
-                    'id': '0',
-                    'name': notification_data[field],
-                    'username': notification_data[field],
-                    'image': None
-                }
+                return serialize_public_user_reference(None)
     
     return None
 
 
 @router.get("/notifications", response_model=List[NotificationResponse])
 async def get_notifications(
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     unread_only: bool = Query(False),
@@ -244,6 +225,7 @@ async def get_notifications(
             for p in profiles_list:
                 p_id = p['id']
                 stats = author_stats.get(p_id, {})
+                is_deleted = p.get('is_deleted', False) or p.get('account_status') == 'deleted'
                 resolved_profiles[str(p_id)] = {
                     'id': str(p_id),
                     'name': p.get('display_name') or p['username'],
@@ -253,7 +235,9 @@ async def get_notifications(
                     'follower_count': stats.get('followers_count', 0),
                     'following_count': stats.get('following_count', 0),
                     'posts_count': stats.get('posts_count', 0),
-                    'is_following': follow_statuses.get(p_id, False) if current_user_id and current_user_id != p_id else None
+                    'is_following': follow_statuses.get(p_id, False) if current_user_id and current_user_id != p_id else None,
+                    'is_deleted': is_deleted,
+                    'account_status': p.get('account_status', 'active'),
                 }
 
         for notification in notifications:
@@ -279,7 +263,9 @@ async def get_notifications(
                     'id': '0',
                     'name': 'Unknown User',
                     'username': 'unknown',
-                    'image': None
+                    'image': None,
+                    'is_deleted': False,
+                    'account_status': 'unknown',
                 }
             
             response_notifications.append(NotificationResponse(
@@ -310,7 +296,7 @@ async def get_notifications(
 
 @router.get("/notifications/summary", response_model=NotificationSummary)
 async def get_notification_summary(
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -345,7 +331,7 @@ async def get_notification_summary(
 @router.post("/notifications/{notification_id}/read", status_code=status.HTTP_200_OK)
 async def mark_notification_as_read(
     notification_id: str,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -382,7 +368,7 @@ async def mark_notification_as_read(
 
 @router.post("/notifications/read-all", status_code=status.HTTP_200_OK)
 async def mark_all_notifications_as_read(
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -409,7 +395,7 @@ async def mark_all_notifications_as_read(
 @router.get("/notifications/{batch_id}/children", response_model=List[NotificationResponse])
 async def get_batch_children(
     batch_id: str,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -443,7 +429,9 @@ async def get_batch_children(
                     'id': '0',
                     'name': 'Unknown User',
                     'username': 'unknown',
-                    'image': None
+                    'image': None,
+                    'is_deleted': False,
+                    'account_status': 'unknown',
                 }
             
             response_notifications.append(NotificationResponse(
@@ -475,7 +463,7 @@ async def get_batch_children(
 @router.get("/notifications/stats")
 async def get_notification_stats(
     notification_type: str = Query(None, description="Filter by notification type"),
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """

@@ -14,7 +14,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 |--------|------|-------------|-------------|
 | `id` | Integer | Primary Key, Index | Unique user identifier |
 | `email` | String | Unique, Index, Not Null | User's email address |
-| `username` | String | Unique, Index, Not Null | Unique username |
+| `username` | String | Unique, Index, Not Null | Unique username (retired on deletion) |
 | `hashed_password` | String | Not Null | Encrypted password |
 | `bio` | Text | Nullable | User biography/description |
 | `profile_image_url` | String | Nullable | URL to user's profile image |
@@ -26,6 +26,14 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `location` | JSON | Nullable | Structured location data from configured geocoding provider (LocationIQ by default) |
 | `profile_photo_filename` | String(255) | Nullable, Index | Filename for profile photo variants |
 | `profile_preferences` | JSON | Nullable | User preferences and settings |
+| `account_status` | String(20) | Not Null, Default: "active", Index | Account lifecycle state: "active", "deletion_pending", "deleted" |
+| `token_version` | Integer | Not Null, Default: 0 | Incremented on deletion to invalidate all auth tokens |
+| `deleted_at` | DateTime | Nullable | Timestamp when account was deleted |
+| `deletion_requested_at` | DateTime | Nullable | Timestamp when deletion was first requested |
+| `deletion_source` | String(20) | Nullable | Deletion origin (e.g., "self") |
+| `oauth_provider` | String(50) | Nullable | OAuth provider name (e.g., "google"); scrubbed on deletion |
+| `oauth_id` | String(255) | Nullable | OAuth provider user ID; scrubbed on deletion |
+| `last_feed_view` | DateTime | Nullable | Last time user viewed feed |
 
 **Enhanced Profile Fields Details:**
 
@@ -70,6 +78,26 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 - `followers` - One-to-Many with Follows (users following this user)
 - `following` - One-to-Many with Follows (users this user follows)
 - `notifications` - One-to-Many with Notifications (user's notifications)
+- `deleted_identities` - One-to-Many with DeletedUserAuthIdentities (preserved recovery info)
+
+### Deleted User Auth Identities Table (`deleted_user_auth_identities`)
+
+**Preserves identity information for deleted accounts to enable email/OAuth reuse.**
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | Primary Key | Unique identifier |
+| `user_id` | Integer | Foreign Key (users.id), Not Null | Reference to deleted user |
+| `identity_type` | String(20) | Not Null | Type: "email" or "oauth" |
+| `provider` | String(50) | Nullable | OAuth provider name |
+| `provider_user_id` | String(255) | Nullable | OAuth provider user ID |
+| `email_hash` | String(64) | Nullable | SHA-256 hash of (SECRET_KEY:email) |
+| `created_at` | DateTime | Not Null, Default: now() | Record creation timestamp |
+| `deleted_at` | DateTime | Nullable | When the original account was deleted |
+
+**Unique Constraint:** `(user_id, identity_type, provider, provider_user_id)`
+
+**Note:** This table is internal-only and must never be exposed in public APIs, profile responses, search, exports, or serializers.
 
 ### Posts Table (`posts`)
 

@@ -67,6 +67,10 @@ class UserProfileResponse(BaseModel):
     followers_count: int = 0  # Will be implemented with follow system
     following_count: int = 0  # Will be implemented with follow system
     oauth_provider: Optional[str] = None
+    account_status: Optional[str] = None
+    is_deleted: bool = False
+    deleted_at: Optional[str] = None
+    message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -87,6 +91,10 @@ class PublicUserProfileResponse(BaseModel):
     followers_count: int = 0  # Will be implemented with follow system
     following_count: int = 0  # Will be implemented with follow system
     oauth_provider: Optional[str] = None
+    account_status: Optional[str] = None
+    is_deleted: bool = False
+    deleted_at: Optional[str] = None
+    message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -139,6 +147,11 @@ class UsernameValidationResponse(BaseModel):
     invalid_usernames: List[str]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AccountDeletionRequest(BaseModel):
+    """Request model for account deletion confirmation."""
+    confirmation: str
 
 
 class ProfilePhotoResponse(BaseModel):
@@ -200,6 +213,23 @@ async def update_my_profile(
         websites=profile_update.websites
     )
     
+    return success_response(result, getattr(request.state, 'request_id', None))
+
+
+@router.delete("/me")
+async def delete_my_account(
+    deletion_request: AccountDeletionRequest,
+    request: Request,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete the authenticated user's account using tombstone cleanup."""
+    from app.services.user_deletion_service import UserDeletionService
+
+    result = await UserDeletionService(db).delete_user(
+        current_user_id,
+        deletion_request.confirmation,
+    )
     return success_response(result, getattr(request.state, 'request_id', None))
 
 
@@ -273,7 +303,10 @@ async def get_user_by_username(
     Returns user profile data if found.
     """
     user_service = UserService(db)
-    result = await user_service.get_user_by_username(username)
+    user = await user_service.get_user_by_username(username)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    result = await user_service.get_public_user_profile(user.id)
     
     return success_response(result, getattr(request.state, 'request_id', None))
 

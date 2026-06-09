@@ -35,6 +35,8 @@ export interface Author {
     postsCount: number
     isFollowing: boolean | null
     bio?: string
+    isDeleted?: boolean
+    accountStatus?: string
 }
 
 export interface LocationData {

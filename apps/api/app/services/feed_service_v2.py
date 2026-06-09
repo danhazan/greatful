@@ -528,7 +528,8 @@ class FeedServiceV2(BaseService):
                     AND f_in.status = 'active' AND p.author_id != :uid
                 LEFT JOIN emoji_reactions er_user
                     ON er_user.post_id = p.id AND er_user.user_id = :uid AND er_user.object_type = 'post'
-                WHERE can_view_post(:uid, p.id::uuid)
+                WHERE p.deleted_at IS NULL
+                  AND can_view_post(:uid, p.id::uuid)
                 {filter_clauses["required_clause"]}
             )
             SELECT * FROM scored
@@ -586,7 +587,8 @@ class FeedServiceV2(BaseService):
         )
         # Build visibility clause for SQLite (inline instead of can_view_post function)
         visibility_clause = """
-            (
+            p.deleted_at IS NULL
+            AND (
                 p.author_id = :uid
                 OR p.privacy_level = 'public'
                 OR (

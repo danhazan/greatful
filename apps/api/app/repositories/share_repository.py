@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, desc, text, and_
 from app.core.repository_base import BaseRepository
+from app.core.user_serialization import serialize_public_user_reference
 from app.models.share import Share, ShareMethod
 from app.models.user import User
 from app.models.post import Post
@@ -195,12 +196,9 @@ class ShareRepository(BaseRepository):
         for recipient_id in recent_recipient_ids:
             user = await user_repo.get_by_id(recipient_id)
             if user:
-                recipients.append({
-                    "id": user.id,
-                    "username": user.username,
-                    "profile_image_url": user.profile_image_url,
-                    "last_shared_at": recipient_map[recipient_id]['last_shared_at'].isoformat()
-                })
+                ref = serialize_public_user_reference(user)
+                ref["last_shared_at"] = recipient_map[recipient_id]['last_shared_at'].isoformat()
+                recipients.append(ref)
         
         return recipients
         

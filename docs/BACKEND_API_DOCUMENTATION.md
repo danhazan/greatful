@@ -1063,6 +1063,7 @@ BACKEND_URL=https://grateful-production.up.railway.app
 ```
 GET    /api/v1/users/me/profile          # Get current user's profile
 PUT    /api/v1/users/me/profile          # Update current user's profile
+DELETE /api/v1/users/me                  # Delete current user's account (tombstone-based)
 GET    /api/v1/users/me/posts            # Get current user's posts with engagement data
 GET    /api/v1/users/{user_id}/profile   # Get another user's public profile
 GET    /api/v1/users/{user_id}/posts     # Get another user's public posts
@@ -1074,6 +1075,22 @@ DELETE /api/v1/users/me/profile/photo    # Delete current profile photo
 GET    /api/v1/users/me/profile/photo/default # Get default avatar URL
 POST   /api/v1/users/location/search     # Search locations for profile city field
 ```
+
+**Account Deletion (`DELETE /api/v1/users/me`):**
+- Request body: `{ "confirmation": "<current_username>" }` (username must match)
+- Tombstone-based: user row is retained with `account_status = "deleted"`
+- Auth tokens are invalidated via `token_version` increment
+- Owned posts become tombstones (content cleared, `deleted_at` set)
+- Email is anonymized (original becomes reusable)
+- OAuth identity preserved in `deleted_user_auth_identities`, then scrubbed from user row
+- Profile still accessible via `/users/{id}` (returns tombstone view)
+- Response: `{ "success": true, "data": { "id", "username", "account_status": "deleted", "is_deleted": true, "deleted_at" } }`
+
+**User Serialization Contract:**
+All user references in API responses (comments, reactions, mentions, notifications, feeds) use consistent tombstone-aware serialization:
+- `is_deleted`: boolean indicating deleted account
+- `account_status`: "active", "deletion_pending", or "deleted"
+- Deleted users return `name: "Deleted user"`, `display_name: null`, `image: null`
 
 ### Posts
 ```

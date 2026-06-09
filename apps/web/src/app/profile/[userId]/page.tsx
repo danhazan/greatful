@@ -32,6 +32,8 @@ interface UserProfile {
   postsCount: number
   followersCount?: number
   followingCount?: number
+  isDeleted?: boolean
+  accountStatus?: string
 }
 
 export default function UserProfilePage() {
@@ -152,7 +154,9 @@ export default function UserProfilePage() {
       createdAt: profileQueryData.createdAt,
       postsCount: profileQueryData.postsCount || 0,
       followersCount: profileQueryData.followersCount || 0,
-      followingCount: profileQueryData.followingCount || 0
+      followingCount: profileQueryData.followingCount || 0,
+      isDeleted: profileQueryData.isDeleted ?? profileQueryData.is_deleted ?? false,
+      accountStatus: profileQueryData.accountStatus ?? profileQueryData.account_status ?? 'active',
     }
   }, [profileQueryData])
 
@@ -354,6 +358,8 @@ export default function UserProfilePage() {
     )
   }
 
+  const isDeletedProfile = profile.isDeleted || profile.accountStatus === 'deleted'
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
@@ -367,7 +373,6 @@ export default function UserProfilePage() {
           profileImageUrl: currentUser.profileImageUrl
         } : undefined}
         onLogout={() => {
-          // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
           logout()
           router.push("/")
         }}
@@ -376,6 +381,26 @@ export default function UserProfilePage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          {isDeletedProfile ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8 text-center">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-200 flex items-center justify-center">
+                <span className="text-3xl text-gray-400">!</span>
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                @{profile.username}
+              </h1>
+              <p className="text-gray-500 text-lg mb-4">
+                This account has been deleted.
+              </p>
+              {profile.createdAt && (
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500 mb-4">
+                  <Calendar className="h-4 w-4" />
+                  <span>Joined {formatDate(profile.createdAt, { mode: 'monthYear', locale })}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+          <>
           {/* Profile Header */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
             <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
@@ -418,8 +443,6 @@ export default function UserProfilePage() {
                       size="md"
                       variant="primary"
                       autoFetch={true}
-                    // Enable auto-fetch so the button can manage its own follow state
-                    // This ensures the button updates properly after follow/unfollow actions
                     />
                   </div>
                 )}
@@ -499,6 +522,8 @@ export default function UserProfilePage() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </main>
 

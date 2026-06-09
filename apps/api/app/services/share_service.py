@@ -15,6 +15,7 @@ from app.models.post import Post
 from app.services.post_privacy_service import PostPrivacyService
 from app.core.notification_factory import NotificationFactory
 from app.core.image_urls import serialize_image_url
+from app.core.user_serialization import serialize_public_user_reference
 import logging
 import os
 
@@ -63,7 +64,7 @@ class ShareService(BaseService):
             NotFoundError: If post doesn't exist
         """
         # Verify post exists
-        post = await self.post_repo.get_by_id_or_404(post_id)
+        post = await self.post_repo.get_active_by_id_or_404(post_id)
         
         # Get base URL from environment or RAISE if missing
         base_url = os.getenv("FRONTEND_BASE_URL")
@@ -98,7 +99,7 @@ class ShareService(BaseService):
         
         # Verify user and post exist
         user = await self.user_repo.get_by_id_or_404(user_id)
-        post = await self.post_repo.get_by_id_or_404(post_id)
+        post = await self.post_repo.get_active_by_id_or_404(post_id)
         
         # Check if post allows sharing (privacy settings)
         if not await self._can_share_post(user_id, post):
@@ -166,7 +167,7 @@ class ShareService(BaseService):
         """
         # Verify user and post exist
         user = await self.user_repo.get_by_id_or_404(user_id)
-        post = await self.post_repo.get_by_id_or_404(post_id)
+        post = await self.post_repo.get_active_by_id_or_404(post_id)
         
         # Check if post allows sharing (privacy settings)
         if not await self._can_share_post(user_id, post):
@@ -267,7 +268,7 @@ class ShareService(BaseService):
         
         # Verify sender and post exist
         sender = await self.user_repo.get_by_id_or_404(sender_id)
-        post = await self.post_repo.get_by_id_or_404(post_id)
+        post = await self.post_repo.get_active_by_id_or_404(post_id)
         
         # Check if post allows sharing
         if not await self._can_share_post(sender_id, post):
@@ -381,11 +382,7 @@ class ShareService(BaseService):
                 "recipient_count": share.recipient_count,
                 "message_content": share.message_content,
                 "created_at": share.created_at.isoformat(),
-                "user": {
-                    "id": share.user.id,
-                    "username": share.user.username,
-                    "profile_image_url": serialize_image_url(share.user.profile_image_url)
-                }
+                "user": serialize_public_user_reference(share.user)
             }
             for share in shares
         ]

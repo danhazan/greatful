@@ -291,9 +291,10 @@ class TestErrorResponseContracts:
         assert response.status_code in [400, 401, 422]
         data = response.json()
         
-        # Should have error information
-        assert "detail" in data
-        assert isinstance(data["detail"], str)
+        # Should have error information (either HTTPException detail or structured error)
+        has_detail = "detail" in data
+        has_structured_error = isinstance(data.get("error"), dict) and "message" in data["error"]
+        assert has_detail or has_structured_error
 
     def test_unauthorized_error_structure(self, setup_test_database):
         """Test that unauthorized errors have consistent structure."""
@@ -304,6 +305,7 @@ class TestErrorResponseContracts:
         assert response.status_code == 403  # FastAPI returns 403 for forbidden access
         data = response.json()
         
-        # Should have error information
-        assert "detail" in data
-        assert isinstance(data["detail"], str)
+        # Should have error information (either HTTPException detail or structured error)
+        has_detail = "detail" in data
+        has_structured_error = isinstance(data.get("error"), dict) and "message" in data["error"]
+        assert has_detail or has_structured_error

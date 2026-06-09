@@ -36,6 +36,8 @@ class Post(Base):
         index=True,
     )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    deletion_source = Column(String(20), nullable=True)
     # Represents intentional author edits to post content/state.
     # Engagement/system maintenance updates (e.g., comments_count) must not modify this field.
     updated_at = Column(DateTime(timezone=True), nullable=True)

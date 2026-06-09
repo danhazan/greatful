@@ -38,6 +38,25 @@ Grateful implements a secure, long-lived session architecture that balances user
 - **No Revocation / Logout-All-Devices**: It is currently impossible to revoke a specific refresh token server-side before its natural expiration. A stolen refresh token remains valid until it expires.
 - **Rotation Synchronization**: While rotation issues new credentials, the old refresh token technically remains valid on the backend. This guarantees that network failures during rotation do not break legitimate sessions, but limits the security benefit of rotation against active token theft.
 
+### Token Version Invalidation (Account Deletion)
+
+The `token_version` field on the `User` model provides server-side auth invalidation for account deletion:
+
+- **Purpose**: When a user deletes their account, `token_version` is incremented
+- **Effect**: All existing JWT access tokens and refresh tokens become invalid
+- **Enforcement**: The `get_active_user_from_credentials` dependency checks both `account_status == "active"` AND `token_version` match
+- **Scope**: Covers ALL active sessions simultaneously — the user is logged out on all devices
+- **Limitation**: Token version check happens at the database level (not in the JWT itself), so it requires a DB lookup on each authenticated request
+
+**How it works:**
+1. User requests account deletion → `UserDeletionService._mark_deletion_pending()` increments `token_version`
+2. The user's JWT tokens were signed with the old `token_version`
+3. On next authenticated request, `get_user_from_token()` compares the user's current `token_version` (from DB) against the one encoded in the JWT
+4. Mismatch → token rejected → user must re-authenticate (which they can't, because `account_status != "active"`)
+
+**Token invalidation also occurs implicitly for:**
+- Password changes (increments `token_version` to invalidate sessions on other devices)
+
 ### Future Recommended Improvements
 - **Database-Backed Sessions**: Implement a `RefreshSession` table to track valid refresh tokens by device/IP.
 - **Token Family Tracking**: Link rotated tokens to a single family. If an old token from a family is reused, invalidate the entire family (automatic theft detection).

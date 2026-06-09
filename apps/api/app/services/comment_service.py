@@ -12,6 +12,7 @@ from app.core.service_base import BaseService
 from app.core.constants import COMMENT_MAX_LENGTH
 from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError, BusinessLogicError
 from app.core.image_urls import serialize_image_url
+from app.core.user_serialization import serialize_public_user_reference
 from app.models.comment import Comment
 from app.models.emoji_reaction import EmojiReaction
 from app.models.post import Post
@@ -53,8 +54,10 @@ class CommentService(BaseService):
         # Validate content length
         self.validate_field_length(content.strip(), "content", max_length=COMMENT_MAX_LENGTH, min_length=1)
         
-        # Verify post exists
+        # Verify post exists and is not tombstoned
         post = await self.get_by_id_or_404(Post, post_id, "Post")
+        if post.deleted_at is not None:
+            raise NotFoundError("Post not found")
         
         # Verify user exists
         user = await self.get_by_id_or_404(User, user_id, "User")
@@ -66,6 +69,11 @@ class CommentService(BaseService):
                 parent_comment_id, 
                 "Comment"
             )
+            
+            # Reject replies to comments by deleted users
+            parent_user = await self.get_by_id_or_404(User, parent_comment.user_id, "User")
+            if getattr(parent_user, "account_status", "active") != "active":
+                raise NotFoundError("Comment not found")
             
             # Verify parent comment belongs to the same post
             if parent_comment.post_id != post_id:
@@ -144,12 +152,7 @@ class CommentService(BaseService):
             "created_at": comment.created_at.isoformat(),
             "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
             "edited_at": comment.edited_at.isoformat() if comment.edited_at else None,
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "display_name": user.display_name,
-                "profile_image_url": serialize_image_url(user.profile_image_url)
-            }
+            "user": serialize_public_user_reference(user)
         }
 
     async def get_post_comments(
@@ -190,12 +193,7 @@ class CommentService(BaseService):
                 "created_at": comment.created_at.isoformat(),
                 "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
                 "edited_at": comment.edited_at.isoformat() if comment.edited_at else None,
-                "user": {
-                    "id": comment.user.id,
-                    "username": comment.user.username,
-                    "display_name": comment.user.display_name,
-                    "profile_image_url": serialize_image_url(comment.user.profile_image_url)
-                }
+                "user": serialize_public_user_reference(comment.user)
             }
             
             # Fetch replies if requested (lazy loading for performance)
@@ -247,12 +245,7 @@ class CommentService(BaseService):
                 "created_at": reply.created_at.isoformat(),
                 "updated_at": reply.updated_at.isoformat() if reply.updated_at else None,
                 "edited_at": reply.edited_at.isoformat() if reply.edited_at else None,
-                "user": {
-                    "id": reply.user.id,
-                    "username": reply.user.username,
-                    "display_name": reply.user.display_name,
-                    "profile_image_url": serialize_image_url(reply.user.profile_image_url)
-                },
+                "user": serialize_public_user_reference(reply.user),
                 "can_delete": is_last_reply  # Only the last reply can be deleted
             })
 
@@ -326,12 +319,7 @@ class CommentService(BaseService):
             "created_at": comment.created_at.isoformat(),
             "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
             "edited_at": comment.edited_at.isoformat() if comment.edited_at else None,
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "display_name": user.display_name,
-                "profile_image_url": serialize_image_url(user.profile_image_url)
-            },
+            "user": serialize_public_user_reference(user),
             "is_reply": comment.parent_comment_id is not None,
             "reply_count": reply_count
         }

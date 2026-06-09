@@ -41,6 +41,11 @@ class OAuthService(BaseService):
     def __init__(self, db: AsyncSession):
         super().__init__(db)
         self.user_service = UserService(db)
+
+    def _ensure_active_oauth_user(self, user: User) -> None:
+        status = getattr(user, "account_status", None)
+        if isinstance(status, str) and status != "active":
+            raise AuthenticationError("User account is inactive")
     
     async def authenticate_oauth_user(
         self, 
@@ -125,6 +130,7 @@ class OAuthService(BaseService):
             )
             
             if existing_user:
+                self._ensure_active_oauth_user(existing_user)
                 # Update existing OAuth user
                 updated_user = await self._update_oauth_user(existing_user, oauth_user_info, request)
                 log_oauth_security_event('login_success', provider, user_id=updated_user.id)
@@ -147,6 +153,7 @@ class OAuthService(BaseService):
             existing_email_user = await User.get_by_email(self.db, oauth_user_info['email'])
             
             if existing_email_user:
+                self._ensure_active_oauth_user(existing_email_user)
                 # Enhanced account linking with conflict detection
                 linked_user = await self._link_oauth_account_with_validation(
                     existing_email_user, provider, oauth_user_info, request
@@ -738,7 +745,13 @@ class OAuthService(BaseService):
             Formatted user response with tokens
         """
         # Create JWT tokens
-        token_data = {"sub": str(user.id), "email": user.email, "username": user.username}
+        self._ensure_active_oauth_user(user)
+        token_data = {
+            "sub": str(user.id),
+            "email": user.email,
+            "username": user.username,
+            "token_version": getattr(user, "token_version", 0) or 0,
+        }
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         

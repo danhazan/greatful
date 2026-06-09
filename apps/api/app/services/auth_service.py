@@ -23,6 +23,18 @@ logger = logging.getLogger(__name__)
 class AuthService(BaseService):
     """Service for authentication operations."""
 
+    def _ensure_active_user(self, user: User) -> None:
+        status = getattr(user, "account_status", None)
+        if isinstance(status, str) and status != "active":
+            raise AuthenticationError("User account is inactive")
+
+    def _token_data_for_user(self, user: User) -> Dict[str, any]:
+        return {
+            "sub": str(user.id),
+            "username": user.username,
+            "token_version": getattr(user, "token_version", 0) or 0,
+        }
+
     async def signup(
         self,
         username: str,
@@ -73,7 +85,7 @@ class AuthService(BaseService):
         )
         
         # Create access and refresh tokens
-        token_data = {"sub": str(user.id), "username": user.username}
+        token_data = self._token_data_for_user(user)
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         
@@ -115,9 +127,10 @@ class AuthService(BaseService):
         user = await User.get_by_email(self.db, email)
         if not user or not verify_password(password, user.hashed_password):
             raise AuthenticationError("Incorrect email or password")
+        self._ensure_active_user(user)
         
         # Create access and refresh tokens
-        token_data = {"sub": str(user.id), "username": user.username}
+        token_data = self._token_data_for_user(user)
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         
@@ -156,6 +169,10 @@ class AuthService(BaseService):
             user = await self.get_by_id(User, user_id)
             if not user:
                 raise AuthenticationError("User not found")
+            self._ensure_active_user(user)
+            payload_version = payload.get("token_version", payload.get("tv"))
+            if payload_version is not None and int(payload_version) != int(user.token_version or 0):
+                raise AuthenticationError("Authentication token has been invalidated")
             
             return {
                 "id": user.id,
@@ -189,9 +206,13 @@ class AuthService(BaseService):
             user = await self.get_by_id(User, user_id)
             if not user:
                 raise AuthenticationError("User not found")
+            self._ensure_active_user(user)
+            payload_version = payload.get("token_version", payload.get("tv"))
+            if payload_version is not None and int(payload_version) != int(user.token_version or 0):
+                raise AuthenticationError("Refresh token has been invalidated")
             
             # Create new access and refresh tokens
-            token_data = {"sub": str(user.id), "username": user.username}
+            token_data = self._token_data_for_user(user)
             new_access_token = create_access_token(token_data)
             new_refresh_token = create_refresh_token(token_data)
             
@@ -239,6 +260,8 @@ class AuthService(BaseService):
             logger.warning(f"Password reset requested for non-existent email: {email}")
             return None
 
+        self._ensure_active_user(user)
+
         if user.oauth_provider:
             # Users who signed up with OAuth cannot reset passwords.
             logger.warning(f"Password reset requested for OAuth user: {email}")
@@ -282,6 +305,7 @@ class AuthService(BaseService):
         user = await self.get_by_id(User, reset_token.user_id)
         if not user:
             raise AuthenticationError("User not found")
+        self._ensure_active_user(user)
 
         # Update the password
         from app.services.user_service import UserService

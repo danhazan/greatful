@@ -38,6 +38,23 @@ class User(Base):
     oauth_id = Column(String(255), nullable=True, index=True)  # Provider-specific user ID
     oauth_data = Column(JSON, nullable=True)  # Additional OAuth data (profile info, etc.)
 
+    # Account deletion / auth invalidation state
+    account_status = Column(String(20), nullable=False, default="active", server_default="active", index=True)
+    deletion_requested_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deletion_source = Column(String(20), nullable=True)
+    token_version = Column(Integer, nullable=False, default=0, server_default="0")
+
+    @property
+    def is_active(self) -> bool:
+        """Compatibility property for active-account checks."""
+        return self.account_status == "active"
+
+    @property
+    def is_deleted(self) -> bool:
+        """Whether the account has reached the final deleted tombstone state."""
+        return self.account_status == "deleted"
+
     @classmethod
     async def get_by_email(cls, db: AsyncSession, email: str):
         """Get user by email."""

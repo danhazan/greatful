@@ -16,7 +16,42 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 
-async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
+def _token_version_matches(payload, user: User) -> bool:
+    token_version = payload.get("token_version")
+    if token_version is None:
+        token_version = payload.get("tv")
+    if token_version is None:
+        return getattr(user, "token_version", 0) == 0
+    try:
+        return int(token_version) == int(getattr(user, "token_version", 0) or 0)
+    except (TypeError, ValueError):
+        return False
+
+
+async def get_active_user_from_credentials(
+    auth: HTTPAuthorizationCredentials,
+    db: AsyncSession,
+    token_type: str = "access",
+) -> User:
+    """Decode a token, fetch the user, and enforce active-account state."""
+    payload = decode_token(auth.credentials, token_type=token_type)
+    user_id = int(payload.get("sub"))
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise AuthenticationError("User not found")
+    status = getattr(user, "account_status", None)
+    if isinstance(status, str) and status != "active":
+        raise AuthenticationError("User account is inactive")
+    if not _token_version_matches(payload, user):
+        raise AuthenticationError("Authentication token has been invalidated")
+    return user
+
+
+async def get_current_user_id(
+    auth: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> int:
     """
     Extract user ID from JWT token.
     
@@ -38,9 +73,8 @@ async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(secur
             return test_user_id
     
     try:
-        payload = decode_token(auth.credentials)
-        user_id = int(payload.get("sub"))
-        return user_id
+        user = await get_active_user_from_credentials(auth, db)
+        return user.id
     except Exception as e:
         logger.error(f"Authentication error: {e}")
         raise AuthenticationError("Invalid authentication token")
@@ -64,25 +98,7 @@ async def get_current_user(
         AuthenticationError: If token is invalid or user not found
     """
     try:
-        # Get user ID from token
-        user_id = await get_current_user_id(auth)
-        
-        # Fetch user from database
-        result = await db.execute(
-            select(User).where(User.id == user_id)
-        )
-        user = result.scalar_one_or_none()
-        
-        if user is None:
-            logger.warning(f"User not found for ID: {user_id}")
-            raise AuthenticationError("User not found")
-        
-        # Check if user is active
-        if not user.is_active:
-            logger.warning(f"Inactive user attempted access: {user_id}")
-            raise AuthenticationError("User account is inactive")
-        
-        return user
+        return await get_active_user_from_credentials(auth, db)
         
     except AuthenticationError:
         raise

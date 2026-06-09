@@ -32,7 +32,8 @@ def sample_user():
         username="testuser",
         display_name="Test User",
         email="test@example.com",
-        profile_image_url="https://example.com/profile.jpg"
+        profile_image_url="https://example.com/profile.jpg",
+        account_status="active"
     )
     return user
 
@@ -174,7 +175,7 @@ class TestCreateComment:
     async def test_create_reply_success(self, comment_service, sample_user, sample_post, sample_comment):
         """Test successful reply creation."""
         comment_service.validate_field_length = MagicMock()
-        comment_service.get_by_id_or_404 = AsyncMock(side_effect=[sample_post, sample_user, sample_comment])
+        comment_service.get_by_id_or_404 = AsyncMock(side_effect=[sample_post, sample_user, sample_comment, sample_user])
         
         created_reply = Comment(
             id="reply-new",
@@ -203,11 +204,11 @@ class TestCreateComment:
     async def test_create_reply_notifies_parent_author(self, comment_service, sample_user, sample_post, sample_comment):
         """Test that parent comment author receives notification for reply."""
         # Create different user for parent comment
-        parent_author = User(id=2, username="parentauthor", display_name="Parent Author", email="parent@example.com")
+        parent_author = User(id=2, username="parentauthor", display_name="Parent Author", email="parent@example.com", account_status="active")
         sample_comment.user_id = 2
         
         comment_service.validate_field_length = MagicMock()
-        comment_service.get_by_id_or_404 = AsyncMock(side_effect=[sample_post, sample_user, sample_comment])
+        comment_service.get_by_id_or_404 = AsyncMock(side_effect=[sample_post, sample_user, sample_comment, parent_author])
         
         created_reply = Comment(
             id="reply-new",
@@ -246,7 +247,7 @@ class TestCreateComment:
         sample_comment.post_id = "different-post"
         
         comment_service.validate_field_length = MagicMock()
-        comment_service.get_by_id_or_404 = AsyncMock(side_effect=[sample_post, sample_user, sample_comment])
+        comment_service.get_by_id_or_404 = AsyncMock(side_effect=[sample_post, sample_user, sample_comment, sample_user])
         
         with pytest.raises(ValidationException) as exc_info:
             await comment_service.create_comment(
@@ -271,7 +272,7 @@ class TestCreateComment:
         )
         
         comment_service.validate_field_length = MagicMock()
-        comment_service.get_by_id_or_404 = AsyncMock(side_effect=[sample_post, sample_user, parent_reply])
+        comment_service.get_by_id_or_404 = AsyncMock(side_effect=[sample_post, sample_user, parent_reply, sample_user])
         
         with pytest.raises(ValidationException) as exc_info:
             await comment_service.create_comment(

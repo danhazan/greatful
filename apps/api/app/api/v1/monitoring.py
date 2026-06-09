@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.v1.posts import get_current_user_id
+from app.core.dependencies import get_current_user_id
 from app.core.monitoring_dashboard import monitoring_dashboard
 from app.core.uptime_monitoring import uptime_monitor
 from app.core.error_alerting import alert_manager

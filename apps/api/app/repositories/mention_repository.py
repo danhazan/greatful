@@ -163,7 +163,8 @@ class MentionRepository(BaseRepository):
         ).join(
             User, Mention.author_id == User.id
         ).where(
-            Mention.mentioned_user_id == user_id
+            Mention.mentioned_user_id == user_id,
+            User.account_status == "active"
         ).group_by(
             User.id, User.username, User.profile_image_url
         ).order_by(

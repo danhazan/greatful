@@ -47,7 +47,7 @@ class UserRepository(BaseRepository):
                 User.username.ilike(f"%{query}%"),
                 User.display_name.ilike(f"%{query}%")
             )
-        ).order_by(User.username).limit(limit)
+        ).filter(User.account_status == "active").order_by(User.username).limit(limit)
         
         if exclude_user_ids:
             builder = builder.filter(~User.id.in_(exclude_user_ids))
@@ -91,11 +91,14 @@ class UserRepository(BaseRepository):
         
         # Optimized: Single query for all stats using correlated subqueries
         # This is efficient for batches up to 50 users and ensures exactly 1 SQL connection/query
-        posts_sub = select(func.count(Post.id)).where(Post.author_id == User.id).scalar_subquery()
+        posts_sub = select(func.count(Post.id)).where(
+            and_(Post.author_id == User.id, Post.deleted_at.is_(None))
+        ).scalar_subquery()
         public_sub = select(func.count(Post.id)).where(
             and_(
                 Post.author_id == User.id,
-                    Post.privacy_level == "public",
+                Post.privacy_level == "public",
+                Post.deleted_at.is_(None),
             )
         ).scalar_subquery()
         followers_sub = select(func.count(Follow.id)).where(and_(Follow.followed_id == User.id, Follow.status == "active")).scalar_subquery()

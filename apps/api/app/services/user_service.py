@@ -9,6 +9,7 @@ from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ConflictError, ValidationException
 from app.core.query_monitor import monitor_query
 from app.core.image_urls import serialize_image_url
+from app.core.user_serialization import serialize_deleted_profile
 from app.repositories.user_repository import UserRepository
 from app.repositories.post_repository import PostRepository
 from app.models.user import User
@@ -48,6 +49,9 @@ class UserService(BaseService):
         except Exception as e:
             logger.error(f"Error in get_user_profile: {e}")
             raise
+
+        if getattr(user, "account_status", "active") == "deleted":
+            return serialize_deleted_profile(user, include_email=True)
         
         return {
             "id": user.id,
@@ -64,7 +68,10 @@ class UserService(BaseService):
             "posts_count": stats["posts_count"],
             "followers_count": stats["followers_count"],
             "following_count": stats["following_count"],
-            "oauth_provider": user.oauth_provider
+            "oauth_provider": user.oauth_provider,
+            "account_status": user.account_status,
+            "is_deleted": False,
+            "deleted_at": user.deleted_at.isoformat() if user.deleted_at else None,
         }
 
     async def get_public_user_profile(self, user_id: int) -> Dict[str, Any]:
@@ -110,6 +117,9 @@ class UserService(BaseService):
         # 3. Compile profiles
         profiles = []
         for user in users:
+            if getattr(user, "account_status", "active") == "deleted":
+                profiles.append(serialize_deleted_profile(user, include_email=False))
+                continue
             stats = batch_stats.get(user.id, {
                 "posts_count": 0,
                 "public_posts_count": 0,
@@ -131,7 +141,10 @@ class UserService(BaseService):
                 "posts_count": stats["posts_count"],
                 "followers_count": stats["followers_count"],
                 "following_count": stats["following_count"],
-                "oauth_provider": user.oauth_provider
+                "oauth_provider": user.oauth_provider,
+                "account_status": user.account_status,
+                "is_deleted": False,
+                "deleted_at": user.deleted_at.isoformat() if user.deleted_at else None,
             }
             profiles.append(profile)
             
@@ -329,7 +342,9 @@ class UserService(BaseService):
             NotFoundError: If user is not found
         """
         # Verify the user exists
-        await self.get_by_id_or_404(User, user_id, "User")
+        user = await self.get_by_id_or_404(User, user_id, "User")
+        if getattr(user, "account_status", "active") == "deleted":
+            return []
         
         # Use repository method for posts with engagement data
         posts = await self.post_repo.get_posts_with_engagement(
@@ -399,7 +414,9 @@ class UserService(BaseService):
         
         return {
             "id": user.id,
-            "username": user.username
+            "username": user.username,
+            "account_status": user.account_status,
+            "is_deleted": getattr(user, "account_status", "active") == "deleted",
         }
 
     async def update_password(self, user: User, new_password: str) -> None:

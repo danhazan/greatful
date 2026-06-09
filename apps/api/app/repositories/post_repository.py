@@ -38,7 +38,31 @@ class PostRepository(BaseRepository):
         - Visibility filtering is applied first; callers may then add extra filters
           (e.g. author_id), followed by ordering and pagination.
         """
-        return self._apply_visibility(select(Post), viewer_id)
+        return self._apply_visibility(select(Post), viewer_id).where(Post.deleted_at.is_(None))
+
+    async def get_active_by_id_or_404(
+        self,
+        post_id: str,
+        load_relationships: Optional[List[str]] = None
+    ) -> Post:
+        """Get a non-tombstoned post by ID or raise 404.
+
+        All service methods that act on posts (reactions, comments, shares, edits)
+        MUST use this method instead of get_by_id_or_404 to prevent interaction
+        with tombstoned posts.
+        """
+        builder = self.query().filter(Post.id == post_id, Post.deleted_at.is_(None))
+
+        if load_relationships:
+            builder = builder.load_relationships(*load_relationships)
+
+        query = builder.build()
+        result = await self._execute_query(query, f"get active Post by id {post_id}")
+        post = result.scalar_one_or_none()
+        if post is None:
+            from app.core.exceptions import NotFoundError
+            raise NotFoundError("Post not found")
+        return post
 
     async def get_by_author(
         self, 
@@ -59,7 +83,7 @@ class PostRepository(BaseRepository):
         Returns:
             List[Post]: List of posts by the author
         """
-        builder = self.query().filter(Post.author_id == author_id)
+        builder = self.query().filter(Post.author_id == author_id).filter(Post.deleted_at.is_(None))
         
         if public_only:
             builder = builder.filter(self._is_public_condition())
@@ -85,7 +109,7 @@ class PostRepository(BaseRepository):
         Returns:
             List[Post]: List of public posts
         """
-        builder = self.query().filter(self._is_public_condition())
+        builder = self.query().filter(self._is_public_condition()).filter(Post.deleted_at.is_(None))
         builder = builder.order_by(desc(Post.created_at)).limit(limit).offset(offset)
         
         query = builder.build()
@@ -116,7 +140,7 @@ class PostRepository(BaseRepository):
         logger = logging.getLogger(__name__)
 
         # Enforce visibility at SQL level
-        visible_ids_query = self._apply_visibility(select(Post.id), viewer_id)
+        visible_ids_query = self._apply_visibility(select(Post.id), viewer_id).where(Post.deleted_at.is_(None))
         if author_id is not None:
             visible_ids_query = visible_ids_query.where(Post.author_id == author_id)
         visible_ids_query = visible_ids_query.order_by(desc(Post.created_at)).limit(limit).offset(offset)
@@ -142,7 +166,10 @@ class PostRepository(BaseRepository):
         Enforces visibility at the SQL level (Security: No existence leaks).
         """
         # Enforce visibility - returns ID ONLY if viewer is authorized
-        visible_id_query = self._apply_visibility(select(Post.id), viewer_id).where(Post.id == post_id)
+        visible_id_query = self._apply_visibility(select(Post.id), viewer_id).where(
+            Post.id == post_id,
+            Post.deleted_at.is_(None),
+        )
         
         try:
             result = await self._execute_query(visible_id_query, "get single visible post id")
@@ -210,11 +237,13 @@ class PostRepository(BaseRepository):
                    p.privacy_level,
                    p.created_at,
                    p.updated_at,
+                   p.deleted_at,
                    u.id as author_user_id,
                    u.username as author_username,
                    u.display_name as author_display_name,
                    u.email as author_email,
                    u.profile_image_url as author_profile_image_url,
+                   u.account_status as author_account_status,
                    COALESCE(engagement.reactions_count, 0) as reactions_count,
                    COALESCE(engagement.reaction_emoji_codes, {reaction_default_expression}) as reaction_emoji_codes,
                    COALESCE(comments.comments_count, 0) as comments_count,
@@ -283,16 +312,20 @@ class PostRepository(BaseRepository):
                 "privacy_level": row.privacy_level if getattr(row, "privacy_level", None) else "public",
                 "created_at": str(row.created_at),
                 "updated_at": str(row.updated_at) if row.updated_at else None,
+                "deleted_at": str(row.deleted_at) if row.deleted_at else None,
+                "is_deleted": bool(row.deleted_at),
                 "author": {
                     "id": str(row.author_user_id),
                     "username": row.author_username,
-                    "display_name": row.author_display_name,
-                    "name": row.author_display_name or row.author_username or "Unknown",
-                    "image": author_profile_image_url,
+                    "display_name": None if row.author_account_status == "deleted" else row.author_display_name,
+                    "name": "Deleted user" if row.author_account_status == "deleted" else (row.author_display_name or row.author_username or "Unknown"),
+                    "image": None if row.author_account_status == "deleted" else author_profile_image_url,
                     "follower_count": 0,
                     "following_count": 0,
                     "posts_count": 0,
-                    "is_following": None
+                    "is_following": None,
+                    "is_deleted": row.author_account_status == "deleted",
+                    "account_status": row.author_account_status,
                 },
                 "reactions_count": int(row.reactions_count) if row.reactions_count else 0,
                 "comments_count": int(row.comments_count) if row.comments_count else 0,
@@ -376,6 +409,58 @@ class PostRepository(BaseRepository):
 
         return ordered_posts
 
+    async def _fetch_deleted_post_tombstone(self, post_id: str) -> Optional[Dict[str, Any]]:
+        result = await self.db.execute(
+            select(Post, User).join(User, User.id == Post.author_id).where(
+                Post.id == post_id,
+                Post.deleted_at.isnot(None),
+            )
+        )
+        row = result.first()
+        if not row:
+            return None
+
+        post, user = row
+        author_status = getattr(user, "account_status", "active")
+        return {
+            "id": post.id,
+            "author_id": post.author_id,
+            "content": "",
+            "rich_content": None,
+            "post_style": None,
+            "image_url": None,
+            "images": [],
+            "location": None,
+            "location_data": None,
+            "is_public": True,
+            "privacy_level": "public",
+            "created_at": post.created_at.isoformat() if post.created_at else "",
+            "updated_at": None,
+            "deleted_at": post.deleted_at.isoformat() if post.deleted_at else None,
+            "is_deleted": True,
+            "author": {
+                "id": str(user.id),
+                "username": user.username,
+                "display_name": None if author_status == "deleted" else user.display_name,
+                "name": "Deleted user" if author_status == "deleted" else (user.display_name or user.username),
+                "image": None if author_status == "deleted" else storage.get_url(user.profile_image_url) if user.profile_image_url else None,
+                "follower_count": 0,
+                "following_count": 0,
+                "posts_count": 0,
+                "is_following": None,
+                "is_deleted": author_status == "deleted",
+                "account_status": author_status,
+            },
+            "reactions_count": 0,
+            "comments_count": 0,
+            "comments": [],
+            "current_user_reaction": None,
+            "reaction_emoji_codes": [],
+            "emoji_counts": {},
+            "privacy_rules": [],
+            "specific_users": [],
+        }
+
     async def search_posts(
         self, 
         query: str, 
@@ -396,7 +481,8 @@ class PostRepository(BaseRepository):
         builder = self.query().filter(
             and_(
                 self._is_public_condition(),
-                Post.content.ilike(f"%{query}%")
+                Post.content.ilike(f"%{query}%"),
+                Post.deleted_at.is_(None)
             )
         ).order_by(desc(Post.created_at)).limit(limit).offset(offset)
         
@@ -469,7 +555,9 @@ class PostRepository(BaseRepository):
             LEFT JOIN users u ON u.id = p.author_id
             LEFT JOIN emoji_reactions er ON er.post_id = p.id 
                 AND er.created_at >= NOW() - INTERVAL :hours HOUR
-            WHERE p.privacy_level = 'public'
+            WHERE p.deleted_at IS NULL
+                AND u.account_status = 'active'
+                AND p.privacy_level = 'public'
                 AND p.created_at >= NOW() - INTERVAL :hours HOUR
             GROUP BY p.id, p.content, p.image_url, p.created_at, u.username
             HAVING (COUNT(DISTINCT er.id) * 1.5) > 0

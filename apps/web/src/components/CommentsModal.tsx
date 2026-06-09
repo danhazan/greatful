@@ -23,6 +23,9 @@ interface CommentUser {
   username: string
   displayName?: string
   profileImageUrl?: string
+  name?: string
+  isDeleted?: boolean
+  accountStatus?: string
 }
 
 interface Comment {
@@ -261,6 +264,8 @@ export default function CommentsModal({
     setLocalComments(comments)
     // Don't clear expanded state or cache - keep the UI state intact
   }, [comments])
+
+
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -817,6 +822,8 @@ export default function CommentsModal({
   }
 
   const handleReplyToggle = (comment: Comment) => {
+    if (comment.user.isDeleted === true || comment.user.accountStatus === 'deleted') return
+
     if (replyingTo === comment.id) {
       clearReplyMode()
       return
@@ -861,43 +868,46 @@ export default function CommentsModal({
     const displayTime = comment.editedAt || comment.createdAt
     const isEdited = !!comment.editedAt
 
+    const isDeletedUser = comment.user.isDeleted === true || comment.user.accountStatus === 'deleted'
+    const displayName = isDeletedUser ? 'Deleted user' : (comment.user.displayName || comment.user.username)
+    const commentAriaLabel = isDeletedUser ? 'Comment by Deleted user' : `Comment by ${comment.user.displayName || comment.user.username}`
+
     return (
       <div
         key={comment.id}
         className={`${isReply ? 'ml-8 sm:ml-12' : ''} space-y-2`}
         role="article"
-        aria-label={`Comment by ${comment.user.displayName || comment.user.username}`}
+        aria-label={commentAriaLabel}
         data-comment-id={comment.id}
       >
         <div className="flex space-x-3">
           {/* User Profile Picture */}
-          <div className="flex-shrink-0">
-            <a href={`/profile/${comment.user.id}`} aria-label={`${comment.user.displayName || comment.user.username}'s profile`}>
-              <ProfilePhotoDisplay
-                photoUrl={comment.user.profileImageUrl}
-                username={comment.user.username}
-                size="sm"
-                className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-              />
-            </a>
-          </div>
+            <div className="flex-shrink-0">
+              <a href={`/profile/${comment.user.id}`} aria-label={`${comment.user.displayName || comment.user.username}'s profile`}>
+                <ProfilePhotoDisplay
+                  photoUrl={comment.user.profileImageUrl}
+                  username={comment.user.username}
+                  size="sm"
+                  className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                />
+              </a>
+            </div>
 
           {/* Comment Content */}
           <div className="flex-1 min-w-0">
             {/* User Info */}
             <div className="flex items-baseline space-x-2 flex-wrap" data-comment-header={comment.id}>
-              <a
-                href={`/profile/${comment.user.id}`}
-                className="font-bold text-gray-900 text-sm hover:text-purple-600 transition-colors no-underline"
-              >
-                {comment.user.displayName || comment.user.username}
-              </a>
-              <a
-                href={`/profile/${comment.user.id}`}
-                className="text-gray-500 hover:text-purple-600 transition-colors text-xs no-underline"
-              >
-                @{comment.user.username}
-              </a>
+              <span className="font-bold text-gray-500 text-sm">
+                {displayName}
+              </span>
+              {!isDeletedUser && (
+                <a
+                  href={`/profile/${comment.user.id}`}
+                  className="text-gray-500 hover:text-purple-600 transition-colors text-xs no-underline"
+                >
+                  @{comment.user.username}
+                </a>
+              )}
               <span className="text-gray-400 text-xs">
                 {formatTimeAgo(displayTime)}
                 {isEdited && <span className="ml-1 text-gray-400">(edited)</span>}
@@ -977,7 +987,7 @@ export default function CommentsModal({
                   </p>
                 </div>
 
-                {reactionState.totalCount > 0 && !commentReactionsError && (
+                {!isDeletedUser && reactionState.totalCount > 0 && !commentReactionsError && (
                   <ReactionsBanner
                     totalCount={reactionState.totalCount}
                     emojiCodes={reactionEmojiCodes}
@@ -986,7 +996,7 @@ export default function CommentsModal({
                   />
                 )}
 
-                {commentReactionsError && reactionState.totalCount > 0 && (
+                {!isDeletedUser && commentReactionsError && reactionState.totalCount > 0 && (
                   <button
                     type="button"
                     onClick={refetchCommentReactions}
@@ -1027,34 +1037,16 @@ export default function CommentsModal({
                 )}
 
                 {/* Action Buttons */}
-                {!isDeletingThis && (
+                {!isDeletingThis && (isDeletedUser
+                  ? /* Deleted user - only show replies toggle if replies exist */
+                    !isReply && comment.replyCount > 0
+                  : /* Non-deleted - always render */
+                    true
+                ) && (
                   <div className="overflow-x-auto mt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <div className="inline-flex items-center gap-2 sm:gap-4 flex-nowrap w-max">
-                    <CommentReactionButton
-                      postId={postId}
-                      commentId={comment.id}
-                      reactionState={reactionState}
-                    />
-
-                    {/* Reply Button - only for top-level comments */}
-                    {!isReply && (
-                      <button
-                        onClick={() => handleReplyToggle(comment)}
-                        disabled={hasPendingMutation}
-                        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent] transition-colors ${
-                          hasPendingMutation
-                            ? 'text-gray-300 cursor-not-allowed'
-                            : 'text-gray-500 hover:text-purple-600 active:text-purple-700'
-                        }`}
-                        aria-label={isReplyingToThis ? `Cancel reply to ${comment.user.displayName || comment.user.username}` : `Reply to ${comment.user.displayName || comment.user.username}'s comment`}
-                      >
-                        {isReplyingToThis ? null : <Send className="h-3 w-3 flex-shrink-0" />}
-                        <span>{isReplyingToThis ? 'Cancel' : 'Reply'}</span>
-                      </button>
-                    )}
-
-                    {/* Show/Hide Replies Button */}
-                    {!isReply && comment.replyCount > 0 && (
+                    {isDeletedUser ? (
+                      /* For deleted users: only the replies toggle */
                       <button
                         onClick={() => toggleReplies(comment.id)}
                         disabled={isLoadingReplies}
@@ -1078,47 +1070,99 @@ export default function CommentsModal({
                           </>
                         )}
                       </button>
-                    )}
+                    ) : (
+                      <>
+                      <CommentReactionButton
+                        postId={postId}
+                        commentId={comment.id}
+                        reactionState={reactionState}
+                      />
 
-                    {/* Owner Actions: Edit & Delete */}
-                    {isOwner && onCommentEdit && (
-                      <button
-                        onClick={() => handleStartEdit(comment)}
-                        disabled={hasPendingMutation}
-                        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent] transition-colors ${
-                          hasPendingMutation
-                            ? 'text-gray-300 cursor-not-allowed'
-                            : 'text-gray-500 hover:text-purple-600 active:text-purple-700'
-                        }`}
-                        aria-label="Edit comment"
-                      >
-                        <Pencil className="h-3 w-3 flex-shrink-0" />
-                        <span>Edit</span>
-                      </button>
-                    )}
+                      {/* Reply Button - only for top-level comments */}
+                      {!isReply && (
+                        <button
+                          onClick={() => handleReplyToggle(comment)}
+                          disabled={hasPendingMutation}
+                          className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent] transition-colors ${
+                            hasPendingMutation
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : 'text-gray-500 hover:text-purple-600 active:text-purple-700'
+                          }`}
+                          aria-label={isReplyingToThis ? `Cancel reply to ${comment.user.displayName || comment.user.username}` : `Reply to ${comment.user.displayName || comment.user.username}'s comment`}
+                        >
+                          {isReplyingToThis ? null : <Send className="h-3 w-3 flex-shrink-0" />}
+                          <span>{isReplyingToThis ? 'Cancel' : 'Reply'}</span>
+                        </button>
+                      )}
 
-                    {isOwner && onCommentDelete && (
-                      <button
-                        onClick={() => canDelete ? handleShowDeleteConfirm(comment.id) : undefined}
-                        disabled={!canDelete}
-                        className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 transition-colors min-w-0 flex-shrink relative group [-webkit-tap-highlight-color:transparent] ${
-                          canDelete
-                            ? 'text-red-500 hover:text-red-600 active:text-red-700'
-                            : 'text-gray-300 cursor-not-allowed'
-                        }`}
-                        aria-label={canDelete ? "Delete comment" : (isReply ? "Cannot delete reply with later replies" : "Cannot delete comment with replies")}
-                      >
-                        <Trash2 className="h-3 w-3 flex-shrink-0" />
-                        <span>Delete</span>
-                        {!canDelete && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap pointer-events-none z-10 hidden group-hover:block">
-                            {isReply
-                              ? "Only the last reply in a thread can be deleted."
-                              : "This comment has replies and cannot be deleted."}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                          </div>
-                        )}
-                      </button>
+                      {/* Show/Hide Replies Button */}
+                      {!isReply && comment.replyCount > 0 && (
+                        <button
+                          onClick={() => toggleReplies(comment.id)}
+                          disabled={isLoadingReplies}
+                          className="text-xs text-purple-600 hover:text-purple-700 transition-colors font-medium flex items-center space-x-1 min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation active:text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded [-webkit-tap-highlight-color:transparent]"
+                          aria-label={isExpanded ? `Hide ${comment.replyCount} replies` : `Show ${comment.replyCount} replies`}
+                          aria-expanded={isExpanded}
+                        >
+                          {isLoadingReplies ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+                              <span className="truncate">Loading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessagesSquare className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">
+                                <span className="hidden min-[400px]:inline">{isExpanded ? 'Hide' : 'Show'} </span>
+                                {comment.replyCount}
+                                <span className="hidden sm:inline"> {comment.replyCount === 1 ? 'reply' : 'replies'}</span>
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {/* Owner Actions: Edit & Delete */}
+                      {isOwner && onCommentEdit && (
+                        <button
+                          onClick={() => handleStartEdit(comment)}
+                          disabled={hasPendingMutation}
+                          className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 min-w-0 flex-shrink [-webkit-tap-highlight-color:transparent] transition-colors ${
+                            hasPendingMutation
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : 'text-gray-500 hover:text-purple-600 active:text-purple-700'
+                          }`}
+                          aria-label="Edit comment"
+                        >
+                          <Pencil className="h-3 w-3 flex-shrink-0" />
+                          <span>Edit</span>
+                        </button>
+                      )}
+
+                      {isOwner && onCommentDelete && (
+                        <button
+                          onClick={() => canDelete ? handleShowDeleteConfirm(comment.id) : undefined}
+                          disabled={!canDelete}
+                          className={`text-xs font-medium min-h-[44px] sm:min-h-0 py-2 sm:py-0 px-2 sm:px-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded flex items-center space-x-1 transition-colors min-w-0 flex-shrink relative group [-webkit-tap-highlight-color:transparent] ${
+                            canDelete
+                              ? 'text-red-500 hover:text-red-600 active:text-red-700'
+                              : 'text-gray-300 cursor-not-allowed'
+                          }`}
+                          aria-label={canDelete ? "Delete comment" : (isReply ? "Cannot delete reply with later replies" : "Cannot delete comment with replies")}
+                        >
+                          <Trash2 className="h-3 w-3 flex-shrink-0" />
+                          <span>Delete</span>
+                          {!canDelete && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap pointer-events-none z-10 hidden group-hover:block">
+                              {isReply
+                                ? "Only the last reply in a thread can be deleted."
+                                : "This comment has replies and cannot be deleted."}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                          )}
+                        </button>
+                      )}
+                      </>
                     )}
                     </div>
                   </div>
@@ -1150,7 +1194,9 @@ export default function CommentsModal({
 
   // Used by the modal-level reply composer (reply mode is no longer inline)
   const replyTargetComment = replyingTo ? localComments.find(c => c.id === replyingTo) : null
-  const replyTargetName = replyTargetComment?.user.displayName || replyTargetComment?.user.username || ''
+  const replyTargetName = (replyTargetComment?.user.isDeleted || replyTargetComment?.user.accountStatus === 'deleted')
+    ? 'Deleted user'
+    : (replyTargetComment?.user.displayName || replyTargetComment?.user.username || '')
 
   return (
     <div

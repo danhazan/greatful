@@ -13,6 +13,7 @@ from app.repositories.user_repository import UserRepository
 from app.models.follow import Follow
 from app.models.user import User
 from app.core.image_urls import serialize_image_url
+from app.core.user_serialization import serialize_public_user_reference
 
 logger = logging.getLogger(__name__)
 
@@ -114,16 +115,8 @@ class FollowService(BaseService):
             "followed_id": follow.followed_id,
             "status": follow.status,
             "created_at": follow.created_at.isoformat(),
-            "follower": {
-                "id": follower.id,
-                "username": follower.username,
-                "profile_image_url": serialize_image_url(follower.profile_image_url)
-            },
-            "followed": {
-                "id": followed.id,
-                "username": followed.username,
-                "profile_image_url": serialize_image_url(followed.profile_image_url)
-            }
+            "follower": serialize_public_user_reference(follower),
+            "followed": serialize_public_user_reference(followed)
         }
 
     @monitor_query("unfollow_user")
@@ -194,13 +187,8 @@ class FollowService(BaseService):
         # Format follower data
         followers_data = []
         for follower in followers:
-            follower_data = {
-                "id": follower.id,
-                "username": follower.username,
-                "bio": follower.bio,
-                "profile_image_url": serialize_image_url(follower.profile_image_url),
-                "created_at": follower.created_at.isoformat()
-            }
+            follower_data = serialize_public_user_reference(follower)
+            follower_data["created_at"] = follower.created_at.isoformat()
             
             # Add follow status if current user is provided
             if current_user_id and current_user_id != follower.id:
@@ -257,13 +245,8 @@ class FollowService(BaseService):
         # Format following data
         following_data = []
         for followed_user in following:
-            followed_data = {
-                "id": followed_user.id,
-                "username": followed_user.username,
-                "bio": followed_user.bio,
-                "profile_image_url": serialize_image_url(followed_user.profile_image_url),
-                "created_at": followed_user.created_at.isoformat()
-            }
+            followed_data = serialize_public_user_reference(followed_user)
+            followed_data["created_at"] = followed_user.created_at.isoformat()
             
             # Add follow status if current user is provided
             if current_user_id and current_user_id != followed_user.id:
@@ -379,13 +362,9 @@ class FollowService(BaseService):
         # Format suggestions
         suggestions = []
         for user in suggested_users:
-            suggestions.append({
-                "id": user.id,
-                "username": user.username,
-                "bio": user.bio,
-                "profile_image_url": serialize_image_url(user.profile_image_url),
-                "created_at": user.created_at.isoformat()
-            })
+            suggestion = serialize_public_user_reference(user)
+            suggestion["created_at"] = user.created_at.isoformat()
+            suggestions.append(suggestion)
         
         logger.info(f"Retrieved {len(suggestions)} follow suggestions for user {user_id}")
         

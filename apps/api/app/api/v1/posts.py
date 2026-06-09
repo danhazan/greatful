@@ -19,6 +19,7 @@ from sqlalchemy.orm import selectinload
 
 from app.schemas.user import AuthorResponse
 from app.core.database import get_db
+from app.core.dependencies import get_current_user_id as get_authenticated_user_id
 from app.core.security import decode_token
 from app.models.post import Post
 from app.models.user import User
@@ -111,6 +112,8 @@ class PostResponse(BaseModel):
     is_public: bool = Field(alias="isPublic")
     created_at: str = Field(alias="createdAt")
     updated_at: Optional[str] = Field(None, alias="updatedAt")
+    deleted_at: Optional[str] = Field(None, alias="deletedAt")
+    is_deleted: bool = Field(False, alias="isDeleted")
     author: AuthorResponse
     reactions_count: int = Field(0, alias="reactionsCount")
     comments_count: int = Field(0, alias="commentsCount")
@@ -235,28 +238,6 @@ class DeleteResponse(BaseModel):
     success: bool
     message: str
 
-
-
-async def get_current_user_id(auth: HTTPAuthorizationCredentials = Depends(security)) -> int:
-    """Extract user ID from JWT token."""
-    # Check for test authentication bypass
-    from app.core.test_auth import get_test_user_id_from_token, is_test_environment
-    
-    if is_test_environment():
-        test_user_id = get_test_user_id_from_token(auth)
-        if test_user_id is not None:
-            return test_user_id
-    
-    try:
-        payload = decode_token(auth.credentials)
-        user_id = int(payload.get("sub"))
-        return user_id
-    except Exception as e:
-        logger.error(f"Authentication error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token"
-        ) from e
 
 
 async def get_optional_user_id(request: Request) -> Optional[int]:
@@ -489,7 +470,7 @@ async def _fetch_post_images(db: AsyncSession, post_id: str) -> List[Dict[str, A
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_json(
     post_data: PostCreate,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new gratitude post with automatic type detection (JSON only)."""
@@ -649,7 +630,7 @@ async def create_post_json(
 async def check_post_image_duplicate(
     request: Request,
     image: UploadFile = File(...),
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Check if a post image is a duplicate before uploading."""
@@ -693,7 +674,7 @@ async def check_post_image_duplicate(
 
 @router.post("/upload", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_with_file(
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db),
     # FormData parameters
     content: str = Form(default=""),
@@ -1017,7 +998,7 @@ class FeedResponse(BaseModel):
 @router.get("/feed", response_model=FeedResponse)
 async def get_feed(
     request: Request,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db),
     cursor: Optional[str] = None,
     page_size: Optional[int] = None,
@@ -1119,7 +1100,7 @@ async def get_post_by_id(
 async def share_post(
     post_id: str,
     share_data: ShareRequest,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -1271,7 +1252,7 @@ async def share_post(
 async def edit_post(
     post_id: str,
     post_update: PostUpdate,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Edit a post. Only the post author can edit their posts."""
@@ -1279,7 +1260,7 @@ async def edit_post(
         # Get the post using repository
         from app.repositories.post_repository import PostRepository
         post_repo = PostRepository(db)
-        post = await post_repo.get_by_id_or_404(post_id)
+        post = await post_repo.get_active_by_id_or_404(post_id)
         privacy_service = PostPrivacyService(db)
         
         # Check permission - only author can edit
@@ -1441,69 +1422,14 @@ async def edit_post(
 @router.delete("/{post_id}", response_model=DeleteResponse)
 async def delete_post(
     post_id: str,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a post. Only the post author can delete their posts."""
     try:
-        # Get the post using repository
-        from app.repositories.post_repository import PostRepository
-        post_repo = PostRepository(db)
-        post = await post_repo.get_by_id_or_404(post_id)
-        
-        # Check permission - only author can delete
-        if post.author_id != current_user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only delete your own posts"
-            )
-        
-        # Delete comments/replies first to avoid ORM attempting post_id NULL updates.
-        from app.services.comment_service import CommentService
-        comment_service = CommentService(db)
-        await comment_service.delete_comments_for_post(post.id, commit=False)
+        from app.services.post_deletion_service import PostDeletionService
 
-        # Delete other related data first
-        try:
-            # Delete mentions
-            mention_service = MentionService(db)
-            await mention_service.delete_post_mentions(post.id, commit=False)
-            
-            # Delete reactions
-            from app.services.reaction_service import ReactionService
-            reaction_service = ReactionService(db)
-            await reaction_service.delete_all_post_reactions(post.id)
-
-            from sqlalchemy import text
-            
-            # Delete shares
-            await db.execute(text("DELETE FROM shares WHERE post_id = :post_id"), {"post_id": post.id})
-            
-            # Delete notifications related to this post
-            # Notifications store post_id in the data JSON field, not as a direct column
-            await db.execute(text("DELETE FROM notifications WHERE data::jsonb @> :post_data"), {"post_data": json.dumps({"post_id": post.id})})
-            
-        except Exception as e:
-            logger.warning(f"Error cleaning up related data for post {post.id}: {e}")
-            # Continue with post deletion even if cleanup fails
-        
-        # Delete the post itself
-        await db.delete(post)
-        await db.commit()
-        
-        # Clean up image file with deduplication handling
-        if post.image_url:
-            try:
-                from app.services.file_upload_service import FileUploadService
-                file_service = FileUploadService(db)
-                
-                # Use deduplication-aware deletion (decrements reference count)
-                await file_service.delete_with_deduplication(post.image_url)
-                logger.info(f"Processed image deletion with deduplication for post {post.id}: {post.image_url}")
-                
-            except Exception as e:
-                logger.warning(f"Error processing image deletion for post {post.id}: {e}")
-                # Don't fail the deletion if file cleanup fails
+        await PostDeletionService(db).delete_post_as_author(post_id, current_user_id, deletion_source="self")
         
         return DeleteResponse(
             success=True,

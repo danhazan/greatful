@@ -42,7 +42,8 @@ def password_user():
         email="test@example.com",
         username="testuser",
         hashed_password="$2b$12$EixZAe3sYCoB1s5qjBq9Uu.2Zz.0jZz.0jZz.0jZz.0jZz.0jZ",  # "password"
-        oauth_provider=None
+        oauth_provider=None,
+        account_status="active"
     )
 
 @pytest.fixture
@@ -53,7 +54,8 @@ def oauth_user():
         email="oauth@example.com",
         username="oauthuser",
         hashed_password="",
-        oauth_provider="google"
+        oauth_provider="google",
+        account_status="active"
     )
 
 async def test_update_password_hashes_correctly(mock_user_service, password_user):

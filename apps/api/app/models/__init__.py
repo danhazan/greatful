@@ -15,6 +15,7 @@ from .follow import Follow
 from .user_interaction import UserInteraction
 from .image_hash import ImageHash
 from .comment import Comment
+from .deleted_user_auth_identity import DeletedUserAuthIdentity
 
 __all__ = [
     "User",
@@ -30,4 +31,5 @@ __all__ = [
     "UserInteraction",
     "ImageHash",
     "Comment",
+    "DeletedUserAuthIdentity",
 ]

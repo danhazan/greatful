@@ -31,10 +31,12 @@ class TestPostDeletionComments:
         data = response.json()
         assert data["success"] is True
 
-        remaining_post_count = await db_session.scalar(
-            select(func.count(Post.id)).where(Post.id == test_post.id)
-        )
-        assert remaining_post_count == 0
+        await db_session.commit()
+        deleted_post = await db_session.get(Post, test_post.id)
+        await db_session.refresh(deleted_post)
+        assert deleted_post is not None
+        assert deleted_post.deleted_at is not None
+        assert deleted_post.content == ""
 
     async def test_delete_post_removes_top_level_and_replies(
         self,
@@ -93,7 +95,9 @@ class TestPostDeletionComments:
         )
         assert remaining_comment_count == 0
 
-        remaining_post_count = await db_session.scalar(
-            select(func.count(Post.id)).where(Post.id == test_post.id)
-        )
-        assert remaining_post_count == 0
+        await db_session.commit()
+        deleted_post = await db_session.get(Post, test_post.id)
+        await db_session.refresh(deleted_post)
+        assert deleted_post is not None
+        assert deleted_post.deleted_at is not None
+        assert deleted_post.content == ""

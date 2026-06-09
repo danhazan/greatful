@@ -56,7 +56,7 @@ class TestGetMyProfile:
         headers = {"Authorization": f"Bearer {token}"}
         
         response = client.get("/api/v1/users/me/profile", headers=headers)
-        assert response.status_code == 404
+        assert response.status_code == 401
 
 
 class TestUpdateMyProfile:

@@ -4,6 +4,7 @@ ReactionService for handling emoji reactions business logic using repository pat
 
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ValidationException, BusinessLogicError
@@ -18,6 +19,7 @@ from app.models.user import User
 from app.models.post import Post
 from app.core.notification_factory import NotificationFactory
 from app.core.image_urls import serialize_image_url
+from app.core.user_serialization import serialize_public_user_reference
 import logging
 
 logger = logging.getLogger(__name__)
@@ -119,8 +121,17 @@ class ReactionService(BaseService):
         
         # Check if user and post exist
         user = await self.user_repo.get_by_id_or_404(user_id)
-        post = await self.post_repo.get_by_id_or_404(post_id)
+        post = await self.post_repo.get_active_by_id_or_404(post_id)
         actual_object_id = await self._resolve_reaction_object_id(post_id, object_type, object_id)
+        
+        # Reject reactions on comments by deleted users
+        if object_type == "comment":
+            result = await self.db.execute(
+                select(Comment).options(selectinload(Comment.user)).where(Comment.id == actual_object_id)
+            )
+            target_comment = result.scalar_one_or_none()
+            if target_comment and getattr(target_comment.user, "account_status", "active") != "active":
+                raise NotFoundError("Comment not found")
         
         # Check if user already has a reaction on this object
         existing_reaction = await self.reaction_repo.get_user_reaction(user_id, post_id, object_type, actual_object_id)
@@ -174,11 +185,7 @@ class ReactionService(BaseService):
                 "emoji_code": updated_reaction.emoji_code,
                 "emoji_display": updated_reaction.emoji_display,
                 "created_at": updated_reaction.created_at.isoformat(),
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "profile_image_url": serialize_image_url(user.profile_image_url)
-                }
+                "user": serialize_public_user_reference(user)
             }
         else:
             # Create new reaction
@@ -234,11 +241,7 @@ class ReactionService(BaseService):
                 "emoji_code": reaction.emoji_code,
                 "emoji_display": reaction.emoji_display,
                 "created_at": reaction.created_at.isoformat(),
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "profile_image_url": serialize_image_url(user.profile_image_url)
-                }
+                "user": serialize_public_user_reference(user)
             }
 
     @monitor_query("remove_reaction")
@@ -272,11 +275,7 @@ class ReactionService(BaseService):
                 "emoji_code": reaction.emoji_code,
                 "emoji_display": reaction.emoji_display,
                 "created_at": reaction.created_at.isoformat(),
-                "user": {
-                    "id": reaction.user.id,
-                    "username": reaction.user.username,
-                    "profile_image_url": serialize_image_url(reaction.user.profile_image_url)
-                }
+                "user": serialize_public_user_reference(reaction.user)
             }
             for reaction in reactions
         ]
@@ -319,7 +318,7 @@ class ReactionService(BaseService):
         """
         Get bounded reaction summaries for all existing comments/replies on a post.
         """
-        await self.post_repo.get_by_id_or_404(post_id)
+        await self.post_repo.get_active_by_id_or_404(post_id)
         return await self.reaction_repo.get_comment_reaction_summaries(post_id, current_user_id)
 
     async def get_user_interaction(self, user_id: int, post_id: str) -> Optional[Dict[str, Any]]:
