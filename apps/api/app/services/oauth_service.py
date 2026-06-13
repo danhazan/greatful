@@ -149,31 +149,100 @@ class OAuthService(BaseService):
                     )
                 return await self._format_user_response(updated_user), False
             
-            # Check if user exists by email (for account linking)
-            existing_email_user = await User.get_by_email(self.db, oauth_user_info['email'])
+            # Step 2: Check if there is a tombstoned OAuth identity
+            from app.models.deleted_user_auth_identity import DeletedUserAuthIdentity
+            from sqlalchemy import select
             
+            identity_stmt = select(DeletedUserAuthIdentity).where(
+                DeletedUserAuthIdentity.provider == provider,
+                DeletedUserAuthIdentity.provider_user_id == oauth_user_info['id'],
+                DeletedUserAuthIdentity.identity_type == "oauth"
+            )
+            identity_result = await self.db.execute(identity_stmt)
+            identity = identity_result.scalar_one_or_none()
+            
+            if identity:
+                # We found a tombstone!
+                lock_stmt = select(User).where(User.id == identity.user_id).with_for_update()
+                lock_result = await self.db.execute(lock_stmt)
+                user_to_resurrect = lock_result.scalar_one_or_none()
+                
+                if user_to_resurrect:
+                    # Idempotency rule
+                    if getattr(user_to_resurrect, "account_status", None) == "active":
+                        if user_to_resurrect.oauth_provider == provider and user_to_resurrect.oauth_id == oauth_user_info['id']:
+                            return await self._format_user_response(user_to_resurrect), False
+                        else:
+                            raise ConflictError("User is already active", "user")
+                    
+                    # Strict state guard
+                    if getattr(user_to_resurrect, "account_status", None) != "deleted" or user_to_resurrect.deleted_at is None:
+                        raise ConflictError("Invalid state transition", "user")
+                        
+                    # Check if email belongs to another active user (Conflict only)
+                    existing_email_user = await User.get_by_email(self.db, oauth_user_info['email'])
+                    if existing_email_user and existing_email_user.id != user_to_resurrect.id:
+                        raise ConflictError(
+                            "Email already registered by another account. Sign in with your existing account or use a different email.",
+                            "oauth"
+                        )
+                        
+                    profile_data = self._extract_profile_data(oauth_user_info, provider)
+                    
+                    # --- Atomic resurrection mutation ---
+                    async with self.db.begin_nested():
+                        user_to_resurrect.account_status = "active"
+                        user_to_resurrect.email = oauth_user_info['email']
+                        user_to_resurrect.oauth_provider = provider
+                        user_to_resurrect.oauth_id = oauth_user_info['id']
+                        user_to_resurrect.deleted_at = None
+                        user_to_resurrect.deletion_source = None
+                        user_to_resurrect.token_version = (user_to_resurrect.token_version or 0) + 1
+                        
+                        oauth_data = user_to_resurrect.oauth_data or {}
+                        oauth_data.update({
+                            'provider_data': oauth_user_info,
+                            'resurrected_via_oauth': True,
+                            'resurrected_at': datetime.now(timezone.utc).isoformat(),
+                            'email_verified': oauth_user_info.get('email_verified', False)
+                        })
+                        user_to_resurrect.oauth_data = oauth_data
+                        
+                        if not user_to_resurrect.display_name and profile_data['display_name']:
+                            user_to_resurrect.display_name = profile_data['display_name']
+                            
+                        if not user_to_resurrect.profile_image_url and profile_data['profile_image_url']:
+                            user_to_resurrect.profile_image_url = profile_data['profile_image_url']
+                            
+                        if not user_to_resurrect.location and profile_data.get('location'):
+                            user_to_resurrect.location = profile_data['location']
+                    
+                    await self.db.commit()
+                    await self.db.refresh(user_to_resurrect)
+                    
+                    log_oauth_security_event('user_resurrected', provider, user_id=user_to_resurrect.id)
+                    if request:
+                        SecurityAuditor.log_security_event(
+                            event_type=SecurityEventType.OAUTH_LOGIN_SUCCESS,
+                            request=request,
+                            user_id=user_to_resurrect.id,
+                            username=user_to_resurrect.username,
+                            details={
+                                'provider': provider,
+                                'oauth_user_id': oauth_user_info['id'],
+                                'account_type': 'resurrected_oauth'
+                            },
+                            severity="INFO"
+                        )
+                    return await self._format_user_response(user_to_resurrect), False
+
+            # Step 3: Active email check (conflict only)
+            existing_email_user = await User.get_by_email(self.db, oauth_user_info['email'])
             if existing_email_user:
-                self._ensure_active_oauth_user(existing_email_user)
-                # Enhanced account linking with conflict detection
-                linked_user = await self._link_oauth_account_with_validation(
-                    existing_email_user, provider, oauth_user_info, request
+                raise ConflictError(
+                    "Email already registered by another account. Sign in with your existing account or use a different email.",
+                    "oauth"
                 )
-                log_oauth_security_event('account_linked', provider, user_id=linked_user.id)
-                if request:
-                    SecurityAuditor.log_security_event(
-                        event_type=SecurityEventType.OAUTH_ACCOUNT_LINKED,
-                        request=request,
-                        user_id=linked_user.id,
-                        username=linked_user.username,
-                        details={
-                            'provider': provider,
-                            'oauth_user_id': oauth_user_info['id'],
-                            'existing_oauth_provider': existing_email_user.oauth_provider,
-                            'account_type': 'linked_existing'
-                        },
-                        severity="INFO"
-                    )
-                return await self._format_user_response(linked_user), False
             
             # Create new user from OAuth data
             new_user = await self._create_oauth_user(provider, oauth_user_info, request)

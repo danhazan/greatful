@@ -65,17 +65,93 @@ class AuthService(BaseService):
         self.validate_field_length(username, "username", 50, 3)
         self.validate_field_length(password, "password", 128, 8)
         
-        # Check if email already exists
+        # --- Resurrection identity resolution (email is the sole anchor) ---
+        from app.services.user_deletion_service import UserDeletionService
+        from app.models.deleted_user_auth_identity import DeletedUserAuthIdentity
+        from sqlalchemy import select
+        
+        deletion_service = UserDeletionService(self.db)
+        expected_hash = deletion_service._hash_identity(email)
+        
+        # Step 1: Tombstone identity lookup — must happen BEFORE active email check
+        # so that idempotent retries (post-resurrection) can be detected.
+        identity_stmt = select(DeletedUserAuthIdentity).where(
+            DeletedUserAuthIdentity.identity_type == "email",
+            DeletedUserAuthIdentity.email_hash == expected_hash
+        )
+        identity_result = await self.db.execute(identity_stmt)
+        identity = identity_result.scalar_one_or_none()
+        
+        if identity:
+            # Tombstone candidate found — acquire row lock on the user.
+            lock_stmt = select(User).where(User.id == identity.user_id).with_for_update()
+            lock_result = await self.db.execute(lock_stmt)
+            user_to_resurrect = lock_result.scalar_one_or_none()
+            
+            if user_to_resurrect:
+                # --- Idempotency: user already resurrected (retry or race) ---
+                if user_to_resurrect.account_status == "active":
+                    if (user_to_resurrect.username == username
+                            and verify_password(password, user_to_resurrect.hashed_password)):
+                        # Safe idempotent return
+                        token_data = self._token_data_for_user(user_to_resurrect)
+                        return {
+                            "user": {"id": user_to_resurrect.id, "email": user_to_resurrect.email, "username": user_to_resurrect.username},
+                            "access_token": create_access_token(token_data),
+                            "refresh_token": create_refresh_token(token_data),
+                            "token_type": "bearer"
+                        }
+                    else:
+                        raise ConflictError("Email already registered", "user")
+                
+                # --- Strict state guard ---
+                if user_to_resurrect.account_status != "deleted" or user_to_resurrect.deleted_at is None:
+                    raise ConflictError("Invalid account state for resurrection", "user")
+                
+                # --- Username immutability for tombstone linkage ---
+                if user_to_resurrect.username != username:
+                    raise ConflictError("Resurrect existing account OR choose a different email", "user")
+                
+                # --- Atomic resurrection mutation ---
+                async with self.db.begin_nested():
+                    user_to_resurrect.email = email
+                    user_to_resurrect.hashed_password = get_password_hash(password)
+                    user_to_resurrect.account_status = "active"
+                    user_to_resurrect.deleted_at = None
+                    user_to_resurrect.deletion_source = None
+                    user_to_resurrect.token_version = (user_to_resurrect.token_version or 0) + 1
+                
+                await self.db.commit()
+                await self.db.refresh(user_to_resurrect)
+                
+                token_data = self._token_data_for_user(user_to_resurrect)
+                access_token = create_access_token(token_data)
+                refresh_token = create_refresh_token(token_data)
+                
+                logger.info(f"User resurrected successfully via password: {user_to_resurrect.email}")
+                
+                return {
+                    "user": {
+                        "id": user_to_resurrect.id,
+                        "email": user_to_resurrect.email,
+                        "username": user_to_resurrect.username
+                    },
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "token_type": "bearer"
+                }
+
+        # Step 2: Active email check (no tombstone exists for this email)
         existing_user = await User.get_by_email(self.db, email)
         if existing_user:
             raise ConflictError("Email already registered", "user")
-        
-        # Check if username already exists
+
+        # Step 3: Check if username already exists (new accounts only)
         existing_username = await User.get_by_username(self.db, username)
         if existing_username:
             raise ConflictError("Username already taken", "user")
         
-        # Create new user
+        # Step 4: Create new user
         hashed_password = get_password_hash(password)
         user = await self.create_entity(
             User,

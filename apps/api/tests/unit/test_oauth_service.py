@@ -167,8 +167,8 @@ class TestOAuthService:
                             assert user_data['user']['email'] == existing_oauth_user.email
     
     @pytest.mark.asyncio
-    async def test_authenticate_oauth_user_account_linking(self, oauth_service, mock_oauth_user_info, mock_oauth_token, existing_user):
-        """Test OAuth authentication with account linking."""
+    async def test_authenticate_oauth_user_email_conflict_raises_error(self, oauth_service, mock_oauth_user_info, mock_oauth_token, existing_user):
+        """Test OAuth authentication raises ConflictError when email belongs to active user."""
         # Update mock to match existing user's email
         mock_oauth_user_info['email'] = existing_user.email
         
@@ -177,37 +177,14 @@ class TestOAuthService:
             
             # Mock User.get_by_oauth to return None (no existing OAuth user)
             with patch.object(User, 'get_by_oauth', return_value=None):
-                # Mock User.get_by_email to return existing user
-                with patch.object(User, 'get_by_email', return_value=existing_user):
-                    # Mock the linked user
-                    linked_user = Mock()
-                    linked_user.id = existing_user.id
-                    linked_user.email = existing_user.email
-                    linked_user.username = existing_user.username
-                    linked_user.oauth_provider = 'google'
-                    linked_user.oauth_id = mock_oauth_user_info['id']
-                    linked_user.oauth_data = {'linked_via_oauth': True}
-                    linked_user.account_status = "active"
-                    linked_user.token_version = 0
-                    linked_user.created_at = datetime.now()
-                    linked_user.display_name = existing_user.display_name
-                    linked_user.profile_image_url = None
-                    
-                    # Mock the service's update_entity method
-                    with patch.object(oauth_service, 'update_entity', return_value=linked_user):
-                        # Mock token creation
-                        with patch('app.core.security.create_access_token') as mock_access_token:
-                            with patch('app.core.security.create_refresh_token') as mock_refresh_token:
-                                mock_access_token.return_value = 'access_token_123'
-                                mock_refresh_token.return_value = 'refresh_token_123'
-                                
-                                user_data, is_new_user = await oauth_service.authenticate_oauth_user(
-                                    'google', mock_oauth_token
-                                )
-                                
-                                assert is_new_user is False
-                                assert user_data['user']['id'] == existing_user.id
-                                assert user_data['user']['email'] == existing_user.email
+                # The new spec raises an AuthenticationError wrapping a ConflictError
+                # when the email is already registered by an active account
+                with pytest.raises(AuthenticationError) as exc_info:
+                    await oauth_service.authenticate_oauth_user(
+                        'google', mock_oauth_token
+                    )
+                
+                assert "Email already registered by another account" in str(exc_info.value)
     
     @pytest.mark.asyncio
     async def test_authenticate_oauth_user_invalid_user_data(self, oauth_service, mock_oauth_token):
