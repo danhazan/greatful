@@ -4,17 +4,19 @@
 
 export interface User {
     id: string
-    username: string
+    username: string | null
     email?: string
     name: string
-    displayName?: string
-    profileImageUrl?: string
-    image?: string // Legacy support
+    displayName?: string | null
+    profileImageUrl?: string | null
+    image?: string | null // Legacy support
     isPublic?: boolean
+    isDeleted?: boolean
+    accountStatus?: string
 }
 
 export interface UserProfile extends User {
-    bio?: string
+    bio?: string | null
     createdAt?: string
     postsCount: number
     followerCount: number

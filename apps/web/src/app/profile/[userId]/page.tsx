@@ -387,7 +387,7 @@ export default function UserProfilePage() {
                 <span className="text-3xl text-gray-400">!</span>
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                @{profile.username}
+                {profile.username ? `@${profile.username}` : 'Deleted user'}
               </h1>
               <p className="text-gray-500 text-lg mb-4">
                 This account has been deleted.

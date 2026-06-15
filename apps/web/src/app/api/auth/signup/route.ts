@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         email: body.email,
         username: body.username,
-        password: body.password
+        password: body.password,
+        ...(body.resurrect_action ? { resurrect_action: body.resurrect_action } : {}),
       }),
     })
 

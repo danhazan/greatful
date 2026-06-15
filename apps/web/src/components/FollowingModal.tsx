@@ -123,7 +123,9 @@ export default function FollowingModal({
                       displayName: user.displayName,
                       profileImageUrl: user.profileImageUrl,
                       bio: user.bio,
-                      createdAt: user.createdAt
+                      createdAt: user.createdAt,
+                      isDeleted: user.isDeleted,
+                      accountStatus: user.accountStatus
                     }}
                     href={`/profile/${user.id}`}
                   />

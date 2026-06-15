@@ -177,9 +177,10 @@ class TestOAuthService:
             
             # Mock User.get_by_oauth to return None (no existing OAuth user)
             with patch.object(User, 'get_by_oauth', return_value=None):
-                # The new spec raises an AuthenticationError wrapping a ConflictError
-                # when the email is already registered by an active account
-                with pytest.raises(AuthenticationError) as exc_info:
+                # Email conflict raises ConflictError (passed through directly,
+                # not wrapped in AuthenticationError)
+                from app.core.exceptions import ConflictError as CE
+                with pytest.raises(CE) as exc_info:
                     await oauth_service.authenticate_oauth_user(
                         'google', mock_oauth_token
                     )

@@ -9,7 +9,7 @@ from app.core.service_base import BaseService
 from app.core.exceptions import NotFoundError, ConflictError, ValidationException
 from app.core.query_monitor import monitor_query
 from app.core.image_urls import serialize_image_url
-from app.core.user_serialization import serialize_deleted_profile
+from app.core.user_serialization import serialize_deleted_profile, serialize_public_user_reference
 from app.repositories.user_repository import UserRepository
 from app.repositories.post_repository import PostRepository
 from app.models.user import User
@@ -412,12 +412,7 @@ class UserService(BaseService):
         
         logger.info(f"Resolved username '{username}' to user ID {user.id}")
         
-        return {
-            "id": user.id,
-            "username": user.username,
-            "account_status": user.account_status,
-            "is_deleted": getattr(user, "account_status", "active") == "deleted",
-        }
+        return serialize_public_user_reference(user)
 
     async def update_password(self, user: User, new_password: str) -> None:
         """

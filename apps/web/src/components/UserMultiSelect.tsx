@@ -101,12 +101,12 @@ export default function UserMultiSelect({
                 key={user.id}
                 className="flex items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-xs text-purple-800"
               >
-                <span>@{user.username}</span>
+                <span>@{user.username || 'deleted'}</span>
                 <button
                   type="button"
                   onClick={() => handleRemove(user.id)}
                   className="text-purple-600 hover:text-purple-800"
-                  aria-label={`Remove ${user.username}`}
+                  aria-label={`Remove ${user.username || 'user'}`}
                   disabled={disabled}
                 >
                   <X className="h-3 w-3" />

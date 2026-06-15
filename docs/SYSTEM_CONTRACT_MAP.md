@@ -378,9 +378,11 @@ When a user reacts to an individual image inside a multi-image post, the system 
 3. **Stale guard**: A scheduled retry MUST be a no-op if the cache status is no longer `error` with the same `retryCount`
 4. **Timer lifecycle**: All `pendingRetryTimeouts` for a `postId` MUST be cleared when the last subscriber unmounts
 
-### Flow 9: User Profile Deletion (Tombstone System)
+### Flow 9: User Profile Deletion & Resurrection (Tombstone System)
 
-**Flow:** User requests deletion → account tombstoned → auth invalidated → posts tombstoned → PII scrubbed → identity preserved for recovery
+**Flow:** User requests deletion → account tombstoned → auth invalidated → posts tombstoned → PII scrubbed → identity preserved for recovery → (optionally) user re-registers with same email/OAuth → tombstone consumed → identity severed → new account created
+
+**Resurrection is 2-phase: 409 on tombstone detection → frontend ResurrectionDialog → second request with `resurrect_action="accept"|"decline"`.**
 
 #### Component Responsibilities
 
@@ -391,9 +393,12 @@ When a user reacts to an individual image inside a multi-image post, the system 
 | `serialize_public_user_reference()` | Unify deleted-user rendering across ALL API responses |
 | `token_version` | Invalidate all active auth tokens on deletion |
 | `DeletedUserAuthIdentity` | Preserve email hash + OAuth identity for recovery |
+| `resurrection.py` | `find_tombstone_by_email()`, `find_tombstone_by_oauth()`, `consume_tombstones()` |
+| `ResurrectionDialog` (frontend) | Modal: "Accept (restore account)" or "Decline (start fresh)" |
 
 #### Data Flow
 
+##### Deletion Phase
 1. User calls `DELETE /api/v1/users/me` with `{ confirmation: "<username>" }`
 2. `account_status` transitions: `active` → `deletion_pending` → `deleted`
 3. `token_version` incremented → all existing JWT tokens invalidated
@@ -405,12 +410,26 @@ When a user reacts to an individual image inside a multi-image post, the system 
 9. OAuth identity preserved in `deleted_user_auth_identities`, then scrubbed from user row
 10. Email changed to `deleted-user-{id}-{token}@deleted.grateful.internal` → original email freed for reuse
 
+##### Resurrection Phase (Password Signup)
+1. User submits signup with email matching an unconsumed tombstone
+2. Backend detects tombstone → returns 409 with `detail.code: "resurrection_available"`, `tombstone_user_id`, `oauth_email: null`
+3. Frontend shows `ResurrectionDialog` — user chooses Accept or Decline
+4. **Accept**: User sets password → backend restores the old user account (reactivates user row, clears tombstones)
+5. **Decline**: Backend calls `consume_tombstones(user_id)` → marks all `deleted_user_auth_identities.consumed_at` → creates fresh user account
+
+##### Resurrection Phase (OAuth)
+1. OAuth callback detects identity matching unconsumed tombstone
+2. Backend returns 409 with `resurrection_token` (JWT: provider, provider_user_id, tombstone_user_id, nonce), `oauth_email`, `oauth_user_info` (pass-through body, not JWT)
+3. Frontend shows `ResurrectionDialog` → user chooses Accept or Decline
+4. **Accept**: Frontend calls `POST /api/v1/auth/oauth/resurrect` with `resurrect_action="accept"`, `resurrection_token`, `email`, `oauth_user_info` → backend restores old user account
+5. **Decline**: Frontend calls `POST /api/v1/auth/oauth/resurrect` with `resurrect_action="decline"`, `resurrection_token`, `email`, `oauth_user_info` → backend calls `consume_tombstones()`, creates fresh account with OAuth profile data
+
 #### Tombstone Semantics
 
 | Aspect | Behavior |
 |--------|----------|
 | User row | Retained with `account_status = "deleted"` |
-| Username | Retired — cannot be reused (unique constraint) |
+| Username | Scrubed to `deleted_user_{id}_{hash}` — satisfies `^[a-z0-9_]+$`, ≤30 chars |
 | Email | Anonymized — original becomes reusable |
 | OAuth | Identity copied to recovery table, then scrubbed from user row → OAuth becomes reusable |
 | Profile URL | Still resolves to `/users/[id]` → returns tombstone view |
@@ -418,6 +437,7 @@ When a user reacts to an individual image inside a multi-image post, the system 
 | Comments on others' posts | Remain intact, author shows as "Deleted user" |
 | Notifications | Removed for deleted user, but deleted-actor data renders safely for recipients |
 | Auth tokens | All invalidated via `token_version` increment |
+| Tombstone consumption | `consumed_at` column set — row preserved for audit, `find_tombstone_by_*` filters `WHERE consumed_at IS NULL` |
 
 #### Serialization Contract (CRITICAL)
 
@@ -425,14 +445,18 @@ All user references in API responses MUST pass through `serialize_public_user_re
 
 ```
 Used by: CommentService, MentionService, ReactionService, NotificationService
-Not used (raw SQL equivalent): PostRepository._fetch_engagement_data()
+Not used (raw SQL equivalent): PostRepository fast-path author constructions
 ```
 
 Rules:
 - Deleted users always return `is_deleted: true`, `account_status: "deleted"`
-- `display_name` and `profile_image_url` always `None` for deleted users
+- `username` always `null` for deleted users (routing key no longer exposed)
+- `display_name` always `"Deleted user"` for deleted users
 - `name` always `"Deleted user"` for deleted users
-- `username` remains the retired username (routing key stays valid)
+- `profile_image_url` always `null` for deleted users
+- `image` always `null` for deleted users
+- Both `display_name` AND `name` set to `"Deleted user"` for resilience against components that forget `isDeleted` check
+- Frontend renders: gray placeholder avatar (no link), "Deleted user" text (no click), no follow button
 
 ---
 

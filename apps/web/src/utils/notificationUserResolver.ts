@@ -50,8 +50,8 @@ interface NotificationData {
 
 interface NotificationUser {
   id?: number | string
-  username?: string
-  profileImageUrl?: string
+  username?: string | null
+  profileImageUrl?: string | null
 }
 
 interface Notification {

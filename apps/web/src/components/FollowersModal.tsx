@@ -123,7 +123,9 @@ export default function FollowersModal({
                       displayName: follower.displayName,
                       profileImageUrl: follower.profileImageUrl,
                       bio: follower.bio,
-                      createdAt: follower.createdAt
+                      createdAt: follower.createdAt,
+                      isDeleted: follower.isDeleted,
+                      accountStatus: follower.accountStatus
                     }}
                     href={`/profile/${follower.id}`}
                   />

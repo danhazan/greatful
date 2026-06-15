@@ -10,7 +10,7 @@ function getThumbnailUrl(notification: Notification): string | undefined {
 }
 
 export function resolveNotificationThumbnailUrl(notification: Notification): string | undefined {
-  const actorAvatar = notification.fromUser?.image
+  const actorAvatar = notification.fromUser?.image ?? undefined
 
   if (getThumbnailType(notification) !== 'image') {
     return actorAvatar

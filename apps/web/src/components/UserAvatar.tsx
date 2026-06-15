@@ -24,6 +24,7 @@ export default function UserAvatar({
   onClick,
   showTooltip = false
 }: UserAvatarProps) {
+  const isDeleted = user.isDeleted === true || user.accountStatus === 'deleted'
   const displayName = user.displayName || user.username || 'User'
   const imageUrl = user.profileImageUrl || user.image
   const [imageError, setImageError] = React.useState(false)
@@ -44,6 +45,14 @@ export default function UserAvatar({
     const words = name.trim().split(/\s+/)
     if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
     return (words[0][0] + (words[1]?.[0] || '')).toUpperCase()
+  }
+
+  if (isDeleted) {
+    return (
+      <div className={`${sizeClasses[size] || sizeClasses.md} rounded-full bg-gray-200 text-gray-400 font-semibold flex items-center justify-center ${className}`}>
+        ?
+      </div>
+    )
   }
 
   const avatarContent = imageUrl && !imageError ? (
@@ -69,7 +78,7 @@ export default function UserAvatar({
     <div className={`relative inline-flex group ${className}`}>
       {avatarContent}
       
-      {showTooltip && (
+      {showTooltip && !isDeleted && (
         <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
           @{user.username}
         </div>

@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.services.auth_service import AuthService
 from app.core.responses import success_response, AuthResponse, build_auth_response
 from app.core.security_audit import log_login_success, log_login_failure, SecurityAuditor, SecurityEventType
-from app.core.exceptions import AuthenticationError, NotFoundError, ConflictError, ValidationException
+from app.core.exceptions import AuthenticationError, NotFoundError, ConflictError, ValidationException, ResurrectionRequired
 from app.core.input_sanitization import sanitize_request_data
 from app.core.oauth_config import get_oauth_config, get_oauth_redirect_uri, validate_oauth_state, log_oauth_security_event
 from app.services.oauth_service import OAuthService
@@ -32,6 +32,16 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
+    resurrect_action: Optional[str] = Field(
+        None,
+        description="Resurrection decision: 'accept' to restore deleted account, 'decline' to start fresh"
+    )
+
+    @field_validator('resurrect_action')
+    def validate_resurrect_action(cls, v):
+        if v is not None and v not in ("accept", "decline"):
+            raise ValueError("resurrect_action must be 'accept' or 'decline'")
+        return v
 
     @field_validator('username')
     def validate_username(cls, v):
@@ -159,6 +169,30 @@ class AccountLinkingConfirmationResponse(BaseModel):
     confirmation_required: bool
 
 
+class OAuthResurrectionComplete(BaseModel):
+    """OAuth resurrection completion request."""
+    resurrection_token: str = Field(..., description="JWT resurrection token from OAuth callback")
+    username: str = Field(..., min_length=3, max_length=30, description="New username for resurrected account")
+    resurrect_action: str = Field(..., description="'accept' to restore, 'decline' to start fresh")
+    email: Optional[str] = Field(None, description="Email from OAuth provider (forwarded from 409 response)")
+    oauth_user_info: Optional[dict] = Field(None, description="OAuth profile data (forwarded from 409 response)")
+
+    @field_validator('resurrect_action')
+    def validate_resurrect_action(cls, v):
+        if v not in ("accept", "decline"):
+            raise ValueError("resurrect_action must be 'accept' or 'decline'")
+        return v
+
+    @field_validator('username')
+    def validate_username(cls, v):
+        username_lower = v.lower()
+        if not (3 <= len(username_lower) <= 30):
+            raise ValueError('Username must be between 3 and 30 characters.')
+        if not re.match(r'^[a-z0-9_]+$', username_lower):
+            raise ValueError('Username can only contain letters, numbers, and underscores.')
+        return username_lower
+
+
 @router.post("/signup", status_code=201, response_model=AuthResponse)
 async def signup(
     user: UserCreate, 
@@ -175,7 +209,8 @@ async def signup(
         result = await auth_service.signup(
             username=user_data.get('username', user.username),
             email=user_data.get('email', user.email),
-            password=user.password  # Don't sanitize password
+            password=user.password,  # Don't sanitize password
+            resurrect_action=user.resurrect_action,
         )
         
         # Log successful registration
@@ -199,6 +234,13 @@ async def signup(
             request_id=getattr(request.state, 'request_id', None)
         )
         
+    except ResurrectionRequired:
+        from app.core.resurrection_response import build_password_resurrection_response
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=409,
+            content=build_password_resurrection_response(),
+        )
     except Exception as e:
         # Log failed registration
         SecurityAuditor.log_security_event(
@@ -213,6 +255,123 @@ async def signup(
             severity="WARNING"
         )
         raise
+
+
+@router.post("/oauth/resurrect", response_model=AuthResponse)
+async def oauth_resurrect(
+    body: OAuthResurrectionComplete,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Complete OAuth resurrection: accepts or declines resurrection.
+
+    Expects a resurrection_token (from the OAuth callback 409 response)
+    plus the user's chosen username and decision.
+    """
+    from app.core.security import decode_resurrection_token, create_access_token, create_refresh_token
+    from app.core.resurrection import resurrect_oauth_user, check_username_available
+    from app.models.deleted_user_auth_identity import DeletedUserAuthIdentity
+    from app.models.user import User
+    from sqlalchemy import select
+
+    try:
+        payload = decode_resurrection_token(body.resurrection_token)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid or expired resurrection token: {e}")
+
+    provider = payload["provider"]
+    provider_user_id = payload["provider_user_id"]
+    tombstone_user_id = int(payload["tombstone_user_id"])
+
+    # Fetch tombstone
+    stmt = select(DeletedUserAuthIdentity).where(
+        DeletedUserAuthIdentity.user_id == tombstone_user_id,
+        DeletedUserAuthIdentity.provider == provider,
+        DeletedUserAuthIdentity.provider_user_id == provider_user_id,
+        DeletedUserAuthIdentity.identity_type == "oauth",
+    )
+    result = await db.execute(stmt)
+    tombstone = result.scalar_one_or_none()
+    if not tombstone:
+        raise HTTPException(status_code=400, detail="Resurrection token refers to an unknown tombstone")
+
+    if body.resurrect_action == "accept":
+        if not await check_username_available(db, body.username, exclude_user_id=tombstone_user_id):
+            raise HTTPException(status_code=409, detail="Username already taken")
+
+        email = body.email or f"resurrected-{tombstone_user_id}@grateful.internal"
+        oauth_user_info = body.oauth_user_info
+        user = await resurrect_oauth_user(
+            db,
+            tombstone,
+            provider=provider,
+            provider_user_id=provider_user_id,
+            email=email,
+            username=body.username,
+            oauth_user_info=oauth_user_info,
+        )
+        await db.commit()
+        await db.refresh(user)
+
+        token_data = {
+            "sub": str(user.id),
+            "username": user.username,
+            "token_version": getattr(user, "token_version", 0) or 0,
+        }
+        access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
+
+        logger.info(f"OAuth user resurrected: {user.id}")
+
+        return build_auth_response(
+            user={"id": user.id, "username": user.username, "email": user.email},
+            access_token=access_token,
+            refresh_token=refresh_token,
+            is_new_user=False,
+            request_id=getattr(request.state, "request_id", None),
+        )
+
+    # resurrect_action == "decline" — create a new user, consume tombstone
+    from app.core.resurrection import check_username_available as check_uname, consume_tombstones
+
+    if not await check_uname(db, body.username):
+        raise HTTPException(status_code=409, detail="Username already taken")
+
+    await consume_tombstones(db, tombstone_user_id)
+
+    oauth_service = OAuthService(db)
+    oauth_user_info = body.oauth_user_info or {
+        "id": provider_user_id,
+        "email": body.email or f"resurrected-{tombstone_user_id}@grateful.internal",
+        "email_verified": False,
+    }
+    oauth_user_info.setdefault("email", body.email or f"resurrected-{tombstone_user_id}@grateful.internal")
+    new_user = await oauth_service._create_oauth_user(
+        provider,
+        oauth_user_info,
+        request,
+    )
+    await db.commit()
+    await db.refresh(new_user)
+
+    logger.info(f"New OAuth user created (declined resurrection): {new_user.id}")
+
+    return build_auth_response(
+        user={"id": new_user.id, "username": new_user.username, "email": new_user.email},
+        access_token=create_access_token({
+            "sub": str(new_user.id),
+            "username": new_user.username,
+            "token_version": getattr(new_user, "token_version", 0) or 0,
+        }),
+        refresh_token=create_refresh_token({
+            "sub": str(new_user.id),
+            "username": new_user.username,
+            "token_version": getattr(new_user, "token_version", 0) or 0,
+        }),
+        is_new_user=True,
+        request_id=getattr(request.state, "request_id", None),
+    )
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -684,6 +843,19 @@ async def _handle_oauth_callback(
             request_id=getattr(request.state, 'request_id', None)
         )
         
+    except ResurrectionRequired as e:
+        from app.core.resurrection_response import build_oauth_resurrection_response
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=409,
+            content=build_oauth_resurrection_response(
+                provider=e.provider,
+                provider_user_id=e.provider_user_id,
+                tombstone_user_id=e.tombstone_user_id,
+                oauth_email=e.oauth_email,
+                oauth_user_info=e.oauth_user_info,
+            ),
+        )
     except HTTPException:
         raise
     except AuthenticationError as e:

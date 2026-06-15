@@ -82,7 +82,7 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 
 ### Deleted User Auth Identities Table (`deleted_user_auth_identities`)
 
-**Preserves identity information for deleted accounts to enable email/OAuth reuse.**
+**Preserves identity information for deleted accounts to enable email/OAuth reuse and identity-driven resurrection.**
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -94,8 +94,20 @@ The Grateful application uses PostgreSQL as the primary database with SQLAlchemy
 | `email_hash` | String(64) | Nullable | SHA-256 hash of (SECRET_KEY:email) |
 | `created_at` | DateTime | Not Null, Default: now() | Record creation timestamp |
 | `deleted_at` | DateTime | Nullable | When the original account was deleted |
+| `consumed_at` | DateTime | Nullable | When tombstone was consumed (user declined resurrection). NULL = unconsumed |
 
 **Unique Constraint:** `(user_id, identity_type, provider, provider_user_id)`
+
+**Query Filtering:** `find_tombstone_by_email()` and `find_tombstone_by_oauth()` filter with `WHERE consumed_at IS NULL`
+
+**Tombstone Consumption:** On resurrection decline, `consume_tombstones(user_id)` sets `consumed_at` on all identities for that user. Row is preserved for audit — never hard-deleted.
+
+**Resurrection Lifecycle:**
+1. **Deletion**: Email hash / OAuth identity saved to this table with `consumed_at = NULL`
+2. **Detection**: Re-registration with same email/OAuth checks for unconsumed tombstone (`consumed_at IS NULL`)
+3. **409 Response**: If tombstone found, backend returns structured 409 with `resurrection_available` code
+4. **Accept**: Backend restores old user row — `consumed_at` stays NULL (identities remain associated)
+5. **Decline**: `consume_tombstones()` sets `consumed_at` — identity severed, fresh account created
 
 **Note:** This table is internal-only and must never be exposed in public APIs, profile responses, search, exports, or serializers.
 

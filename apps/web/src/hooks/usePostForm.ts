@@ -137,7 +137,7 @@ export function usePostForm({
       while (mentionEnd < currentContent.length && /[a-zA-Z0-9_\-\.]/.test(currentContent[mentionEnd])) {
         mentionEnd++
       }
-      richTextEditorRef.current.insertMention(user.username, currentMentionStart, mentionEnd)
+      richTextEditorRef.current.insertMention(user.username || '', currentMentionStart, mentionEnd)
     }
     setShowMentionAutocomplete(false)
     setMentionQuery('')

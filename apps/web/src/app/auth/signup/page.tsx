@@ -7,6 +7,7 @@ import { getCompleteInputStyling } from "@/utils/inputStyles"
 import PasswordInput from "@/components/PasswordInput"
 import OAuthIconButton from "@/components/OAuthIconButton"
 import AccountLinkingDialog from "@/components/AccountLinkingDialog"
+import ResurrectionDialog from "@/components/ResurrectionDialog"
 import { useOAuth } from "@/hooks/useOAuth"
 import { setAccessToken } from "@/utils/auth"
 
@@ -23,6 +24,9 @@ export default function SignupPage() {
   const [error, setError] = useState("")
   const [showLinkingDialog, setShowLinkingDialog] = useState(false)
   const [linkingData, setLinkingData] = useState<any>(null)
+  const [showResurrectionDialog, setShowResurrectionDialog] = useState(false)
+  const [resurrectionAction, setResurrectionAction] = useState<"accept" | "decline" | null>(null)
+  const [isResurrecting, setIsResurrecting] = useState(false)
 
   const {
     providers,
@@ -35,30 +39,9 @@ export default function SignupPage() {
 
   const [usernameError, setUsernameError] = useState("")
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const doSignup = async (resurrectAction?: string) => {
     setIsLoading(true)
     setError("")
-
-    // Re-validate username on submit
-    if (!validateUsername(formData.username)) {
-      setIsLoading(false)
-      return
-    }
-
-    // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
-    }
-
-    // Validate password strength
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long")
-      setIsLoading(false)
-      return
-    }
 
     try {
       const response = await fetch('/api/auth/signup', {
@@ -69,71 +52,111 @@ export default function SignupPage() {
         body: JSON.stringify({
           username: formData.username,
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          ...(resurrectAction ? { resurrect_action: resurrectAction } : {}),
         }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        // Use centralized normalization to extract auth data
         const { normalizeAuthResponse } = await import('@/utils/authNormalization')
         const normalized = normalizeAuthResponse(data)
-        
+
         if (normalized.accessToken) {
           setAccessToken(normalized.accessToken)
         }
 
-        // Redirect to feed or login
         router.push(normalized.accessToken ? "/feed" : "/auth/login")
-      } else {
-        // Handle structured error responses from backend
-        let errorMessage = "Signup failed. Please try again."
-
-        try {
-          if (data.detail) {
-            if (Array.isArray(data.detail)) {
-              // Handle validation errors (array of error objects)
-              errorMessage = data.detail.map((err: any) => {
-                if (typeof err === 'string') return err
-                if (typeof err === 'object' && err !== null) {
-                  return err.msg || err.message || JSON.stringify(err)
-                }
-                return String(err)
-              }).join(', ')
-            } else if (typeof data.detail === 'string') {
-              // Handle simple string errors
-              errorMessage = data.detail
-            } else if (typeof data.detail === 'object' && data.detail !== null) {
-              // Handle error objects with message property
-              errorMessage = data.detail.message || JSON.stringify(data.detail)
-            } else {
-              errorMessage = String(data.detail)
-            }
-          } else if (data.message && typeof data.message === 'string') {
-            errorMessage = data.message
-          } else if (data.error && typeof data.error === 'string') {
-            errorMessage = data.error
-          } else if (data.error && typeof data.error === 'object' && data.error !== null) {
-            errorMessage = data.error.message || JSON.stringify(data.error)
-          }
-        } catch (parseError) {
-          console.error('Error parsing error response:', parseError)
-          errorMessage = "Signup failed. Please try again."
-        }
-
-        // Ensure errorMessage is always a string
-        if (typeof errorMessage !== 'string') {
-          errorMessage = "Signup failed. Please try again."
-        }
-
-        setError(errorMessage)
+        return true
       }
+
+      // Detect canonical resurrection_available response
+      if (response.status === 409 && data.type === 'resurrection_available') {
+        setShowResurrectionDialog(true)
+        return false
+      }
+
+      // Handle structured error responses (HTTPException detail, or direct body)
+      const detail = data.detail
+      let errorMessage = "Signup failed. Please try again."
+      try {
+        if (detail) {
+          if (Array.isArray(detail)) {
+            errorMessage = detail.map((err: any) => {
+              if (typeof err === 'string') return err
+              if (typeof err === 'object' && err !== null) {
+                return err.msg || err.message || JSON.stringify(err)
+              }
+              return String(err)
+            }).join(', ')
+          } else if (typeof detail === 'string') {
+            errorMessage = detail
+          } else if (typeof detail === 'object' && detail !== null) {
+            errorMessage = detail.message || JSON.stringify(detail)
+          } else {
+            errorMessage = String(detail)
+          }
+        } else if (data.message && typeof data.message === 'string') {
+          errorMessage = data.message
+        } else if (data.error && typeof data.error === 'string') {
+          errorMessage = data.error
+        } else if (data.error && typeof data.error === 'object' && data.error !== null) {
+          errorMessage = data.error.message || JSON.stringify(data.error)
+        }
+      } catch (parseError) {
+        console.error('Error parsing error response:', parseError)
+      }
+
+      if (typeof errorMessage !== 'string') {
+        errorMessage = "Signup failed. Please try again."
+      }
+      setError(errorMessage)
+      return false
     } catch (error) {
       setError("Network error. Please check your connection.")
+      return false
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validateUsername(formData.username)) {
+      return
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long")
+      return
+    }
+
+    await doSignup()
+  }
+
+  const handleResurrectAccept = async () => {
+    setIsResurrecting(true)
+    setShowResurrectionDialog(false)
+    await doSignup("accept")
+    setIsResurrecting(false)
+  }
+
+  const handleResurrectDecline = async () => {
+    setIsResurrecting(true)
+    setShowResurrectionDialog(false)
+    await doSignup("decline")
+    setIsResurrecting(false)
+  }
+
+  const handleResurrectionClose = () => {
+    setShowResurrectionDialog(false)
   }
 
   const validateUsername = (value: string): boolean => {
@@ -333,6 +356,18 @@ export default function SignupPage() {
             existingUser={linkingData.existingUser}
             oauthProvider={linkingData.provider}
             isLoading={false}
+          />
+        )}
+
+        {/* Resurrection Dialog */}
+        {showResurrectionDialog && (
+          <ResurrectionDialog
+            isOpen={showResurrectionDialog}
+            identity="email address"
+            isLoading={isResurrecting}
+            onRestore={handleResurrectAccept}
+            onStartFresh={handleResurrectDecline}
+            onClose={handleResurrectionClose}
           />
         )}
       </div>

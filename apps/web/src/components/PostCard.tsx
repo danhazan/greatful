@@ -718,35 +718,49 @@ export default function PostCard({
     specificUsers: postSpecificUsers,
   }), [postPrivacyLevel, postPrivacyRules, postSpecificUsers])
 
+  const isDeletedAuthor = currentPost.author.isDeleted === true || currentPost.author.accountStatus === 'deleted'
+
   return (
     <>
       <article className={styling.container} data-post-id={post.id}>
         {/* Post Header */}
         <div className={styling.header}>
           <div className="flex items-start gap-3">
-            <Link href={`/profile/${currentPost.author.id}`} className="flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all rounded-full">
-              <ProfilePhotoDisplay
-                photoUrl={currentPost.author.profileImageUrl || currentPost.author.image}
-                username={currentPost.author.username || currentPost.author.name}
-                size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
-                className="flex-shrink-0"
-              />
-            </Link>
+            {isDeletedAuthor ? (
+              <div className="flex-shrink-0 rounded-full bg-gray-200 w-12 h-12 flex items-center justify-center">
+                <span className="text-gray-400 text-lg">?</span>
+              </div>
+            ) : (
+              <Link href={`/profile/${currentPost.author.id}`} className="flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all rounded-full">
+                <ProfilePhotoDisplay
+                  photoUrl={currentPost.author.profileImageUrl || currentPost.author.image}
+                  username={currentPost.author.username || currentPost.author.name}
+                  size={styling.avatar.includes('w-12') ? 'md' : 'lg'}
+                  className="flex-shrink-0"
+                />
+              </Link>
+            )}
             {/* Content Column */}
             <div className="flex-1 min-w-0">
               {/* Row 1: Name + Follow + Options */}
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Link
-                    href={`/profile/${currentPost.author.id}`}
-                    className="min-w-0 cursor-pointer hover:text-purple-700 transition-colors no-underline text-inherit"
-                  >
-                    <h3 className={`${styling.name} text-gray-900 font-bold truncate`}>
-                      {currentPost.author.displayName || currentPost.author.name}
+                  {isDeletedAuthor ? (
+                    <h3 className={`${styling.name} text-gray-400 font-bold truncate`}>
+                      Deleted user
                     </h3>
-                  </Link>
-                  {/* Follow button */}
-                  {currentUserId &&
+                  ) : (
+                    <Link
+                      href={`/profile/${currentPost.author.id}`}
+                      className="min-w-0 cursor-pointer hover:text-purple-700 transition-colors no-underline text-inherit"
+                    >
+                      <h3 className={`${styling.name} text-gray-900 font-bold truncate`}>
+                        {currentPost.author.displayName || currentPost.author.name}
+                      </h3>
+                    </Link>
+                  )}
+                  {/* Follow button (hidden for deleted users) */}
+                  {!isDeletedAuthor && currentUserId &&
                     currentUserId !== currentPost.author.id &&
                     !isNaN(parseInt(currentPost.author.id)) &&
                     !hideFollowButton && (

@@ -793,13 +793,26 @@ Content-Type: application/json
 
 ### Authentication
 ```
-POST   /api/v1/auth/signup               # Create new user account
+POST   /api/v1/auth/signup               # Create new user account (409 if tombstone exists)
 POST   /api/v1/auth/login                # Authenticate user and get token
 GET    /api/v1/auth/session              # Get current user session info
 POST   /api/v1/auth/logout               # Logout user (placeholder for token blacklisting)
 POST   /api/v1/auth/forgot-password      # Initiate password reset (send reset token)
 POST   /api/v1/auth/reset-password       # Complete password reset using token
+POST   /api/v1/auth/oauth/resurrect      # Handle OAuth resurrection (accept/decline)
 ```
+
+**Signup Resurrection Behavior (`POST /api/v1/auth/signup`):**
+- If email matches an unconsumed tombstone → **409 Conflict** with `detail.code: "resurrection_available"`, `tombstone_user_id`, `detail.email`
+- Frontend shows `ResurrectionDialog` → user chooses accept (restore) or decline (start fresh)
+- On **accept**: password set, old account restored, `consumed_at` NOT set
+- On **decline**: `consume_tombstones()` called, fresh account created
+
+**OAuth Resurrection (`POST /api/v1/auth/oauth/resurrect`):**
+- Called by frontend after user responds to ResurrectionDialog in OAuth flow
+- Request: `{ "resurrect_action": "accept"|"decline", "resurrection_token": "jwt...", "email": "user@...", "oauth_user_info": {...} }`
+- **accept**: restores old account, returns JWT tokens
+- **decline**: calls `consume_tombstones()`, creates fresh account with OAuth profile data, returns JWT tokens
 
 ### Password Management
 ```
@@ -931,6 +944,7 @@ Handles OAuth callback from provider, exchanges authorization code for access to
 - `OAUTH_INVALID_STATE`: CSRF state validation failed
 - `OAUTH_ACCOUNT_CONFLICT`: Account linking conflicts detected
 - `OAUTH_USER_DATA_INVALID`: Invalid user data from OAuth provider
+- `OAUTH_RESURRECTION_AVAILABLE`: Tombstone identity found — return 409 with `resurrection_token`, `oauth_email`, `oauth_user_info`
 
 #### OAuth Health Check
 
@@ -1082,15 +1096,29 @@ POST   /api/v1/users/location/search     # Search locations for profile city fie
 - Auth tokens are invalidated via `token_version` increment
 - Owned posts become tombstones (content cleared, `deleted_at` set)
 - Email is anonymized (original becomes reusable)
+- Username scrubbed to `deleted_user_{id}_{hash}` (satisfies `^[a-z0-9_]+$`, ≤30 chars)
 - OAuth identity preserved in `deleted_user_auth_identities`, then scrubbed from user row
 - Profile still accessible via `/users/{id}` (returns tombstone view)
 - Response: `{ "success": true, "data": { "id", "username", "account_status": "deleted", "is_deleted": true, "deleted_at" } }`
 
 **User Serialization Contract:**
-All user references in API responses (comments, reactions, mentions, notifications, feeds) use consistent tombstone-aware serialization:
+All user references in API responses (comments, reactions, mentions, notifications, feeds) use consistent tombstone-aware serialization (via `app/core/user_serialization.py`):
 - `is_deleted`: boolean indicating deleted account
 - `account_status`: "active", "deletion_pending", or "deleted"
-- Deleted users return `name: "Deleted user"`, `display_name: null`, `image: null`
+- Deleted users return `username: null`, `display_name: "Deleted user"`, `name: "Deleted user"`, `profile_image_url: null`, `image: null`
+- Both `display_name` and `name` set to "Deleted user" for resilience against components that forget the `isDeleted` check
+- Frontend renders: gray placeholder avatar (no link), "Deleted user" text (not clickable), no follow button
+
+**Resurrection on Signup:**
+- `POST /api/v1/auth/signup` returns **409 Conflict** when email matches an unconsumed tombstone
+- 409 body includes: `detail.code: "resurrection_available"`, `tombstone_user_id`, `detail.email`
+- Frontend shows `ResurrectionDialog` → user accepts (restore old account) or declines (consume tombstone + create fresh account)
+
+**OAuth Resurrection:**
+- `POST /api/v1/oauth/callback/{provider}` returns **409 Conflict** when OAuth identity matches unconsumed tombstone
+- 409 body includes: `resurrection_token` (JWT), `tombstone_user_id`, `provider`, `oauth_email`, `oauth_user_info`
+- Frontend shows `ResurrectionDialog` → calls `POST /api/v1/auth/oauth/resurrect` with user's choice
+- Resurrection token is minimal JWT (provider, provider_user_id, tombstone_user_id, nonce) — email/profile passed through 409 body, not embedded
 
 ### Posts
 ```

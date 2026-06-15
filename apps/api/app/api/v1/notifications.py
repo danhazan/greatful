@@ -134,15 +134,7 @@ async def resolve_notification_user(db: AsyncSession, notification_data: dict) -
         if resolved_user:
             return resolved_user
         else:
-            # Fallback to basic data
-            return {
-                'id': notification_data.get('actor_user_id', '0'),
-                'name': notification_data['actor_username'],
-                'username': notification_data['actor_username'],
-                'image': None,
-                'is_deleted': False,
-                'account_status': 'unknown',
-            }
+            return serialize_public_user_reference(None)
     
     # Try specific notification type usernames
     username_fields = ['reactor_username', 'liker_username', 'author_username', 'follower_username']
@@ -225,7 +217,6 @@ async def get_notifications(
             for p in profiles_list:
                 p_id = p['id']
                 stats = author_stats.get(p_id, {})
-                is_deleted = p.get('is_deleted', False) or p.get('account_status') == 'deleted'
                 resolved_profiles[str(p_id)] = {
                     'id': str(p_id),
                     'name': p.get('display_name') or p['username'],
@@ -236,7 +227,7 @@ async def get_notifications(
                     'following_count': stats.get('following_count', 0),
                     'posts_count': stats.get('posts_count', 0),
                     'is_following': follow_statuses.get(p_id, False) if current_user_id and current_user_id != p_id else None,
-                    'is_deleted': is_deleted,
+                    'is_deleted': p.get('is_deleted', False),
                     'account_status': p.get('account_status', 'active'),
                 }
 
@@ -259,14 +250,7 @@ async def get_notifications(
             
             # Default fallback if no user found
             if not from_user:
-                from_user = {
-                    'id': '0',
-                    'name': 'Unknown User',
-                    'username': 'unknown',
-                    'image': None,
-                    'is_deleted': False,
-                    'account_status': 'unknown',
-                }
+                from_user = serialize_public_user_reference(None)
             
             response_notifications.append(NotificationResponse(
                 id=notification.id,

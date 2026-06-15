@@ -7,7 +7,7 @@ def to_camel(string: str) -> str:
 class AuthorResponse(BaseModel):
     """Unified response model for user author/actor data with consistent camelCase serialization."""
     id: str
-    username: str
+    username: Optional[str] = None
     display_name: Optional[str] = None
     name: str
     image: Optional[str] = None

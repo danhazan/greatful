@@ -6,13 +6,14 @@ import { validProfileId } from "@/utils/idGuards"
 
 interface ClickableProfilePictureProps {
   userId?: string | number
-  username?: string
+  username?: string | null
   imageUrl?: string | null
-  displayName?: string
+  displayName?: string | null
   size?: 'small' | 'medium' | 'large'
   className?: string
   onClick?: (e: React.MouseEvent) => void
   disableProfileNavigation?: boolean
+  isDeleted?: boolean
 }
 
 /**
@@ -27,20 +28,29 @@ export default function ClickableProfilePicture({
   size = 'medium',
   className,
   onClick,
-  disableProfileNavigation = false
+  disableProfileNavigation = false,
+  isDeleted = false
 }: ClickableProfilePictureProps) {
   const [imageError, setImageError] = useState(false)
-
-  // Reset image error when URL changes
-  useEffect(() => {
-    setImageError(false)
-  }, [imageUrl])
 
   // Size configurations
   const sizeClasses = {
     small: 'w-8 h-8',
     medium: 'w-10 h-10', 
     large: 'w-12 h-12'
+  }
+
+  // Reset image error when URL changes
+  useEffect(() => {
+    setImageError(false)
+  }, [imageUrl])
+
+  if (isDeleted) {
+    return (
+      <div className={`${sizeClasses[size] || 'w-10 h-10'} rounded-full bg-gray-200 flex items-center justify-center ${className || ''}`}>
+        <span className="text-gray-400 text-sm">?</span>
+      </div>
+    )
   }
 
   const textSizeClasses = {

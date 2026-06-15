@@ -88,6 +88,25 @@ See each folder’s README (if present) for more details.
 - **Database:** PostgreSQL
   - Used by the backend for persistent storage with async SQLAlchemy
 
+### 🪦 Account Deletion → Resurrection Lifecycle
+
+The platform uses a **tombstone-based deletion + identity-driven resurrection** system:
+
+**Deletion** (`DELETE /api/v1/users/me`):
+- User row retained (`account_status = "deleted"`), username scrubbed to `deleted_user_{id}_{hash}`
+- Email anonymized → original freed for reuse; OAuth identity copied to `deleted_user_auth_identities` then scrubbed
+- Auth tokens invalidated via `token_version`; owned posts soft-deleted
+- All references rendered via serializer contract: `username: null`, `display_name: "Deleted user"`, `name: "Deleted user"`, `image: null`
+
+**Resurrection (2-Phase, both password & OAuth)**:
+- **Phase 1 (Detection)**: Signup/oauth-callback detects unconsumed tombstone → **409 Conflict**
+- **Phase 2 (Decision)**: Frontend `ResurrectionDialog` → user chooses Accept (restore) or Decline (start fresh)
+- **Accept**: Old account restored, tombstones remain unconsumed
+- **Decline**: `consume_tombstones()` sets `consumed_at` on all identities → identity severed → fresh account created
+- Tombstones are NEVER hard-deleted; `consumed_at` preserves audit trail
+
+**Key files**: `app/core/resurrection.py`, `app/core/user_serialization.py`, `app/models/deleted_user_auth_identity.py`
+
 ---
 
 ## 🔄 Data Hydration & Normalization

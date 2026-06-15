@@ -30,8 +30,8 @@ def serialize_public_user_reference(user: Optional[User]) -> Dict[str, Any]:
     if is_deleted_user(user):
         return {
             "id": user.id,
-            "username": user.username,
-            "display_name": None,
+            "username": None,
+            "display_name": DELETED_USER_DISPLAY_NAME,
             "name": DELETED_USER_DISPLAY_NAME,
             "profile_image_url": None,
             "image": None,
@@ -56,10 +56,11 @@ def serialize_deleted_profile(user: User, include_email: bool = False) -> Dict[s
     """Serialize the profile tombstone for a deleted user."""
     profile = {
         "id": user.id,
-        "username": user.username,
+        "username": None,
+        "display_name": DELETED_USER_DISPLAY_NAME,
+        "name": DELETED_USER_DISPLAY_NAME,
         "bio": None,
         "profile_image_url": None,
-        "display_name": None,
         "city": None,
         "location": None,
         "institutions": [],

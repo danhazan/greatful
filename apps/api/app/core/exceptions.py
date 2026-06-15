@@ -52,12 +52,15 @@ class NotFoundError(BaseAPIException):
 class ConflictError(BaseAPIException):
     """Exception for resource conflict errors."""
     
-    def __init__(self, message: str, resource: Optional[str] = None):
+    def __init__(self, message: str, resource: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        merged_details = {"resource": resource}
+        if details:
+            merged_details.update(details)
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
             error_code="already_exists",
             message=message,
-            details={"resource": resource}
+            details=merged_details
         )
 
 
@@ -167,3 +170,37 @@ class ConnectionError(DatabaseError):
             message=message,
             operation="connection"
         )
+
+
+class ResurrectionRequired(Exception):
+    """NOT an HTTPException — signals resurrection flow to route handlers only.
+
+    Raised by services when a tombstoned identity is detected. Route handlers
+    intercept this and return the canonical ResurrectionResponse (JSONResponse
+    with status 409), bypassing the global exception handler entirely.
+
+    Not an HTTPException subclass, so it will never be caught by:
+      - FastAPI/Starlette's built-in HTTPException handler
+      - ErrorHandlingMiddleware (which catches BaseAPIException)
+      - except HTTPException clauses
+    """
+
+    def __init__(
+        self,
+        identity_type: str,
+        *,
+        tombstone_user_id: Optional[int] = None,
+        provider: Optional[str] = None,
+        provider_user_id: Optional[str] = None,
+        oauth_email: Optional[str] = None,
+        oauth_user_info: Optional[dict] = None,
+        message: Optional[str] = None,
+    ):
+        self.identity_type = identity_type
+        self.tombstone_user_id = tombstone_user_id
+        self.provider = provider
+        self.provider_user_id = provider_user_id
+        self.oauth_email = oauth_email
+        self.oauth_user_info = oauth_user_info
+        self.message = message
+        super().__init__(message or "Resurrection available")

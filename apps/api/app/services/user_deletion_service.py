@@ -146,6 +146,11 @@ class UserDeletionService:
         now = datetime.now(timezone.utc)
         await self._preserve_recovery_identity(user, now)
 
+        # Scrub username deterministically — releases the original username immediately.
+        # Username is NEVER preserved for identity; old usernames may be taken by new users.
+        # Format uses underscores to satisfy username_validation_check (~ '^[a-z0-9_]+$', LENGTH 3-30).
+        short_hash = hashlib.sha256(f"{os.getenv('SECRET_KEY', 'development-key')}:{user.id}".encode()).hexdigest()[:6]
+        user.username = f"deleted_user_{user.id}_{short_hash}"
         user.email = f"deleted-user-{user.id}-{secrets.token_hex(8)}@deleted.grateful.internal"
         user.hashed_password = get_password_hash(secrets.token_urlsafe(32))
         user.bio = None

@@ -64,13 +64,16 @@ export type ApiUserPartial = {
 export function normalizeToUserSearchResult(apiUser: ApiUserPartial): UserSearchResult {
   const rawImage = apiUser.profileImageUrl || apiUser.profile_image_url || apiUser.image || null
   const absoluteImage = toAbsoluteImageUrl(rawImage)
+  const isDeleted = !!(apiUser as any).isDeleted || !!(apiUser as any).is_deleted || (apiUser as any).account_status === 'deleted'
   
   return {
     id: apiUser.id,
-    username: apiUser.username || `user${apiUser.id}`,
-    displayName: apiUser.displayName || apiUser.display_name || apiUser.name || apiUser.username,
-    profileImageUrl: absoluteImage,
-    bio: apiUser.bio
+    username: isDeleted ? null : (apiUser.username || `user${apiUser.id}`),
+    displayName: isDeleted ? 'Deleted user' : (apiUser.displayName || apiUser.display_name || apiUser.name || apiUser.username),
+    profileImageUrl: isDeleted ? null : absoluteImage,
+    bio: isDeleted ? null : apiUser.bio,
+    isDeleted,
+    accountStatus: isDeleted ? 'deleted' : ((apiUser as any).accountStatus || (apiUser as any).account_status)
   }
 }
 

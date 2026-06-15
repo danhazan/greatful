@@ -218,6 +218,83 @@ def decode_token(token: str, token_type: str = "access") -> Dict[str, Any]:
         raise
 
 
+# Resurrection token constants
+RESURRECTION_TOKEN_EXPIRE_MINUTES = 15
+
+
+def create_resurrection_token(data: Dict[str, Any]) -> str:
+    """
+    Create a short-lived JWT resurrection token for OAuth flow.
+
+    This is NOT an auth token — it is strictly a decision continuation
+    token that preserves OAuth state across the frontend's resurrection
+    decision step.
+
+    Payload MUST contain ONLY:
+      - provider
+      - provider_user_id
+      - tombstone_user_id
+      - nonce
+
+    MUST NOT contain: email, username, session tokens, or auth credentials.
+    """
+    to_encode = data.copy()
+    current_time = datetime.now(timezone.utc)
+    expire = current_time + timedelta(minutes=RESURRECTION_TOKEN_EXPIRE_MINUTES)
+
+    to_encode.update(
+        {
+            "exp": expire,
+            "iat": current_time,
+            "nbf": current_time,
+            "jti": str(uuid.uuid4()),
+            "type": "resurrection",
+            "iss": "grateful-api",
+            "aud": "grateful-client",
+        }
+    )
+
+    if "provider" not in to_encode or "provider_user_id" not in to_encode:
+        raise ValueError("Resurrection token must contain 'provider' and 'provider_user_id'")
+    if "tombstone_user_id" not in to_encode:
+        raise ValueError("Resurrection token must contain 'tombstone_user_id'")
+    if "nonce" not in to_encode:
+        raise ValueError("Resurrection token must contain 'nonce'")
+
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def decode_resurrection_token(token: str) -> Dict[str, Any]:
+    """
+    Decode and validate a resurrection token.
+
+    Raises:
+        jwt.PyJWTError: If token is invalid, expired, or wrong type.
+    """
+    payload = jwt.decode(
+        token,
+        SECRET_KEY,
+        algorithms=[ALGORITHM],
+        options={
+            "verify_signature": True,
+            "verify_exp": True,
+            "verify_nbf": True,
+            "verify_iat": True,
+            "verify_aud": True,
+            "verify_iss": True,
+            "require": ["exp", "iat", "nbf", "jti", "provider", "provider_user_id", "tombstone_user_id", "nonce"],
+        },
+        audience="grateful-client",
+        issuer="grateful-api",
+    )
+
+    if payload.get("type") != "resurrection":
+        raise ValueError("Invalid token type — expected resurrection token")
+
+    return payload
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify a password against its hash.

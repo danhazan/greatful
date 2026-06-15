@@ -316,8 +316,8 @@ class PostRepository(BaseRepository):
                 "is_deleted": bool(row.deleted_at),
                 "author": {
                     "id": str(row.author_user_id),
-                    "username": row.author_username,
-                    "display_name": None if row.author_account_status == "deleted" else row.author_display_name,
+                    "username": None if row.author_account_status == "deleted" else row.author_username,
+                    "display_name": "Deleted user" if row.author_account_status == "deleted" else row.author_display_name,
                     "name": "Deleted user" if row.author_account_status == "deleted" else (row.author_display_name or row.author_username or "Unknown"),
                     "image": None if row.author_account_status == "deleted" else author_profile_image_url,
                     "follower_count": 0,
@@ -440,8 +440,8 @@ class PostRepository(BaseRepository):
             "is_deleted": True,
             "author": {
                 "id": str(user.id),
-                "username": user.username,
-                "display_name": None if author_status == "deleted" else user.display_name,
+                "username": None if author_status == "deleted" else user.username,
+                "display_name": "Deleted user" if author_status == "deleted" else user.display_name,
                 "name": "Deleted user" if author_status == "deleted" else (user.display_name or user.username),
                 "image": None if author_status == "deleted" else storage.get_url(user.profile_image_url) if user.profile_image_url else None,
                 "follower_count": 0,

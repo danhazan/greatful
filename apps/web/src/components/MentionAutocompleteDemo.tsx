@@ -6,9 +6,9 @@ import { getCompleteInputStyling } from '@/utils/inputStyles'
 // UserInfo type defined locally
 interface UserInfo {
   id: number
-  username: string
-  profile_image_url?: string
-  bio?: string
+  username: string | null
+  profile_image_url?: string | null
+  bio?: string | null
 }
 
 export default function MentionAutocompleteDemo() {
@@ -57,14 +57,15 @@ export default function MentionAutocompleteDemo() {
     // Find the @ symbol and replace with @username
     const atMatch = textBeforeCursor.match(/@(\w*)$/)
     if (atMatch) {
+      const username = user.username || ''
       const beforeAt = textBeforeCursor.substring(0, atMatch.index)
-      const newText = beforeAt + `@${user.username} ` + textAfterCursor
+      const newText = beforeAt + `@${username} ` + textAfterCursor
       setText(newText)
       
       // Set cursor position after the mention
       setTimeout(() => {
         if (textareaRef.current) {
-          const newCursorPos = beforeAt.length + user.username.length + 2
+          const newCursorPos = beforeAt.length + username.length + 2
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos)
           textareaRef.current.focus()
         }

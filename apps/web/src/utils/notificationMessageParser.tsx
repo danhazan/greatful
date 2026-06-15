@@ -3,9 +3,9 @@ import ClickableUsername from '@/components/ClickableUsername'
 
 interface NotificationUser {
   id?: string | number
-  name?: string        // This is the display name from backend
-  username?: string   // This is the actual username for navigation
-  image?: string
+  name?: string | null
+  username?: string | null
+  image?: string | null
 }
 
 interface NotificationData {

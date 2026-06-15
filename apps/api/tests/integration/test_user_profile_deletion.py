@@ -54,7 +54,7 @@ class TestUserProfileDeletion:
         result = data.get("data", {})
         assert result.get("account_status") == "deleted"
         assert result.get("is_deleted") is True
-        assert result.get("username") == test_user.username
+        assert result.get("username", "").startswith("deleted_user_")
 
     async def test_delete_account_wrong_confirmation_fails(
         self,
@@ -89,27 +89,37 @@ class TestUserProfileDeletion:
     #  Username retirement
     # ------------------------------------------------------------------ #
 
-    async def test_deleted_username_cannot_be_reused(
+    async def test_deleted_username_is_released(
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
         test_user: User,
         auth_headers: dict,
     ):
-        """After deletion, the same username cannot be used for a new signup."""
-        await self._delete_account(async_client, auth_headers, test_user.username)
+        """After deletion, the original username is released for new signups."""
+        original_username = test_user.username
+        await self._delete_account(async_client, auth_headers, original_username)
 
+        # The deleted user's username is now scrubbed
+        await db_session.refresh(test_user)
+        assert test_user.username.startswith("deleted_user_")
+        assert test_user.username != original_username
+
+        # The original username is free
         new_user = User(
             email="new@example.com",
-            username=test_user.username,
+            username=original_username,
             hashed_password=get_password_hash("newpassword"),
         )
         db_session.add(new_user)
-        try:
-            await db_session.commit()
-            pytest.fail("Expected unique constraint violation on username")
-        except Exception:
-            await db_session.rollback()
+        await db_session.commit()
+        db_session.expunge(new_user)
+
+        # Clean up
+        await db_session.execute(
+            __import__("sqlalchemy").delete(User).where(User.email == "new@example.com")
+        )
+        await db_session.commit()
 
     # ------------------------------------------------------------------ #
     #  Email reuse
@@ -528,7 +538,9 @@ class TestUserProfileDeletion:
 
         from_user = notifs[0].get("from_user", {})
         if from_user:
-            assert from_user.get("is_deleted") is True or from_user.get("username") is not None
+            assert from_user.get("isDeleted") is True
+            assert from_user.get("username") is None
+            assert from_user.get("displayName") == "Deleted user"
 
     # ------------------------------------------------------------------ #
     #  Profile accessible after deletion (tombstone)
@@ -556,6 +568,7 @@ class TestUserProfileDeletion:
         assert data is not None
         profile = data.get("data") if isinstance(data, dict) else data
         if profile:
-            is_deleted = profile.get("isDeleted") or profile.get("is_deleted") or False
+            is_deleted = profile.get("is_deleted") or False
             assert is_deleted
-            assert profile.get("username") == test_user.username
+            assert profile.get("username") is None
+            assert profile.get("display_name") == "Deleted user"

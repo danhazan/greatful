@@ -319,6 +319,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                 displayName={notification.fromUser?.name}
                                 size="medium"
                                 disableProfileNavigation={shouldDisableNotificationProfileNavigation(notification)}
+                                isDeleted={notification.fromUser?.isDeleted === true || notification.fromUser?.accountStatus === 'deleted'}
                               />
                             )}
                           </div>
@@ -392,6 +393,7 @@ export default function NotificationSystem({ userId }: NotificationSystemProps) 
                                     displayName={child.fromUser?.name}
                                     size="small"
                                     disableProfileNavigation={shouldDisableNotificationProfileNavigation(child)}
+                                    isDeleted={child.fromUser?.isDeleted === true || child.fromUser?.accountStatus === 'deleted'}
                                   />
                                 </div>
 

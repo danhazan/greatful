@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.core.responses import success_response, error_response, AuthResponse, build_auth_response
-from app.core.exceptions import AuthenticationError, ValidationException, BusinessLogicError
+from app.core.exceptions import AuthenticationError, ConflictError, ValidationException, BusinessLogicError, ResurrectionRequired
 from app.core.oauth_config import (
     get_oauth_config, 
     validate_oauth_state, 
@@ -325,8 +325,19 @@ async def oauth_callback(
             request_id=getattr(request.state, 'request_id', None)
         )
         
-    except HTTPException:
-        raise
+    except ResurrectionRequired as e:
+        from app.core.resurrection_response import build_oauth_resurrection_response
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=409,
+            content=build_oauth_resurrection_response(
+                provider=e.provider,
+                provider_user_id=e.provider_user_id,
+                tombstone_user_id=e.tombstone_user_id,
+                oauth_email=e.oauth_email,
+                oauth_user_info=e.oauth_user_info,
+            ),
+        )
     except AuthenticationError as e:
         log_oauth_security_event('authentication_failed', provider, details={'error': str(e)})
         raise HTTPException(status_code=401, detail=str(e))
@@ -336,6 +347,8 @@ async def oauth_callback(
     except BusinessLogicError as e:
         log_oauth_security_event('business_logic_error', provider, details={'error': str(e)})
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         # Full stack trace in logs (non-secret)
         tb = traceback.format_exc()

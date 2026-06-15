@@ -883,14 +883,20 @@ export default function CommentsModal({
         <div className="flex space-x-3">
           {/* User Profile Picture */}
             <div className="flex-shrink-0">
-              <a href={`/profile/${comment.user.id}`} aria-label={`${comment.user.displayName || comment.user.username}'s profile`}>
-                <ProfilePhotoDisplay
-                  photoUrl={comment.user.profileImageUrl}
-                  username={comment.user.username}
-                  size="sm"
-                  className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                />
-              </a>
+              {isDeletedUser ? (
+                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                  <span className="text-sm text-gray-400">?</span>
+                </div>
+              ) : (
+                <a href={`/profile/${comment.user.id}`} aria-label={`${displayName}'s profile`}>
+                  <ProfilePhotoDisplay
+                    photoUrl={comment.user.profileImageUrl}
+                    username={comment.user.username}
+                    size="sm"
+                    className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                  />
+                </a>
+              )}
             </div>
 
           {/* Comment Content */}

@@ -96,10 +96,25 @@ class OAuthService {
       const data = await response.json()
 
       if (!response.ok) {
+        // Canonical resurrection_available response (direct JSONResponse body)
+        if (data.type === 'resurrection_available') {
+          const error: OAuthError = {
+            error: 'resurrection_available',
+            message: 'Account resurrection is required',
+            details: data,
+          }
+          throw error
+        }
+
+        const rawDetail = data.detail
+        const detailMessage = typeof rawDetail === 'string'
+          ? rawDetail
+          : rawDetail?.message || data.message || 'OAuth authentication failed'
+
         const error: OAuthError = {
           error: data.error || 'oauth_error',
-          message: data.detail || data.message || 'OAuth authentication failed',
-          details: data.details
+          message: detailMessage,
+          details: data.details || (typeof rawDetail === 'object' && rawDetail !== null ? rawDetail : undefined),
         }
         throw error
       }
@@ -151,7 +166,8 @@ class OAuthService {
    * Handle OAuth errors with user-friendly messages
    */
   handleOAuthError(error: any): string {
-    const message = this.getErrorMessage(error)
+    const rawMessage = this.getErrorMessage(error)
+    const message = typeof rawMessage === 'string' ? rawMessage : 'Authentication failed. Please try again.'
 
     // Map common OAuth errors to user-friendly messages
     const errorMappings: Record<string, string> = {
