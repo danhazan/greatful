@@ -9,6 +9,7 @@ import OAuthIconButton from "@/components/OAuthIconButton"
 import AccountLinkingDialog from "@/components/AccountLinkingDialog"
 import ResurrectionDialog from "@/components/ResurrectionDialog"
 import { useOAuth } from "@/hooks/useOAuth"
+import { useUser } from "@/contexts/UserContext"
 import { setAccessToken } from "@/utils/auth"
 
 export default function SignupPage() {
@@ -27,6 +28,8 @@ export default function SignupPage() {
   const [showResurrectionDialog, setShowResurrectionDialog] = useState(false)
   const [resurrectionAction, setResurrectionAction] = useState<"accept" | "decline" | null>(null)
   const [isResurrecting, setIsResurrecting] = useState(false)
+
+  const { reloadUser } = useUser()
 
   const {
     providers,
@@ -65,6 +68,7 @@ export default function SignupPage() {
 
         if (normalized.accessToken) {
           setAccessToken(normalized.accessToken)
+          await reloadUser()
         }
 
         router.push(normalized.accessToken ? "/feed" : "/auth/login")

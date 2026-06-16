@@ -52,7 +52,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { currentUser: contextUser, isLoading: userLoading, isAuthTransitioning, logout } = useUser()
+  const { currentUser: contextUser, isLoading: userLoading, isAuthTransitioning, logout, updateCurrentUser } = useUser()
   const requireAuth = useRequireAuth()
   const { showError, showDebugLoading, showDebugSuccess, hideToast } = useToast()
   const [user, setUser] = useState<UserProfile | null>(null)
@@ -401,6 +401,7 @@ export default function ProfilePage() {
           if (user) {
             const updatedUser = { ...user, username: updatedData.username }
             setUser(updatedUser)
+            updateCurrentUser({ username: updatedData.username })
           }
           if (user) {
             apiClient.invalidateTags([

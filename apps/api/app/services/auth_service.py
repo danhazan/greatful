@@ -74,7 +74,12 @@ class AuthService(BaseService):
         self.validate_field_length(username, "username", 50, 3)
         self.validate_field_length(password, "password", 128, 8)
 
-        # --- Phase 1: Tombstone identity resolution ---
+        # --- Step 1: Active user check (ALWAYS before tombstone) ---
+        existing_active_user = await User.get_by_email(self.db, email)
+        if existing_active_user:
+            raise ConflictError("Email already registered", "user")
+
+        # --- Step 2: Tombstone identity resolution ---
         from app.core.resurrection import find_tombstone_by_email, resurrect_password_user, check_username_available
 
         tombstone = await find_tombstone_by_email(self.db, email)
@@ -108,10 +113,7 @@ class AuthService(BaseService):
                     ),
                 )
 
-        # --- Phase 2: New user creation ---
-        existing_user = await User.get_by_email(self.db, email)
-        if existing_user:
-            raise ConflictError("Email already registered", "user")
+        # --- Step 3: New user creation ---
 
         if not await check_username_available(self.db, username):
             raise ConflictError("Username already taken", "user")
