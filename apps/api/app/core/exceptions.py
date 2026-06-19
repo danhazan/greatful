@@ -172,6 +172,32 @@ class ConnectionError(DatabaseError):
         )
 
 
+class AuthenticationMethodMismatch(AuthenticationError):
+    """Raised when attempting to authenticate via the wrong authentication method.
+
+    This is NOT a resurrection scenario. It signals that the user exists with
+    a different authentication method (e.g., password user tries OAuth login,
+    or OAuth-only user tries password login).
+
+    Attributes:
+        code: Stable machine-readable error code:
+              "password_account_exists" | "oauth_account_exists"
+        provider: The OAuth provider name if applicable, else None.
+        message: Human-readable message for the frontend.
+    """
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        provider: Optional[str] = None,
+    ):
+        self.code = code
+        self.provider = provider
+        self.message = message
+        super().__init__(message=message)
+
+
 class ResurrectionRequired(Exception):
     """NOT an HTTPException — signals resurrection flow to route handlers only.
 

@@ -47,6 +47,15 @@ const DEFAULT_FILTER_MODES: Record<FeedFilterKey, FeedFilterMode> = {
 export default function FeedPage() {
   const router = useRouter()
   const { currentUser, isLoading: userLoading, isAuthTransitioning, logout, updateUserProfile, updateFollowState, markDataAsFresh } = useUser()
+
+  console.log('[FEED_INSTRUMENT] FeedPage render start', {
+    hasUser: !!currentUser,
+    userId: currentUser?.id,
+    username: currentUser?.username,
+    userLoading,
+    isAuthTransitioning,
+    ts: Date.now(),
+  })
   const requireAuth = useRequireAuth()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)

@@ -211,6 +211,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           profileImageUrl: userData.profileImageUrl
         }
 
+        // [AUTH_STATE] User loaded successfully — clear any stale auth transition flag
+        setIsAuthTransitioning(false)
+
         setCurrentUserWithTrace(user, 'loadUser:profileFetchSuccess')
 
         // Also store in user profiles for consistency
@@ -403,6 +406,13 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const unsubscribe = onSessionExpired(() => {
       if (isHandlingSessionExpiryRef.current) return
       isHandlingSessionExpiryRef.current = true
+
+      console.log('[AUTH_STATE] onSessionExpired fired', {
+        path: window.location.pathname,
+        hasUser: !!currentUserRef.current,
+        currentUserId: currentUserRef.current?.id,
+        ts: Date.now(),
+      })
 
       setIsAuthTransitioning(true)
 

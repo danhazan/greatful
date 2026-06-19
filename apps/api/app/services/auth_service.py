@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.service_base import BaseService
 from app.core.exceptions import (
     AuthenticationError,
+    AuthenticationMethodMismatch,
     ConflictError,
     ResurrectionRequired,
     ValidationException,
@@ -80,9 +81,22 @@ class AuthService(BaseService):
             raise ConflictError("Email already registered", "user")
 
         # --- Step 2: Tombstone identity resolution ---
-        from app.core.resurrection import find_tombstone_by_email, resurrect_password_user, check_username_available
+        from app.core.resurrection import (
+            check_username_available,
+            find_tombstone_by_email,
+            find_tombstone_by_oauth_email,
+            resurrect_password_user,
+        )
 
+        # 2a: Check for password tombstones by email
         tombstone = await find_tombstone_by_email(self.db, email)
+
+        # 2b: Fallback — if no password tombstone found, check if an OAuth-only
+        #     user previously owned this email address.
+        if not tombstone:
+            oauth_tombstone = await find_tombstone_by_oauth_email(self.db, email)
+            if oauth_tombstone:
+                tombstone = oauth_tombstone
 
         if tombstone:
             if resurrect_action == "accept":
@@ -166,7 +180,17 @@ class AuthService(BaseService):
         
         # Get user by email
         user = await User.get_by_email(self.db, email)
-        if not user or not verify_password(password, user.hashed_password):
+        if not user:
+            raise AuthenticationError("Incorrect email or password")
+
+        # OAuth-only users have no password — give a clear provider-specific message
+        if not user.hashed_password:
+            provider_name = user.oauth_provider or "social"
+            raise AuthenticationError(
+                f"This account uses {provider_name} authentication. Please continue with {provider_name}."
+            )
+
+        if not verify_password(password, user.hashed_password):
             raise AuthenticationError("Incorrect email or password")
         self._ensure_active_user(user)
         

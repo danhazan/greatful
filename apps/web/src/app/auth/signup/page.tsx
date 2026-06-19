@@ -63,14 +63,24 @@ export default function SignupPage() {
       const data = await response.json()
 
       if (response.ok) {
+        console.log('[SIGNUP_INSTRUMENT] OK response received', { status: response.status, resurrectAction })
+
         const { normalizeAuthResponse } = await import('@/utils/authNormalization')
         const normalized = normalizeAuthResponse(data)
 
+        console.log('[SIGNUP_INSTRUMENT] Auth normalized', {
+          hasAccessToken: !!normalized.accessToken,
+          userKeys: Object.keys(normalized.user),
+        })
+
         if (normalized.accessToken) {
           setAccessToken(normalized.accessToken)
+          console.log('[SIGNUP_INSTRUMENT] Access token stored, calling reloadUser()')
           await reloadUser()
+          console.log('[SIGNUP_INSTRUMENT] reloadUser() completed')
         }
 
+        console.log('[SIGNUP_INSTRUMENT] Navigating to', normalized.accessToken ? '/feed' : '/auth/login')
         router.push(normalized.accessToken ? "/feed" : "/auth/login")
         return true
       }
@@ -146,9 +156,12 @@ export default function SignupPage() {
   }
 
   const handleResurrectAccept = async () => {
+    console.log('[SIGNUP_INSTRUMENT] Resurrection accepted, starting flow')
     setIsResurrecting(true)
     setShowResurrectionDialog(false)
+    console.log('[SIGNUP_INSTRUMENT] Dialog hidden, calling doSignup("accept")')
     await doSignup("accept")
+    console.log('[SIGNUP_INSTRUMENT] doSignup completed, cleanup')
     setIsResurrecting(false)
   }
 

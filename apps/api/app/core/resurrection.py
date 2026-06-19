@@ -36,12 +36,23 @@ def _hash_identity(value: str) -> str:
 async def find_tombstone_by_email(
     db: AsyncSession, email: str
 ) -> Optional[DeletedUserAuthIdentity]:
-    """Look up a tombstone identity record by email hash."""
+    """Look up a tombstone identity record by email hash.
+
+    Uses deterministic ordering: newest deleted_at first, nulls last.
+    If multiple tombstones exist for the same email_hash (possible when
+    multiple users sequentially owned the same email and all deleted),
+    the most recently deleted tombstone wins.
+    """
     email_hash = _hash_identity(email)
-    stmt = select(DeletedUserAuthIdentity).where(
-        DeletedUserAuthIdentity.identity_type == "email",
-        DeletedUserAuthIdentity.email_hash == email_hash,
-        DeletedUserAuthIdentity.consumed_at.is_(None),
+    stmt = (
+        select(DeletedUserAuthIdentity)
+        .where(
+            DeletedUserAuthIdentity.identity_type == "email",
+            DeletedUserAuthIdentity.email_hash == email_hash,
+            DeletedUserAuthIdentity.consumed_at.is_(None),
+        )
+        .order_by(DeletedUserAuthIdentity.deleted_at.desc().nulls_last())
+        .limit(1)
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
@@ -50,14 +61,52 @@ async def find_tombstone_by_email(
 async def find_tombstone_by_oauth(
     db: AsyncSession, provider: str, provider_user_id: str
 ) -> Optional[DeletedUserAuthIdentity]:
-    """Look up a tombstone identity record by OAuth provider + id."""
+    """Look up a tombstone identity record by OAuth provider + id.
+
+    Uses deterministic ordering: newest deleted_at first, nulls last.
+    """
     # DO NOT use email as primary resurrection identity for OAuth accounts.
     # Future providers may not expose email addresses.
-    stmt = select(DeletedUserAuthIdentity).where(
-        DeletedUserAuthIdentity.provider == provider,
-        DeletedUserAuthIdentity.provider_user_id == provider_user_id,
-        DeletedUserAuthIdentity.identity_type == "oauth",
-        DeletedUserAuthIdentity.consumed_at.is_(None),
+    stmt = (
+        select(DeletedUserAuthIdentity)
+        .where(
+            DeletedUserAuthIdentity.provider == provider,
+            DeletedUserAuthIdentity.provider_user_id == provider_user_id,
+            DeletedUserAuthIdentity.identity_type == "oauth",
+            DeletedUserAuthIdentity.consumed_at.is_(None),
+        )
+        .order_by(DeletedUserAuthIdentity.deleted_at.desc().nulls_last())
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def find_tombstone_by_oauth_email(
+    db: AsyncSession, email: str
+) -> Optional[DeletedUserAuthIdentity]:
+    """Look up an OAuth tombstone by email hash (fallback for email-based signup).
+
+    When a user signs up with email/password and no unconsumed email tombstone
+    exists, this function checks whether an OAuth-only user previously owned
+    the same email address. If found, resurrection is offered.
+
+    Uses the same deterministic ordering as find_tombstone_by_email:
+    newest deleted_at first, nulls last.
+
+    This is deliberately a SEPARATE query from find_tombstone_by_email to
+    preserve the existing semantics of email-identity tombstone lookup.
+    """
+    email_hash = _hash_identity(email)
+    stmt = (
+        select(DeletedUserAuthIdentity)
+        .where(
+            DeletedUserAuthIdentity.identity_type == "oauth",
+            DeletedUserAuthIdentity.email_hash == email_hash,
+            DeletedUserAuthIdentity.consumed_at.is_(None),
+        )
+        .order_by(DeletedUserAuthIdentity.deleted_at.desc().nulls_last())
+        .limit(1)
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
@@ -145,7 +194,12 @@ async def resurrect_oauth_user(
     Raises:
         ConflictError: If the requested username is already taken
                        or if the user is already active (idempotency guard).
+        AssertionError: If tombstone is not an OAuth identity type.
     """
+    assert tombstone.identity_type == "oauth", (
+        f"resurrect_oauth_user called with identity_type='{tombstone.identity_type}' "
+        f"(expected 'oauth') — cross-domain resurrection is prohibited"
+    )
     lock_stmt = select(User).where(User.id == tombstone.user_id).with_for_update()
     lock_result = await db.execute(lock_stmt)
     user = lock_result.scalar_one_or_none()
@@ -171,6 +225,7 @@ async def resurrect_oauth_user(
     user.username = username
     user.oauth_provider = provider
     user.oauth_id = provider_user_id
+    user.hashed_password = ""  # OAuth users have no password
     user.account_status = "active"
     user.deleted_at = None
     user.deletion_source = None

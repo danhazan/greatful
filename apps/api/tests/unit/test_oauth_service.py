@@ -168,7 +168,7 @@ class TestOAuthService:
     
     @pytest.mark.asyncio
     async def test_authenticate_oauth_user_email_conflict_raises_error(self, oauth_service, mock_oauth_user_info, mock_oauth_token, existing_user):
-        """Test OAuth authentication raises ConflictError when email belongs to active user."""
+        """Test OAuth authentication raises AuthenticationMethodMismatch when email belongs to active user with password."""
         # Update mock to match existing user's email
         mock_oauth_user_info['email'] = existing_user.email
         
@@ -177,15 +177,16 @@ class TestOAuthService:
             
             # Mock User.get_by_oauth to return None (no existing OAuth user)
             with patch.object(User, 'get_by_oauth', return_value=None):
-                # Email conflict raises ConflictError (passed through directly,
+                # Email conflict raises AuthenticationMethodMismatch (passed through directly,
                 # not wrapped in AuthenticationError)
-                from app.core.exceptions import ConflictError as CE
-                with pytest.raises(CE) as exc_info:
+                from app.core.exceptions import AuthenticationMethodMismatch as AMM
+                with pytest.raises(AMM) as exc_info:
                     await oauth_service.authenticate_oauth_user(
                         'google', mock_oauth_token
                     )
                 
-                assert "Email already registered by another account" in str(exc_info.value)
+                assert "uses password authentication" in exc_info.value.detail
+                assert exc_info.value.code == "password_account_exists"
     
     @pytest.mark.asyncio
     async def test_authenticate_oauth_user_invalid_user_data(self, oauth_service, mock_oauth_token):

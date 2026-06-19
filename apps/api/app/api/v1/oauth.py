@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.core.responses import success_response, error_response, AuthResponse, build_auth_response
-from app.core.exceptions import AuthenticationError, ConflictError, ValidationException, BusinessLogicError, ResurrectionRequired
+from app.core.exceptions import AuthenticationError, AuthenticationMethodMismatch, ConflictError, ValidationException, BusinessLogicError, ResurrectionRequired
 from app.core.oauth_config import (
     get_oauth_config, 
     validate_oauth_state, 
@@ -325,6 +325,17 @@ async def oauth_callback(
             request_id=getattr(request.state, 'request_id', None)
         )
         
+    except AuthenticationMethodMismatch as e:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=409,
+            content={
+                "type": "auth_method_mismatch",
+                "code": e.code,
+                "message": e.message,
+                "provider": e.provider,
+            },
+        )
     except ResurrectionRequired as e:
         from app.core.resurrection_response import build_oauth_resurrection_response
         from fastapi.responses import JSONResponse

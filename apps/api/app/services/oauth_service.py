@@ -10,12 +10,13 @@ from datetime import datetime, timezone
 
 from app.core.service_base import BaseService
 from app.core.exceptions import (
-    ValidationException, 
-    ConflictError, 
-    NotFoundError,
     AuthenticationError,
+    AuthenticationMethodMismatch,
     BusinessLogicError,
+    ConflictError,
+    NotFoundError,
     ResurrectionRequired,
+    ValidationException,
 )
 from app.models.user import User
 from app.core.oauth_config import (
@@ -149,10 +150,29 @@ class OAuthService(BaseService):
                         severity="INFO"
                     )
                 return await self._format_user_response(updated_user), False
-            
-            # Step 2: Check if there is a tombstoned OAuth identity
-            # DO NOT use email as primary resurrection identity for OAuth accounts.
-            # Future providers may not expose email addresses.
+
+            # Active email check — ALWAYS runs before any tombstone check.
+            # If an active user exists with this email, the auth decision is
+            # resolved immediately. Tombstones MUST NOT override active users.
+            logger.info("=== OAUTH_AUDIT active email check ===")
+            existing_email_user = await User.get_by_email(self.db, oauth_user_info['email'])
+            logger.info(f"=== OAUTH_AUDIT existing_email_user: {existing_email_user.id if existing_email_user else None} ===")
+            if existing_email_user:
+                has_password = bool(existing_email_user.hashed_password)
+                has_oauth = bool(existing_email_user.oauth_provider)
+                if has_oauth and not has_password:
+                    raise AuthenticationMethodMismatch(
+                        code="oauth_account_exists",
+                        message=f"This email is already linked to {existing_email_user.oauth_provider}. Please sign in with {existing_email_user.oauth_provider}.",
+                        provider=existing_email_user.oauth_provider,
+                    )
+                else:
+                    raise AuthenticationMethodMismatch(
+                        code="password_account_exists",
+                        message="An account already exists for this email and uses password authentication. Please sign in with your password.",
+                    )
+
+            # No active user found — tombstone checks are now safe to run.
             from app.core.resurrection import find_tombstone_by_oauth
 
             identity = await find_tombstone_by_oauth(self.db, provider, oauth_user_info['id'])
@@ -171,14 +191,6 @@ class OAuthService(BaseService):
                     ),
                 )
 
-            # Step 3: Active email check (conflict only)
-            existing_email_user = await User.get_by_email(self.db, oauth_user_info['email'])
-            if existing_email_user:
-                raise ConflictError(
-                    "Email already registered by another account. Sign in with your existing account or use a different email.",
-                    "oauth"
-                )
-            
             # Create new user from OAuth data
             new_user = await self._create_oauth_user(provider, oauth_user_info, request)
             log_oauth_security_event('user_created', provider, user_id=new_user.id)
