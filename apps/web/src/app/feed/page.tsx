@@ -1,15 +1,16 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { useRouter } from "next/navigation"
-import { Check, ChevronLeft, ChevronRight, Plus } from "lucide-react"
+import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Plus, Calendar, Filter, Search } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 import { apiClient } from "@/utils/apiClient"
+import { getAccessToken } from "@/utils/auth"
 import { useUser } from "@/contexts/UserContext"
 import Navbar from "@/components/Navbar"
 import { Post } from '@/types/post'
-import { FeedFilterKey, FeedFilterMode, FeedFiltersPayload, useInfiniteFeed } from "@/hooks/useInfiniteFeed"
+import { useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import {
@@ -17,45 +18,43 @@ import {
   getTrueScrollTop,
   shouldTriggerObserverLoad,
 } from "@/utils/feedScrollGuards"
+import {
+  AppliedFeedFilters,
+  cloneFeedFilters,
+  createEmptyFeedFilters,
+  parseFeedFiltersFromSearchParams,
+  serializeFeedFiltersToUrl,
+  DEFAULT_TYPE_FILTERS,
+} from "@/utils/feedFilterState"
+import DateFilterModal from "./DateFilterModal"
+import TypeFilterModal from "./TypeFilterModal"
+import SearchFilterModal from "./SearchFilterModal"
 
-const FILTER_CHIPS: Array<{ key: FeedFilterKey; label: string }> = [
-  { key: 'mine', label: 'Mine' },
-  { key: 'followed', label: 'Followed' },
-  { key: 'followers', label: 'Followers' },
-  { key: 'public', label: 'Public' },
-  { key: 'images', label: 'Images' },
-  { key: 'today', label: 'Today' },
-  { key: 'last_3_days', label: 'Last 3 Days' },
-  { key: 'last_week', label: 'Last Week' },
-  { key: 'last_2_weeks', label: 'Last 2 Weeks' },
-  { key: 'last_month', label: 'Last Month' },
-]
+type ModalType = 'date' | 'type' | 'search' | null
 
-const DEFAULT_FILTER_MODES: Record<FeedFilterKey, FeedFilterMode> = {
-  mine: 'off',
-  followed: 'off',
-  followers: 'off',
-  public: 'off',
-  images: 'off',
-  today: 'off',
-  last_3_days: 'off',
-  last_week: 'off',
-  last_2_weeks: 'off',
-  last_month: 'off',
+function computeAppliedFiltersFromUrl(): AppliedFeedFilters {
+  if (typeof window === 'undefined') return createEmptyFeedFilters()
+  const params = new URLSearchParams(window.location.search)
+  return parseFeedFiltersFromSearchParams(params)
 }
 
-export default function FeedPage() {
+export default function FeedPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto" />
+      </div>
+    }>
+      <FeedPage />
+    </Suspense>
+  )
+}
+
+function FeedPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { currentUser, isLoading: userLoading, isAuthTransitioning, logout, updateUserProfile, updateFollowState, markDataAsFresh } = useUser()
 
-  console.log('[FEED_INSTRUMENT] FeedPage render start', {
-    hasUser: !!currentUser,
-    userId: currentUser?.id,
-    username: currentUser?.username,
-    userLoading,
-    isAuthTransitioning,
-    ts: Date.now(),
-  })
   const requireAuth = useRequireAuth()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isCreatingPost, setIsCreatingPost] = useState(false)
@@ -64,45 +63,160 @@ export default function FeedPage() {
   const scrollDirectionRef = useRef<'up' | 'down' | 'idle'>('idle')
   const lastKnownScrollTopRef = useRef(0)
   const observerVisibleRef = useRef(false)
-  const filterScrollRef = useRef<HTMLDivElement | null>(null)
-  const [filterModes, setFilterModes] = useState<Record<FeedFilterKey, FeedFilterMode>>(DEFAULT_FILTER_MODES)
-  const [appliedFilterModes, setAppliedFilterModes] = useState<Record<FeedFilterKey, FeedFilterMode>>(DEFAULT_FILTER_MODES)
 
-  const feedFilters = useMemo<FeedFiltersPayload>(() => {
-    const requiredFilters = FILTER_CHIPS
-      .filter(({ key }) => filterModes[key] === 'required')
-      .map(({ key }) => key)
-    const boostFilters = FILTER_CHIPS
-      .filter(({ key }) => filterModes[key] === 'boost')
-      .map(({ key }) => key)
+  // --- Modal filter state ---
+  const [activeModal, setActiveModal] = useState<ModalType>(null)
+  const [appliedFilters, setAppliedFilters] = useState<AppliedFeedFilters>(() => computeAppliedFiltersFromUrl())
+  const [draftFilters, setDraftFilters] = useState<AppliedFeedFilters>(() => cloneFeedFilters(appliedFilters))
+  const [authorProfiles, setAuthorProfiles] = useState<Record<number, { username: string; name: string }>>({})
+  const modalBaselineRef = useRef<AppliedFeedFilters | null>(null)
+  const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null)
 
-    return {
-      requiredFilters,
-      boostFilters,
+  const dateBtnRef = useRef<HTMLButtonElement>(null)
+  const typeBtnRef = useRef<HTMLButtonElement>(null)
+  const searchBtnRef = useRef<HTMLButtonElement>(null)
+
+  const buttonRefForModal = useCallback((modal: ModalType): HTMLButtonElement | null => {
+    if (modal === 'date') return dateBtnRef.current
+    if (modal === 'type') return typeBtnRef.current
+    if (modal === 'search') return searchBtnRef.current
+    return null
+  }, [])
+
+  const computeModalPosition = useCallback((modal: ModalType) => {
+    const btnRef = buttonRefForModal(modal)
+    if (!btnRef) return null
+    const rect = btnRef.getBoundingClientRect()
+    const isMobile = window.innerWidth < 640
+    const modalWidth = isMobile ? window.innerWidth - 24 : 384
+    const x = isMobile ? 12 : Math.round((window.innerWidth - modalWidth) / 2)
+    return { x, y: rect.bottom }
+  }, [buttonRefForModal])
+
+  const openModal = useCallback((modal: ModalType) => {
+    if (modal === null) {
+      setActiveModal(null)
+      setModalPosition(null)
+      return
     }
-  }, [filterModes])
+    const draft = cloneFeedFilters(appliedFilters)
+    setDraftFilters(draft)
+    modalBaselineRef.current = cloneFeedFilters(appliedFilters)
+    const pos = computeModalPosition(modal)
+    setModalPosition(pos)
+    setActiveModal(modal)
+  }, [appliedFilters, computeModalPosition])
 
-  // Order filters: REQUIRED first, then BOOST, then inactive
-  // Use appliedFilterModes so reordering happens only after feed refresh
-  // FILTER_CHIPS is never mutated - only used as source of truth
-  const orderedFilterChips = useMemo(() => {
-    const required: typeof FILTER_CHIPS = []
-    const boost: typeof FILTER_CHIPS = []
-    const inactive: typeof FILTER_CHIPS = []
+  const dismissModal = useCallback(() => {
+    setActiveModal(null)
+    setModalPosition(null)
+    modalBaselineRef.current = null
+  }, [])
 
-    for (const filter of FILTER_CHIPS) {
-      const mode = appliedFilterModes[filter.key]
-      if (mode === 'required') {
-        required.push(filter)
-      } else if (mode === 'boost') {
-        boost.push(filter)
-      } else {
-        inactive.push(filter)
+  const closeModal = useCallback(() => {
+    if (modalBaselineRef.current) {
+      setDraftFilters(cloneFeedFilters(modalBaselineRef.current))
+    }
+    setActiveModal(null)
+    setModalPosition(null)
+    modalBaselineRef.current = null
+  }, [])
+
+  const clearDraft = useCallback((modal: ModalType) => {
+    if (!modal) return
+    const cleared = cloneFeedFilters(draftFilters)
+    if (modal === 'date') {
+      cleared.date = { mode: 'off' }
+    } else if (modal === 'type') {
+      cleared.type = { ...DEFAULT_TYPE_FILTERS }
+    } else if (modal === 'search') {
+      cleared.search = {
+        authors: { mode: 'off', users: [] },
+        keyword: { mode: 'off', text: '' },
       }
     }
+    setDraftFilters(cleared)
+  }, [draftFilters])
 
-    return [...required, ...boost, ...inactive]
-  }, [appliedFilterModes])
+  const applyDraft = useCallback((modal: ModalType) => {
+    if (!modal) return
+    const merged = cloneFeedFilters(appliedFilters)
+    if (modal === 'date') {
+      merged.date = cloneFeedFilters(draftFilters.date)
+    } else if (modal === 'type') {
+      merged.type = cloneFeedFilters(draftFilters.type)
+    } else if (modal === 'search') {
+      merged.search = cloneFeedFilters(draftFilters.search)
+    }
+    setAppliedFilters(merged)
+    setActiveModal(null)
+    setModalPosition(null)
+    modalBaselineRef.current = null
+
+    const url = serializeFeedFiltersToUrl(merged)
+    window.history.replaceState(null, '', url)
+  }, [appliedFilters, draftFilters])
+
+  // Recompute position on resize
+  useEffect(() => {
+    if (!activeModal) return
+    const handleResize = () => {
+      const pos = computeModalPosition(activeModal)
+      setModalPosition(pos)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [activeModal, computeModalPosition])
+
+  const isApplyDisabled = useCallback((modal: ModalType): boolean => {
+    if (!modal) return true
+    if (modal === 'date') {
+      return JSON.stringify(draftFilters.date) === JSON.stringify(appliedFilters.date)
+    }
+    if (modal === 'type') {
+      return JSON.stringify(draftFilters.type) === JSON.stringify(appliedFilters.type)
+    }
+    if (modal === 'search') {
+      return JSON.stringify(draftFilters.search) === JSON.stringify(appliedFilters.search)
+    }
+    return true
+  }, [appliedFilters, draftFilters])
+
+  // Sync appliedFilters to searchParams on mount and popstate
+  useEffect(() => {
+    const urlFilters = computeAppliedFiltersFromUrl()
+    setAppliedFilters(urlFilters)
+  }, [searchParams])
+
+  const feedFilters = useMemo(() => appliedFilters, [appliedFilters])
+
+  // --- Author batch profile hydration ---
+  const hydratedAuthorIdsRef = useRef<string>('')
+  useEffect(() => {
+    const authorIds = Array.from(new Set(
+      appliedFilters.search.authors.users
+        .filter(u => u.username === null)
+        .map(u => u.id)
+    ))
+    const key = authorIds.sort().join(',')
+    if (!key || key === hydratedAuthorIdsRef.current) return
+    hydratedAuthorIdsRef.current = key
+    const idsParam = authorIds.join(',')
+    fetch(`/api/users/batch-profiles?ids=${encodeURIComponent(idsParam)}`, {
+      headers: { 'Authorization': `Bearer ${getAccessToken()}` },
+    })
+      .then(r => r.json())
+      .then((res: unknown) => {
+        const raw = Array.isArray(res) ? res : (res as Record<string, unknown>)['data']
+        const profileArr: Array<{ id: number; username: string; displayName?: string; name?: string }> = Array.isArray(raw) ? raw : []
+        const profileMap: Record<number, { username: string; name: string }> = {}
+        profileArr.forEach(p => {
+          profileMap[Number(p.id)] = { username: p.username, name: p.displayName || p.name || '' }
+        })
+        setAuthorProfiles(prev => ({ ...prev, ...profileMap }))
+      })
+      .catch(() => {})
+  }, [appliedFilters.search.authors.users])
 
   // Populate UserContext cache from post author data
   const populateAuthorCache = useCallback((postList: Post[]) => {
@@ -151,33 +265,6 @@ export default function FeedPage() {
     onPostsLoaded: populateAuthorCache,
     feedFilters,
   })
-
-  // Sync appliedFilterModes only when:
-  // 1. Initial load completes (not during pagination)
-  // 2. Filter change refresh completes (not just any state change)
-  const isFilterChanged = Object.keys(filterModes).some(
-    key => filterModes[key as FeedFilterKey] !== appliedFilterModes[key as FeedFilterKey]
-  )
-  
-  const wasInitialLoading = useRef(canQueryFeed && isInitialLoading)
-  const wasRefreshing = useRef(false)
-  
-  useEffect(() => {
-    if (!canQueryFeed) return
-
-    // Initial load completed
-    const initialComplete = wasInitialLoading.current && !isInitialLoading && !isFetchingNextPage
-    
-    // Filter change refresh completed (was refreshing, now not, AND filters changed)
-    const refreshComplete = wasRefreshing.current && !isRefreshing && !isFetchingNextPage && isFilterChanged
-
-    if (initialComplete || refreshComplete) {
-      setAppliedFilterModes(filterModes)
-    }
-
-    wasInitialLoading.current = isInitialLoading
-    wasRefreshing.current = isRefreshing
-  }, [canQueryFeed, isInitialLoading, isFetchingNextPage, isRefreshing, isFilterChanged, filterModes])
 
   const getScrollMetrics = useCallback(() => {
     const containerScrollTop = scrollContainerRef.current?.scrollTop ?? 0
@@ -228,39 +315,6 @@ export default function FeedPage() {
     observerVisibleRef.current = false
   }, [nextCursor])
 
-  const getNextFilterMode = useCallback((mode: FeedFilterMode): FeedFilterMode => {
-    if (mode === 'off') return 'boost'
-    if (mode === 'boost') return 'required'
-    return 'off'
-  }, [])
-
-  const toggleFilterMode = useCallback((filterKey: FeedFilterKey) => {
-    setFilterModes((prev) => ({
-      ...prev,
-      [filterKey]: getNextFilterMode(prev[filterKey]),
-    }))
-  }, [getNextFilterMode])
-
-  const getFilterChipClassName = useCallback((mode: FeedFilterMode) => {
-    if (mode === 'required') {
-      return 'border-purple-700 bg-purple-600 text-white shadow-sm'
-    }
-    if (mode === 'boost') {
-      return 'border-purple-500 bg-gradient-to-r from-purple-200 via-purple-100 to-white text-purple-700'
-    }
-    return 'border-gray-300 bg-white text-gray-700 hover:border-purple-300 hover:text-purple-700'
-  }, [])
-
-  const scrollFilterBar = useCallback((direction: 'left' | 'right') => {
-    const node = filterScrollRef.current
-    if (!node) return
-
-    node.scrollBy({
-      left: direction === 'left' ? -220 : 220,
-      behavior: 'smooth',
-    })
-  }, [])
-
   // Infinite scroll observer
   useEffect(() => {
     if (!hasMore || !nextCursor) return
@@ -294,14 +348,9 @@ export default function FeedPage() {
   }, [hasMore, nextCursor, loadNextPage, isFetchingNextPage, isRefreshing])
 
   const handleLogout = () => {
-    // Use centralized logout from UserContext (handles token removal, notification cleanup, etc.)
     logout()
-
-    // Redirect to home page
     router.push("/")
   }
-
-
 
   const handleReaction = (postId: string, emojiCode: string, reactionSummary?: any) => {
     patchPost(postId, (post) => ({
@@ -322,8 +371,6 @@ export default function FeedPage() {
   }
 
   const handleShare = (postId: string) => {
-    // Share handling is now managed by PostCard's internal ShareModal
-    // This callback can be used for analytics or other side effects
     console.log('Post shared:', postId)
   }
 
@@ -331,7 +378,6 @@ export default function FeedPage() {
     if (userId === "current-user" || userId === currentUser?.id) {
       router.push("/profile")
     } else {
-      // Navigate to specific user's profile
       router.push(`/profile/${userId}`)
     }
   }
@@ -354,7 +400,7 @@ export default function FeedPage() {
     location?: string
     location_data?: any
     imageFile?: File
-    imageFiles?: File[]  // Multi-image support
+    imageFiles?: File[]
     richContent?: string
     postStyle?: any
     mentions?: string[]
@@ -367,7 +413,6 @@ export default function FeedPage() {
     try {
       let body: FormData | Record<string, unknown>
 
-      // If there are multiple image files, send as FormData with images array
       if (postData.imageFiles && postData.imageFiles.length > 0) {
         const formData = new FormData()
         formData.append('content', postData.content.trim())
@@ -383,7 +428,6 @@ export default function FeedPage() {
         })
         body = formData
       } else if (postData.imageFile) {
-        // Legacy single image support (deprecated)
         const formData = new FormData()
         formData.append('content', postData.content.trim())
         if (postData.richContent) formData.append('richContent', postData.richContent)
@@ -409,12 +453,10 @@ export default function FeedPage() {
         }
       }
 
-      // apiClient.post handles auth header, 401 refresh, and session-expired dispatch
       try {
         await apiClient.post('/posts', body)
       } catch (error) {
         const msg = error instanceof Error ? error.message : ''
-        // Map backend/proxy errors to user-friendly messages
         if (msg.includes('413') || /too large|payload|file size/i.test(msg)) {
           throw new Error('Image file is too large. Maximum size is 5MB per image.')
         }
@@ -424,7 +466,6 @@ export default function FeedPage() {
         throw error
       }
 
-      // Refresh feed with a network read so the newly created post is visible immediately
       await refreshPosts('post-create')
 
       if (currentUser?.id) {
@@ -436,12 +477,10 @@ export default function FeedPage() {
         ])
       }
 
-      // Close the modal
       setIsCreateModalOpen(false)
 
     } catch (error) {
       console.error('Error creating post:', error)
-      // The error will be handled by the CreatePostModal component
       throw error
     } finally {
       setIsCreatingPost(false)
@@ -490,7 +529,6 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navbar */}
       <Navbar user={currentUser ? {
         id: currentUser.id,
         name: currentUser.displayName || currentUser.name,
@@ -500,59 +538,34 @@ export default function FeedPage() {
         profileImageUrl: currentUser.profileImageUrl
       } : undefined} onLogout={handleLogout} />
 
-      {/* Main Content */}
       <main
         className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-20 relative"
         ref={scrollContainerRef}
       >
         <div className="max-w-2xl mx-auto">
-          <div className="mb-4">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => scrollFilterBar('left')}
-                className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-purple-300 hover:text-purple-700"
-                aria-label="Scroll filters left"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              <div className="relative flex-1 overflow-hidden">
-                <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-white to-transparent md:hidden" />
-                <div
-                  ref={filterScrollRef}
-                  className="feed-filter-scroll overflow-x-auto overflow-y-hidden whitespace-nowrap scroll-smooth"
-                >
-                  <div className="inline-flex items-center gap-2 py-1">
-                    {orderedFilterChips.map(({ key, label }) => {
-                      const mode = filterModes[key]
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => toggleFilterMode(key)}
-                          className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${getFilterChipClassName(mode)}`}
-                          aria-label={`${label} filter ${mode}`}
-                        >
-                          {label}
-                          {mode === 'required' && <Check className="h-3.5 w-3.5" />}
-                        </button>
-                      )
-                    })}
-
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => scrollFilterBar('right')}
-                className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-purple-300 hover:text-purple-700"
-                aria-label="Scroll filters right"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+          {/* Filter buttons */}
+          <div className="mb-4 flex items-center justify-center gap-2">
+            <FilterButton
+              icon={<Calendar className="h-4 w-4" />}
+              label="Date"
+              isActive={appliedFilters.date.mode !== 'off'}
+              onClick={() => openModal('date')}
+              ref={dateBtnRef}
+            />
+            <FilterButton
+              icon={<Filter className="h-4 w-4" />}
+              label="Type"
+              isActive={Object.values(appliedFilters.type).some(m => m !== 'off')}
+              onClick={() => openModal('type')}
+              ref={typeBtnRef}
+            />
+            <FilterButton
+              icon={<Search className="h-4 w-4" />}
+              label="Search"
+              isActive={appliedFilters.search.authors.mode !== 'off' || appliedFilters.search.keyword.mode !== 'off'}
+              onClick={() => openModal('search')}
+              ref={searchBtnRef}
+            />
           </div>
 
           {/* Posts */}
@@ -586,7 +599,6 @@ export default function FeedPage() {
             )}
           </div>
 
-          {/* Infinite scroll sentinel + loading indicator (v2 only) */}
           {posts.length > 0 && (
             <>
               <div ref={sentinelRef} className="h-1" />
@@ -598,7 +610,6 @@ export default function FeedPage() {
             </>
           )}
 
-          {/* Floating Create Post Button */}
           <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
             <button
               onClick={() => setIsCreateModalOpen(true)}
@@ -609,16 +620,84 @@ export default function FeedPage() {
             </button>
           </div>
 
-          {/* Create Post Modal */}
           <CreatePostModal
             isOpen={isCreateModalOpen}
             onClose={() => setIsCreateModalOpen(false)}
             onSubmit={handleCreatePost}
           />
 
+          {/* Outside click backdrop — dismiss without reverting */}
+          {activeModal && (
+            <div
+              className="fixed inset-0 z-40"
+              onClick={dismissModal}
+            />
+          )}
 
+          {/* Filter modals */}
+          {activeModal === 'date' && modalPosition && (
+            <DateFilterModal
+              date={draftFilters.date}
+              onChange={(date) => setDraftFilters(prev => ({ ...prev, date }))}
+              onClose={closeModal}
+              onDismiss={dismissModal}
+              onClear={() => clearDraft('date')}
+              onApply={() => applyDraft('date')}
+              isApplyDisabled={isApplyDisabled('date')}
+              position={modalPosition}
+            />
+          )}
+
+          {activeModal === 'type' && modalPosition && (
+            <TypeFilterModal
+              type={draftFilters.type}
+              onChange={(type) => setDraftFilters(prev => ({ ...prev, type }))}
+              onClose={closeModal}
+              onDismiss={dismissModal}
+              onClear={() => clearDraft('type')}
+              onApply={() => applyDraft('type')}
+              isApplyDisabled={isApplyDisabled('type')}
+              position={modalPosition}
+            />
+          )}
+
+          {activeModal === 'search' && modalPosition && (
+            <SearchFilterModal
+              search={draftFilters.search}
+              onChange={(search) => setDraftFilters(prev => ({ ...prev, search }))}
+              onClose={closeModal}
+              onDismiss={dismissModal}
+              onClear={() => clearDraft('search')}
+              onApply={() => applyDraft('search')}
+              isApplyDisabled={isApplyDisabled('search')}
+              position={modalPosition}
+              authorProfiles={authorProfiles}
+            />
+          )}
         </div>
       </main>
     </div>
   )
 }
+
+const FilterButton = React.forwardRef<HTMLButtonElement, {
+  icon: React.ReactNode
+  label: string
+  isActive: boolean
+  onClick: () => void
+}>(({ icon, label, isActive, onClick }, ref) => (
+  <button
+    ref={ref}
+    type="button"
+    onClick={onClick}
+    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+      isActive
+        ? 'border-purple-700 bg-purple-600 text-white shadow-sm'
+        : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300 hover:text-purple-700'
+    }`}
+  >
+    {icon}
+    {label}
+  </button>
+))
+FilterButton.displayName = 'FilterButton'

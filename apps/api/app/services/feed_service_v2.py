@@ -47,7 +47,7 @@ from app.config.feed_config import (
     JITTER_MAX,
     AUTHOR_SPACING_WINDOW,
     AUTHOR_SPACING_MAX_PER_WINDOW,
-    SUPPORTED_FEED_FILTERS,
+    TYPE_FEED_FILTERS,
     FILTER_BOOST_WEIGHT,
     FILTER_BOOST_MAX,
 )
@@ -82,8 +82,15 @@ class FeedServiceV2(BaseService):
         cursor: Optional[str] = None,
         page_size: int = DEFAULT_PAGE_SIZE,
         debug: bool = False,
-        required_filters: Optional[List[str]] = None,
-        boost_filters: Optional[List[str]] = None,
+        type_required: Optional[List[str]] = None,
+        type_boost: Optional[List[str]] = None,
+        date_mode: Optional[str] = None,
+        date_start: Optional[str] = None,
+        date_end: Optional[str] = None,
+        author_mode: Optional[str] = None,
+        author_ids: Optional[List[int]] = None,
+        keyword_mode: Optional[str] = None,
+        keyword: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Get the user's feed with cursor-based pagination.
@@ -101,15 +108,22 @@ class FeedServiceV2(BaseService):
             cursor_data = None
             query_time = datetime.now(timezone.utc)
 
-        normalized_filters = self._normalize_feed_filters(
-            required_filters=required_filters,
-            boost_filters=boost_filters,
+        filter_spec = self._normalize_feed_filters(
+            query_time=query_time,
+            type_required=type_required,
+            type_boost=type_boost,
+            date_mode=date_mode,
+            date_start=date_start,
+            date_end=date_end,
+            author_mode=author_mode,
+            author_ids=author_ids,
+            keyword_mode=keyword_mode,
+            keyword=keyword,
         )
         logger.info(
-            "[FEED_FILTERS][service-entry] user_id=%s required=%s boost=%s",
+            "[FEED_FILTERS][service-entry] user_id=%s filters=%s",
             user_id,
-            normalized_filters["required_filters"],
-            normalized_filters["boost_filters"],
+            filter_spec["debug"],
         )
 
         # Fetch a wider candidate pool so author spacing has room to diversify
@@ -119,8 +133,7 @@ class FeedServiceV2(BaseService):
             query_time=query_time,
             cursor_data=cursor_data,
             page_size=fetch_size,
-            required_filters=normalized_filters["required_filters"],
-            boost_filters=normalized_filters["boost_filters"],
+            filter_spec=filter_spec,
         )
         logger.info(
             "[FEED_FILTERS][query-exec] user_id=%s params_keys=%s",
@@ -269,8 +282,7 @@ class FeedServiceV2(BaseService):
         query_time: datetime,
         cursor_data: Optional[Dict],
         page_size: int,
-        required_filters: List[str],
-        boost_filters: List[str],
+        filter_spec: Dict[str, Any],
     ) -> Tuple[Any, Dict]:
         """Build the CTE-based scored feed query."""
         if self._is_pg:
@@ -279,8 +291,7 @@ class FeedServiceV2(BaseService):
                 query_time,
                 cursor_data,
                 page_size,
-                required_filters,
-                boost_filters,
+                filter_spec,
             )
         else:
             return self._build_sqlite_query(
@@ -288,43 +299,159 @@ class FeedServiceV2(BaseService):
                 query_time,
                 cursor_data,
                 page_size,
-                required_filters,
-                boost_filters,
+                filter_spec,
             )
 
     @staticmethod
     def _normalize_feed_filters(
-        required_filters: Optional[List[str]],
-        boost_filters: Optional[List[str]],
+        query_time: datetime,
+        type_required: Optional[List[str]],
+        type_boost: Optional[List[str]],
+        date_mode: Optional[str],
+        date_start: Optional[str],
+        date_end: Optional[str],
+        author_mode: Optional[str],
+        author_ids: Optional[List[int]],
+        keyword_mode: Optional[str],
+        keyword: Optional[str],
     ) -> Dict[str, Any]:
-        allowed = set(SUPPORTED_FEED_FILTERS)
+        allowed_types = set(TYPE_FEED_FILTERS)
+        allowed_modes = {"boost", "required"}
+        params: Dict[str, Any] = {}
 
-        def _normalize(values: Optional[List[str]]) -> List[str]:
+        def _normalize_type_values(values: Optional[List[str]]) -> List[str]:
             normalized: List[str] = []
             for value in values or []:
                 key = str(value).strip().lower()
-                if key in allowed and key not in normalized:
+                if key not in allowed_types:
+                    raise ValueError(f"Unsupported type filter: {value}")
+                if key not in normalized:
                     normalized.append(key)
             return normalized
 
-        required = _normalize(required_filters)
-        boost = _normalize(boost_filters)
+        required_types = _normalize_type_values(type_required)
+        boost_types = _normalize_type_values(type_boost)
+        overlapping_types = set(required_types) & set(boost_types)
+        if overlapping_types:
+            names = ", ".join(sorted(overlapping_types))
+            raise ValueError(f"Type filters cannot be both required and boost: {names}")
+
+        def _normalize_mode(value: Optional[str], field: str) -> Optional[str]:
+            if value is None or str(value).strip() == "":
+                return None
+            mode = str(value).strip().lower()
+            if mode not in allowed_modes:
+                raise ValueError(f"{field} must be one of: boost, required")
+            return mode
+
+        normalized_date_mode = _normalize_mode(date_mode, "date_mode")
+        if normalized_date_mode is not None:
+            if not (date_start and date_end):
+                raise ValueError("date_start and date_end are both required when date_mode is provided")
+            try:
+                start_dt = datetime.fromisoformat(date_start)
+                end_dt = datetime.fromisoformat(date_end)
+            except ValueError as exc:
+                raise ValueError("date_start and date_end must be valid ISO 8601 timestamps") from exc
+            if start_dt.tzinfo is None:
+                raise ValueError("date_start must be timezone-aware (UTC)")
+            if end_dt.tzinfo is None:
+                raise ValueError("date_end must be timezone-aware (UTC)")
+            from app.config.feed_config import MIN_DATE
+            min_dt = datetime.fromisoformat(MIN_DATE).replace(tzinfo=timezone.utc)
+            if start_dt < min_dt:
+                raise ValueError(f"date_start must not be earlier than {MIN_DATE}")
+            if end_dt < min_dt:
+                raise ValueError(f"date_end must not be earlier than {MIN_DATE}")
+            if end_dt <= start_dt:
+                raise ValueError("date_end must be after date_start")
+            params["date_start_utc"] = start_dt
+            params["date_end_utc"] = end_dt
+            date_filter: Optional[Dict[str, Any]] = {
+                "mode": normalized_date_mode,
+                "range": {
+                    "start": start_dt.isoformat(),
+                    "end": end_dt.isoformat(),
+                },
+            }
+        else:
+            date_filter = None
+
+        # Author filters: one mode, one deduped selected set.
+        normalized_author_mode = _normalize_mode(author_mode, "author_mode")
+        deduped_author_ids: List[int] = []
+        for raw_id in author_ids or []:
+            try:
+                author_id = int(raw_id)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("author_ids must be positive integers") from exc
+            if author_id <= 0:
+                raise ValueError("author_ids must be positive integers")
+            if author_id not in deduped_author_ids:
+                deduped_author_ids.append(author_id)
+        if len(deduped_author_ids) > 50:
+            raise ValueError("author_ids may include at most 50 users")
+        if normalized_author_mode is None and deduped_author_ids:
+            raise ValueError("author_mode is required when author_ids are provided")
+        if normalized_author_mode and not deduped_author_ids:
+            raise ValueError("author_ids are required when author_mode is provided")
+        for idx, author_id in enumerate(deduped_author_ids):
+            params[f"author_id_{idx}"] = author_id
+
+        # Keyword filters: one mode, one single-line query.
+        normalized_keyword_mode = _normalize_mode(keyword_mode, "keyword_mode")
+        normalized_keyword = " ".join(str(keyword or "").split()).strip()
+        if len(normalized_keyword) > 200:
+            raise ValueError("keyword must be 200 characters or fewer")
+        if normalized_keyword_mode is None and normalized_keyword:
+            raise ValueError("keyword_mode is required when keyword is provided")
+        if normalized_keyword_mode and not normalized_keyword:
+            raise ValueError("keyword is required when keyword_mode is provided")
+        if normalized_keyword:
+            params["keyword_query"] = normalized_keyword
+            escaped = (
+                normalized_keyword
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            params["keyword_like"] = f"%{escaped.lower()}%"
 
         return {
-            "required_filters": required,
-            "boost_filters": boost,
+            "type_required": required_types,
+            "type_boost": boost_types,
+            "date": date_filter,
+            "author": {
+                "mode": normalized_author_mode,
+                "ids": deduped_author_ids,
+            } if normalized_author_mode else None,
+            "keyword": {
+                "mode": normalized_keyword_mode,
+                "text": normalized_keyword,
+            } if normalized_keyword_mode else None,
+            "params": params,
+            "debug": {
+                "typeRequired": required_types,
+                "typeBoost": boost_types,
+                "date": date_filter,
+                "authorMode": normalized_author_mode,
+                "authorCount": len(deduped_author_ids),
+                "keywordMode": normalized_keyword_mode,
+                "hasKeyword": bool(normalized_keyword),
+            },
         }
 
     @staticmethod
-    def _build_filter_clauses(required_filters: List[str], boost_filters: List[str]) -> Dict[str, Any]:
-        """Build filter predicates using timestamp-based comparisons."""
-        from app.config.feed_config import TIME_FILTER_DAYS
+    def _image_predicate() -> str:
+        return (
+            "(NULLIF(TRIM(p.image_url), '') IS NOT NULL "
+            "OR EXISTS (SELECT 1 FROM post_images pi WHERE pi.post_id = p.id))"
+        )
 
-        # Time filter predicates use named cutoff parameters (timestamp-based)
-        time_predicates = {
-            name: f"p.created_at >= :cutoff_{name}"
-            for name in TIME_FILTER_DAYS.keys()
-        }
+    @staticmethod
+    def _build_filter_clauses(filter_spec: Dict[str, Any], dialect: str) -> Dict[str, Any]:
+        """Build filter predicates shared by REQUIRED and BOOST filters."""
+        date_range_predicate = "(p.created_at >= :date_start_utc AND p.created_at < :date_end_utc)"
 
         base_predicates = {
             "mine": "p.author_id = :uid",
@@ -332,18 +459,56 @@ class FeedServiceV2(BaseService):
             "followers": "f_in.id IS NOT NULL",
             # Public is strictly derived from existing relationship predicates.
             "public": "NOT ((p.author_id = :uid) OR (f_out.id IS NOT NULL) OR (f_in.id IS NOT NULL))",
-            "images": "(p.image_url IS NOT NULL OR EXISTS (SELECT 1 FROM post_images pi WHERE pi.post_id = p.id))",
-            **time_predicates,
+            "images": FeedServiceV2._image_predicate(),
         }
+        author = filter_spec.get("author")
+        if author:
+            placeholders = ", ".join(f":author_id_{idx}" for idx, _ in enumerate(author["ids"]))
+            base_predicates["authors"] = f"p.author_id IN ({placeholders})"
+
+        keyword = filter_spec.get("keyword")
+        if keyword:
+            if dialect == "postgresql":
+                base_predicates["keyword"] = (
+                    "to_tsvector('simple', COALESCE(p.content, '')) "
+                    "@@ plainto_tsquery('simple', :keyword_query)"
+                )
+            else:
+                base_predicates["keyword"] = (
+                    "LOWER(COALESCE(p.content, '')) LIKE :keyword_like ESCAPE '\\'"
+                )
 
         # REQUIRED filters: AND semantics (all conditions must match)
-        required_predicates = [base_predicates[name] for name in required_filters if name in base_predicates]
+        required_names = list(filter_spec.get("type_required", []))
+        boost_names = list(filter_spec.get("type_boost", []))
+
+        date_filter = filter_spec.get("date")
+        if date_filter:
+            base_predicates["date_range"] = date_range_predicate
+            if date_filter["mode"] == "required":
+                required_names.append("date_range")
+            else:
+                boost_names.append("date_range")
+
+        if author:
+            if author["mode"] == "required":
+                required_names.append("authors")
+            else:
+                boost_names.append("authors")
+
+        if keyword:
+            if keyword["mode"] == "required":
+                required_names.append("keyword")
+            else:
+                boost_names.append("keyword")
+
+        required_predicates = [base_predicates[name] for name in required_names if name in base_predicates]
         required_clause = ""
         if required_predicates:
             required_clause = " AND (" + " AND ".join(required_predicates) + ")"
 
         # BOOST filters: ranking boost only (same predicates used)
-        boost_predicates = [base_predicates[name] for name in boost_filters if name in base_predicates]
+        boost_predicates = [base_predicates[name] for name in boost_names if name in base_predicates]
         if boost_predicates:
             boost_sum = " + ".join(
                 f"(CASE WHEN ({predicate}) THEN {FILTER_BOOST_WEIGHT} ELSE 0 END)"
@@ -353,18 +518,12 @@ class FeedServiceV2(BaseService):
         else:
             boost_expr = "0"
 
-        # Track which time filters are active for param injection
-        active_time_filters = [
-            name for name in boost_filters + required_filters
-            if name in TIME_FILTER_DAYS
-        ]
-
         return {
             "required_clause": required_clause,
             "boost_expr": boost_expr,
             "required_predicates": required_predicates,
             "boost_predicates": boost_predicates,
-            "active_time_filters": active_time_filters,
+            "params": filter_spec.get("params", {}),
         }
 
     def _build_pg_query(
@@ -373,12 +532,9 @@ class FeedServiceV2(BaseService):
         query_time: datetime,
         cursor_data: Optional[Dict],
         page_size: int,
-        required_filters: List[str],
-        boost_filters: List[str],
+        filter_spec: Dict[str, Any],
     ) -> Tuple[Any, Dict]:
         """PostgreSQL query with CTE and can_view_post."""
-        from app.config.feed_config import TIME_FILTER_DAYS
-        from datetime import timedelta
 
         cursor_filter = ""
         if cursor_data:
@@ -386,19 +542,11 @@ class FeedServiceV2(BaseService):
                 "AND (feed_score, created_at, id) < (:cursor_s, CAST(:cursor_t AS timestamptz), :cursor_id)"
             )
 
-        # Compute time cutoffs once per request
-        now = query_time
-        time_cutoffs = {
-            name: now - timedelta(days=days)
-            for name, days in TIME_FILTER_DAYS.items()
-        }
-
         age_pg = "EXTRACT(EPOCH FROM (CAST(:qt AS timestamptz) - p.created_at))"
-        filter_clauses = self._build_filter_clauses(required_filters, boost_filters)
+        filter_clauses = self._build_filter_clauses(filter_spec, "postgresql")
         logger.info(
-            "[FEED_FILTERS][sql] dialect=postgres required=%s boost=%s required_clause=%s boost_count=%s",
-            required_filters,
-            boost_filters,
+            "[FEED_FILTERS][sql] dialect=postgres filters=%s required_clause=%s boost_count=%s",
+            filter_spec["debug"],
             filter_clauses["required_clause"] or "(none)",
             len(filter_clauses["boost_predicates"]),
         )
@@ -456,7 +604,7 @@ class FeedServiceV2(BaseService):
                              AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                                   + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                                   + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND object_type = 'post') * {WEIGHT_REACTIONS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
-                             AND p.image_url IS NOT NULL
+                             AND {self._image_predicate()}
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
                     END AS discovery_score,
@@ -509,7 +657,7 @@ class FeedServiceV2(BaseService):
                              AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                                   + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                                   + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND object_type = 'post') * {WEIGHT_REACTIONS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
-                             AND p.image_url IS NOT NULL
+                             AND {self._image_predicate()}
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
                       END
@@ -539,14 +687,11 @@ class FeedServiceV2(BaseService):
         """)
 
         params = {"uid": user_id, "qt": query_time, "lim": page_size}
+        params.update(filter_clauses.get("params", {}))
         if cursor_data:
             params["cursor_s"] = cursor_data["score"]
             params["cursor_t"] = cursor_data["created_at"]
             params["cursor_id"] = cursor_data["id"]
-
-        # Inject time cutoff params for active time filters
-        for filter_name in filter_clauses.get("active_time_filters", []):
-            params[f"cutoff_{filter_name}"] = time_cutoffs[filter_name]
 
         return sql, params
 
@@ -556,12 +701,9 @@ class FeedServiceV2(BaseService):
         query_time: datetime,
         cursor_data: Optional[Dict],
         page_size: int,
-        required_filters: List[str],
-        boost_filters: List[str],
+        filter_spec: Dict[str, Any],
     ) -> Tuple[Any, Dict]:
         """SQLite query for tests. Uses julianday for time math, LN/GREATEST registered as custom functions."""
-        from app.config.feed_config import TIME_FILTER_DAYS
-        from datetime import timedelta
 
         cursor_filter = ""
         if cursor_data:
@@ -569,19 +711,11 @@ class FeedServiceV2(BaseService):
                 "AND (feed_score, created_at, id) < (:cursor_s, :cursor_t, :cursor_id)"
             )
 
-        # Compute time cutoffs once per request
-        now = query_time
-        time_cutoffs = {
-            name: now - timedelta(days=days)
-            for name, days in TIME_FILTER_DAYS.items()
-        }
-
         age_expr = f"(julianday(:qt) - julianday(p.created_at)) * 86400"
-        filter_clauses = self._build_filter_clauses(required_filters, boost_filters)
+        filter_clauses = self._build_filter_clauses(filter_spec, "sqlite")
         logger.info(
-            "[FEED_FILTERS][sql] dialect=sqlite required=%s boost=%s required_clause=%s boost_count=%s",
-            required_filters,
-            boost_filters,
+            "[FEED_FILTERS][sql] dialect=sqlite filters=%s required_clause=%s boost_count=%s",
+            filter_spec["debug"],
             filter_clauses["required_clause"] or "(none)",
             len(filter_clauses["boost_predicates"]),
         )
@@ -696,7 +830,7 @@ class FeedServiceV2(BaseService):
                              AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                                   + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                                   + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND object_type = 'post') * {WEIGHT_REACTIONS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
-                             AND p.image_url IS NOT NULL
+                             AND {self._image_predicate()}
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
                     END AS discovery_score,
@@ -744,7 +878,7 @@ class FeedServiceV2(BaseService):
                              AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
                                   + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
                                   + (SELECT COUNT(DISTINCT user_id) FROM emoji_reactions WHERE post_id = p.id AND object_type = 'post') * {WEIGHT_REACTIONS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
-                             AND p.image_url IS NOT NULL
+                             AND {self._image_predicate()}
                         THEN {DISCOVERY_BOOST}
                         ELSE 0
                       END
@@ -774,16 +908,13 @@ class FeedServiceV2(BaseService):
             "qt": query_time.isoformat(),
             "lim": page_size,
         }
+        params.update(filter_clauses.get("params", {}))
         if cursor_data:
             params["cursor_s"] = cursor_data["score"]
             # SQLite stores datetimes as "YYYY-MM-DD HH:MM:SS.ffffff" (no T, no tz)
             # Match this format for correct text comparison
             params["cursor_t"] = cursor_data["created_at"].strftime("%Y-%m-%d %H:%M:%S.%f")
             params["cursor_id"] = cursor_data["id"]
-
-        # Inject time cutoff params for active time filters
-        for filter_name in filter_clauses.get("active_time_filters", []):
-            params[f"cutoff_{filter_name}"] = time_cutoffs[filter_name]
 
         return sql, params
 

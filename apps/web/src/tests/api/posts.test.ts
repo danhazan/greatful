@@ -347,14 +347,17 @@ describe('/api/posts', () => {
       )
     })
 
-    it('forwards filter query parameters', async () => {
+    it('forwards new filter query parameters', async () => {
       ;(fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ posts: [], next_cursor: null })
       })
 
+      const now = new Date()
+      const start = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()
+      const end = now.toISOString()
       const request = new NextRequest(
-        'http://localhost:3000/api/posts?page_size=10&required_filters=today&required_filters=images&boost_filters=mine&boost_filters=last_week',
+        `http://localhost:3000/api/posts?page_size=10&type_required=images&type_boost=mine&date_mode=required&date_start=${encodeURIComponent(start)}&date_end=${encodeURIComponent(end)}&author_mode=boost&author_ids=12&author_ids=44&keyword_mode=required&keyword=gratitude`,
         {
           method: 'GET',
           headers: {
@@ -366,7 +369,7 @@ describe('/api/posts', () => {
       await GET(request)
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/v1/posts/feed?page_size=10&required_filters=today&required_filters=images&boost_filters=mine&boost_filters=last_week',
+        `http://localhost:8000/api/v1/posts/feed?page_size=10&type_required=images&type_boost=mine&author_ids=12&author_ids=44&date_mode=required&date_start=${encodeURIComponent(start)}&date_end=${encodeURIComponent(end)}&author_mode=boost&keyword_mode=required&keyword=gratitude`,
         expect.any(Object)
       )
     })

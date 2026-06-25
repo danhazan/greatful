@@ -14,6 +14,9 @@ export const FEED_CONFIG = {
   
   // Default page size for feed requests
   DEFAULT_PAGE_SIZE: parseInt(process.env['NEXT_PUBLIC_FEED_DEFAULT_PAGE_SIZE'] || '10', 10),
+
+  // Minimum date for date filters (YYYY-MM-DD)
+  MIN_DATE: process.env['NEXT_PUBLIC_FEED_MIN_DATE'] || '2025-01-01',
 } as const
 
 export type FeedConfig = typeof FEED_CONFIG

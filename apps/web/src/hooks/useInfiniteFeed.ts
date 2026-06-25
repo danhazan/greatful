@@ -6,25 +6,18 @@ import { normalizePostFromApi } from '@/utils/normalizePost'
 import { Post } from '@/types/post'
 import { requestDeduplicator } from '@/utils/requestDeduplicator'
 import { FEED_CONFIG } from '@/config/feed'
+import { AppliedFeedFilters, appendFeedFiltersToApiParams } from '@/utils/feedFilterState'
 
 type FeedPageResponse = {
   posts: any[]
   nextCursor: string | null
 }
 
-export type FeedFilterKey = 'mine' | 'followed' | 'followers' | 'public' | 'images' | 'today' | 'last_3_days' | 'last_week' | 'last_2_weeks' | 'last_month'
-export type FeedFilterMode = 'off' | 'boost' | 'required'
-
-export interface FeedFiltersPayload {
-  requiredFilters: FeedFilterKey[]
-  boostFilters: FeedFilterKey[]
-}
-
 interface UseInfiniteFeedOptions {
   enabled: boolean
   currentUserId?: string
   onPostsLoaded?: (posts: Post[]) => void
-  feedFilters?: FeedFiltersPayload
+  feedFilters?: AppliedFeedFilters
 }
 
 interface UseInfiniteFeedResult {
@@ -111,7 +104,7 @@ function mergeFeedItems(existingItems: Post[], incomingPosts: Post[], seenIds: S
   }
 }
 
-function buildFeedQuery(cursor: string | null, filters?: FeedFiltersPayload): string {
+function buildFeedQuery(cursor: string | null, filters?: AppliedFeedFilters): string {
   const params = new URLSearchParams()
   params.set('page_size', String(FEED_CONFIG.DEFAULT_PAGE_SIZE))
 
@@ -119,12 +112,7 @@ function buildFeedQuery(cursor: string | null, filters?: FeedFiltersPayload): st
     params.set('cursor', cursor)
   }
 
-  for (const filterName of filters?.requiredFilters ?? []) {
-    params.append('required_filters', filterName)
-  }
-  for (const filterName of filters?.boostFilters ?? []) {
-    params.append('boost_filters', filterName)
-  }
+  appendFeedFiltersToApiParams(params, filters)
 
   return `/posts?${params.toString()}`
 }
@@ -221,7 +209,7 @@ export function useInfiniteFeed({
       nextCursor: (data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null,
     }
   }, [feedFilters, hydratePrivacy])
-  const feedFilterSignature = JSON.stringify(feedFilters || { requiredFilters: [], boostFilters: [] })
+  const feedFilterSignature = JSON.stringify(feedFilters || null)
   
   const resetSessionState = useCallback((options?: { clearItems?: boolean }) => {
     const clearItems = options?.clearItems ?? true

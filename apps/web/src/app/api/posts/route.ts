@@ -269,12 +269,19 @@ export async function GET(request: NextRequest) {
     const queryParams = new URLSearchParams()
     const cursor = searchParams.get('cursor')
     const pageSize = searchParams.get('page_size') || '10'
-    const requiredFilters = searchParams.getAll('required_filters')
-    const boostFilters = searchParams.getAll('boost_filters')
     if (cursor) queryParams.set('cursor', cursor)
     queryParams.set('page_size', pageSize)
-    requiredFilters.forEach((filter) => queryParams.append('required_filters', filter))
-    boostFilters.forEach((filter) => queryParams.append('boost_filters', filter))
+
+    // Forward all feed filter params
+    for (const name of ['type_required', 'type_boost', 'author_ids']) {
+      for (const value of searchParams.getAll(name)) {
+        queryParams.append(name, value)
+      }
+    }
+    for (const name of ['date_mode', 'date_start', 'date_end', 'author_mode', 'keyword_mode', 'keyword']) {
+      const value = searchParams.get(name)
+      if (value) queryParams.set(name, value)
+    }
 
     const response = await fetch(`${API_BASE_URL}/api/v1/posts/feed?${queryParams}`, {
       method: 'GET',

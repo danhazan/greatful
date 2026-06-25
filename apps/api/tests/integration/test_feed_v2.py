@@ -298,40 +298,28 @@ class TestFeedV2Scoring:
         assert result["posts"][0]["content"] == "Only reactions"
 
     @pytest.mark.asyncio
-    async def test_today_required_filters_recent_posts_only(self, db_session, user_a, user_b):
-        recent = await _create_post(db_session, user_b, "Today post", age_hours=6)
-        await _create_post(db_session, user_b, "Old post", age_hours=48)
+    async def test_utc_date_range_required(self, db_session, user_a, user_b):
+        now = datetime.now(timezone.utc)
+        in_range = await _create_post(db_session, user_b, "In range", age_hours=6)
+        too_old = await _create_post(db_session, user_b, "Too old", age_hours=72)
+
+        start = (now - timedelta(hours=48)).isoformat()
+        end = now.isoformat()
 
         service = FeedServiceV2(db_session)
-        result = await service.get_feed(user_id=user_a.id, required_filters=["today"])
+        result = await service.get_feed(
+            user_id=user_a.id,
+            date_mode="required",
+            date_start=start,
+            date_end=end,
+        )
         returned_ids = {post["id"] for post in result["posts"]}
-        assert recent.id in returned_ids
-        assert all(post["content"] != "Old post" for post in result["posts"])
+        assert in_range.id in returned_ids
+        assert all(post["content"] != "Too old" for post in result["posts"])
 
     @pytest.mark.asyncio
-    async def test_last_3_days_required_filters_correct_window(self, db_session, user_a, user_b):
-        in_window = await _create_post(db_session, user_b, "In 3 days", age_hours=48)
-        await _create_post(db_session, user_b, "Outside 3 days", age_hours=120)
-
-        service = FeedServiceV2(db_session)
-        result = await service.get_feed(user_id=user_a.id, required_filters=["last_3_days"])
-        returned_ids = {post["id"] for post in result["posts"]}
-        assert in_window.id in returned_ids
-        assert all(post["content"] != "Outside 3 days" for post in result["posts"])
-
-    @pytest.mark.asyncio
-    async def test_last_week_required_filters_correct_window(self, db_session, user_a, user_b):
-        in_window = await _create_post(db_session, user_b, "In week", age_hours=120)
-        await _create_post(db_session, user_b, "Outside week", age_hours=200)
-
-        service = FeedServiceV2(db_session)
-        result = await service.get_feed(user_id=user_a.id, required_filters=["last_week"])
-        returned_ids = {post["id"] for post in result["posts"]}
-        assert in_window.id in returned_ids
-        assert all(post["content"] != "Outside week" for post in result["posts"])
-
-    @pytest.mark.asyncio
-    async def test_time_boost_reorders_within_required_subset(self, db_session, user_a, user_b):
+    async def test_date_boost_reorders_within_required_subset(self, db_session, user_a, user_b):
+        now = datetime.now(timezone.utc)
         await _follow(db_session, user_a, user_b)
         older = await _create_post(db_session, user_b, "Older followed", age_hours=30)
         recent = await _create_post(db_session, user_b, "Recent followed", age_hours=6)
@@ -339,12 +327,14 @@ class TestFeedV2Scoring:
         service = FeedServiceV2(db_session)
         baseline = await service.get_feed(
             user_id=user_a.id,
-            required_filters=["followed"],
+            type_required=["followed"],
         )
         boosted = await service.get_feed(
             user_id=user_a.id,
-            required_filters=["followed"],
-            boost_filters=["today"],
+            type_required=["followed"],
+            date_mode="boost",
+            date_start=(now - timedelta(hours=48)).isoformat(),
+            date_end=now.isoformat(),
         )
 
         baseline_ids = {post["id"] for post in baseline["posts"]}
@@ -480,7 +470,7 @@ class TestFeedV2Privacy:
 class TestFeedV2Filters:
 
     @pytest.mark.asyncio
-    async def test_required_filters_use_or_union(self, db_session, user_a, user_b, user_c):
+    async def test_required_filters_use_and_semantics(self, db_session, user_a, user_b, user_c):
         await _follow(db_session, user_a, user_b)  # followed
         await _follow(db_session, user_c, user_a)  # follower
         outsider = User(
@@ -498,7 +488,7 @@ class TestFeedV2Filters:
         service = FeedServiceV2(db_session)
         result = await service.get_feed(
             user_id=user_a.id,
-            required_filters=["followed", "followers"],
+            type_required=["followed", "followers"],
         )
 
         returned_ids = {post["id"] for post in result["posts"]}
@@ -518,7 +508,7 @@ class TestFeedV2Filters:
         service = FeedServiceV2(db_session)
         result = await service.get_feed(
             user_id=user_a.id,
-            required_filters=["followed", "followers"],
+            type_required=["followed", "followers"],
         )
 
         returned_ids = {post["id"] for post in result["posts"]}
@@ -528,18 +518,20 @@ class TestFeedV2Filters:
     @pytest.mark.asyncio
     async def test_required_and_time_filter_both_applied(self, db_session, user_a, user_b):
         """Test REQUIRED AND with time filter - both conditions must match."""
-        # Create posts from user_a (own posts) so "mine" filter can apply
+        now = datetime.now(timezone.utc)
         await _create_post(db_session, user_a, "Old own post", age_hours=48)
         recent = await _create_post(db_session, user_a, "Recent own post", age_hours=6)
 
         service = FeedServiceV2(db_session)
         result = await service.get_feed(
             user_id=user_a.id,
-            required_filters=["mine", "today"],
+            type_required=["mine"],
+            date_mode="required",
+            date_start=(now - timedelta(hours=24)).isoformat(),
+            date_end=now.isoformat(),
         )
 
         returned_ids = {post["id"] for post in result["posts"]}
-        # Should only get today's own post
         assert recent.id in returned_ids
         assert all(post["content"] != "Old own post" for post in result["posts"])
 
@@ -563,7 +555,7 @@ class TestFeedV2Filters:
         service = FeedServiceV2(db_session)
         result = await service.get_feed(
             user_id=user_a.id,
-            required_filters=["public"],
+            type_required=["public"],
         )
 
         assert len(result["posts"]) == 1
@@ -587,7 +579,7 @@ class TestFeedV2Filters:
         service = FeedServiceV2(db_session)
         result = await service.get_feed(
             user_id=user_a.id,
-            required_filters=["images"],
+            type_required=["images"],
         )
 
         returned_ids = {post["id"] for post in result["posts"]}
@@ -603,7 +595,7 @@ class TestFeedV2Filters:
 
         service = FeedServiceV2(db_session)
         baseline = await service.get_feed(user_id=user_a.id)
-        with_empty_boosts = await service.get_feed(user_id=user_a.id, boost_filters=[])
+        with_empty_boosts = await service.get_feed(user_id=user_a.id, type_boost=[])
 
         baseline_ids = [post["id"] for post in baseline["posts"]]
         empty_boost_ids = [post["id"] for post in with_empty_boosts["posts"]]
@@ -611,6 +603,7 @@ class TestFeedV2Filters:
 
     @pytest.mark.asyncio
     async def test_boost_score_is_capped(self, db_session, user_a, user_b):
+        now = datetime.now(timezone.utc)
         await _follow(db_session, user_a, user_b)
         await _follow(db_session, user_b, user_a)
         await _create_post(
@@ -624,7 +617,10 @@ class TestFeedV2Filters:
         service = FeedServiceV2(db_session)
         result = await service.get_feed(
             user_id=user_a.id,
-            boost_filters=["followed", "followers", "images", "today", "last_3_days", "last_week"],
+            type_boost=["followed", "followers", "images"],
+            date_mode="boost",
+            date_start=(now - timedelta(hours=48)).isoformat(),
+            date_end=now.isoformat(),
             debug=True,
         )
 
@@ -646,8 +642,8 @@ class TestFeedV2Filters:
         service = FeedServiceV2(db_session)
         result = await service.get_feed(
             user_id=user_a.id,
-            required_filters=["followed"],
-            boost_filters=["images"],
+            type_required=["followed"],
+            type_boost=["images"],
             debug=True,
         )
 
@@ -883,3 +879,202 @@ class TestFeedV2DiversityBonus:
         result = await service.get_feed(user_id=user_a.id, debug=True)
         # Three types has higher diversity bonus → ranks first
         assert result["posts"][0]["content"] == "Three types"
+
+
+# ---------------------------------------------------------------------------
+# Test: New filter predicates (modal-era)
+# ---------------------------------------------------------------------------
+
+class TestFeedV2NewFilters:
+
+    @pytest.mark.asyncio
+    async def test_utc_custom_range_required(self, db_session, user_a, user_b):
+        now = datetime.now(timezone.utc)
+        in_range = await _create_post(db_session, user_b, "In range", age_hours=24 * 5)
+        outside = await _create_post(db_session, user_b, "Outside", age_hours=24 * 60)
+
+        start = (now - timedelta(days=10)).isoformat()
+        end = now.isoformat()
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            date_mode="required",
+            date_start=start,
+            date_end=end,
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert in_range.id in returned_ids
+        assert all(post["content"] != "Outside" for post in result["posts"])
+
+    @pytest.mark.asyncio
+    async def test_utc_range_end_before_start_raises_error(self, db_session, user_a):
+        now = datetime.now(timezone.utc)
+        service = FeedServiceV2(db_session)
+        with pytest.raises(ValueError, match="date_end must be after date_start"):
+            await service.get_feed(
+                user_id=user_a.id,
+                date_mode="required",
+                date_start=now.isoformat(),
+                date_end=(now - timedelta(hours=1)).isoformat(),
+            )
+
+    @pytest.mark.asyncio
+    async def test_utc_range_requires_timezone_aware(self, db_session, user_a):
+        service = FeedServiceV2(db_session)
+        with pytest.raises(ValueError, match="timezone-aware"):
+            await service.get_feed(
+                user_id=user_a.id,
+                date_mode="required",
+                date_start="2026-01-01T00:00:00",
+                date_end="2026-01-31T00:00:00",
+            )
+
+    @pytest.mark.asyncio
+    async def test_author_required_multiple(self, db_session, user_a, user_b, user_c):
+        user_b_post = await _create_post(db_session, user_b, "User B post", age_hours=1)
+        user_c_post = await _create_post(db_session, user_c, "User C post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            author_mode="required",
+            author_ids=[user_b.id, user_c.id],
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert user_b_post.id in returned_ids
+        assert user_c_post.id in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_author_boost_reorders(self, db_session, user_a, user_b, user_c):
+        await _follow(db_session, user_a, user_b)
+        await _follow(db_session, user_a, user_c)
+
+        b_post = await _create_post(db_session, user_b, "User B post", age_hours=1)
+        c_post = await _create_post(db_session, user_c, "User C post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        baseline = await service.get_feed(user_id=user_a.id)
+        boosted = await service.get_feed(
+            user_id=user_a.id,
+            author_mode="boost",
+            author_ids=[user_c.id],
+        )
+
+        baseline_ids = {post["id"] for post in baseline["posts"]}
+        boosted_ids = {post["id"] for post in boosted["posts"]}
+        assert baseline_ids == boosted_ids
+
+    @pytest.mark.asyncio
+    async def test_keyword_required_filters_content(self, db_session, user_a, user_b):
+        matching = await _create_post(db_session, user_b, "I feel grateful today", age_hours=1)
+        non_matching = await _create_post(db_session, user_b, "Completely different content", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            keyword_mode="required",
+            keyword="grateful",
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert matching.id in returned_ids
+        assert all(post["content"] != "Completely different content" for post in result["posts"])
+
+    @pytest.mark.asyncio
+    async def test_keyword_boost_reorders_within_visible(self, db_session, user_a, user_b):
+        await _follow(db_session, user_a, user_b)
+        older_matching = await _create_post(db_session, user_b, "Older grateful post", age_hours=2)
+        recent_non = await _create_post(db_session, user_b, "Recent non-matching content", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            keyword_mode="boost",
+            keyword="grateful",
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert older_matching.id in returned_ids
+        assert recent_non.id in returned_ids
+        # Keyword boost (+1.0) should overcome 1h recency gap (~0.06) and rank matching post first
+        assert result["posts"][0]["id"] == older_matching.id
+
+    @pytest.mark.asyncio
+    async def test_public_plus_followed_zero_results(self, db_session, user_a, user_b):
+        await _follow(db_session, user_a, user_b)
+        await _create_post(db_session, user_b, "Followed post", age_hours=1)
+        outsider = User(
+            email="outsider@test.com",
+            username="outsider",
+            hashed_password=get_password_hash("password"),
+        )
+        db_session.add(outsider)
+        await db_session.flush()
+        await _create_post(db_session, outsider, "Public post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            type_required=["public", "followed"],
+        )
+
+        # A post cannot be both public (unrelated) and followed → zero results
+        assert len(result["posts"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_image_empty_string_not_matched(self, db_session, user_a, user_b):
+        legacy = await _create_post(db_session, user_b, "Legacy image", age_hours=1, image_url="/uploads/legacy.jpg")
+        empty = await _create_post(db_session, user_b, "Empty image url", age_hours=1, image_url="")
+        no_image = await _create_post(db_session, user_b, "No image", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            type_required=["images"],
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert legacy.id in returned_ids
+        assert empty.id not in returned_ids
+        assert no_image.id not in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_keyword_privacy_no_leak(self, db_session, user_a, user_b):
+        private = await _create_post(
+            db_session, user_b, "grateful private content",
+            age_hours=1, is_public=False, privacy_level="private",
+        )
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            keyword_mode="required",
+            keyword="grateful",
+        )
+
+        # Private post should not leak even though content matches
+        assert len(result["posts"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_date_boost_reorders(self, db_session, user_a, user_b):
+        now = datetime.now(timezone.utc)
+        await _follow(db_session, user_a, user_b)
+        old = await _create_post(db_session, user_b, "Old post", age_hours=72)
+        recent = await _create_post(db_session, user_b, "Recent post", age_hours=2)
+
+        service = FeedServiceV2(db_session)
+        baseline = await service.get_feed(user_id=user_a.id)
+        boosted = await service.get_feed(
+            user_id=user_a.id,
+            date_mode="boost",
+            date_start=(now - timedelta(hours=48)).isoformat(),
+            date_end=now.isoformat(),
+        )
+
+        baseline_ids = {post["id"] for post in baseline["posts"]}
+        boosted_ids = {post["id"] for post in boosted["posts"]}
+        assert baseline_ids == boosted_ids
+        assert boosted["posts"][0]["id"] == recent.id

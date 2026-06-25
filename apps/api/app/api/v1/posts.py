@@ -1002,8 +1002,15 @@ async def get_feed(
     db: AsyncSession = Depends(get_db),
     cursor: Optional[str] = None,
     page_size: Optional[int] = None,
-    required_filters: Optional[List[str]] = Query(default=None),
-    boost_filters: Optional[List[str]] = Query(default=None),
+    type_required: Optional[List[str]] = Query(default=None),
+    type_boost: Optional[List[str]] = Query(default=None),
+    date_mode: Optional[str] = Query(default=None),
+    date_start: Optional[str] = Query(default=None),
+    date_end: Optional[str] = Query(default=None),
+    author_mode: Optional[str] = Query(default=None),
+    author_ids: Optional[List[int]] = Query(default=None),
+    keyword_mode: Optional[str] = Query(default=None),
+    keyword: Optional[str] = Query(default=None),
 ):
     """
     Feed endpoint with cursor-based pagination.
@@ -1024,10 +1031,13 @@ async def get_feed(
 
     debug = request.headers.get("X-Feed-Debug", "").lower() == "true"
     logger.info(
-        "[FEED_FILTERS][api] user_id=%s required=%s boost=%s cursor_present=%s page_size=%s",
+        "[FEED_FILTERS][api] user_id=%s type_required=%s type_boost=%s date_mode=%s author_mode=%s keyword_mode=%s cursor_present=%s page_size=%s",
         current_user_id,
-        required_filters or [],
-        boost_filters or [],
+        type_required or [],
+        type_boost or [],
+        date_mode,
+        author_mode,
+        keyword_mode,
         bool(cursor),
         page_size,
     )
@@ -1039,8 +1049,15 @@ async def get_feed(
             cursor=cursor,
             page_size=page_size,
             debug=debug,
-            required_filters=required_filters,
-            boost_filters=boost_filters,
+            type_required=type_required,
+            type_boost=type_boost,
+            date_mode=date_mode,
+            date_start=date_start,
+            date_end=date_end,
+            author_mode=author_mode,
+            author_ids=author_ids,
+            keyword_mode=keyword_mode,
+            keyword=keyword,
         )
         return result
     except ValueError as e:

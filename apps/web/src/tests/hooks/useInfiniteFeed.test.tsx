@@ -1,7 +1,9 @@
 import React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
-import { FeedFiltersPayload, useInfiniteFeed } from '@/hooks/useInfiniteFeed'
+import { useInfiniteFeed } from '@/hooks/useInfiniteFeed'
+import { AppliedFeedFilters } from '@/utils/feedFilterState'
+import { getUtcRangeFromLocalDates } from '@/utils/dateFilterUtils'
 import { apiClient } from '@/utils/apiClient'
 
 const mockedApiClient = apiClient as unknown as { get: jest.Mock }
@@ -37,7 +39,7 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function TestInfiniteFeed({ enabled = true, feedFilters }: { enabled?: boolean; feedFilters?: FeedFiltersPayload }) {
+function TestInfiniteFeed({ enabled = true, feedFilters }: { enabled?: boolean; feedFilters?: AppliedFeedFilters }) {
   const {
     items,
     nextCursor,
@@ -108,11 +110,15 @@ describe('useInfiniteFeed', () => {
       nextCursor: null,
     } as any)
 
+    const startLocal = '2026-01-01'
+    const endLocal = '2026-01-03'
+    const { startDate, endDate } = getUtcRangeFromLocalDates(startLocal, endLocal)
     render(
       <TestInfiniteFeed
         feedFilters={{
-          requiredFilters: ['today', 'images'],
-          boostFilters: ['mine', 'last_week'],
+          date: { mode: 'required', localRange: { start: startLocal, end: endLocal } },
+          type: { mine: 'boost', followed: 'off', followers: 'off', public: 'off', images: 'required' },
+          search: { authors: { mode: 'off', users: [] }, keyword: { mode: 'off', text: '' } },
         }}
       />
     )
@@ -122,7 +128,7 @@ describe('useInfiniteFeed', () => {
     })
 
     expect(mockedApiClient.get).toHaveBeenCalledWith(
-      '/posts?page_size=10&required_filters=today&required_filters=images&boost_filters=mine&boost_filters=last_week',
+      `/posts?page_size=10&type_boost=mine&type_required=images&date_mode=required&date_start=${encodeURIComponent(startDate)}&date_end=${encodeURIComponent(endDate)}`,
       { skipCache: true }
     )
   })
@@ -138,11 +144,15 @@ describe('useInfiniteFeed', () => {
         nextCursor: null,
       } as any)
 
+    const startLocal = '2026-01-01'
+    const endLocal = '2026-01-03'
+    const { startDate, endDate } = getUtcRangeFromLocalDates(startLocal, endLocal)
     render(
       <TestInfiniteFeed
         feedFilters={{
-          requiredFilters: ['last_3_days'],
-          boostFilters: ['followed'],
+          date: { mode: 'required', localRange: { start: startLocal, end: endLocal } },
+          type: { mine: 'off', followed: 'boost', followers: 'off', public: 'off', images: 'off' },
+          search: { authors: { mode: 'off', users: [] }, keyword: { mode: 'off', text: '' } },
         }}
       />
     )
@@ -161,7 +171,7 @@ describe('useInfiniteFeed', () => {
 
     expect(mockedApiClient.get).toHaveBeenNthCalledWith(
       2,
-      '/posts?page_size=10&cursor=cursor-1&required_filters=last_3_days&boost_filters=followed',
+      `/posts?page_size=10&cursor=cursor-1&type_boost=followed&date_mode=required&date_start=${encodeURIComponent(startDate)}&date_end=${encodeURIComponent(endDate)}`,
       { skipCache: true }
     )
   })
