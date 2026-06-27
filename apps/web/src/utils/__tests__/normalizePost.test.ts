@@ -116,6 +116,57 @@ describe('normalizePostFromApi', () => {
     expect(normalized?.author.id).toBe("456")
     expect(normalized?.author.displayName).toBe("Test User")
   })
+
+  it('should extract custom privacy fields from API response', () => {
+    const apiResponse = {
+      id: "123",
+      content: "Custom privacy post",
+      createdAt: "2025-09-09T10:00:00Z",
+      privacyLevel: "custom",
+      privacyRules: ["specific_users", "followers"],
+      specificUsers: [42, 99],
+      author: { id: 456, username: "testuser" },
+    }
+
+    const normalized = normalizePostFromApi(apiResponse)
+
+    expect(normalized?.privacyLevel).toBe("custom")
+    expect(normalized?.privacyRules).toEqual(["specific_users", "followers"])
+    expect(normalized?.specificUsers).toEqual([42, 99])
+  })
+
+  it('should handle missing privacy fields as empty arrays', () => {
+    const apiResponse = {
+      id: "123",
+      content: "No privacy data",
+      createdAt: "2025-09-09T10:00:00Z",
+      author: { id: 456, username: "testuser" },
+    }
+
+    const normalized = normalizePostFromApi(apiResponse)
+
+    expect(normalized?.specificUsers).toEqual([])
+    expect(normalized?.privacyRules).toEqual([])
+    expect(normalized?.privacyLevel).toBeUndefined()
+  })
+
+  it('should handle public post with empty privacy arrays', () => {
+    const apiResponse = {
+      id: "123",
+      content: "Public post",
+      createdAt: "2025-09-09T10:00:00Z",
+      privacyLevel: "public",
+      privacyRules: [],
+      specificUsers: [],
+      author: { id: 456, username: "testuser" },
+    }
+
+    const normalized = normalizePostFromApi(apiResponse)
+
+    expect(normalized?.privacyLevel).toBe("public")
+    expect(normalized?.privacyRules).toEqual([])
+    expect(normalized?.specificUsers).toEqual([])
+  })
 })
 
 describe('debugApiResponse', () => {

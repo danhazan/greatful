@@ -1262,3 +1262,146 @@ useEffect(() => {
   }
 }, [isOpen])
 ```
+
+---
+
+## Post Hydration Pipeline
+
+The post hydration pipeline describes how post data (including privacy fields like `specificUsers`) flows from the database through to UI components.
+
+### End-to-End Flow
+
+```
+Database (posts, post_privacy_rules, post_privacy_users)
+  │
+  ▼
+PostRepository._fetch_engagement_data(post_ids, viewer_id, include_privacy_details)
+  │
+  │  ┌── Ownership gate ──────────────────────────────┐
+  │  │  Only query privacy tables for post_ids where   │
+  │  │  post.author_id == viewer_id                    │
+  │  │  Non-owned posts: privacy keys omitted (null)   │
+  │  └─────────────────────────────────────────────────┘
+  │
+  ▼
+FastAPI Pydantic serialization (PostResponse model with camelCase aliases)
+  │
+  ├── Feed: FeedResponse wrapping List[PostResponse]
+  │         (proxied through /api/posts → transformApiResponse)
+  │
+  ├── Profile: ApiSuccessResponse wrapping List[PostResponse]
+  │            (direct apiClient call)
+  │
+  └── Detail: PostResponse
+             (direct apiClient call)
+  │
+  ▼
+normalizePostFromApi()
+  │  extractPostPrivacyFromApi() → privacyLevel, privacyRules, specificUsers
+  │  (null defaults to [])
+  ▼
+Post type (specificUsers: number[], privacyRules: string[], privacyLevel?: string)
+  │
+  ├── Feed: useInfiniteFeed → hydratePrivacy (safety net, skips if privacyLevel present)
+  │         → PostCard → PostPrivacyBadge (author only)
+  │
+  ├── Profile: useTaggedQuery → PostCard → PostPrivacyBadge
+  │
+  └── Detail: SinglePostView → PostPrivacyBadge
+  │
+  ▼
+PostPrivacyBadge (renders Globe/Lock/Users icon + tooltip)
+  │  specificUsers (number[]) → lazy-resolve via apiClient.getUserProfile(id)
+  │                           → PostVisibilityPreview
+  ▼
+EditPostModal
+  │  post.specificUsers (number[])
+  │  → usePostPrivacyState(initialPrivacy)
+  │    → hydrateUserIds(ids) → POST /users/batch-profiles
+  │    → resolved UserSearchResult[]
+  │    → PostPrivacySelector → UserMultiSelect
+```
+
+### Backend Serialization: Ownership-Gated Privacy
+
+The shared serialization method `_fetch_engagement_data()` loads privacy details only for posts owned by the viewer. This is a single ownership check inside the privacy-fetching loop:
+
+```
+if include_privacy_details and collected_ids:
+    # Only fetch privacy for posts owned by the viewer
+    owned_ids = [p["id"] for p in posts if p["author_id"] == viewer_id]
+    if owned_ids:
+        privacy = await get_privacy_details_for_posts(owned_ids)
+        for post in posts:
+            if post["author_id"] == viewer_id:
+                post["privacy_rules"] = ...
+                post["specific_users"] = ...
+```
+
+**Distinction**: Non-owned posts omit privacy keys entirely (Pydantic serializes as `null`). Owned posts without custom rules get explicit empty arrays (`[]`). This distinguishes "privacy not fetched" from "privacy fetched but empty".
+
+| Endpoint | `include_privacy_details` | Viewer is author? | `specific_users` |
+|---|---|---|---|
+| `GET /api/v1/posts/feed` | `True` | Yes | Populated |
+| `GET /api/v1/posts/feed` | `True` | No | `null` (omitted) |
+| `GET /api/v1/posts/{id}` | `True` | Yes | Populated |
+| `GET /api/v1/posts/{id}` | `True` | No | `null` (omitted) |
+| `GET /api/v1/users/me/posts` | `True` (caller) | Always | Populated |
+| `GET /api/v1/users/{id}/posts` | `False` (caller) | N/A | `null` (not fetched) |
+
+### Frontend Normalization: `normalizePostFromApi`
+
+**File**: `apps/web/src/utils/normalizePost.ts`
+
+The canonical normalization function `normalizePostFromApi` handles all post API responses uniformly:
+
+1. Unwraps `{ data: post }` patterns
+2. Calls `assertNoSnakeCase()` (dev validation)
+3. Extracts privacy via `extractPostPrivacyFromApi()`
+4. Normalizes author (image URL resolution, id → string)
+5. Returns a `Post` type with `specificUsers`, `privacyRules`, `privacyLevel`
+
+The privacy extraction defaults to empty arrays when fields are absent:
+
+```typescript
+function extractPostPrivacyFromApi(post: any): PostPrivacy {
+  const level = post?.privacyLevel
+  return {
+    privacyLevel: (level === 'public' || level === 'private' || level === 'custom') ? level : undefined,
+    privacyRules: post?.privacyRules ?? [],
+    specificUsers: post?.specificUsers ?? [],
+  }
+}
+```
+
+### Feed Hydration: `hydratePrivacy`
+
+**File**: `apps/web/src/hooks/useInfiniteFeed.ts:154-192`
+
+This function backfills privacy data for the current user's own feed posts. It runs as a secondary safety net after initial normalization:
+
+```typescript
+const needsHydration = normalizedPosts.some(
+  (post) => post.author?.id === currentUserId && !post.privacyLevel
+)
+```
+
+When triggered, it re-fetches `/users/me/posts` and merges `privacyLevel`, `privacyRules`, and `specificUsers` onto matching posts.
+
+### External User Resolution
+
+Two layers resolve user IDs to displayable user profiles:
+
+| Layer | Location | Method | When |
+|---|---|---|---|
+| `hydrateUserIds` | `apps/web/src/utils/userHydration.ts` | `POST /users/batch-profiles` | EditPostModal initialization (via `usePostPrivacyState`) |
+| `apiClient.getUserProfile` | (PostPrivacyBadge inline) | `GET /users/{id}/profile` | Tooltip hover on PostPrivacyBadge (lazy, one-at-a-time) |
+
+### Key Design Decisions
+
+- **Ownership gate in shared serializer**: Privacy metadata is loaded and attached only for the viewer's own posts. Non-owned posts omit privacy keys entirely (`null`). The ownership check lives in `_fetch_engagement_data` — the single serialization entry point — so all endpoints behave consistently.
+- **Distinction preserved**: `null` means "not fetched / not applicable". `[]` means "fetched but no rules". The frontend's `extractPostPrivacyFromApi` defaults `null`/`undefined` to `[]`, so consumers always receive a predictable array.
+- **Feed is intentionally reduced for non-owned posts**: Unlike post detail and own profile, the feed omits privacy metadata for other users' posts. This is not a bug — it is the intended architecture. Non-owned posts have no UI that needs this data.
+- **`normalizePostFromApi` is the single canonical normalizer**: All post responses (feed, profile, detail) flow through the same function.
+- **`hydratePrivacy` is a safety net, not a primary path**: It only triggers when `privacyLevel` is unexpectedly missing. After the backend ownership gate, this only activates for edge cases (e.g., SSR placeholder data).
+- **Batch resolution for EditPostModal**: When opening Edit Post, user IDs are batch-resolved via a single API call rather than one-at-a-time. This avoids N+1 requests.

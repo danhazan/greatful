@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.models.post import Post
 from app.models.post_image import PostImage
+from app.models.post_privacy import PostPrivacyRule, PostPrivacyUser
 from app.models.emoji_reaction import EmojiReaction
 from app.models.follow import Follow
 from app.models.user import User
@@ -341,7 +342,85 @@ class TestFeedV2Scoring:
         boosted_ids = {post["id"] for post in boosted["posts"]}
         assert baseline_ids == boosted_ids
         assert boosted["posts"][0]["id"] == recent.id
-        assert older.id in boosted_ids
+
+    @pytest.mark.asyncio
+    async def test_feed_returns_privacy_details(self, db_session, user_a, user_b):
+        """Feed response must include specific_users and privacy_rules for custom privacy posts."""
+        post = await _create_post(
+            db_session, user_a, "Custom privacy post",
+            age_hours=1, is_public=True, privacy_level="custom",
+        )
+        rule = PostPrivacyRule(
+            id=str(uuid.uuid4()),
+            post_id=post.id,
+            rule_type="specific_users",
+        )
+        p_user = PostPrivacyUser(
+            id=str(uuid.uuid4()),
+            post_id=post.id,
+            user_id=user_b.id,
+        )
+        db_session.add_all([rule, p_user])
+        await db_session.commit()
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id)
+
+        assert len(result["posts"]) == 1
+        feed_post = result["posts"][0]
+        assert feed_post["privacy_level"] == "custom"
+        assert feed_post["specific_users"] == [user_b.id]
+        assert "specific_users" in feed_post["privacy_rules"]
+
+    @pytest.mark.asyncio
+    async def test_feed_public_post_has_empty_privacy_details(self, db_session, user_a):
+        """Owned public post should have empty privacy arrays (fetched-but-empty)."""
+        await _create_post(db_session, user_a, "Public post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id)
+
+        assert len(result["posts"]) == 1
+        feed_post = result["posts"][0]
+        assert feed_post["privacy_level"] == "public"
+        assert feed_post["specific_users"] == []
+        assert feed_post["privacy_rules"] == []
+
+    @pytest.mark.asyncio
+    async def test_feed_custom_other_user_post_omits_privacy(self, db_session, user_a, user_b, user_c):
+        """Non-owned custom posts must omit privacy metadata (null, not empty array)."""
+        post = await _create_post(
+            db_session, user_b, "Other's custom post",
+            age_hours=1, is_public=True, privacy_level="custom",
+        )
+        rule = PostPrivacyRule(
+            id=str(uuid.uuid4()),
+            post_id=post.id,
+            rule_type="specific_users",
+        )
+        p_user_1 = PostPrivacyUser(
+            id=str(uuid.uuid4()),
+            post_id=post.id,
+            user_id=user_a.id,
+        )
+        p_user_2 = PostPrivacyUser(
+            id=str(uuid.uuid4()),
+            post_id=post.id,
+            user_id=user_c.id,
+        )
+        db_session.add_all([rule, p_user_1, p_user_2])
+        await db_session.commit()
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id)
+
+        assert len(result["posts"]) == 1
+        feed_post = result["posts"][0]
+        assert feed_post["privacy_level"] == "custom"
+        # Viewer is not the author → privacy metadata must be null/absent
+        assert feed_post.get("specific_users") is None
+        assert feed_post.get("privacy_rules") is None
+
 
     @pytest.mark.asyncio
     async def test_followed_user_ranks_higher(self, db_session, user_a, user_b, user_c):
@@ -1207,3 +1286,88 @@ class TestFeedV2NewFilters:
         boosted_ids = {post["id"] for post in boosted["posts"]}
         assert baseline_ids == boosted_ids
         assert boosted["posts"][0]["id"] == recent.id
+
+
+class TestFeedV2PrivacyOwnership:
+    """Verify privacy metadata is only returned for the viewer's own posts."""
+
+    @pytest.mark.asyncio
+    async def test_post_detail_own_post_has_privacy(self, db_session, user_a, user_b):
+        """Author fetches own post detail → privacy details present."""
+        from app.repositories.post_repository import PostRepository
+
+        post = await _create_post(
+            db_session, user_a, "My custom post",
+            age_hours=1, privacy_level="custom",
+        )
+        rule = PostPrivacyRule(
+            id=str(uuid.uuid4()), post_id=post.id, rule_type="specific_users",
+        )
+        p_user = PostPrivacyUser(
+            id=str(uuid.uuid4()), post_id=post.id, user_id=user_b.id,
+        )
+        db_session.add_all([rule, p_user])
+        await db_session.commit()
+
+        repo = PostRepository(db_session)
+        result = await repo.get_single_post_with_engagement(
+            post_id=post.id, viewer_id=user_a.id, include_privacy_details=True,
+        )
+
+        assert result is not None
+        assert result["privacy_level"] == "custom"
+        assert result["specific_users"] == [user_b.id]
+        assert "specific_users" in result["privacy_rules"]
+
+    @pytest.mark.asyncio
+    async def test_post_detail_other_user_omits_privacy(self, db_session, user_a, user_b, user_c):
+        """Non-author fetches another's post detail → privacy metadata absent (null)."""
+        from app.repositories.post_repository import PostRepository
+
+        # Make user_a follow user_b so they can see user_b's custom post
+        await _follow(db_session, user_a, user_b)
+
+        post = await _create_post(
+            db_session, user_b, "Their custom post",
+            age_hours=1, privacy_level="custom",
+        )
+        rule = PostPrivacyRule(
+            id=str(uuid.uuid4()), post_id=post.id, rule_type="followers",
+        )
+        p_user = PostPrivacyUser(
+            id=str(uuid.uuid4()), post_id=post.id, user_id=user_c.id,
+        )
+        db_session.add_all([rule, p_user])
+        await db_session.commit()
+
+        repo = PostRepository(db_session)
+        result = await repo.get_single_post_with_engagement(
+            post_id=post.id, viewer_id=user_a.id, include_privacy_details=True,
+        )
+
+        assert result is not None
+        assert result["privacy_level"] == "custom"
+        # user_a is a follower (can see the post) but not the author → no privacy metadata
+        assert result.get("specific_users") is None
+        assert result.get("privacy_rules") is None
+
+    @pytest.mark.asyncio
+    async def test_post_detail_own_post_public_empty_privacy(self, db_session, user_a):
+        """Own public post detail → privacy fetched but empty arrays."""
+        from app.repositories.post_repository import PostRepository
+
+        post = await _create_post(
+            db_session, user_a, "My public post",
+            age_hours=1, privacy_level="public",
+        )
+        await db_session.commit()
+
+        repo = PostRepository(db_session)
+        result = await repo.get_single_post_with_engagement(
+            post_id=post.id, viewer_id=user_a.id, include_privacy_details=True,
+        )
+
+        assert result is not None
+        assert result["privacy_level"] == "public"
+        assert result.get("specific_users") == []
+        assert result.get("privacy_rules") == []

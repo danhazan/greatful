@@ -394,14 +394,23 @@ class PostRepository(BaseRepository):
             for post in posts:
                 post["images"] = images_by_post.get(post["id"], [])
 
-        # Batch load privacy details
+        # Batch load privacy details — only for posts owned by the viewer.
+        # Non-owned posts omit privacy metadata (Pydantic serializes as null),
+        # distinguishing "privacy not fetched" from "privacy fetched but empty".
         if include_privacy_details and collected_ids:
-            privacy_service = PostPrivacyService(self.db)
-            privacy_details_by_post = await privacy_service.get_privacy_details_for_posts(collected_ids)
-            for post in posts:
-                details = privacy_details_by_post.get(post["id"], {})
-                post["privacy_rules"] = details.get("privacy_rules", [])
-                post["specific_users"] = details.get("specific_users", [])
+            owned_ids = [
+                p["id"]
+                for p in posts
+                if viewer_id is not None and p.get("author_id") == viewer_id
+            ]
+            if owned_ids:
+                privacy_service = PostPrivacyService(self.db)
+                privacy_details_by_post = await privacy_service.get_privacy_details_for_posts(owned_ids)
+                for post in posts:
+                    if viewer_id is not None and post.get("author_id") == viewer_id:
+                        details = privacy_details_by_post.get(post["id"], {})
+                        post["privacy_rules"] = details.get("privacy_rules", [])
+                        post["specific_users"] = details.get("specific_users", [])
 
         # Preserve input order by mapping results back to selected_post_ids sequence
         posts_by_id = {p["id"]: p for p in posts}
@@ -606,4 +615,4 @@ class PostRepository(BaseRepository):
         # Safely handle viewer_id (guest vs authenticated)
         viewer_id = user_id if user_id and user_id > 0 else None
         
-        return await self._fetch_engagement_data(post_ids, viewer_id)
+        return await self._fetch_engagement_data(post_ids, viewer_id, include_privacy_details=True)
