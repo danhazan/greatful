@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { UserProvider } from '@/contexts/UserContext'
 import { LocaleProvider } from '@/contexts/LocaleContext'
+import { ModalPortalRefProvider } from '@/hooks/useModalPortalRefs'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -40,7 +41,9 @@ export default async function RootLayout({
         <UserProvider>
           <LocaleProvider initialCountry={country}>
             <ToastProvider>
-              {children}
+              <ModalPortalRefProvider>
+                {children}
+              </ModalPortalRefProvider>
             </ToastProvider>
           </LocaleProvider>
         </UserProvider>

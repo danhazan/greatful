@@ -347,7 +347,7 @@ describe('EmojiPicker', () => {
     )
 
     const outsideElement = screen.getByTestId('outside')
-    fireEvent.mouseDown(outsideElement)
+    fireEvent.pointerDown(outsideElement)
 
     await waitFor(() => {
       expect(mockOnCancel).toHaveBeenCalled()

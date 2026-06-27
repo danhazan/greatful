@@ -151,7 +151,7 @@ describe('ReactionViewer', () => {
 
     // Click outside the modal to trigger close (using mousedown as that's what the component listens for)
     const modalContainer = document.querySelector('.fixed.inset-0.flex.items-center')
-    fireEvent.mouseDown(modalContainer!)
+    fireEvent.pointerDown(modalContainer!)
 
     expect(mockOnClose).toHaveBeenCalled()
   })

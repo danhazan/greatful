@@ -165,7 +165,7 @@ describe('UserSearchBar', () => {
     })
 
     // Click outside
-    fireEvent.mouseDown(document.body)
+    fireEvent.pointerDown(document.body)
     
     await waitFor(() => {
       expect(screen.queryByText('Test User 1')).not.toBeInTheDocument()

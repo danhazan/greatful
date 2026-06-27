@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { transformApiResponse } from '@/lib/caseTransform'
+import { FEED_FILTER_MULTI_PARAMS, FEED_FILTER_SINGLE_PARAMS } from '@/utils/feedFilterState'
 
 const API_BASE_URL = process.env['API_BASE_URL'] || process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:8000'
 
@@ -272,13 +273,13 @@ export async function GET(request: NextRequest) {
     if (cursor) queryParams.set('cursor', cursor)
     queryParams.set('page_size', pageSize)
 
-    // Forward all feed filter params
-    for (const name of ['type_required', 'type_boost', 'author_ids']) {
+    // Forward all feed filter params from shared registry
+    for (const name of FEED_FILTER_MULTI_PARAMS) {
       for (const value of searchParams.getAll(name)) {
         queryParams.append(name, value)
       }
     }
-    for (const name of ['date_mode', 'date_start', 'date_end', 'author_mode', 'keyword_mode', 'keyword']) {
+    for (const name of FEED_FILTER_SINGLE_PARAMS) {
       const value = searchParams.get(name)
       if (value) queryParams.set(name, value)
     }

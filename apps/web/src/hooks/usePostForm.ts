@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react"
+import { useModalPortalRefs } from "./useModalPortalRefs"
 import { UserSearchResult } from "@/types/userSearch"
 import { PostPrivacy } from "@/types/post"
 import { PostStyle, POST_STYLES } from "@/components/PostStyleSelector"
@@ -248,10 +249,18 @@ export function usePostForm({
     }
   }, [isOpen])
 
-  // Handle click outside to close
+  // Handle click outside to close — portal-aware via useModalPortalRefs
+  const { getAllRefs } = useModalPortalRefs()
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
+
+      // Check if click is inside any registered portal ref (e.g. FloatingPortal dropdown)
+      const path = event.composedPath()
+      for (const portalRef of getAllRefs()) {
+        if (portalRef.current && path.includes(portalRef.current as EventTarget)) return
+      }
+
       const clickedInsideModal = !!modalRef.current?.contains(event.target as Node)
 
       if (clickedInsideModal) {
@@ -280,7 +289,7 @@ export function usePostForm({
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose, showBackgrounds, showEmojiPicker, showLocationModal])
+  }, [isOpen, onClose, showBackgrounds, showEmojiPicker, showLocationModal, getAllRefs])
 
   // Extract error message from various API error shapes
   const extractErrorMessage = (error: any): string => {

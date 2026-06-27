@@ -129,6 +129,152 @@ Visibility is enforced **at the database level** within the scoring query using 
 
 ---
 
+## Feed Filters (Post Type, Date, Author, Keyword)
+
+The feed supports layered filtering that narrows the candidate set before scoring and pagination. Filters are passed as query parameters to `GET /api/v1/posts/feed` and forwarded from the Next.js API proxy at `apps/web/src/app/api/posts/route.ts`.
+
+### Filter Architecture Overview
+
+```
+User → Feed Page (Next.js)
+  │  URL search params
+  ▼
+parseFeedFiltersFromSearchParams()
+  │  AppliedFeedFilters (in-memory state)
+  ▼
+TypeFilterModal / DateFilterModal / SearchFilterModal
+  │  User modifies filters
+  ▼
+serializeFeedFiltersToUrl()
+  │  URL search params
+  ▼
+Next.js API Proxy (/api/posts/route.ts)
+  │  Iterates FEED_FILTER_MULTI_PARAMS / FEED_FILTER_SINGLE_PARAMS
+  ▼
+FastAPI Backend (/api/v1/posts/feed)
+  │  get_feed() → FeedServiceV2.get_feed()
+  ▼
+PredicateGroup engine → SQL WHERE clause
+  ▼
+Ranked + Filtered Feed
+```
+
+### Post Type Filters
+
+Three query parameters control which types of posts appear in the feed:
+
+| Parameter | Semantics | SQL Combination | Example |
+|---|---|---|---|
+| `type_required` | ALL must match | `AND` group | `?type_required=images&type_required=mine` → image posts I authored |
+| `type_required_any` | ANY must match | `OR` group | `?type_required_any=mine&type_required_any=followed` → my posts OR posts from users I follow |
+| `type_boost` | Prefer but don't require | Modifies score | `?type_boost=images` → image posts ranked higher |
+
+**Validation**: A key cannot appear in both `type_required` and `type_required_any` simultaneously. The backend raises `ValueError` if this overlap is detected.
+
+**Available post type keys:**
+
+| Key | Predicate | Description |
+|---|---|---|
+| `mine` | `p.author_id = :uid` | Posts authored by the current user |
+| `followed` | `f_out.id IS NOT NULL` | Posts from users the viewer follows |
+| `followers` | `f_in.id IS NOT NULL` | Posts from users who follow the viewer |
+| `public` | `NOT (mine OR followed OR followers)` | Posts from unrelated users |
+| `images` | `p.image_url IS NOT NULL OR has post_images rows` | Posts containing at least one image |
+
+### PredicateGroup Engine (Backend)
+
+Defined in `apps/api/app/services/feed_service_v2.py`:
+
+```python
+@dataclass
+class PredicateGroup:
+    operator: str      # 'AND' or 'OR'
+    predicates: List[str]
+
+def build_grouped_predicate_clause(groups: List[PredicateGroup]) -> str:
+    # Groups combine with AND.
+    # Within each group, predicates combine with the group's operator.
+    # Empty groups are skipped.
+```
+
+`_build_filter_clauses(filter_spec, dialect)` constructs `PredicateGroup` instances:
+
+```
+type_required → PredicateGroup(operator='AND', predicates=[...])
+type_required_any → PredicateGroup(operator='OR', predicates=[...])
+type_boost → separate CTE (DIVERSITY_BONUS_PER_TYPE)
+```
+
+The resulting SQL fragment is injected into the main scoring CTE's `WHERE` clause:
+
+```sql
+WHERE p.visibility = 'public'
+  AND (mine_predicate AND images_predicate)    -- type_required AND group
+  AND (mine_predicate OR followed_predicate)   -- type_required_any OR group
+```
+
+### Date, Author, and Keyword Filters
+
+These are folded into the same `_build_filter_clauses` predicate system:
+
+| Filter | Query Params | Behavior |
+|---|---|---|
+| Date range | `date_mode`, `date_start`, `date_end` | `required` → added to `type_required` (AND group); `boost` → added to `type_boost` |
+| Author | `author_mode`, `author_ids` | `required` → added to `type_required`; `boost` → added to `type_boost` |
+| Keyword | `keyword_mode`, `keyword` | `required` → AND group; `boost` → boost group. PostgreSQL uses `to_tsvector`/`plainto_tsquery`; SQLite falls back to `LIKE` |
+
+### Frontend Filter State
+
+**File**: `apps/web/src/utils/feedFilterState.ts`
+
+The frontend manages filter state via the `AppliedFeedFilters` type:
+
+```typescript
+interface AppliedFeedFilters {
+  date: DateFeedFilters       // mode, localRange, preset
+  type: Record<TypeFilterKey, FeedFilterMode>  // per-key on/off/boost
+  search: SearchFeedFilters   // authors + keyword
+}
+```
+
+**URL ↔ State functions:**
+
+| Function | Purpose |
+|---|---|
+| `parseFeedFiltersFromSearchParams(params)` | Deserializes URL params into `AppliedFeedFilters` |
+| `serializeFeedFiltersToUrl(filters)` | Serializes state back to URL search string |
+
+**AND/OR key routing:**
+- Keys in `TYPE_FILTER_AND_KEYS` (`['images']`) serialize to `type_required`
+- Keys in `TYPE_FILTER_OR_KEYS` (`['mine', 'followed', 'followers', 'public']`) serialize to `type_required_any`
+
+### API Proxy Parameter Forwarding
+
+**File**: `apps/web/src/app/api/posts/route.ts`
+
+The Next.js API proxy forwards filter params to the backend using two registries:
+
+```typescript
+// Defined in apps/web/src/utils/feedFilterState.ts
+export const FEED_FILTER_MULTI_PARAMS = [
+  'type_required', 'type_required_any', 'type_boost', 'author_ids'
+]
+export const FEED_FILTER_SINGLE_PARAMS = [
+  'date_mode', 'date_start', 'date_end',
+  'author_mode', 'keyword_mode', 'keyword'
+]
+```
+
+The proxy iterates these arrays rather than hardcoding param names. Any new filter parameter needs only to be added to one of these registry arrays—no changes to `route.ts` are required.
+
+### Interaction With Scoring
+
+- **Required filters** (`type_required`, `type_required_any`, date/author/keyword in `required` mode) constrain the candidate set before scoring. Non-matching posts are excluded entirely.
+- **Boost filters** (`type_boost`, date/author/keyword in `boost` mode) add `DIVERSITY_BONUS_PER_TYPE` points per matched category, up to `DIVERSITY_BONUS_MAX_TYPES`. Boosted posts remain in the feed even if they match zero boost categories—their score is simply lower.
+- Filters compose: a post can simultaneously match a `type_required` AND condition, one of several `type_required_any` OR conditions, and multiple `type_boost` categories.
+
+---
+
 ## System Removals (Legacy)
 
 The following systems were **removed** during the March 2026 refactor and should not be reintroduced:

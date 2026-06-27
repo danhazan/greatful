@@ -2,11 +2,11 @@
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Calendar, Filter, Search } from "lucide-react"
+import { Plus, Calendar, Filter, Search, Eraser } from "lucide-react"
 import PostCard from "@/components/PostCard"
 import CreatePostModal from "@/components/CreatePostModal"
 import { apiClient } from "@/utils/apiClient"
-import { getAccessToken } from "@/utils/auth"
+
 import { useUser } from "@/contexts/UserContext"
 import Navbar from "@/components/Navbar"
 import { Post } from '@/types/post'
@@ -32,12 +32,6 @@ import SearchFilterModal from "./SearchFilterModal"
 
 type ModalType = 'date' | 'type' | 'search' | null
 
-function computeAppliedFiltersFromUrl(): AppliedFeedFilters {
-  if (typeof window === 'undefined') return createEmptyFeedFilters()
-  const params = new URLSearchParams(window.location.search)
-  return parseFeedFiltersFromSearchParams(params)
-}
-
 export default function FeedPageWrapper() {
   return (
     <Suspense fallback={
@@ -57,7 +51,6 @@ function FeedPage() {
 
   const requireAuth = useRequireAuth()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isCreatingPost, setIsCreatingPost] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const scrollDirectionRef = useRef<'up' | 'down' | 'idle'>('idle')
@@ -66,10 +59,13 @@ function FeedPage() {
 
   // --- Modal filter state ---
   const [activeModal, setActiveModal] = useState<ModalType>(null)
-  const [appliedFilters, setAppliedFilters] = useState<AppliedFeedFilters>(() => computeAppliedFiltersFromUrl())
+  const [appliedFilters, setAppliedFilters] = useState<AppliedFeedFilters>(() => parseFeedFiltersFromSearchParams(searchParams))
   const [draftFilters, setDraftFilters] = useState<AppliedFeedFilters>(() => cloneFeedFilters(appliedFilters))
-  const [authorProfiles, setAuthorProfiles] = useState<Record<number, { username: string; name: string }>>({})
   const modalBaselineRef = useRef<AppliedFeedFilters | null>(null)
+  const modalDraftRef = useRef<Map<ModalType, AppliedFeedFilters>>(new Map())
+  const skipUrlSyncRef = useRef(false)
+  const activeModalRef = useRef<ModalType>(null)
+  activeModalRef.current = activeModal
   const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null)
 
   const dateBtnRef = useRef<HTMLButtonElement>(null)
@@ -99,8 +95,8 @@ function FeedPage() {
       setModalPosition(null)
       return
     }
-    const draft = cloneFeedFilters(appliedFilters)
-    setDraftFilters(draft)
+    const cached = modalDraftRef.current.get(modal)
+    setDraftFilters(cached ? cloneFeedFilters(cached) : cloneFeedFilters(appliedFilters))
     modalBaselineRef.current = cloneFeedFilters(appliedFilters)
     const pos = computeModalPosition(modal)
     setModalPosition(pos)
@@ -114,6 +110,10 @@ function FeedPage() {
   }, [])
 
   const closeModal = useCallback(() => {
+    const current = activeModalRef.current
+    if (current) {
+      modalDraftRef.current.delete(current)
+    }
     if (modalBaselineRef.current) {
       setDraftFilters(cloneFeedFilters(modalBaselineRef.current))
     }
@@ -140,6 +140,7 @@ function FeedPage() {
 
   const applyDraft = useCallback((modal: ModalType) => {
     if (!modal) return
+    modalDraftRef.current.delete(modal)
     const merged = cloneFeedFilters(appliedFilters)
     if (modal === 'date') {
       merged.date = cloneFeedFilters(draftFilters.date)
@@ -154,8 +155,9 @@ function FeedPage() {
     modalBaselineRef.current = null
 
     const url = serializeFeedFiltersToUrl(merged)
-    window.history.replaceState(null, '', url)
-  }, [appliedFilters, draftFilters])
+    skipUrlSyncRef.current = true
+    router.replace(url, { scroll: false })
+  }, [appliedFilters, draftFilters, router])
 
   // Recompute position on resize
   useEffect(() => {
@@ -167,6 +169,13 @@ function FeedPage() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [activeModal, computeModalPosition])
+
+  // Auto-save draft to per-modal cache whenever draftFilters or activeModal changes
+  useEffect(() => {
+    if (activeModal) {
+      modalDraftRef.current.set(activeModal, cloneFeedFilters(draftFilters))
+    }
+  }, [activeModal, draftFilters])
 
   const isApplyDisabled = useCallback((modal: ModalType): boolean => {
     if (!modal) return true
@@ -183,40 +192,35 @@ function FeedPage() {
   }, [appliedFilters, draftFilters])
 
   // Sync appliedFilters to searchParams on mount and popstate
+  // Skip when we just programmatically replaced the URL (apply/clear)
   useEffect(() => {
-    const urlFilters = computeAppliedFiltersFromUrl()
+    if (skipUrlSyncRef.current) {
+      skipUrlSyncRef.current = false
+      return
+    }
+    const urlFilters = parseFeedFiltersFromSearchParams(searchParams)
     setAppliedFilters(urlFilters)
   }, [searchParams])
 
   const feedFilters = useMemo(() => appliedFilters, [appliedFilters])
 
-  // --- Author batch profile hydration ---
-  const hydratedAuthorIdsRef = useRef<string>('')
-  useEffect(() => {
-    const authorIds = Array.from(new Set(
-      appliedFilters.search.authors.users
-        .filter(u => u.username === null)
-        .map(u => u.id)
-    ))
-    const key = authorIds.sort().join(',')
-    if (!key || key === hydratedAuthorIdsRef.current) return
-    hydratedAuthorIdsRef.current = key
-    const idsParam = authorIds.join(',')
-    fetch(`/api/users/batch-profiles?ids=${encodeURIComponent(idsParam)}`, {
-      headers: { 'Authorization': `Bearer ${getAccessToken()}` },
-    })
-      .then(r => r.json())
-      .then((res: unknown) => {
-        const raw = Array.isArray(res) ? res : (res as Record<string, unknown>)['data']
-        const profileArr: Array<{ id: number; username: string; displayName?: string; name?: string }> = Array.isArray(raw) ? raw : []
-        const profileMap: Record<number, { username: string; name: string }> = {}
-        profileArr.forEach(p => {
-          profileMap[Number(p.id)] = { username: p.username, name: p.displayName || p.name || '' }
-        })
-        setAuthorProfiles(prev => ({ ...prev, ...profileMap }))
-      })
-      .catch(() => {})
-  }, [appliedFilters.search.authors.users])
+  const anyFiltersActive = useMemo(() =>
+    appliedFilters.date.mode !== 'off'
+    || Object.values(appliedFilters.type).some(m => m !== 'off')
+    || appliedFilters.search.authors.mode !== 'off'
+    || appliedFilters.search.keyword.mode !== 'off'
+  , [appliedFilters])
+
+  const clearAllFilters = useCallback(() => {
+    const empty = createEmptyFeedFilters()
+    setAppliedFilters(empty)
+    setDraftFilters(cloneFeedFilters(empty))
+    modalDraftRef.current.clear()
+    skipUrlSyncRef.current = true
+    router.replace('/feed', { scroll: false })
+  }, [router])
+
+
 
   // Populate UserContext cache from post author data
   const populateAuthorCache = useCallback((postList: Post[]) => {
@@ -408,8 +412,6 @@ function FeedPage() {
     privacyRules?: string[]
     specificUsers?: number[]
   }) => {
-    setIsCreatingPost(true)
-
     try {
       let body: FormData | Record<string, unknown>
 
@@ -482,8 +484,6 @@ function FeedPage() {
     } catch (error) {
       console.error('Error creating post:', error)
       throw error
-    } finally {
-      setIsCreatingPost(false)
     }
   }
 
@@ -566,6 +566,15 @@ function FeedPage() {
               onClick={() => openModal('search')}
               ref={searchBtnRef}
             />
+            {anyFiltersActive && (
+              <button
+                onClick={clearAllFilters}
+                className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-400 transition-colors"
+              >
+                <Eraser className="h-4 w-4" />
+                <span className="hidden sm:inline">Clear</span>
+              </button>
+            )}
           </div>
 
           {/* Posts */}
@@ -629,7 +638,7 @@ function FeedPage() {
           {/* Outside click backdrop — dismiss without reverting */}
           {activeModal && (
             <div
-              className="fixed inset-0 z-40"
+              className="fixed inset-0 z-40 bg-black/20"
               onClick={dismissModal}
             />
           )}
@@ -671,7 +680,6 @@ function FeedPage() {
               onApply={() => applyDraft('search')}
               isApplyDisabled={isApplyDisabled('search')}
               position={modalPosition}
-              authorProfiles={authorProfiles}
             />
           )}
         </div>

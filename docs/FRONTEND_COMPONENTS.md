@@ -31,6 +31,14 @@ This document provides comprehensive documentation for the React components used
   - [PostCard](#postcard)
   - [CreatePostModal](#createpostmodal)
   - [SinglePostView](#singlepostview)
+- [Component Architecture Patterns](#component-architecture-patterns)
+  - [Modal Design Patterns](#modal-design-patterns)
+  - [Modal Outside-Click Architecture](#modal-outside-click-architecture)
+  - [State Management Patterns](#state-management-patterns)
+  - [Error Handling Patterns](#error-handling-patterns)
+- [Testing Guidelines](#testing-guidelines)
+- [Performance Considerations](#performance-considerations)
+- [Additional Components](#additional-components)
 - [Hooks](#hooks)
   - [useImageReactions](#useimagereactions)
   - [useReactionMutation](#usereactionmutation)
@@ -521,6 +529,7 @@ Public primitive exports:
 
 ## Component Architecture Patterns
 
+### Modal Outside-Click Architecture
 ### Modal Design Patterns
 
 All modal components in the application follow consistent design patterns:
@@ -544,6 +553,165 @@ All modal components in the application follow consistent design patterns:
 - **Responsive Sizing**: Adapts to screen size
 - **Scroll Handling**: Proper overflow handling
 - **Safe Areas**: Respects mobile safe areas
+
+### Modal Outside-Click Architecture
+
+The frontend uses a shared architecture for handling outside-click detection in modals, popovers, and dropdowns. The system is designed to be portal-aware — when a child component renders content via `FloatingPortal` (from `@floating-ui/react`), clicks on that content are correctly recognized as "inside" rather than triggering modal dismissal.
+
+#### Architecture Diagram
+
+```
+Modal (or popover / dropdown)
+    │
+    ├── useModal                     Shared outside-click hook
+    │       │                              for modal components
+    │       ▼
+    │   Portal Registry                     (useModalPortalRefs)
+    │       │                              Context-based ref registry
+    │       ▼
+    │   FloatingPortal                      Renders outside DOM
+    │       │                              but preserves React tree
+    │       ▼
+    │   pointerdown / mousedown             Document-level event
+    │       │
+    │       ▼
+    │   composedPath()                      Native DOM API —
+    │       │                              resolves portal boundaries
+    │       ▼
+    │   Check portal refs                   Registered via
+    │       │                              useModalPortalRefs
+    │       ▼
+    │   inside registered portal?           composedPath includes
+    │       │                              the floating element
+    │       ▼               ▼
+    │     yes              no
+    │       │               │
+    │   ignore            dismiss
+    ▼
+   Stable UX — no false dismissals
+```
+
+#### Core Hooks
+
+##### `useModal`
+- **File**: `src/hooks/useModal.ts`
+- **Event**: `document.addEventListener('pointerdown', ...)`
+- **Portal awareness**: `event.composedPath()` + `useModalPortalRefs().getAllRefs()`
+- **Usage**: Modal dialogs that need outside-click + Escape key dismissal
+- **Extra features**: Optional focus trap, scroll lock
+
+##### `useClickOutside`
+- **File**: `src/hooks/useClickOutside.ts`
+- **Event**: `document.addEventListener('pointerdown', ...)`
+- **Portal awareness**: `event.composedPath()` + `useModalPortalRefs().getAllRefs()`
+- **Extra refs**: Accepts `extraRefs` array for non-registered floating elements
+- **Usage**: Dropdown menus, popovers, autocomplete suggestions
+
+##### `useModalPortalRefs`
+- **File**: `src/hooks/useModalPortalRefs.tsx`
+- **Provides**: React context (`ModalPortalRefProvider`) with:
+  - `registerRef(ref)` — returns an unregister function
+  - `getAllRefs()` — returns all currently registered portal refs
+- **Usage**: Any component that renders content via `FloatingPortal` should call `registerRef(refs.floating)` in a `useEffect`
+
+##### `usePostForm`
+- **File**: `src/hooks/usePostForm.ts`
+- **Event**: `document.addEventListener('mousedown', ...)`
+- **Portal awareness**: `event.composedPath()` + `useModalPortalRefs().getAllRefs()`
+- **Usage**: CreatePostModal, EditPostModal
+
+#### Outside-Click Lifecycle
+
+1. User clicks on element (inside or outside a modal)
+2. Native event fires: `pointerdown` (or `mousedown` for legacy handlers)
+3. Document-level listener receives the event
+4. `event.composedPath()` returns the full DOM path, including shadow DOM and portal boundaries
+5. Handler checks:
+   a. Is the click inside the modal's `modalRef`? → ignore (inside modal)
+   b. Is the click inside any registered portal ref? → ignore (inside FloatingPortal)
+   c. Is the click inside any `extraRefs` (useClickOutside only)? → ignore
+   d. Otherwise → dismiss (outside click)
+
+#### FloatingPortal Integration
+
+Any component that renders content via `FloatingPortal` MUST register its floating ref with `useModalPortalRefs`:
+
+```tsx
+import { useModalPortalRefs } from "@/hooks/useModalPortalRefs"
+
+function MyComponent() {
+  const { refs, floatingStyles } = useFloating({ ... })
+  const { registerRef } = useModalPortalRefs()
+
+  useEffect(() => {
+    const unregister = registerRef(refs.floating)
+    return unregister
+  }, [registerRef, refs.floating])
+
+  return (
+    <FloatingPortal>
+      <div ref={refs.setFloating} style={floatingStyles}>
+        {/* portal content */}
+      </div>
+    </FloatingPortal>
+  )
+}
+```
+
+The `ModalPortalRefProvider` is mounted in the root layout (`src/app/layout.tsx`). No additional setup is needed.
+
+#### Audit Table
+
+| Component | Outside-click mechanism | Portal aware? | Uses shared infra? |
+|---|---|---|---|
+| CreatePostModal | usePostForm + composedPath + getAllRefs + raw backdrop onClick | Yes | Yes |
+| EditPostModal | usePostForm + composedPath + getAllRefs + raw backdrop onClick | Yes | Yes |
+| ShareModal | useModal + composedPath + getAllRefs + raw backdrop onClick | Yes | Yes |
+| CommentsModal | raw document mousedown + composedPath + getAllRefs + raw backdrop onClick | Yes | Yes |
+| EmojiPicker | useModal + composedPath + getAllRefs + raw backdrop onClick | Yes | Yes |
+| ReactionViewer | useModal + composedPath + getAllRefs + raw backdrop onClick | Yes | Yes |
+| LocationDisplayModal | useModal + composedPath + getAllRefs + raw backdrop onClick | Yes | Yes |
+| PostPrivacySelector | useClickOutside (dropdown) + getAllOverlayRefs (custom modal backdrop) | Yes | Yes |
+| PostPrivacyBadge | useClickOutside + FloatingPortal | Yes | Yes |
+| ProfileDropdown | useClickOutside | Yes | Yes |
+| UserMultiSelect | useClickOutside + refs.floating + registerRef | Yes | Yes |
+| UserSearchBar | useClickOutside | Yes | Yes |
+| LocationAutocomplete | useClickOutside | Yes | Yes |
+| MentionAutocomplete | useClickOutside | Yes | Yes |
+| FollowButton | useClickOutside | Yes | Yes |
+| PostCard | useClickOutside (options menu) | Yes | Yes |
+| MultiImageModal | raw backdrop onClick (`e.target === e.currentTarget`) | No¹ | No¹ |
+| ImageModal | raw backdrop onClick + createPortal | No¹ | No¹ |
+| CircularCropModal | none (X/Cancel buttons only) | N/A | N/A |
+| DeleteConfirmationModal | none (X/Cancel buttons only) | N/A | N/A |
+| AccountLinkingDialog | none (X/Cancel buttons only) | N/A | N/A |
+| ResurrectionDialog | none (X/Cancel buttons only) | N/A | N/A |
+| FollowersModal | none (no backdrop onClick) | N/A | N/A |
+| FollowingModal | none (no backdrop onClick) | N/A | N/A |
+| PostStyleSelector | raw backdrop onClick | No¹ | No¹ |
+| LocationModal | raw backdrop onClick (`e.target === e.currentTarget`) | No¹ | No¹ |
+| MinimalEmojiPicker | raw document mousedown (contains) + raw backdrop onClick | No¹ | No¹ |
+| EnhancedEmojiPicker | raw backdrop onClick | No¹ | No¹ |
+| NotificationSystem | raw backdrop onClick | No¹ | No¹ |
+| GratitudeTemplates | raw backdrop onClick | No¹ | No¹ |
+
+**Notes:**
+¹ These components use raw React `onClick` handlers on backdrop elements that are siblings of the content. React's synthetic event system does not propagate events through sibling elements, so FloatingPortal clicks cannot accidentally trigger these backdrops. These are safe by structural invariant and intentionally do not use the shared infrastructure. No action required.
+
+#### Files Changed (Phase 3 fix)
+
+| File | Change |
+|---|---|
+| `src/hooks/useModalPortalRefs.tsx` | NEW — portal ref registry context |
+| `src/hooks/useModal.ts` | REFACTOR — use pointerdown + composedPath + portal refs |
+| `src/hooks/useClickOutside.ts` | REFACTOR — use pointerdown + composedPath + portal refs |
+| `src/hooks/usePostForm.ts` | REFACTOR — add composedPath + getAllRefs check |
+| `src/components/CommentsModal.tsx` | REFACTOR — add composedPath + getAllRefs check |
+| `src/components/UserMultiSelect.tsx` | REFACTOR — register refs.floating with useModalPortalRefs, remove stopPropagation |
+| `src/components/PostPrivacySelector.tsx` | REFACTOR — backdrop checks getAllOverlayRefs + composedPath |
+| `src/app/layout.tsx` | ADD — ModalPortalRefProvider wrapper |
+| `src/app/api/posts/route.ts` | REFACTOR — FEED_FILTER_MULTI_PARAMS / FEED_FILTER_SINGLE_PARAMS registry |
+| `src/utils/feedFilterState.ts` | ADD — filter param registries |
 
 ### State Management Patterns
 

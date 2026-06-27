@@ -1,6 +1,7 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useFocusTrap } from "./useFocusTrap"
 import { lockScroll, unlockScroll } from "@/utils/scrollLock"
+import { useModalPortalRefs } from "./useModalPortalRefs"
 
 interface UseModalOptions {
   enableTabTrap?: boolean
@@ -14,6 +15,9 @@ export function useModal(
   options: UseModalOptions = {}
 ) {
   const { enableTabTrap = false, scrollLock: shouldLockScroll = true } = options
+  const { getAllRefs } = useModalPortalRefs()
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useFocusTrap(modalRef, isOpen && enableTabTrap)
 
@@ -25,25 +29,33 @@ export function useModal(
     }
   }, [isOpen, shouldLockScroll])
 
-  // Handle click outside to close
+  // Handle click outside to close — portal-aware via composedPath()
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        onClose()
+    const handlePointerDown = (event: PointerEvent) => {
+      const path = event.composedPath()
+
+      // Click inside the modal itself — do nothing
+      if (modalRef.current && path.includes(modalRef.current as EventTarget)) return
+
+      // Click inside any registered portal (e.g. FloatingPortal dropdown) — do nothing
+      for (const portalRef of getAllRefs()) {
+        if (portalRef.current && path.includes(portalRef.current as EventTarget)) return
       }
+
+      onCloseRef.current()
     }
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener('pointerdown', handlePointerDown)
+      return () => document.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [isOpen, onClose, modalRef])
+  }, [isOpen, modalRef, getAllRefs])
 
   // Handle escape key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose()
+        onCloseRef.current()
       }
     }
 
@@ -51,5 +63,5 @@ export function useModal(
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 }

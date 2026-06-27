@@ -8,6 +8,8 @@ import {
   getPresetDates,
 } from "@/utils/dateFilterUtils"
 import { FEED_CONFIG } from "@/config/feed"
+import { useLocale } from "@/hooks/useLocale"
+import { getPresetLabel, getValidationMessage } from "@/utils/dateFilterLocale"
 import BaseFilterModal from "./BaseFilterModal"
 import FilterModeButtons from "./FilterModeButtons"
 
@@ -15,7 +17,30 @@ export function sanitizeDateInput(raw: string): string {
   if (!raw) return ''
   let cleaned = raw.replace(/[^\d-]/g, '')
   const parts = cleaned.split('-', 3)
-  if (parts[0]) parts[0] = parts[0].slice(0, 4)
+  if (parts[0]) {
+    if (parts[0].length > 4) {
+      const overflow = parts[0].slice(4)
+      const before = parts[0].slice(0, 4)
+      if (before[0] === '0') {
+        let shifted = before
+        for (const ch of overflow) {
+          if (/^\d$/.test(ch)) {
+            shifted = shifted.slice(1) + ch
+          }
+        }
+        parts[0] = shifted
+      } else {
+        parts[0] = '0000'
+        for (const ch of overflow) {
+          if (/^\d$/.test(ch)) {
+            parts[0] = parts[0].slice(1) + ch
+          }
+        }
+      }
+    } else {
+      parts[0] = parts[0].slice(0, 4)
+    }
+  }
   if (parts[1]) parts[1] = parts[1].slice(0, 2)
   if (parts[2]) parts[2] = parts[2].slice(0, 2)
   let result = parts[0] || ''
@@ -53,16 +78,17 @@ export default function DateFilterModal({
   isApplyDisabled,
   position,
 }: DateFilterModalProps) {
+  const locale = useLocale()
   const [selectedMode, setSelectedMode] = useState<FeedFilterMode>(date.mode)
-  const [activePreset, setActivePreset] = useState<DateFilterPreset | null>(null)
+  const [activePreset, setActivePreset] = useState<DateFilterPreset | null>(date.preset ?? null)
 
   const [localStart, setLocalStart] = useState(date.localRange?.start ?? '')
   const [localEnd, setLocalEnd] = useState(date.localRange?.end ?? '')
 
   const handleModeChange = useCallback((mode: FeedFilterMode) => {
     setSelectedMode(mode)
-    setActivePreset(null)
     if (mode === 'off') {
+      setActivePreset(null)
       onChange({ mode: 'off' })
       setLocalStart('')
       setLocalEnd('')
@@ -70,9 +96,10 @@ export default function DateFilterModal({
       onChange({
         mode,
         localRange: { start: localStart || '', end: localEnd || '' },
+        preset: activePreset ?? undefined,
       })
     }
-  }, [localStart, localEnd, onChange])
+  }, [localStart, localEnd, activePreset, onChange])
 
   const handlePresetSelect = useCallback((preset: DateFilterPreset) => {
     const dates = getPresetDates(preset)
@@ -85,6 +112,7 @@ export default function DateFilterModal({
     onChange({
       mode,
       localRange: { start: dates.startLocal, end: dates.endLocal },
+      preset,
     })
   }, [selectedMode, onChange])
 
@@ -98,19 +126,21 @@ export default function DateFilterModal({
     onClear()
   }, [onClear])
 
+  const today = new Date().toISOString().split('T')[0]
   const hasDates = Boolean(localStart && localEnd)
   const isStartAfterEnd = Boolean(localStart && localEnd && localStart > localEnd)
   const isBelowMinDate = Boolean(
     (localStart && localStart < FEED_CONFIG.MIN_DATE) ||
     (localEnd && localEnd < FEED_CONFIG.MIN_DATE)
   )
+  const isAfterToday = Boolean(localEnd && localEnd > today)
   const isApplyBtnDisabled =
     isApplyDisabled ||
-    (selectedMode !== 'off' && (!hasDates || isStartAfterEnd || isBelowMinDate))
+    (selectedMode !== 'off' && (!hasDates || isStartAfterEnd || isBelowMinDate || isAfterToday))
 
   return (
     <BaseFilterModal
-      title="Date Filter"
+      title="Filter by date"
       onClose={onClose}
       onDismiss={onDismiss}
       onClear={handleClear}
@@ -127,12 +157,9 @@ export default function DateFilterModal({
             type="date"
             value={localStart}
             min={FEED_CONFIG.MIN_DATE}
-            maxLength={10}
+            max={today}
             onChange={(e) => {
               const sanitized = sanitizeDateInput(e.target.value)
-              if (sanitized !== e.target.value) {
-                e.target.value = sanitized
-              }
               setLocalStart(sanitized)
               setActivePreset(null)
               if (selectedMode !== 'off') {
@@ -149,12 +176,9 @@ export default function DateFilterModal({
             type="date"
             value={localEnd}
             min={FEED_CONFIG.MIN_DATE}
-            maxLength={10}
+            max={today}
             onChange={(e) => {
               const sanitized = sanitizeDateInput(e.target.value)
-              if (sanitized !== e.target.value) {
-                e.target.value = sanitized
-              }
               setLocalEnd(sanitized)
               setActivePreset(null)
               if (selectedMode !== 'off') {
@@ -168,10 +192,11 @@ export default function DateFilterModal({
           />
         </div>
 
-        {selectedMode !== 'off' && (isStartAfterEnd || isBelowMinDate) && (
+        {selectedMode !== 'off' && (isStartAfterEnd || isBelowMinDate || isAfterToday) && (
           <div className="text-xs text-red-500 text-center">
-            {isStartAfterEnd && <p>Start date must be before end date</p>}
-            {isBelowMinDate && <p>Date must be on or after {FEED_CONFIG.MIN_DATE}</p>}
+            {isStartAfterEnd && <p>{getValidationMessage('start_after_end', locale)}</p>}
+            {isBelowMinDate && <p>{getValidationMessage('below_min_date', locale, { minDate: FEED_CONFIG.MIN_DATE })}</p>}
+            {isAfterToday && <p>{getValidationMessage('future_date', locale)}</p>}
           </div>
         )}
 
@@ -187,7 +212,7 @@ export default function DateFilterModal({
                   : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
               }`}
             >
-              {preset.label}
+              {getPresetLabel(preset.key, locale)}
             </button>
           ))}
         </div>

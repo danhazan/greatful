@@ -1,6 +1,8 @@
 "use client"
 
 import { useRef, useEffect, type ReactNode } from "react"
+import { useFocusTrap } from "@/hooks/useFocusTrap"
+import { useScrollTrap } from "@/hooks/useScrollTrap"
 
 interface BaseFilterModalProps {
   title: string
@@ -26,6 +28,9 @@ export default function BaseFilterModal({
   children,
 }: BaseFilterModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, true)
+  useScrollTrap(scrollRef, true)
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -42,7 +47,7 @@ export default function BaseFilterModal({
       style={{ left: position.x, top: position.y }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-[calc(100vw-1.5rem)] sm:max-w-sm max-h-[80vh] overflow-y-auto">
+      <div ref={scrollRef} className="bg-white rounded-xl shadow-2xl border border-gray-200 w-[calc(100vw-1.5rem)] sm:max-w-sm max-h-[80vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <span className="text-sm font-semibold text-gray-900">{title}</span>
           <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import { UserSearchResult } from '@/types/userSearch'
 import { getUtcRangeFromLocalDates } from '@/utils/dateFilterUtils'
+import type { DateFilterPreset } from '@/utils/dateFilterUtils'
 
 export type FeedFilterMode = 'off' | 'boost' | 'required'
 export type TypeFilterKey = 'mine' | 'followed' | 'followers' | 'public' | 'images'
@@ -18,12 +19,18 @@ export const TYPE_FILTERS: TypeFilterOption[] = [
   { key: 'images', label: 'Images', icon: 'Image' },
 ]
 
+// Keys in the AND group use type_required (always require).
+// Keys in the OR group use type_required_any (match any of).
+export const TYPE_FILTER_AND_KEYS: TypeFilterKey[] = ['images']
+export const TYPE_FILTER_OR_KEYS: TypeFilterKey[] = ['mine', 'followed', 'followers', 'public']
+
 export interface DateFeedFilters {
   mode: FeedFilterMode
   localRange?: {
     start: string
     end: string
   }
+  preset?: DateFilterPreset
 }
 
 export interface SearchFeedFilters {
@@ -86,6 +93,9 @@ export function parseFeedFiltersFromSearchParams(params: URLSearchParams): Appli
   params.getAll('type_required').forEach((value) => {
     if (isTypeFilter(value)) filters.type[value] = 'required'
   })
+  params.getAll('type_required_any').forEach((value) => {
+    if (isTypeFilter(value) && filters.type[value] === 'off') filters.type[value] = 'required'
+  })
   params.getAll('type_boost').forEach((value) => {
     if (isTypeFilter(value) && filters.type[value] === 'off') filters.type[value] = 'boost'
   })
@@ -121,7 +131,13 @@ export function parseFeedFiltersFromSearchParams(params: URLSearchParams): Appli
 
 function setNonDateFilterParams(params: URLSearchParams, filters: AppliedFeedFilters): void {
   TYPE_FILTERS.forEach(({ key }) => {
-    if (filters.type[key] === 'required') params.append('type_required', key)
+    if (filters.type[key] === 'required') {
+      if (TYPE_FILTER_AND_KEYS.includes(key)) {
+        params.append('type_required', key)
+      } else if (TYPE_FILTER_OR_KEYS.includes(key)) {
+        params.append('type_required_any', key)
+      }
+    }
     if (filters.type[key] === 'boost') params.append('type_boost', key)
   })
 
@@ -162,3 +178,27 @@ export function appendFeedFiltersToApiParams(params: URLSearchParams, filters?: 
     params.set('date_end', utc.endDate)
   }
 }
+
+// ──────────────────────────────────────────────────
+// Feed filter param registry — single source of truth
+// for the Next.js API proxy layer. Adding a new
+// query param here auto-forwards it to the backend.
+// ──────────────────────────────────────────────────
+
+/** Params that can appear multiple times (?key=a&key=b) */
+export const FEED_FILTER_MULTI_PARAMS = [
+  'type_required',
+  'type_required_any',
+  'type_boost',
+  'author_ids',
+] as const
+
+/** Params that appear at most once (?key=value) */
+export const FEED_FILTER_SINGLE_PARAMS = [
+  'date_mode',
+  'date_start',
+  'date_end',
+  'author_mode',
+  'keyword_mode',
+  'keyword',
+] as const

@@ -1003,6 +1003,7 @@ async def get_feed(
     cursor: Optional[str] = None,
     page_size: Optional[int] = None,
     type_required: Optional[List[str]] = Query(default=None),
+    type_required_any: Optional[List[str]] = Query(default=None),
     type_boost: Optional[List[str]] = Query(default=None),
     date_mode: Optional[str] = Query(default=None),
     date_start: Optional[str] = Query(default=None),
@@ -1031,9 +1032,10 @@ async def get_feed(
 
     debug = request.headers.get("X-Feed-Debug", "").lower() == "true"
     logger.info(
-        "[FEED_FILTERS][api] user_id=%s type_required=%s type_boost=%s date_mode=%s author_mode=%s keyword_mode=%s cursor_present=%s page_size=%s",
+        "[FEED_FILTERS][api] user_id=%s type_required=%s type_required_any=%s type_boost=%s date_mode=%s author_mode=%s keyword_mode=%s cursor_present=%s page_size=%s",
         current_user_id,
         type_required or [],
+        type_required_any or [],
         type_boost or [],
         date_mode,
         author_mode,
@@ -1050,6 +1052,7 @@ async def get_feed(
             page_size=page_size,
             debug=debug,
             type_required=type_required,
+            type_required_any=type_required_any,
             type_boost=type_boost,
             date_mode=date_mode,
             date_start=date_start,

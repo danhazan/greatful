@@ -11,6 +11,7 @@ import base64
 import binascii
 import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -59,6 +60,29 @@ from app.repositories.post_repository import PostRepository
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class PredicateGroup:
+    """A group of SQL predicates combined with a boolean operator."""
+    operator: str  # 'AND' or 'OR'
+    predicates: List[str] = field(default_factory=list)
+
+
+def build_grouped_predicate_clause(groups: List[PredicateGroup]) -> str:
+    """Build a WHERE clause from predicate groups. Groups combine with AND.
+    Within each group, predicates combine with the group's operator.
+    Empty groups are skipped. Returns empty string if no groups are non-empty.
+    """
+    clauses: List[str] = []
+    for group in groups:
+        if not group.predicates:
+            continue
+        inner = f" {group.operator} ".join(group.predicates)
+        clauses.append(f"({inner})")
+    if clauses:
+        return " AND " + " AND ".join(clauses)
+    return ""
+
+
 class FeedServiceV2(BaseService):
     """Simplified feed service with SQL-computed scores and cursor pagination."""
 
@@ -83,6 +107,7 @@ class FeedServiceV2(BaseService):
         page_size: int = DEFAULT_PAGE_SIZE,
         debug: bool = False,
         type_required: Optional[List[str]] = None,
+        type_required_any: Optional[List[str]] = None,
         type_boost: Optional[List[str]] = None,
         date_mode: Optional[str] = None,
         date_start: Optional[str] = None,
@@ -111,6 +136,7 @@ class FeedServiceV2(BaseService):
         filter_spec = self._normalize_feed_filters(
             query_time=query_time,
             type_required=type_required,
+            type_required_any=type_required_any,
             type_boost=type_boost,
             date_mode=date_mode,
             date_start=date_start,
@@ -306,6 +332,7 @@ class FeedServiceV2(BaseService):
     def _normalize_feed_filters(
         query_time: datetime,
         type_required: Optional[List[str]],
+        type_required_any: Optional[List[str]],
         type_boost: Optional[List[str]],
         date_mode: Optional[str],
         date_start: Optional[str],
@@ -330,11 +357,20 @@ class FeedServiceV2(BaseService):
             return normalized
 
         required_types = _normalize_type_values(type_required)
+        required_any_types = _normalize_type_values(type_required_any)
         boost_types = _normalize_type_values(type_boost)
         overlapping_types = set(required_types) & set(boost_types)
         if overlapping_types:
             names = ", ".join(sorted(overlapping_types))
             raise ValueError(f"Type filters cannot be both required and boost: {names}")
+        overlapping_any = set(required_any_types) & set(boost_types)
+        if overlapping_any:
+            names = ", ".join(sorted(overlapping_any))
+            raise ValueError(f"Type filters cannot be both required_any and boost: {names}")
+        overlap_both = set(required_types) & set(required_any_types)
+        if overlap_both:
+            names = ", ".join(sorted(overlap_both))
+            raise ValueError(f"A type cannot be in both type_required and type_required_any: {names}")
 
         def _normalize_mode(value: Optional[str], field: str) -> Optional[str]:
             if value is None or str(value).strip() == "":
@@ -358,13 +394,16 @@ class FeedServiceV2(BaseService):
             if end_dt.tzinfo is None:
                 raise ValueError("date_end must be timezone-aware (UTC)")
             from app.config.feed_config import MIN_DATE
-            min_dt = datetime.fromisoformat(MIN_DATE).replace(tzinfo=timezone.utc)
+            from datetime import timedelta
+            min_dt = datetime.fromisoformat(MIN_DATE).replace(tzinfo=timezone.utc) - timedelta(days=1)
             if start_dt < min_dt:
                 raise ValueError(f"date_start must not be earlier than {MIN_DATE}")
             if end_dt < min_dt:
                 raise ValueError(f"date_end must not be earlier than {MIN_DATE}")
             if end_dt <= start_dt:
                 raise ValueError("date_end must be after date_start")
+            if end_dt > query_time + timedelta(days=1):
+                raise ValueError("date_end must not be in the future")
             params["date_start_utc"] = start_dt
             params["date_end_utc"] = end_dt
             date_filter: Optional[Dict[str, Any]] = {
@@ -419,6 +458,7 @@ class FeedServiceV2(BaseService):
 
         return {
             "type_required": required_types,
+            "type_required_any": required_any_types,
             "type_boost": boost_types,
             "date": date_filter,
             "author": {
@@ -432,6 +472,7 @@ class FeedServiceV2(BaseService):
             "params": params,
             "debug": {
                 "typeRequired": required_types,
+                "typeRequiredAny": required_any_types,
                 "typeBoost": boost_types,
                 "date": date_filter,
                 "authorMode": normalized_author_mode,
@@ -450,14 +491,18 @@ class FeedServiceV2(BaseService):
 
     @staticmethod
     def _build_filter_clauses(filter_spec: Dict[str, Any], dialect: str) -> Dict[str, Any]:
-        """Build filter predicates shared by REQUIRED and BOOST filters."""
+        """Build filter predicates using the generic grouped-predicate engine.
+
+        Predicate groups are built from type_required (AND), type_required_any (OR),
+        and type_boost, plus optional date/author/keyword filters.
+        Groups combine with AND; within each group the operator joins predicates.
+        """
         date_range_predicate = "(p.created_at >= :date_start_utc AND p.created_at < :date_end_utc)"
 
         base_predicates = {
             "mine": "p.author_id = :uid",
             "followed": "f_out.id IS NOT NULL",
             "followers": "f_in.id IS NOT NULL",
-            # Public is strictly derived from existing relationship predicates.
             "public": "NOT ((p.author_id = :uid) OR (f_out.id IS NOT NULL) OR (f_in.id IS NOT NULL))",
             "images": FeedServiceV2._image_predicate(),
         }
@@ -478,8 +523,8 @@ class FeedServiceV2(BaseService):
                     "LOWER(COALESCE(p.content, '')) LIKE :keyword_like ESCAPE '\\'"
                 )
 
-        # REQUIRED filters: AND semantics (all conditions must match)
         required_names = list(filter_spec.get("type_required", []))
+        required_any_names = list(filter_spec.get("type_required_any", []))
         boost_names = list(filter_spec.get("type_boost", []))
 
         date_filter = filter_spec.get("date")
@@ -502,10 +547,18 @@ class FeedServiceV2(BaseService):
             else:
                 boost_names.append("keyword")
 
-        required_predicates = [base_predicates[name] for name in required_names if name in base_predicates]
-        required_clause = ""
-        if required_predicates:
-            required_clause = " AND (" + " AND ".join(required_predicates) + ")"
+        # Build predicate groups using the generic grouped-predicate engine
+        groups: List[PredicateGroup] = []
+
+        req_preds = [base_predicates[n] for n in required_names if n in base_predicates]
+        if req_preds:
+            groups.append(PredicateGroup(operator='AND', predicates=req_preds))
+
+        any_preds = [base_predicates[n] for n in required_any_names if n in base_predicates]
+        if any_preds:
+            groups.append(PredicateGroup(operator='OR', predicates=any_preds))
+
+        required_clause = build_grouped_predicate_clause(groups)
 
         # BOOST filters: ranking boost only (same predicates used)
         boost_predicates = [base_predicates[name] for name in boost_names if name in base_predicates]
@@ -521,7 +574,8 @@ class FeedServiceV2(BaseService):
         return {
             "required_clause": required_clause,
             "boost_expr": boost_expr,
-            "required_predicates": required_predicates,
+            "required_predicates": req_preds,
+            "required_any_predicates": any_preds,
             "boost_predicates": boost_predicates,
             "params": filter_spec.get("params", {}),
         }

@@ -449,7 +449,7 @@ describe('Share Workflow Integration Tests', () => {
       const backdrop = document.querySelector('.fixed.inset-0.bg-gray-900')
       expect(backdrop).toBeInTheDocument()
 
-      fireEvent.mouseDown(backdrop!)
+      fireEvent.pointerDown(backdrop!)
       expect(onClose).toHaveBeenCalledTimes(1)
     })
   })

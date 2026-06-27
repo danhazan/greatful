@@ -497,6 +497,135 @@ class TestFeedV2Filters:
         assert len(returned_ids) == 0
 
     @pytest.mark.asyncio
+    async def test_required_any_or_semantics_returns_union(self, db_session, user_a, user_b, user_c):
+        """Test type_required_any uses OR semantics: posts matching ANY condition are returned.
+
+        user_a follows user_b (but not mutual). user_c follows user_a (follower).
+        type_required_any=["followed", "followers"] should return posts from BOTH user_b and user_c.
+        """
+        await _follow(db_session, user_a, user_b)
+        await _follow(db_session, user_c, user_a)
+
+        post_b = await _create_post(db_session, user_b, "Followed user post", age_hours=1)
+        post_c = await _create_post(db_session, user_c, "Follower user post", age_hours=1)
+        await _create_post(db_session, user_a, "Own post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            type_required_any=["followed", "followers"],
+        )
+
+        returned_ids = {post["id"] for post in result["posts"]}
+        # OR semantics: posts from BOTH followed and follower users
+        assert post_b.id in returned_ids
+        assert post_c.id in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_required_any_mine_returns_own_posts(self, db_session, user_a, user_b):
+        """Test type_required_any=['mine'] returns only the user's own posts."""
+        own = await _create_post(db_session, user_a, "Own post", age_hours=1)
+        await _create_post(db_session, user_b, "Other user post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, type_required_any=["mine"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert own.id in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_required_any_followed_returns_followed_posts(self, db_session, user_a, user_b, user_c):
+        """Test type_required_any=['followed'] returns posts from followed users only."""
+        await _follow(db_session, user_a, user_b)
+        followed_post = await _create_post(db_session, user_b, "Followed post", age_hours=1)
+        unfollowed_post = await _create_post(db_session, user_c, "Unfollowed post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, type_required_any=["followed"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert followed_post.id in returned_ids
+        assert unfollowed_post.id not in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_required_any_followers_returns_follower_posts(self, db_session, user_a, user_b, user_c):
+        """Test type_required_any=['followers'] returns posts from followers only."""
+        await _follow(db_session, user_b, user_a)
+        await _follow(db_session, user_c, user_a)
+        follower_post = await _create_post(db_session, user_b, "Follower post", age_hours=1)
+        other_post = await _create_post(db_session, user_c, "Other follower post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, type_required_any=["followers"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert follower_post.id in returned_ids
+        assert other_post.id in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_required_any_public_returns_unrelated_posts(self, db_session, user_a, user_b):
+        """Test type_required_any=['public'] returns posts from unrelated users."""
+        await _create_post(db_session, user_a, "Own post", age_hours=1)
+        public_post = await _create_post(db_session, user_b, "Public post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, type_required_any=["public"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert public_post.id in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_required_any_combination_mine_or_followers(self, db_session, user_a, user_b):
+        """Test type_required_any=['mine', 'followers'] — posts matching EITHER."""
+        await _follow(db_session, user_b, user_a)
+        own = await _create_post(db_session, user_a, "Own post", age_hours=1)
+        follower = await _create_post(db_session, user_b, "Follower post", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, type_required_any=["mine", "followers"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert own.id in returned_ids
+        assert follower.id in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_required_any_combination_followed_or_public(self, db_session, user_a, user_b, user_c):
+        """Test type_required_any=['followed', 'public'] — posts matching EITHER."""
+        await _follow(db_session, user_a, user_b)
+        followed = await _create_post(db_session, user_b, "Followed", age_hours=1)
+        public = await _create_post(db_session, user_c, "Public", age_hours=1)
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(user_id=user_a.id, type_required_any=["followed", "public"])
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert followed.id in returned_ids
+        assert public.id in returned_ids
+
+    @pytest.mark.asyncio
+    async def test_required_and_any_combined(self, db_session, user_a, user_b, user_c):
+        """Test type_required=['images'] AND type_required_any=['mine', 'followed'].
+        Both conditions must be satisfied: images AND (mine OR followed).
+        """
+        await _follow(db_session, user_a, user_b)
+        # Own post with image
+        own_img = await _create_post(db_session, user_a, "Own image", age_hours=1, image_url="https://example.com/img.jpg")
+        # Followed user's post with image
+        followed_img = await _create_post(db_session, user_b, "Followed image", age_hours=1, image_url="https://example.com/img.jpg")
+        # Own post without image — should NOT match
+        own_no_img = await _create_post(db_session, user_a, "Own no image", age_hours=1)
+        # Followed user's post without image — should NOT match
+        followed_no_img = await _create_post(db_session, user_b, "Followed no image", age_hours=1)
+        # Unrelated user's post with image — should NOT match (not mine or followed)
+        await _create_post(db_session, user_c, "Unrelated image", age_hours=1, image_url="https://example.com/img.jpg")
+
+        service = FeedServiceV2(db_session)
+        result = await service.get_feed(
+            user_id=user_a.id,
+            type_required=["images"],
+            type_required_any=["mine", "followed"],
+        )
+        returned_ids = {post["id"] for post in result["posts"]}
+        assert own_img.id in returned_ids
+        assert followed_img.id in returned_ids
+        assert own_no_img.id not in returned_ids
+        assert followed_no_img.id not in returned_ids
+
+    @pytest.mark.asyncio
     async def test_required_and_mutual_filter_returns_intersection(self, db_session, user_a, user_b, user_c):
         """Test REQUIRED AND with mutual - should return only mutual relationships."""
         await _follow(db_session, user_a, user_b)  # user_a follows user_b

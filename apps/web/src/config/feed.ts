@@ -7,7 +7,7 @@
 
 export const FEED_CONFIG = {
   // Filter debounce delay in milliseconds
-  FILTER_DEBOUNCE_MS: parseInt(process.env['NEXT_PUBLIC_FEED_FILTER_DEBOUNCE_MS'] || '1500', 10),
+  FILTER_DEBOUNCE_MS: parseInt(process.env['NEXT_PUBLIC_FEED_FILTER_DEBOUNCE_MS'] || '300', 10),
   
   // Refresh cooldown in milliseconds (prevents rapid re-refreshes)
   REFRESH_COOLDOWN_MS: parseInt(process.env['NEXT_PUBLIC_FEED_REFRESH_COOLDOWN_MS'] || '750', 10),

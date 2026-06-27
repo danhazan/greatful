@@ -17,6 +17,7 @@ import { useReactionMutation } from "@/hooks/useReactionMutation"
 import { useLongPress } from "@/hooks/useLongPress"
 import { getEmojiFromCode, getTopEmojis } from "@/utils/emojiMapping"
 import { MAX_COMMENT_CHARS } from "@/constants/limits"
+import { useModalPortalRefs } from "@/hooks/useModalPortalRefs"
 
 interface CommentUser {
   id: number
@@ -413,10 +414,17 @@ export default function CommentsModal({
     })
   }, [replyingTo])
 
-  // Handle click outside to close
+  // Handle click outside to close — portal-aware via useModalPortalRefs
+  const { getAllRefs } = useModalPortalRefs()
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (reactionViewerCommentId) return
+
+      // Check if click is inside any registered portal ref (e.g. FloatingPortal dropdown)
+      const path = event.composedPath()
+      for (const portalRef of getAllRefs()) {
+        if (portalRef.current && path.includes(portalRef.current as EventTarget)) return
+      }
 
       const target = event.target as Element
       const isInsidePicker = !!target.closest('[data-minimal-emoji-picker]')
@@ -458,7 +466,7 @@ export default function CommentsModal({
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose, showEmojiPicker, reactionViewerCommentId])
+  }, [isOpen, onClose, showEmojiPicker, reactionViewerCommentId, getAllRefs])
 
   // Handle escape key and keyboard navigation
   useEffect(() => {

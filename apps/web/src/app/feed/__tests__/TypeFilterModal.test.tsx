@@ -23,12 +23,12 @@ const activeProps = {
 describe('TypeFilterModal', () => {
   it('renders title', () => {
     render(<TypeFilterModal {...baseProps} />)
-    expect(screen.getByText('Type Filter')).toBeInTheDocument()
+    expect(screen.getByText('Posts type')).toBeInTheDocument()
   })
 
   it('header has title left, Clear/Cancel right', () => {
     render(<TypeFilterModal {...baseProps} />)
-    const header = screen.getByText('Type Filter').closest('.flex')
+    const header = screen.getByText('Posts type').closest('.flex')
     expect(header?.className).toContain('justify-between')
     expect(screen.getByText('Clear')).toBeInTheDocument()
     expect(screen.getByText('Cancel')).toBeInTheDocument()
@@ -36,7 +36,7 @@ describe('TypeFilterModal', () => {
 
   it('header has a ghost Apply button to the right of Cancel', () => {
     render(<TypeFilterModal {...baseProps} />)
-    const header = screen.getByText('Type Filter').closest('.flex')
+    const header = screen.getByText('Posts type').closest('.flex')
     const headerButtons = Array.from(header?.querySelectorAll('button') || [])
     const applyIndex = headerButtons.findIndex(b => b.textContent === 'Apply')
     expect(applyIndex).toBeGreaterThanOrEqual(0)
@@ -73,10 +73,12 @@ describe('TypeFilterModal', () => {
     expect(card?.className).toContain('sm:max-w-sm')
   })
 
-  it('renders icon for each type filter', () => {
+  it('renders all 5 type filters split across two groups', () => {
     render(<TypeFilterModal {...baseProps} />)
-    const items = container => container.querySelectorAll('.rounded-lg.border.border-gray-200')
-    expect(items(document).length).toBe(5)
+    expect(screen.getByText('Match ANY of')).toBeInTheDocument()
+    expect(screen.getByText('Always require')).toBeInTheDocument()
+    const items = document.querySelectorAll('.rounded-lg.border.border-gray-200')
+    expect(items.length).toBe(5)
   })
 
   it('Clear is disabled when all filters are off', () => {

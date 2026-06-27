@@ -28,12 +28,12 @@ const activeProps = {
 describe('DateFilterModal', () => {
   it('renders title', () => {
     render(<DateFilterModal {...baseProps} />)
-    expect(screen.getByText('Date Filter')).toBeInTheDocument()
+    expect(screen.getByText('Filter by date')).toBeInTheDocument()
   })
 
   it('header has title left, Clear/Cancel right', () => {
     render(<DateFilterModal {...baseProps} />)
-    const header = screen.getByText('Date Filter').closest('.flex')
+    const header = screen.getByText('Filter by date').closest('.flex')
     expect(header?.className).toContain('justify-between')
     expect(screen.getByText('Clear')).toBeInTheDocument()
     expect(screen.getByText('Cancel')).toBeInTheDocument()
@@ -41,7 +41,7 @@ describe('DateFilterModal', () => {
 
   it('header has a ghost Apply button to the right of Cancel', () => {
     render(<DateFilterModal {...baseProps} />)
-    const header = screen.getByText('Date Filter').closest('.flex')
+    const header = screen.getByText('Filter by date').closest('.flex')
     const headerButtons = Array.from(header?.querySelectorAll('button') || [])
     const applyIndex = headerButtons.findIndex(b => b.textContent === 'Apply')
     expect(applyIndex).toBeGreaterThanOrEqual(0)
@@ -223,6 +223,49 @@ describe('DateFilterModal', () => {
     )
   })
 
+  it('preset click passes preset field to onChange', () => {
+    const onChange = jest.fn()
+    render(<DateFilterModal {...baseProps} onChange={onChange} />)
+    fireEvent.click(screen.getByText('Today'))
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ preset: 'today' })
+    )
+  })
+
+  it('manual date edit clears preset (onChange without preset)', () => {
+    const onChange = jest.fn()
+    const dateWithPreset = {
+      mode: 'required' as const,
+      localRange: { start: '2026-06-26', end: '2026-06-26' },
+      preset: 'today' as const,
+    }
+    render(<DateFilterModal
+      {...baseProps}
+      date={dateWithPreset}
+      onChange={onChange}
+      isApplyDisabled={false}
+    />)
+    const inputs = document.querySelectorAll('input[type="date"]')
+    fireEvent.change(inputs[0], { target: { value: '2026-06-25' } })
+    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0]
+    expect(lastCall.preset).toBeUndefined()
+  })
+
+  it('switching mode to off clears preset', () => {
+    const onChange = jest.fn()
+    render(<DateFilterModal
+      {...baseProps}
+      date={{
+        mode: 'required' as const,
+        localRange: { start: '2026-06-26', end: '2026-06-26' },
+        preset: 'today' as const,
+      }}
+      onChange={onChange}
+    />)
+    fireEvent.click(screen.getByText('Off'))
+    expect(onChange).toHaveBeenCalledWith({ mode: 'off' })
+  })
+
   it('shows validation error when start > end and mode is not off', () => {
     const props = {
       ...activeProps,
@@ -256,8 +299,18 @@ describe('DateFilterModal', () => {
   })
 
   describe('sanitizeDateInput', () => {
-    it('prevents year overflow beyond 4 digits', () => {
-      expect(sanitizeDateInput('20266')).toBe('2026')
+    it('year rollover: first overflow resets to 0000', () => {
+      expect(sanitizeDateInput('20266')).toBe('0006')
+    })
+
+    it('year rollover: subsequent overflow shifts left and appends', () => {
+      expect(sanitizeDateInput('00060')).toBe('0060')
+    })
+
+    it('year rollover: chained sequence rotates correctly', () => {
+      expect(sanitizeDateInput('19952')).toBe('0002')
+      expect(sanitizeDateInput('00020')).toBe('0020')
+      expect(sanitizeDateInput('00202')).toBe('0202')
     })
 
     it('prevents month overflow beyond 2 digits', () => {

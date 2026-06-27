@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { PostPrivacy } from '@/types/post'
 import { UserSearchResult } from '@/types/userSearch'
-import { apiClient } from '@/utils/apiClient'
-import { normalizeToUserSearchResult, dedupeUsersById } from '@/utils/userDataMapping'
+import { dedupeUsersById } from '@/utils/userDataMapping'
+import { hydrateUserIds } from '@/utils/userHydration'
 
 export type PrivacyLevel = 'public' | 'private' | 'custom'
 export type PrivacyRule = 'followers' | 'following' | 'specific_users'
@@ -67,17 +67,9 @@ export function usePostPrivacyState(initialPrivacy: PostPrivacy): UsePostPrivacy
       const ids = initialUsers as number[]
       
       try {
-        const promises = ids.map(id => 
-          apiClient.getUserProfile(id.toString())
-            .then(normalizeToUserSearchResult)
-            .catch(() => null)
-        )
-        
-        const results = await Promise.all(promises)
+        const validUsers = await hydrateUserIds(ids)
         
         if (isActive) {
-          const validUsers = results.filter((u): u is UserSearchResult => u !== null)
-          
           // Merge with any users selected during the fetch, preserving existing selections
           setSpecificUsersState(prev => dedupeUsersById([...prev, ...validUsers]))
           hasHydratedRef.current = true

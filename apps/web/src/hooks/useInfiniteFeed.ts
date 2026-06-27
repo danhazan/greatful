@@ -145,6 +145,9 @@ export function useInfiniteFeed({
   const lastRefreshAtRef = useRef(0)
   const filterChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFilterSignatureRef = useRef<string | null>(null)
+  const refreshRef = useRef<(reason?: string, options?: { preserveExistingItems?: boolean }) => Promise<void>>(
+    null as unknown as (reason?: string, options?: { preserveExistingItems?: boolean }) => Promise<void>
+  )
 
   itemsRef.current = items
 
@@ -435,6 +438,7 @@ export function useInfiniteFeed({
       preserveExistingItems: options?.preserveExistingItems ?? false,
     })
   }, [runSessionLoad])
+  refreshRef.current = refresh
 
   const patchPost = useCallback((postId: string, updater: (post: Post) => Post) => {
     setItems((previousItems) => {
@@ -485,7 +489,7 @@ export function useInfiniteFeed({
     }
 
     filterChangeTimeoutRef.current = setTimeout(() => {
-      void refresh('filter-change', { preserveExistingItems: true })
+      void refreshRef.current('filter-change', { preserveExistingItems: false })
     }, FEED_CONFIG.FILTER_DEBOUNCE_MS)
 
     return () => {
@@ -493,7 +497,7 @@ export function useInfiniteFeed({
         clearTimeout(filterChangeTimeoutRef.current)
       }
     }
-  }, [enabled, feedFilterSignature, refresh])
+  }, [enabled, feedFilterSignature])
   
   return {
     items,

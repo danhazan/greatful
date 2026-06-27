@@ -4,6 +4,10 @@ import { describe, it, expect, jest } from '@jest/globals'
 import SearchFilterModal from '../SearchFilterModal'
 import { createEmptyFeedFilters } from '@/utils/feedFilterState'
 
+jest.mock('@/utils/userHydration', () => ({
+  hydrateUserIds: () => Promise.resolve([]),
+}))
+
 const baseProps = {
   search: createEmptyFeedFilters().search,
   onChange: jest.fn(),
@@ -13,18 +17,17 @@ const baseProps = {
   onApply: jest.fn(),
   isApplyDisabled: true,
   position: { x: 100, y: 200 },
-  authorProfiles: {},
 }
 
 describe('SearchFilterModal', () => {
   it('renders title', () => {
     render(<SearchFilterModal {...baseProps} />)
-    expect(screen.getByText('Search Filter')).toBeInTheDocument()
+    expect(screen.getByText('Search in posts')).toBeInTheDocument()
   })
 
   it('header has title left, Clear/Cancel right', () => {
     render(<SearchFilterModal {...baseProps} />)
-    const header = screen.getByText('Search Filter').closest('.flex')
+    const header = screen.getByText('Search in posts').closest('.flex')
     expect(header?.className).toContain('justify-between')
     expect(screen.getByText('Clear')).toBeInTheDocument()
     expect(screen.getByText('Cancel')).toBeInTheDocument()
@@ -32,7 +35,7 @@ describe('SearchFilterModal', () => {
 
   it('header has a ghost Apply button to the right of Cancel', () => {
     render(<SearchFilterModal {...baseProps} />)
-    const header = screen.getByText('Search Filter').closest('.flex')
+    const header = screen.getByText('Search in posts').closest('.flex')
     const headerButtons = Array.from(header?.querySelectorAll('button') || [])
     const applyIndex = headerButtons.findIndex(b => b.textContent === 'Apply')
     expect(applyIndex).toBeGreaterThanOrEqual(0)
@@ -85,7 +88,7 @@ describe('SearchFilterModal', () => {
   it('keyword input change calls onChange immediately', () => {
     const onChange = jest.fn()
     render(<SearchFilterModal {...baseProps} onChange={onChange} />)
-    const input = screen.getByPlaceholderText('Search posts...')
+    const input = screen.getByPlaceholderText('Search keywords...')
     fireEvent.change(input, { target: { value: 'hello' } })
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -116,13 +119,53 @@ describe('SearchFilterModal', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
-  it('displayName falls back to authorProfiles when username is null', () => {
+  it('renders author chips with @username from provided UserSearchResult', () => {
     const search = {
-      authors: { mode: 'required' as const, users: [{ id: 1, username: null as string | null, name: null as string | null }] },
+      authors: { mode: 'required' as const, users: [{ id: 1, username: 'existing_user', displayName: 'Existing User' }] },
       keyword: { mode: 'off' as const, text: '' },
     }
-    const profiles = { 1: { username: 'hydrated_name', name: 'Hydrated Name' } }
-    render(<SearchFilterModal {...baseProps} search={search} authorProfiles={profiles} />)
-    expect(screen.getByText('hydrated_name')).toBeInTheDocument()
+    render(<SearchFilterModal {...baseProps} search={search} />)
+    expect(screen.getByText('@existing_user')).toBeInTheDocument()
+  })
+
+  it('keyword input is disabled when keyword mode is off', () => {
+    render(<SearchFilterModal {...baseProps} />)
+    const input = screen.getByPlaceholderText('Search keywords...')
+    expect(input).toBeDisabled()
+  })
+
+  it('keyword input is enabled when keyword mode is not off', () => {
+    const search = {
+      authors: { mode: 'off' as const, users: [] },
+      keyword: { mode: 'boost' as const, text: '' },
+    }
+    render(<SearchFilterModal {...baseProps} search={search} />)
+    const input = screen.getByPlaceholderText('Search keywords...')
+    expect(input).not.toBeDisabled()
+  })
+
+  it('author search is disabled when author mode is off', () => {
+    render(<SearchFilterModal {...baseProps} />)
+    const combobox = screen.getByRole('combobox')
+    expect(combobox).toBeDisabled()
+  })
+
+  it('author search is enabled when author mode is not off', () => {
+    const search = {
+      authors: { mode: 'required' as const, users: [] },
+      keyword: { mode: 'off' as const, text: '' },
+    }
+    render(<SearchFilterModal {...baseProps} search={search} />)
+    const combobox = screen.getByRole('combobox')
+    expect(combobox).not.toBeDisabled()
+  })
+
+  it('displays @deleted for users with null username before hydration', () => {
+    const search = {
+      authors: { mode: 'required' as const, users: [{ id: 1, username: null as string | null }] as any[] },
+      keyword: { mode: 'off' as const, text: '' },
+    }
+    render(<SearchFilterModal {...baseProps} search={search} />)
+    expect(screen.getByText('@deleted')).toBeInTheDocument()
   })
 })

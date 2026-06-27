@@ -1,15 +1,15 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useModalPortalRefs } from '@/hooks/useModalPortalRefs'
 import { X } from 'lucide-react'
+import { useFloating, FloatingPortal, autoUpdate, flip, offset, shift, size } from '@floating-ui/react'
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation'
 import { useClickOutside } from "@/hooks/useClickOutside"
 import { useUserSearch } from '@/hooks/useUserSearch'
 import { UserSearchDropdown } from '@/components/user-search'
 import { UserSearchResult } from '@/types/userSearch'
 import { getCompleteInputStyling } from '@/utils/inputStyles'
-
-// Removed `UserMultiSelectUser` definition in favor of unified `UserSearchResult`
 
 interface UserMultiSelectProps {
   selectedUsers: UserSearchResult[]
@@ -31,8 +31,24 @@ export default function UserMultiSelect({
   const [query, setQuery] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const { refs, floatingStyles } = useFloating({
+    placement: 'bottom-start',
+    middleware: [
+      offset(4),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      size({
+        apply({ rects, elements }) {
+          Object.assign(elements.floating.style, {
+            width: `${rects.reference.width}px`,
+          })
+        },
+      }),
+    ],
+    whileElementsMounted: autoUpdate,
+  })
 
   const { users, loading, hasSearched } = useUserSearch({
     query,
@@ -64,13 +80,20 @@ export default function UserMultiSelect({
     onClose: () => setIsOpen(false),
   })
 
-  useClickOutside(containerRef, isOpen, () => setIsOpen(false))
+  useClickOutside(containerRef, isOpen, () => setIsOpen(false), [refs.floating])
+
+  // Register the floating portal ref so parent useModal hooks can recognize
+  // clicks inside the dropdown as "inside" rather than "outside click".
+  const { registerRef } = useModalPortalRefs()
+  useEffect(() => {
+    const unregister = registerRef(refs.floating)
+    return unregister
+  }, [registerRef, refs.floating])
 
   const handleSelect = (user: UserSearchResult) => {
     if (disabled) {
       return
     }
-    // Prevent duplicate entries
     if (!selectedUsers.find((u) => u.id === user.id)) {
       if (maxSelected && selectedUsers.length >= maxSelected) {
         return
@@ -92,8 +115,8 @@ export default function UserMultiSelect({
   const reachedMax = Boolean(maxSelected && selectedUsers.length >= maxSelected)
 
   return (
-    <div ref={containerRef} className="relative">
-      <div className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2">
+    <div ref={(node) => { containerRef.current = node; refs.setReference(node) }} className="relative">
+      <div className={`w-full rounded-lg border px-2 py-2 ${disabled ? 'cursor-not-allowed bg-gray-50 opacity-60' : 'border-gray-200 bg-white'}`}>
         {selectedUsers.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
             {selectedUsers.map((user) => (
@@ -116,7 +139,6 @@ export default function UserMultiSelect({
           </div>
         )}
 
-        {/* getCompleteInputStyling() is required here to prevent transparent text bugs on mobile WebKit */}
         <input
           ref={inputRef}
           type="text"
@@ -139,21 +161,24 @@ export default function UserMultiSelect({
       </div>
 
       {dropdownOpen && (
-        <UserSearchDropdown
-          mode="selection"
-          id="user-multi-select-results"
-          className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
-          users={filteredUsers}
-          loading={loading}
-          hasSearched={hasSearched}
-          searchQuery={query}
-          selectedIndex={selectedIndex}
-          onSelect={handleSelect}
-          onIndexChange={setSelectedIndex}
-          setItemRef={setItemRef}
-        />
+        <FloatingPortal>
+          <div ref={refs.setFloating} style={floatingStyles} className="z-50">
+            <UserSearchDropdown
+              mode="selection"
+              id="user-multi-select-results"
+              className="max-h-72 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+              users={filteredUsers}
+              loading={loading}
+              hasSearched={hasSearched}
+              searchQuery={query}
+              selectedIndex={selectedIndex}
+              onSelect={handleSelect}
+              onIndexChange={setSelectedIndex}
+              setItemRef={setItemRef}
+            />
+          </div>
+        </FloatingPortal>
       )}
     </div>
   )
 }
-

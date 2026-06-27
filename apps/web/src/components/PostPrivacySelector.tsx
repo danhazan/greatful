@@ -9,6 +9,7 @@ import { getPostAudience } from "@/utils/privacyUtils"
 import { PrivacyLevel, PrivacyRule } from "@/hooks/usePostPrivacyState"
 import { UserSearchResult } from "@/types/userSearch"
 import { useClickOutside } from "@/hooks/useClickOutside"
+import { useModalPortalRefs } from "@/hooks/useModalPortalRefs"
 
 const CUSTOM_PRIVACY_RULES: Array<{ id: PrivacyRule; label: string; description: string }> = [
   { id: 'followers', label: 'Followers', description: 'Users who follow you' },
@@ -38,6 +39,7 @@ export default function PostPrivacySelector({
   const [customPrivacyError, setCustomPrivacyError] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const { getAllRefs: getAllOverlayRefs } = useModalPortalRefs()
 
   useClickOutside(containerRef, showPrivacyMenu, () => setShowPrivacyMenu(false))
 
@@ -106,6 +108,16 @@ export default function PostPrivacySelector({
     privacyRules.includes('followers') || privacyRules.includes('following')
   const hasSpecificUsers = specificUsers.length > 0
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    const target = e.target as Node
+    const clickedOverlay = getAllOverlayRefs().some(
+      ref => ref.current && (ref.current === target || ref.current.contains(target))
+    )
+    if (!clickedOverlay) {
+      setShowCustomPrivacyModal(false)
+    }
+  }
+
   return (
     <div ref={containerRef}>
       <div className="flex items-center gap-2">
@@ -161,7 +173,7 @@ export default function PostPrivacySelector({
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" data-custom-privacy-modal>
           <div
             className="absolute inset-0 bg-black bg-opacity-40"
-            onClick={() => setShowCustomPrivacyModal(false)}
+            onClick={handleBackdropClick}
           />
           <div
             className="relative z-10 w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
