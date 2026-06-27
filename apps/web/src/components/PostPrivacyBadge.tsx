@@ -4,8 +4,8 @@ import { useEffect, useId, useRef, useState, useMemo } from "react"
 import { autoUpdate, flip, offset, shift, useFloating, FloatingPortal } from "@floating-ui/react"
 import { useClickOutside } from "@/hooks/useClickOutside"
 import { Globe, Lock, Users } from "lucide-react"
-import { apiClient } from "@/utils/apiClient"
 import { getPostAudience } from "@/utils/privacyUtils"
+import { hydrateUserIds } from "@/utils/userHydration"
 import PostVisibilityPreview from "@/components/PostVisibilityPreview"
 import { PostPrivacy } from "@/types/post"
 import { UserSearchResult } from "@/types/userSearch"
@@ -209,22 +209,11 @@ export default function PostPrivacyBadge({
       }
 
       try {
-        const promises = unresolvedIds.map(id =>
-          apiClient.getUserProfile(id.toString())
-            .then(profile => {
-              const userId = Number(profile.id)
-              resolvedUsersRef.current.set(userId, {
-                id: userId,
-                username: profile.username ?? `user${userId}`,
-                displayName: profile.displayName ?? profile.name ?? profile.username,
-                profileImageUrl: profile.profileImageUrl ?? profile.image ?? null,
-              })
-            })
-            .catch(() => null)
-        )
-        
-        await Promise.all(promises)
-      } catch (error) {
+        const hydratedUsers = await hydrateUserIds(unresolvedIds)
+        for (const user of hydratedUsers) {
+          resolvedUsersRef.current.set(user.id, user)
+        }
+      } catch {
         // Fall through to unresolved placeholders.
       }
     }

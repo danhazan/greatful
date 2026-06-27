@@ -33,6 +33,7 @@ import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import { getUniqueUsernames, isValidUsername } from "@/utils/mentionUtils"
 import { useToast } from "@/contexts/ToastContext"
 import { normalizePostFromApi, debugApiResponse, mergePostUpdate } from "@/utils/normalizePost"
+import { validateUsernames } from "@/utils/userHydration"
 import { getTextDirection, getTextAlignmentClass, getDirectionAttribute, hasMixedDirectionContent } from "@/utils/rtlUtils"
 import { usePostStateSynchronization } from "@/hooks/useStateSynchronization"
 import { useClickOutside } from "@/hooks/useClickOutside"
@@ -156,17 +157,9 @@ export default function PostCard({
       }
 
       try {
-        // Use batch validation endpoint to avoid 404 errors with optimized API client
-        const result = await apiClient.post('/users/validate-batch', {
-          usernames: validFormatUsernames
-        }) as any
-        // API now returns camelCase
-        setValidUsernames(result.data?.validUsernames || result.validUsernames || [])
-      } catch (error) {
-        // Only log errors in development
-        if (process.env['NODE_ENV'] === 'development') {
-          console.error('Error validating usernames:', error)
-        }
+        const valid = await validateUsernames(validFormatUsernames)
+        setValidUsernames(valid)
+      } catch {
         setValidUsernames([])
       }
     }
