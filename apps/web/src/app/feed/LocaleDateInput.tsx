@@ -19,6 +19,7 @@ export default function LocaleDateInput({ value, onChange, min, max }: LocaleDat
   const locale = useLocale()
   const [inputValue, setInputValue] = useState(() => isoToLocaleString(value, locale))
   const datePickerRef = useRef<HTMLInputElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     setInputValue(isoToLocaleString(value, locale))
@@ -44,6 +45,7 @@ export default function LocaleDateInput({ value, onChange, min, max }: LocaleDat
     if (isValidISODate(iso)) {
       onChange(iso)
     }
+    buttonRef.current?.focus()
   }
 
   const openPicker = () => {
@@ -51,12 +53,10 @@ export default function LocaleDateInput({ value, onChange, min, max }: LocaleDat
       try {
         if (typeof datePickerRef.current.showPicker === 'function') {
           datePickerRef.current.showPicker()
-        } else if (typeof datePickerRef.current.click === 'function') {
-          datePickerRef.current.click()
         } else {
           datePickerRef.current.focus()
         }
-      } catch (err) {
+      } catch {
         datePickerRef.current.focus()
       }
     }
@@ -83,19 +83,21 @@ export default function LocaleDateInput({ value, onChange, min, max }: LocaleDat
           Invalid date
         </span>
       )}
-      <button 
-        onClick={openPicker} 
+      <button
+        ref={buttonRef}
+        onClick={openPicker}
         type="button"
         className="absolute right-2 text-gray-500 hover:text-gray-700"
         aria-label="Open date picker"
       >
-        📅
+        <span aria-hidden="true">📅</span>
       </button>
       
       <input
         ref={datePickerRef}
         type="date"
         className="sr-only"
+        tabIndex={-1}
         onChange={handlePickerChange}
         min={min}
         max={max}

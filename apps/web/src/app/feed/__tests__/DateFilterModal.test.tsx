@@ -149,8 +149,8 @@ describe('DateFilterModal', () => {
   it('date input change calls onChange with localRange', () => {
     const onChange = jest.fn()
     render(<DateFilterModal {...activeProps} onChange={onChange} isApplyDisabled={false} />)
-    const inputs = document.querySelectorAll('input[type="date"]')
-    fireEvent.change(inputs[0], { target: { value: '2026-06-01' } })
+    const inputs = document.querySelectorAll('input[type="text"]')
+    fireEvent.change(inputs[0], { target: { value: '06/01/2026' } })
     expect(onChange).toHaveBeenCalledWith({
       mode: 'required',
       localRange: { start: '2026-06-01', end: '2026-06-23' },
@@ -244,8 +244,8 @@ describe('DateFilterModal', () => {
       onChange={onChange}
       isApplyDisabled={false}
     />)
-    const inputs = document.querySelectorAll('input[type="date"]')
-    fireEvent.change(inputs[0], { target: { value: '2026-06-25' } })
+    const inputs = document.querySelectorAll('input[type="text"]')
+    fireEvent.change(inputs[0], { target: { value: '06/25/2026' } })
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0]
     expect(lastCall.preset).toBeUndefined()
   })
@@ -310,5 +310,38 @@ describe('DateFilterModal', () => {
       expect(dateIndex).toBeGreaterThan(modeIndex)
       expect(presetIndex).toBeGreaterThan(dateIndex)
     }
+  })
+
+  it('incomplete edit + cancel + reopen preserves committed ISO values', () => {
+    const onChange = jest.fn()
+    const onClose = jest.fn()
+    const dateProps = {
+      ...activeProps,
+      onChange,
+      onClose,
+      isApplyDisabled: false,
+    }
+
+    const { unmount } = render(<DateFilterModal {...dateProps} />)
+
+    const inputs = document.querySelectorAll('input[type="text"]')
+    expect((inputs[0] as HTMLInputElement).value).toBe('01/01/2026')
+    expect((inputs[1] as HTMLInputElement).value).toBe('06/23/2026')
+
+    fireEvent.change(inputs[0], { target: { value: '01/0' } })
+    expect((inputs[0] as HTMLInputElement).value).toBe('01/0')
+    expect(screen.getByText('Invalid date')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Cancel'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    // Simulate modal close + reopen (unmount + fresh mount)
+    unmount()
+    render(<DateFilterModal {...dateProps} />)
+
+    const reopenedInputs = document.querySelectorAll('input[type="text"]')
+    expect((reopenedInputs[0] as HTMLInputElement).value).toBe('01/01/2026')
+    expect((reopenedInputs[1] as HTMLInputElement).value).toBe('06/23/2026')
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument()
   })
 })
