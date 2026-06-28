@@ -112,7 +112,7 @@ export function getPresetDates(
 
     case 'this_year': {
       const start = formatDateForInput(new Date(now.getFullYear(), 0, 1))
-      const end = formatDateForInput(new Date(now.getFullYear(), 11, 31))
+      const end = formatDateForInput(new Date(today))
       return { startLocal: start, endLocal: end }
     }
 

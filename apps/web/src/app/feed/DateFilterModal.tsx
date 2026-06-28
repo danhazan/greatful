@@ -9,53 +9,12 @@ import {
 } from "@/utils/dateFilterUtils"
 import { FEED_CONFIG } from "@/config/feed"
 import { useLocale } from "@/hooks/useLocale"
-import { getPresetLabel, getValidationMessage } from "@/utils/dateFilterLocale"
+import { getPresetLabel, getValidationMessage, formatISODateNumeric } from "@/utils/dateFilterLocale"
 import BaseFilterModal from "./BaseFilterModal"
 import FilterModeButtons from "./FilterModeButtons"
+import LocaleDateInput from "./LocaleDateInput"
 
-export function sanitizeDateInput(raw: string): string {
-  if (!raw) return ''
-  let cleaned = raw.replace(/[^\d-]/g, '')
-  const parts = cleaned.split('-', 3)
-  if (parts[0]) {
-    if (parts[0].length > 4) {
-      const overflow = parts[0].slice(4)
-      const before = parts[0].slice(0, 4)
-      if (before[0] === '0') {
-        let shifted = before
-        for (const ch of overflow) {
-          if (/^\d$/.test(ch)) {
-            shifted = shifted.slice(1) + ch
-          }
-        }
-        parts[0] = shifted
-      } else {
-        parts[0] = '0000'
-        for (const ch of overflow) {
-          if (/^\d$/.test(ch)) {
-            parts[0] = parts[0].slice(1) + ch
-          }
-        }
-      }
-    } else {
-      parts[0] = parts[0].slice(0, 4)
-    }
-  }
-  if (parts[1]) parts[1] = parts[1].slice(0, 2)
-  if (parts[2]) parts[2] = parts[2].slice(0, 2)
-  let result = parts[0] || ''
-  if (parts.length >= 2) {
-    result += (parts[1] !== undefined ? '-' + parts[1] : '')
-  }
-  if (parts.length >= 3) {
-    result += (parts[2] !== undefined ? '-' + parts[2] : '')
-  }
-  const trailingHyphen = raw.endsWith('-')
-  if (trailingHyphen && result.length > 0 && !result.endsWith('-') && parts.length <= 2) {
-    result += '-'
-  }
-  return result
-}
+
 
 interface DateFilterModalProps {
   date: DateFeedFilters
@@ -153,49 +112,43 @@ export default function DateFilterModal({
         <FilterModeButtons selectedMode={selectedMode} onChange={handleModeChange} />
 
         <div className="flex items-center justify-center gap-2">
-          <input
-            type="date"
+          <LocaleDateInput
             value={localStart}
             min={FEED_CONFIG.MIN_DATE}
             max={today}
-            onChange={(e) => {
-              const sanitized = sanitizeDateInput(e.target.value)
-              setLocalStart(sanitized)
+            onChange={(iso) => {
+              setLocalStart(iso)
               setActivePreset(null)
               if (selectedMode !== 'off') {
                 onChange({
                   mode: selectedMode,
-                  localRange: { start: sanitized, end: localEnd },
+                  localRange: { start: iso, end: localEnd },
                 })
               }
             }}
-            className="rounded-lg border border-gray-300 px-2 py-1 text-sm w-auto focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
           />
           <span className="text-gray-400 text-sm">—</span>
-          <input
-            type="date"
+          <LocaleDateInput
             value={localEnd}
             min={FEED_CONFIG.MIN_DATE}
             max={today}
-            onChange={(e) => {
-              const sanitized = sanitizeDateInput(e.target.value)
-              setLocalEnd(sanitized)
+            onChange={(iso) => {
+              setLocalEnd(iso)
               setActivePreset(null)
               if (selectedMode !== 'off') {
                 onChange({
                   mode: selectedMode,
-                  localRange: { start: localStart, end: sanitized },
+                  localRange: { start: localStart, end: iso },
                 })
               }
             }}
-            className="rounded-lg border border-gray-300 px-2 py-1 text-sm w-auto focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
           />
         </div>
 
         {selectedMode !== 'off' && (isStartAfterEnd || isBelowMinDate || isAfterToday) && (
           <div className="text-xs text-red-500 text-center">
             {isStartAfterEnd && <p>{getValidationMessage('start_after_end', locale)}</p>}
-            {isBelowMinDate && <p>{getValidationMessage('below_min_date', locale, { minDate: FEED_CONFIG.MIN_DATE })}</p>}
+            {isBelowMinDate && <p>{getValidationMessage('below_min_date', locale, { minDate: formatISODateNumeric(FEED_CONFIG.MIN_DATE, locale) })}</p>}
             {isAfterToday && <p>{getValidationMessage('future_date', locale)}</p>}
           </div>
         )}

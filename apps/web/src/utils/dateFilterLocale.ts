@@ -152,13 +152,81 @@ export function getValidationMessage(
   return msg
 }
 
-export function formatDateForLocale(dateStr: string, locale: string): string {
-  const parts = dateStr.split('-')
-  if (parts.length !== 3) return dateStr
-  const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
-  try {
-    return date.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })
-  } catch {
-    return dateStr
+export function formatISODateNumeric(iso: string, locale: string): string {
+  return isoToLocaleString(iso, locale)
+}
+
+export function isValidISODate(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const parts = iso.split('-');
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (m < 1 || m > 12 || d < 1 || y < 1000) return false;
+  const daysInMonth = [31, (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return d <= daysInMonth[m - 1];
+}
+
+export function parseDateInputToISO(input: string, localeOrder: 'MDY' | 'DMY' | 'YMD'): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+  if (/^\d{8}$/.test(trimmed)) {
+    if (localeOrder === 'MDY') return `${trimmed.slice(4, 8)}-${trimmed.slice(0, 2)}-${trimmed.slice(2, 4)}`;
+    if (localeOrder === 'DMY') return `${trimmed.slice(4, 8)}-${trimmed.slice(2, 4)}-${trimmed.slice(0, 2)}`;
+    if (localeOrder === 'YMD') return `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`;
   }
+
+  const parts = trimmed.split(/[./-]/);
+  if (parts.length === 3) {
+    const p1 = parts[0].padStart(2, '0');
+    const p2 = parts[1].padStart(2, '0');
+    const p3 = parts[2];
+
+    if (p3.length === 4) {
+      if (localeOrder === 'MDY') return `${p3}-${p1}-${p2}`;
+      if (localeOrder === 'DMY') return `${p3}-${p2}-${p1}`;
+    } else if (p1.length === 4) {
+      if (localeOrder === 'YMD') return `${p1}-${p2}-${p3.padStart(2, '0')}`;
+    }
+  }
+
+  return '';
+}
+
+export function isoToLocaleString(iso: string, locale: string): string {
+  if (!isValidISODate(iso)) return '';
+  const parts = iso.split('-');
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  try {
+    return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  } catch {
+    return iso;
+  }
+}
+
+export function getLocaleOrder(locale: string): 'MDY' | 'DMY' | 'YMD' {
+  try {
+    const format = new Intl.DateTimeFormat(locale).formatToParts(new Date(Date.UTC(2026, 11, 31)));
+    const parts = format.filter(p => p.type === 'year' || p.type === 'month' || p.type === 'day');
+    if (parts.length === 3) {
+      if (parts[0].type === 'month' && parts[1].type === 'day') return 'MDY';
+      if (parts[0].type === 'day' && parts[1].type === 'month') return 'DMY';
+    }
+    return 'YMD';
+  } catch {
+    return 'YMD';
+  }
+}
+
+export function getLocalePlaceholder(locale: string): string {
+  const order = getLocaleOrder(locale);
+  if (order === 'MDY') return 'MM/DD/YYYY';
+  if (order === 'DMY') return 'DD/MM/YYYY';
+  return 'YYYY/MM/DD';
 }

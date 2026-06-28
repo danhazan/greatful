@@ -2,7 +2,6 @@ import React from 'react'
 import { render, screen, fireEvent } from '@/tests/utils/testUtils'
 import { describe, it, expect, jest } from '@jest/globals'
 import DateFilterModal from '../DateFilterModal'
-import { sanitizeDateInput } from '../DateFilterModal'
 import { createEmptyFeedFilters } from '@/utils/feedFilterState'
 import { FEED_CONFIG } from '@/config/feed'
 
@@ -201,11 +200,11 @@ describe('DateFilterModal', () => {
 
   it('date inputs use compact padding', () => {
     render(<DateFilterModal {...baseProps} />)
-    const inputs = document.querySelectorAll('input[type="date"]')
+    const inputs = document.querySelectorAll('input[type="text"]')
     inputs.forEach(input => {
       expect(input.className).toContain('px-2')
       expect(input.className).toContain('py-1')
-      expect(input.className).toContain('w-auto')
+      expect(input.className).toContain('w-[130px]')
     })
   })
 
@@ -298,63 +297,18 @@ describe('DateFilterModal', () => {
     expect(screen.queryByText(/Date must be on or after/)).not.toBeInTheDocument()
   })
 
-  describe('sanitizeDateInput', () => {
-    it('year rollover: first overflow resets to 0000', () => {
-      expect(sanitizeDateInput('20266')).toBe('0006')
-    })
-
-    it('year rollover: subsequent overflow shifts left and appends', () => {
-      expect(sanitizeDateInput('00060')).toBe('0060')
-    })
-
-    it('year rollover: chained sequence rotates correctly', () => {
-      expect(sanitizeDateInput('19952')).toBe('0002')
-      expect(sanitizeDateInput('00020')).toBe('0020')
-      expect(sanitizeDateInput('00202')).toBe('0202')
-    })
-
-    it('prevents month overflow beyond 2 digits', () => {
-      expect(sanitizeDateInput('2026-013')).toBe('2026-01')
-    })
-
-    it('prevents day overflow beyond 2 digits', () => {
-      expect(sanitizeDateInput('2026-01-011')).toBe('2026-01-01')
-    })
-
-    it('strips non-digit non-hyphen characters', () => {
-      expect(sanitizeDateInput('20a26-b01-c01')).toBe('2026-01-01')
-    })
-
-    it('allows empty string', () => {
-      expect(sanitizeDateInput('')).toBe('')
-    })
-
-    it('allows progressive partial input', () => {
-      expect(sanitizeDateInput('2')).toBe('2')
-      expect(sanitizeDateInput('20')).toBe('20')
-      expect(sanitizeDateInput('202')).toBe('202')
-      expect(sanitizeDateInput('2026')).toBe('2026')
-      expect(sanitizeDateInput('2026-')).toBe('2026-')
-      expect(sanitizeDateInput('2026-0')).toBe('2026-0')
-      expect(sanitizeDateInput('2026-01')).toBe('2026-01')
-      expect(sanitizeDateInput('2026-01-')).toBe('2026-01-')
-      expect(sanitizeDateInput('2026-01-0')).toBe('2026-01-0')
-      expect(sanitizeDateInput('2026-01-01')).toBe('2026-01-01')
-    })
-
-    it('date inputs are positioned below mode buttons and above presets', () => {
-      const { container } = render(<DateFilterModal {...baseProps} />)
-      const body = container.querySelector('.border-b + div') || container
-      const modeSection = body.querySelector('.flex.gap-2')
-      const dateSection = body.querySelector('.flex.items-center.justify-center.gap-2')
-      const presetSection = body.querySelector('.grid.grid-cols-2')
-      if (modeSection && dateSection && presetSection) {
-        const modeIndex = Array.from(body.children).indexOf(modeSection.closest('.space-y-4 > *') || modeSection)
-        const dateIndex = Array.from(body.children).indexOf(dateSection.closest('.space-y-4 > *') || dateSection)
-        const presetIndex = Array.from(body.children).indexOf(presetSection.closest('.space-y-4 > *') || presetSection)
-        expect(dateIndex).toBeGreaterThan(modeIndex)
-        expect(presetIndex).toBeGreaterThan(dateIndex)
-      }
-    })
+  it('date inputs are positioned below mode buttons and above presets', () => {
+    const { container } = render(<DateFilterModal {...baseProps} />)
+    const body = container.querySelector('.border-b + div') || container
+    const modeSection = body.querySelector('.flex.gap-2')
+    const dateSection = body.querySelector('.flex.items-center.justify-center.gap-2')
+    const presetSection = body.querySelector('.grid.grid-cols-2')
+    if (modeSection && dateSection && presetSection) {
+      const modeIndex = Array.from(body.children).indexOf(modeSection.closest('.space-y-4 > *') || modeSection)
+      const dateIndex = Array.from(body.children).indexOf(dateSection.closest('.space-y-4 > *') || dateSection)
+      const presetIndex = Array.from(body.children).indexOf(presetSection.closest('.space-y-4 > *') || presetSection)
+      expect(dateIndex).toBeGreaterThan(modeIndex)
+      expect(presetIndex).toBeGreaterThan(dateIndex)
+    }
   })
 })

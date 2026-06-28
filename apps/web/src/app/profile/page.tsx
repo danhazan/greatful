@@ -249,7 +249,7 @@ export default function ProfilePage() {
           setRegionalDateFormat(val)
           setOriginalRegionalDateFormat(val)
         }
-      } catch {}
+      } catch { }
     }
   }, [user])
 
@@ -1002,8 +1002,8 @@ export default function ProfilePage() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
                         >
                           <option value="">Auto detect</option>
-                          <option value="en-US">United States (MM/DD/YYYY)</option>
                           <option value="en-GB">United Kingdom (DD/MM/YYYY)</option>
+                          <option value="en-US">United States (MM/DD/YYYY)</option>
                           <option value="sv-SE">International (YYYY-MM-DD)</option>
                         </select>
                       </div>
@@ -1342,11 +1342,10 @@ export default function ProfilePage() {
                       <button
                         onClick={handleSaveProfile}
                         disabled={isSavingProfile}
-                        className={`px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm min-h-[44px] touch-manipulation ${
-                          isSavingProfile
-                            ? 'bg-purple-400 text-white cursor-not-allowed'
-                            : 'bg-purple-600 text-white hover:bg-purple-700'
-                        }`}
+                        className={`px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm min-h-[44px] touch-manipulation ${isSavingProfile
+                          ? 'bg-purple-400 text-white cursor-not-allowed'
+                          : 'bg-purple-600 text-white hover:bg-purple-700'
+                          }`}
                       >
                         {isSavingProfile ? 'Saving...' : 'Save'}
                       </button>
