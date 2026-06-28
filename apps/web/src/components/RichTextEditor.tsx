@@ -376,6 +376,51 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
     onChange?.(plain, clean)
   }, [isComposing, onChange])
 
+  const insertEmoji = useCallback((emoji: string) => {
+    if (!editableRef.current) return
+
+    let selection = window.getSelection()
+
+    // Check if we have focus in the editor
+    const hasEditorFocus = selection &&
+      selection.rangeCount > 0 &&
+      editableRef.current.contains(selection.anchorNode)
+
+    // If focus is elsewhere (e.g. search bar), try to restore last valid range
+    if (!hasEditorFocus && lastRangeRef.current) {
+      selection?.removeAllRanges()
+      selection?.addRange(lastRangeRef.current)
+      // Refresh selection object after restoration
+      selection = window.getSelection()
+    }
+
+    if (selection && selection.rangeCount > 0 && editableRef.current.contains(selection.anchorNode)) {
+      const range = selection.getRangeAt(0)
+      range.deleteContents()
+      range.insertNode(document.createTextNode(emoji))
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+
+      // Update lastRangeRef after insertion
+      lastRangeRef.current = range.cloneRange()
+    } else {
+      // Fallback: append to end
+      editableRef.current.appendChild(document.createTextNode(emoji))
+
+      // Move cursor to end
+      const range = document.createRange()
+      range.selectNodeContents(editableRef.current)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+      lastRangeRef.current = range.cloneRange()
+    }
+
+    emitChange()
+    editableRef.current.focus()
+  }, [emitChange])
+
   // Expose ref methods
   useImperativeHandle(ref, () => ({
     getHtml: () => {
@@ -607,51 +652,6 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
 
     emitChange()
     editableRef.current?.focus()
-  }
-
-  function insertEmoji(emoji: string) {
-    if (!editableRef.current) return
-
-    let selection = window.getSelection()
-
-    // Check if we have focus in the editor
-    const hasEditorFocus = selection &&
-      selection.rangeCount > 0 &&
-      editableRef.current.contains(selection.anchorNode)
-
-    // If focus is elsewhere (e.g. search bar), try to restore last valid range
-    if (!hasEditorFocus && lastRangeRef.current) {
-      selection?.removeAllRanges()
-      selection?.addRange(lastRangeRef.current)
-      // Refresh selection object after restoration
-      selection = window.getSelection()
-    }
-
-    if (selection && selection.rangeCount > 0 && editableRef.current.contains(selection.anchorNode)) {
-      const range = selection.getRangeAt(0)
-      range.deleteContents()
-      range.insertNode(document.createTextNode(emoji))
-      range.collapse(false)
-      selection.removeAllRanges()
-      selection.addRange(range)
-
-      // Update lastRangeRef after insertion
-      lastRangeRef.current = range.cloneRange()
-    } else {
-      // Fallback: append to end
-      editableRef.current.appendChild(document.createTextNode(emoji))
-
-      // Move cursor to end
-      const range = document.createRange()
-      range.selectNodeContents(editableRef.current)
-      range.collapse(false)
-      selection?.removeAllRanges()
-      selection?.addRange(range)
-      lastRangeRef.current = range.cloneRange()
-    }
-
-    emitChange()
-    editableRef.current.focus()
   }
 
   return (

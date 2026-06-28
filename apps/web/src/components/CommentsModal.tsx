@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { X, Send, Loader2, MessageCircle, MessagesSquare, Pencil, Trash2, Smile, Heart } from "lucide-react"
 import { formatTimeAgo } from "@/utils/timeAgo"
 import ProfilePhotoDisplay from "./ProfilePhotoDisplay"
@@ -216,14 +216,14 @@ export default function CommentsModal({
     element.style.overflowY = element.scrollHeight > maxHeight ? 'auto' : 'hidden'
   }
 
-  const resetTextarea = (element: HTMLTextAreaElement | null) => {
+  const resetTextarea = useCallback((element: HTMLTextAreaElement | null) => {
     if (!element) return
 
     const { singleLineHeight } = getTextareaHeights(element)
     element.style.height = `${singleLineHeight}px`
     element.style.overflowY = 'hidden'
     element.scrollTop = 0
-  }
+  }, [])
 
   const unlockCommentsScroll = () => {
     const container = commentsContainerRef.current
@@ -237,20 +237,20 @@ export default function CommentsModal({
     container.style.overflowY = 'hidden'
   }
 
-  const clearReplyMode = () => {
+  const clearReplyMode = useCallback(() => {
     setReplyingTo(null)
     setComposerEnabled(false)
     setCommentText("")
     resetTextarea(commentInputRef.current)
     unlockCommentsScroll()
-  }
+  }, [resetTextarea])
 
-  const clearEditMode = () => {
+  const clearEditMode = useCallback(() => {
     setEditingCommentId(null)
     setCommentText("")
     resetTextarea(commentInputRef.current)
     unlockCommentsScroll()
-  }
+  }, [resetTextarea])
 
   const clearComposerModes = () => {
     setReplyingTo(null)
@@ -308,7 +308,7 @@ export default function CommentsModal({
       setReactionViewerCommentId(null)
       resetTextarea(commentInputRef.current)
     }
-  }, [isOpen])
+  }, [isOpen, resetTextarea])
 
   // When the emoji tray opens OR the onscreen keyboard shrinks the modal while
   // an inline edit is active, scroll the container just enough to keep the edit
@@ -513,7 +513,7 @@ export default function CommentsModal({
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [deleteConfirmCommentId, editingCommentId, isOpen, onClose, replyingTo, reactionViewerCommentId])
+  }, [deleteConfirmCommentId, editingCommentId, isOpen, onClose, replyingTo, reactionViewerCommentId, clearEditMode, clearReplyMode])
 
   const handleCommentSubmit = async () => {
     if (!commentText.trim() || hasPendingMutation || isSubmitting) return

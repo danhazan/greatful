@@ -13,6 +13,7 @@ import { Post } from '@/types/post'
 import { useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
+import { perfLog } from "@/utils/perf"
 import {
   getScrollDirection,
   getTrueScrollTop,
@@ -318,6 +319,15 @@ function FeedPage() {
   useEffect(() => {
     observerVisibleRef.current = false
   }, [nextCursor])
+
+  // Render timing instrumentation (dev only)
+  const initialRenderTimed = useRef(false)
+  useEffect(() => {
+    if (posts.length > 0 && !isInitialLoading && !initialRenderTimed.current) {
+      initialRenderTimed.current = true
+      perfLog('feed render', `${posts.length} posts rendered`)
+    }
+  }, [posts, isInitialLoading])
 
   // Infinite scroll observer
   useEffect(() => {

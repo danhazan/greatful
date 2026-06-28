@@ -151,7 +151,7 @@ export default function OAuthCallbackPage() {
     }
 
     handleCallback()
-  }, [searchParams, router, reloadUser])
+  }, [searchParams, router, reloadUser, clearRedirect, redirectTo])
 
   const validateUsername = (value: string): boolean => {
     if (value.length < 3 || value.length > 30) {

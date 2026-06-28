@@ -118,6 +118,11 @@ export async function hydrateUserIds(
 const nameCache = createCache<boolean>()
 const nameInflight = createInflightTracker()
 
+let nameCalls = 0
+let nameCacheHits = 0
+let nameBatched = 0
+let nameFetched = 0
+
 async function fetchNameBatch(usernames: string[]): Promise<void> {
   const fetchPromise = (async () => {
     try {
@@ -148,11 +153,17 @@ async function fetchNameBatch(usernames: string[]): Promise<void> {
 
 const nameBatcher = createMicrotaskBatcher<string>(
   async (batch, entries) => {
+    nameCalls += entries.length
+    nameBatched += batch.length
+
     const missing: string[] = []
     const pending: Promise<void>[] = []
 
     for (const username of batch) {
-      if (nameCache.has(username)) continue
+      if (nameCache.has(username)) {
+        nameCacheHits++
+        continue
+      }
       const existing = nameInflight.waitFor(username)
       if (existing) {
         pending.push(existing)
@@ -162,11 +173,24 @@ const nameBatcher = createMicrotaskBatcher<string>(
     }
 
     if (missing.length > 0) {
+      nameFetched += missing.length
       pending.push(fetchNameBatch(missing))
     }
 
     if (pending.length > 0) {
       await Promise.all(pending)
+    }
+
+    if (nameCalls % 10 === 0) {
+      const hitRate =
+        nameCalls > 0 ? ((nameCacheHits / nameBatched) * 100).toFixed(1) : '0.0'
+      const reduction =
+        nameBatched > 0
+          ? ((1 - nameFetched / nameBatched) * 100).toFixed(1)
+          : '0.0'
+      console.log(
+        `[name-validation] cache hit: ${hitRate}%, batch reduction: ${reduction}%`
+      )
     }
 
     for (const entry of entries) {
@@ -199,4 +223,8 @@ export function clearUserHydrationCache(): void {
   cacheHits = 0
   totalBatchedIds = 0
   actualFetchedIds = 0
+  nameCalls = 0
+  nameCacheHits = 0
+  nameBatched = 0
+  nameFetched = 0
 }

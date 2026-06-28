@@ -244,7 +244,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [setCurrentUserWithTrace])
 
   // Subscribe to state updates
   const subscribeToStateUpdates = useCallback((callback: (event: StateEvent) => void) => {
@@ -299,7 +299,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })
       }
     }
-  }, [currentUser, emitStateEvent])
+  }, [currentUser, emitStateEvent, setCurrentUserWithTrace])
 
   // Update follow state with optimistic updates and event emission
   const updateFollowState = useCallback((userId: string, isFollowing: boolean) => {
@@ -337,7 +337,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateUserProfile(currentUser.id, profileUpdates)
       }
     }
-  }, [currentUser, updateUserProfile, emitStateEvent])
+  }, [currentUser, updateUserProfile, emitStateEvent, setCurrentUserWithTrace])
 
   // Get user profile
   const getUserProfile = useCallback((userId: string): UserProfile | null => {
@@ -376,7 +376,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       type: 'CURRENT_USER_UPDATE',
       payload: { id: '', name: '', username: '', email: '' }
     })
-  }, [emitStateEvent])
+  }, [emitStateEvent, setCurrentUserWithTrace])
 
   useEffect(() => {
     const nextScope = currentUser ? `user:${currentUser.id}` : 'anon'
@@ -436,7 +436,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       window.location.replace(buildLoginRedirectUrl(currentUrl))
     })
     return unsubscribe
-  }, [])
+  }, [setCurrentUserWithTrace])
 
   const value: UserContextType = {
     currentUser,

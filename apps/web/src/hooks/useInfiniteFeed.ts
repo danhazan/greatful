@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiClient } from '@/utils/apiClient'
 import { normalizePostFromApi } from '@/utils/normalizePost'
+import { perfStart, perfEnd, perfLog } from '@/utils/perf'
 import { Post } from '@/types/post'
 import { requestDeduplicator } from '@/utils/requestDeduplicator'
 import { FEED_CONFIG } from '@/config/feed'
@@ -192,11 +193,15 @@ export function useInfiniteFeed({
   }, [currentUserId])
 
   const fetchPage = useCallback(async (cursor: string | null, refresh: boolean): Promise<FeedPageResponse> => {
+    const fetchLabel = refresh ? 'feed refresh' : 'feed fetch'
+    const fetchStart = perfStart(fetchLabel)
     const query = buildFeedQuery(cursor, feedFilters)
     const data = await apiClient.get<{ posts: any[]; nextCursor: string | null }>(query, {
       skipCache: true,
     })
+    perfEnd(`${fetchLabel} network`, fetchStart)
 
+    const normStart = perfStart(`${fetchLabel} normalize`)
     const rawPosts = (data as any)?.posts ?? (data as any)?.data?.posts ?? []
     if (!Array.isArray(rawPosts)) {
       throw new Error('Invalid posts data format')
@@ -206,6 +211,8 @@ export function useInfiniteFeed({
       .map((post: any) => normalizePostFromApi(post))
       .filter(Boolean) as Post[]
     const hydratedPosts = await hydratePrivacy(normalizedPosts, refresh)
+    perfEnd(`${fetchLabel} normalize`, normStart)
+    perfLog(fetchLabel, `${hydratedPosts.length} posts, cursor: ${cursor ?? 'initial'}`)
 
     return {
       posts: hydratedPosts,

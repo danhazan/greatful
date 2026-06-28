@@ -194,7 +194,7 @@ export default function EditPostModal({ isOpen, onClose, post, onSubmit }: EditP
     } else {
       initializedRef.current = false
     }
-  }, [isOpen, post])
+  }, [isOpen, post, setError, setIsSubmitting, setPostData, setRichContent, setSelectedStyle, richTextEditorRef])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

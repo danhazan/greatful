@@ -273,6 +273,35 @@ The proxy iterates these arrays rather than hardcoding param names. Any new filt
 - **Boost filters** (`type_boost`, date/author/keyword in `boost` mode) add `DIVERSITY_BONUS_PER_TYPE` points per matched category, up to `DIVERSITY_BONUS_MAX_TYPES`. Boosted posts remain in the feed even if they match zero boost categories—their score is simply lower.
 - Filters compose: a post can simultaneously match a `type_required` AND condition, one of several `type_required_any` OR conditions, and multiple `type_boost` categories.
 
+--- 
+
+## CTE Optimizations (June 2026)
+
+### emoji_reactions Aggregate CTE
+
+The `emoji_reactions` table was queried via **16 correlated subqueries** per post row in the `scored` CTE:
+- 12 × `COUNT(DISTINCT user_id)` 
+- 4 × `COUNT(DISTINCT emoji_code)`
+
+Each subquery performed an independent scan of `emoji_reactions` filtered by `post_id = p.id AND object_type = 'post'`.
+
+**Optimization**: A single `reaction_agg` CTE replaces all 16 subqueries:
+
+```sql
+reaction_agg AS (
+  SELECT post_id,
+         COUNT(DISTINCT user_id) AS reactions_distinct_users,
+         COUNT(DISTINCT emoji_code) AS reactions_distinct_codes
+  FROM emoji_reactions
+  WHERE object_type = 'post'
+  GROUP BY post_id
+)
+```
+
+The CTE is `LEFT JOIN`ed once per row. All 16 subqueries are replaced with `COALESCE(ra.reactions_distinct_users, 0)` / `COALESCE(ra.reactions_distinct_codes, 0)`.
+
+Applied to both `_build_pg_query` and `_build_sqlite_query` in `feed_service_v2.py`.
+
 ---
 
 ## System Removals (Legacy)

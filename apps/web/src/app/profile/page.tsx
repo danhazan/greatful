@@ -134,20 +134,20 @@ export default function ProfilePage() {
       return
     }
 
-  }, [contextUser, userLoading, router])
+  }, [contextUser, userLoading, router, requireAuth])
 
   const currentUserProfileQueryKey = useMemo(() => queryKeys.currentUserProfile(), [])
   const currentUserProfileTags = useMemo(
     () => [queryTags.currentUserProfile, ...(contextUser?.id ? [queryTags.userProfile(contextUser.id)] : [])],
-    [contextUser?.id]
+    [contextUser]
   )
   const currentUserPostsQueryKey = useMemo(
     () => (contextUser ? queryKeys.userPosts(contextUser.id) : queryKeys.userPosts('pending')),
-    [contextUser?.id]
+    [contextUser]
   )
   const currentUserPostsTags = useMemo(
     () => (contextUser?.id ? [queryTags.userPosts(contextUser.id)] : []),
-    [contextUser?.id]
+    [contextUser]
   )
   const authResolved = !userLoading
   const canQueryProfile = authResolved

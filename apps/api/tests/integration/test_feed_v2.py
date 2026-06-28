@@ -56,57 +56,6 @@ async def user_c(db_session):
         hashed_password=get_password_hash("password"),
     )
     db_session.add(user)
-    await db_session.flush()
-    return user
-
-@pytest_asyncio.fixture
-async def user_b(db_session):
-    """Second user."""
-    user = User(
-        email="user_b@test.com",
-        username="user_b",
-        hashed_password=get_password_hash("password"),
-    )
-    db_session.add(user)
-    await db_session.flush()
-    return user
-
-@pytest_asyncio.fixture
-async def user_c(db_session):
-    """Third user."""
-    user = User(
-        email="user_c@test.com",
-        username="user_c",
-        hashed_password=get_password_hash("password"),
-    )
-    db_session.add(user)
-    await db_session.flush()
-    return user
-
-
-@pytest_asyncio.fixture
-async def user_b(db_session):
-    """Second user."""
-    user = User(
-        email="user_b@test.com",
-        username="user_b",
-        hashed_password=get_password_hash("password"),
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def user_c(db_session):
-    """Third user."""
-    user = User(
-        email="user_c@test.com",
-        username="user_c",
-        hashed_password=get_password_hash("password"),
-    )
-    db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
     return user
