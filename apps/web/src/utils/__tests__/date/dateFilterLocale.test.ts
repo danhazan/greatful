@@ -1,4 +1,4 @@
-import { isValidISODate, parseDateInputToISO, isoToLocaleString, getLocaleOrder } from '../dateFilterLocale';
+import { isValidISODate, parseDateInputToISO, isoToLocaleString, getLocaleOrder } from '@/utils/dateFilterLocale';
 import { describe, it, expect } from '@jest/globals';
 
 describe('dateFilterLocale utils', () => {

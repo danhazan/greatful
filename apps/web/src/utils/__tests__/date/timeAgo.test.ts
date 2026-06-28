@@ -1,4 +1,4 @@
-import { formatTimeAgo } from '../timeAgo'
+import { formatTimeAgo } from '@/utils/timeAgo'
 
 describe('formatTimeAgo', () => {
   beforeEach(() => {
