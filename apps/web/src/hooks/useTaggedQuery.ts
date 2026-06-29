@@ -159,7 +159,12 @@ export function useTaggedQuery<TData, TSelected = TData>({
       mountedRef.current = false
       unsubscribe()
     }
-  }, [enabled, performFetch, policy, queryKeyId, tagsId, viewerScope, normalizedTags, queryKey])
+  // queryKeyId/tagsId are stable serialized strings.  Using raw queryKey or
+  // normalizedTags (fresh array references per render) would cause the effect
+  // to re-run on every render, creating an infinite re-fetch loop when combined
+  // with network-first policy always setting shouldFetch=true.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, performFetch, policy, queryKeyId, tagsId, viewerScope])
 
   const selectedData = useMemo(() => applySelected(data), [applySelected, data])
   const stale = taggedQueryCache.getSnapshot<TData>(queryKey, normalizedTags, viewerScope).stale

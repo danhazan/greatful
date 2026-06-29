@@ -76,6 +76,37 @@ describe('useTaggedQuery', () => {
     })
   })
 
+  it('does not refetch on rerender with fresh queryKey array references', async () => {
+    // Regression: queryKeys.feed() returns a new array ref per call.
+    // If the useEffect dep array lists raw queryKey instead of serialized
+    // queryKeyId, every render triggers a new effect run.  For network-first
+    // policy (shouldFetch = true on every effect run) this creates an
+    // infinite re-render loop that never lets waitFor() stabilise.
+    const fetcher = jest.fn(async () => ({ value: 'regression' }))
+
+    const { rerender } = render(
+      <TestQuery fetcher={fetcher} policy="network-first" />
+    )
+
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    })
+
+    // Multiple rerenders – each gives TestQuery a fresh ['feed']
+    // array from queryKeys.feed().
+    for (let i = 0; i < 5; i++) {
+      rerender(<TestQuery fetcher={fetcher} policy="network-first" />)
+    }
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    // Still exactly one fetch – fresh array references did not
+    // trigger additional requests.
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
   it('refetches once when an active query is invalidated', async () => {
     const fetcher = jest.fn(async () => ({ value: `value-${fetcher.mock.calls.length + 1}` }))
 
