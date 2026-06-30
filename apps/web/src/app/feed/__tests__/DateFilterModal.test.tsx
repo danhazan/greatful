@@ -204,7 +204,7 @@ describe('DateFilterModal', () => {
     inputs.forEach(input => {
       expect(input.className).toContain('px-2')
       expect(input.className).toContain('py-1')
-      expect(input.className).toContain('w-[130px]')
+      expect(input.className).toContain('w-[110px]')
     })
   })
 

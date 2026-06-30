@@ -116,6 +116,7 @@ export default function DateFilterModal({
             value={localStart}
             min={FEED_CONFIG.MIN_DATE}
             max={today}
+            buttonPosition="left"
             onChange={(iso) => {
               setLocalStart(iso)
               setActivePreset(null)
