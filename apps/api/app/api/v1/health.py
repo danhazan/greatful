@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.head("/health")
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:
     """
