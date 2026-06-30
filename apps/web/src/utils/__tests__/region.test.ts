@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals'
 import { countryCodeToLocale } from '../region'
 
 describe('countryCodeToLocale', () => {

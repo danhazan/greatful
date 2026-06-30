@@ -7,31 +7,36 @@ This document provides guidelines for writing and organizing tests in the Gratef
 ## Test Layer Architecture
 
 ### Frontend Layers
-| Tag | Purpose | Example |
-|-----|---------|---------|
-| @unit | Isolated logic tests | `*.utils.test.ts` |
-| @behavior | UI output validation | `*.behavior.test.tsx` |
-| @interaction | API endpoint behavior | `*.interaction.test.tsx` |
-| @flow | Full user journey tests | `*.flow.test.tsx` |
+
+Frontend tests use file-naming conventions rather than inline tags:
+
+| Layer | Naming Pattern | Purpose | Example |
+|-------|---------------|---------|---------|
+| Unit | `*.test.ts` / `*.test.tsx` | Isolated logic, pure function tests | `dateFilterUtils.test.ts` |
+| Behavior | `*.test.tsx` | UI output validation (render, styles) | `DateFilterModal.test.tsx` |
+| Interaction | `*.interactions.test.tsx` | API endpoint / user interaction behavior | `PostCard.interactions.test.tsx` |
+| Flow | `*.flow.test.tsx` | Full user journey (no internal mocks) | `FollowButton.flow.test.tsx` |
+
+**Conventions:**
+- Unit/Behavior tests are colocated in `__tests__/` directories alongside their source.
+- Interaction/Flow tests live in `src/tests/` due to broader dependency scope.
+- The file naming patterns above are **recommended** (not mandatory); consistency with existing adjacent tests takes precedence.
 
 ### Backend Layers
-| Tag | Purpose | Example |
-|-----|---------|---------|
-| @unit | Service/repository logic | `test_*.py` in unit/ |
-| @contract | API contract tests | `test_*.py` in contract/ |
-| @integration | Full API integration | `test_*.py` in integration/ |
+| Layer | Naming Pattern | Purpose | Example |
+|-------|---------------|---------|---------|
+| @unit | `test_*.py` in unit/ | Service/repository logic | `test_emoji_reactions.py` |
+| @contract | `test_*.py` in contract/ | API contract validation | `test_api_contracts.py` |
+| @integration | `test_*.py` in integration/ | Full API integration | `test_feed_v2.py` |
 
-### Test Budget Rule
-- @unit → minimal (logic only)
-- @behavior → UI contract only  
-- @interaction → thin layer
-- @flow → STABLE CAP (do NOT expand further)
+### Governance Rules (Backend)
+1. **No skipped tests without classification** - Must have MIGRATE/DELETE/KEEP comment
+2. **Deterministic tests only** - No timing-dependent or flaky tests
 
-### Governance Rules
-1. **No internal hook mocks in @flow tests** - User journeys must use real hooks
-2. **No skipped tests without classification** - Must have MIGRATE/DELETE/KEEP comment
-3. **Deterministic tests only** - No timing-dependent or flaky tests
-4. **@flow count frozen** - Never expand beyond current count
+### Governance Rules (Frontend)
+1. **Deterministic tests only** - No timing-dependent or flaky tests; freeze time with `jest.setSystemTime()` when testing date logic.
+2. **No skipped tests without classification** - Must have MIGRATE/DELETE/KEEP comment.
+3. **@flow count frozen** — Integration/flow tests in `src/tests/integration/` should not be expanded without review.
 
 ---
 
@@ -60,19 +65,17 @@ This document provides guidelines for writing and organizing tests in the Gratef
 
 ### ✅ Backend Tests
 - **Framework**: Pytest with async support
-- **Status**: Fully configured and working (113/113 tests passing)
+- **Status**: Fully configured and working (all tests passing)
 - **Coverage**: Unit tests for services, repositories, models, and API endpoints
 - **Contract Tests**: API contract validation against shared type definitions
 - **Location**: `apps/api/tests/`
 
 ### ✅ Frontend Tests
 - **Framework**: Jest with React Testing Library
-- **Status**: All tests are passing (231/231 tests passing)
-- **Coverage**: Comprehensive coverage for components, API routes, and utilities
+- **Status**: All frontend tests must pass in CI before merge
+- **Coverage**: Components, hooks, API routes, utility functions, date logic, and integration flows
 - **Type Safety**: Tests validate usage of shared type definitions
-- **Location**: `apps/web/src/tests/`
-- **Test Suites**: 17 passed, 17 total
-- **Tests**: 231 passed, 0 skipped, 231 total
+- **Locations**: `src/tests/` (integration, cross-cutting), `__tests__/` alongside source (unit, behavior)
 
 ## Frontend Testing Setup
 
@@ -167,33 +170,35 @@ jest.mock('next/navigation', () => ({
 ### Current Test Structure
 
 ```
-apps/web/src/tests/
-├── api
-│   ├── notifications.test.ts
-│   ├── posts.test.ts
-│   └── reactions.test.ts
-├── components
-│   ├── CreatePostModal.scrolling.test.tsx
-│   ├── CreatePostModal.test.tsx
-│   ├── EmojiPicker.test.tsx
-│   ├── NotificationSystem.test.tsx
-│   ├── PostCard.interactions.test.tsx
-│   ├── PostCard.reactions.realtime.test.tsx
-│   ├── PostCard.realtime.test.tsx
-│   ├── PostCard.simple.test.tsx
-│   └── ReactionViewer.test.tsx
-├── setup.ts
-└── utils
-    └── test-helpers.ts
+apps/web/src/
+├── tests/                           # Integration, cross-cutting, and shared utilities
+│   ├── api/                         # API endpoint tests
+│   ├── components/                  # Component interaction and flow tests
+│   ├── hooks/                       # Hook-level integration tests
+│   ├── integration/                 # Full user journey tests
+│   └── utils/                       # Shared test helpers and mocks
+│       ├── test-helpers.ts
+│       └── testUtils.tsx
+├── app/*/__tests__/                 # Component/behavior tests colocated with source
+│   ├── feed/__tests__/              # DateFilterModal, LocaleDateInput, SearchFilterModal, TypeFilterModal
+│   ├── auth/callback/__tests__/     # OAuth resurrection detection
+│   └── auth/signup/__tests__/       # Signup resurrection detection
+├── utils/__tests__/                 # Utility function unit tests
+│   ├── date/                        # dateFilterUtils, dateFilterLocale, formatDate, timeAgo
+│   ├── feedFilterState.test.ts
+│   ├── locale.test.ts
+│   ├── region.test.ts
+│   └── normalizePost.test.ts
+└── hooks/__tests__/                 # Hook behavior tests
+    ├── useCommentReactions.behavior.test.tsx
+    └── useReactionMutation.comment.test.tsx
 ```
 
 ### Test Organization Guidelines
-- **Unit Tests**: `src/tests/unit/` - Test individual components and functions
-- **Integration Tests**: `src/tests/integration/` - Test API routes and component interactions  
-- **E2E Tests**: `src/tests/e2e/` - Test complete user workflows
-- **Shared Utils**: `src/tests/utils/` - Common test utilities and helpers
-- **Test Files**: Use lowercase with hyphens (e.g., `component-test.test.tsx`, `auth-flow.test.ts`)
-- **Test Location**: All tests should be in the `tests/` folder, not alongside the code
+- **Colocated unit/behavior tests**: `src/app/*/__tests__/`, `src/utils/__tests__/`, `src/hooks/__tests__/` — tests live alongside their source in `__tests__/` directories. This is the **standard convention** for Next.js + Jest projects and the preferred approach for this codebase.
+- **Integration and flow tests**: `src/tests/` — broader-scope tests that exercise multiple modules together.
+- **Shared test utilities**: `src/tests/utils/` — common mocks, fixtures, and helpers.
+- **Test file naming**: Use lowercase with hyphens (e.g., `dateFilterUtils.test.ts`, `auth-flow.test.ts`). Colocated tests may also use PascalCase matching their component (e.g., `DateFilterModal.test.tsx`).
 
 ### Running Frontend Tests
 
@@ -237,28 +242,14 @@ apps/api/tests/
     └── test_notification_integration.py  # Notification integration tests
 ```
 
-### Frontend Tests (`apps/web/src/tests/`)
+### Frontend Tests (`apps/web/src/`)
 
-```
-apps/web/src/tests/
-├── api
-│   ├── notifications.test.ts
-│   ├── posts.test.ts
-│   └── reactions.test.ts
-├── components
-│   ├── CreatePostModal.scrolling.test.tsx
-│   ├── CreatePostModal.test.tsx
-│   ├── EmojiPicker.test.tsx
-│   ├── NotificationSystem.test.tsx
-│   ├── PostCard.interactions.test.tsx
-│   ├── PostCard.reactions.realtime.test.tsx
-│   ├── PostCard.realtime.test.tsx
-│   ├── PostCard.simple.test.tsx
-│   └── ReactionViewer.test.tsx
-├── setup.ts
-└── utils
-    └── test-helpers.ts
-```
+Frontend tests are organised across two location patterns (see [Current Test Structure](#current-test-structure) above for the full tree):
+
+| Location | Purpose |
+|----------|---------|
+| `src/tests/` | Integration, cross-cutting hook tests, flow tests, shared helpers |
+| `src/*/__tests__/` | Unit and behavior tests colocated alongside source code |
 
 ## Shared Types Testing
 
@@ -394,17 +385,68 @@ describe('API Contract Validation', () => {
 - Mock external dependencies and database operations
 
 **Frontend Unit Tests**:
-- Test React components in isolation (PostCard, EmojiPicker, MentionHighlighter, MentionAutocomplete)
-- Test mention system utilities (mention parsing, username validation, highlighting)
-- Test custom hooks
-- Test utility functions
+- Test React components in isolation (DateFilterModal, LocaleDateInput, PostCard)
+- Test utility functions (dateFilterUtils, feedFilterState, normalizePost)
+- Test custom hooks (useTaggedQuery, useInfiniteFeed)
 - Mock external dependencies
+
+#### Date/Time Testing Patterns
+
+The date filter refactor established the following patterns for testing date and time logic:
+
+**Mandatory standards:**
+1. **Freeze time** — Use `jest.useFakeTimers()` + `jest.setSystemTime()` in every `beforeEach` to make date-dependent tests deterministic. Restore with `jest.useRealTimers()` in `afterEach`.
+2. **ISO dates as canonical representation** — All date state is stored as `YYYY-MM-DD` strings. Tests should pass and assert ISO format. Locale formatting is a display-layer concern tested separately.
+3. **No system clock dependency** — Never rely on `new Date()` or `Date.now()` in assertions without freezing time first.
+
+**Recommended practices:**
+1. **Test locale formatting independently from storage** — `isoToLocaleString()` converts ISO to locale display strings; test this with known locales (`en-US`, `de-DE`, `fr-FR`) rather than the runtime locale.
+2. **Avoid timezone-sensitive assertions** — `getUtcRangeFromLocalDates()` depends on the local timezone offset. When testing it, compute expected values dynamically via `new Date(year, month, day).toISOString()` instead of hardcoding UTC strings.
+3. **Favor behavior over implementation** — Test what the function does (input `2026-01-15` → output `{ startDate: ..., endDate: ... }`) rather than how it does it.
+4. **Use dynamic expected values for UTC conversion** — Since `getUtcRangeFromLocalDates()` uses `new Date(localYear, localMonth, localDay)` (local-timezone constructor), compute expected values using the same pattern to make tests portable across timezones.
 
 **Best Practices**:
 - Keep tests focused and atomic
 - Mock external dependencies
 - Test both success and error cases
 - Use descriptive test names
+
+#### Behavior-First Testing
+
+**Mandatory standard:** Prefer testing observable behavior and public contracts over internal implementation details.
+
+Examples:
+- Test that a modal opens on button click, not that `useEffect` was called.
+- Test that a filter returns the correct UTC range, not that internal `new Date()` was invoked.
+- Test that an invalid date shows an error message, not that a specific class name was toggled.
+
+**Exception:** Implementation details that are themselves the public contract — such as a serialization format or a URL encoding scheme — should be asserted explicitly.
+
+#### Canonical Date Architecture
+
+Date handling follows a strict layered separation:
+
+| Layer | Format | Purpose |
+|-------|--------|---------|
+| Application state | `YYYY-MM-DD` ISO strings | `localRange.start`, `localRange.end`, draft values |
+| URL parameters | `YYYY-MM-DD` ISO strings | `date_start=2026-01-01`, `date_end=2026-06-15` |
+| API communication | UTC ISO 8601 timestamps | `startDate`, `endDate` in API params (converted via `getUtcRangeFromLocalDates()`) |
+| Presentation (UI) | Locale-formatted strings | `01/15/2026` (en-US), `15/01/2026` (fr-FR), `2026/01/15` (ja-JP) |
+
+**Rules:**
+1. `YYYY-MM-DD` is the canonical representation for all local dates. Store it, pass it, assert it.
+2. `getUtcRangeFromLocalDates()` is the **sole** conversion path from local ISO to UTC ISO for API calls.
+3. Locale formatting (`isoToLocaleString()`) is a **presentation-layer concern only**. Locale-formatted strings must never be stored in application state, written to URLs, or sent to the API.
+4. The native `<input type="date">` value attribute always uses `YYYY-MM-DD`. The visible text input displays locale-formatted text but the underlying value remains ISO.
+
+#### Single Source of Truth
+
+**Principle:** Avoid duplicated authoritative state. Derived values should be computed from canonical state, not stored separately.
+
+- Filter state in `feedFilterState.ts` is the single source of truth for feed filter parameters. URL serialization and API parameter generation are derived from it.
+- `localRange` (ISO `YYYY-MM-DD` start/end) is the canonical date filter state. Locale-formatted display strings are computed from it, never stored alongside it.
+- When two pieces of state must stay in sync, derive one from the other rather than synchronising them bidirectionally.
+- React state is canonical; derived UI (class names, disabled attributes, validation messages) is computed during render.
 
 ### Integration Tests
 

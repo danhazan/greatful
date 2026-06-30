@@ -1,3 +1,4 @@
+import { describe, it, expect, jest } from '@jest/globals'
 import { resolveLocale, resolveLocaleFromBrowser, resolveLocaleFromCountry } from '../locale'
 
 function setNavigator(languages: string[], language?: string) {

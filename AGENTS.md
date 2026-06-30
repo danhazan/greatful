@@ -54,6 +54,7 @@ npm test -- src/tests/components/PostCard.test.tsx
 
 ## Testing Instructions
 
+- **Before writing or editing any test, consult `docs/TEST_GUIDELINES.md`** for test layer architecture, governance rules, organization conventions, and per-category best practices.
 - Backend: in-memory SQLite (`sqlite+aiosqlite:///:memory:`), fresh db per test via `test_engine` fixture in `tests/conftest.py`
 - Frontend: Jest with Testing Library, tests live alongside components
 - Backend coverage: `pytest --cov=app tests/`

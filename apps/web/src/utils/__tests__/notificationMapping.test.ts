@@ -1,3 +1,4 @@
+import { describe, it, expect, jest, beforeEach, afterAll } from '@jest/globals'
 import { toAbsoluteUrl, mapBackendNotificationToFrontend } from '../notificationMapping'
 
 describe('notificationMapping', () => {
