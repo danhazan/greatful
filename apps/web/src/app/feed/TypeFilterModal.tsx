@@ -21,6 +21,9 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Image,
 }
 
+const OR_ITEMS = TYPE_FILTERS.filter(item => TYPE_FILTER_OR_KEYS.includes(item.key))
+const AND_ITEMS = TYPE_FILTERS.filter(item => TYPE_FILTER_AND_KEYS.includes(item.key))
+
 interface TypeFilterModalProps {
   type: Record<TypeFilterKey, FeedFilterMode>
   onChange: (type: Record<TypeFilterKey, FeedFilterMode>) => void
@@ -71,9 +74,6 @@ export default function TypeFilterModal({
     onChange(next)
   }, [type, onChange])
 
-  const orItems = TYPE_FILTERS.filter(item => TYPE_FILTER_OR_KEYS.includes(item.key))
-  const andItems = TYPE_FILTERS.filter(item => TYPE_FILTER_AND_KEYS.includes(item.key))
-
   return (
     <BaseFilterModal
       title="Posts type"
@@ -89,7 +89,7 @@ export default function TypeFilterModal({
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Match ANY of</p>
           <div className="space-y-2">
-            {orItems.map((item) => (
+            {OR_ITEMS.map((item) => (
               <FilterItem key={item.key} item={item} mode={type[item.key]} onModeChange={setMode} />
             ))}
           </div>
@@ -100,7 +100,7 @@ export default function TypeFilterModal({
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Always require</p>
           <div className="space-y-2">
-            {andItems.map((item) => (
+            {AND_ITEMS.map((item) => (
               <FilterItem key={item.key} item={item} mode={type[item.key]} onModeChange={setMode} />
             ))}
           </div>

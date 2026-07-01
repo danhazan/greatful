@@ -678,60 +678,7 @@ class FeedServiceV2(BaseService):
                     ({JITTER_MAX} * (
                         (('x' || SUBSTR(MD5(p.id || ({age_pg})::text), 1, 8))::bit(32)::int
                         & 65535) / 65535.0
-                    ) - {JITTER_MAX / 2}) AS jitter_score,
-
-                    -- feed_score: sum of all components
-                    ({RECENCY_MAX} * GREATEST(0, 1.0 - ({age_pg}) / {RECENCY_WINDOW_SECONDS}.0))
-                    + LEAST({COMBINED_ENGAGEMENT_MAX},
-                        LEAST({ENGAGEMENT_MAX}, LN(1
-                            + COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
-                            + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
-                            + COALESCE(ra.reactions_distinct_users, 0) * {WEIGHT_REACTIONS}
-                        ))
-                        + LEAST({DIVERSITY_BONUS_MAX_TYPES},
-                            COALESCE(ra.reactions_distinct_codes, 0)
-                          ) * {DIVERSITY_BONUS_PER_TYPE}
-                        + LEAST({RECENT_ENGAGEMENT_MAX},
-                            LN(1
-                                + COALESCE(p.comments_count, 0) * 2
-                                + COALESCE(ra.reactions_distinct_users, 0)
-                            )
-                            * GREATEST(0, 1.0 - ({age_pg}) / {RECENT_ENGAGEMENT_WINDOW}.0)
-                        )
-                    )
-                    + CASE
-                        WHEN p.author_id = :uid THEN 0
-                        WHEN f_out.id IS NOT NULL AND f_in.id IS NOT NULL THEN {RELATIONSHIP_MUTUAL}
-                        WHEN f_out.id IS NOT NULL THEN {RELATIONSHIP_FOLLOWING}
-                        WHEN f_in.id IS NOT NULL THEN {RELATIONSHIP_FOLLOWED_BY}
-                        ELSE 0
-                      END
-                      * GREATEST(0, 1.0 - ({age_pg}) / {RECENCY_WINDOW_SECONDS}.0)
-                    + CASE
-                        WHEN p.author_id = :uid
-                             AND ({age_pg}) <= {OWN_POST_PHASE1_SECONDS}
-                        THEN {OWN_POST_PHASE1_MAX} * GREATEST(0, 1.0 - ({age_pg}) / {OWN_POST_PHASE1_SECONDS}.0)
-                        WHEN p.author_id = :uid
-                             AND ({age_pg}) <= {OWN_POST_PHASE1_SECONDS + OWN_POST_PHASE2_SECONDS}
-                        THEN {OWN_POST_PHASE2_MAX} * GREATEST(0, 1.0 - (({age_pg}) - {OWN_POST_PHASE1_SECONDS}.0) / {OWN_POST_PHASE2_SECONDS}.0)
-                        ELSE 0
-                      END
-                    + CASE WHEN er_user.id IS NOT NULL THEN {USER_REACTION_BOOST} ELSE 0 END
-                    + CASE
-                        WHEN f_out.id IS NULL AND f_in.id IS NULL AND p.author_id != :uid
-                             AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
-                                  + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
-                                  + COALESCE(ra.reactions_distinct_users, 0) * {WEIGHT_REACTIONS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
-                             AND {self._image_predicate()}
-                        THEN {DISCOVERY_BOOST}
-                        ELSE 0
-                      END
-                    + {filter_clauses["boost_expr"]}
-                    + ({JITTER_MAX} * (
-                        (('x' || SUBSTR(MD5(p.id || ({age_pg})::text), 1, 8))::bit(32)::int
-                        & 65535) / 65535.0
-                    ) - {JITTER_MAX / 2})
-                    AS feed_score
+                    ) - {JITTER_MAX / 2}) AS jitter_score
                 FROM posts p
                 LEFT JOIN follows f_out
                     ON f_out.follower_id = :uid AND f_out.followed_id = p.author_id
@@ -745,8 +692,22 @@ class FeedServiceV2(BaseService):
                 WHERE p.deleted_at IS NULL
                   AND can_view_post(:uid, p.id::uuid)
                 {filter_clauses["required_clause"]}
+            ), scored_with_feed_score AS (
+                SELECT *,
+                    recency_score
+                    + LEAST({COMBINED_ENGAGEMENT_MAX},
+                        engagement_score + diversity_bonus_score + recent_engagement_score
+                    )
+                    + relationship_score
+                    + own_post_score
+                    + user_reaction_score
+                    + discovery_score
+                    + filter_boost_score
+                    + jitter_score
+                    AS feed_score
+                FROM scored
             )
-            SELECT * FROM scored
+            SELECT * FROM scored_with_feed_score
             WHERE 1=1 {cursor_filter}
             ORDER BY feed_score DESC, created_at DESC, id DESC
             LIMIT :lim
@@ -913,55 +874,7 @@ class FeedServiceV2(BaseService):
                     END AS discovery_score,
                     {filter_clauses["boost_expr"]} AS filter_boost_score,
                     -- jitter: deterministic randomness
-                    ({jitter_sqlite}) AS jitter_score,
-
-                    -- feed_score: sum of all components
-                    ({RECENCY_MAX} * GREATEST(0, 1.0 - ({age_expr}) / {RECENCY_WINDOW_SECONDS}.0))
-                    + LEAST({COMBINED_ENGAGEMENT_MAX},
-                        LEAST({ENGAGEMENT_MAX}, LN(1
-                            + COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
-                            + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
-                            + COALESCE(ra.reactions_distinct_users, 0) * {WEIGHT_REACTIONS}
-                        ))
-                        + LEAST({DIVERSITY_BONUS_MAX_TYPES},
-                            COALESCE(ra.reactions_distinct_codes, 0)
-                          ) * {DIVERSITY_BONUS_PER_TYPE}
-                        + LEAST({RECENT_ENGAGEMENT_MAX},
-                            LN(1
-                                + COALESCE(p.comments_count, 0) * 2
-                                + COALESCE(ra.reactions_distinct_users, 0)
-                            )
-                            * GREATEST(0, 1.0 - ({age_expr}) / {RECENT_ENGAGEMENT_WINDOW}.0)
-                        )
-                    )
-                    + CASE
-                        WHEN p.author_id = :uid THEN 0
-                        WHEN f_out.id IS NOT NULL AND f_in.id IS NOT NULL THEN {RELATIONSHIP_MUTUAL}
-                        WHEN f_out.id IS NOT NULL THEN {RELATIONSHIP_FOLLOWING}
-                        WHEN f_in.id IS NOT NULL THEN {RELATIONSHIP_FOLLOWED_BY}
-                        ELSE 0
-                      END
-                      * GREATEST(0, 1.0 - ({age_expr}) / {RECENCY_WINDOW_SECONDS}.0)
-                    + CASE
-                        WHEN p.author_id = :uid AND ({age_expr}) <= {OWN_POST_PHASE1_SECONDS}
-                        THEN {OWN_POST_PHASE1_MAX} * GREATEST(0, 1.0 - ({age_expr}) / {OWN_POST_PHASE1_SECONDS}.0)
-                        WHEN p.author_id = :uid AND ({age_expr}) <= {OWN_POST_PHASE1_SECONDS + OWN_POST_PHASE2_SECONDS}
-                        THEN {OWN_POST_PHASE2_MAX} * GREATEST(0, 1.0 - (({age_expr}) - {OWN_POST_PHASE1_SECONDS}.0) / {OWN_POST_PHASE2_SECONDS}.0)
-                        ELSE 0
-                      END
-                    + CASE WHEN er_user.id IS NOT NULL THEN {USER_REACTION_BOOST} ELSE 0 END
-                    + CASE
-                        WHEN f_out.id IS NULL AND f_in.id IS NULL AND p.author_id != :uid
-                             AND (COALESCE(p.comments_count, 0) * {WEIGHT_COMMENTS}
-                                  + COALESCE(p.shares_count, 0) * {WEIGHT_SHARES}
-                                  + COALESCE(ra.reactions_distinct_users, 0) * {WEIGHT_REACTIONS}) >= {DISCOVERY_ENGAGEMENT_THRESHOLD}
-                             AND {self._image_predicate()}
-                        THEN {DISCOVERY_BOOST}
-                        ELSE 0
-                      END
-                    + {filter_clauses["boost_expr"]}
-                    + ({jitter_sqlite})
-                    AS feed_score
+                    ({jitter_sqlite}) AS jitter_score
                 FROM posts p
                 LEFT JOIN follows f_out
                     ON f_out.follower_id = :uid AND f_out.followed_id = p.author_id
@@ -974,8 +887,22 @@ class FeedServiceV2(BaseService):
                     ON er_user.post_id = p.id AND er_user.user_id = :uid AND er_user.object_type = 'post'
                 WHERE {visibility_clause}
                 {filter_clauses["required_clause"]}
+            ), scored_with_feed_score AS (
+                SELECT *,
+                    recency_score
+                    + LEAST({COMBINED_ENGAGEMENT_MAX},
+                        engagement_score + diversity_bonus_score + recent_engagement_score
+                    )
+                    + relationship_score
+                    + own_post_score
+                    + user_reaction_score
+                    + discovery_score
+                    + filter_boost_score
+                    + jitter_score
+                    AS feed_score
+                FROM scored
             )
-            SELECT * FROM scored
+            SELECT * FROM scored_with_feed_score
             WHERE 1=1 {cursor_filter}
             ORDER BY feed_score DESC, created_at DESC, id DESC
             LIMIT :lim

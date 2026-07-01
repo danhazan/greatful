@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo, useRef } from "react"
 import { FeedFilterMode, DateFeedFilters } from "@/utils/feedFilterState"
 import {
   DateFilterPreset,
@@ -85,7 +85,8 @@ export default function DateFilterModal({
     onClear()
   }, [onClear])
 
-  const today = new Date().toISOString().split('T')[0]
+  const todayRef = useRef(new Date().toISOString().split('T')[0])
+  const today = todayRef.current
   const hasDates = Boolean(localStart && localEnd)
   const isStartAfterEnd = Boolean(localStart && localEnd && localStart > localEnd)
   const isBelowMinDate = Boolean(
@@ -93,6 +94,8 @@ export default function DateFilterModal({
     (localEnd && localEnd < FEED_CONFIG.MIN_DATE)
   )
   const isAfterToday = Boolean(localEnd && localEnd > today)
+  const formattedMinDate = useMemo(() => formatISODateNumeric(FEED_CONFIG.MIN_DATE, locale), [locale])
+
   const isApplyBtnDisabled =
     isApplyDisabled ||
     (selectedMode !== 'off' && (!hasDates || isStartAfterEnd || isBelowMinDate || isAfterToday))
@@ -149,7 +152,7 @@ export default function DateFilterModal({
         {selectedMode !== 'off' && (isStartAfterEnd || isBelowMinDate || isAfterToday) && (
           <div className="text-xs text-red-500 text-center">
             {isStartAfterEnd && <p>{getValidationMessage('start_after_end', locale)}</p>}
-            {isBelowMinDate && <p>{getValidationMessage('below_min_date', locale, { minDate: formatISODateNumeric(FEED_CONFIG.MIN_DATE, locale) })}</p>}
+            {isBelowMinDate && <p>{getValidationMessage('below_min_date', locale, { minDate: formattedMinDate })}</p>}
             {isAfterToday && <p>{getValidationMessage('future_date', locale)}</p>}
           </div>
         )}

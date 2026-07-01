@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiClient } from '@/utils/apiClient'
 import { normalizePostFromApi } from '@/utils/normalizePost'
 import { perfStart, perfEnd, perfLog } from '@/utils/perf'
@@ -219,7 +219,7 @@ export function useInfiniteFeed({
       nextCursor: (data as any)?.nextCursor ?? (data as any)?.data?.nextCursor ?? null,
     }
   }, [feedFilters, hydratePrivacy])
-  const feedFilterSignature = JSON.stringify(feedFilters || null)
+  const feedFilterSignature = useMemo(() => JSON.stringify(feedFilters || null), [feedFilters])
   
   const resetSessionState = useCallback((options?: { clearItems?: boolean }) => {
     const clearItems = options?.clearItems ?? true

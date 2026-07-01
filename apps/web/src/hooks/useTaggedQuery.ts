@@ -46,7 +46,7 @@ export function useTaggedQuery<TData, TSelected = TData>({
 }: UseTaggedQueryOptions<TData, TSelected>): UseTaggedQueryResult<TSelected> {
   const normalizedTags = useMemo(() => canonicalizeTags(tags), [tags])
   const queryKeyId = serializeQueryKey(queryKey)
-  const tagsId = serializeQueryTags(normalizedTags)
+  const tagsId = JSON.stringify(normalizedTags)
   const snapshot = taggedQueryCache.getSnapshot<TData>(queryKey, normalizedTags, viewerScope)
   const [data, setData] = useState<TData | undefined>(snapshot.data)
   const [error, setError] = useState<Error | null>(snapshot.error)
@@ -167,7 +167,7 @@ export function useTaggedQuery<TData, TSelected = TData>({
   }, [enabled, performFetch, policy, queryKeyId, tagsId, viewerScope])
 
   const selectedData = useMemo(() => applySelected(data), [applySelected, data])
-  const stale = taggedQueryCache.getSnapshot<TData>(queryKey, normalizedTags, viewerScope).stale
+  const stale = snapshot.stale
 
   return {
     data: selectedData,
