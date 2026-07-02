@@ -67,7 +67,7 @@ export default function LocationAutocomplete({
         limit: 8,
         max_length: 150
       }) as any
-      setResults(data.data || [])
+      setResults(data || [])
       setIsOpen(true)
       setSelectedIndex(-1)
     } catch (err) {
