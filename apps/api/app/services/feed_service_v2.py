@@ -56,6 +56,7 @@ from app.core.service_base import BaseService
 from app.models.post import Post
 from app.models.user import User
 from app.repositories.post_repository import PostRepository
+from app.services.feed_visibility_sql import build_visibility_sql
 
 logger = logging.getLogger(__name__)
 
@@ -588,7 +589,7 @@ class FeedServiceV2(BaseService):
         page_size: int,
         filter_spec: Dict[str, Any],
     ) -> Tuple[Any, Dict]:
-        """PostgreSQL query with CTE and can_view_post."""
+        """PostgreSQL query with CTE and inline visibility."""
 
         cursor_filter = ""
         if cursor_data:
@@ -603,6 +604,12 @@ class FeedServiceV2(BaseService):
             filter_spec["debug"],
             filter_clauses["required_clause"] or "(none)",
             len(filter_clauses["boost_predicates"]),
+        )
+
+        visibility_clause = build_visibility_sql(
+            dialect="postgresql",
+            uid_placeholder=":uid",
+            table_alias="p",
         )
 
         REACTION_AGG = (
@@ -689,8 +696,7 @@ class FeedServiceV2(BaseService):
                 LEFT JOIN reaction_agg ra ON ra.post_id = p.id
                 LEFT JOIN emoji_reactions er_user
                     ON er_user.post_id = p.id AND er_user.user_id = :uid AND er_user.object_type = 'post'
-                WHERE p.deleted_at IS NULL
-                  AND can_view_post(:uid, p.id::uuid)
+                WHERE {visibility_clause}
                 {filter_clauses["required_clause"]}
             ), scored_with_feed_score AS (
                 SELECT *,
@@ -746,55 +752,11 @@ class FeedServiceV2(BaseService):
             filter_clauses["required_clause"] or "(none)",
             len(filter_clauses["boost_predicates"]),
         )
-        # Build visibility clause for SQLite (inline instead of can_view_post function)
-        visibility_clause = """
-            p.deleted_at IS NULL
-            AND (
-                p.author_id = :uid
-                OR p.privacy_level = 'public'
-                OR (
-                    p.privacy_level = 'custom'
-                    AND (
-                        (
-                            EXISTS (
-                                SELECT 1
-                                FROM post_privacy_rules ppr
-                                WHERE ppr.post_id = p.id
-                                  AND ppr.rule_type = 'followers'
-                            )
-                            AND EXISTS (
-                                SELECT 1
-                                FROM follows vf
-                                WHERE vf.follower_id = :uid
-                                  AND vf.followed_id = p.author_id
-                                  AND vf.status = 'active'
-                            )
-                        )
-                        OR (
-                            EXISTS (
-                                SELECT 1
-                                FROM post_privacy_rules ppr
-                                WHERE ppr.post_id = p.id
-                                  AND ppr.rule_type = 'following'
-                            )
-                            AND EXISTS (
-                                SELECT 1
-                                FROM follows af
-                                WHERE af.follower_id = p.author_id
-                                  AND af.followed_id = :uid
-                                  AND af.status = 'active'
-                            )
-                        )
-                        OR EXISTS (
-                            SELECT 1
-                            FROM post_privacy_users ppu
-                            WHERE ppu.post_id = p.id
-                              AND ppu.user_id = :uid
-                        )
-                    )
-                )
-            )
-        """
+        visibility_clause = build_visibility_sql(
+            dialect="sqlite",
+            uid_placeholder=":uid",
+            table_alias="p",
+        )
         # Deterministic jitter for SQLite: lightweight hash from UUID chars + query time
         jitter_sqlite = f"""
             ({JITTER_MAX} * (

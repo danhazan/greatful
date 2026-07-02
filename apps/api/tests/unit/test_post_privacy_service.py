@@ -55,13 +55,15 @@ def test_resolve_config_rejects_unknown_rule():
         PostPrivacyService.resolve_config(privacy_level="custom", rules=["unknown_rule"])
 
 
-def test_visibility_filter_clause_uses_db_function_on_postgresql():
+def test_visibility_filter_clause_postgresql():
     db = _DummyDB("postgresql")
     clause = PostPrivacyService.visibility_filter_clause(42, db)
-    assert "can_view_post" in str(clause)
+    assert "can_view_post" not in str(clause)
+    assert "author_id" in str(clause)
 
 
-def test_visibility_filter_clause_uses_sqlalchemy_fallback_on_sqlite():
+def test_visibility_filter_clause_sqlite():
     db = _DummyDB("sqlite")
     clause = PostPrivacyService.visibility_filter_clause(42, db)
     assert "can_view_post" not in str(clause)
+    assert "author_id" in str(clause)

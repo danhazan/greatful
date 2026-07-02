@@ -90,14 +90,92 @@ The system uses **Cursor-Based Pagination** encoded as Base64 JSON.
 
 ## Privacy & Security
 
-Visibility is enforced **at the database level** within the scoring query using the `can_view_post(user_id, post_id)` PostgreSQL function.
+### Visibility Architecture
 
-- **Public**: Visible to everyone.
-- **Private**: Visible only to the author.
-- **Custom**: Visible to specific users or relationship groups (followers/following).
+Post visibility is enforced at two levels, each serving a different consumer:
 
-> [!NOTE]
-> **SQLite Limitation**: In integration tests (SQLite), only `public` and `private` rules are fully enforced in the feed. Custom rules require PostgreSQL CTE support and are mocked/simplified in test environments.
+| Component | Consumer | Mechanism |
+|-----------|----------|-----------|
+| `feed_visibility_sql.build_visibility_sql()` | Feed query (raw SQL with CTEs) | Generates an inline SQL `WHERE` clause with all predicates visible to the planner |
+| `PostPrivacyService.visible_to_user_clause()` | ORM queries, single-post checks, admin queries | SQLAlchemy ORM expression |
+
+Both implementations are **intentionally independent** — they operate at different abstraction levels — and are kept behaviorally identical through a shared golden equivalence test suite (see [below](#golden-equivalence-tests)).
+
+### Visibility Rules
+
+Every visibility implementation encodes the same decision tree:
+
+```
+author_id = viewer_id
+  OR privacy_level = 'public'
+  OR (
+      privacy_level = 'custom'
+      AND (
+          (followers_rule AND viewer_follows_author)
+          OR (following_rule AND author_follows_viewer)
+          OR viewer_is_specific_user
+      )
+  )
+```
+
+- **Public** (`privacy_level = 'public'`): Visible to everyone, including unauthenticated viewers.
+- **Private** (`privacy_level = 'private'`): Visible only to the post author. All other viewers are blocked regardless of follow relationships.
+- **Custom** (`privacy_level = 'custom'`): Visible to the author, plus any user matching at least one audience rule:
+  - *followers*: The viewer follows the post author.
+  - *following*: The post author follows the viewer (return-follow).
+  - *specific_users*: The viewer is listed in the post's `post_privacy_users` table.
+
+The feed query additionally filters `deleted_at IS NULL` as part of the visibility clause (handled by the builder). The ORM expression omits this — the caller adds it where needed.
+
+### Why the SQL Builder Exists (Instead of a Database Function)
+
+The feed query previously used `can_view_post(viewer_id, post_id)` — a PostgreSQL SQL function. While concise, this function was opaque to the planner:
+
+- **Blocked predicate pushdown**: The planner could not see column references inside the function body, preventing index selection on `author_id` and `privacy_level`.
+- **Killed selectivity estimation**: The function was estimated at a fixed cost (100 units) regardless of data distribution, causing selectivity misestimation of 2.6× to 520×.
+- **Prevented short-circuit evaluation**: Every post required a full function call instead of evaluating cheap column filters first.
+
+The inline SQL fragment exposes all predicates to the planner, enabling:
+
+- **Index selection**: The planner uses `idx_posts_author_deleted` with `Index Cond: (deleted_at IS NULL)` and `Filter: (author_id = :uid OR ...)`.
+- **Short-circuit OR evaluation**: `author_id = :uid` and `privacy_level = 'public'` are evaluated as column references before expensive `EXISTS` subqueries.
+- **Accurate row estimates**: The inline version estimates within ~1% error for common scenarios, compared to 2.6–520× error with the function.
+
+Benchmark results at 100K scale (see `docs/FEED_FILTER_PERFORMANCE_REPORT.md`):
+
+| Metric | Function (`can_view_post`) | Inline SQL |
+|--------|---------------------------|------------|
+| Execution time | Baseline | 1.2×–3.6× faster |
+| Buffer access | Baseline | 12×–179× fewer shared hits |
+| Temp file spills | Present in combined-filter scenarios | Eliminated |
+
+### Why the ORM Implementation Still Exists
+
+The ORM expression (`visible_to_user_clause()`) is kept as a separate implementation because:
+
+1. **Different abstraction level**: It produces a composable SQLAlchemy `whereclause` for repository-layer queries (e.g., `PostRepository._apply_visibility()`), not a raw SQL string.
+2. **Different consumer**: The feed query uses raw SQL for performance (direct CTE control, expression compilation); the ORM path serves single-post checks, admin queries, and timeline fetching.
+3. **Unnecessary coupling**: Unifying them would require the ORM layer to generate raw SQL or the feed query to use SQLAlchemy expressions — both worse than keeping two focused implementations.
+
+The two implementations are not merged because they serve different purposes. They are kept behaviorally aligned through testing (see below).
+
+### Golden Equivalence Tests
+
+The file `tests/unit/visibility_scenarios.py` defines a shared scenario matrix covering all privacy levels, rule types, viewer relationships, and edge cases (25 scenarios). Three test suites consume this matrix and assert identical visibility decisions:
+
+| Test file | Implementation under test |
+|-----------|--------------------------|
+| `test_visibility_pg_builder.py` | `build_visibility_sql("postgresql")` |
+| `test_visibility_sqlite_builder.py` | `build_visibility_sql("sqlite")` |
+| `test_visibility_orm.py` | `PostPrivacyService.visible_to_user_clause()` |
+
+Each suite seeds the same database state (post with specific privacy configuration, follow relationships, privacy rules) and checks that its implementation produces the expected visibility outcome. This guarantees behavioural equivalence without requiring implementation equivalence.
+
+### Decision Summary
+
+This is the intended long-term architecture. The `can_view_post()` PostgreSQL function was removed because its planner encapsulation cost exceeded its reuse value. The current architecture — a raw-SQL builder for the feed query and an ORM expression for everything else, verified by golden equivalence tests — provides both performance and correctness.
+
+A database visibility function should **not** be reintroduced without compelling new evidence that its benefits outweigh the planner degradation documented in the benchmark.
 
 ---
 
