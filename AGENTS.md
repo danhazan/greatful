@@ -9,6 +9,7 @@ Grateful is a social gratitude platform with FastAPI backend (`apps/api`) and Ne
 - Testing: `docs/TEST_GUIDELINES.md`
 - Commands: `docs/USEFUL_COMMANDS.md`
 - Troubleshooting: `docs/KNOWN_ISSUES.md`
+- Past bug resolutions: `agent/COMMON_FIXES.md`
 
 ### Decision Table: Post-Shaped Payloads
 
@@ -23,6 +24,23 @@ Is the payload a post or feed item?
 | Anonymous/public | `fetchPublicPost()` in `src/lib/post-data.ts` |
 
 **Rule**: SSR is anonymous placeholder only. Authenticated CSR data is the single source of truth.
+
+---
+
+## Agent Task Harness
+
+**Every development task follows `agent/HARNESS.md`. Read it before doing anything else.**
+
+The harness covers two task types (bugs and features/refactors) through five phases: Task Digest → Investigation → Plan + Quality Gates → Human Approval → TDD Implementation + Quality Gates → Completion Report.
+
+Two tools are required throughout every task: **Superpowers** (workflow enforcement, subagent review, TDD discipline) and **Ponytail** (complexity and YAGNI review). Both must be active. See `agent/HARNESS.md` for how and when each is used.
+
+When you receive a task:
+1. Confirm Superpowers and Ponytail are active on your platform
+2. Open `agent/HARNESS.md` and follow it from Phase 0
+3. Your task definition lives in `agent/tasks/<task-id>.md`
+
+---
 
 ## Build and Test Commands
 
@@ -46,19 +64,12 @@ npm run lint && npm run type-check && npm test  # Full verification
 npm test -- src/tests/components/PostCard.test.tsx
 ```
 
-## Code Style Guidelines
+## Testing
 
-- Run `npm run lint && npm run type-check` before committing
-- Imports: snake_case (backend), camelCase (frontend)
-- Use async SQLAlchemy patterns for backend
+**Before writing any test, read `docs/TEST_GUIDELINES.md`** — layer architecture, file placement, governance rules, and date/time standards.
 
-## Testing Instructions
-
-- **Before writing or editing any test, consult `docs/TEST_GUIDELINES.md`** for test layer architecture, governance rules, organization conventions, and per-category best practices.
-- Backend: in-memory SQLite (`sqlite+aiosqlite:///:memory:`), fresh db per test via `test_engine` fixture in `tests/conftest.py`
-- Frontend: Jest with Testing Library, tests live alongside components
-- Backend coverage: `pytest --cov=app tests/`
-- Frontend coverage: `npm test -- --coverage`
+- Backend: in-memory SQLite (`sqlite+aiosqlite:///:memory:`), fresh per test via `test_engine` fixture in `tests/conftest.py`. Never test against a real database.
+- Frontend: Jest with Testing Library. Colocate unit/behavior tests in `__tests__/`; broader tests in `src/tests/`.
 - Test governance: `npm run test:governance`
 
 ## Security Considerations
@@ -68,3 +79,4 @@ npm test -- src/tests/components/PostCard.test.tsx
 - OAuth: handled by `app/services/oauth_service.py`. Don't modify without review.
 - User input: Use `app/core/input_sanitization.py`
 - Post visibility: Always use `cache: 'no-store'` for individual post fetches to prevent temporal privacy leaks.
+- **Security enforcement is never a candidate for YAGNI or simplification.** Auth checks, input sanitization, and boundary validation are always written in full, regardless of any quality-gate simplification pressure.
