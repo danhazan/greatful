@@ -951,6 +951,35 @@ describe('CommentsModal', () => {
     deferredSubmit.resolve()
   })
 
+  // ── Send button vertical centering (reply & edit) ────────────────────
+  it('vertically centers the reply send button within the textarea', () => {
+    renderWithToast(<CommentsModal {...defaultProps} />)
+
+    const replyButtons = screen.getAllByRole('button', { name: /Reply to/i })
+    fireEvent.click(replyButtons[0])
+
+    const replySend = screen.getByRole('button', { name: /Post reply/i })
+    expect(replySend.className).toContain('top-1/2')
+    expect(replySend.className).toContain('-translate-y-1/2')
+  })
+
+  it('vertically centers the edit send button within the textarea', () => {
+    renderWithToast(
+      <CommentsModal
+        {...defaultProps}
+        currentUserId={1}
+        onCommentEdit={jest.fn().mockResolvedValue({ content: '', editedAt: null })}
+      />
+    )
+
+    const editButton = screen.getByRole('button', { name: /Edit comment/i })
+    fireEvent.click(editButton)
+
+    const editSend = screen.getByRole('button', { name: /Save comment edit/i })
+    expect(editSend.className).toContain('top-1/2')
+    expect(editSend.className).toContain('-translate-y-1/2')
+  })
+
   // ── Issue 2: New Comment Auto-Scroll ─────────────────────────────────
   it('clears textarea immediately on new comment submit (optimistic)', async () => {
     const deferredSubmit = deferred<void>()

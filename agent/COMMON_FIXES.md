@@ -189,6 +189,22 @@ Recurring styling issues with established fix patterns. When the fingerprint mat
 
 ---
 
+### Send Button Overlaps Textarea Text (Responsive Padding Override)
+
+**Fingerprint:** In a textarea + absolutely-positioned send button layout, the button overlays text on wider viewports despite having sufficient `pr-*` padding. The button works correctly on mobile but text flows under it on desktop (≥640px).
+
+**Root cause:** A responsive padding class like `sm:px-5` (sets both left and right padding) overrides the explicit right-padding class `pr-*` at the breakpoint breakpoint. Tailwind generates responsive utilities (sm:, md:) after non-responsive utilities, and `px-*` includes `padding-right` — so `sm:px-5`'s `padding-right: 1.25rem` wins over `pr-12`'s `padding-right: 3rem`.
+
+**Fix pattern:** Add a matching responsive right-padding override — `sm:pr-12` — that appears after `sm:px-5` in the generated CSS (because `pr` sorts after `px` alphabetically). This restores the intended right padding at all breakpoints.
+
+**Key files:** `apps/web/src/components/CommentsModal.tsx`
+
+**Recurrence risk:** Medium — any textarea with both responsive `sm:px-*` and `pr-*` classes.
+**First resolved:** July 2026
+**Instances:** CommentsModal reply/edit composer (Jul 2026)
+
+---
+
 ### Dropdown Overflowing Viewport or Misaligned on Mobile
 
 **Fingerprint:** A dropdown or popover overflows the screen edge on mobile, or appears offset from its trigger. Desktop layout is correct. The component uses `position: absolute` relative to the trigger.

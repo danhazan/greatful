@@ -944,12 +944,12 @@ export default function CommentsModal({
                     onClick={(e) => updateTextareaSelection(e.currentTarget)}
                     onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                     onSelect={(e) => updateTextareaSelection(e.currentTarget)}
-                    className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-purple-50 border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                    className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-12 sm:pr-12 bg-purple-50 border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
                     maxLength={MAX_CHARS}
                     disabled={hasPendingMutation}
                     aria-label="Edit comment"
                     aria-describedby="edit-comment-char-count"
-                    style={{ boxSizing: 'border-box' }}
+                    style={{ minHeight: '44px', boxSizing: 'border-box' }}
                     dir={getDirectionAttribute(commentText)}
                   />
                     <button
@@ -957,7 +957,7 @@ export default function CommentsModal({
                         onMouseDown={(e) => e.preventDefault()}
                         disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
                         data-submit-button
-                        className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                         aria-label="Save comment edit"
                       >
                         {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -1292,12 +1292,12 @@ export default function CommentsModal({
                   onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                   onSelect={(e) => updateTextareaSelection(e.currentTarget)}
                   placeholder={`Reply to ${replyTargetName}...`}
-                  className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-10 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-12 sm:pr-12 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
                   maxLength={MAX_CHARS}
                   disabled={hasPendingMutation}
                   aria-label={`Reply to ${replyTargetName}`}
                   aria-describedby="reply-composer-char-count"
-                  style={{ boxSizing: 'border-box' }}
+                  style={{ minHeight: '44px', boxSizing: 'border-box' }}
                   dir={getDirectionAttribute(commentText)}
                 />
                 <button
@@ -1305,7 +1305,7 @@ export default function CommentsModal({
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
                   data-submit-button
-                  className="absolute right-2 top-2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-100 active:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   aria-label="Post reply"
                 >
                   {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
