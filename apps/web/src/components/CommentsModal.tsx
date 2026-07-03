@@ -18,6 +18,7 @@ import { useLongPress } from "@/hooks/useLongPress"
 import { getEmojiFromCode, getTopEmojis } from "@/utils/emojiMapping"
 import { MAX_COMMENT_CHARS } from "@/constants/limits"
 import { useModalPortalRefs } from "@/hooks/useModalPortalRefs"
+import { getDirectionAttribute } from "@/utils/rtlUtils"
 
 interface CommentUser {
   id: number
@@ -949,6 +950,7 @@ export default function CommentsModal({
                     aria-label="Edit comment"
                     aria-describedby="edit-comment-char-count"
                     style={{ boxSizing: 'border-box' }}
+                    dir={getDirectionAttribute(commentText)}
                   />
                     <button
                         onClick={handleCommentSubmit}
@@ -996,7 +998,7 @@ export default function CommentsModal({
               <>
                 {/* Comment bubble */}
                 <div className="mt-0.5 bg-purple-50 rounded-2xl px-3 py-2 sm:px-5 sm:py-3 inline-block max-w-full">
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap break-words" dir={getDirectionAttribute(comment.content)}>
                     {comment.content}
                   </p>
                 </div>
@@ -1296,6 +1298,7 @@ export default function CommentsModal({
                   aria-label={`Reply to ${replyTargetName}`}
                   aria-describedby="reply-composer-char-count"
                   style={{ boxSizing: 'border-box' }}
+                  dir={getDirectionAttribute(commentText)}
                 />
                 <button
                   onClick={handleCommentSubmit}
@@ -1387,6 +1390,7 @@ export default function CommentsModal({
                       aria-label="Add a comment"
                       aria-describedby="comment-char-count"
                       style={{ minHeight: '44px', WebkitTextFillColor: '#111827', boxSizing: 'border-box' }}
+                      dir={getDirectionAttribute(commentText)}
                     />
                     <button
                       onClick={handleCommentSubmit}
