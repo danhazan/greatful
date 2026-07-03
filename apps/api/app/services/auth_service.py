@@ -157,31 +157,39 @@ class AuthService(BaseService):
             "token_type": "bearer",
         }
 
-    async def login(self, email: str, password: str) -> Dict[str, str]:
+    async def login(self, login: str, password: str) -> Dict[str, str]:
         """
         Authenticate user and return access token.
-        
+
+        Accepts either email or username.
+
         Args:
-            email: User's email address
+            login: User's email address or username
             password: User's password
-            
+
         Returns:
             Dict containing access token
-            
+
         Raises:
             ValidationException: If input validation fails
             AuthenticationError: If credentials are invalid
         """
         # Validate input
         self.validate_required_fields(
-            {"email": email, "password": password},
-            ["email", "password"]
+            {"login": login, "password": password},
+            ["login", "password"]
         )
-        
-        # Get user by email
-        user = await User.get_by_email(self.db, email)
+
+        # Normalize: strip whitespace
+        normalized = login.strip()
+
+        # Detect whether input is email (contains @) or username
+        if "@" in normalized:
+            user = await User.get_by_email(self.db, normalized)
+        else:
+            user = await User.get_by_username(self.db, normalized)
         if not user:
-            raise AuthenticationError("Incorrect email or password")
+            raise AuthenticationError("Incorrect email/username or password")
 
         # OAuth-only users have no password — give a clear provider-specific message
         if not user.hashed_password:
@@ -191,16 +199,16 @@ class AuthService(BaseService):
             )
 
         if not verify_password(password, user.hashed_password):
-            raise AuthenticationError("Incorrect email or password")
+            raise AuthenticationError("Incorrect email/username or password")
         self._ensure_active_user(user)
-        
+
         # Create access and refresh tokens
         token_data = self._token_data_for_user(user)
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
-        
+
         logger.info(f"User logged in successfully: {user.email}")
-        
+
         return {
             "user": {
                 "id": user.id,

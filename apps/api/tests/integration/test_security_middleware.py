@@ -203,7 +203,7 @@ class TestSecurityAuditLogging:
         """Test that authentication events are logged."""
         with patch('app.core.security_audit.security_logger') as mock_logger:
             # Attempt login (will fail but should be logged)
-            login_data = {"email": "test@example.com", "password": "wrongpassword"}
+            login_data = {"login": "test@example.com", "password": "wrongpassword"}
             response = await async_client.post("/api/v1/auth/login", json=login_data)
             
             # Should have logged the failed login attempt
@@ -222,7 +222,7 @@ class TestSecurityAuditLogging:
             limiter._requests.clear()
             
             # Fill up the rate limit
-            login_data = {"email": "test@example.com", "password": "password"}
+            login_data = {"login": "test@example.com", "password": "password"}
             for i in range(11):  # One more than the limit
                 await async_client.post("/api/v1/auth/login", json=login_data)
             

@@ -56,7 +56,7 @@ class UserCreate(BaseModel):
 
 class UserLogin(BaseModel):
     """User login request model."""
-    email: EmailStr
+    login: str
     password: str
 
 
@@ -387,7 +387,7 @@ async def login(
     # Sanitization is more important for data storage (signup) than authentication
     try:
         result = await auth_service.login(
-            email=user.email,
+            login=user.login,
             password=user.password
         )
         
@@ -395,7 +395,7 @@ async def login(
         log_login_success(
             request=request,
             user_id=result.get('user', {}).get('id'),
-            username=result.get('user', {}).get('username', user.email)
+            username=result.get('user', {}).get('username', user.login)
         )
         
         return build_auth_response(
@@ -410,7 +410,7 @@ async def login(
         # Log failed login attempt
         log_login_failure(
             request=request,
-            username=user.email,
+            username=user.login,
             failure_reason=str(e)
         )
         raise
@@ -418,7 +418,7 @@ async def login(
         # Log unexpected login error
         log_login_failure(
             request=request,
-            username=user.email,
+            username=user.login,
             failure_reason=f"Unexpected error: {str(e)}"
         )
         raise e

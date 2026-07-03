@@ -190,7 +190,7 @@ class TestAuthenticationPenetrationTesting:
         # Attempt multiple failed logins (reduced iterations)
         for i in range(3):
             response = client_with_scenario_mocks.post("/api/v1/auth/login", json={
-                "email": "testuser@example.com",
+                "login": "testuser@example.com",
                 "password": f"wrongpassword{i}"
             })
             
@@ -215,7 +215,7 @@ class TestAuthenticationPenetrationTesting:
         
         for username, password in common_credentials:
             response = client_with_scenario_mocks.post("/api/v1/auth/login", json={
-                "username": username,
+                "login": username,
                 "password": password
             })
             

@@ -372,7 +372,7 @@ class TestRateLimitingEffectiveness:
         # This test verifies the headers don't cause errors
         for headers in headers_variations:
             response = client.post("/api/v1/auth/login", json={
-                "username": "testuser",
+                "login": "testuser",
                 "password": "wrongpassword"
             }, headers=headers)
             
@@ -712,12 +712,12 @@ class TestDataPrivacyCompliance:
         """Test prevention of user enumeration attacks."""
         # Try to enumerate users through login
         response1 = client.post("/api/v1/auth/login", json={
-            "username": "definitely_nonexistent_user_12345",
+            "login": "definitely_nonexistent_user_12345",
             "password": "wrongpassword"
         })
         
         response2 = client.post("/api/v1/auth/login", json={
-            "username": "testuser",  # Might exist
+            "login": "testuser",  # Might exist
             "password": "wrongpassword"
         })
         
@@ -732,7 +732,7 @@ class TestDataPrivacyCompliance:
         """Test that error messages don't disclose sensitive information."""
         # Test various endpoints with invalid data
         test_cases = [
-            ("POST", "/api/v1/auth/login", {"username": "test", "password": "wrong"}),
+            ("POST", "/api/v1/auth/login", {"login": "test", "password": "wrong"}),
             ("GET", "/api/v1/users/999999/profile", {}),
             ("POST", "/api/v1/posts", {"content": ""}),
         ]

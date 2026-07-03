@@ -44,7 +44,7 @@ async def oauth_user_in_db(db_session: AsyncSession) -> User:
 def auth_headers_for(client: AsyncClient):
     """Factory fixture to create auth headers for a specific user."""
     async def _auth_headers_for(user_email: str, password: str = "password"):
-        login_data = {"email": user_email, "password": password}
+        login_data = {"login": user_email, "password": password}
         res = client.post("/api/v1/auth/login", json=login_data)
         res.raise_for_status()
         token = res.json()["data"]["access_token"]

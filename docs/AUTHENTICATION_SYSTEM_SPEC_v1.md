@@ -62,9 +62,9 @@ sequenceDiagram
     participant Proxy as Next.js Proxy (/api/auth/login)
     participant Backend as FastAPI Backend (/auth/login)
 
-    User->>Client: Enters email & password
-    Client->>Proxy: POST /api/auth/login { email, password }
-    Proxy->>Backend: POST /api/v1/auth/login { email, password }
+    User->>Client: Enters email/username & password
+    Client->>Proxy: POST /api/auth/login { login, password }
+    Proxy->>Backend: POST /api/v1/auth/login { login, password }
     Backend-->>Proxy: Canonical AuthResponse { data: { user, access_token, refresh_token... } }
     
     Note over Proxy: Extracts refresh_token<br/>Sets HttpOnly Cookie<br/>Deletes refresh_token from payload<br/>Transforms snake_case -> camelCase
@@ -76,7 +76,7 @@ sequenceDiagram
     Client->>User: Redirects to /feed
 ```
 
-1. **Client Initiation**: The user submits email and password credentials on `/auth/login`. The client posts JSON to `/api/auth/login`.
+1. **Client Initiation**: The user submits email (or username) and password credentials on `/auth/login`. The client posts JSON with a `login` field to `/api/auth/login`.
 2. **Next.js Proxy Forwarding**: The proxy forwards the credentials to the FastAPI backend endpoint `/api/v1/auth/login`.
 3. **Backend Response**: FastAPI validates credentials and issues a canonical `AuthResponse` containing a flat `data` object (`{ user, access_token, refresh_token, token_type, is_new_user }`).
 4. **Proxy Interception & Cookie Management**:

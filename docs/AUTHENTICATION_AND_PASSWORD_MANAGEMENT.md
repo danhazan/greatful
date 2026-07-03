@@ -167,7 +167,7 @@ Frontend → /api/auth/login → FastAPI /api/v1/auth/login
 **Request**:
 ```json
 {
-  "email": "test@example.com",
+  "login": "test@example.com",
   "password": "testpassword123"
 }
 ```
@@ -585,7 +585,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 async def signup(user_in: UserCreate, db: AsyncSession = Depends(get_db))
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db))
+async def login(data: UserLogin, db: AsyncSession = Depends(get_db))
 
 @router.get("/session")
 async def get_session(request: Request, db: AsyncSession = Depends(get_db))
@@ -669,7 +669,7 @@ const response = await fetch('/api/auth/signup', {
 const response = await fetch('/api/auth/login', {
   method: 'POST', 
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, password })
+  body: JSON.stringify({ login, password })
 })
 
 // Change Password (authenticated users only)
@@ -724,7 +724,7 @@ curl -X POST http://localhost:8000/api/v1/auth/signup \
 # Login
 curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password"}'
+  -d '{"login":"test@example.com","password":"password"}'
 
 # Change Password (authenticated users)
 curl -X PUT http://localhost:8000/api/v1/users/me/password \

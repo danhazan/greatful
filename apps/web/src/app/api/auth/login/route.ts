@@ -10,14 +10,14 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    if (!body.email || !body.password) {
-      return createErrorResponse('Email and password are required', 400)
+    if (!body.login || !body.password) {
+      return createErrorResponse('Email/username and password are required', 400)
     }
 
     const response = await makeBackendRequest('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({
-        email: body.email,
+        login: body.login,
         password: body.password
       }),
     })

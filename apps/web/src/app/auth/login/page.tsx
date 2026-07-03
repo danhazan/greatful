@@ -17,7 +17,7 @@ export default function LoginPage() {
   const { reloadUser } = useUser()
   const { redirectTo, clearRedirect } = usePostLoginRedirect()
   const [formData, setFormData] = useState({
-    email: "",
+    login: "",
     password: ""
   })
 
@@ -177,19 +177,19 @@ export default function LoginPage() {
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
+              <label htmlFor="login" className="block text-sm font-medium text-gray-700 mb-2">
+                Email or username
               </label>
               <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
+                type="text"
+                id="login"
+                name="login"
+                value={formData.login}
                 onChange={handleChange}
                 required
                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${getCompleteInputStyling().className}`}
                 style={getCompleteInputStyling().style}
-                placeholder="Enter your email"
+                placeholder="Enter your email or username"
               />
             </div>
 

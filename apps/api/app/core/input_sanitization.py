@@ -192,6 +192,9 @@ class InputSanitizer:
         elif field_type == 'email':
             # Basic email format validation
             text = text.lower().strip()
+        elif field_type == 'login':
+            # Login field accepts email or username: normalize case and whitespace
+            text = text.lower().strip()
         elif field_type == 'bio':
             # Bio fields need HTML escaping for XSS prevention
             # This is already done above, but ensure no additional processing undoes it
@@ -465,8 +468,7 @@ class InputSanitizationMiddleware(BaseHTTPMiddleware):
             'password': 'password'
         },
         '/api/v1/auth/login': {
-            'username': 'username',
-            'email': 'email',
+            'login': 'login',
             'password': 'password'
         },
         '/api/v1/users/me/profile': {

@@ -144,7 +144,7 @@ if not user:
 
 **Key Methods**:
 - `signup(username, email, password)` - Create new user account
-- `login(email, password)` - Authenticate user and return token
+- `login(login, password)` - Authenticate user by email or username and return token
 - `get_user_from_token(token)` - Validate token and return user info
 - `logout()` - Logout user (placeholder for token blacklisting)
 

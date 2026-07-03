@@ -57,8 +57,10 @@ class User(Base):
 
     @classmethod
     async def get_by_email(cls, db: AsyncSession, email: str):
-        """Get user by email."""
-        result = await db.execute(select(cls).where(cls.email == email))
+        """Get user by email (case-insensitive)."""
+        result = await db.execute(
+            select(cls).where(func.lower(cls.email) == func.lower(email))
+        )
         return result.scalar_one_or_none()
 
     @classmethod
@@ -69,8 +71,10 @@ class User(Base):
 
     @classmethod
     async def get_by_username(cls, db: AsyncSession, username: str):
-        """Get user by username."""
-        result = await db.execute(select(cls).where(cls.username == username))
+        """Get user by username (case-insensitive)."""
+        result = await db.execute(
+            select(cls).where(func.lower(cls.username) == func.lower(username))
+        )
         return result.scalar_one_or_none()
 
     @classmethod

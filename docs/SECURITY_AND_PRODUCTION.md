@@ -306,6 +306,7 @@ The API automatically sanitizes user input based on field types:
 |-----------|-------|------------|
 | `username` | Alphanumeric + `_.-`, max 50 chars | Registration, profile updates |
 | `email` | Lowercase, valid email format, max 254 chars | Registration (not login) |
+| `login` | Lowercase, strip whitespace | Login (accepts email or username) |
 | `post_content` | HTML escaped, line breaks normalized, max 2000 chars | Post creation |
 | `bio` | HTML escaped, max 500 chars | Profile updates |
 | `url` | Auto-add HTTPS scheme, max 500 chars | Profile websites |
@@ -313,9 +314,9 @@ The API automatically sanitizes user input based on field types:
 
 #### Authentication-Specific Rules
 
-- **Login**: Email and password are NOT sanitized to preserve exact values for authentication
+- **Login**: The `login` field is lowercased and whitespace-stripped; the `password` field is NOT sanitized to preserve exact values for authentication
 - **Registration**: Email is sanitized for storage, password is preserved
-- **Case Sensitivity**: Database lookups are case-sensitive, sanitization accounts for this
+- **Case Sensitivity**: Email and username lookups are case-insensitive (via `func.lower()`)
 
 #### File Upload Validation
 
@@ -2321,7 +2322,7 @@ https://observatory.mozilla.org/analyze/your-api-domain.com
 # 1. Get a valid token
 curl -X POST "https://your-api-domain.com/api/v1/auth/login" \
      -H "Content-Type: application/json" \
-     -d '{"email": "user@example.com", "password": "password"}'
+     -d '{"login": "user@example.com", "password": "password"}'
 
 # 2. Test with invalid token
 curl -H "Authorization: Bearer invalid-token" \
@@ -2378,7 +2379,7 @@ for i in {1..15}; do
   echo "Request $i:"
   curl -X POST "https://your-api-domain.com/api/v1/auth/login" \
        -H "Content-Type: application/json" \
-       -d '{"email": "test@example.com", "password": "wrong"}' \
+       -d '{"login": "test@example.com", "password": "wrong"}' \
        -w "Status: %{http_code}\n" -s -o /dev/null
   sleep 1
 done
@@ -2387,7 +2388,7 @@ done
 # Check rate limit headers
 curl -I -X POST "https://your-api-domain.com/api/v1/auth/login" \
      -H "Content-Type: application/json" \
-     -d '{"email": "test@example.com", "password": "wrong"}'
+     -d '{"login": "test@example.com", "password": "wrong"}'
 # Should include: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
 ```
 
@@ -2444,7 +2445,7 @@ curl -H "Authorization: Bearer your-admin-token" \
 for i in {1..20}; do
   curl -X POST "https://your-api-domain.com/api/v1/auth/login" \
        -H "Content-Type: application/json" \
-       -d '{"email": "test@example.com", "password": "wrong"}' \
+       -d '{"login": "test@example.com", "password": "wrong"}' \
        -s -o /dev/null
 done
 
@@ -2581,7 +2582,7 @@ nikto -h https://your-api-domain.com
 # Test login endpoint
 curl -X POST "http://localhost:8000/api/v1/auth/login" \
      -H "Content-Type: application/json" \
-     -d '{"email": "user@example.com", "password": "password"}'
+     -d '{"login": "user@example.com", "password": "password"}'
 
 # Verify token format
 echo $TOKEN | base64 -d | jq .

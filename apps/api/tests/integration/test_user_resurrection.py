@@ -763,7 +763,7 @@ async def test_resurrected_oauth_user_login_shows_provider_message(
     # Verify: fresh OAuth user correctly blocks password login with provider message
     response = await async_client.post(
         "/api/v1/auth/login",
-        json={"email": original_email, "password": "any_password"},
+        json={"login": original_email, "password": "any_password"},
     )
     assert response.status_code == 401
     data = response.json()
@@ -809,7 +809,7 @@ async def test_resurrected_oauth_user_login_shows_provider_message(
     # Now try password login — must get provider-specific message
     response = await async_client.post(
         "/api/v1/auth/login",
-        json={"email": original_email, "password": "any_password"},
+        json={"login": original_email, "password": "any_password"},
     )
     assert response.status_code == 401, f"Expected 401, got {response.status_code}: {response.text[:500]}"
     data = response.json()
