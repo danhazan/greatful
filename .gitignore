@@ -167,3 +167,9 @@ alembic/versions/*.py
 
 # Cloudinary
 cloudinary.json
+
+# Agent - only track anchor in plans, template in tasks
+agent/plans/*
+!agent/plans/.gitkeep
+agent/tasks/*
+!agent/tasks/TEMPLATE.md
