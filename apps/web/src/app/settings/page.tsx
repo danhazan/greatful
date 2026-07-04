@@ -23,6 +23,7 @@ import { UserPreferences } from '@/types/user'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 
 export default function SettingsPage() {
@@ -38,6 +39,7 @@ export default function SettingsPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const inputStyling = getCompleteInputStyling()
 
 
   const loadPreferences = useCallback(async () => {
@@ -397,7 +399,8 @@ export default function SettingsPage() {
               value={deleteConfirmation}
               onChange={(e) => setDeleteConfirmation(e.target.value)}
               placeholder={currentUser?.username}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 placeholder-gray-400 mb-4"
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 placeholder-gray-400 mb-4 ${inputStyling.className}`}
+              style={inputStyling.style}
             />
 
             {deleteError && (

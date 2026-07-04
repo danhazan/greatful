@@ -19,6 +19,7 @@ import { getEmojiFromCode, getTopEmojis } from "@/utils/emojiMapping"
 import { MAX_COMMENT_CHARS } from "@/constants/limits"
 import { useModalPortalRefs } from "@/hooks/useModalPortalRefs"
 import { getDirectionAttribute } from "@/utils/rtlUtils"
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 
 interface CommentUser {
   id: number
@@ -183,6 +184,10 @@ export default function CommentsModal({
   const [hasPendingMutation, setHasPendingMutation] = useState(false)
   const isMobileViewport = useMobileViewport()
   const mobileKeyboardInset = useMobileKeyboardInset(isMobileViewport)
+  // ponytail: getTextareaHeights() assumes pixel lineHeight from
+  // getComputedStyle. JSDOM returns raw '1.5' for unitless values, not
+  // the computed px. lineHeight:undefined below suppresses the quirk.
+  const inputStyling = getCompleteInputStyling()
   const {
     isLoading: isLoadingCommentReactions,
     error: commentReactionsError,
@@ -944,12 +949,12 @@ export default function CommentsModal({
                     onClick={(e) => updateTextareaSelection(e.currentTarget)}
                     onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                     onSelect={(e) => updateTextareaSelection(e.currentTarget)}
-                    className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-12 sm:pr-12 bg-purple-50 border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                    className={`w-full px-3 py-2 sm:px-5 sm:py-3 pr-12 sm:pr-12 bg-purple-50 border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300 ${inputStyling.className}`}
                     maxLength={MAX_CHARS}
                     disabled={hasPendingMutation}
                     aria-label="Edit comment"
                     aria-describedby="edit-comment-char-count"
-                    style={{ minHeight: '44px', boxSizing: 'border-box' }}
+                    style={{ ...inputStyling.style, minHeight: '44px', boxSizing: 'border-box', lineHeight: undefined }}
                     dir={getDirectionAttribute(commentText)}
                   />
                     <button
@@ -1292,12 +1297,12 @@ export default function CommentsModal({
                   onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                   onSelect={(e) => updateTextareaSelection(e.currentTarget)}
                   placeholder={`Reply to ${replyTargetName}...`}
-                  className="w-full px-3 py-2 sm:px-5 sm:py-3 pr-12 sm:pr-12 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  className={`w-full px-3 py-2 sm:px-5 sm:py-3 pr-12 sm:pr-12 bg-white border-2 border-purple-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-hidden text-sm text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300 ${inputStyling.className}`}
                   maxLength={MAX_CHARS}
                   disabled={hasPendingMutation}
                   aria-label={`Reply to ${replyTargetName}`}
                   aria-describedby="reply-composer-char-count"
-                  style={{ minHeight: '44px', boxSizing: 'border-box' }}
+                  style={{ ...inputStyling.style, minHeight: '44px', boxSizing: 'border-box', lineHeight: undefined }}
                   dir={getDirectionAttribute(commentText)}
                 />
                 <button
@@ -1383,23 +1388,23 @@ export default function CommentsModal({
                       onKeyUp={(e) => updateTextareaSelection(e.currentTarget)}
                       onSelect={(e) => updateTextareaSelection(e.currentTarget)}
                       placeholder="Add a comment..."
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-                      rows={1}
-                      maxLength={MAX_CHARS}
-                      disabled={hasPendingMutation}
-                      aria-label="Add a comment"
-                      aria-describedby="comment-char-count"
-                      style={{ minHeight: '44px', WebkitTextFillColor: '#111827', boxSizing: 'border-box' }}
-                      dir={getDirectionAttribute(commentText)}
-                    />
-                    <button
-                      onClick={handleCommentSubmit}
-                      onMouseDown={(e) => e.preventDefault()}
-                      disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
-                      data-submit-button
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      aria-label="Post comment"
-                    >
+                  className={`w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-y-auto text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300 ${inputStyling.className}`}
+                  rows={1}
+                  maxLength={MAX_CHARS}
+                  disabled={hasPendingMutation}
+                  aria-label="Add a comment"
+                  aria-describedby="comment-char-count"
+                  style={{ ...inputStyling.style, minHeight: '44px', boxSizing: 'border-box', lineHeight: undefined }}
+                  dir={getDirectionAttribute(commentText)}
+                />
+                <button
+                  onClick={handleCommentSubmit}
+                  onMouseDown={(e) => e.preventDefault()}
+                  disabled={!commentText.trim() || isSubmitting || hasPendingMutation}
+                  data-submit-button
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-purple-50 active:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  aria-label="Post comment"
+                >
                       {isSubmitting ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (

@@ -15,7 +15,12 @@ import { CSSProperties } from 'react'
 export const getVisibleTextInputStyles = (): CSSProperties => ({
   // Ensure text is always visible
   color: '#374151', // gray-700
-  backgroundColor: 'transparent',
+  // DESIGN RULE: Background is NOT owned by this utility.
+  // This utility handles ONLY text visibility and caret styling for WebKit autofill.
+  // Background MUST be defined exclusively by bg-* classes or component layout.
+  // Every consumer must include an explicit bg-* class unless intentionally transparent.
+  // Reason: inline backgroundColor overrides the bg-* class. Removing it here ensures
+  // background authority stays with layout/context classes, which is the project pattern.
   
   // Fix mobile text positioning issues
   WebkitUserSelect: 'text',
@@ -24,6 +29,8 @@ export const getVisibleTextInputStyles = (): CSSProperties => ({
   WebkitTapHighlightColor: 'transparent',
   
   // Ensure proper text positioning on mobile
+  // ponytail: visual default, not the bug fix. Auto-resize textareas reading
+  // getComputedStyle(lineHeight) override with lineHeight:undefined in JSDOM.
   lineHeight: '1.5',
   wordWrap: 'break-word',
   overflowWrap: 'break-word',

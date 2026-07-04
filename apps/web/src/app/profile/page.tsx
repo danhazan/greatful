@@ -80,6 +80,7 @@ export default function ProfilePage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const inputStyling = getCompleteInputStyling()
 
   // State for managing pending institutions and websites
   const [pendingInstitution, setPendingInstitution] = useState("")
@@ -847,7 +848,8 @@ export default function ProfilePage() {
                           type="email"
                           value={user?.email || ''}
                           readOnly
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed"
+                          className={`w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed ${inputStyling.className}`}
+                          style={inputStyling.style}
                         />
                       </div>
 
@@ -864,14 +866,15 @@ export default function ProfilePage() {
                             className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isUsernameEditable
                               ? 'border-gray-300'
                               : 'border-gray-200 bg-gray-100 cursor-not-allowed'
-                              }`}
+                              } ${inputStyling.className}`}
+                            style={inputStyling.style}
                             maxLength={50}
                             autoComplete="username"
                             name="username"
                           />
                           <button
                             onClick={() => isUsernameEditable ? handleCancelUsernameEdit() : setIsUsernameEditable(true)}
-                            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                            className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
                           >
                             {isUsernameEditable ? 'Cancel' : 'Change'}
                           </button>
@@ -887,7 +890,8 @@ export default function ProfilePage() {
                             type="password"
                             value="********"
                             readOnly
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed"
+                            className={`flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed ${inputStyling.className}`}
+                            style={inputStyling.style}
                           />
                           {/* Change Password Button */}
                           <button
@@ -921,7 +925,8 @@ export default function ProfilePage() {
                                   type={showCurrentPassword ? "text" : "password"}
                                   value={accountEditForm.currentPassword}
                                   onChange={(e) => setAccountEditForm({ ...accountEditForm, currentPassword: e.target.value })}
-                                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${inputStyling.className}`}
+                                  style={inputStyling.style}
                                   autoComplete="current-password"
                                   name="currentPassword"
                                 />
@@ -945,7 +950,8 @@ export default function ProfilePage() {
                                   type={showNewPassword ? "text" : "password"}
                                   value={accountEditForm.newPassword}
                                   onChange={(e) => setAccountEditForm({ ...accountEditForm, newPassword: e.target.value })}
-                                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${inputStyling.className}`}
+                                  style={inputStyling.style}
                                   autoComplete="off"
                                   name="newPassword"
                                 />
@@ -969,7 +975,8 @@ export default function ProfilePage() {
                                   type={showConfirmPassword ? "text" : "password"}
                                   value={accountEditForm.confirmPassword}
                                   onChange={(e) => setAccountEditForm({ ...accountEditForm, confirmPassword: e.target.value })}
-                                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${inputStyling.className}`}
+                                  style={inputStyling.style}
                                   autoComplete="off"
                                   name="confirmPassword"
                                 />
@@ -999,7 +1006,8 @@ export default function ProfilePage() {
                         <select
                           value={regionalDateFormat ?? ''}
                           onChange={(e) => setRegionalDateFormat(e.target.value || null)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white ${inputStyling.className}`}
+                          style={inputStyling.style}
                         >
                           <option value="">Auto detect</option>
                           <option value="en-GB">United Kingdom (DD/MM/YYYY)</option>
@@ -1499,7 +1507,8 @@ export default function ProfilePage() {
               value={deleteConfirmation}
               onChange={(e) => setDeleteConfirmation(e.target.value)}
               placeholder={contextUser?.username}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 placeholder-gray-400 mb-4"
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 placeholder-gray-400 mb-4 ${inputStyling.className}`}
+              style={inputStyling.style}
             />
 
             {deleteError && (

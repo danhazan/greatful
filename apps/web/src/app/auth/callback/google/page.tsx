@@ -7,6 +7,7 @@ import Link from 'next/link'
 import oauthService from '@/services/oauthService'
 import ResurrectionDialog from '@/components/ResurrectionDialog'
 import { useUser } from '@/contexts/UserContext'
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 import { usePostLoginRedirect } from '@/hooks/useAuthRedirect'
 
 export default function GoogleOAuthCallbackPage() {
@@ -24,6 +25,7 @@ export default function GoogleOAuthCallbackPage() {
   const [showUsernameInput, setShowUsernameInput] = useState(false)
   const [username, setUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')
+  const inputStyling = getCompleteInputStyling()
 
   // Prevent double execution in React Strict Mode
   const callbackProcessed = useRef(false)
@@ -286,7 +288,8 @@ export default function GoogleOAuthCallbackPage() {
                   if (usernameError) validateUsername(val)
                 }}
                 placeholder="Choose a username"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${inputStyling.className}`}
+                style={inputStyling.style}
                 minLength={3}
                 maxLength={30}
                 disabled={isResurrecting}

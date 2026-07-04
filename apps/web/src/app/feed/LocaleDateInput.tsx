@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useLocale } from "@/hooks/useLocale"
+import { getCompleteInputStyling } from '@/utils/inputStyles'
 import {
   isoToLocaleString,
   parseDateInputToISO,
@@ -63,6 +64,7 @@ export default function LocaleDateInput({ value, onChange, min, max, buttonPosit
     }
   }
 
+  const inputStyling = getCompleteInputStyling()
   const isoCandidate = parseDateInputToISO(inputValue, getLocaleOrder(locale))
   const isInvalid = inputValue.trim().length > 0 && !isValidISODate(isoCandidate)
 
@@ -91,7 +93,8 @@ export default function LocaleDateInput({ value, onChange, min, max, buttonPosit
             isInvalid 
               ? 'border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500' 
               : 'border-gray-300 focus:border-purple-500 focus:ring-1 focus:ring-purple-500'
-          }`}
+          } ${inputStyling.className}`}
+          style={inputStyling.style}
         />
         {buttonPosition === 'right' && calendarButton}
         <input
