@@ -13,7 +13,7 @@ import FollowingModal from "@/components/FollowingModal"
 import { transformUserPosts } from "@/lib/transformers"
 import { normalizeUserData } from "@/utils/userDataMapping"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
-import { apiClient } from "@/utils/apiClient"
+import { apiClient, extractApiErrorDetail } from "@/utils/apiClient"
 import { stateSyncUtils } from "@/utils/stateSynchronization"
 import { useUser } from "@/contexts/UserContext"
 import { useToast } from "@/contexts/ToastContext"
@@ -366,6 +366,7 @@ export default function ProfilePage() {
       setPendingWebsite("")
       setInstitutionError("")
       setWebsiteError("")
+      scrollToTop()
     } catch (error) {
       if (loadingToastId) {
         hideToast(loadingToastId)
@@ -373,7 +374,7 @@ export default function ProfilePage() {
       console.error('Error updating profile:', error)
       showError(
         "Failed to Update Profile",
-        error instanceof Error ? error.message : "Please try again."
+        extractApiErrorDetail(error, "Please try again.")
       )
     } finally {
       setIsSavingProfile(false)
@@ -411,7 +412,7 @@ export default function ProfilePage() {
             ])
           }
         } catch (error: any) {
-          setUsernameError(error.message || "Failed to update username")
+          setUsernameError(extractApiErrorDetail(error, "Failed to update username"))
           usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
           hasErrors = true
         }
@@ -460,7 +461,7 @@ export default function ProfilePage() {
           }
         }, 100)
       } catch (error: any) {
-        setPasswordError(error.message || "Failed to update password")
+        setPasswordError(extractApiErrorDetail(error, "Failed to update password"))
         passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         hasErrors = true
       }
@@ -490,8 +491,11 @@ export default function ProfilePage() {
         newPassword: "",
         confirmPassword: ""
       })
+      scrollToTop()
     }
   }
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
 
   const handleCancelProfileEdit = () => {
     if (user) {
@@ -509,6 +513,7 @@ export default function ProfilePage() {
     setPendingWebsite("")
     setInstitutionError("")
     setWebsiteError("")
+    scrollToTop()
   }
 
   const handleCancelAccountEdit = () => {
@@ -526,6 +531,7 @@ export default function ProfilePage() {
     setPasswordError("")
     setIsUsernameEditable(false)
     setIsPasswordSectionOpen(false)
+    scrollToTop()
   }
 
   const handleDeleteAccount = async () => {
@@ -544,7 +550,7 @@ export default function ProfilePage() {
       logout()
       router.push('/')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete account'
+      const msg = extractApiErrorDetail(err, 'Failed to delete account')
       setDeleteError(msg)
       showError('Deletion Failed', msg)
     } finally {
@@ -907,14 +913,14 @@ export default function ProfilePage() {
                           >
                             {isPasswordSectionOpen ? "Cancel Change" : "Change Password"}
                           </button>
-
-                          {user?.oauthProvider && (
-                            <p className="mt-2 text-xs text-blue-600 flex items-center">
-                              <Shield className="w-3 h-3 mr-1" />
-                              Password management is not available for {user.oauthProvider} accounts
-                            </p>
-                          )}
                         </div>
+
+                        {user?.oauthProvider && (
+                          <p className="mt-2 text-xs text-blue-600 flex items-center">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Password management is not available for {user.oauthProvider} accounts
+                          </p>
+                        )}
 
                         {isPasswordSectionOpen && !user?.oauthProvider && (
                           <div className="space-y-2 mt-2 pl-2 border-l-2 border-gray-200">
@@ -1016,29 +1022,9 @@ export default function ProfilePage() {
                         </select>
                       </div>
 
-                      {/* Save/Cancel Buttons */}
-                      <div className="mt-6 flex space-x-2 justify-end">
-                        <button
-                          onClick={handleCancelAccountEdit}
-                          className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveAccount}
-                          disabled={!isUsernameEditable && !isPasswordSectionOpen && !isDateFormatDirty}
-                          className={`px-4 py-2 rounded-lg text-sm transition-colors ${isUsernameEditable || isPasswordSectionOpen || isDateFormatDirty
-                            ? 'bg-purple-600 text-white hover:bg-purple-700'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            }`}
-                        >
-                          Save Changes
-                        </button>
-                      </div>
-
                       {/* Delete Account Section */}
-                      <div className="mt-8 pt-6 border-t border-red-200">
-                        <div className="flex items-center space-x-3 mb-3">
+                      <div className="mt-8 pt-6 border-t border-red-200 text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start space-x-3 mb-3">
                           <Trash2 className="h-5 w-5 text-red-600" />
                           <h3 className="text-lg font-semibold text-red-900">Delete Account</h3>
                         </div>
@@ -1047,13 +1033,14 @@ export default function ProfilePage() {
                         </p>
                         <button
                           onClick={() => setShowDeleteModal(true)}
-                          className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                          className="inline-flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
                         >
                           <Trash2 className="h-4 w-4" />
                           <span>Delete Account</span>
                         </button>
                       </div>
-                    </div>
+                      <div className="mt-8 pt-6 border-t border-red-200 text-center"></div>
+                      </div>
                   ) : isEditingProfile ? (
                     <div className="space-y-4 max-w-2xl">
                       <h2 className="text-xl font-bold text-gray-900 border-b pb-2">Profile Information</h2>
@@ -1339,6 +1326,27 @@ export default function ProfilePage() {
                   )}
 
                   {/* Cancel/Save Buttons - positioned below profile details when editing */}
+                  {isEditingAccount && (
+                    <div className="mt-6 flex space-x-2 justify-center sm:justify-start">
+                      <button
+                        onClick={handleCancelAccountEdit}
+                        className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm min-h-[44px] touch-manipulation"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveAccount}
+                        disabled={!isUsernameEditable && !isPasswordSectionOpen && !isDateFormatDirty}
+                        className={`px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm min-h-[44px] touch-manipulation ${isUsernameEditable || isPasswordSectionOpen || isDateFormatDirty
+                          ? 'bg-purple-600 text-white hover:bg-purple-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  )}
+
                   {isEditingProfile && (
                     <div className="mt-6 flex space-x-2 justify-center sm:justify-start">
                       <button

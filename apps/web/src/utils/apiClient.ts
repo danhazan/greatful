@@ -572,6 +572,25 @@ class OptimizedAPIClient {
   }
 }
 
+/**
+ * Extract a user-friendly error detail from an API error.
+ * Handles errors thrown by apiCache: "HTTP 409: {"detail":"..."}"
+ * Falls back to error.message, then to the supplied fallback.
+ */
+export function extractApiErrorDetail(error: any, fallback: string): string {
+  if (error?.message) {
+    const match = error.message.match(/^HTTP \d+: (.+)$/)
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1])
+        if (parsed?.detail) return parsed.detail
+      } catch {}
+    }
+    return error.message
+  }
+  return fallback
+}
+
 // Create singleton instance
 export const apiClient = new OptimizedAPIClient()
 

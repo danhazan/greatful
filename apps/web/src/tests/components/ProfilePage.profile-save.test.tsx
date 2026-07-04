@@ -15,10 +15,24 @@ jest.mock('@/contexts/UserContext', () => ({
 }))
 
 jest.mock('@/utils/apiClient', () => ({
+  extractApiErrorDetail: (error: any, fallback: string) => {
+    if (error?.message) {
+      const match = error.message.match(/^HTTP \d+: (.+)$/)
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[1])
+          if (parsed?.detail) return parsed.detail
+        } catch {}
+      }
+      return error.message
+    }
+    return fallback
+  },
   apiClient: {
     get: jest.fn(),
     getCurrentUserProfile: jest.fn(),
     put: jest.fn(),
+    delete: jest.fn(),
     getViewerScope: jest.fn(() => 'user:1'),
     invalidateTags: jest.fn(),
   }
@@ -127,6 +141,7 @@ describe('ProfilePage profile save', () => {
     } as any)
 
     window.localStorage.getItem = jest.fn(() => 'mock-token')
+    Element.prototype.scrollIntoView = jest.fn()
   })
 
   it('saves profile through /api/users/me/profile with PUT and shows production-safe UI feedback', async () => {
@@ -198,5 +213,62 @@ describe('ProfilePage profile save', () => {
     expect(alertSpy).not.toHaveBeenCalled()
 
     alertSpy.mockRestore()
+  })
+
+  it('shows only the detail field from API error when saving username', async () => {
+    mockApiClient.put.mockRejectedValueOnce(new Error('HTTP 409: {"detail":"Username already taken"}'))
+
+    const user = userEvent.setup()
+    renderProfilePage()
+
+    await user.click(await screen.findByText('Edit Account'))
+    await user.click(screen.getByText('Change'))
+
+    const usernameInput = screen.getByDisplayValue('Unknown User')
+    fireEvent.change(usernameInput, { target: { value: 'newusername' } })
+
+    await user.click(screen.getByText('Save Changes'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Username already taken')).toBeInTheDocument()
+    })
+  })
+
+  it('shows original error message for non-JSON API error', async () => {
+    mockApiClient.put.mockRejectedValueOnce(new Error('Network Error'))
+
+    const user = userEvent.setup()
+    renderProfilePage()
+
+    await user.click(await screen.findByText('Edit Account'))
+    await user.click(screen.getByText('Change'))
+
+    const usernameInput = screen.getByDisplayValue('Unknown User')
+    fireEvent.change(usernameInput, { target: { value: 'newusername' } })
+
+    await user.click(screen.getByText('Save Changes'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Network Error')).toBeInTheDocument()
+    })
+  })
+
+  it('uses extractApiErrorDetail for delete account API error', async () => {
+    mockApiClient.delete = jest.fn().mockRejectedValueOnce(new Error('HTTP 400: {"detail":"Cannot delete account with active posts"}'))
+
+    const user = userEvent.setup()
+    renderProfilePage()
+
+    await user.click(await screen.findByText('Edit Account'))
+    await user.click(await screen.findByRole('button', { name: /Delete Account/ }))
+
+    const modalInput = screen.getByPlaceholderText('testuser')
+    fireEvent.change(modalInput, { target: { value: 'testuser' } })
+
+    await user.click(screen.getByText('Delete My Account'))
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Cannot delete account with active posts').length).toBeGreaterThan(0)
+    })
   })
 })
