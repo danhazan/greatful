@@ -174,14 +174,19 @@ async def get_my_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Get current user's profile."""
-    # Debug logging for auth troubleshooting
-    auth_header = request.headers.get('authorization', 'NO_AUTH_HEADER')
-    print(f"[BACKEND] /users/me/profile - auth_header: {auth_header[:20] if auth_header != 'NO_AUTH_HEADER' else auth_header}... current_user_id: {current_user_id}")
+    from app.core.signup_token import verify_signup_token
     
     user_service = UserService(db)
     result = await user_service.get_user_profile(current_user_id)
     
-    print(f"[BACKEND] /users/me/profile - returning user profile for user_id: {current_user_id}, username: {result.get('username', 'N/A')}")
+    # Check signup_token cookie for /welcome eligibility
+    signup_token = request.cookies.get("signup_token")
+    eligible = False
+    if signup_token:
+        payload = verify_signup_token(signup_token)
+        eligible = payload is not None and int(payload.get("sub")) == current_user_id
+    result["signup_eligible"] = eligible
+    
     return success_response(result, getattr(request.state, 'request_id', None))
 
 
@@ -214,6 +219,80 @@ async def update_my_profile(
     )
     
     return success_response(result, getattr(request.state, 'request_id', None))
+
+
+@router.post("/me/onboarding")
+async def complete_onboarding(
+    request: Request,
+    username: Optional[str] = Form(None),
+    bio: Optional[str] = Form(None),
+    display_name: Optional[str] = Form(None),
+    city: Optional[str] = Form(None),
+    institutions: Optional[str] = Form(None),
+    websites: Optional[str] = Form(None),
+    regional_date_format: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    crop_data: Optional[str] = Form(None),
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Complete user onboarding with transactional profile updates."""
+    from app.core.exceptions import ConflictError
+
+    user_service = UserService(db)
+    user = await user_service.get_by_id_or_404(User, current_user_id, "User")
+    
+    # Pre-validate username to prevent partial uploads if username is taken
+    if username:
+        if not await user_service.user_repo.check_username_availability(username, current_user_id):
+            raise ConflictError("Username already taken", "user")
+
+    # Save regional date format preference before profile update
+    if regional_date_format is not None:
+        prefs = dict(user.profile_preferences or {})
+        prefs["regional_date_format"] = regional_date_format
+        user.profile_preferences = prefs
+
+    # Process profile photo if provided
+    if file:
+        parsed_crop_data = None
+        if crop_data:
+            try:
+                import json
+                parsed_crop_data = json.loads(crop_data)
+            except Exception:
+                pass
+        photo_service = ProfilePhotoService(db)
+        await photo_service.upload_profile_photo(current_user_id, file, parsed_crop_data)
+
+    # Parse optional JSON array fields
+    parsed_institutions = None
+    if institutions:
+        try:
+            parsed_institutions = json.loads(institutions)
+        except Exception:
+            pass
+
+    parsed_websites = None
+    if websites:
+        try:
+            parsed_websites = json.loads(websites)
+        except Exception:
+            pass
+
+    # Perform remaining validations and update profile
+    result = await user_service.update_user_profile(
+        user_id=current_user_id,
+        username=username,
+        bio=bio,
+        display_name=display_name,
+        city=city,
+        institutions=parsed_institutions,
+        websites=parsed_websites,
+    )
+    
+    return success_response(result, getattr(request.state, 'request_id', None))
+
 
 
 @router.delete("/me")

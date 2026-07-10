@@ -80,3 +80,16 @@ npm test -- src/tests/components/PostCard.test.tsx
 - User input: Use `app/core/input_sanitization.py`
 - Post visibility: Always use `cache: 'no-store'` for individual post fetches to prevent temporal privacy leaks.
 - **Security enforcement is never a candidate for YAGNI or simplification.** Auth checks, input sanitization, and boundary validation are always written in full, regardless of any quality-gate simplification pressure.
+
+## API Boundary Contracts
+
+Every API boundary has an explicit contract. When a field crosses a layer, it must be declared in every layer it passes through. Never assume a field survives serialization or transformation.
+
+When adding a response field, trace it across every layer:
+
+1. **Data construction** — does the builder/response function set the field?
+2. **Pydantic response model** — is the field declared in the route's `response_model`? Without this, FastAPI silently strips it.
+3. **Proxy transformation** — does `proxyApiRequest` (camelCase conversion) or a manual transformation pass it through? Read camelCase on the frontend after proxy.
+4. **Frontend state** — does the UI read the correct casing? Backend snake_case → proxy camelCase → frontend camelCase.
+
+Always verify backend casing vs frontend casing explicitly. If a response field has reached the proxy but not the UI, the most likely cause is a casing mismatch or a missing declaration in a Pydantic model.

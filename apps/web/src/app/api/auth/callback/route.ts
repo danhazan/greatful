@@ -29,35 +29,40 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
     
-    // Backend returns canonical AuthResponse: { success: true, data: { user, access_token, refresh_token, token_type, is_new_user } }
     const payload = data.data
     const refreshToken = payload.refresh_token
+    const signupToken = payload.signup_token
     
-    // Remove refresh_token from the payload sent to the client
     if (payload.refresh_token) delete payload.refresh_token
+    if (payload.signup_token) delete payload.signup_token
 
-    // Create the response from transformed data
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedData = transformApiResponse(data)
     const nextResponse = NextResponse.json(transformedData, { status: response.status })
+
+    const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https'
+    const secureFlag = isHttps || process.env.NODE_ENV === 'production'
     
     if (refreshToken) {
-      const maxAgeSeconds = 30 * 24 * 60 * 60; // 30 days
-      const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https'
-      const secureFlag = isHttps || process.env.NODE_ENV === 'production'
-      
-      const cookieOptions = {
+      nextResponse.cookies.set('refresh_token', refreshToken, {
         httpOnly: true,
         secure: secureFlag,
         sameSite: 'lax' as const,
-        maxAge: maxAgeSeconds,
-        expires: new Date(Date.now() + maxAgeSeconds * 1000),
+        maxAge: 30 * 24 * 60 * 60,
         path: '/'
-      };
-      
-      nextResponse.cookies.set('refresh_token', refreshToken, cookieOptions)
+      })
     } else {
       console.warn(`[OAuth-Callback] No refresh token returned from backend for provider: ${provider}`)
+    }
+
+    if (signupToken) {
+      nextResponse.cookies.set('signup_token', signupToken, {
+        httpOnly: true,
+        secure: secureFlag,
+        sameSite: 'lax' as const,
+        maxAge: 15 * 60,
+        path: '/'
+      })
     }
     
     return nextResponse

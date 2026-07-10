@@ -490,7 +490,119 @@ Historical debugging of the Grateful authentication system revealed several crit
 
 ---
 
-## 9. Migration Summary
+## 9. Welcome / Onboarding Flow
+
+New users (email signup, OAuth signup, password resurrection, and OAuth resurrection) enter a guided onboarding flow immediately after account creation instead of being sent to the feed.
+
+### Architecture: Signup Token
+
+Onboarding access is gated by a short-lived JWT called the **signup token**.
+
+```
+Auth Response (is_new_user=True)
+    ↓
+build_auth_response() generates signup_token JWT (15 min expiry)
+    ↓
+Next.js proxy sets signup_token as HttpOnly cookie
+    ↓
+Frontend redirects to /welcome
+    ↓
+Welcome page route guard checks currentUser.signupEligible
+    ↓
+/users/me/profile reads signup_token cookie, verifies JWT + user_id match
+    ↓
+Returns signup_eligible: true/false
+```
+
+### Signup Token Specification
+
+- **Format**: JWT signed with HS256 using the same `SECRET_KEY` as access tokens.
+- **Claims**: `type: "signup"`, `purpose: "signup"`, `sub: user_id`, `exp`, `iat`, `nbf`, `jti`, `iss: "grateful-api"`, `aud: "grateful-client"`.
+- **Expiry**: 15 minutes (`SIGNUP_TOKEN_EXPIRE_MINUTES` in `app/config/signup_token_config.py`).
+- **Cookie**: `HttpOnly`, `Secure`, `SameSite=Lax`, `maxAge=15min`, `path=/`. Set by three proxy routes (`signup`, `callback`, `oauth-resurrect`) via the shared `setAuthCookies()` helper.
+- **Validation**: `verify_signup_token()` decodes the JWT, verifies audience/issuer/claims, checks `type == "signup"` and `purpose == "signup"`. Returns payload or `None`.
+
+### Backend Contract
+
+Every auth endpoint that creates or restores a user's account passes `is_new_user=True` to `build_auth_response()`, which automatically generates a `signup_token` and includes it in the `AuthResponseData`.
+
+Five entry points — all use `is_new_user=True`:
+
+| Entry Point | Endpoint | Location |
+|---|---|---|
+| Email signup | `POST /signup` | `auth.py` line 235 |
+| OAuth signup | `POST /oauth/callback/{provider}` | `oauth.py` line 322 |
+| Password resurrection | `POST /signup` (same as email) | `auth.py` line 235 |
+| OAuth resurrection (accept) | `POST /oauth/resurrect` | `auth.py` line 346 |
+| OAuth resurrection (decline) | `POST /oauth/resurrect` | `auth.py` line 388 |
+
+Other endpoints (login, refresh, account linking) use `is_new_user=False` and do NOT produce a signup token — correct, because returning users do not need onboarding.
+
+### Welcome Page Route Guard
+
+The welcome page (`(welcome)/welcome/page.tsx`) guards access via:
+
+1. Authenticated user required (`currentUser` must exist).
+2. `currentUser.signupEligible` must be `true`.
+3. `signupEligible` is computed by `GET /users/me/profile` which reads the `signup_token` cookie, verifies the JWT, and checks that `sub` matches `current_user_id`.
+4. If either check fails, the guard redirects to `/profile`.
+
+### Onboarding Submission
+
+The welcome page collects profile data (display name, bio, username, photo, etc.) in frontend state and submits a single `multipart/form-data` POST to `/users/me/onboarding`. This endpoint:
+
+1. Authenticates via JWT (`get_current_user_id`).
+2. Validates and saves all profile fields.
+3. Does NOT require a signup token (the token only gates the `/welcome` page, not the submission API).
+4. On success, the frontend proxy clears the `signup_token` cookie.
+
+This ensures: user spends 30 minutes completing onboarding → token expires → Finish still works → data is saved → redirected to profile.
+
+### OAuth Profile Import
+
+When an OAuth provider supplies profile information (display name, profile image), the callback page may show an optional import dialog before redirecting to `/welcome`.
+
+```
+OAuth callback success (is_new_user=True)
+    ↓
+Auth response includes oauth_profile: {displayName, profileImageUrl}
+    (NOT written to user profile fields — carried in response only)
+    ↓
+Callback page detects isNewUser + oauthProfile
+    ↓
+Shows import dialog
+    ↓
+Yes → sessionStorage.setItem('oauthImport', profile)
+No  → skip
+    ↓
+Redirect to /welcome
+    ↓
+Welcome page reads sessionStorage on mount
+    ↓
+Pre-populates displayName + profile image as defaults
+    ↓
+User edits if desired, submits
+    ↓
+Onboarding POST persists everything together
+```
+
+Key architectural decisions:
+- **No separate persistence endpoint** — OAuth profile data stays client-side in sessionStorage until onboarding persists it.
+- **Onboarding is the single write path** for profile information.
+- **Auto-import is removed** — `_create_oauth_user()` does not set `display_name` or `profile_image_url` from OAuth provider data.
+
+### Cookie Management Centralization
+
+All auth proxy routes (`signup`, `callback`, `oauth-resurrect`) use a shared helper `setAuthCookies()` in `auth-cookies.ts` instead of duplicating cookie-setting logic. This helper:
+
+1. Extracts `refresh_token` and `signup_token` from the backend payload.
+2. Deletes both from the response body (prevents JS access).
+3. Sets `refresh_token` as HttpOnly cookie (30 day expiry).
+4. Sets `signup_token` as HttpOnly cookie (15 min expiry) if present.
+
+---
+
+## 10. Migration Summary
 
 The Grateful authentication system evolved through three major architectural phases to reach its current mature state.
 
@@ -535,7 +647,7 @@ The Grateful authentication system evolved through three major architectural pha
 
 ---
 
-## 10. Stability Guarantee Statement
+## 11. Stability Guarantee Statement
 
 > **AUTHORITATIVE GUARANTEE**: As of v1.0, authentication behavior is deterministic, secure, and fully unified across Email and OAuth flows. Any deviation between providers or login mechanisms is a bug in normalization or proxy handling, not expected behavior. The contracts defined in this specification are immutable for the v1.x lifecycle.
 

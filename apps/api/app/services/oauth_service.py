@@ -232,8 +232,8 @@ class OAuthService(BaseService):
         """
         try:
             # Generate unique username from OAuth data
-            base_username = self._generate_username_from_oauth(oauth_user_info)
-            username = await self._ensure_unique_username(base_username)
+            base_username = self.generate_username_from_oauth(oauth_user_info)
+            username = await self.ensure_unique_username(base_username)
             
             # Enhanced profile data extraction
             profile_data = self._extract_profile_data(oauth_user_info, provider)
@@ -290,7 +290,7 @@ class OAuthService(BaseService):
                 elif 'username' in str(e).lower():
                     # Username collision - regenerate and retry
                     logger.warning(f"Username collision for {username}, regenerating")
-                    username = await self._ensure_unique_username(base_username, force_suffix=True)
+                    username = await self.ensure_unique_username(base_username, force_suffix=True)
                     user_data['username'] = username
                     user = await self.create_entity(User, **user_data)
                 else:
@@ -659,7 +659,7 @@ class OAuthService(BaseService):
             logger.error(f"Error linking OAuth account: {e}")
             raise BusinessLogicError(f"Failed to link OAuth account: {str(e)}")
     
-    def _generate_username_from_oauth(self, oauth_user_info: Dict[str, Any]) -> str:
+    def generate_username_from_oauth(self, oauth_user_info: Dict[str, Any]) -> str:
         """
         Generate username from OAuth user information.
         
@@ -689,7 +689,7 @@ class OAuthService(BaseService):
         
         return base[:20]  # Limit length
     
-    async def _ensure_unique_username(self, base_username: str, force_suffix: bool = False) -> str:
+    async def ensure_unique_username(self, base_username: str, force_suffix: bool = False) -> str:
         """
         Ensure username is unique by appending numbers if necessary.
         
@@ -779,7 +779,7 @@ class OAuthService(BaseService):
                 'display_name': user.display_name,
                 'profile_image_url': user.profile_image_url,
                 'oauth_provider': user.oauth_provider,
-                'created_at': user.created_at.isoformat() if user.created_at else None
+                'created_at': user.created_at.isoformat() if user.created_at else None,
             },
             'access_token': access_token,
             'refresh_token': refresh_token,

@@ -29,29 +29,38 @@ export async function POST(request: NextRequest) {
       return proxyBackendJsonResponse(response)
     }
 
-    // Success path: extract refresh_token, set HttpOnly cookie
-    // (mirrors login, OAuth callback, and OAuth resurrect route handlers)
+    // Success path: extract tokens, set HttpOnly cookies
     const data = await response.json()
     const payload = data.data
     const refreshToken = payload?.refresh_token
+    const signupToken = payload?.signup_token
 
     if (payload?.refresh_token) delete payload.refresh_token
+    if (payload?.signup_token) delete payload.signup_token
 
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedData = transformApiResponse(data)
     const nextResponse = NextResponse.json(transformedData, { status: response.status })
 
-    if (refreshToken) {
-      const maxAgeSeconds = 30 * 24 * 60 * 60
-      const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https'
-      const secureFlag = isHttps || process.env.NODE_ENV === 'production'
+    const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https'
+    const secureFlag = isHttps || process.env.NODE_ENV === 'production'
 
+    if (refreshToken) {
       nextResponse.cookies.set('refresh_token', refreshToken, {
         httpOnly: true,
         secure: secureFlag,
         sameSite: 'lax' as const,
-        maxAge: maxAgeSeconds,
-        expires: new Date(Date.now() + maxAgeSeconds * 1000),
+        maxAge: 30 * 24 * 60 * 60,
+        path: '/',
+      })
+    }
+
+    if (signupToken) {
+      nextResponse.cookies.set('signup_token', signupToken, {
+        httpOnly: true,
+        secure: secureFlag,
+        sameSite: 'lax' as const,
+        maxAge: 15 * 60,
         path: '/',
       })
     }

@@ -267,6 +267,11 @@ class TestAuthAPIContracts:
         assert isinstance(data["token_type"], str)
         assert data["token_type"] == "bearer"
 
+        # signup_token must be present for new user signups
+        assert "signup_token" in data
+        assert isinstance(data["signup_token"], str)
+        assert len(data["signup_token"]) > 0
+
 
 class TestErrorResponseContracts:
     """Test that error responses have consistent structure."""

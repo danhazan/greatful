@@ -15,6 +15,7 @@ export interface User {
   username: string
   email: string
   profileImageUrl?: string
+  signupEligible?: boolean
 }
 
 export interface UserProfile extends User {
@@ -94,7 +95,7 @@ function clearOtherCurrentUserBootstrapEntries(activeToken: string) {
   }
 }
 
-function getCurrentUserBootstrap(token: string, options?: { forceRefresh?: boolean }) {
+function getCurrentUserBootstrap(token: string, options?: any) {
   if (options?.forceRefresh) {
     currentUserBootstrapPromises.delete(token)
     currentUserBootstrapResults.delete(token)
@@ -110,7 +111,7 @@ function getCurrentUserBootstrap(token: string, options?: { forceRefresh?: boole
     }
   }
 
-  const bootstrapPromise = apiClient.getCurrentUserProfile()
+  const bootstrapPromise = apiClient.getCurrentUserProfile(options)
     .then((result) => {
       currentUserBootstrapResults.set(token, result)
       return result
@@ -181,7 +182,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [stateEventListeners])
 
   // Load user function
-  const loadUser = useCallback(async (options?: { forceRefresh?: boolean }) => {
+  const loadUser = useCallback(async (options?: { forceRefresh?: boolean; skipCache?: boolean }) => {
     try {
       if (typeof window === 'undefined') {
         setIsLoading(false)
@@ -208,7 +209,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           displayName: userData.displayName,
           username: userData.username,
           email: userData.email,
-          profileImageUrl: userData.profileImageUrl
+          profileImageUrl: userData.profileImageUrl,
+          signupEligible: userData.signupEligible
         }
 
         // [AUTH_STATE] User loaded successfully — clear any stale auth transition flag
@@ -454,7 +456,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     markDataAsFresh,
     getLastFetchTime,
     logout,
-    reloadUser: () => loadUser({ forceRefresh: true }),
+    reloadUser: () => loadUser({ forceRefresh: true, skipCache: true }),
     subscribeToStateUpdates
   }
 

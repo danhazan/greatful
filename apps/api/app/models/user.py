@@ -45,6 +45,7 @@ class User(Base):
     deletion_source = Column(String(20), nullable=True)
     token_version = Column(Integer, nullable=False, default=0, server_default="0")
 
+
     @property
     def is_active(self) -> bool:
         """Compatibility property for active-account checks."""

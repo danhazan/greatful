@@ -249,7 +249,7 @@ class TestOAuthService:
     @pytest.mark.asyncio
     async def test_create_oauth_user(self, oauth_service, mock_oauth_user_info):
         """Test creating new OAuth user."""
-        with patch.object(oauth_service, '_ensure_unique_username') as mock_unique:
+        with patch.object(oauth_service, 'ensure_unique_username') as mock_unique:
             mock_unique.return_value = 'testuser123'
             
             user = await oauth_service._create_oauth_user('google', mock_oauth_user_info)
@@ -266,7 +266,7 @@ class TestOAuthService:
         """Test creating OAuth user with profile image."""
         mock_oauth_user_info['picture'] = 'https://example.com/profile.jpg'
         
-        with patch.object(oauth_service, '_ensure_unique_username') as mock_unique:
+        with patch.object(oauth_service, 'ensure_unique_username') as mock_unique:
             mock_unique.return_value = 'testuser123'
             
             user = await oauth_service._create_oauth_user('google', mock_oauth_user_info)
@@ -348,10 +348,10 @@ class TestOAuthService:
         assert "different google account" in str(exc_info.value).lower()
     
     @pytest.mark.asyncio
-    async def test_generate_username_from_oauth(self, oauth_service, mock_oauth_user_info):
+    async def testgenerate_username_from_oauth(self, oauth_service, mock_oauth_user_info):
         """Test username generation from OAuth data."""
         # Test with given_name
-        username = oauth_service._generate_username_from_oauth(mock_oauth_user_info)
+        username = oauth_service.generate_username_from_oauth(mock_oauth_user_info)
         assert username == 'test'  # from given_name
         
         # Test with full name only
@@ -359,14 +359,14 @@ class TestOAuthService:
             'name': 'John Doe',
             'email': 'john@example.com'
         }
-        username = oauth_service._generate_username_from_oauth(oauth_info_name_only)
+        username = oauth_service.generate_username_from_oauth(oauth_info_name_only)
         assert username == 'john'  # first part of name
         
         # Test with email only
         oauth_info_email_only = {
             'email': 'jane.smith@example.com'
         }
-        username = oauth_service._generate_username_from_oauth(oauth_info_email_only)
+        username = oauth_service.generate_username_from_oauth(oauth_info_email_only)
         assert username == 'janesmith'  # email prefix with dots removed
     
     @pytest.mark.asyncio
@@ -467,23 +467,23 @@ class TestOAuthService:
         assert response['user']['username'] == existing_user.username
     
     @pytest.mark.asyncio
-    async def test_ensure_unique_username(self, oauth_service):
+    async def testensure_unique_username(self, oauth_service):
         """Test unique username generation."""
         with patch.object(User, 'get_by_username') as mock_get_by_username:
             # First call returns None (username available)
             mock_get_by_username.return_value = None
             
-            username = await oauth_service._ensure_unique_username('testuser')
+            username = await oauth_service.ensure_unique_username('testuser')
             assert username == 'testuser'
     
     @pytest.mark.asyncio
-    async def test_ensure_unique_username_with_collision(self, oauth_service, existing_user):
+    async def testensure_unique_username_with_collision(self, oauth_service, existing_user):
         """Test unique username generation with collision."""
         with patch.object(User, 'get_by_username') as mock_get_by_username:
             # First call returns existing user (collision), second call returns None
             mock_get_by_username.side_effect = [existing_user, None]
             
-            username = await oauth_service._ensure_unique_username('existinguser')
+            username = await oauth_service.ensure_unique_username('existinguser')
             assert username != 'existinguser'  # Should be modified to avoid collision
             assert 'existinguser' in username  # Should contain original base
     

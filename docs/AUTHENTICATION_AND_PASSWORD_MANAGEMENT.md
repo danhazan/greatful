@@ -1,7 +1,7 @@
 # Authentication and Password Management Documentation
 
 > [!IMPORTANT]
-> **Definitive Specification Notice**: For the authoritative v1.0 specification defining Next.js proxy boundaries, canonical response contracts (`AuthResponse`), and unified OAuth/Email session models, please consult the **[Authentication System Specification v1.0](AUTHENTICATION_SYSTEM_SPEC_v1.md)**. The document below covers additional implementation details, historical context, and password management workflows.
+> **Definitive Specification Notice**: For the authoritative v1.0 specification defining Next.js proxy boundaries, canonical response contracts (`AuthResponse`), and unified OAuth/Email session models, please consult the **[Authentication and Login Specification](AUTHENTICATION_AND_LOGIN_SPEC.md)**. The document below covers additional implementation details, historical context, and password management workflows.
 
 ## Overview
 

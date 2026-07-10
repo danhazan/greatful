@@ -7,7 +7,6 @@ import Link from 'next/link'
 import oauthService from '@/services/oauthService'
 import ResurrectionDialog from '@/components/ResurrectionDialog'
 import { useUser } from '@/contexts/UserContext'
-import { getCompleteInputStyling } from '@/utils/inputStyles'
 import { usePostLoginRedirect } from '@/hooks/useAuthRedirect'
 
 export default function OAuthCallbackPage() {
@@ -23,10 +22,6 @@ export default function OAuthCallbackPage() {
   const [resurrectionEmail, setResurrectionEmail] = useState<string | null>(null)
   const [resurrectionUserInfo, setResurrectionUserInfo] = useState<any>(null)
   const [isResurrecting, setIsResurrecting] = useState(false)
-  const [showUsernameInput, setShowUsernameInput] = useState(false)
-  const [username, setUsername] = useState('')
-  const [usernameError, setUsernameError] = useState('')
-  const inputStyling = getCompleteInputStyling()
 
   // Prevent double execution in React Strict Mode
   const callbackProcessed = useRef(false)
@@ -135,7 +130,7 @@ export default function OAuthCallbackPage() {
 
         clearRedirect()
         setTimeout(() => {
-          router.push(redirectTo)
+          router.push(result.isNewUser ? '/welcome' : redirectTo)
         }, 2000)
 
       } catch (error: any) {
@@ -155,30 +150,13 @@ export default function OAuthCallbackPage() {
     handleCallback()
   }, [searchParams, router, reloadUser, clearRedirect, redirectTo])
 
-  const validateUsername = (value: string): boolean => {
-    if (value.length < 3 || value.length > 30) {
-      setUsernameError('Username must be 3-30 characters long.')
-      return false
-    }
-    const regex = /^[a-z0-9_]+$/
-    if (!regex.test(value)) {
-      setUsernameError('Only letters, numbers, and underscores are allowed.')
-      return false
-    }
-    setUsernameError('')
-    return true
-  }
-
-  const handleResurrect = async (action: 'accept' | 'decline') => {
+  const handleResurrect = (action: 'accept' | 'decline') => {
     if (!resurrectionToken) return
-    setShowUsernameInput(true)
-    setMessage(action === 'accept' ? 'Restore Account' : 'Create New Account')
+    handleResurrectSubmit(action)
   }
 
   const handleResurrectSubmit = async (action: 'accept' | 'decline') => {
-    if (!validateUsername(username)) return
     setIsResurrecting(true)
-    setShowUsernameInput(false)
 
     try {
       const response = await fetch('/api/auth/oauth-resurrect', {
@@ -186,7 +164,6 @@ export default function OAuthCallbackPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           resurrection_token: resurrectionToken,
-          username,
           resurrect_action: action,
           email: resurrectionEmail,
           oauth_user_info: resurrectionUserInfo,
@@ -221,13 +198,14 @@ export default function OAuthCallbackPage() {
         await reloadUser()
       }
 
+      setIsNewUser(result.isNewUser)
       setStatus('success')
-      setMessage(action === 'accept' ? 'Account restored! Welcome back.' : 'New account created! Welcome to Grateful.')
+      setMessage(result.isNewUser ? 'Account created! Welcome to Grateful.' : 'Account restored! Welcome back.')
       setIsResurrecting(false)
 
       clearRedirect()
       setTimeout(() => {
-        router.push(redirectTo)
+        router.push('/welcome')
       }, 2000)
 
     } catch (error) {
@@ -307,53 +285,13 @@ export default function OAuthCallbackPage() {
 
               {status === 'success' && (
                 <p className="text-gray-600 text-sm mt-2">
-                  You will be redirected to your feed shortly.
+                  {isNewUser ? 'You will be redirected to profile setup shortly.' : 'You will be redirected to your feed shortly.'}
                 </p>
               )}
             </div>
           )}
 
-          {/* Username input for resurrection */}
-          {showUsernameInput && (
-            <div className="mb-6">
-              <p className="text-gray-700 text-sm mb-3">
-                Choose a username for your {message.toLowerCase()}.
-              </p>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => {
-                  const val = e.target.value.toLowerCase()
-                  setUsername(val)
-                  if (usernameError) validateUsername(val)
-                }}
-                placeholder="Choose a username"
-                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${inputStyling.className}`}
-                style={inputStyling.style}
-                minLength={3}
-                maxLength={30}
-                disabled={isResurrecting}
-                autoFocus
-              />
-              {usernameError && <p className="text-xs text-red-500 mt-1">{usernameError}</p>}
-              <div className="mt-4 flex space-x-3">
-                <button
-                  onClick={() => handleResurrectSubmit('decline')}
-                  disabled={isResurrecting}
-                  className="flex-1 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
-                >
-                  {isResurrecting ? 'Creating...' : 'Create New Account'}
-                </button>
-                <button
-                  onClick={() => handleResurrectSubmit('accept')}
-                  disabled={isResurrecting}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
-                >
-                  {isResurrecting ? 'Restoring...' : 'Restore Account'}
-                </button>
-              </div>
-            </div>
-          )}
+
 
           {/* Action Buttons */}
           {status === 'error' && (
@@ -376,10 +314,10 @@ export default function OAuthCallbackPage() {
           {status === 'success' && (
             <div className="space-y-4">
               <Link
-                href="/feed"
+                href={isNewUser ? '/welcome' : '/feed'}
                 className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors inline-block"
               >
-                Continue to Feed
+                {isNewUser ? 'Continue to Profile Setup' : 'Continue to Feed'}
               </Link>
             </div>
           )}
@@ -395,7 +333,7 @@ export default function OAuthCallbackPage() {
       </div>
 
       {/* Resurrection Dialog */}
-      {status === 'resurrection' && !showUsernameInput && (
+      {status === 'resurrection' && (
         <ResurrectionDialog
           isOpen={true}
           identity={resurrectionProvider ? `${resurrectionProvider} account` : 'social account'}

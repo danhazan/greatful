@@ -17,6 +17,8 @@ When a bug task completes, the implementing agent adds or updates an entry here.
 - [Missing Next.js API Proxy Route](#missing-nextjs-api-proxy-route) · `High recurrence`
 - [Missing Field in Next.js Proxy Transformation](#missing-field-in-nextjs-proxy-transformation) · `High recurrence`
 - [API Case Transformation Corrupting Dynamic Dictionary Keys](#api-case-transformation-corrupting-dynamic-dictionary-keys) · `High recurrence`
+- [FastAPI response_model Silently Strips Fields](#fastapi-response_model-silently-strips-fields) · `Medium recurrence`
+- [Frontend Reads Wrong Casing After Proxy Transformation](#frontend-reads-wrong-casing-after-proxy-transformation) · `Medium recurrence`
 
 **[Component and State Bugs](#component-and-state-bugs)**
 
@@ -95,6 +97,61 @@ These recur whenever the architecture is extended. **Always check these first** 
 **Recurrence risk:** High — every new dynamic dictionary in the API.
 **First resolved:** March 2025
 **Instances:** `emojiCounts` / `reactionEmojiCodes` (Mar 2025)
+
+---
+
+### FastAPI response_model Silently Strips Fields
+
+**Fingerprint:** A field is confirmed present in the raw response when calling the backend directly (curl/Postman returns the field). The same endpoint called through the Next.js proxy returns a response missing that field. No error or warning is logged. The data construction function (e.g., `build_auth_response()`) clearly sets the field. Other fields in the same response work correctly.
+
+**Root cause:** The endpoint's route decorator declares `response_model=SomeModel`. FastAPI re-serializes every response through that Pydantic model before returning it. Fields that exist in the constructed dict but are not declared in the Pydantic model are **silently stripped** — no error, no warning, no trace.
+
+The most common miss: adding a field to the data construction function (e.g., `build_auth_response()`) but forgetting to add it to the Pydantic response model (e.g., `AuthResponseData`). The response model is the serialization gatekeeper and is invisible when reading the endpoint body — it only appears on the route decorator line.
+
+**Fix pattern:** When adding any new field to a FastAPI response:
+1. Find the route decorator's `response_model=` — that Pydantic model is the contract
+2. Add the field to the Pydantic model FIRST (even before adding it to the data construction)
+3. Then add it to the data construction function
+4. Then verify it crosses every downstream layer (proxy → frontend mapper → UI state)
+
+**Checklist for diagnosing missing response fields:**
+1. Can you trigger the backend endpoint directly (curl/swagger) and see the field? If yes → it's not a backend data issue. If no → check data construction.
+2. Does the route handler have `response_model=<SomeModel>`? If yes → that model is the gatekeeper.
+3. Does `<SomeModel>` declare the field? If no → that's the root cause — add it.
+4. Does the proxy route forward it? Check proxy transformation or direct fetch.
+5. Does the frontend read the correct casing (camelCase after proxy, snake_case if direct)?
+
+**Key files:** `apps/api/app/core/responses.py` (AuthResponseData model + build_auth_response) · `apps/api/app/api/v1/auth.py` (route decorators with response_model=AuthResponse)
+
+**Recurrence risk:** Medium — every time a new field is added to an auth response.
+**First resolved:** July 2026
+**Instances:** `signup_token` in `AuthResponseData` (Jul 2026)
+
+---
+
+### Frontend Reads Wrong Casing After Proxy Transformation
+
+**Fingerprint:** The backend returns a snake_case field (e.g., `signup_eligible`). The frontend reads the same field name in snake_case (e.g., `userData.signup_eligible`). The value is `undefined` even though the backend confirms the field exists. Other fields in the same response work correctly. The backend response is confirmed to contain the field.
+
+**Root cause:** The default proxy route (`proxyApiRequest` with `transform: true`) automatically converts all snake_case backend response keys to camelCase. The field arrives at the frontend as `signupEligible`, not `signup_eligible`. Reading the snake_case name returns `undefined`.
+
+Data flow:
+```
+Backend:  { "signup_eligible": true }
+    ↓ proxyApiRequest (transform: true)
+Frontend: { "signupEligible": true }
+    ↓ frontend reads signup_eligible → undefined!
+```
+
+**Fix pattern:** Always read the camelCase form after proxy transformation. Search for the field name in frontend code after adding it to the backend — if it appears in snake_case usage, rename to camelCase. The transformation is automatic and field-agnostic — there's no manual mapping to update.
+
+**Prevention:** After adding a new field to a backend response that goes through `proxyApiRequest`, verify the frontend reads its camelCase equivalent. Use grep to find all usages of the snake_case name in frontend TypeScript files.
+
+**Key files:** `apps/web/src/lib/api-proxy.ts` (proxyApiRequest with transform: true) · `apps/web/src/lib/caseTransform.ts` (deepCamelize)
+
+**Recurrence risk:** Medium — any new response field consumed in frontend code.
+**First resolved:** July 2026
+**Instances:** `signupEligible` read as `signup_eligible` in UserContext.tsx (Jul 2026)
 
 ---
 
@@ -236,3 +293,19 @@ Recurring styling issues with established fix patterns. When the fingerprint mat
 
 **Recurrence risk:** Low — typically a one-time setup issue per environment.
 **Instances:** Railway PostgreSQL (dev environment)
+
+---
+
+### jest.mock silently fails with SWC and imported `jest` from `@jest/globals`
+
+**Fingerprint:** `jest.mock()` calls that should replace a module with a mock factory have no effect — the real module is loaded instead. The console shows no error from the factory throw. The same mock pattern works in a project using Babel but not in Next.js. The test file imports `jest` from `@jest/globals`.
+
+**Root cause:** Next.js uses SWC (not Babel) for Jest transforms. SWC hoists `jest.mock()` calls above import/require statements. If the `jest.mock` factory uses `jest.fn()` and the test file imports `jest` from `@jest/globals` (e.g. `import { jest, ... } from '@jest/globals'`), the factory captures the module-scope `jest` binding which is in Temporal Dead Zone when the factory executes. The factory throws silently and Jest falls back to the real module.
+
+**Fix pattern:** Never import `jest` from `@jest/globals` in files that use `jest.mock()`. The global `jest` object is always available in the test environment and is properly hoisted.
+
+**How to detect:** Console will NOT show an error from the factory throw. The symptom is that `jest.mock()` appears to have no effect — the real module is loaded instead of the mock.
+
+**Key files:** `apps/web/src/tests/components/WelcomeOnboarding.test.tsx` (working example)
+
+**Instances:** WelcomeOnboarding.test.tsx (Jul 2026)

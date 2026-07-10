@@ -27,12 +27,6 @@ export async function handleUserProfileGetRequest(request: any, userId?: string)
           data: normalizedUserData
         };
         
-        // Debug logging in development
-        if (process.env['NODE_ENV'] === 'development') {
-          console.log('User profile API - Original user data:', responseData.data);
-          console.log('User profile API - Normalized user data:', normalizedUserData);
-        }
-        
         return NextResponse.json(normalizedResponse, { 
           status: response.status,
           headers: response.headers 

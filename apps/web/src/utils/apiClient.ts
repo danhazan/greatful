@@ -535,10 +535,11 @@ class OptimizedAPIClient {
    * Get current user profile
    */
   async getCurrentUserProfile(options: RequestOptions = {}): Promise<any> {
-    return this.get('/users/me/profile', {
+    const result = await this.get('/users/me/profile', {
       cacheTTL: 300000, // Cache for 5 minutes (increased from 1 minute)
       ...options
     })
+    return result
   }
 
   /**

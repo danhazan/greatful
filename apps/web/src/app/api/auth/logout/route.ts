@@ -25,11 +25,19 @@ export async function POST(request: NextRequest) {
 
     const nextResponse = createSuccessResponse(null, 'Logged out successfully')
     
-    // Clear the refresh_token cookie
+    // Clear token cookies
     nextResponse.cookies.set('refresh_token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
+      maxAge: 0,
+      path: '/'
+    })
+
+    nextResponse.cookies.set('signup_token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 0,
       path: '/'
     })

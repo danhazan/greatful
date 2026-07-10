@@ -315,8 +315,6 @@ async def oauth_callback(
             callback_data.state
         )
         
-        logger.info("OAuth service result", extra={"has_tokens": bool(user_data.get("access_token"))})
-        
         return build_auth_response(
             user=user_data["user"],
             access_token=user_data["access_token"],

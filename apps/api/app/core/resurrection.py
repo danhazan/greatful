@@ -182,7 +182,7 @@ async def resurrect_oauth_user(
     provider: str,
     provider_user_id: str,
     email: str,
-    username: str,
+    username: Optional[str] = None,
     oauth_user_info: Optional[dict] = None,
 ) -> User:
     """
@@ -216,9 +216,25 @@ async def resurrect_oauth_user(
     if user.account_status != "deleted" or user.deleted_at is None:
         raise ConflictError("Invalid account state for resurrection", "user")
 
-    # Validate username availability INSIDE the locked transaction
-    if not await check_username_available(db, username, exclude_user_id=user.id):
-        raise ConflictError("Username already taken", "user")
+    # If username is provided, validate its availability
+    if username:
+        if not await check_username_available(db, username, exclude_user_id=user.id):
+            raise ConflictError("Username already taken", "user")
+    else:
+        # Generate a new unique username from oauth data
+        from app.services.oauth_service import OAuthService
+        oauth_service = OAuthService(db)
+        if oauth_user_info:
+            base_username = oauth_service.generate_username_from_oauth(oauth_user_info)
+        else:
+            base_username = email.split('@')[0].lower()
+            import re
+            base_username = re.sub(r'[^a-z0-9]', '', base_username)
+            if len(base_username) < 3:
+                base_username = f"user{base_username}"
+            base_username = base_username[:20]
+        
+        username = await oauth_service.ensure_unique_username(base_username)
 
     # Atomic resurrection mutation
     user.email = email

@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    if (!body.resurrection_token || !body.username || !body.resurrect_action) {
-      return createErrorResponse('resurrection_token, username, and resurrect_action are required', 400)
+    if (!body.resurrection_token || !body.resurrect_action) {
+      return createErrorResponse('resurrection_token and resurrect_action are required', 400)
     }
 
     const response = await makeBackendRequest('/api/v1/auth/oauth/resurrect', {
@@ -32,24 +32,34 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
     const payload = data.data
     const refreshToken = payload.refresh_token
+    const signupToken = payload.signup_token
 
     if (payload.refresh_token) delete payload.refresh_token
+    if (payload.signup_token) delete payload.signup_token
 
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedData = transformApiResponse(data)
     const nextResponse = NextResponse.json(transformedData, { status: response.status })
 
-    if (refreshToken) {
-      const maxAgeSeconds = 30 * 24 * 60 * 60
-      const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https'
-      const secureFlag = isHttps || process.env.NODE_ENV === 'production'
+    const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https'
+    const secureFlag = isHttps || process.env.NODE_ENV === 'production'
 
+    if (refreshToken) {
       nextResponse.cookies.set('refresh_token', refreshToken, {
         httpOnly: true,
         secure: secureFlag,
         sameSite: 'lax' as const,
-        maxAge: maxAgeSeconds,
-        expires: new Date(Date.now() + maxAgeSeconds * 1000),
+        maxAge: 30 * 24 * 60 * 60,
+        path: '/',
+      })
+    }
+
+    if (signupToken) {
+      nextResponse.cookies.set('signup_token', signupToken, {
+        httpOnly: true,
+        secure: secureFlag,
+        sameSite: 'lax' as const,
+        maxAge: 15 * 60,
         path: '/',
       })
     }

@@ -358,6 +358,9 @@ class TestOAuthEndpointsIntegration:
                         assert 'refresh_token' in auth_data
                         assert 'is_new_user' in auth_data
                         assert auth_data['is_new_user'] is True
+                        assert 'signup_token' in auth_data
+                        assert isinstance(auth_data['signup_token'], str)
+                        assert len(auth_data['signup_token']) > 0
                         assert auth_data['user']['email'] == mock_oauth_user_info['email']
                         assert auth_data['user']['display_name'] == mock_oauth_user_info['name']
     

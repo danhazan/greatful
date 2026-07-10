@@ -131,6 +131,7 @@ class AuthResponseData(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     is_new_user: bool = False
+    signup_token: Optional[str] = None
 
 
 class AuthResponse(ApiSuccessResponse):
@@ -150,6 +151,9 @@ def build_auth_response(
     
     Ensures all authentication endpoints (login, signup, refresh, oauth)
     return an identical, standardized response schema wrapped in ApiSuccessResponse.
+    
+    When is_new_user is True, a short-lived signup_token is automatically
+    generated and included — this gates /welcome access in the frontend.
     """
     # Normalize user object to dictionary
     if hasattr(user, "model_dump"):
@@ -162,7 +166,7 @@ def build_auth_response(
             "display_name": getattr(user, "display_name", None),
             "profile_image_url": getattr(user, "profile_image_url", None),
             "oauth_provider": getattr(user, "oauth_provider", None),
-            "created_at": user.created_at.isoformat() if getattr(user, "created_at", None) else None
+            "created_at": user.created_at.isoformat() if getattr(user, "created_at", None) else None,
         }
     elif isinstance(user, dict):
         user_dict = user
@@ -176,4 +180,10 @@ def build_auth_response(
         "token_type": "bearer",
         "is_new_user": is_new_user
     }
+
+    if is_new_user:
+        uid = user_dict.get("id")
+        if uid is not None:
+            from app.core.signup_token import create_signup_token
+            auth_data["signup_token"] = create_signup_token(int(uid))
     return success_response(auth_data, request_id)

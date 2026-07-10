@@ -12,6 +12,12 @@ interface ProfilePhotoUploadProps {
   currentPhotoUrl?: string
   onPhotoUpdate: (photoUrl: string | null) => void
   className?: string
+  /** When provided, the component operates in controlled mode:
+   *  the cropped file is emitted via onControlledFile instead of being uploaded. */
+  onControlledFile?: (blob: Blob, cropData: CropData) => void
+  /** Preview URL to display instead of currentPhotoUrl (e.g. blob URL for
+   *  newly selected image before submission). Takes priority over currentPhotoUrl. */
+  previewUrl?: string
 }
 
 interface CropData {
@@ -43,7 +49,9 @@ const PROFILE_PHOTO_OPTIONS = {
 export default function ProfilePhotoUpload({
   currentPhotoUrl,
   onPhotoUpdate,
-  className = ''
+  className = '',
+  onControlledFile,
+  previewUrl,
 }: ProfilePhotoUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -52,13 +60,12 @@ export default function ProfilePhotoUpload({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { showDebugSuccess, showError } = useToast()
 
-  const uploadPhoto = async (croppedBlob: Blob, cropData: CropData) => {
+  const uploadPhoto = async (croppedBlob: Blob, _cropData: CropData) => {
     setIsUploading(true)
 
     try {
       const formData = new FormData()
       formData.append('file', croppedBlob, 'profile-photo.jpg')
-      formData.append('crop_data', JSON.stringify(cropData))
 
       const response = await apiClient.requestRaw('/users/me/profile/photo', {
         method: 'POST',
@@ -115,6 +122,12 @@ export default function ProfilePhotoUpload({
   }, [showError])
 
   const handleCropComplete = (cropData: CropData, croppedBlob: Blob) => {
+    if (onControlledFile) {
+      onControlledFile(croppedBlob, cropData)
+      setShowCropModal(false)
+      setSelectedFile(null)
+      return
+    }
     uploadPhoto(croppedBlob, cropData)
   }
 
@@ -168,9 +181,9 @@ export default function ProfilePhotoUpload({
     <div className={`relative ${className}`}>
       {/* Current Photo Display */}
       <div className="relative w-32 h-32 mx-auto mb-4">
-        {currentPhotoUrl ? (
+        {previewUrl || currentPhotoUrl ? (
           <img
-            src={getImageUrl(currentPhotoUrl) || currentPhotoUrl}
+            src={previewUrl || getImageUrl(currentPhotoUrl) || currentPhotoUrl}
             alt="Profile"
             className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
           />

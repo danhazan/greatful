@@ -45,6 +45,7 @@ async def get_active_user_from_credentials(
         raise AuthenticationError("User account is inactive")
     if not _token_version_matches(payload, user):
         raise AuthenticationError("Authentication token has been invalidated")
+        
     return user
 
 

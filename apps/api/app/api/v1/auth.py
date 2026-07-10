@@ -172,7 +172,7 @@ class AccountLinkingConfirmationResponse(BaseModel):
 class OAuthResurrectionComplete(BaseModel):
     """OAuth resurrection completion request."""
     resurrection_token: str = Field(..., description="JWT resurrection token from OAuth callback")
-    username: str = Field(..., min_length=3, max_length=30, description="New username for resurrected account")
+    username: Optional[str] = Field(None, min_length=3, max_length=30, description="New username for resurrected account")
     resurrect_action: str = Field(..., description="'accept' to restore, 'decline' to start fresh")
     email: Optional[str] = Field(None, description="Email from OAuth provider (forwarded from 409 response)")
     oauth_user_info: Optional[dict] = Field(None, description="OAuth profile data (forwarded from 409 response)")
@@ -185,6 +185,8 @@ class OAuthResurrectionComplete(BaseModel):
 
     @field_validator('username')
     def validate_username(cls, v):
+        if v is None:
+            return v
         username_lower = v.lower()
         if not (3 <= len(username_lower) <= 30):
             raise ValueError('Username must be between 3 and 30 characters.')
@@ -297,7 +299,7 @@ async def oauth_resurrect(
         raise HTTPException(status_code=400, detail="Resurrection token refers to an unknown tombstone")
 
     if body.resurrect_action == "accept":
-        if not await check_username_available(db, body.username, exclude_user_id=tombstone_user_id):
+        if body.username and not await check_username_available(db, body.username, exclude_user_id=tombstone_user_id):
             raise HTTPException(status_code=409, detail="Username already taken")
 
         email = body.email or f"resurrected-{tombstone_user_id}@grateful.internal"
@@ -328,14 +330,14 @@ async def oauth_resurrect(
             user={"id": user.id, "username": user.username, "email": user.email},
             access_token=access_token,
             refresh_token=refresh_token,
-            is_new_user=False,
+            is_new_user=True,
             request_id=getattr(request.state, "request_id", None),
         )
 
     # resurrect_action == "decline" — create a new user, consume tombstone
     from app.core.resurrection import check_username_available as check_uname, consume_tombstones
 
-    if not await check_uname(db, body.username):
+    if body.username and not await check_uname(db, body.username):
         raise HTTPException(status_code=409, detail="Username already taken")
 
     await consume_tombstones(db, tombstone_user_id)

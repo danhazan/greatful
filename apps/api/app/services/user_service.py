@@ -53,7 +53,7 @@ class UserService(BaseService):
         if getattr(user, "account_status", "active") == "deleted":
             return serialize_deleted_profile(user, include_email=True)
         
-        return {
+        profile = {
             "id": user.id,
             "username": user.username,
             "email": user.email,
@@ -72,7 +72,9 @@ class UserService(BaseService):
             "account_status": user.account_status,
             "is_deleted": False,
             "deleted_at": user.deleted_at.isoformat() if user.deleted_at else None,
+            "regional_date_format": (getattr(user, "profile_preferences", None) or {}).get("regional_date_format"),
         }
+        return profile
 
     async def get_public_user_profile(self, user_id: int) -> Dict[str, Any]:
         """
@@ -173,7 +175,7 @@ class UserService(BaseService):
         location_data: Optional[Dict] = None,
         institutions: Optional[List[str]] = None,
         websites: Optional[List[str]] = None,
-        display_name: Optional[str] = None
+        display_name: Optional[str] = None,
     ) -> Dict[str, any]:
         """
         Update user profile.
@@ -310,11 +312,8 @@ class UserService(BaseService):
             
             update_data["websites"] = [url.strip() for url in websites if url.strip()]
 
-        # Only update if there are changes
         if update_data:
             await self.user_repo.update(user, **update_data)
-        
-        logger.info(f"Updated profile for user {user_id}")
         
         return await self.get_user_profile(user_id)
 

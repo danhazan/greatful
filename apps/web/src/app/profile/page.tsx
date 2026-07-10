@@ -10,6 +10,8 @@ import ProfileImageSection from "@/components/ProfileImageSection"
 import LocationAutocomplete from "@/components/LocationAutocomplete"
 import FollowersModal from "@/components/FollowersModal"
 import FollowingModal from "@/components/FollowingModal"
+import ProfileInformationForm from "@/components/settings/ProfileInformationForm"
+import AccountSettingsForm from "@/components/settings/AccountSettingsForm"
 import { transformUserPosts } from "@/lib/transformers"
 import { normalizeUserData } from "@/utils/userDataMapping"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
@@ -844,405 +846,35 @@ export default function ProfilePage() {
                 {/* Profile Info */}
                 <div className="flex-1 text-center sm:text-left min-w-0">
                   {isEditingAccount ? (
-                    <div className="space-y-4 max-w-2xl">
-                      <h2 className="text-xl font-bold text-gray-900 border-b pb-2">Account Settings</h2>
-
-                      {/* Email Display */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <input
-                          type="email"
-                          value={user?.email || ''}
-                          readOnly
-                          className={`w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed ${inputStyling.className}`}
-                          style={inputStyling.style}
-                        />
-                      </div>
-
-                      {/* Username Section */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="text"
-                            ref={usernameInputRef}
-                            value={accountEditForm.username}
-                            readOnly={!isUsernameEditable}
-                            onChange={(e) => setAccountEditForm({ ...accountEditForm, username: e.target.value })}
-                            className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isUsernameEditable
-                              ? 'border-gray-300'
-                              : 'border-gray-200 bg-gray-100 cursor-not-allowed'
-                              } ${inputStyling.className}`}
-                            style={inputStyling.style}
-                            maxLength={50}
-                            autoComplete="username"
-                            name="username"
-                          />
-                          <button
-                            onClick={() => isUsernameEditable ? handleCancelUsernameEdit() : setIsUsernameEditable(true)}
-                            className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-                          >
-                            {isUsernameEditable ? 'Cancel' : 'Change'}
-                          </button>
-                        </div>
-                        {usernameError && <p className="text-xs text-red-600 mt-1">{usernameError}</p>}
-                      </div>
-
-                      {/* Password Section */}
-                      <div ref={passwordSectionRef}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="password"
-                            value="********"
-                            readOnly
-                            className={`flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed ${inputStyling.className}`}
-                            style={inputStyling.style}
-                          />
-                          {/* Change Password Button */}
-                          <button
-                            onClick={() => {
-                              if (user?.oauthProvider) return
-                              setIsPasswordSectionOpen(!isPasswordSectionOpen)
-                            }}
-                            disabled={user?.oauthProvider ? true : false}
-                            title={user?.oauthProvider ? `Password management is not available for accounts created with ${user.oauthProvider} login` : undefined}
-                            className={`px-4 py-2 text-sm border border-gray-300 rounded-lg relative ${user?.oauthProvider
-                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "text-gray-700 hover:bg-gray-50 bg-white"}`}
-                          >
-                            {isPasswordSectionOpen ? "Cancel Change" : "Change Password"}
-                          </button>
-                        </div>
-
-                        {user?.oauthProvider && (
-                          <p className="mt-2 text-xs text-blue-600 flex items-center">
-                            <Shield className="w-3 h-3 mr-1" />
-                            Password management is not available for {user.oauthProvider} accounts
-                          </p>
-                        )}
-
-                        {isPasswordSectionOpen && !user?.oauthProvider && (
-                          <div className="space-y-2 mt-2 pl-2 border-l-2 border-gray-200">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Current Password</label>
-                              <div className="relative">
-                                <input
-                                  type={showCurrentPassword ? "text" : "password"}
-                                  value={accountEditForm.currentPassword}
-                                  onChange={(e) => setAccountEditForm({ ...accountEditForm, currentPassword: e.target.value })}
-                                  className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${inputStyling.className}`}
-                                  style={inputStyling.style}
-                                  autoComplete="current-password"
-                                  name="currentPassword"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                >
-                                  {showCurrentPassword ? (
-                                    <EyeOff className="h-4 w-4 text-gray-400" />
-                                  ) : (
-                                    <Eye className="h-4 w-4 text-gray-400" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">New Password</label>
-                              <div className="relative">
-                                <input
-                                  type={showNewPassword ? "text" : "password"}
-                                  value={accountEditForm.newPassword}
-                                  onChange={(e) => setAccountEditForm({ ...accountEditForm, newPassword: e.target.value })}
-                                  className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${inputStyling.className}`}
-                                  style={inputStyling.style}
-                                  autoComplete="off"
-                                  name="newPassword"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowNewPassword(!showNewPassword)}
-                                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                >
-                                  {showNewPassword ? (
-                                    <EyeOff className="h-4 w-4 text-gray-400" />
-                                  ) : (
-                                    <Eye className="h-4 w-4 text-gray-400" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Confirm New Password</label>
-                              <div className="relative">
-                                <input
-                                  type={showConfirmPassword ? "text" : "password"}
-                                  value={accountEditForm.confirmPassword}
-                                  onChange={(e) => setAccountEditForm({ ...accountEditForm, confirmPassword: e.target.value })}
-                                  className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${inputStyling.className}`}
-                                  style={inputStyling.style}
-                                  autoComplete="off"
-                                  name="confirmPassword"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                >
-                                  {showConfirmPassword ? (
-                                    <EyeOff className="h-4 w-4 text-gray-400" />
-                                  ) : (
-                                    <Eye className="h-4 w-4 text-gray-400" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
-                      </div>
-
-                      {/* Regional Date Format */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Regional date format
-                        </label>
-                        <select
-                          value={regionalDateFormat ?? ''}
-                          onChange={(e) => setRegionalDateFormat(e.target.value || null)}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white ${inputStyling.className}`}
-                          style={inputStyling.style}
-                        >
-                          <option value="">Auto detect</option>
-                          <option value="en-GB">United Kingdom (DD/MM/YYYY)</option>
-                          <option value="en-US">United States (MM/DD/YYYY)</option>
-                          <option value="sv-SE">International (YYYY-MM-DD)</option>
-                        </select>
-                      </div>
-
-                      {/* Delete Account Section */}
-                      <div className="mt-8 pt-6 border-t border-red-200 text-center sm:text-left">
-                        <div className="flex items-center justify-center sm:justify-start space-x-3 mb-3">
-                          <Trash2 className="h-5 w-5 text-red-600" />
-                          <h3 className="text-lg font-semibold text-red-900">Delete Account</h3>
-                        </div>
-                        <p className="text-gray-600 text-sm mb-4">
-                          Permanently delete your account and all associated data. This action cannot be undone.
-                        </p>
-                        <button
-                          onClick={() => setShowDeleteModal(true)}
-                          className="inline-flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Delete Account</span>
-                        </button>
-                      </div>
-                      <div className="mt-8 pt-6 border-t border-red-200 text-center"></div>
-                      </div>
+                    <AccountSettingsForm
+                      mode="settings"
+                      user={{
+                        email: user?.email,
+                        oauthProvider: user?.oauthProvider,
+                        username: user?.username
+                      }}
+                      value={accountEditForm}
+                      onChange={(val) => setAccountEditForm(val as typeof accountEditForm)}
+                      usernameError={usernameError}
+                      isUsernameEditable={isUsernameEditable}
+                      onToggleUsernameEdit={() => setIsUsernameEditable(true)}
+                      onCancelUsernameEdit={handleCancelUsernameEdit}
+                      passwordError={passwordError}
+                      isPasswordSectionOpen={isPasswordSectionOpen}
+                      onTogglePasswordSection={() => setIsPasswordSectionOpen(!isPasswordSectionOpen)}
+                      usernameInputRef={usernameInputRef}
+                      passwordSectionRef={passwordSectionRef}
+                      regionalDateFormat={regionalDateFormat}
+                      onRegionalDateFormatChange={setRegionalDateFormat}
+                      onDeleteAccountClick={() => setShowDeleteModal(true)}
+                    />
                   ) : isEditingProfile ? (
-                    <div className="space-y-4 max-w-2xl">
-                      <h2 className="text-xl font-bold text-gray-900 border-b pb-2">Profile Information</h2>
-
-                      {/* Display Name */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Display Name
-                        </label>
-                        <input
-                          type="text"
-                          value={profileEditForm.displayName}
-                          onChange={(e) => setProfileEditForm({ ...profileEditForm, displayName: e.target.value })}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
-                          style={getCompleteInputStyling().style}
-                          maxLength={100}
-                          placeholder="How you want to be displayed"
-                        />
-                      </div>
-
-                      {/* Username */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Username
-                        </label>
-                        <input
-                          type="text"
-                          value={user?.username || ''}
-                          readOnly
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed"
-                        />
-                        {usernameError && <p className="text-xs text-red-600 mt-1">{usernameError}</p>}
-                      </div>
-
-                      {/* Bio */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Bio
-                        </label>
-                        <textarea
-                          value={profileEditForm.bio}
-                          onChange={(e) => setProfileEditForm({ ...profileEditForm, bio: e.target.value })}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
-                          style={getCompleteInputStyling().style}
-                          rows={3}
-                          maxLength={500}
-                          placeholder="Tell us about yourself..."
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          {profileEditForm.bio.length}/500 characters
-                        </p>
-                      </div>
-
-                      {/* Location */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Location
-                        </label>
-                        <LocationAutocomplete
-                          value={profileEditForm.city}
-                          onChange={(value) => setProfileEditForm({ ...profileEditForm, city: value })}
-                          onLocationSelect={(location) => setSelectedLocation(location)}
-                          placeholder="Enter city, neighborhood, or place..."
-                        />
-                        {selectedLocation && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Selected: {selectedLocation.displayName || selectedLocation.display_name}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Institutions */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Institutions (School, Company, Foundation)
-                        </label>
-                        <div className="space-y-2">
-                          {/* Existing institutions */}
-                          {Array.isArray(profileEditForm.institutions) && profileEditForm.institutions.map((institution, index) => (
-                            <div key={index} className="flex items-center space-x-2">
-                              <Building className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                              <div className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
-                                {String(institution)}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeInstitution(index)}
-                                className="p-2 text-red-500 hover:text-red-700 transition-colors"
-                                title="Remove institution"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ))}
-
-                          {/* Add new institution */}
-                          {Array.isArray(profileEditForm.institutions) && profileEditForm.institutions.length < 10 && (
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Building className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                <input
-                                  type="text"
-                                  value={pendingInstitution}
-                                  onChange={(e) => {
-                                    setPendingInstitution(e.target.value)
-                                    setInstitutionError("")
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && pendingInstitution.trim()) {
-                                      addInstitution()
-                                    }
-                                  }}
-                                  className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
-                                  style={getCompleteInputStyling().style}
-                                  maxLength={100}
-                                  placeholder="Institution name"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={addInstitution}
-                                  disabled={!pendingInstitution.trim()}
-                                  className="p-2 text-purple-600 hover:text-purple-700 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed"
-                                  title="Save institution"
-                                >
-                                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" />
-                                  </svg>
-                                </button>
-                              </div>
-                              {institutionError && (
-                                <p className="text-xs text-red-600 ml-6">{institutionError}</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Websites */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Websites
-                        </label>
-                        <div className="space-y-2">
-                          {/* Existing websites */}
-                          {Array.isArray(profileEditForm.websites) && profileEditForm.websites.map((website, index) => (
-                            <div key={index} className="flex items-center space-x-2">
-                              <Globe className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                              <div className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
-                                {String(website)}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeWebsite(index)}
-                                className="p-2 text-red-500 hover:text-red-700 transition-colors"
-                                title="Remove website"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ))}
-
-                          {/* Add new website */}
-                          {Array.isArray(profileEditForm.websites) && profileEditForm.websites.length < 5 && (
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Globe className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                <input
-                                  type="url"
-                                  value={pendingWebsite}
-                                  onChange={(e) => {
-                                    setPendingWebsite(e.target.value)
-                                    setWebsiteError("")
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && pendingWebsite.trim()) {
-                                      addWebsite()
-                                    }
-                                  }}
-                                  className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${getCompleteInputStyling().className}`}
-                                  style={getCompleteInputStyling().style}
-                                  placeholder="https://example.com"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={addWebsite}
-                                  disabled={!pendingWebsite.trim()}
-                                  className="p-2 text-purple-600 hover:text-purple-700 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed"
-                                  title="Save website"
-                                >
-                                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" />
-                                  </svg>
-                                </button>
-                              </div>
-                              {websiteError && (
-                                <p className="text-xs text-red-600 ml-6">{websiteError}</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    <ProfileInformationForm
+                      value={profileEditForm}
+                      onChange={(val) => setProfileEditForm(val as typeof profileEditForm)}
+                      selectedLocation={selectedLocation}
+                      onLocationSelect={setSelectedLocation}
+                    />
                   ) : (
                     <>
                       <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 truncate">

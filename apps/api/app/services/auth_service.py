@@ -107,7 +107,11 @@ class AuthService(BaseService):
                 await self.db.refresh(user)
                 token_data = self._token_data_for_user(user)
                 return {
-                    "user": {"id": user.id, "email": user.email, "username": user.username},
+                    "user": {
+                        "id": user.id, 
+                        "email": user.email, 
+                        "username": user.username,
+                    },
                     "access_token": create_access_token(token_data),
                     "refresh_token": create_refresh_token(token_data),
                     "token_type": "bearer",
@@ -146,12 +150,13 @@ class AuthService(BaseService):
 
         logger.info(f"User signed up successfully: {user.email}")
 
+        response_user = {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+        }
         return {
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "username": user.username,
-            },
+            "user": response_user,
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",
@@ -213,7 +218,7 @@ class AuthService(BaseService):
             "user": {
                 "id": user.id,
                 "email": user.email,
-                "username": user.username
+                "username": user.username,
             },
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -250,7 +255,7 @@ class AuthService(BaseService):
             return {
                 "id": user.id,
                 "email": user.email,
-                "username": user.username
+                "username": user.username,
             }
             
         except Exception as e:
@@ -295,7 +300,7 @@ class AuthService(BaseService):
                 "user": {
                     "id": user.id,
                     "email": user.email,
-                    "username": user.username
+                    "username": user.username,
                 },
                 "access_token": new_access_token,
                 "refresh_token": new_refresh_token,
