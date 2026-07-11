@@ -178,7 +178,7 @@ def build_auth_response(
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "is_new_user": is_new_user
+        "is_new_user": is_new_user,
     }
 
     if is_new_user:

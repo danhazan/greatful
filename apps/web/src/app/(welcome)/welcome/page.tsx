@@ -29,6 +29,7 @@ interface OnboardingData {
   photoBlob: Blob | null
   cropData: CropData | null
   regionalDateFormat: string | null
+  photoRemoved: boolean
 }
 
 interface Slide {
@@ -54,6 +55,7 @@ const initialData: OnboardingData = {
   photoBlob: null,
   cropData: null,
   regionalDateFormat: null,
+  photoRemoved: false,
 }
 
 export default function WelcomePage() {
@@ -69,12 +71,20 @@ export default function WelcomePage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const { updatePreference } = useLocaleWithUpdate()
 
-  // Pre-populate username from existing user data
+  // Pre-populate from existing user data on mount. Runs once when currentUser
+  // loads; data fields are guaranteed empty at first render.
   useEffect(() => {
-    if (currentUser?.username && !data.username) {
-      setData(prev => ({ ...prev, username: currentUser.username }))
+    if (!currentUser) return
+
+    const updates: Partial<OnboardingData> = {}
+    if (currentUser.username) updates.username = currentUser.username
+    if (currentUser.displayName) updates.displayName = currentUser.displayName
+
+    if (Object.keys(updates).length > 0) {
+      setData(prev => ({ ...prev, ...updates }))
     }
-  }, [currentUser?.username]) // ponytail: runs once on mount when user loads
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser])
 
   // Route protection: redirect if not authenticated or signup token absent/expired
   useEffect(() => {
@@ -90,7 +100,7 @@ export default function WelcomePage() {
 
   const handleControlledFile = useCallback((blob: Blob, crop: CropData) => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
-    updateData({ photoBlob: blob, cropData: crop })
+    updateData({ photoBlob: blob, cropData: crop, photoRemoved: false })
     setPreviewUrl(URL.createObjectURL(blob))
   }, [previewUrl])
 
@@ -143,6 +153,8 @@ export default function WelcomePage() {
     if (data.websites.length > 0) fd.append('websites', JSON.stringify(data.websites))
     if (data.photoBlob) {
       fd.append('file', data.photoBlob, 'profile-photo.jpg')
+    } else if (data.photoRemoved) {
+      fd.append('remove_profile_image', 'true')
     }
     return fd
   }
@@ -246,8 +258,8 @@ export default function WelcomePage() {
                 </p>
               </div>
               <ProfilePhotoUpload
-                currentPhotoUrl={currentUser?.profileImageUrl}
-                onPhotoUpdate={() => {}}
+                currentPhotoUrl={data.photoRemoved ? undefined : currentUser?.profileImageUrl}
+                onPhotoUpdate={() => { setPreviewUrl(undefined); updateData({ photoBlob: null, cropData: null, photoRemoved: !!currentUser?.profileImageUrl }) }}
                 onControlledFile={handleControlledFile}
                 previewUrl={previewUrl}
               />

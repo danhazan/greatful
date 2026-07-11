@@ -363,6 +363,7 @@ class TestOAuthEndpointsIntegration:
                         assert len(auth_data['signup_token']) > 0
                         assert auth_data['user']['email'] == mock_oauth_user_info['email']
                         assert auth_data['user']['display_name'] == mock_oauth_user_info['name']
+                        assert auth_data['user']['profile_image_url'] == mock_oauth_user_info['picture']
     
     @patch.dict('os.environ', {
         'FACEBOOK_CLIENT_ID': 'test_facebook_client_id',

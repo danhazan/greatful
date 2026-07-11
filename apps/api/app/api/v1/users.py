@@ -233,11 +233,19 @@ async def complete_onboarding(
     regional_date_format: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     crop_data: Optional[str] = Form(None),
+    remove_profile_image: bool = Form(False),
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Complete user onboarding with transactional profile updates."""
-    from app.core.exceptions import ConflictError
+    """Complete user onboarding with transactional profile updates.
+
+    Photo handling (three explicit states):
+        - Missing file + no remove flag        = no change to existing photo
+        - File uploaded                        = replace existing photo with new upload
+        - remove_profile_image=true            = delete existing photo
+          (ignored when file is also provided — file upload has precedence)
+    """
+    from app.core.exceptions import ConflictError, NotFoundError
 
     user_service = UserService(db)
     user = await user_service.get_by_id_or_404(User, current_user_id, "User")
@@ -253,7 +261,8 @@ async def complete_onboarding(
         prefs["regional_date_format"] = regional_date_format
         user.profile_preferences = prefs
 
-    # Process profile photo if provided
+    # Process profile photo — precedence: file upload > remove signal > no change
+    # ponytail: if/elif ensures mutual exclusion; no data-loss window
     if file:
         parsed_crop_data = None
         if crop_data:
@@ -264,6 +273,12 @@ async def complete_onboarding(
                 pass
         photo_service = ProfilePhotoService(db)
         await photo_service.upload_profile_photo(current_user_id, file, parsed_crop_data)
+    elif remove_profile_image:
+        photo_service = ProfilePhotoService(db)
+        try:
+            await photo_service.delete_profile_photo(current_user_id)
+        except NotFoundError:
+            pass
 
     # Parse optional JSON array fields
     parsed_institutions = None

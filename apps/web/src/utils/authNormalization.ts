@@ -70,6 +70,6 @@ export function normalizeAuthResponse(data: any): NormalizedAuthData {
     user,
     accessToken,
     tokenType,
-    isNewUser
+    isNewUser,
   }
 }

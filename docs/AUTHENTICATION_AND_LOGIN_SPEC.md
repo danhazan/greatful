@@ -558,15 +558,34 @@ The welcome page collects profile data (display name, bio, username, photo, etc.
 
 This ensures: user spends 30 minutes completing onboarding → token expires → Finish still works → data is saved → redirected to profile.
 
+#### Photo handling contract (three explicit states)
+
+The onboarding photo handling is an explicit three-state contract. Missing fields always mean "no change":
+
+| Condition | Behavior | Mechanism |
+|-----------|----------|-----------|
+| No `file`, no `remove_profile_image` | No change to existing photo | Default — photo field untouched |
+| `file` provided | Replace existing photo with new upload | `ProfilePhotoService.upload_profile_photo()` — also handles cleanup of old variants |
+| `remove_profile_image=true`, no `file` | Delete existing photo | `ProfilePhotoService.delete_profile_photo()` |
+| Both `file` and `remove_profile_image=true` | File wins, remove is ignored | Precedence enforced by `if/elif` in the handler |
+
+**Key rules:**
+- `remove_profile_image` defaults to `False` (backward compatible).
+- If a new file is uploaded, `remove_profile_image` is always ignored — the file replaces whatever existed.
+- The welcome page never calls the standalone profile photo DELETE endpoint. All onboarding photo changes go through the single `/users/me/onboarding` POST.
+- Frontend tracks `photoRemoved: boolean` in onboarding form state, not just in component-local state. This persists across slide navigation.
+
 ### OAuth Profile Import
 
 When an OAuth provider supplies profile information (display name, profile image), the callback page may show an optional import dialog before redirecting to `/welcome`.
+
+At signup/resurrection, the OAuth-provided `profile_image_url` is **immediately persisted** to the User DB record. This ensures the imported photo is available immediately on the welcome page without an additional upload. The user can choose to keep, replace, or remove it during onboarding.
 
 ```
 OAuth callback success (is_new_user=True)
     ↓
 Auth response includes oauth_profile: {displayName, profileImageUrl}
-    (NOT written to user profile fields — carried in response only)
+    (display_name and profile_image_url written to DB)
     ↓
 Callback page detects isNewUser + oauthProfile
     ↓
@@ -577,19 +596,21 @@ No  → skip
     ↓
 Redirect to /welcome
     ↓
-Welcome page reads sessionStorage on mount
+Welcome page loads imported photo from currentUser.profileImageUrl
     ↓
-Pre-populates displayName + profile image as defaults
+User edits if desired, removes, or keeps the photo
     ↓
-User edits if desired, submits
-    ↓
-Onboarding POST persists everything together
+Onboarding POST persists final state:
+    • file uploaded → replace
+    • remove_profile_image=true → delete
+    • neither             → keep existing
 ```
 
 Key architectural decisions:
-- **No separate persistence endpoint** — OAuth profile data stays client-side in sessionStorage until onboarding persists it.
-- **Onboarding is the single write path** for profile information.
-- **Auto-import is removed** — `_create_oauth_user()` does not set `display_name` or `profile_image_url` from OAuth provider data.
+- **OAuth profile photo is persisted immediately** (not deferred to onboarding) — this makes the photo available on the welcome page without an extra upload.
+- **Onboarding supports explicit removal** via `remove_profile_image=true` form field — necessary because missing fields mean "no change."
+- **Onboarding is the single write path** for text profile fields (display_name, bio, username, etc.).
+- **Precedence rule:** If both `file` upload and `remove_profile_image=true` are sent, the file wins and `remove_profile_image` is ignored.
 
 ### Cookie Management Centralization
 

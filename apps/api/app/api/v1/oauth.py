@@ -118,10 +118,11 @@ async def oauth_login(
             'response_type': 'code',
             'client_id': os.getenv('GOOGLE_CLIENT_ID') if provider == 'google' else os.getenv('FACEBOOK_CLIENT_ID'),
             'redirect_uri': callback_uri,
-            'scope': 'openid email profile',
+            'scope': 'openid email profile' if provider == 'google' else 'email public_profile',
             'state': state_value,
-            'prompt': 'select_account'
         }
+        if provider == 'google':
+            auth_params['prompt'] = 'select_account'
         
         if provider == 'google':
             base_url = 'https://accounts.google.com/o/oauth2/v2/auth'

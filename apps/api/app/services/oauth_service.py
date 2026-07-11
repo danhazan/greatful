@@ -191,8 +191,12 @@ class OAuthService(BaseService):
                     ),
                 )
 
-            # Create new user from OAuth data
-            new_user = await self._create_oauth_user(provider, oauth_user_info, request)
+            # Extract OAuth profile data before creating user (used for both
+            # storing in oauth_data and returning in the auth response).
+            new_profile_data = self._extract_profile_data(oauth_user_info, provider)
+            new_user = await self._create_oauth_user(
+                provider, oauth_user_info, request, profile_data=new_profile_data
+            )
             log_oauth_security_event('user_created', provider, user_id=new_user.id)
             if request:
                 SecurityAuditor.log_security_event(
@@ -207,7 +211,8 @@ class OAuthService(BaseService):
                     },
                     severity="INFO"
                 )
-            return await self._format_user_response(new_user), True
+            user_data = await self._format_user_response(new_user)
+            return user_data, True
             
         except (AuthenticationError, ConflictError, ResurrectionRequired):
             raise
@@ -218,7 +223,13 @@ class OAuthService(BaseService):
                                      user_context={'provider': provider})
             raise AuthenticationError(f"OAuth authentication failed: {str(e)}")
     
-    async def _create_oauth_user(self, provider: str, oauth_user_info: Dict[str, Any], request: Optional[Any] = None) -> User:
+    async def _create_oauth_user(
+        self,
+        provider: str,
+        oauth_user_info: Dict[str, Any],
+        request: Optional[Any] = None,
+        profile_data: Optional[Dict[str, Any]] = None,
+    ) -> User:
         """
         Create a new user from OAuth provider data with enhanced profile extraction.
         
@@ -226,6 +237,7 @@ class OAuthService(BaseService):
             provider: OAuth provider name
             oauth_user_info: User information from OAuth provider
             request: FastAPI request object for security logging
+            profile_data: Pre-extracted profile data (avoids redundant extraction)
             
         Returns:
             Created User instance
@@ -236,29 +248,27 @@ class OAuthService(BaseService):
             username = await self.ensure_unique_username(base_username)
             
             # Enhanced profile data extraction
-            profile_data = self._extract_profile_data(oauth_user_info, provider)
+            if profile_data is None:
+                profile_data = self._extract_profile_data(oauth_user_info, provider)
             
-            # Prepare user data with enhanced profile information
             user_data = {
                 'email': oauth_user_info['email'],
                 'username': username,
                 'hashed_password': '',  # OAuth users don't have passwords
-                'display_name': profile_data['display_name'],
+                'display_name': profile_data.get('display_name', ''),
+                'profile_image_url': profile_data.get('profile_image_url'),
                 'oauth_provider': provider,
                 'oauth_id': oauth_user_info['id'],
                 'oauth_data': {
                     'provider_data': oauth_user_info,
                     'created_via_oauth': True,
                     'email_verified': oauth_user_info.get('email_verified', False),
+                    'extracted_profile': profile_data,  # raw OAuth profile, referenced during import
                     'profile_extracted_at': datetime.now(timezone.utc).isoformat(),
                     'provider_locale': oauth_user_info.get('locale'),
                     'provider_verified': oauth_user_info.get('verified_email', oauth_user_info.get('email_verified', False))
                 }
             }
-            
-            # Set profile image if available
-            if profile_data['profile_image_url']:
-                user_data['profile_image_url'] = profile_data['profile_image_url']
             
             # Add location data if available
             if profile_data.get('location'):
@@ -310,20 +320,31 @@ class OAuthService(BaseService):
     def _extract_profile_data(self, oauth_user_info: Dict[str, Any], provider: str) -> Dict[str, Any]:
         """
         Extract and normalize profile data from OAuth provider.
-        
+
+        Normalizes camelCase keys (from frontend round-trip via proxy) to
+        snake_case to keep downstream lookups uniform regardless of origin.
+
         Args:
             oauth_user_info: User information from OAuth provider
             provider: OAuth provider name
-            
+
         Returns:
             Dictionary with normalized profile data
         """
+        # ponytail: copies only when camelCase keys are present (round-trip path)
+        if 'givenName' in oauth_user_info or 'familyName' in oauth_user_info:
+            oauth_user_info = dict(oauth_user_info)
+            if 'givenName' in oauth_user_info and 'given_name' not in oauth_user_info:
+                oauth_user_info['given_name'] = oauth_user_info.pop('givenName')
+            if 'familyName' in oauth_user_info and 'family_name' not in oauth_user_info:
+                oauth_user_info['family_name'] = oauth_user_info.pop('familyName')
+
         profile_data = {
             'display_name': '',
             'profile_image_url': None,
             'location': None
         }
-        
+
         # Extract display name with fallback logic
         if oauth_user_info.get('name'):
             profile_data['display_name'] = oauth_user_info['name'].strip()
@@ -419,6 +440,26 @@ class OAuthService(BaseService):
             logger.error(f"Error updating OAuth user: {e}")
             raise BusinessLogicError(f"Failed to update user account: {str(e)}")
     
+    async def apply_oauth_profile(self, user: User, oauth_user_info: Dict[str, Any], provider: str) -> None:
+        """
+        Apply OAuth profile data to an existing User, filling only empty fields.
+
+        Idempotent — never overwrites a user's own custom display_name or
+        profile_image_url. Used by resurrection accept and re-login paths.
+        """
+        if not oauth_user_info:
+            return
+        profile_data = self._extract_profile_data(oauth_user_info, provider)
+        dirty = False
+        if not user.display_name and profile_data['display_name']:
+            user.display_name = profile_data['display_name']
+            dirty = True
+        if not user.profile_image_url and profile_data['profile_image_url']:
+            user.profile_image_url = profile_data['profile_image_url']
+            dirty = True
+        if dirty:
+            await self.db.flush()
+
     async def _link_oauth_account_with_validation(self, user: User, provider: str, oauth_user_info: Dict[str, Any], request: Optional[Any] = None) -> User:
         """
         Link OAuth account to existing user with enhanced validation and conflict handling.

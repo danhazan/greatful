@@ -270,10 +270,15 @@ class StorageAdapter:
         CRITICAL: This method expects clean relative paths from DB (no /uploads/ prefix)
         but will handle legacy paths gracefully.
         
+        Invariant:
+          Relative path (profile_photos/file.jpg) -> resolved through Storage.
+          Absolute HTTP(S) URL (https://...OAuth...) -> returned unchanged.
+        
         Examples:
           Production:  profile_photos/file.jpg -> https://supabase.co/.../grateful-uploads/profile_photos/file.jpg
           Development: profile_photos/file.jpg -> /uploads/profile_photos/file.jpg
           Legacy:      /uploads/profile_photos/file.jpg -> (normalized then converted)
+          External:    https://lh3.googleusercontent.com/... -> https://lh3.googleusercontent.com/...
         
         Args:
             relative_path: Path from database (should be 'profile_photos/file.jpg')
@@ -282,6 +287,10 @@ class StorageAdapter:
             Full URL for frontend to access the file
         """
         if not relative_path:
+            return relative_path
+
+        # Absolute URLs (OAuth profile images, external references) need no conversion
+        if relative_path.startswith('http://') or relative_path.startswith('https://'):
             return relative_path
         
         # Normalize the path first (handles legacy /uploads/ prefix and full URLs)

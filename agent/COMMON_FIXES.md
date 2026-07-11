@@ -296,6 +296,29 @@ Recurring styling issues with established fix patterns. When the fingerprint mat
 
 ---
 
+### OAuth profile not persisted after resurrection (commit-before-fill)
+
+**Fingerprint:** OAuth resurrection response contains `display_name` and `profile_image_url` (correct values in API response), but the welcome page shows defaults. Refreshing the page or re-logging shows empty profile. The DB confirms `display_name` and `profile_image_url` are still `NULL` despite the API returning them.
+
+**Root cause:** `apply_oauth_profile()` in the resurrection accept handler was called AFTER `db.commit()` and `db.refresh(user)`. Its `db.flush()` wrote to an uncommitted transaction that was rolled back when the request ended. The in-memory user object had the correct values (so the response was correct), but the DB was never updated.
+
+**Fix pattern:** Move `apply_oauth_profile()` (and any other profile-filling logic) to BEFORE `db.commit()` in the resurrection accept handler. This ensures the profile changes are in the same transaction as the resurrection, so they are committed atomically:
+```python
+resurrect_oauth_user(...)      # flush
+apply_oauth_profile(...)       # flush (same transaction)
+await db.commit()              # persists both
+await db.refresh(user)
+```
+The reverse order (commit → fill → flush → no commit) silently loses the profile update.
+
+**How to detect:** Write a test that resurrects with `oauth_user_info` and checks both the response AND the DB. If response matches but DB is NULL, this is the bug.
+
+**Key files:** `apps/api/app/api/v1/auth.py` · `apps/api/app/services/oauth_service.py`
+
+**Instances:** OAuth resurrection (Jul 2026)
+
+---
+
 ### jest.mock silently fails with SWC and imported `jest` from `@jest/globals`
 
 **Fingerprint:** `jest.mock()` calls that should replace a module with a mock factory have no effect — the real module is loaded instead. The console shows no error from the factory throw. The same mock pattern works in a project using Babel but not in Next.js. The test file imports `jest` from `@jest/globals`.
@@ -309,3 +332,28 @@ Recurring styling issues with established fix patterns. When the fingerprint mat
 **Key files:** `apps/web/src/tests/components/WelcomeOnboarding.test.tsx` (working example)
 
 **Instances:** WelcomeOnboarding.test.tsx (Jul 2026)
+
+---
+
+## Image URL: External URL mangled by storage pipeline
+
+**Fingerprint:** OAuth profile photos show as default/placeholder avatars. Display name imports correctly. The stored `profile_image_url` column contains a valid `https://...` URL, but the frontend receives a broken local URL like `http://localhost:5000/uploads/lh3.googleusercontent.com/...`.
+
+**Root cause:** External URLs from OAuth providers (Google `https://lh3.googleusercontent.com/...`, Facebook `https://graph.facebook.com/...`) are stored directly in `User.profile_image_url`. When serialized for API responses, `serialize_image_url()` passes them to `storage.get_url()` which calls `normalize_path()` — this strips the scheme/domain and prepends the local storage base URL, producing a mangled, non-loadable URL.
+
+**Key invariant:** Relative paths and absolute URLs are different concepts. Storage utilities must preserve absolute HTTP(S) URLs unchanged.
+
+- Relative path (`profile_photos/file.jpg`) → resolve through `Storage.get_url()`
+- Absolute URL (`https://...`) → return unchanged, no storage processing
+
+**Fix pattern:** Add a guard at the top of `storage.get_url()`:
+```python
+if relative_path.startswith('http://') or relative_path.startswith('https://'):
+    return relative_path
+```
+
+**How to detect:** Check `GET /api/v1/users/me/profile` response. If `profile_image_url` is a mangled local URL (contains `/uploads/` + a path fragment from the external URL), the storage pipeline is corrupting it.
+
+**Key files:** `app/core/storage.py:get_url()`, `app/core/image_urls.py:serialize_image_url()`
+
+**Instances:** OAuth signup (Jul 2026)

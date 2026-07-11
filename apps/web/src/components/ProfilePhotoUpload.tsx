@@ -57,6 +57,9 @@ export default function ProfilePhotoUpload({
   const [dragActive, setDragActive] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  // ponytail: UI-only state for instant visual feedback. Parent form state
+  // (photoRemoved in OnboardingData) is the long-term source of truth.
+  const [photoRemoved, setPhotoRemoved] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { showDebugSuccess, showError } = useToast()
 
@@ -93,7 +96,16 @@ export default function ProfilePhotoUpload({
   }
 
   const deletePhoto = async () => {
-    if (!currentPhotoUrl) return
+    if (!currentPhotoUrl && !previewUrl) return
+
+    if (currentPhotoUrl) {
+      setPhotoRemoved(true)
+    }
+
+    if (onControlledFile) {
+      onPhotoUpdate(null)
+      return
+    }
 
     setIsUploading(true)
 
@@ -110,7 +122,8 @@ export default function ProfilePhotoUpload({
   }
 
   const handleFileSelect = useCallback(async (file: File) => {
-    // Prepare image (validates type and compresses if needed)
+    setPhotoRemoved(false)
+
     const result = await prepareImageForUpload(file, PROFILE_PHOTO_OPTIONS)
     if (!result.success || !result.file) {
       showError(result.error || 'Invalid file')
@@ -181,7 +194,11 @@ export default function ProfilePhotoUpload({
     <div className={`relative ${className}`}>
       {/* Current Photo Display */}
       <div className="relative w-32 h-32 mx-auto mb-4">
-        {previewUrl || currentPhotoUrl ? (
+        {photoRemoved ? (
+          <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-100 to-purple-200 border-4 border-white shadow-lg flex items-center justify-center">
+            <User className="w-12 h-12 text-purple-400" />
+          </div>
+        ) : previewUrl || currentPhotoUrl ? (
           <img
             src={previewUrl || getImageUrl(currentPhotoUrl) || currentPhotoUrl}
             alt="Profile"
@@ -204,7 +221,7 @@ export default function ProfilePhotoUpload({
             >
               <Camera className="w-4 h-4 text-gray-700" />
             </button>
-            {currentPhotoUrl && (
+            {!photoRemoved && (currentPhotoUrl || previewUrl) && (
               <button
                 onClick={deletePhoto}
                 disabled={isUploading}

@@ -121,14 +121,13 @@ export default function OAuthCallbackPage() {
         }
 
         setIsNewUser(result.isNewUser)
+        clearRedirect()
         setStatus('success')
         setMessage(
           result.isNewUser
             ? 'Account created successfully! Welcome to Grateful.'
             : 'Login successful! Welcome back.'
         )
-
-        clearRedirect()
         setTimeout(() => {
           router.push(result.isNewUser ? '/welcome' : redirectTo)
         }, 2000)
@@ -199,11 +198,10 @@ export default function OAuthCallbackPage() {
       }
 
       setIsNewUser(result.isNewUser)
+      setIsResurrecting(false)
+      clearRedirect()
       setStatus('success')
       setMessage(result.isNewUser ? 'Account created! Welcome to Grateful.' : 'Account restored! Welcome back.')
-      setIsResurrecting(false)
-
-      clearRedirect()
       setTimeout(() => {
         router.push('/welcome')
       }, 2000)

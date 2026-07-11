@@ -1084,6 +1084,7 @@ GET    /api/v1/users/{user_id}/posts     # Get another user's public posts
 POST   /api/v1/users/search              # Search users by username (for mentions)
 POST   /api/v1/users/validate-batch      # Validate multiple usernames for mention highlighting
 GET    /api/v1/users/username/{username} # Get user profile by username
+POST   /api/v1/users/me/onboarding        # Complete onboarding with profile fields + photo
 POST   /api/v1/users/me/profile/photo    # Upload profile photo with image processing
 DELETE /api/v1/users/me/profile/photo    # Delete current profile photo
 GET    /api/v1/users/me/profile/photo/default # Get default avatar URL
@@ -1108,6 +1109,18 @@ All user references in API responses (comments, reactions, mentions, notificatio
 - Deleted users return `username: null`, `display_name: "Deleted user"`, `name: "Deleted user"`, `profile_image_url: null`, `image: null`
 - Both `display_name` and `name` set to "Deleted user" for resilience against components that forget the `isDeleted` check
 - Frontend renders: gray placeholder avatar (no link), "Deleted user" text (not clickable), no follow button
+
+**Onboarding (`POST /api/v1/users/me/onboarding`):**
+- Multipart form-data endpoint for completing user onboarding (welcome page).
+- Fields: `username`, `display_name`, `bio`, `city`, `institutions` (JSON string), `websites` (JSON string), `regional_date_format`, `file` (profile photo upload), `crop_data`, `remove_profile_image` (boolean, default `false`).
+- **Photo handling — three explicit states:**
+  - `file` uploaded → replace existing photo (ignores `remove_profile_image`)
+  - `remove_profile_image=true`, no `file` → delete existing photo
+  - Neither → no change to existing photo
+- Precedence: file upload > remove signal > no change.
+- The `elif` guard ensures mutual exclusion — no data-loss window.
+- Returns the updated user profile in the same format as `GET /users/me/profile`.
+- See `docs/AUTHENTICATION_AND_LOGIN_SPEC.md` for the full onboarding flow specification.
 
 **Resurrection on Signup:**
 - `POST /api/v1/auth/signup` returns **409 Conflict** when email matches an unconsumed tombstone

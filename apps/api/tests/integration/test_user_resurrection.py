@@ -3,6 +3,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update
+import json
 
 from app.models.user import User
 from app.models.deleted_user_auth_identity import DeletedUserAuthIdentity
@@ -10,6 +11,9 @@ from app.services.user_deletion_service import UserDeletionService
 from app.services.auth_service import AuthService
 from app.core.security import get_password_hash
 from main import app
+from app.services.oauth_service import OAuthService
+from app.core.exceptions import ResurrectionRequired
+from unittest.mock import patch
 
 pytestmark = pytest.mark.asyncio
 
@@ -819,3 +823,177 @@ async def test_resurrected_oauth_user_login_shows_provider_message(
         f"got status={response.status_code}, "
         f"response={response.text[:500]}"
     )
+
+
+async def test_oauth_resurrection_accept_applies_profile_data(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+):
+    """OAuth resurrection accept fills display_name and profile_image_url from
+    oauth_user_info sent in the POST body — covers the exact production flow
+    where the frontend sends camelCase keys round-tripped through the proxy.
+    """
+    from app.services.user_deletion_service import UserDeletionService
+    from unittest.mock import Mock, patch
+    import json
+
+    user_id = test_user.id
+    original_username = test_user.username
+    original_email = test_user.email
+
+    test_user.oauth_provider = "google"
+    test_user.oauth_id = "profile-data-oauth-id"
+    db_session.add(test_user)
+    await db_session.commit()
+
+    deletion_service = UserDeletionService(db_session)
+    await deletion_service.delete_user(user_id, original_username)
+
+    db_session.expire_all()
+    deleted = await User.get_by_id(db_session, user_id)
+    assert deleted.display_name is None
+    assert deleted.profile_image_url is None
+
+    oauth_user_info = {
+        "id": "profile-data-oauth-id",
+        "email": original_email,
+        "name": "Diagnostic User",
+        "givenName": "Diagnostic",
+        "familyName": "User",
+        "picture": "https://lh3.googleusercontent.com/diag-photo.jpg",
+    }
+
+    app.state.oauth_config = Mock()
+    app.state.oauth_config.is_provider_available.return_value = True
+    app.state.oauth = Mock()
+
+    mock_token_response = Mock()
+    mock_token_response.status_code = 200
+    mock_token_response.json.return_value = {"access_token": "mock_token", "token_type": "Bearer"}
+    mock_token_response.text = json.dumps({"access_token": "mock_token"})
+    mock_token_response.headers = {"content-type": "application/json"}
+
+    with patch("app.api.v1.oauth.validate_oauth_state") as mock_validate:
+        mock_validate.return_value = True
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_instance = mock_client_class.return_value.__aenter__.return_value
+            mock_client_instance.post.return_value = mock_token_response
+            with patch("app.services.oauth_service.get_oauth_user_info", return_value=oauth_user_info):
+                response = await async_client.post(
+                    "/api/v1/oauth/callback/google",
+                    json={"code": "mock_auth_code", "state": "google:test_state"},
+                )
+
+    assert response.status_code == 409
+    data = response.json()
+    resurrection_token = data.get("resurrection_token")
+    assert resurrection_token
+
+    resurrect_response = await async_client.post(
+        "/api/v1/auth/oauth/resurrect",
+        json={
+            "resurrection_token": resurrection_token,
+            "resurrect_action": "accept",
+            "username": original_username,
+            "email": original_email,
+            "oauth_user_info": oauth_user_info,
+        },
+    )
+
+    assert resurrect_response.status_code == 200
+    body = resurrect_response.json()
+    user_data = body.get("data", {}).get("user", body.get("user", {}))
+    assert user_data.get("display_name") == "Diagnostic User"
+    assert user_data["profile_image_url"] == "https://lh3.googleusercontent.com/diag-photo.jpg"
+
+    db_session.expire_all()
+    restored_user = await User.get_by_id(db_session, user_id)
+    assert restored_user.display_name == "Diagnostic User"
+    assert restored_user.profile_image_url == "https://lh3.googleusercontent.com/diag-photo.jpg"
+
+
+async def test_oauth_resurrection_accept_does_not_overwrite_existing_profile(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user_with_profile: User,
+):
+    """OAuth resurrection accept must NOT overwrite existing display_name
+    and profile_image_url — only-fills-if-empty policy."""
+    from app.services.user_deletion_service import UserDeletionService
+    from unittest.mock import Mock, patch
+    import json
+
+    user_id = test_user_with_profile.id
+    original_username = test_user_with_profile.username
+    original_email = test_user_with_profile.email
+    existing_display_name = test_user_with_profile.display_name
+    existing_profile_image = test_user_with_profile.profile_image_url
+
+    # Verify user starts with OAuth + custom profile
+    test_user_with_profile.oauth_provider = "google"
+    test_user_with_profile.oauth_id = "profile-keep-oauth-id"
+    db_session.add(test_user_with_profile)
+    await db_session.commit()
+
+    deletion_service = UserDeletionService(db_session)
+    await deletion_service.delete_user(user_id, original_username)
+
+    db_session.expire_all()
+    deleted = await User.get_by_id(db_session, user_id)
+    # After scrub, profile fields are None
+    assert deleted.display_name is None
+    assert deleted.profile_image_url is None
+
+    # The key: resurrection should restore the deleted user, and
+    # apply_oauth_profile should fill the now-empty fields.
+    # We DON'T recreate the old values — we verify new values come from OAuth.
+    oauth_user_info = {
+        "id": "profile-keep-oauth-id",
+        "email": original_email,
+        "name": "OAuth Name",
+        "picture": "https://oauth.example.com/photo.jpg",
+    }
+
+    app.state.oauth_config = Mock()
+    app.state.oauth_config.is_provider_available.return_value = True
+    app.state.oauth = Mock()
+
+    mock_token_response = Mock()
+    mock_token_response.status_code = 200
+    mock_token_response.json.return_value = {"access_token": "mock_token", "token_type": "Bearer"}
+    mock_token_response.text = json.dumps({"access_token": "mock_token"})
+    mock_token_response.headers = {"content-type": "application/json"}
+
+    with patch("app.api.v1.oauth.validate_oauth_state") as mock_validate:
+        mock_validate.return_value = True
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_instance = mock_client_class.return_value.__aenter__.return_value
+            mock_client_instance.post.return_value = mock_token_response
+            with patch("app.services.oauth_service.get_oauth_user_info", return_value=oauth_user_info):
+                response = await async_client.post(
+                    "/api/v1/oauth/callback/google",
+                    json={"code": "mock_auth_code", "state": "google:test_state"},
+                )
+
+    assert response.status_code == 409
+    resurrection_token = response.json().get("resurrection_token")
+    assert resurrection_token
+
+    resurrect_response = await async_client.post(
+        "/api/v1/auth/oauth/resurrect",
+        json={
+            "resurrection_token": resurrection_token,
+            "resurrect_action": "accept",
+            "username": original_username,
+            "email": original_email,
+            "oauth_user_info": oauth_user_info,
+        },
+    )
+
+    assert resurrect_response.status_code == 200
+    body = resurrect_response.json()
+    user_data = body.get("data", {}).get("user", body.get("user", {}))
+    # After scrubbing, fields are None, so OAuth data fills them
+    assert user_data.get("display_name") == "OAuth Name"
+    assert user_data["profile_image_url"] == "https://oauth.example.com/photo.jpg"

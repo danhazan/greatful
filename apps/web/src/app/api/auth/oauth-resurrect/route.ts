@@ -5,6 +5,7 @@ import {
   createErrorResponse,
   proxyBackendJsonResponse,
 } from '@/lib/api-utils'
+import { setAuthCookies } from '@/lib/auth-cookies'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,11 +32,6 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
     const payload = data.data
-    const refreshToken = payload.refresh_token
-    const signupToken = payload.signup_token
-
-    if (payload.refresh_token) delete payload.refresh_token
-    if (payload.signup_token) delete payload.signup_token
 
     const { transformApiResponse } = await import('@/lib/caseTransform')
     const transformedData = transformApiResponse(data)
@@ -44,25 +40,7 @@ export async function POST(request: NextRequest) {
     const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https'
     const secureFlag = isHttps || process.env.NODE_ENV === 'production'
 
-    if (refreshToken) {
-      nextResponse.cookies.set('refresh_token', refreshToken, {
-        httpOnly: true,
-        secure: secureFlag,
-        sameSite: 'lax' as const,
-        maxAge: 30 * 24 * 60 * 60,
-        path: '/',
-      })
-    }
-
-    if (signupToken) {
-      nextResponse.cookies.set('signup_token', signupToken, {
-        httpOnly: true,
-        secure: secureFlag,
-        sameSite: 'lax' as const,
-        maxAge: 15 * 60,
-        path: '/',
-      })
-    }
+    setAuthCookies(nextResponse, payload, secureFlag)
 
     return nextResponse
   } catch (error) {

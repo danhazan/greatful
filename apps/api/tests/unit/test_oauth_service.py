@@ -260,6 +260,8 @@ class TestOAuthService:
             assert user.oauth_provider == 'google'
             assert user.oauth_id == mock_oauth_user_info['id']
             assert user.hashed_password == ''  # OAuth users don't have passwords
+            # Raw OAuth profile is stored in oauth_data['extracted_profile']
+            assert user.oauth_data.get('extracted_profile', {}).get('display_name') == mock_oauth_user_info['name']
     
     @pytest.mark.asyncio
     async def test_create_oauth_user_with_profile_image(self, oauth_service, mock_oauth_user_info):
@@ -270,7 +272,7 @@ class TestOAuthService:
             mock_unique.return_value = 'testuser123'
             
             user = await oauth_service._create_oauth_user('google', mock_oauth_user_info)
-            
+
             assert user.profile_image_url == 'https://example.com/profile.jpg'
     
     @pytest.mark.asyncio

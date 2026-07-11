@@ -21,11 +21,14 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/components/ProfilePhotoUpload', () => {
-  const Mock = ({ onControlledFile }: any) =>
+  const Mock = ({ onPhotoUpdate, onControlledFile }: any) =>
     React.createElement('div', { 'data-testid': 'profile-photo-upload' },
       React.createElement('button', {
         onClick: () => onControlledFile?.(new Blob(), { x: 0, y: 0, radius: 100 })
-      }, 'Upload Photo')
+      }, 'Upload Photo'),
+      React.createElement('button', {
+        onClick: () => onPhotoUpdate?.(null)
+      }, 'Remove Photo')
     )
   return Mock
 })
@@ -203,7 +206,78 @@ describe('Welcome Onboarding', () => {
     })
   })
 
-describe('Validation Errors', () => {
+  describe('Photo Removal', () => {
+    const renderWithPhoto = () => {
+      (useUser as jest.Mock).mockReturnValue({
+        currentUser: {
+          id: '1',
+          signupEligible: true,
+          username: 'test',
+          email: 'test@test.com',
+          profileImageUrl: 'https://oauth.example.com/photo.jpg',
+        },
+        isLoading: false,
+        reloadUser: mockReloadUser,
+      })
+      return render(React.createElement(WelcomePage))
+    }
+
+    function submitOnboarding() {
+      const nextBtn = screen.getByText('Next')
+      fireEvent.click(nextBtn)
+      fireEvent.click(nextBtn)
+      fireEvent.click(nextBtn)
+      fireEvent.click(screen.getByText('Finish'))
+      fireEvent.click(screen.getAllByText('Finish')[1])
+    }
+
+    it('sends remove_profile_image=true when user removes photo', () => {
+      renderWithPhoto()
+      fireEvent.click(screen.getByText('Remove Photo'))
+      submitOnboarding()
+
+      const callBody = mockFetch.mock.calls[0][1].body
+      expect(callBody).toBeInstanceOf(FormData)
+      expect((callBody as FormData).get('remove_profile_image')).toBe('true')
+      expect((callBody as FormData).get('file')).toBeNull()
+    })
+
+    it('does not send remove_profile_image when new file uploaded after remove', () => {
+      renderWithPhoto()
+      fireEvent.click(screen.getByText('Remove Photo'))
+      fireEvent.click(screen.getByText('Upload Photo'))
+      submitOnboarding()
+
+      const callBody = mockFetch.mock.calls[0][1].body
+      expect(callBody).toBeInstanceOf(FormData)
+      expect((callBody as FormData).get('remove_profile_image')).toBeNull()
+      expect((callBody as FormData).get('file')).toBeTruthy()
+    })
+
+    it('does not send remove_profile_image when normal user removes photo', () => {
+      (useUser as jest.Mock).mockReturnValue({
+        currentUser: {
+          id: '1',
+          signupEligible: true,
+          username: 'test',
+          email: 'test@test.com',
+          // No profileImageUrl — normal user, not OAuth
+        },
+        isLoading: false,
+        reloadUser: mockReloadUser,
+      })
+      render(React.createElement(WelcomePage))
+      fireEvent.click(screen.getByText('Remove Photo'))
+      submitOnboarding()
+
+      const callBody = mockFetch.mock.calls[0][1].body
+      expect(callBody).toBeInstanceOf(FormData)
+      expect((callBody as FormData).get('remove_profile_image')).toBeNull()
+      expect((callBody as FormData).get('file')).toBeNull()
+    })
+  })
+
+  describe('Validation Errors', () => {
     function nextToLastAndClickFinish() {
       const nextBtn = screen.getByText('Next')
       fireEvent.click(nextBtn)

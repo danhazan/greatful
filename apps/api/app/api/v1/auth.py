@@ -313,6 +313,13 @@ async def oauth_resurrect(
             username=body.username,
             oauth_user_info=oauth_user_info,
         )
+
+        # Apply OAuth profile data BEFORE commit — changes must be in the same
+        # transaction so they are persisted atomically.
+        if body.oauth_user_info:
+            oauth_service = OAuthService(db)
+            await oauth_service.apply_oauth_profile(user, body.oauth_user_info, provider)
+
         await db.commit()
         await db.refresh(user)
 
@@ -327,7 +334,7 @@ async def oauth_resurrect(
         logger.info(f"OAuth user resurrected: {user.id}")
 
         return build_auth_response(
-            user={"id": user.id, "username": user.username, "email": user.email},
+            user={"id": user.id, "username": user.username, "email": user.email, "display_name": user.display_name, "profile_image_url": user.profile_image_url},
             access_token=access_token,
             refresh_token=refresh_token,
             is_new_user=True,
@@ -360,7 +367,7 @@ async def oauth_resurrect(
     logger.info(f"New OAuth user created (declined resurrection): {new_user.id}")
 
     return build_auth_response(
-        user={"id": new_user.id, "username": new_user.username, "email": new_user.email},
+        user={"id": new_user.id, "username": new_user.username, "email": new_user.email, "display_name": new_user.display_name, "profile_image_url": new_user.profile_image_url},
         access_token=create_access_token({
             "sub": str(new_user.id),
             "username": new_user.username,
@@ -844,7 +851,7 @@ async def _handle_oauth_callback(
             is_new_user=is_new_user,
             request_id=getattr(request.state, 'request_id', None)
         )
-        
+
     except ResurrectionRequired as e:
         from app.core.resurrection_response import build_oauth_resurrection_response
         from fastapi.responses import JSONResponse
