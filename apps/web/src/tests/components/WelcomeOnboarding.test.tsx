@@ -46,13 +46,17 @@ jest.mock('@/components/settings/ProfileInformationForm', () => {
 })
 
 jest.mock('@/components/settings/AccountSettingsForm', () => {
-  const Mock = ({ value, onChange }: any) =>
+  const Mock = ({ value, onChange, usernameError, isUsernameEditable, onToggleUsernameEdit, onCancelUsernameEdit }: any) =>
     React.createElement('div', { 'data-testid': 'account-settings-form' },
       React.createElement('input', {
         'data-testid': 'username-input',
         defaultValue: value.username,
         onChange: (e: any) => onChange({ ...value, username: e.target.value })
       }),
+      usernameError ? React.createElement('p', { 'data-testid': 'username-error' }, usernameError) : null,
+      onToggleUsernameEdit ? React.createElement('button', {
+        onClick: () => isUsernameEditable && onCancelUsernameEdit ? onCancelUsernameEdit() : onToggleUsernameEdit()
+      }, isUsernameEditable ? 'Cancel' : 'Change') : null,
     )
   return Mock
 })
@@ -291,7 +295,14 @@ describe('Welcome Onboarding', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 409,
-        json: async () => ({ detail: 'Username already taken' }),
+        json: async () => ({
+          success: false,
+          error: {
+            code: 'already_exists',
+            message: 'Username already taken',
+            details: { resource: 'user' },
+          },
+        }),
       })
 
       render(React.createElement(WelcomePage))
@@ -300,17 +311,74 @@ describe('Welcome Onboarding', () => {
       await waitFor(() => expect(screen.getByTestId('account-settings-form')).toBeTruthy())
     })
 
-    it('navigates to profile slide on display_name validation failure', async () => {
+    it('shows generic error for 422 without error code', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 422,
-        json: async () => ({ detail: 'display_name is too long' }),
+        json: async () => ({ detail: [{ loc: ['body', 'display_name'], msg: 'too long' }] }),
       })
 
       render(React.createElement(WelcomePage))
       nextToLastAndClickFinish()
 
-      await waitFor(() => expect(screen.getByTestId('profile-info-form')).toBeTruthy())
+      // 422 from FastAPI native validation lacks error.code → falls to generic error display
+      await waitFor(() => expect(screen.getByText(/too long/i)).toBeTruthy())
+    })
+
+    it('clears username error when user edits the field', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          success: false,
+          error: {
+            code: 'already_exists',
+            message: 'Username already taken',
+            details: { resource: 'user' },
+          },
+        }),
+      })
+
+      render(React.createElement(WelcomePage))
+      nextToLastAndClickFinish()
+
+      await waitFor(() => expect(screen.getByTestId('username-error')).toBeTruthy())
+      expect(screen.getByText('Username already taken')).toBeTruthy()
+
+      fireEvent.change(screen.getByTestId('username-input'), { target: { value: 'newusername' } })
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('username-error')).toBeFalsy()
+      })
+    })
+
+    it('clears username error when user presses Cancel', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          success: false,
+          error: {
+            code: 'already_exists',
+            message: 'Username already taken',
+            details: { resource: 'user' },
+          },
+        }),
+      })
+
+      render(React.createElement(WelcomePage))
+      nextToLastAndClickFinish()
+
+      await waitFor(() => expect(screen.getByTestId('username-error')).toBeTruthy())
+      expect(screen.getByText('Username already taken')).toBeTruthy()
+
+      // Click Change to make username editable, then Cancel
+      fireEvent.click(screen.getByText('Change'))
+      fireEvent.click(screen.getByText('Cancel'))
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('username-error')).toBeFalsy()
+      })
     })
   })
 })

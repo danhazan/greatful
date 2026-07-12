@@ -124,14 +124,18 @@ export default function ProfilePhotoUpload({
   const handleFileSelect = useCallback(async (file: File) => {
     setPhotoRemoved(false)
 
-    const result = await prepareImageForUpload(file, PROFILE_PHOTO_OPTIONS)
-    if (!result.success || !result.file) {
-      showError(result.error || 'Invalid file')
-      return
-    }
+    try {
+      const result = await prepareImageForUpload(file, PROFILE_PHOTO_OPTIONS)
+      if (!result.success || !result.file) {
+        showError(result.error || 'Invalid file')
+        return
+      }
 
-    setSelectedFile(result.file)
-    setShowCropModal(true)
+      setSelectedFile(result.file)
+      setShowCropModal(true)
+    } catch (e) {
+      showError('Failed to process image')
+    }
   }, [showError])
 
   const handleCropComplete = (cropData: CropData, croppedBlob: Blob) => {
@@ -154,6 +158,8 @@ export default function ProfilePhotoUpload({
     if (file) {
       handleFileSelect(file)
     }
+    // ponytail: Reset value so the same file can be re-selected after removal
+    e.target.value = ''
   }
 
   const handleDrag = useCallback((e: React.DragEvent) => {

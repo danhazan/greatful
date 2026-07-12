@@ -234,6 +234,31 @@ describe('ProfilePage profile save', () => {
     })
   })
 
+  it('clears username error when user edits the field', async () => {
+    mockApiClient.put.mockRejectedValueOnce(new Error('HTTP 409: {"detail":"Username already taken"}'))
+
+    const user = userEvent.setup()
+    renderProfilePage()
+
+    await user.click(await screen.findByText('Edit Account'))
+    await user.click(screen.getByText('Change'))
+
+    const usernameInput = screen.getByDisplayValue('Unknown User')
+    fireEvent.change(usernameInput, { target: { value: 'newusername' } })
+
+    await user.click(screen.getByText('Save Changes'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Username already taken')).toBeInTheDocument()
+    })
+
+    fireEvent.change(usernameInput, { target: { value: 'anotherusername' } })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Username already taken')).not.toBeInTheDocument()
+    })
+  })
+
   it('shows original error message for non-JSON API error', async () => {
     mockApiClient.put.mockRejectedValueOnce(new Error('Network Error'))
 

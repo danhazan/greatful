@@ -28,10 +28,12 @@ export default function CircularCropModal({
   const imageRef = useRef<HTMLImageElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const cropInitialized = useRef(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [cropData, setCropData] = useState<CropData>({ x: 0, y: 0, radius: 100 })
   const [imageUrl, setImageUrl] = useState<string>('')
+  const [cropError, setCropError] = useState('')
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [imageDisplaySize, setImageDisplaySize] = useState({ width: 0, height: 0 })
   const [imageNaturalSize, setImageNaturalSize] = useState({ width: 0, height: 0 })
@@ -113,20 +115,28 @@ export default function CircularCropModal({
     setMinRadius(minR)
     setMaxRadius(maxR)
 
-    // Set initial crop data
-    const initialRadius = Math.min(Math.min(displayWidth, displayHeight) / 4, maxR)
-    setCropData({ x: centerX, y: centerY, radius: initialRadius })
+    // Set initial crop data only for first load per image, not on resize recalculations
+    if (!cropInitialized.current) {
+      const initialRadius = Math.min(Math.min(displayWidth, displayHeight) / 4, maxR)
+      setCropData({ x: centerX, y: centerY, radius: initialRadius })
+      cropInitialized.current = true
+    }
 
     setImageLoaded(true)
   }, [])
 
-  // Create image URL when modal opens
+  // Create image URL when modal opens or image file changes
   useEffect(() => {
     if (isOpen && imageFile) {
+      // Reset crop initialization for new image — ensures Image B doesn't
+      // inherit Image A's crop position. Safe because this effect runs
+      // BEFORE the image loads (blob URL creation triggers a re-render
+      // which sets the img src, and only then does the img load).
+      cropInitialized.current = false
+
       const url = URL.createObjectURL(imageFile)
       setImageUrl(url)
       setImageLoaded(false)
-
       return () => {
         URL.revokeObjectURL(url)
       }
@@ -296,12 +306,14 @@ export default function CircularCropModal({
 
   // Handle crop completion
   const handleComplete = useCallback(async () => {
+    setCropError('')
     try {
       const croppedBlob = await generateCroppedImage()
       const naturalCrop = displayToNatural(cropData)
       onCropComplete(naturalCrop, croppedBlob)
     } catch (error) {
       console.error('Error generating cropped image:', error)
+      setCropError('Failed to crop image. Please try again.')
     }
   }, [generateCroppedImage, displayToNatural, cropData, onCropComplete])
 
@@ -463,6 +475,11 @@ export default function CircularCropModal({
                 Drag the circle to position your crop area
               </p>
             </div>
+
+            {/* Error message */}
+            {cropError && (
+              <p className="text-sm text-red-600 text-center mb-2">{cropError}</p>
+            )}
 
             {/* Buttons - aligned and consistent */}
             <div className="flex justify-end space-x-3">

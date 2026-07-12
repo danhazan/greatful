@@ -492,27 +492,43 @@ Historical debugging of the Grateful authentication system revealed several crit
 
 ## 9. Welcome / Onboarding Flow
 
-New users (email signup, OAuth signup, password resurrection, and OAuth resurrection) enter a guided onboarding flow immediately after account creation instead of being sent to the feed.
+New users enter a guided onboarding flow immediately after account creation instead of being sent to the feed. This applies to all four account-creation paths: email signup, OAuth signup, password resurrection, and OAuth resurrection.
 
-### Architecture: Signup Token
+### Entry Points
 
-Onboarding access is gated by a short-lived JWT called the **signup token**.
+| Entry | Backend route | `is_new_user` |
+|-------|--------------|---------------|
+| Email signup | `POST /api/v1/auth/signup` | `True` |
+| OAuth signup | `POST /api/v1/oauth/callback/{provider}` | `True` |
+| Password resurrection | `POST /api/v1/auth/signup` (same route) | `True` |
+| OAuth resurrection (accept) | `POST /api/v1/auth/oauth/resurrect` | `True` |
+| OAuth resurrection (decline) | `POST /api/v1/auth/oauth/resurrect` | `True` |
+
+All five call `build_auth_response(is_new_user=True)` in `app/core/responses.py` — the sole gate for onboarding eligibility. Returning users (login, refresh, account linking) pass `is_new_user=False` and skip onboarding entirely.
+
+### Full Onboarding Flow
 
 ```
-Auth Response (is_new_user=True)
+Auth success (is_new_user=True)
     ↓
 build_auth_response() generates signup_token JWT (15 min expiry)
     ↓
-Next.js proxy sets signup_token as HttpOnly cookie
+Next.js proxy setAuthCookies() stores signup_token as HttpOnly cookie
     ↓
 Frontend redirects to /welcome
     ↓
-Welcome page route guard checks currentUser.signupEligible
+WelcomePage route guard checks currentUser.signupEligible (from GET /me/profile)
     ↓
-/users/me/profile reads signup_token cookie, verifies JWT + user_id match
+4-slide wizard: photo → profile info → account settings → confirmation
     ↓
-Returns signup_eligible: true/false
+Single POST /users/me/onboarding multipart/form-data
+    ↓
+On success: signup_token cookie cleared → redirect to /profile
 ```
+
+**Key architectural rules:**
+- **signup_token is a presentation gate only.** It is verified in `GET /me/profile` (to compute `signup_eligible`), not in the onboarding submission endpoint. `POST /users/me/onboarding` authenticates solely via the standard JWT Bearer token. An expired signup_token does not block a user mid-onboarding — they can finish and save data even if the gate expired.
+- **Single submission.** All profile fields (text + photo) are collected in frontend `OnboardingData` state and sent together in one multipart POST. There is no partial-save or auto-save.
 
 ### Signup Token Specification
 
@@ -521,22 +537,6 @@ Returns signup_eligible: true/false
 - **Expiry**: 15 minutes (`SIGNUP_TOKEN_EXPIRE_MINUTES` in `app/config/signup_token_config.py`).
 - **Cookie**: `HttpOnly`, `Secure`, `SameSite=Lax`, `maxAge=15min`, `path=/`. Set by three proxy routes (`signup`, `callback`, `oauth-resurrect`) via the shared `setAuthCookies()` helper.
 - **Validation**: `verify_signup_token()` decodes the JWT, verifies audience/issuer/claims, checks `type == "signup"` and `purpose == "signup"`. Returns payload or `None`.
-
-### Backend Contract
-
-Every auth endpoint that creates or restores a user's account passes `is_new_user=True` to `build_auth_response()`, which automatically generates a `signup_token` and includes it in the `AuthResponseData`.
-
-Five entry points — all use `is_new_user=True`:
-
-| Entry Point | Endpoint | Location |
-|---|---|---|
-| Email signup | `POST /signup` | `auth.py` line 235 |
-| OAuth signup | `POST /oauth/callback/{provider}` | `oauth.py` line 322 |
-| Password resurrection | `POST /signup` (same as email) | `auth.py` line 235 |
-| OAuth resurrection (accept) | `POST /oauth/resurrect` | `auth.py` line 346 |
-| OAuth resurrection (decline) | `POST /oauth/resurrect` | `auth.py` line 388 |
-
-Other endpoints (login, refresh, account linking) use `is_new_user=False` and do NOT produce a signup token — correct, because returning users do not need onboarding.
 
 ### Welcome Page Route Guard
 
@@ -549,7 +549,7 @@ The welcome page (`(welcome)/welcome/page.tsx`) guards access via:
 
 ### Onboarding Submission
 
-The welcome page collects profile data (display name, bio, username, photo, etc.) in frontend state and submits a single `multipart/form-data` POST to `/users/me/onboarding`. This endpoint:
+The welcome page collects profile data (display name, bio, username, photo, etc.) in frontend `OnboardingData` state and submits a single `multipart/form-data` POST to `/users/me/onboarding`. This endpoint:
 
 1. Authenticates via JWT (`get_current_user_id`).
 2. Validates and saves all profile fields.
@@ -560,32 +560,52 @@ This ensures: user spends 30 minutes completing onboarding → token expires →
 
 #### Photo handling contract (three explicit states)
 
-The onboarding photo handling is an explicit three-state contract. Missing fields always mean "no change":
+Enforced by `if/elif` in the backend handler:
 
-| Condition | Behavior | Mechanism |
-|-----------|----------|-----------|
-| No `file`, no `remove_profile_image` | No change to existing photo | Default — photo field untouched |
-| `file` provided | Replace existing photo with new upload | `ProfilePhotoService.upload_profile_photo()` — also handles cleanup of old variants |
+| Condition | Behavior | Backend path |
+|-----------|----------|-------------|
+| `file` provided | Replace existing photo | `ProfilePhotoService.upload_profile_photo()` |
 | `remove_profile_image=true`, no `file` | Delete existing photo | `ProfilePhotoService.delete_profile_photo()` |
-| Both `file` and `remove_profile_image=true` | File wins, remove is ignored | Precedence enforced by `if/elif` in the handler |
+| Neither | No change | Field untouched |
+
+Precedence: file upload > remove signal > no change. `remove_profile_image` is ignored when a file is also sent.
 
 **Key rules:**
 - `remove_profile_image` defaults to `False` (backward compatible).
-- If a new file is uploaded, `remove_profile_image` is always ignored — the file replaces whatever existed.
 - The welcome page never calls the standalone profile photo DELETE endpoint. All onboarding photo changes go through the single `/users/me/onboarding` POST.
-- Frontend tracks `photoRemoved: boolean` in onboarding form state, not just in component-local state. This persists across slide navigation.
+- Frontend tracks `photoRemoved: boolean` in `OnboardingData` state, not in component-local state. This persists across slide navigation. The `buildFormData()` helper's `elif` guard ensures mutual exclusion: `remove_profile_image=true` is only appended when `photoRemoved` is true AND no new file is present.
+
+#### Username Validation Flow
+
+Username conflicts are the only server-side field error currently handled during onboarding:
+
+```
+Submit → 409 Conflict { error: { code: "already_exists", message: "..." } }
+    ↓
+ERROR_FIELD_MAP ("already_exists" → "username")
+    ↓
+FIELD_SLIDE_MAP ("username" → slide index 2)
+    ↓
+setFieldErrors({ username: message }) + setCurrentSlide(2)
+    ↓
+AccountSettingsForm receives usernameError prop → renders under field
+    ↓
+User edits field → setFieldErrors clears only username key
+User presses Cancel → same clearing + username reset to original
+Next submit → setFieldErrors({}) before attempt
+```
+
+**Only the `already_exists` error code is currently mapped.** `FIELD_SLIDE_MAP` contains speculative entries for `display_name`, `bio`, `city`, `file` with corresponding slide indices — these are defensive (no backend error code currently populates them) and exist so that adding a new error code only requires a one-line map entry.
 
 ### OAuth Profile Import
 
-When an OAuth provider supplies profile information (display name, profile image), the callback page may show an optional import dialog before redirecting to `/welcome`.
-
-At signup/resurrection, the OAuth-provided `profile_image_url` is **immediately persisted** to the User DB record. This ensures the imported photo is available immediately on the welcome page without an additional upload. The user can choose to keep, replace, or remove it during onboarding.
+OAuth data is persisted immediately at signup (not deferred to onboarding). `_create_oauth_user()` in `oauth_service.py` writes `profile_image_url` and `display_name` to the DB during account creation.
 
 ```
 OAuth callback success (is_new_user=True)
     ↓
 Auth response includes oauth_profile: {displayName, profileImageUrl}
-    (display_name and profile_image_url written to DB)
+    (display_name and profile_image_url written to DB at creation time)
     ↓
 Callback page detects isNewUser + oauthProfile
     ↓
@@ -596,21 +616,49 @@ No  → skip
     ↓
 Redirect to /welcome
     ↓
-Welcome page loads imported photo from currentUser.profileImageUrl
+Welcome page pre-fills:
+    • currentUser.displayName → form state (editable on slide 1)
+    • currentUser.profileImageUrl → ProfilePhotoUpload (replaceable on slide 0)
+    • currentUser.username → form state (editable on slide 2)
     ↓
 User edits if desired, removes, or keeps the photo
     ↓
 Onboarding POST persists final state:
     • file uploaded → replace
     • remove_profile_image=true → delete
-    • neither             → keep existing
+    • neither       → keep existing
 ```
 
+**"Only-fill-if-empty" on re-login/linking.** Three paths (`_update_oauth_user`, `apply_oauth_profile`, `_perform_oauth_linking`) only overwrite `display_name` and `profile_image_url` when the existing DB value is `NULL`. If the user customized these fields after onboarding, OAuth re-login does not revert them.
+
 Key architectural decisions:
-- **OAuth profile photo is persisted immediately** (not deferred to onboarding) — this makes the photo available on the welcome page without an extra upload.
+- **OAuth profile photo is persisted immediately** (not deferred to onboarding) — makes the photo available on the welcome page without an extra upload.
 - **Onboarding supports explicit removal** via `remove_profile_image=true` form field — necessary because missing fields mean "no change."
 - **Onboarding is the single write path** for text profile fields (display_name, bio, username, etc.).
 - **Precedence rule:** If both `file` upload and `remove_profile_image=true` are sent, the file wins and `remove_profile_image` is ignored.
+
+### External URL Architecture (OAuth Profile Images)
+
+OAuth provider URLs (Google `lh3.googleusercontent.com`, Facebook `graph.facebook.com`) are stored **as-is** in `User.profile_image_url`, not downloaded or copied to local storage.
+
+**Why external URLs are intentional:**
+
+| Reason | Detail |
+|--------|--------|
+| No duplicate storage | Avoids storing the same image twice (S3/local + OAuth CDN) |
+| No download pipeline | Eliminates upload latency, error handling, and resize processing for OAuth-originated images |
+| Immediate availability | The URL works as soon as OAuth login completes, no processing delay |
+| Fewer moving parts | No background sync, no migration on provider change, no cache invalidation |
+| Works with existing serialization | `storage.get_url()` has an absolute-URL guard: URLs starting with `http://` or `https://` are returned unchanged |
+
+**Risks:**
+
+- Google avatar CDN paths can change (`lh3.googleusercontent.com` path structure is not documented as stable)
+- Facebook `graph.facebook.com` URLs may require an `access_token` for some endpoints, causing 403s for unauthenticated viewers
+- If a provider deprecates a URL format, old stored URLs 404
+- No automatic refresh mechanism — stale URLs persist until the user uploads a new photo or the next OAuth login refreshes via the only-fills-if-empty policy
+
+**Recommendation:** No mitigation implemented. The only-fills-if-empty policy ensures next OAuth login refreshes the URL. If stale URLs become a measurable problem, evaluate a photo proxy at that time.
 
 ### Cookie Management Centralization
 
@@ -620,6 +668,24 @@ All auth proxy routes (`signup`, `callback`, `oauth-resurrect`) use a shared hel
 2. Deletes both from the response body (prevents JS access).
 3. Sets `refresh_token` as HttpOnly cookie (30 day expiry).
 4. Sets `signup_token` as HttpOnly cookie (15 min expiry) if present.
+
+### Architectural Invariants
+
+The onboarding system enforces the following invariants. Any deviation is a bug.
+
+1. **Auth → onboarding is a single code path.** All new-user routes call `build_auth_response(is_new_user=True)`. No other mechanism produces a signup_token or sets onboarding eligibility.
+
+2. **signup_token is presentation-only.** It gates the `/welcome` page via the route guard (`currentUser.signupEligible`). The onboarding submission endpoint authenticates via JWT only — an expired token mid-onboarding does not block saves.
+
+3. **Onboarding is a single write path.** No auto-save, no partial save, no separate endpoint for individual fields during onboarding. All data arrives in one `POST /users/me/onboarding` call.
+
+4. **Photo three-state contract is enforced server-side.** The backend `if/elif` ensures mutual exclusion. The frontend `buildFormData()` mirrors this with its own guard.
+
+5. **Shared components are stateless with respect to onboarding.** `AccountSettingsForm` and `ProfileInformationForm` own only UI state (password visibility, pending list inputs). All onboarding data lives in the welcome page's `OnboardingData` state. No onboarding-specific logic has leaked into shared components.
+
+6. **OAuth data is "import immediately, overwrite never."** Written to DB at account creation. On re-login, only fills empty fields. The welcome page pre-fills from the DB state but the user can edit or replace everything.
+
+7. **Welcome page errors follow a consistent lifecycle.** Appear on failed submit → clear only the affected field on edit → clear on cancel (username only) → clear all before next submit. Only `username` can currently produce a field-level error; `display_name`, `bio`, `city`, and `file` have slide destinations mapped but no backend error code populates them.
 
 ---
 

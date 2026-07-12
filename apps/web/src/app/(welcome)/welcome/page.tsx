@@ -6,9 +6,7 @@ import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 import ProfilePhotoUpload from '@/components/ProfilePhotoUpload'
 import ProfileInformationForm from '@/components/settings/ProfileInformationForm'
-import type { ProfileFormData } from '@/components/settings/ProfileInformationForm'
 import AccountSettingsForm from '@/components/settings/AccountSettingsForm'
-import type { AccountFormData } from '@/components/settings/AccountSettingsForm'
 import { useLocaleWithUpdate } from '@/hooks/useLocale'
 import { getUserPreferencesKey } from '@/utils/localStorage'
 
@@ -98,6 +96,10 @@ export default function WelcomePage() {
     }
   }, [currentUser, isLoading, router])
 
+  const updateData = (partial: Partial<OnboardingData>) => {
+    setData(prev => ({ ...prev, ...partial }))
+  }
+
   const handleControlledFile = useCallback((blob: Blob, crop: CropData) => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     updateData({ photoBlob: blob, cropData: crop, photoRemoved: false })
@@ -112,10 +114,6 @@ export default function WelcomePage() {
   }, [previewUrl])
 
   if (isLoading || !currentUser || !currentUser.signupEligible) return null
-
-  const updateData = (partial: Partial<OnboardingData>) => {
-    setData(prev => ({ ...prev, ...partial }))
-  }
 
   const slide = SLIDES[currentSlide]
   const isFirstSlide = currentSlide === 0
@@ -138,6 +136,7 @@ export default function WelcomePage() {
   const handleCancelUsernameEdit = () => {
     setIsUsernameEditable(false)
     updateData({ username: currentUser?.username || '' })
+    setFieldErrors(prev => { const { username: _removed, ...rest } = prev; return rest })
   }
 
   // ponytail: Build FormData once, submit once via apiClient (auto-adds auth).
@@ -157,6 +156,11 @@ export default function WelcomePage() {
       fd.append('remove_profile_image', 'true')
     }
     return fd
+  }
+
+  // ponytail: One-entry map. Extend when backend returns more error codes.
+  const ERROR_FIELD_MAP: Record<string, string> = {
+    already_exists: 'username',
   }
 
   const FIELD_SLIDE_MAP: Record<string, number> = {
@@ -201,18 +205,25 @@ export default function WelcomePage() {
 
       if (response.status === 409 || response.status === 422) {
         const errData = await response.json().catch(() => ({}))
-        const detail = errData.detail || ''
+        const apiError = errData.error || {}
+        const code = apiError.code || ''
 
-        const detailStr = typeof detail === 'string' ? detail : JSON.stringify(detail)
-        const lowerDetail = detailStr.toLowerCase()
+        // Handle both middleware-shaped errors (error.message) and
+        // FastAPI-native 422 validation arrays ({ detail: [{ msg, loc }] })
+        const rawDetail = errData.detail
+        const detailMessage = Array.isArray(rawDetail)
+          ? rawDetail.map((e: any) => e.msg).filter(Boolean).join(', ')
+          : typeof rawDetail === 'string' ? rawDetail : ''
+        const message = apiError.message || detailMessage
 
-        if (lowerDetail.includes('username')) {
-          setFieldErrors({ username: detailStr })
-          setCurrentSlide(2)
-        } else if (lowerDetail.includes('display') || lowerDetail.includes('bio') || lowerDetail.includes('city')) {
-          setCurrentSlide(1)
-        } else {
-          setServerError(detailStr)
+        if (code && ERROR_FIELD_MAP[code]) {
+          const field = ERROR_FIELD_MAP[code]
+          const slide = FIELD_SLIDE_MAP[field]
+          setFieldErrors({ [field]: message })
+          if (slide !== undefined) setCurrentSlide(slide)
+          else setServerError(message)
+        } else if (message) {
+          setServerError(message)
           setCurrentSlide(0)
         }
         return
@@ -303,17 +314,18 @@ export default function WelcomePage() {
                 mode="onboarding"
                 user={{ email: currentUser?.email, oauthProvider: null, username: currentUser?.username }}
                 value={{ username: data.username }}
-                onChange={(val) => updateData({ username: val.username })}
+                onChange={(val) => {
+                  updateData({ username: val.username })
+                  setFieldErrors(prev => { const { username: _removed, ...rest } = prev; return rest })
+                }}
                 onRegionalDateFormatChange={(val) => updateData({ regionalDateFormat: val })}
                 regionalDateFormat={data.regionalDateFormat}
                 isUsernameEditable={isUsernameEditable}
                 onToggleUsernameEdit={handleToggleUsernameEdit}
                 onCancelUsernameEdit={handleCancelUsernameEdit}
                 hideHeader
+                usernameError={fieldErrors['username']}
               />
-              {fieldErrors['username'] && (
-                <p className="text-xs text-red-600 mt-2">{fieldErrors['username']}</p>
-              )}
             </div>
           )}
 

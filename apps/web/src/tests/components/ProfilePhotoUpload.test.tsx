@@ -92,6 +92,41 @@ describe('controlled mode (welcome page)', () => {
     )
     expect(screen.queryByAltText('Profile')).toBeNull()
   })
+
+  it('allows selecting the same file repeatedly after removal', async () => {
+    mockPrepareImageForUpload.mockResolvedValue({
+      success: true,
+      file: new File([''], 'test.jpg', { type: 'image/jpeg' }),
+    })
+
+    const onControlledFile = jest.fn()
+    const onPhotoUpdate = jest.fn()
+    render(
+      <ProfilePhotoUpload
+        currentPhotoUrl="https://oauth.example.com/photo.jpg"
+        onPhotoUpdate={onPhotoUpdate}
+        onControlledFile={onControlledFile}
+      />
+    )
+
+    const input = document.querySelector('input[type="file"]')!
+
+    const file = new File([''], 'test.jpg', { type: 'image/jpeg' })
+
+    // Simulate first file selection
+    Object.defineProperty(input, 'files', { value: [file], configurable: true })
+    fireEvent.change(input)
+    await waitFor(() => expect(mockPrepareImageForUpload).toHaveBeenCalledTimes(1))
+
+    // After handleFileInputChange runs, the input value is reset to ''
+    // (the fix: `e.target.value = ''`). This allows the browser to detect
+    // the same file as a new selection next time.
+    await waitFor(() => expect(input.value).toBe(''))
+
+    // Remove photo resets component state
+    fireEvent.click(screen.getByTitle('Remove photo'))
+    await waitFor(() => expect(onPhotoUpdate).toHaveBeenCalled())
+  })
 })
 
 describe('non-controlled mode (profile page)', () => {

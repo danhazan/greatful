@@ -122,6 +122,11 @@ async def test_complete_onboarding_validation_failure_zero_changes(async_client:
     
     assert response.status_code == 409
 
+    data = response.json()
+    assert data["success"] is False
+    assert data["error"]["code"] == "already_exists"
+    assert data["error"]["message"] == "Username already taken"
+
     # Verify DB has zero changes
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.orm import sessionmaker

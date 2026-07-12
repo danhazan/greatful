@@ -854,7 +854,10 @@ export default function ProfilePage() {
                         username: user?.username
                       }}
                       value={accountEditForm}
-                      onChange={(val) => setAccountEditForm(val as typeof accountEditForm)}
+                      onChange={(val) => {
+                        setAccountEditForm(val as typeof accountEditForm)
+                        setUsernameError("")
+                      }}
                       usernameError={usernameError}
                       isUsernameEditable={isUsernameEditable}
                       onToggleUsernameEdit={() => setIsUsernameEditable(true)}
