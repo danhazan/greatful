@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import PasswordInput from "@/components/PasswordInput"
+import { validatePasswordFormat, validatePasswordConfirmation } from "@/utils/passwordValidation"
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -28,8 +29,14 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (formData.new_password !== formData.confirm_password) {
-      setError("Passwords do not match.")
+    const formatValidation = validatePasswordFormat(formData.new_password)
+    if (!formatValidation.valid) {
+      setError(formatValidation.message ?? '')
+      return
+    }
+    const matchError = validatePasswordConfirmation(formData.new_password, formData.confirm_password)
+    if (matchError) {
+      setError(matchError)
       return
     }
     if (!token) {

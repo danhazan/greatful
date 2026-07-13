@@ -9,6 +9,7 @@ import ProfileInformationForm from '@/components/settings/ProfileInformationForm
 import AccountSettingsForm from '@/components/settings/AccountSettingsForm'
 import { useLocaleWithUpdate } from '@/hooks/useLocale'
 import { getUserPreferencesKey } from '@/utils/localStorage'
+import { normalizeUsername, validateUsernameFormat } from '@/utils/usernameValidation'
 
 interface CropData {
   x: number
@@ -318,8 +319,18 @@ export default function WelcomePage() {
                 user={{ email: currentUser?.email, oauthProvider: null, username: currentUser?.username }}
                 value={{ username: data.username }}
                 onChange={(val) => {
-                  updateData({ username: val.username })
-                  setFieldErrors(prev => { const { username: _removed, ...rest } = prev; return rest })
+                  const normalized = normalizeUsername(val.username)
+                  updateData({ username: normalized })
+                  const result = validateUsernameFormat(normalized)
+                  setFieldErrors(prev => {
+                    const next = { ...prev }
+                      if (result.message) {
+                      next['username'] = result.message
+                    } else {
+                      delete next['username']
+                    }
+                    return next
+                  })
                 }}
                 onRegionalDateFormatChange={(val) => updateData({ regionalDateFormat: val })}
                 regionalDateFormat={data.regionalDateFormat}

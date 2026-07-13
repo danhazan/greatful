@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
@@ -11,7 +11,7 @@ import ResurrectionDialog from "@/components/ResurrectionDialog"
 import { useOAuth } from "@/hooks/useOAuth"
 import { useUser } from "@/contexts/UserContext"
 import { setAccessToken } from "@/utils/auth"
-import { normalizeUsername, validateUsernameFormat } from "@/utils/usernameValidation"
+import { normalizeUsername } from "@/utils/usernameValidation"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -29,6 +29,7 @@ export default function SignupPage() {
   const [showResurrectionDialog, setShowResurrectionDialog] = useState(false)
   const [resurrectionAction, setResurrectionAction] = useState<"accept" | "decline" | null>(null)
   const [isResurrecting, setIsResurrecting] = useState(false)
+  const confirmPasswordRef = useRef<HTMLInputElement>(null)
 
   const { reloadUser } = useUser()
 
@@ -40,8 +41,6 @@ export default function SignupPage() {
     handleOAuthLogin,
     clearError: clearOAuthError
   } = useOAuth()
-
-  const [usernameError, setUsernameError] = useState("")
 
   const doSignup = async (resurrectAction?: string) => {
     setIsLoading(true)
@@ -128,20 +127,11 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const validation = validateUsernameFormat(formData.username)
-    if (!validation.valid) {
-      setUsernameError(validation.message ?? '')
-      return
-    }
+    setError("")
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      return
-    }
-
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long")
+      confirmPasswordRef.current?.setCustomValidity('Passwords do not match')
+      confirmPasswordRef.current?.reportValidity()
       return
     }
 
@@ -168,16 +158,27 @@ export default function SignupPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    setError("")
     if (name === 'username') {
       const normalized = normalizeUsername(value);
       setFormData({ ...formData, [name]: normalized });
-      const result = validateUsernameFormat(normalized);
-      setUsernameError(result.message ?? '');
     } else {
       setFormData({
         ...formData,
         [name]: value
       });
+      if (name === 'email') {
+        if (e.target.validity.valueMissing) {
+          e.target.setCustomValidity('')
+        } else if (e.target.validity.typeMismatch) {
+          e.target.setCustomValidity('Email address is invalid')
+        } else {
+          e.target.setCustomValidity('')
+        }
+      }
+      if (name === 'password' || name === 'confirmPassword') {
+        confirmPasswordRef.current?.setCustomValidity('')
+      }
     }
   }
 
@@ -235,6 +236,8 @@ export default function SignupPage() {
 
 
 
+
+
           {/* Signup Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -253,8 +256,9 @@ export default function SignupPage() {
                 placeholder="Choose a username"
                 minLength={3}
                 maxLength={30}
+                pattern="^[a-z0-9_]+$"
+                title="Username can only contain letters, numbers, and underscores"
               />
-              {usernameError && <p className="text-xs text-red-500 mt-1">{usernameError}</p>}
             </div>
 
             <div>
@@ -283,11 +287,13 @@ export default function SignupPage() {
               placeholder="Create a password"
               autoComplete="new-password"
               minLength={8}
+              maxLength={128}
               helperText="Must be at least 8 characters long"
               required
             />
 
             <PasswordInput
+              ref={confirmPasswordRef}
               id="confirmPassword"
               name="confirmPassword"
               value={formData.confirmPassword}

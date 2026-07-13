@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { forwardRef, useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
 
@@ -15,10 +15,13 @@ interface PasswordInputProps {
   error?: string
   children?: React.ReactNode // For additional content like "Forgot password?" link
   minLength?: number
+  maxLength?: number
+  pattern?: string
+  title?: string
   helperText?: string
 }
 
-export default function PasswordInput({
+const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(function PasswordInput({
   id,
   name,
   value,
@@ -31,8 +34,11 @@ export default function PasswordInput({
   error,
   children,
   minLength,
+  maxLength,
+  pattern,
+  title,
   helperText
-}: PasswordInputProps) {
+}, ref) {
   const [showPassword, setShowPassword] = useState(false)
 
   const baseClassName = `w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${getCompleteInputStyling().className} ${className}`
@@ -46,6 +52,7 @@ export default function PasswordInput({
       )}
       <div className="relative">
         <input
+          ref={ref}
           type={showPassword ? "text" : "password"}
           id={id}
           name={name}
@@ -57,6 +64,9 @@ export default function PasswordInput({
           placeholder={placeholder}
           autoComplete={autoComplete}
           minLength={minLength}
+          maxLength={maxLength}
+          pattern={pattern}
+          title={title}
         />
         <button
           type="button"
@@ -79,4 +89,6 @@ export default function PasswordInput({
       )}
     </div>
   )
-}
+})
+
+export default PasswordInput

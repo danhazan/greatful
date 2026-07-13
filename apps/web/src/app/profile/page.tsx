@@ -27,6 +27,7 @@ import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
 import { normalizeUsername, validateUsernameFormat } from "@/utils/usernameValidation"
+import { validatePasswordFormat, validatePasswordConfirmation } from "@/utils/passwordValidation"
 
 interface UserProfile {
   id: number
@@ -428,14 +429,16 @@ export default function ProfilePage() {
         return
       }
 
-      if (accountEditForm.newPassword.length < 6) {
-        setPasswordError("New password must be at least 6 characters long")
+      const formatValidation = validatePasswordFormat(accountEditForm.newPassword)
+      if (!formatValidation.valid) {
+        setPasswordError(formatValidation.message ?? '')
         passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         return
       }
 
-      if (accountEditForm.newPassword !== accountEditForm.confirmPassword) {
-        setPasswordError("New passwords do not match")
+      const matchError = validatePasswordConfirmation(accountEditForm.newPassword, accountEditForm.confirmPassword)
+      if (matchError) {
+        setPasswordError(matchError)
         passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         return
       }
@@ -854,8 +857,10 @@ export default function ProfilePage() {
                       value={accountEditForm}
                       onChange={(val) => {
                         const form = val as typeof accountEditForm
-                        setAccountEditForm({ ...form, username: normalizeUsername(form.username) })
-                        setUsernameError("")
+                        const normalized = normalizeUsername(form.username)
+                        setAccountEditForm({ ...form, username: normalized })
+                        const result = validateUsernameFormat(normalized)
+                        setUsernameError(result.message ?? '')
                       }}
                       usernameError={usernameError}
                       isUsernameEditable={isUsernameEditable}

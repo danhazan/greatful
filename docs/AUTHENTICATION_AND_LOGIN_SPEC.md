@@ -604,6 +604,57 @@ Next submit → setFieldErrors({}) before attempt
 
 `FIELD_SLIDE_MAP` also contains speculative entries for `display_name`, `bio`, `city`, `file` with corresponding slide indices — these are defensive (no backend error code currently populates them) and exist so that adding a new error code only requires a one-line map entry.
 
+#### Validation Architecture — Usernames
+
+| Layer | Location | Responsibility |
+|-------|----------|----------------|
+| Backend canonical | `app/core/validators.py:validate_username_format()` | Single source of truth: length 3–30, regex `^[a-z0-9_]+$`, lowercases |
+| Backend DB | CHECK constraint in migration `7c99f5b56f04` | Last-line defense for DB-level consistency |
+| Backend Pydantic | `UserCreate`, `UserProfileUpdate`, `OAuthResurrectionComplete` | Delegates to `validate_username_format()` |
+| Frontend canonical | `src/utils/usernameValidation.ts` | Matches backend exactly: `normalizeUsername()`, `validateUsernameFormat()` |
+| Profile page | inline `onChange` | Calls `normalizeUsername()` then `validateUsernameFormat()` — live feedback |
+| Signup page | inline `onChange` + `handleSubmit` | Same pattern as Profile |
+| Welcome page | inline `onChange` | Same pattern — server-driven on submit |
+| Mention parsing | `mentionUtils.ts`, `idGuards.ts` | Intentionally broader charset (parsing/navigation, not registration) |
+
+**Normalization responsibility:** `normalizeUsername()` is the canonical frontend lowercasing point. Both signup and profile call it in their onChange handlers for consistent UX. The backend also lowercases in `validate_username_format()` (defense-in-depth). No caller performs its own `.toLowerCase()`.
+
+**Why backend validation is still required:** Frontend validation is an immediate UX improvement only. Backend validation at the Pydantic/service layer is the security boundary. A rogue request or compromised client bypasses frontend checks.
+
+#### Password Validation Flow
+
+Password validation follows the same layered architecture:
+
+| Layer | Location | Responsibility |
+|-------|----------|----------------|
+| Backend canonical | `BaseService.validate_field_length(password, "password", 128, 8)` in `app/core/service_base.py` | Min 8, max 128 — called by `AuthService.signup()` and `UserService.update_password()` |
+| Frontend canonical | `src/utils/passwordValidation.ts` | Mirrors backend: `validatePasswordFormat()`, `validatePasswordConfirmation()` |
+| Signup | `handleSubmit` | Calls `validatePasswordConfirmation()` then `validatePasswordFormat()` |
+| Profile change | `handleSaveAccount` | Same pattern — also checks `currentPassword` is present |
+| Reset password | `handleSubmit` | Same pattern — previously had no client-side length check |
+
+**Password policy:** Min 8, max 128. No character class requirements. Frontend mirrors this exactly; the backend `validate_field_length()` is the authoritative security boundary. The profile page previously used min 6 (a bug) — corrected during refactoring.
+
+#### Live Password Validation — Evaluation
+
+**Current behavior:**
+- Signup: validates on submit only (no live feedback during typing)
+- Profile: validates on submit only
+- Reset: validates on submit only
+- No page has live password validation
+
+**Advantages of adding live validation:**
+- Immediate feedback as user types (better UX)
+- Reuses `validatePasswordFormat()` with almost no code — each onChange handler would call it, the same pattern as live username validation
+- Consistent across all password-entry forms
+
+**Disadvantages:**
+- Live length validation on a password field is less useful than on a username — the user can't see what they're typing (masked input), so the feedback is less actionable
+- Password fields often have show/hide toggle; even when visible, the UX gain is marginal compared to submitting and seeing the error
+- Adds noise if user is actively typing and hasn't finished entering the password yet
+
+**Recommendation:** Leave validation on submit only for all password flows. The submit-triggered validation already catches the same cases. Live validation on a masked field provides negligible UX improvement over submit-based validation. If a future UX audit identifies this as a friction point, the implementation path is trivial (add `validatePasswordFormat()` call in each `onChange` handler — same pattern as live username validation). The shared utility is already in place.
+
 ### OAuth Profile Import
 
 OAuth data is persisted immediately at signup (not deferred to onboarding). `_create_oauth_user()` in `oauth_service.py` writes `profile_image_url` and `display_name` to the DB during account creation.
