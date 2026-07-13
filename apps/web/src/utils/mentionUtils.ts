@@ -1,5 +1,9 @@
 /**
- * Utility functions for handling @username mentions in post content
+ * Utility functions for handling @username mentions in post content.
+ *
+ * The regexes here are intentionally broader than registration validation
+ * (see usernameValidation.ts). Mention parsing and navigation routing need
+ * to recognize valid-looking usernames in content, not enforce creation rules.
  */
 
 export interface MentionMatch {

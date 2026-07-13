@@ -72,7 +72,6 @@ class AuthService(BaseService):
             ["username", "email", "password"]
         )
 
-        self.validate_field_length(username, "username", 50, 3)
         self.validate_field_length(password, "password", 128, 8)
 
         # --- Step 1: Active user check (ALWAYS before tombstone) ---

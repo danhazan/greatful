@@ -50,6 +50,9 @@ class InputSanitizer:
     }
     
     # Patterns for validation
+    # ponytail: username acceptance is defined by app.core.validators.validate_username_format,
+    # not by this sanitizer pattern. The broader charset here is harmless since Pydantic
+    # validators reject non-conforming input before reaching the DB.
     PATTERNS = {
         'username': re.compile(r'^[a-zA-Z0-9_.-]+$'),
         'email': re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'),

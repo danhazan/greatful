@@ -206,8 +206,6 @@ class UserService(BaseService):
         
         # Validate and update username if provided
         if username is not None:
-            self.validate_field_length(username, "username", 50, 3)
-            
             # Check if username is already taken by another user
             if not await self.user_repo.check_username_availability(username, user_id):
                 raise ConflictError("Username already taken", "user")

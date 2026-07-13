@@ -19,6 +19,7 @@ from fastapi.responses import RedirectResponse
 from typing import Optional
 from pydantic import field_validator, Field
 import re
+from app.core.validators import validate_username_format
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -45,13 +46,8 @@ class UserCreate(BaseModel):
 
     @field_validator('username')
     def validate_username(cls, v):
-        """Validate username format, length, and characters."""
-        username_lower = v.lower()
-        if not (3 <= len(username_lower) <= 30):
-            raise ValueError('Username must be between 3 and 30 characters.')
-        if not re.match(r'^[a-z0-9_]+$', username_lower):
-            raise ValueError('Username can only contain letters, numbers, and underscores.')
-        return username_lower
+        """Validate username format via shared validator."""
+        return validate_username_format(v)
 
 
 class UserLogin(BaseModel):
@@ -187,12 +183,7 @@ class OAuthResurrectionComplete(BaseModel):
     def validate_username(cls, v):
         if v is None:
             return v
-        username_lower = v.lower()
-        if not (3 <= len(username_lower) <= 30):
-            raise ValueError('Username must be between 3 and 30 characters.')
-        if not re.match(r'^[a-z0-9_]+$', username_lower):
-            raise ValueError('Username can only contain letters, numbers, and underscores.')
-        return username_lower
+        return validate_username_format(v)
 
 
 @router.post("/signup", status_code=201, response_model=AuthResponse)

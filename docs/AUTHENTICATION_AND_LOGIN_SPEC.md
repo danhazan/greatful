@@ -577,12 +577,19 @@ Precedence: file upload > remove signal > no change. `remove_profile_image` is i
 
 #### Username Validation Flow
 
-Username conflicts are the only server-side field error currently handled during onboarding:
+Username errors from the server are routed to the correct slide and field:
+
+| Situation | Status | `error.code` | `error.message` |
+|-----------|--------|-------------|-----------------|
+| Invalid characters | 422 | `validation_error` | Username can only contain letters, numbers, and underscores |
+| Username already exists | 409 | `already_exists` | Username already taken |
 
 ```
-Submit → 409 Conflict { error: { code: "already_exists", message: "..." } }
+Submit → 409/422 { error: { code, message } }
     ↓
-ERROR_FIELD_MAP ("already_exists" → "username")
+ERROR_FIELD_MAP
+    ├── "already_exists"   → "username"
+    └── "validation_error" → "username"
     ↓
 FIELD_SLIDE_MAP ("username" → slide index 2)
     ↓
@@ -595,7 +602,7 @@ User presses Cancel → same clearing + username reset to original
 Next submit → setFieldErrors({}) before attempt
 ```
 
-**Only the `already_exists` error code is currently mapped.** `FIELD_SLIDE_MAP` contains speculative entries for `display_name`, `bio`, `city`, `file` with corresponding slide indices — these are defensive (no backend error code currently populates them) and exist so that adding a new error code only requires a one-line map entry.
+`FIELD_SLIDE_MAP` also contains speculative entries for `display_name`, `bio`, `city`, `file` with corresponding slide indices — these are defensive (no backend error code currently populates them) and exist so that adding a new error code only requires a one-line map entry.
 
 ### OAuth Profile Import
 

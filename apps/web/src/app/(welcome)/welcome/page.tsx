@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
@@ -68,6 +68,7 @@ export default function WelcomePage() {
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const { updatePreference } = useLocaleWithUpdate()
+  const completedOnboardingRef = useRef(false)
 
   // Pre-populate from existing user data on mount. Runs once when currentUser
   // loads; data fields are guaranteed empty at first render.
@@ -91,7 +92,7 @@ export default function WelcomePage() {
       router.push('/auth/login')
       return
     }
-    if (!currentUser.signupEligible) {
+    if (!currentUser.signupEligible && !completedOnboardingRef.current) {
       router.push('/profile')
     }
   }, [currentUser, isLoading, router])
@@ -161,6 +162,7 @@ export default function WelcomePage() {
   // ponytail: One-entry map. Extend when backend returns more error codes.
   const ERROR_FIELD_MAP: Record<string, string> = {
     already_exists: 'username',
+    validation_error: 'username',
   }
 
   const FIELD_SLIDE_MAP: Record<string, number> = {
@@ -198,8 +200,9 @@ export default function WelcomePage() {
           } catch {}
           updatePreference(data.regionalDateFormat)
         }
+        completedOnboardingRef.current = true
         await reloadUser()
-        router.push('/profile')
+        router.push('/feed')
         return
       }
 

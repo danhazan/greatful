@@ -140,6 +140,29 @@ async def test_complete_onboarding_validation_failure_zero_changes(async_client:
         assert user.bio is None
 
 @pytest.mark.asyncio
+async def test_complete_onboarding_invalid_username_format(async_client: AsyncClient, uncompleted_token: str, test_engine):
+    """Invalid username format returns validation_error, not already_exists."""
+    headers = {"Authorization": f"Bearer {uncompleted_token}"}
+    form_data = {"username": "john@smith", "display_name": "Bad Username"}
+    response = await async_client.post("/api/v1/users/me/onboarding", headers=headers, data=form_data)
+
+    assert response.status_code == 422
+    data = response.json()
+    assert data["success"] is False
+    assert data["error"]["code"] == "validation_error"
+    assert data["error"]["message"] == "Username can only contain letters, numbers, and underscores."
+
+    # Verify no partial DB write occurred
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.future import select
+    async_session = sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as db:
+        user = (await db.execute(select(User).where(User.email == "incomplete@example.com"))).scalar_one()
+        assert user.username == "incomplete_user"
+        assert user.display_name is None
+
+@pytest.mark.asyncio
 async def test_complete_onboarding_remove_profile_photo(async_client: AsyncClient, uncompleted_photo_token: str, test_engine):
     """remove_profile_image=true deletes existing photo when no file uploaded."""
     headers = {"Authorization": f"Bearer {uncompleted_photo_token}"}

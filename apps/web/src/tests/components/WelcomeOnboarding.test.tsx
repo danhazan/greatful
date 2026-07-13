@@ -184,7 +184,7 @@ describe('Welcome Onboarding', () => {
       )
     })
 
-    it('redirects to profile on success after reloadUser', async () => {
+    it('redirects to /feed on success after reloadUser', async () => {
       mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) })
 
       render(React.createElement(WelcomePage))
@@ -193,7 +193,34 @@ describe('Welcome Onboarding', () => {
       fireEvent.click(screen.getAllByText('Finish')[1])
 
       await waitFor(() => expect(mockReloadUser).toHaveBeenCalled())
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/profile'))
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/feed'))
+    })
+
+    it('does NOT redirect to /profile when signupEligible flips after onboarding', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+
+      const { rerender } = render(React.createElement(WelcomePage))
+      nextToLastSlide()
+      fireEvent.click(screen.getByText('Finish'))
+      fireEvent.click(screen.getAllByText('Finish')[1])
+
+      await waitFor(() => expect(mockReloadUser).toHaveBeenCalled())
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/feed'))
+
+      // Simulate the state change that happens in production:
+      // reloadUser fetches fresh profile → signup_token cookie is gone →
+      // backend returns signupEligible: false → welcome page route guard fires.
+      // With the fix, completedOnboardingRef suppresses the profile redirect.
+      ;(useUser as jest.Mock).mockReturnValue({
+        currentUser: { id: '1', signupEligible: false, username: 'test', email: 'test@test.com' },
+        isLoading: false,
+        reloadUser: mockReloadUser,
+      })
+      rerender(React.createElement(WelcomePage))
+
+      await waitFor(() => {
+        expect(mockPush).not.toHaveBeenCalledWith('/profile')
+      })
     })
   })
 
@@ -309,6 +336,27 @@ describe('Welcome Onboarding', () => {
       nextToLastAndClickFinish()
 
       await waitFor(() => expect(screen.getByTestId('account-settings-form')).toBeTruthy())
+    })
+
+    it('navigates to account slide and shows field error on validation_error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: async () => ({
+          success: false,
+          error: {
+            code: 'validation_error',
+            message: 'Username can only contain letters, numbers, and underscores',
+            details: { fields: {} },
+          },
+        }),
+      })
+
+      render(React.createElement(WelcomePage))
+      nextToLastAndClickFinish()
+
+      await waitFor(() => expect(screen.getByTestId('account-settings-form')).toBeTruthy())
+      expect(screen.getByText('Username can only contain letters, numbers, and underscores')).toBeTruthy()
     })
 
     it('shows generic error for 422 without error code', async () => {

@@ -7,8 +7,8 @@ from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ConfigDict, field_validator, Field
-import re
 from app.core.database import get_db
+from app.core.validators import validate_username_format
 from app.core.dependencies import get_current_user_id
 from app.services.user_service import UserService
 from app.services.mention_service import MentionService
@@ -42,12 +42,7 @@ class UserProfileUpdate(BaseModel):
     def validate_username(cls, v):
         if v is None:
             return v
-        username_lower = v.lower()
-        if not (3 <= len(username_lower) <= 30):
-            raise ValueError('Username must be between 3 and 30 characters.')
-        if not re.match(r'^[a-z0-9_]+$', username_lower):
-            raise ValueError('Username can only contain letters, numbers, and underscores.')
-        return username_lower
+        return validate_username_format(v)
 
 
 class UserProfileResponse(BaseModel):
@@ -245,13 +240,17 @@ async def complete_onboarding(
         - remove_profile_image=true            = delete existing photo
           (ignored when file is also provided — file upload has precedence)
     """
-    from app.core.exceptions import ConflictError, NotFoundError
+    from app.core.exceptions import ConflictError, NotFoundError, ValidationException
 
     user_service = UserService(db)
     user = await user_service.get_by_id_or_404(User, current_user_id, "User")
     
-    # Pre-validate username to prevent partial uploads if username is taken
+    # Pre-validate username format and uniqueness before any DB writes
     if username:
+        try:
+            username = validate_username_format(username)
+        except ValueError as e:
+            raise ValidationException(str(e))
         if not await user_service.user_repo.check_username_availability(username, current_user_id):
             raise ConflictError("Username already taken", "user")
 

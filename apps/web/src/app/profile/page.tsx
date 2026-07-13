@@ -26,6 +26,7 @@ import { getUserPreferencesKey } from '@/utils/localStorage'
 import { useTaggedQuery } from "@/hooks/useTaggedQuery"
 import { queryKeys, queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
+import { normalizeUsername, validateUsernameFormat } from "@/utils/usernameValidation"
 
 interface UserProfile {
   id: number
@@ -390,13 +391,10 @@ export default function ProfilePage() {
 
     // Handle username change
     if (isUsernameEditable && user && accountEditForm.username !== user.username) {
-      // Validate username
-      if (!accountEditForm.username || accountEditForm.username.trim().length < 3) {
-        setUsernameError("Username must be at least 3 characters long")
-        usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        hasErrors = true
-      } else if (!/^[a-zA-Z0-9_]+$/.test(accountEditForm.username)) {
-        setUsernameError("Username can only contain letters, numbers, and underscores")
+      // Validate username via shared utility
+      const validation = validateUsernameFormat(accountEditForm.username)
+      if (!validation.valid) {
+        setUsernameError(validation.message ?? '')
         usernameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         hasErrors = true
       } else {
@@ -855,7 +853,8 @@ export default function ProfilePage() {
                       }}
                       value={accountEditForm}
                       onChange={(val) => {
-                        setAccountEditForm(val as typeof accountEditForm)
+                        const form = val as typeof accountEditForm
+                        setAccountEditForm({ ...form, username: normalizeUsername(form.username) })
                         setUsernameError("")
                       }}
                       usernameError={usernameError}

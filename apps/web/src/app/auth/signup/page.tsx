@@ -11,6 +11,7 @@ import ResurrectionDialog from "@/components/ResurrectionDialog"
 import { useOAuth } from "@/hooks/useOAuth"
 import { useUser } from "@/contexts/UserContext"
 import { setAccessToken } from "@/utils/auth"
+import { normalizeUsername, validateUsernameFormat } from "@/utils/usernameValidation"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -128,7 +129,9 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateUsername(formData.username)) {
+    const validation = validateUsernameFormat(formData.username)
+    if (!validation.valid) {
+      setUsernameError(validation.message ?? '')
       return
     }
 
@@ -163,26 +166,13 @@ export default function SignupPage() {
     setShowResurrectionDialog(false)
   }
 
-  const validateUsername = (value: string): boolean => {
-    if (value.length < 3 || value.length > 30) {
-      setUsernameError('Username must be 3-30 characters long.');
-      return false;
-    }
-    const regex = /^[a-z0-9_]+$/;
-    if (!regex.test(value)) {
-      setUsernameError('Only letters, numbers, and underscores are allowed.');
-      return false;
-    }
-    setUsernameError('');
-    return true;
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (name === 'username') {
-      const lowerCaseUsername = value.toLowerCase();
-      setFormData({ ...formData, [name]: lowerCaseUsername });
-      validateUsername(lowerCaseUsername);
+      const normalized = normalizeUsername(value);
+      setFormData({ ...formData, [name]: normalized });
+      const result = validateUsernameFormat(normalized);
+      setUsernameError(result.message ?? '');
     } else {
       setFormData({
         ...formData,
