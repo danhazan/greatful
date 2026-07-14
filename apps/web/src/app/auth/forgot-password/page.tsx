@@ -3,19 +3,39 @@
 import { useState } from "react"
 import Link from "next/link"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
-import { normalizeEmail } from "@/utils/emailValidation"
+import { validateEmailFormat, normalizeEmail } from "@/utils/emailValidation"
+import { extractErrorMessage } from "@/lib/extract-api-error"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
+  const [emailError, setEmailError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value)
+    setEmailError("")
+    setError("")
+  }
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (email) {
+      const result = validateEmailFormat(email)
+      setEmailError(result.message ?? "")
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setError("")
     setMessage("")
+
+    const em = validateEmailFormat(email)
+    setEmailError(em.message ?? "")
+    if (!em.valid) return
+
+    setIsLoading(true)
 
     try {
       const response = await fetch('/api/auth/forgot-password', {
@@ -31,18 +51,9 @@ export default function ForgotPasswordPage() {
       if (response.ok) {
         setMessage("If an account with that email exists, a password reset link has been sent.")
       } else {
-        // Handle structured error responses
-        let errorMessage = "An error occurred. Please try again."
-        
-        if (data.error && data.error.message) {
-          errorMessage = data.error.message
-        } else if (data.detail) {
-          errorMessage = data.detail
-        }
-        
-        setError(errorMessage)
+        setError(extractErrorMessage(data, "An error occurred. Please try again."))
       }
-    } catch (error) {
+    } catch (err) {
       setError("Network error. Please check your connection.")
     } finally {
       setIsLoading(false)
@@ -67,7 +78,7 @@ export default function ForgotPasswordPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email
@@ -77,12 +88,14 @@ export default function ForgotPasswordPage() {
                 id="email"
                 name="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleChange}
+                onBlur={handleBlur}
                 required
                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${getCompleteInputStyling().className}`}
                 style={getCompleteInputStyling().style}
                 placeholder="Enter your email"
               />
+              {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
             </div>
 
             <button
