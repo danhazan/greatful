@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
@@ -11,7 +11,9 @@ import ResurrectionDialog from "@/components/ResurrectionDialog"
 import { useOAuth } from "@/hooks/useOAuth"
 import { useUser } from "@/contexts/UserContext"
 import { setAccessToken } from "@/utils/auth"
-import { normalizeUsername } from "@/utils/usernameValidation"
+import { normalizeUsername, validateUsernameFormat } from "@/utils/usernameValidation"
+import { validatePasswordFormat, validatePasswordConfirmation } from "@/utils/passwordValidation"
+import { validateEmailFormat, normalizeEmail } from "@/utils/emailValidation"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -24,12 +26,15 @@ export default function SignupPage() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [usernameError, setUsernameError] = useState("")
+  const [emailError, setEmailError] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [confirmPasswordError, setConfirmPasswordError] = useState("")
   const [showLinkingDialog, setShowLinkingDialog] = useState(false)
   const [linkingData, setLinkingData] = useState<any>(null)
   const [showResurrectionDialog, setShowResurrectionDialog] = useState(false)
   const [resurrectionAction, setResurrectionAction] = useState<"accept" | "decline" | null>(null)
   const [isResurrecting, setIsResurrecting] = useState(false)
-  const confirmPasswordRef = useRef<HTMLInputElement>(null)
 
   const { reloadUser } = useUser()
 
@@ -54,7 +59,7 @@ export default function SignupPage() {
         },
         body: JSON.stringify({
           username: formData.username,
-          email: formData.email,
+          email: normalizeEmail(formData.email),
           password: formData.password,
           ...(resurrectAction ? { resurrect_action: resurrectAction } : {}),
         }),
@@ -129,11 +134,17 @@ export default function SignupPage() {
     e.preventDefault()
     setError("")
 
-    if (formData.password !== formData.confirmPassword) {
-      confirmPasswordRef.current?.setCustomValidity('Passwords do not match')
-      confirmPasswordRef.current?.reportValidity()
-      return
-    }
+    const u = validateUsernameFormat(formData.username)
+    const em = validateEmailFormat(formData.email)
+    const p = validatePasswordFormat(formData.password)
+    const c = validatePasswordConfirmation(formData.password, formData.confirmPassword)
+
+    setUsernameError(u.message ?? '')
+    setEmailError(em.message ?? '')
+    setPasswordError(p.message ?? '')
+    setConfirmPasswordError(c ?? '')
+
+    if (!u.valid || !em.valid || !p.valid || c) return
 
     await doSignup()
   }
@@ -162,23 +173,34 @@ export default function SignupPage() {
     if (name === 'username') {
       const normalized = normalizeUsername(value);
       setFormData({ ...formData, [name]: normalized });
+      setUsernameError('')
     } else {
-      setFormData({
-        ...formData,
-        [name]: value
-      });
+      setFormData({ ...formData, [name]: value });
       if (name === 'email') {
-        if (e.target.validity.valueMissing) {
-          e.target.setCustomValidity('')
-        } else if (e.target.validity.typeMismatch) {
-          e.target.setCustomValidity('Email address is invalid')
-        } else {
-          e.target.setCustomValidity('')
-        }
+        setEmailError('')
       }
-      if (name === 'password' || name === 'confirmPassword') {
-        confirmPasswordRef.current?.setCustomValidity('')
+      if (name === 'password') {
+        setPasswordError('')
+        setConfirmPasswordError('')
       }
+      if (name === 'confirmPassword') {
+        setConfirmPasswordError('')
+      }
+    }
+  }
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name } = e.target;
+    if (name === 'username' && formData.username) {
+      setUsernameError(validateUsernameFormat(formData.username).message ?? '')
+    } else if (name === 'email' && formData.email) {
+      setEmailError(validateEmailFormat(formData.email).message ?? '')
+    } else if (name === 'confirmPassword') {
+      if (formData.password) {
+        const pResult = validatePasswordFormat(formData.password)
+        setPasswordError(pResult.message ?? '')
+      }
+      setConfirmPasswordError(validatePasswordConfirmation(formData.password, formData.confirmPassword) ?? '')
     }
   }
 
@@ -234,12 +256,8 @@ export default function SignupPage() {
             </div>
           )}
 
-
-
-
-
           {/* Signup Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
                 Username
@@ -250,15 +268,15 @@ export default function SignupPage() {
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 required
                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${getCompleteInputStyling().className}`}
                 style={getCompleteInputStyling().style}
                 placeholder="Choose a username"
                 minLength={3}
                 maxLength={30}
-                pattern="^[a-z0-9_]+$"
-                title="Username can only contain letters, numbers, and underscores"
               />
+              {usernameError && <p className="text-xs text-red-600 mt-1">{usernameError}</p>}
             </div>
 
             <div>
@@ -271,11 +289,13 @@ export default function SignupPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 required
                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${getCompleteInputStyling().className}`}
                 style={getCompleteInputStyling().style}
                 placeholder="Enter your email"
               />
+              {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
             </div>
 
             <PasswordInput
@@ -283,6 +303,7 @@ export default function SignupPage() {
               name="password"
               value={formData.password}
               onChange={handleChange}
+              onBlur={handleBlur}
               label="Password"
               placeholder="Create a password"
               autoComplete="new-password"
@@ -290,18 +311,20 @@ export default function SignupPage() {
               maxLength={128}
               helperText="Must be at least 8 characters long"
               required
+              error={passwordError}
             />
 
             <PasswordInput
-              ref={confirmPasswordRef}
               id="confirmPassword"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
+              onBlur={handleBlur}
               label="Confirm Password"
               placeholder="Confirm your password"
               autoComplete="new-password"
               required
+              error={confirmPasswordError}
             />
 
             <button

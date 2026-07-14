@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react"
+import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
 
@@ -7,25 +7,25 @@ interface PasswordInputProps {
   name: string
   value: string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void
   placeholder?: string
   required?: boolean
   className?: string
   autoComplete?: string
   label?: string
   error?: string
-  children?: React.ReactNode // For additional content like "Forgot password?" link
+  children?: React.ReactNode
   minLength?: number
   maxLength?: number
-  pattern?: string
-  title?: string
   helperText?: string
 }
 
-const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(function PasswordInput({
+export default function PasswordInput({
   id,
   name,
   value,
   onChange,
+  onBlur,
   placeholder = "Enter your password",
   required = false,
   className = "",
@@ -35,10 +35,8 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(function 
   children,
   minLength,
   maxLength,
-  pattern,
-  title,
   helperText
-}, ref) {
+}: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false)
 
   const baseClassName = `w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${getCompleteInputStyling().className} ${className}`
@@ -52,12 +50,12 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(function 
       )}
       <div className="relative">
         <input
-          ref={ref}
           type={showPassword ? "text" : "password"}
           id={id}
           name={name}
           value={value}
           onChange={onChange}
+          onBlur={onBlur}
           required={required}
           className={baseClassName}
           style={getCompleteInputStyling().style}
@@ -65,8 +63,6 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(function 
           autoComplete={autoComplete}
           minLength={minLength}
           maxLength={maxLength}
-          pattern={pattern}
-          title={title}
         />
         <button
           type="button"
@@ -89,6 +85,4 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(function 
       )}
     </div>
   )
-})
-
-export default PasswordInput
+}

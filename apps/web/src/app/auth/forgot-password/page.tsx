@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
+import { normalizeEmail } from "@/utils/emailValidation"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -22,7 +23,7 @@ export default function ForgotPasswordPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: normalizeEmail(email) }),
       })
 
       const data = await response.json()
