@@ -520,48 +520,31 @@ async def forgot_password(
 ):
     """
     Initiate the password reset process for a user.
-    If the user exists and is not an OAuth user, a reset token is generated.
-    Email sending is deferred.
+    Returns a generic success message regardless of account existence.
     """
     import os
-    import logging
-    
-    logger = logging.getLogger(__name__)
+
     auth_service = AuthService(db)
     token = await auth_service.generate_password_reset_token(forgot_request.email)
 
     if token:
-        # Generate reset link
         base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
         reset_link = f"{base_url}/auth/reset-password?token={token}"
-        
-        # Log the reset link for development purposes
-        logger.info(f"Password reset link generated for {forgot_request.email}: {reset_link}")
-        
-        # For development, return the token in response. In production with email service, 
-        # this would only return a generic success message.
-        return success_response(
-            {"message": "Password reset token generated.", "reset_token": token},
-            getattr(request.state, 'request_id', None)
-        )
-    else:
-        # Check if this is an OAuth user to provide better error message for development
-        from app.models.user import User
-        user = await User.get_by_email(db, forgot_request.email)
-        
-        if user and user.oauth_provider:
-            # OAuth user - provide specific error message for better UX
-            from app.core.exceptions import ValidationException
-            raise ValidationException(
-                "This account uses social login. Please sign in with your social account instead of resetting your password.",
-                {"email": "This email is associated with a social login account"}
-            )
+
+        # Read ENVIRONMENT directly (without a default) so unknown/unset
+        # environments fail closed and never log password reset tokens.
+        # Using security_config.environment would reintroduce the unsafe
+        # default of "development" for unset environments.
+        env = os.getenv("ENVIRONMENT")
+        if env in ("development", "staging"):
+            logger.info(f"Password reset link: {reset_link}")
         else:
-            # To prevent email enumeration, we return a generic success message for non-existent users
-            return success_response(
-                {"message": "If an account with that email exists and is eligible for password reset, a token has been generated."},
-                getattr(request.state, 'request_id', None)
-            )
+            logger.info(f"Password reset requested for {forgot_request.email} (token omitted)")
+
+    return success_response(
+        {"message": "If an account with that email exists and is eligible for password reset, a password reset link has been sent."},
+        getattr(request.state, 'request_id', None)
+    )
 
 
 @router.post("/reset-password")
