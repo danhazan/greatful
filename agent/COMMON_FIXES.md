@@ -31,6 +31,7 @@ When a bug task completes, the implementing agent adds or updates an entry here.
 
 - [Invisible Text in Mobile Input Fields](#invisible-text-in-mobile-input-fields) · `Medium recurrence`
 - [Dropdown Overflowing Viewport or Misaligned on Mobile](#dropdown-overflowing-viewport-or-misaligned-on-mobile) · `Medium recurrence`
+- [Shrink-to-Fit Container Gains Gap / Unrounded Edge From Unconstrained Sibling Text](#shrink-to-fit-container-gains-gap--unrounded-edge-from-unconstrained-sibling-text) · `Medium recurrence`
 
 **[Environment and Infrastructure](#environment-and-infrastructure)**
 
@@ -274,6 +275,33 @@ Recurring styling issues with established fix patterns. When the fingerprint mat
 
 **Recurrence risk:** Medium — any new dropdown component.
 **Instances:** UserSearchBar · NotificationSystem dropdown · ProfileDropdown
+
+---
+
+### Shrink-to-Fit Container Gains Gap / Unrounded Edge From Unconstrained Sibling Text
+
+**Fingerprint:** A container that's meant to auto-size ("wrap tightly") around a JS-computed piece of content (an image, canvas, etc.) instead shows a visible gap of background color on one side, past the point where the content actually ends. The rounded corner on that side looks square/cut-off (the content ends before the box's real edge, so the corner radius is applied to empty space, not visually adjacent to the content). The gap is worst for the narrowest/smallest renderings of the content and disappears for the largest ones. There is a sibling block of free-flowing body text (a caption, instructions, a label) below or beside the sized content. Desktop and wide/landscape content look fine; narrow/tall content does not.
+
+**Root cause:** Two causes that compound and are easy to mistake for one bug:
+
+1. **Stale loading-state floor.** A `min-width`/`min-height` (e.g. `300px`) was set on the container to avoid a 0×0 flash before the content's real size is known. It was left applied unconditionally, so once the content's *actual* computed size resolved smaller than that floor (a narrow portrait image, for example), the container was still pinned at the floor — larger than the content — leaving a gap on the trailing side.
+2. **Unconstrained sibling text fighting `width: auto`.** The outer wrapper uses `width: auto` specifically so it can shrink-to-fit around the sized content. Shrink-to-fit computes the box's width from the **largest max-content (unwrapped) width of any descendant**, not just the one piece of content you intend to hug. A caption/instructions paragraph with no `max-width` and nothing forcing an earlier wrap point contributes its full unwrapped line width to that calculation. If that text's natural width exceeds the current (small) rendering of the sized content, the *outer* box resolves to the text's width, not the content's — while the *inner* content box itself stays correctly sized, creating exactly the gap-past-the-content symptom described above. This is invisible on wide/landscape content because the content is usually wider than the text there, so the text never becomes the binding constraint.
+
+**How to detect / tell the two causes apart:** Measure (DevTools) the box that directly wraps the content vs. the outermost shrink-to-fit ancestor.
+- If only the *inner* wrapping box is bigger than the content → cause 1 (stale floor).
+- If the *outer* ancestor is bigger than the inner wrapping box too (visible gap outside the inner box's own rounded corner, not just inside it) → cause 2 (unconstrained sibling text). Both were present together in the instance below, which is what made it look like one confusing bug instead of two simple ones.
+
+**Fix pattern:**
+1. Make the loading-state floor conditional on the loading state, not permanent: `minWidth: isLoaded ? undefined : '300px'` (and same for `minHeight`). Once real dimensions are known, let the box be exactly that size.
+2. Give every sibling that contains free-flowing text an explicit `max-width` tied to the *same* JS-computed dimension as the sized content (e.g. `style={{ maxWidth: contentWidth ? \`${contentWidth}px\` : undefined }}`). This caps the text block's contribution to the ancestor's shrink-to-fit calculation at the content's width, so it can only ever wrap to match — never stretch the ancestor past it.
+
+**Key invariant:** When a container is `width: auto` in order to hug one specific piece of dynamically-sized content, *every* other descendant with free-flowing text must be capped to that same computed width. Otherwise shrink-to-fit silently picks whichever descendant has the largest max-content width — not necessarily the one the layout was designed around — and the mismatch only shows up for the smaller/narrower renderings of the sized content, making it easy to miss in normal desktop testing.
+
+**Key files:** `apps/web/src/components/CircularCropModal.tsx`
+
+**Recurrence risk:** Medium — any auto-width container built to wrap around an image/canvas/media element that also has caption or instruction text as a sibling.
+**First resolved:** July 2026
+**Instances:** CircularCropModal profile-photo cropper — gap/unrounded edge on narrow portrait images (Jul 2026)
 
 ---
 

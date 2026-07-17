@@ -693,6 +693,9 @@ export default function ProfilePage() {
         profileImage: photoUrl || undefined
       })
 
+      // Update UserContext so NavBar reads the new photo immediately
+      updateCurrentUser({ profileImageUrl: photoUrl || undefined })
+
       // Emit global state synchronization event for profile image update
       stateSyncUtils.updateUserProfile(user.id.toString(), {
         image: photoUrl || undefined

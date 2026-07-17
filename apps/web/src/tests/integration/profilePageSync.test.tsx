@@ -4,7 +4,11 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { stateSyncUtils } from '@/utils/stateSynchronization'
 
 // Mock the profile page since it's complex to import directly
-const MockProfilePage = () => {
+interface MockProfilePageProps {
+  onUpdateCurrentUser?: (updates: { profileImageUrl?: string }) => void
+}
+
+const MockProfilePage = ({ onUpdateCurrentUser }: MockProfilePageProps) => {
   const [user, setUser] = React.useState({
     id: 123,
     username: 'testuser',
@@ -18,6 +22,8 @@ const MockProfilePage = () => {
         ...user,
         profileImage: photoUrl || undefined
       })
+
+      onUpdateCurrentUser?.({ profileImageUrl: photoUrl || undefined })
       
       // Emit global state synchronization event for profile image update
       stateSyncUtils.updateUserProfile(user.id.toString(), {
@@ -74,6 +80,20 @@ describe('Profile Page State Synchronization', () => {
     })
 
     mockUpdateUserProfile.mockRestore()
+  })
+
+  it('should call updateCurrentUser when photo is updated', async () => {
+    const mockUpdateCurrentUser = jest.fn()
+    
+    render(<MockProfilePage onUpdateCurrentUser={mockUpdateCurrentUser} />)
+
+    // Update photo
+    fireEvent.click(screen.getByText('Update Photo'))
+
+    // Verify UserContext was updated with new profileImageUrl
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith({
+      profileImageUrl: 'new-image.jpg'
+    })
   })
 
   it('should emit state sync events when photo is updated', async () => {
