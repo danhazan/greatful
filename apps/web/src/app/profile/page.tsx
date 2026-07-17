@@ -16,6 +16,8 @@ import { transformUserPosts } from "@/lib/transformers"
 import { normalizeUserData } from "@/utils/userDataMapping"
 import { getCompleteInputStyling } from "@/utils/inputStyles"
 import { apiClient, extractApiErrorDetail } from "@/utils/apiClient"
+import { lockScroll, unlockScroll } from '@/utils/scrollLock'
+import { useModal } from '@/hooks/useModal'
 import { stateSyncUtils } from "@/utils/stateSynchronization"
 import { useUser } from "@/contexts/UserContext"
 import { useToast } from "@/contexts/ToastContext"
@@ -81,6 +83,19 @@ export default function ProfilePage() {
   const [selectedLocation, setSelectedLocation] = useState<any>(null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+  // Lock body scroll when either modal is open
+  useEffect(() => {
+    if (showPhotoUpload || showDeleteModal) {
+      lockScroll()
+      return () => unlockScroll()
+    }
+  }, [showPhotoUpload, showDeleteModal])
+
+  const photoModalRef = useRef<HTMLDivElement>(null)
+  const deleteModalRef = useRef<HTMLDivElement>(null)
+  useModal(photoModalRef, showPhotoUpload, () => setShowPhotoUpload(false), { enableTabTrap: true, scrollLock: false })
+  useModal(deleteModalRef, showDeleteModal, () => { setShowDeleteModal(false); setDeleteConfirmation(''); setDeleteError(null) }, { enableTabTrap: true, scrollLock: false })
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -1092,7 +1107,13 @@ export default function ProfilePage() {
       {/* Profile Photo Upload Modal */}
       {showPhotoUpload && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div
+            ref={photoModalRef}
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
+            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Update Profile Photo</h3>
               <button
@@ -1129,7 +1150,13 @@ export default function ProfilePage() {
       {/* Delete Account Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+          <div
+            ref={deleteModalRef}
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
+            className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <AlertTriangle className="h-6 w-6 text-red-600" />

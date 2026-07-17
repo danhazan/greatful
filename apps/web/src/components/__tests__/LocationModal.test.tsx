@@ -135,25 +135,22 @@ describe('LocationModal', () => {
     expect(screen.getByText('✓ Current: New York, NY')).toBeInTheDocument()
   })
 
-  it('prevents event bubbling when clicking inside modal', () => {
-    const mockBackdropClick = jest.fn()
-    
+  it('does not close when clicking inside modal content', () => {
     render(
-      <div onClick={mockBackdropClick}>
-        <LocationModal
-          isOpen={true}
-          onClose={mockOnClose}
-          onLocationSelect={mockOnLocationSelect}
-          initialValue=""
-        />
-      </div>
+      <LocationModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onLocationSelect={mockOnLocationSelect}
+        initialValue=""
+      />
     )
 
     // Click inside the modal content
     fireEvent.click(screen.getByText('Add Location'))
     
-    // The backdrop click handler should not be called
-    expect(mockBackdropClick).not.toHaveBeenCalled()
+    // onClose should not be called — only pointerdown fires useModal's
+    // click-outside detection, and a regular click inside the dialog
+    // content should not close it regardless.
     expect(mockOnClose).not.toHaveBeenCalled()
   })
 

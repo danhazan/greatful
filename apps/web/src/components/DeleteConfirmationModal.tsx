@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { AlertTriangle, Trash2, X } from "lucide-react"
+import { lockScroll, unlockScroll } from '@/utils/scrollLock'
+import { useModal } from '@/hooks/useModal'
 
 interface DeleteConfirmationModalProps {
   isOpen: boolean
@@ -22,11 +24,28 @@ export default function DeleteConfirmationModal({
   confirmText = "Delete Post",
   isDeleting = false
 }: DeleteConfirmationModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      lockScroll()
+      return () => unlockScroll()
+    }
+  }, [isOpen])
+
+  useModal(modalRef, isOpen, onClose, { enableTabTrap: true, scrollLock: false })
+
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-md"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">

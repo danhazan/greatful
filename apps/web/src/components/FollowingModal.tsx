@@ -6,7 +6,8 @@ import { X } from 'lucide-react'
 import UserItem from './UserItem'
 import { UserSearchResult } from '@/types/userSearch'
 import { apiClient } from '@/utils/apiClient'
-
+import { lockScroll, unlockScroll } from '@/utils/scrollLock'
+import { useModal } from '@/hooks/useModal'
 
 
 interface FollowingModalProps {
@@ -50,7 +51,15 @@ export default function FollowingModal({
     }
   }, [isOpen, userId, fetchFollowing])
 
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    if (isOpen) {
+      lockScroll()
+      return () => unlockScroll()
+    }
+  }, [isOpen])
 
+  useModal(modalRef, isOpen, onClose, { enableTabTrap: true, scrollLock: false })
 
   const handleClose = () => {
     setError(null)
@@ -62,13 +71,16 @@ export default function FollowingModal({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50" />
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={handleClose} />
 
       {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
         <div
           ref={modalRef}
-          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[80vh] flex flex-col"
+          role="dialog"
+          aria-modal="true"
+          tabIndex={-1}
+          className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md max-h-[80vh] flex flex-col pointer-events-auto"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -86,7 +98,7 @@ export default function FollowingModal({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" data-allow-scroll="true">
             {isLoading ? (
               <div className="p-8 text-center">
                 <div className="text-gray-400 text-4xl mb-4">👤</div>

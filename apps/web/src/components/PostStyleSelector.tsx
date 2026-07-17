@@ -1,7 +1,10 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { Sparkles } from "lucide-react"
 import { getTextColorForBackground, extractPrimaryBackgroundColor } from "@/utils/colorUtils"
+import { lockScroll, unlockScroll } from '@/utils/scrollLock'
+import { useModal } from '@/hooks/useModal'
 
 export interface PostStyle {
   id: string
@@ -142,6 +145,17 @@ export default function PostStyleSelector({
     return previewStyle
   }
 
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      lockScroll()
+      return () => unlockScroll()
+    }
+  }, [isOpen])
+
+  useModal(modalRef, isOpen, onClose ?? (() => {}), { enableTabTrap: true, scrollLock: false })
+
   if (!isOpen) return null
 
   // Mobile-optimized positioning and sizing
@@ -168,12 +182,15 @@ export default function PostStyleSelector({
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black bg-opacity-30"
-        onClick={onClose}
         data-backgrounds-backdrop
       />
 
       {/* Background Selector */}
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
         style={pickerStyle}
         className={`bg-white border border-gray-200 rounded-xl shadow-xl flex flex-col background-selector ${
           isMobile ? 'w-full mx-4' : 'w-96'
@@ -192,7 +209,7 @@ export default function PostStyleSelector({
         </div>
 
         {/* Content */}
-        <div className={`flex-1 overflow-y-auto ${isMobile ? 'p-4' : 'p-4'}`}>
+        <div className={`flex-1 overflow-y-auto ${isMobile ? 'p-4' : 'p-4'}`} data-allow-scroll="true">
           {/* Background Styles */}
           <div>
             <h4 className="text-sm font-medium text-gray-900 mb-4">Background Styles</h4>

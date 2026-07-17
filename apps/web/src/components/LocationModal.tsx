@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { X, MapPin } from "lucide-react"
 import LocationAutocomplete from "./LocationAutocomplete"
+import { lockScroll, unlockScroll } from '@/utils/scrollLock'
 
 interface LocationResult {
   displayName: string
@@ -40,6 +41,14 @@ export default function LocationModal({
       setLocationQuery(initialValue)
     }
   }, [isOpen, initialValue])
+
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    if (isOpen) {
+      lockScroll()
+      return () => unlockScroll()
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
