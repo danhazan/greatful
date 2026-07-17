@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Camera, Upload, X, User, Trash2 } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { prepareImageForUpload } from '@/utils/imageUpload'
@@ -60,7 +60,31 @@ export default function ProfilePhotoUpload({
   // ponytail: UI-only state for instant visual feedback. Parent form state
   // (photoRemoved in OnboardingData) is the long-term source of truth.
   const [photoRemoved, setPhotoRemoved] = useState(false)
+  const [isTouchFirst, setIsTouchFirst] = useState(false)
+  const [showMobileOverlay, setShowMobileOverlay] = useState(false)
+  const showMobileOverlayRef = useRef(false)
+  const photoAreaRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setIsTouchFirst(!window.matchMedia('(hover: hover)').matches)
+  }, [])
+
+  useEffect(() => {
+    showMobileOverlayRef.current = showMobileOverlay
+  }, [showMobileOverlay])
+
+  // Close mobile overlay when tapping outside the photo circle
+  useEffect(() => {
+    if (!isTouchFirst) return
+    const handler = (e: MouseEvent) => {
+      if (showMobileOverlayRef.current && photoAreaRef.current && !photoAreaRef.current.contains(e.target as Node)) {
+        setShowMobileOverlay(false)
+      }
+    }
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [isTouchFirst])
   const { showDebugSuccess, showError } = useToast()
 
   const uploadPhoto = async (croppedBlob: Blob, _cropData: CropData) => {
@@ -199,7 +223,7 @@ export default function ProfilePhotoUpload({
   return (
     <div className={`relative ${className}`}>
       {/* Current Photo Display */}
-      <div className="relative w-32 h-32 mx-auto mb-4">
+      <div ref={photoAreaRef} className="relative w-32 h-32 mx-auto mb-4">
         {photoRemoved ? (
           <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-100 to-purple-200 border-4 border-white shadow-lg flex items-center justify-center">
             <User className="w-12 h-12 text-purple-400" />
@@ -217,8 +241,23 @@ export default function ProfilePhotoUpload({
         )}
 
         {/* Upload/Delete Overlay */}
-        <div className="absolute inset-0 rounded-full bg-black bg-opacity-0 hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center group">
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
+        <div
+          className={`absolute inset-0 rounded-full transition-all duration-200 flex items-center justify-center ${
+            isTouchFirst && showMobileOverlay
+              ? 'bg-black bg-opacity-50'
+              : 'bg-black bg-opacity-0 hover:bg-opacity-50'
+          } ${isTouchFirst ? '' : 'group'}`}
+          onClick={(e) => {
+            if (isTouchFirst && !showMobileOverlay) {
+              setShowMobileOverlay(true)
+            }
+          }}
+        >
+          <div className={`transition-opacity duration-200 flex gap-2 ${
+            isTouchFirst
+              ? (showMobileOverlay ? 'opacity-100' : 'opacity-0 pointer-events-none')
+              : 'opacity-0 group-hover:opacity-100'
+          }`}>
             <button
               onClick={openFileDialog}
               disabled={isUploading}

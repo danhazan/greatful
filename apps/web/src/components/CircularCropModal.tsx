@@ -631,6 +631,7 @@ export default function CircularCropModal({
                   max={maxRadius}
                   value={cropData.radius}
                   onChange={handleRadiusChange}
+                  data-allow-scroll="true"
                   className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                   style={{
                     background: `linear-gradient(to right, #8B5CF6 0%, #8B5CF6 ${((cropData.radius - minRadius) / (maxRadius - minRadius)) * 100}%, #E5E7EB ${((cropData.radius - minRadius) / (maxRadius - minRadius)) * 100}%, #E5E7EB 100%)`
