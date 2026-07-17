@@ -10,6 +10,7 @@ import AccountLinkingDialog from "@/components/AccountLinkingDialog"
 import ResurrectionDialog from "@/components/ResurrectionDialog"
 import { useOAuth } from "@/hooks/useOAuth"
 import { useUser } from "@/contexts/UserContext"
+import { useRedirectIfAuthenticated } from "@/hooks/useAuthRedirect"
 import { setAccessToken } from "@/utils/auth"
 import { normalizeUsername, validateUsernameFormat } from "@/utils/usernameValidation"
 import { validatePasswordFormat, validatePasswordConfirmation } from "@/utils/passwordValidation"
@@ -17,6 +18,7 @@ import { validateEmailFormat, normalizeEmail } from "@/utils/emailValidation"
 
 export default function SignupPage() {
   const router = useRouter()
+
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -46,6 +48,9 @@ export default function SignupPage() {
     handleOAuthLogin,
     clearError: clearOAuthError
   } = useOAuth()
+
+  const { isRedirecting } = useRedirectIfAuthenticated()
+  if (isRedirecting) return null
 
   const doSignup = async (resurrectAction?: string) => {
     setIsLoading(true)

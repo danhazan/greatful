@@ -10,12 +10,13 @@ import AccountLinkingDialog from "@/components/AccountLinkingDialog"
 import { useOAuth } from "@/hooks/useOAuth"
 import { useUser } from "@/contexts/UserContext"
 import { setAccessToken } from "@/utils/auth"
-import { usePostLoginRedirect } from "@/hooks/useAuthRedirect"
+import { useRedirectIfAuthenticated, usePostLoginRedirect } from "@/hooks/useAuthRedirect"
 
 export default function LoginPage() {
   const router = useRouter()
   const { reloadUser } = useUser()
   const { redirectTo, clearRedirect } = usePostLoginRedirect()
+  const { isRedirecting } = useRedirectIfAuthenticated()
   const [formData, setFormData] = useState({
     login: "",
     password: ""
@@ -151,6 +152,8 @@ export default function LoginPage() {
     setShowLinkingDialog(false)
     setLinkingData(null)
   }
+
+  if (isRedirecting) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center">

@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useUser } from '@/contexts/UserContext'
 
 export const LOGIN_REDIRECT_STORAGE_KEY = 'post_login_redirect'
 export const AUTH_LOGOUT_KEY = 'auth_logout_flag'
@@ -45,6 +46,26 @@ export function useRequireAuth() {
 
     router.replace(buildLoginRedirectUrl(fullPath))
   }, [router, pathname, searchParams])
+}
+
+// Only for pages inaccessible to authenticated users (login, signup). Not for OAuth callbacks.
+export function useRedirectIfAuthenticated(
+  redirectTo = DEFAULT_POST_LOGIN_REDIRECT
+): { isRedirecting: boolean } {
+  const router = useRouter()
+  const { currentUser, isLoading } = useUser()
+  const hasRedirected = useRef(false)
+
+  const isRedirecting = Boolean(currentUser && !isLoading)
+
+  useEffect(() => {
+    if (!currentUser || isLoading) return
+    if (hasRedirected.current) return
+    hasRedirected.current = true
+    router.replace(redirectTo)
+  }, [currentUser, isLoading, router, redirectTo])
+
+  return { isRedirecting }
 }
 
 export function usePostLoginRedirect(
