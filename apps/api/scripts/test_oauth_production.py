@@ -22,7 +22,7 @@ from app.core.oauth_config import (
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI,
-    FACEBOOK_REDIRECT_URI,
+    APPLE_REDIRECT_URI,
     FRONTEND_SUCCESS_URL,
     FRONTEND_ERROR_URL,
     ALLOWED_ORIGINS,
@@ -131,7 +131,7 @@ class OAuthProductionTester:
         
         uris_to_test = {
             "Google Redirect URI": GOOGLE_REDIRECT_URI,
-            "Facebook Redirect URI": FACEBOOK_REDIRECT_URI,
+            "Apple Redirect URI": APPLE_REDIRECT_URI,
             "Frontend Success URL": FRONTEND_SUCCESS_URL,
             "Frontend Error URL": FRONTEND_ERROR_URL
         }

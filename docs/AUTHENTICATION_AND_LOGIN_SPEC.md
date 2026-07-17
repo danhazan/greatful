@@ -114,7 +114,7 @@ sequenceDiagram
     Client->>User: Redirects to /feed
 ```
 
-1. **Provider Redirect**: The user completes authorization with Google/Facebook and is redirected to `/auth/callback?code=...`.
+1. **Provider Redirect**: The user completes authorization with Google/Apple and is redirected to `/auth/callback?code=...`.
 2. **Client Handling**: The callback page extracts URL search parameters and calls `oauthService.handleCallback(provider, code, state)`.
 3. **Next.js Proxy Forwarding**: The service makes a `POST` request to `/api/auth/callback`, which forwards the authorization code to `/api/v1/oauth/callback/{provider}`.
 4. **Backend Response**: The backend exchanges the code with the OAuth provider, creates or updates the user, and returns the exact same canonical `AuthResponse` as the email login flow.
@@ -697,7 +697,7 @@ Key architectural decisions:
 
 ### External URL Architecture (OAuth Profile Images)
 
-OAuth provider URLs (Google `lh3.googleusercontent.com`, Facebook `graph.facebook.com`) are stored **as-is** in `User.profile_image_url`, not downloaded or copied to local storage.
+OAuth provider URLs (Google `lh3.googleusercontent.com`, Apple `apple.placeholder.com`) are stored **as-is** in `User.profile_image_url`, not downloaded or copied to local storage.
 
 **Why external URLs are intentional:**
 
@@ -712,7 +712,7 @@ OAuth provider URLs (Google `lh3.googleusercontent.com`, Facebook `graph.faceboo
 **Risks:**
 
 - Google avatar CDN paths can change (`lh3.googleusercontent.com` path structure is not documented as stable)
-- Facebook `graph.facebook.com` URLs may require an `access_token` for some endpoints, causing 403s for unauthenticated viewers
+- Apple `apple.placeholder.com` URLs may require an `access_token` for some endpoints, causing 403s for unauthenticated viewers
 - If a provider deprecates a URL format, old stored URLs 404
 - No automatic refresh mechanism — stale URLs persist until the user uploads a new photo or the next OAuth login refreshes via the only-fills-if-empty policy
 

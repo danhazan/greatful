@@ -94,7 +94,7 @@ class TestOAuthCallback:
         assert validate_oauth_state(valid_state) is True
         
         # Another valid state
-        valid_state_2 = "facebook:xyz123456789abcd"
+        valid_state_2 = "apple:xyz123456789abcd"
         assert validate_oauth_state(valid_state_2) is True
     
     def test_validate_oauth_state_invalid(self):
@@ -252,7 +252,7 @@ class TestOAuthStateValidation:
         """Test state validation with security-focused patterns."""
         # Typical OAuth state patterns
         assert validate_oauth_state("google:abcdef1234567890") is True
-        assert validate_oauth_state("facebook:xyz123456789abcd") is True
+        assert validate_oauth_state("apple:xyz123456789abcd") is True
         
         # Base64-like states
         assert validate_oauth_state("dGVzdC1zdGF0ZS0xMjM0NTY=") is True

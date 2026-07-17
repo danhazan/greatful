@@ -20,7 +20,7 @@ describe('OAuth Demo Flow Integration', () => {
     // Set development environment without OAuth credentials
     process.env['NODE_ENV'] = 'development'
     delete process.env['GOOGLE_CLIENT_ID']
-    delete process.env['FACEBOOK_APP_ID']
+    delete process.env['APPLE_APP_ID']
 
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
@@ -31,7 +31,7 @@ describe('OAuth Demo Flow Integration', () => {
         data: {
           providers: {
             google: true,
-            facebook: true
+            apple: true
           },
           redirect_uri: 'http://localhost:3000/auth/callback',
           environment: 'development',
@@ -44,7 +44,7 @@ describe('OAuth Demo Flow Integration', () => {
     const data = await response.json()
 
     expect(data.data.providers.google).toBe(true)
-    expect(data.data.providers.facebook).toBe(true)
+    expect(data.data.providers.apple).toBe(true)
     expect(data.data.initialized).toBe(true)
     expect(data.data.environment).toBe('development')
   })
@@ -52,7 +52,7 @@ describe('OAuth Demo Flow Integration', () => {
   it('should handle demo OAuth login flow', async () => {
     process.env['NODE_ENV'] = 'development'
     delete process.env['GOOGLE_CLIENT_ID']
-    delete process.env['FACEBOOK_APP_ID']
+    delete process.env['APPLE_APP_ID']
 
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
@@ -97,7 +97,7 @@ describe('OAuth Demo Flow Integration', () => {
   it('should disable OAuth providers in production without credentials', async () => {
     process.env['NODE_ENV'] = 'production'
     delete process.env['GOOGLE_CLIENT_ID']
-    delete process.env['FACEBOOK_APP_ID']
+    delete process.env['APPLE_APP_ID']
 
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
@@ -107,7 +107,7 @@ describe('OAuth Demo Flow Integration', () => {
         data: {
           providers: {
             google: false,
-            facebook: false
+            apple: false
           },
           redirect_uri: 'http://localhost:3000/auth/callback',
           environment: 'production',
@@ -120,7 +120,7 @@ describe('OAuth Demo Flow Integration', () => {
     const data = await response.json()
 
     expect(data.data.providers.google).toBe(false)
-    expect(data.data.providers.facebook).toBe(false)
+    expect(data.data.providers.apple).toBe(false)
     expect(data.data.initialized).toBe(false)
   })
 })

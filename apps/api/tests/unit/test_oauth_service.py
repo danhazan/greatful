@@ -328,10 +328,10 @@ class TestOAuthService:
     @pytest.mark.asyncio
     async def test_link_oauth_account_conflict_different_provider(self, oauth_service, existing_oauth_user, mock_oauth_user_info):
         """Test OAuth account linking with different provider conflict."""
-        # Try to link Facebook to user who already has Google
+        # Try to link Apple to user who already has Google
         with pytest.raises(ConflictError) as exc_info:
             await oauth_service._link_oauth_account_with_validation(
-                existing_oauth_user, 'facebook', mock_oauth_user_info
+                existing_oauth_user, 'apple', mock_oauth_user_info
             )
         
         assert "already linked to google" in str(exc_info.value).lower()
@@ -391,23 +391,23 @@ class TestOAuthService:
         assert profile_data['location']['locale'] == 'en-US'
     
     @pytest.mark.asyncio
-    async def test_extract_profile_data_facebook(self, oauth_service):
-        """Test profile data extraction for Facebook provider."""
-        facebook_user_info = {
-            'id': 'facebook_123',
-            'email': 'test@facebook.com',
+    async def test_extract_profile_data_apple(self, oauth_service):
+        """Test profile data extraction for Apple provider."""
+        apple_user_info = {
+            'id': 'apple_123',
+            'email': 'test@apple.com',
             'name': 'Test User',
             'picture': {
                 'data': {
-                    'url': 'https://graph.facebook.com/photo.jpg'
+                    'url': 'https://graph.apple.placeholder.com/photo.jpg'
                 }
             }
         }
         
-        profile_data = oauth_service._extract_profile_data(facebook_user_info, 'facebook')
+        profile_data = oauth_service._extract_profile_data(apple_user_info, 'apple')
         
         assert profile_data['display_name'] == 'Test User'
-        assert profile_data['profile_image_url'] == 'https://graph.facebook.com/photo.jpg'
+        assert profile_data['profile_image_url'] == 'https://graph.apple.placeholder.com/photo.jpg'
     
     @pytest.mark.asyncio
     async def test_extract_profile_data_fallback(self, oauth_service):
@@ -436,7 +436,7 @@ class TestOAuthService:
     async def test_detect_oauth_conflicts_different_provider(self, oauth_service, existing_oauth_user, mock_oauth_user_info):
         """Test OAuth conflict detection with different provider."""
         conflict_info = await oauth_service._detect_oauth_conflicts(
-            existing_oauth_user, 'facebook', mock_oauth_user_info
+            existing_oauth_user, 'apple', mock_oauth_user_info
         )
         
         assert conflict_info['has_conflicts'] is True

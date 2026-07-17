@@ -25,8 +25,8 @@ os.environ.update({
     # OAuth test configuration
     'GOOGLE_CLIENT_ID': 'test-google-client-id',
     'GOOGLE_CLIENT_SECRET': 'test-google-client-secret',
-    'FACEBOOK_CLIENT_ID': 'test-facebook-client-id',
-    'FACEBOOK_CLIENT_SECRET': 'test-facebook-client-secret'
+    'APPLE_CLIENT_ID': 'test-apple-client-id',
+    'APPLE_CLIENT_SECRET': 'test-apple-client-secret'
 })
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine

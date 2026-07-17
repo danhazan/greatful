@@ -36,7 +36,7 @@ GOOGLE_CLIENT_ID=your_actual_google_client_id_here
 GOOGLE_CLIENT_SECRET=your_actual_google_client_secret_here
 
 # Keep these as they are:
-FACEBOOK_APP_ID=test-facebook-app-id
+APPLE_APP_ID=test-apple-app-id
 OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback/google
 SESSION_SECRET=your-secret-key-here
 ENVIRONMENT=development

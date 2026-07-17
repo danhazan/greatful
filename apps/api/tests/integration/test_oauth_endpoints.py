@@ -39,7 +39,7 @@ class TestOAuthEndpointsIntegration:
         config.is_provider_available.return_value = True
         config.get_oauth_client.return_value = Mock()
         config.get_provider_status.return_value = {
-            'providers': {'google': True, 'facebook': True},
+            'providers': {'google': True, 'apple': True},
             'redirect_uri': 'http://localhost:3000/auth/callback',
             'environment': 'test',
             'initialized': True
@@ -94,9 +94,9 @@ class TestOAuthEndpointsIntegration:
         assert response.status_code == 200
         data = response.json()
         assert 'google' in data['providers']
-        assert 'facebook' in data['providers']
+        assert 'apple' in data['providers']
         assert data['providers']['google'] is True
-        assert data['providers']['facebook'] is True
+        assert data['providers']['apple'] is True
         assert data['initialized'] is True
     
     def test_oauth_login_not_configured(self, client):
@@ -145,24 +145,24 @@ class TestOAuthEndpointsIntegration:
             assert 'state=' in location
     
     @patch.dict('os.environ', {
-        'FACEBOOK_CLIENT_ID': 'test_facebook_client_id',
-        'FACEBOOK_CLIENT_SECRET': 'test_facebook_client_secret'
+        'APPLE_CLIENT_ID': 'test_apple_client_id',
+        'APPLE_CLIENT_SECRET': 'test_apple_client_secret'
     })
-    def test_oauth_login_facebook_success(self, client, mock_oauth_config):
-        """Test successful Facebook OAuth login initiation."""
+    def test_oauth_login_apple_success(self, client, mock_oauth_config):
+        """Test successful Apple OAuth login initiation."""
         app.state.oauth_config = mock_oauth_config
         app.state.oauth = Mock()
         
         with patch('app.core.oauth_config.get_oauth_redirect_uri') as mock_redirect:
             mock_redirect.return_value = 'http://localhost:3000/auth/callback'
             
-            response = client.get("/api/v1/oauth/login/facebook", follow_redirects=False)
+            response = client.get("/api/v1/oauth/login/apple", follow_redirects=False)
             
             assert response.status_code == 307  # Redirect response
             assert 'location' in response.headers
             location = response.headers['location']
-            assert 'facebook.com/v18.0/dialog/oauth' in location
-            assert 'client_id=test_facebook_client_id' in location
+            assert 'apple.placeholder.com/auth/authorize' in location
+            assert 'client_id=test_apple_client_id' in location
     
     def test_oauth_login_unsupported_provider(self, client, mock_oauth_config):
         """Test OAuth login with unsupported provider."""
@@ -366,33 +366,33 @@ class TestOAuthEndpointsIntegration:
                         assert auth_data['user']['profile_image_url'] == mock_oauth_user_info['picture']
     
     @patch.dict('os.environ', {
-        'FACEBOOK_CLIENT_ID': 'test_facebook_client_id',
-        'FACEBOOK_CLIENT_SECRET': 'test_facebook_client_secret'
+        'APPLE_CLIENT_ID': 'test_apple_client_id',
+        'APPLE_CLIENT_SECRET': 'test_apple_client_secret'
     })
     @pytest.mark.asyncio
-    async def test_oauth_callback_facebook_success(self, client, mock_oauth_config, setup_test_database):
-        """Test successful Facebook OAuth callback."""
+    async def test_oauth_callback_apple_success(self, client, mock_oauth_config, setup_test_database):
+        """Test successful Apple OAuth callback."""
         app.state.oauth_config = mock_oauth_config
         app.state.oauth = Mock()
         
         callback_data = {
-            'code': 'facebook_auth_code',
-            'state': 'facebook:valid_state_12345'
+            'code': 'apple_auth_code',
+            'state': 'apple:valid_state_12345'
         }
         
-        facebook_token = {
-            'access_token': 'facebook_access_token',
+        apple_token = {
+            'access_token': 'apple_access_token',
             'token_type': 'bearer',
             'expires_in': 5183944
         }
         
-        facebook_user_info = {
-            'id': 'facebook_user_123',
-            'email': 'test@facebook.com',
-            'name': 'Facebook User',
+        apple_user_info = {
+            'id': 'apple_user_123',
+            'email': 'test@apple.com',
+            'name': 'Apple User',
             'picture': {
                 'data': {
-                    'url': 'https://graph.facebook.com/photo.jpg'
+                    'url': 'https://graph.apple.placeholder.com/photo.jpg'
                 }
             }
         }
@@ -404,20 +404,20 @@ class TestOAuthEndpointsIntegration:
                 mock_redirect.return_value = 'http://localhost:3000/auth/callback'
                 
                 with patch('httpx.AsyncClient') as mock_client:
-                    # Mock successful Facebook token exchange
+                    # Mock successful Apple token exchange
                     mock_response = Mock()
                     mock_response.status_code = 200
                     mock_response.headers = {'content-type': 'application/json'}
                     mock_response.headers = {'content-type': 'application/json'}
-                    mock_response.json.return_value = facebook_token
-                    mock_response.text = json.dumps(facebook_token)
+                    mock_response.json.return_value = apple_token
+                    mock_response.text = json.dumps(apple_token)
                     
                     mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                     
                     with patch('app.services.oauth_service.get_oauth_user_info') as mock_get_info:
-                        mock_get_info.return_value = facebook_user_info
+                        mock_get_info.return_value = apple_user_info
                         
-                        response = client.post("/api/v1/oauth/callback/facebook", json=callback_data)
+                        response = client.post("/api/v1/oauth/callback/apple", json=callback_data)
                         
                         assert response.status_code == 200
                         data = response.json()
@@ -425,7 +425,7 @@ class TestOAuthEndpointsIntegration:
                         auth_data = data['data']
                         assert 'user' in auth_data
                         assert 'access_token' in auth_data
-                        assert auth_data['user']['email'] == facebook_user_info['email']
+                        assert auth_data['user']['email'] == apple_user_info['email']
     
     @pytest.mark.asyncio
     async def test_oauth_callback_existing_user_login(self, client, mock_oauth_config, mock_token_response, mock_oauth_user_info, setup_test_database):
@@ -682,13 +682,13 @@ class TestOAuthEndpointsValidation:
         
         # Valid status
         valid_status = OAuthProviderStatus(
-            providers={'google': True, 'facebook': False},
+            providers={'google': True, 'apple': False},
             redirect_uri='http://localhost:3000/auth/callback',
             environment='test',
             initialized=True
         )
         assert valid_status.providers['google'] is True
-        assert valid_status.providers['facebook'] is False
+        assert valid_status.providers['apple'] is False
         assert valid_status.redirect_uri == 'http://localhost:3000/auth/callback'
         assert valid_status.environment == 'test'
         assert valid_status.initialized is True

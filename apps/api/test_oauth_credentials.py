@@ -17,8 +17,8 @@ def test_oauth_credentials():
     required_vars = {
         'GOOGLE_CLIENT_ID': os.getenv('GOOGLE_CLIENT_ID'),
         'GOOGLE_CLIENT_SECRET': os.getenv('GOOGLE_CLIENT_SECRET'),
-        'FACEBOOK_CLIENT_ID': os.getenv('FACEBOOK_CLIENT_ID'),
-        'FACEBOOK_CLIENT_SECRET': os.getenv('FACEBOOK_CLIENT_SECRET'),
+        'APPLE_CLIENT_ID': os.getenv('APPLE_CLIENT_ID'),
+        'APPLE_CLIENT_SECRET': os.getenv('APPLE_CLIENT_SECRET'),
         'OAUTH_REDIRECT_URI': os.getenv('OAUTH_REDIRECT_URI')
     }
     
@@ -46,7 +46,7 @@ def test_oauth_credentials():
             status = oauth_config.get_provider_status()
             print(f"✅ OAuth providers initialized successfully")
             print(f"   - Google: {'✅' if status['providers'].get('google') else '❌'}")
-            print(f"   - Facebook: {'✅' if status['providers'].get('facebook') else '❌'}")
+            print(f"   - Apple: {'✅' if status['providers'].get('apple') else '❌'}")
             print(f"   - Redirect URI: {status['redirect_uri']}")
             
             # Test endpoints
@@ -63,12 +63,12 @@ def test_oauth_credentials():
             else:
                 print(f"⚠️  Google OAuth endpoint: {response.status_code} - {response.json().get('detail', 'Unknown error')}")
             
-            # Test Facebook OAuth (should work now)
-            response = client.post('/api/v1/auth/oauth/facebook', json={})
+            # Test Apple OAuth (should work now)
+            response = client.post('/api/v1/auth/oauth/apple', json={})
             if response.status_code == 200:
-                print("✅ Facebook OAuth endpoint: Working (redirects to Facebook)")
+                print("✅ Apple OAuth endpoint: Working (redirects to Apple)")
             else:
-                print(f"⚠️  Facebook OAuth endpoint: {response.status_code} - {response.json().get('detail', 'Unknown error')}")
+                print(f"⚠️  Apple OAuth endpoint: {response.status_code} - {response.json().get('detail', 'Unknown error')}")
             
             print("\n🚀 OAuth is ready for testing!")
             print("\nNext steps:")
@@ -83,7 +83,7 @@ def test_oauth_credentials():
     else:
         print("\n⚠️  OAuth credentials need to be configured")
         print("\nTo configure OAuth:")
-        print("1. Follow the setup guide for Google Cloud Console and Facebook Developers")
+        print("1. Follow the setup guide for Google Cloud Console and Apple Developers")
         print("2. Copy your credentials to the .env file")
         print("3. Run this test again")
         
@@ -91,8 +91,8 @@ def test_oauth_credentials():
         print("\n📝 Example .env configuration:")
         print("GOOGLE_CLIENT_ID=123456789-abcdef.apps.googleusercontent.com")
         print("GOOGLE_CLIENT_SECRET=GOCSPX-your-secret-here")
-        print("FACEBOOK_CLIENT_ID=1234567890123456")
-        print("FACEBOOK_CLIENT_SECRET=your-facebook-secret-here")
+        print("APPLE_CLIENT_ID=1234567890123456")
+        print("APPLE_CLIENT_SECRET=your-apple-secret-here")
         print("OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback")
         
         return False

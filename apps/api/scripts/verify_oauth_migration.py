@@ -118,7 +118,7 @@ class OAuthMigrationVerifier:
         
         required_content = [
             "GOOGLE_REDIRECT_URI",
-            "FACEBOOK_REDIRECT_URI", 
+            "APPLE_REDIRECT_URI", 
             "FRONTEND_SUCCESS_URL",
             "FRONTEND_ERROR_URL",
             "ALLOWED_ORIGINS",
@@ -170,7 +170,7 @@ class OAuthMigrationVerifier:
         
         required_content = [
             "GOOGLE_REDIRECT_URI",
-            "FACEBOOK_REDIRECT_URI",
+            "APPLE_REDIRECT_URI",
             "FRONTEND_SUCCESS_URL",
             "FRONTEND_ERROR_URL",
             "ALLOWED_ORIGINS",
@@ -281,7 +281,7 @@ class OAuthMigrationVerifier:
             # Check for production configuration imports
             production_imports = [
                 "GOOGLE_REDIRECT_URI",
-                "FACEBOOK_REDIRECT_URI", 
+                "APPLE_REDIRECT_URI", 
                 "FRONTEND_SUCCESS_URL",
                 "FRONTEND_ERROR_URL",
                 "ALLOWED_ORIGINS",

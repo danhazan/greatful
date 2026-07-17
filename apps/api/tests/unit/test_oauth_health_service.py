@@ -24,11 +24,11 @@ class TestOAuthHealthService:
         with patch('app.services.oauth_health_service.oauth_config') as mock_config:
             mock_config.is_initialized = True
             mock_config.google_enabled = True
-            mock_config.facebook_enabled = True
+            mock_config.apple_enabled = True
             mock_config.google_client_id = 'test_google_id'
             mock_config.google_client_secret = 'test_google_secret'
-            mock_config.facebook_client_id = 'test_facebook_id'
-            mock_config.facebook_client_secret = 'test_facebook_secret'
+            mock_config.apple_client_id = 'test_apple_id'
+            mock_config.apple_client_secret = 'test_apple_secret'
             
             # Mock database connectivity
             health_service.db.execute = AsyncMock()
@@ -36,9 +36,9 @@ class TestOAuthHealthService:
             
             # Mock provider health checks
             with patch.object(health_service, '_check_google_provider') as mock_google:
-                with patch.object(health_service, '_check_facebook_provider') as mock_facebook:
+                with patch.object(health_service, '_check_apple_provider') as mock_apple:
                     mock_google.return_value = {'status': 'healthy', 'response_time_ms': 100}
-                    mock_facebook.return_value = {'status': 'healthy', 'response_time_ms': 150}
+                    mock_apple.return_value = {'status': 'healthy', 'response_time_ms': 150}
                     
                     health_status = await health_service.check_oauth_system_health()
                     
@@ -46,7 +46,7 @@ class TestOAuthHealthService:
                     assert health_status['oauth_config']['status'] == 'healthy'
                     assert health_status['database']['status'] == 'healthy'
                     assert 'google' in health_status['providers']
-                    assert 'facebook' in health_status['providers']
+                    assert 'apple' in health_status['providers']
                     assert 'timestamp' in health_status
 
     @pytest.mark.asyncio
@@ -55,20 +55,20 @@ class TestOAuthHealthService:
         with patch('app.services.oauth_health_service.oauth_config') as mock_config:
             mock_config.is_initialized = True
             mock_config.google_enabled = True
-            mock_config.facebook_enabled = True
+            mock_config.apple_enabled = True
             mock_config.google_client_id = 'test_id'
             mock_config.google_client_secret = 'test_secret'
-            mock_config.facebook_client_id = 'test_id'
-            mock_config.facebook_client_secret = 'test_secret'
+            mock_config.apple_client_id = 'test_id'
+            mock_config.apple_client_secret = 'test_secret'
             
             config_status = await health_service._check_oauth_config()
             
             assert config_status['status'] == 'healthy'
             assert config_status['initialized'] is True
             assert config_status['google_enabled'] is True
-            assert config_status['facebook_enabled'] is True
+            assert config_status['apple_enabled'] is True
             assert config_status['has_google_credentials'] is True
-            assert config_status['has_facebook_credentials'] is True
+            assert config_status['has_apple_credentials'] is True
 
     @pytest.mark.asyncio
     async def test_check_oauth_config_unhealthy(self, health_service):
@@ -76,18 +76,18 @@ class TestOAuthHealthService:
         with patch('app.services.oauth_health_service.oauth_config') as mock_config:
             mock_config.is_initialized = False
             mock_config.google_enabled = False
-            mock_config.facebook_enabled = False
+            mock_config.apple_enabled = False
             mock_config.google_client_id = None
             mock_config.google_client_secret = None
-            mock_config.facebook_client_id = None
-            mock_config.facebook_client_secret = None
+            mock_config.apple_client_id = None
+            mock_config.apple_client_secret = None
             
             config_status = await health_service._check_oauth_config()
             
             assert config_status['status'] == 'unhealthy'
             assert config_status['initialized'] is False
             assert config_status['has_google_credentials'] is False
-            assert config_status['has_facebook_credentials'] is False
+            assert config_status['has_apple_credentials'] is False
 
     @pytest.mark.asyncio
     async def test_check_google_provider_healthy(self, health_service):
@@ -127,8 +127,8 @@ class TestOAuthHealthService:
             assert google_status['response_time_ms'] == 200
 
     @pytest.mark.asyncio
-    async def test_check_facebook_provider_healthy(self, health_service):
-        """Test Facebook provider health check when healthy."""
+    async def test_check_apple_provider_healthy(self, health_service):
+        """Test Apple provider health check when healthy."""
         mock_response = Mock()
         mock_response.status_code = 405  # Expected for HEAD request
         mock_response.elapsed.total_seconds.return_value = 0.15
@@ -136,11 +136,11 @@ class TestOAuthHealthService:
         with patch('httpx.AsyncClient') as mock_client:
             mock_client.return_value.__aenter__.return_value.head.return_value = mock_response
             
-            facebook_status = await health_service._check_facebook_provider()
+            apple_status = await health_service._check_apple_provider()
             
-            assert facebook_status['status'] == 'healthy'
-            assert facebook_status['response_time_ms'] == 150
-            assert 'oauth_dialog_endpoint' in facebook_status
+            assert apple_status['status'] == 'healthy'
+            assert apple_status['response_time_ms'] == 150
+            assert 'oauth_dialog_endpoint' in apple_status
 
     @pytest.mark.asyncio
     async def test_check_database_connectivity_success(self, health_service):
@@ -170,7 +170,7 @@ class TestOAuthHealthService:
         # Mock database queries
         mock_provider_stats = [
             Mock(oauth_provider='google', user_count=100, new_users_24h=5, new_users_7d=20),
-            Mock(oauth_provider='facebook', user_count=50, new_users_24h=2, new_users_7d=8)
+            Mock(oauth_provider='apple', user_count=50, new_users_24h=2, new_users_7d=8)
         ]
         
         health_service.db.execute = AsyncMock()
@@ -196,7 +196,7 @@ class TestOAuthHealthService:
             'database': {'status': 'healthy'},
             'providers': {
                 'google': {'status': 'healthy'},
-                'facebook': {'status': 'unhealthy'}
+                'apple': {'status': 'unhealthy'}
             }
         }
         
@@ -211,7 +211,7 @@ class TestOAuthHealthService:
             'database': {'status': 'healthy'},
             'providers': {
                 'google': {'status': 'unhealthy'},
-                'facebook': {'status': 'unhealthy'}
+                'apple': {'status': 'unhealthy'}
             }
         }
         

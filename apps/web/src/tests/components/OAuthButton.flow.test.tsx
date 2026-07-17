@@ -34,9 +34,9 @@ describe('OAuthButton Flow Tests', () => {
     expect(screen.getByText(/google/i)).toBeInTheDocument()
   })
 
-  // @flow Test: Facebook provider works
-  it('facebook oauth button works correctly', () => {
-    render(<OAuthButton provider="facebook" />)
+  // @flow Test: Apple provider works
+  it('apple oauth button works correctly', () => {
+    render(<OAuthButton provider="apple" />)
     
     const button = screen.getByRole('button')
     expect(button).toBeInTheDocument()

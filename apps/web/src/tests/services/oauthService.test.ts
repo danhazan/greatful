@@ -17,7 +17,7 @@ describe('OAuthService', () => {
     it('returns provider status successfully', async () => {
       const mockResponse = {
         data: {
-          providers: { google: true, facebook: false },
+          providers: { google: true, apple: false },
           redirect_uri: 'http://localhost:3000/auth/callback',
           environment: 'development',
           initialized: true
@@ -33,7 +33,7 @@ describe('OAuthService', () => {
 
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/api/v1/oauth/providers')
       expect(result).toEqual({
-        providers: { google: true, facebook: false },
+        providers: { google: true, apple: false },
         redirectUri: 'http://localhost:3000/auth/callback',
         environment: 'development',
         initialized: true
@@ -69,10 +69,10 @@ describe('OAuthService', () => {
       expect(window.location.href).toBe('http://localhost:8000/api/v1/oauth/login/google?redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback')
     })
 
-    it('works with Facebook provider', async () => {
-      await oauthService.initiateLogin('facebook')
+    it('works with Apple provider', async () => {
+      await oauthService.initiateLogin('apple')
 
-      expect(window.location.href).toBe('http://localhost:8000/api/v1/oauth/login/facebook')
+      expect(window.location.href).toBe('http://localhost:8000/api/v1/oauth/login/apple')
     })
   })
 
@@ -157,7 +157,7 @@ describe('OAuthService', () => {
         ok: true,
         json: async () => ({
           data: {
-            providers: { google: true, facebook: false },
+            providers: { google: true, apple: false },
             initialized: true
           }
         })
@@ -172,7 +172,7 @@ describe('OAuthService', () => {
         ok: true,
         json: async () => ({
           data: {
-            providers: { google: true, facebook: false },
+            providers: { google: true, apple: false },
             initialized: false
           }
         })
@@ -187,7 +187,7 @@ describe('OAuthService', () => {
         ok: true,
         json: async () => ({
           data: {
-            providers: { google: false, facebook: false },
+            providers: { google: false, apple: false },
             initialized: true
           }
         })

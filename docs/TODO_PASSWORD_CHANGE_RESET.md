@@ -76,7 +76,7 @@ The only way for a user to transition from an OAuth User to a Password User will
 
 1.  **Create New Pages (`/auth/forgot-password` and `/auth/reset-password`):**
     *   These pages will reuse the exact layout and styling of the existing `login` and `signup` pages to ensure a consistent user experience.
-    *   They will **not** include the Google and Facebook OAuth login buttons.
+    *   They will **not** include the Google and Apple OAuth login buttons.
     *   The `/forgot-password` page will have a single email input and a submit button.
     *   The `/reset-password` page will have inputs for "New Password" and "Confirm New Password", and will read the reset token from the URL.
 

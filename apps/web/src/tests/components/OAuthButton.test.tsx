@@ -23,17 +23,17 @@ describe('OAuthButton', () => {
     expect(screen.getByText('Continue with Google')).toBeInTheDocument()
   })
 
-  it('renders Facebook OAuth button correctly', () => {
+  it('renders Apple OAuth button correctly', () => {
     render(
       <OAuthButton
-        provider="facebook"
+        provider="apple"
         onOAuthLogin={mockOnOAuthLogin}
       />
     )
 
-    const button = screen.getByRole('button', { name: /sign in with facebook/i })
+    const button = screen.getByRole('button', { name: /sign in with apple/i })
     expect(button).toBeInTheDocument()
-    expect(screen.getByText('Continue with Facebook')).toBeInTheDocument()
+    expect(screen.getByText('Continue with Apple')).toBeInTheDocument()
   })
 
   it('calls onOAuthLogin when clicked', async () => {

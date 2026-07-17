@@ -39,8 +39,8 @@ REFRESH_TOKEN_EXPIRE_DAYS=30
 # OAuth Configuration
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
-FACEBOOK_CLIENT_ID=your-facebook-client-id
-FACEBOOK_CLIENT_SECRET=your-facebook-client-secret
+APPLE_CLIENT_ID=your-apple-client-id
+APPLE_CLIENT_SECRET=your-apple-client-secret
 OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback/google
 OAUTH_REDIRECT_URI_PRODUCTION=https://yourdomain.com/auth/callback/google
 
@@ -58,7 +58,7 @@ ENVIRONMENT=development
 **Key Settings**:
 - **Database URL**: PostgreSQL connection with async driver
 - **Secret Key**: JWT token encryption
-- **OAuth Credentials**: Google and Facebook OAuth client credentials
+- **OAuth Credentials**: Google and Apple OAuth client credentials
 - **OAuth Redirect URIs**: Callback URLs for OAuth flow (development and production)
 - **CORS Origins**: Allowed frontend origins for API access
 - **Geocoding Provider**: `GEO_PROVIDER=locationiq` (default, also accepts `nominatim`). Requires `LOCATIONIQ_API_KEY` for LocationIQ.
@@ -128,8 +128,8 @@ ENABLE_FILE_UPLOADS=true
 # OAuth Configuration (Production)
 GOOGLE_CLIENT_ID=your-production-google-client-id
 GOOGLE_CLIENT_SECRET=your-production-google-client-secret
-FACEBOOK_CLIENT_ID=your-production-facebook-client-id
-FACEBOOK_CLIENT_SECRET=your-production-facebook-client-secret
+APPLE_CLIENT_ID=your-production-apple-client-id
+APPLE_CLIENT_SECRET=your-production-apple-client-secret
 OAUTH_REDIRECT_URI_PRODUCTION=https://your-app.vercel.app/auth/callback/google
 ```
 **Key Settings**:

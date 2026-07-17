@@ -231,11 +231,11 @@ NEXT_PUBLIC_CACHE_STATIC_ASSETS=true
 
 ### Overview
 
-OAuth 2.0 social authentication is fully implemented and deployed in production. Users can sign in using their Google or Facebook accounts with complete security and error handling.
+OAuth 2.0 social authentication is fully implemented and deployed in production. Users can sign in using their Google or Apple accounts with complete security and error handling.
 
 **Current Status:**
 - ✅ **Google OAuth**: Fully implemented and deployed
-- ✅ **Facebook OAuth**: Fully implemented and deployed  
+- ✅ **Apple OAuth**: Fully implemented and deployed  
 - ✅ **Security Features**: CSRF protection, state validation, secure token handling
 - ✅ **Frontend Integration**: Complete OAuth UI with provider buttons
 - ✅ **Error Handling**: Comprehensive error handling with user-friendly messages

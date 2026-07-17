@@ -56,8 +56,8 @@ services:
       # Add these as secret environment variables in Render dashboard:
       # - GOOGLE_CLIENT_ID
       # - GOOGLE_CLIENT_SECRET
-      # - FACEBOOK_CLIENT_ID
-      # - FACEBOOK_CLIENT_SECRET
+      # - APPLE_CLIENT_ID
+      # - APPLE_CLIENT_SECRET
       # - SESSION_SECRET
 
 databases:

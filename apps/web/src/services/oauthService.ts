@@ -6,7 +6,7 @@ import { NormalizedAuthData, normalizeAuthResponse } from '@/utils/authNormaliza
 
 export interface OAuthProvider {
   google: boolean
-  facebook: boolean
+  apple: boolean
 }
 
 export interface OAuthProviderStatus {
@@ -55,7 +55,7 @@ class OAuthService {
   /**
    * Initiate OAuth login flow
    */
-  async initiateLogin(provider: 'google' | 'facebook', redirectUri?: string): Promise<void> {
+  async initiateLogin(provider: 'google' | 'apple', redirectUri?: string): Promise<void> {
     try {
       const params = new URLSearchParams()
       if (redirectUri) {
@@ -76,7 +76,7 @@ class OAuthService {
    * Handle OAuth callback
    */
   async handleCallback(
-    provider: 'google' | 'facebook',
+    provider: 'google' | 'apple',
     code: string,
     state?: string
   ): Promise<OAuthLoginResponse> {
@@ -132,7 +132,7 @@ class OAuthService {
   async isAvailable(): Promise<boolean> {
     try {
       const status = await this.getProviders()
-      return status.initialized && (status.providers.google || status.providers.facebook)
+      return status.initialized && (status.providers.google || status.providers.apple)
     } catch (error) {
       console.error('Error checking OAuth availability:', error)
       return false

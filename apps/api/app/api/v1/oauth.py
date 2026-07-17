@@ -76,7 +76,7 @@ async def oauth_login(
     Initiate OAuth login flow for specified provider.
     
     Args:
-        provider: OAuth provider name ('google' or 'facebook')
+        provider: OAuth provider name ('google' or 'apple')
         redirect_uri: Optional custom redirect URI
         
     Returns:
@@ -116,7 +116,7 @@ async def oauth_login(
         # Build authorization URL manually
         auth_params = {
             'response_type': 'code',
-            'client_id': os.getenv('GOOGLE_CLIENT_ID') if provider == 'google' else os.getenv('FACEBOOK_CLIENT_ID'),
+            'client_id': os.getenv('GOOGLE_CLIENT_ID') if provider == 'google' else os.getenv('APPLE_CLIENT_ID'),
             'redirect_uri': callback_uri,
             'scope': 'openid email profile' if provider == 'google' else 'email public_profile',
             'state': state_value,
@@ -126,8 +126,8 @@ async def oauth_login(
         
         if provider == 'google':
             base_url = 'https://accounts.google.com/o/oauth2/v2/auth'
-        elif provider == 'facebook':
-            base_url = 'https://www.facebook.com/v18.0/dialog/oauth'
+        elif provider == 'apple':
+            base_url = 'https://apple.placeholder.com/auth/authorize'
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
         
@@ -158,7 +158,7 @@ async def oauth_callback(
     Handle OAuth callback and authenticate user.
     
     Args:
-        provider: OAuth provider name ('google' or 'facebook')
+        provider: OAuth provider name ('google' or 'apple')
         callback_data: OAuth callback data including authorization code
         db: Database session
         
@@ -221,14 +221,14 @@ async def oauth_callback(
             # Get token endpoint URL for Google
             if provider == 'google':
                 token_url = 'https://oauth2.googleapis.com/token'
-            elif provider == 'facebook':
-                token_url = 'https://graph.facebook.com/v18.0/oauth/access_token'
+            elif provider == 'apple':
+                token_url = 'https://apple.placeholder.com/auth/token'
             else:
                 raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
             
             # Prepare token exchange data
-            client_id = os.getenv('GOOGLE_CLIENT_ID') if provider == 'google' else os.getenv('FACEBOOK_CLIENT_ID')
-            client_secret = os.getenv('GOOGLE_CLIENT_SECRET') if provider == 'google' else os.getenv('FACEBOOK_CLIENT_SECRET')
+            client_id = os.getenv('GOOGLE_CLIENT_ID') if provider == 'google' else os.getenv('APPLE_CLIENT_ID')
+            client_secret = os.getenv('GOOGLE_CLIENT_SECRET') if provider == 'google' else os.getenv('APPLE_CLIENT_SECRET')
             
             token_data = {
                 'client_id': client_id,

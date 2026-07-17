@@ -204,7 +204,7 @@ export default function SignupPage() {
     }
   }
 
-  const handleOAuthLoginClick = async (provider: 'google' | 'facebook') => {
+  const handleOAuthLoginClick = async (provider: 'google' | 'apple') => {
     try {
       setError("")
       clearOAuthError()
@@ -347,7 +347,7 @@ export default function SignupPage() {
           </div>
 
           {/* OAuth Icon Buttons */}
-          {oauthAvailable && providers && (providers.providers.google || providers.providers.facebook) && (
+          {oauthAvailable && providers && (providers.providers.google || providers.providers.apple) && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <p className="text-center text-sm text-gray-600 mb-3">Or continue with</p>
               <div className="flex justify-center gap-3">
@@ -358,9 +358,9 @@ export default function SignupPage() {
                     disabled={isLoading || oauthLoading}
                   />
                 )}
-                {/* Facebook - Always show but disabled */}
+                {/* Apple - Always show but disabled */}
                 <OAuthIconButton
-                  provider="facebook"
+                  provider="apple"
                   onOAuthLogin={handleOAuthLoginClick}
                   disabled={true}
                 />

@@ -8,7 +8,7 @@ interface UseOAuthReturn {
   isLoading: boolean
   error: string | null
   isAvailable: boolean
-  handleOAuthLogin: (provider: 'google' | 'facebook') => Promise<void>
+  handleOAuthLogin: (provider: 'google' | 'apple') => Promise<void>
   clearError: () => void
 }
 
@@ -37,7 +37,7 @@ export const useOAuth = (): UseOAuthReturn => {
 
       // Set default providers state when OAuth is not configured
       setProviders({
-        providers: { google: false, facebook: false },
+        providers: { google: false, apple: false },
         redirectUri: window.location.origin + '/auth/callback/google',
         environment: 'development',
         initialized: false
@@ -53,7 +53,7 @@ export const useOAuth = (): UseOAuthReturn => {
   }, [loadProviders])
 
   // Handle OAuth login
-  const handleOAuthLogin = useCallback(async (provider: 'google' | 'facebook') => {
+  const handleOAuthLogin = useCallback(async (provider: 'google' | 'apple') => {
     try {
       setError(null)
 
@@ -79,7 +79,7 @@ export const useOAuth = (): UseOAuthReturn => {
   // Check if OAuth is available
   const isAvailable = Boolean(
     providers?.initialized &&
-    (providers.providers.google || providers.providers.facebook)
+    (providers.providers.google || providers.providers.apple)
   )
 
   return {

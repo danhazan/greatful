@@ -332,7 +332,7 @@ uvicorn main:app --reload  # Start the backend
 
 ### 3.1. OAuth Provider Configuration
 
-The Grateful platform supports OAuth authentication with Google and Facebook. Follow these steps to configure OAuth providers:
+The Grateful platform supports OAuth authentication with Google and Apple. Follow these steps to configure OAuth providers:
 
 #### Google OAuth Setup
 
@@ -367,30 +367,30 @@ The Grateful platform supports OAuth authentication with Google and Facebook. Fo
    GOOGLE_CLIENT_SECRET=your_google_client_secret_here
    ```
 
-#### Facebook OAuth Setup
+#### Apple OAuth Setup
 
-1. **Create Facebook App:**
-   - Go to [Facebook for Developers](https://developers.facebook.com/)
+1. **Create Apple App:**
+   - Go to [Apple for Developers](https://developer.apple.com/)
    - Click "Create App" → "Consumer" → "Next"
    - Enter app display name: "Grateful"
    - Enter app contact email
 
-2. **Configure Facebook Login:**
-   - In your app dashboard, click "Add Product" → "Facebook Login"
+2. **Configure Apple Login:**
+   - In your app dashboard, click "Add Product" → "Apple Login"
    - Choose "Web" platform
    - Enter Site URL: `https://your-domain.com` (production) or `http://localhost:3000` (development)
 
 3. **Configure OAuth Redirect URIs:**
-   - Navigate to "Facebook Login" → "Settings"
+   - Navigate to "Apple Login" → "Settings"
    - Add Valid OAuth Redirect URIs:
-     - Development: `http://localhost:3000/auth/callback/facebook`
-     - Production: `https://your-domain.com/auth/callback/facebook`
+     - Development: `http://localhost:3000/auth/callback/apple`
+     - Production: `https://your-domain.com/auth/callback/apple`
 
 4. **Configure Environment Variables:**
    ```bash
    # Add to apps/api/.env
-   FACEBOOK_CLIENT_ID=your_facebook_app_id_here
-   FACEBOOK_CLIENT_SECRET=your_facebook_app_secret_here
+   APPLE_CLIENT_ID=your_apple_app_id_here
+   APPLE_CLIENT_SECRET=your_apple_app_secret_here
    ```
 
 #### OAuth Environment Configuration
@@ -401,8 +401,8 @@ Configure OAuth-specific environment variables in your `.env` file:
 # OAuth Provider Configuration
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-FACEBOOK_CLIENT_ID=your_facebook_client_id  # Optional
-FACEBOOK_CLIENT_SECRET=your_facebook_client_secret  # Optional
+APPLE_CLIENT_ID=your_apple_client_id  # Optional
+APPLE_CLIENT_SECRET=your_apple_client_secret  # Optional
 
 # OAuth Security Settings
 OAUTH_SESSION_TIMEOUT=600  # 10 minutes
@@ -436,7 +436,7 @@ OAUTH_ALLOWED_DOMAINS=your-domain.com,www.your-domain.com
 2. **Test OAuth Flow:**
    - Start both backend and frontend servers
    - Navigate to `http://localhost:3000`
-   - Click "Sign in with Google" or "Sign in with Facebook"
+   - Click "Sign in with Google" or "Sign in with Apple"
    - Complete OAuth flow and verify user creation/login
 
 3. **Run OAuth Tests:**

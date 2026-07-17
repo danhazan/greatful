@@ -94,7 +94,7 @@ As a long-term user, I want to review my gratitude history and see my personal g
 ## 4. MODULE 1: Authentication & User Management
 
 ### 4.1 Technical Requirements
-- OAuth 2.0 implementation (Google, Apple, Facebook)
+- OAuth 2.0 implementation (Google, Apple, Apple)
 - Email/password registration with verification
 - JWT token-based session management
 - Password reset functionality
@@ -111,7 +111,7 @@ As a privacy-conscious user, I want to delete my account and all associated data
 
 ### 4.3 Acceptance Criteria
 - [ ] User can register with email/password in <30 seconds
-- [ ] Social login works with Google, Apple, Facebook
+- [ ] Social login works with Google, Apple, Apple
 - [ ] Email verification required before full access
 - [ ] Password requirements: 8+ chars, mixed case, numbers
 - [ ] Account deletion removes all user data within 30 days
@@ -562,7 +562,7 @@ CREATE TABLE notifications (
 - [x] JWT token-based session management 
 - [x] Password reset functionality
 - [x] Basic user profile creation
-- [ ] OAuth 2.0 integration (Google, Apple, Facebook) - **PENDING**
+- [ ] OAuth 2.0 integration (Google, Apple, Apple) - **PENDING**
 - [ ] Account deletion (GDPR compliance) - **PENDING**
 **Status:** Core authentication working, OAuth and GDPR features pending
 
@@ -700,7 +700,7 @@ CREATE TABLE notifications (
 - **Impact**: Unreliable notification system functionality
 
 ### 14.3 **PENDING FEATURES** ⏳
-- **OAuth Integration**: Google, Apple, Facebook login
+- **OAuth Integration**: Google, Apple, Apple login
 - **Mention System**: @username functionality
 - **Share System**: URL sharing and in-app messaging
 - **Follow System**: User following and discovery

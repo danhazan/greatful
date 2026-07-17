@@ -246,7 +246,7 @@ When a user logs in, the system MUST:
 | Guarantee | Implementation |
 |-----------|---------------|
 | Login form validation | Email format, password requirements |
-| OAuth buttons | Google, Facebook login buttons functional |
+| OAuth buttons | Google, Apple login buttons functional |
 | Session persistence | Token stored in cookies, survives refresh |
 | Logout | Clears token, redirects to home |
 

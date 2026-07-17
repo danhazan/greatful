@@ -76,18 +76,18 @@ describe('OAuthIconButton', () => {
     })
   })
 
-  describe('Facebook Provider', () => {
-    it('renders Facebook icon button correctly', () => {
+  describe('Apple Provider', () => {
+    it('renders Apple icon button correctly', () => {
       render(
         <OAuthIconButton
-          provider="facebook"
+          provider="apple"
           onOAuthLogin={mockOnOAuthLogin}
         />
       )
 
-      const button = screen.getByRole('button', { name: /sign in with facebook/i })
+      const button = screen.getByRole('button', { name: /sign in with apple/i })
       expect(button).toBeInTheDocument()
-      expect(button).toHaveAttribute('title', 'Sign in with Facebook')
+      expect(button).toHaveAttribute('title', 'Sign in with Apple')
     })
 
     it('calls onOAuthLogin when clicked', async () => {
@@ -95,16 +95,16 @@ describe('OAuthIconButton', () => {
 
       render(
         <OAuthIconButton
-          provider="facebook"
+          provider="apple"
           onOAuthLogin={mockOnOAuthLogin}
         />
       )
 
-      const button = screen.getByRole('button', { name: /sign in with facebook/i })
+      const button = screen.getByRole('button', { name: /sign in with apple/i })
       fireEvent.click(button)
 
       await waitFor(() => {
-        expect(mockOnOAuthLogin).toHaveBeenCalledWith('facebook')
+        expect(mockOnOAuthLogin).toHaveBeenCalledWith('apple')
       })
     })
   })

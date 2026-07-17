@@ -30,8 +30,8 @@ class TestOAuthEndpointsWorking:
             assert response.status_code == 503
             assert "OAuth service not available" in response.json()["detail"]
             
-            # Test Facebook OAuth endpoint
-            response = self.client.post("/api/v1/auth/oauth/facebook", json={})
+            # Test Apple OAuth endpoint
+            response = self.client.post("/api/v1/auth/oauth/apple", json={})
             assert response.status_code == 503
             assert "OAuth service not available" in response.json()["detail"]
         finally:
@@ -140,8 +140,8 @@ class TestOAuthEndpointsWorking:
         response = self.client.post("/api/v1/auth/oauth/google", json={})
         assert response.status_code != 404  # Should not be "Not Found"
         
-        # Test Facebook OAuth endpoint exists
-        response = self.client.post("/api/v1/auth/oauth/facebook", json={})
+        # Test Apple OAuth endpoint exists
+        response = self.client.post("/api/v1/auth/oauth/apple", json={})
         assert response.status_code != 404  # Should not be "Not Found"
         
         # Test OAuth callback endpoint exists
@@ -198,7 +198,7 @@ class TestOAuthConfigurationValidation:
         # Should not raise errors when logging events
         try:
             log_oauth_security_event('test_event', 'google')
-            log_oauth_security_event('test_event', 'facebook', user_id=1)
+            log_oauth_security_event('test_event', 'apple', user_id=1)
             log_oauth_security_event('test_event', 'google', details={'test': 'data'})
         except Exception as e:
             pytest.fail(f"OAuth security logging failed: {e}")

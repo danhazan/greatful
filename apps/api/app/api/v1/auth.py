@@ -647,38 +647,38 @@ async def oauth_google_login(
         raise HTTPException(status_code=500, detail="Failed to initiate Google OAuth login") from e
 
 
-@router.post("/oauth/facebook")
-async def oauth_facebook_login(
+@router.post("/oauth/apple")
+async def oauth_apple_login(
     oauth_request: OAuthLoginRequest,
     request: Request
 ):
     """
-    Initiate Facebook OAuth login flow.
+    Initiate Apple OAuth login flow.
     
     Args:
         request: FastAPI request object
         redirect_uri: Optional custom redirect URI after authentication
         
     Returns:
-        Redirect to Facebook OAuth authorization URL
+        Redirect to Apple OAuth authorization URL
     """
     try:
         oauth_config = getattr(request.app.state, 'oauth_config', None)
         oauth_instance = getattr(request.app.state, 'oauth', None)
         
         if not oauth_config or not oauth_instance:
-            log_oauth_security_event('oauth_not_configured', 'facebook')
+            log_oauth_security_event('oauth_not_configured', 'apple')
             raise HTTPException(status_code=503, detail="OAuth service not available")
         
-        if not oauth_config.is_provider_available('facebook'):
-            log_oauth_security_event('provider_not_available', 'facebook')
-            raise HTTPException(status_code=400, detail="Facebook OAuth provider is not available")
+        if not oauth_config.is_provider_available('apple'):
+            log_oauth_security_event('provider_not_available', 'apple')
+            raise HTTPException(status_code=400, detail="Apple OAuth provider is not available")
         
-        # Get OAuth client for Facebook
-        oauth_client = oauth_config.get_oauth_client('facebook')
+        # Get OAuth client for Apple
+        oauth_client = oauth_config.get_oauth_client('apple')
         
         # Generate redirect URI
-        callback_uri = get_oauth_redirect_uri('facebook')
+        callback_uri = get_oauth_redirect_uri('apple')
         
         # Validate and store custom redirect URI in state if provided
         state_data = {}
@@ -691,7 +691,7 @@ async def oauth_facebook_login(
                 from urllib.parse import urlparse
                 parsed_uri = urlparse(redirect_uri)
                 if parsed_uri.hostname not in allowed_domains:
-                    log_oauth_security_event('unauthorized_redirect_uri', 'facebook', details={'redirect_uri': redirect_uri})
+                    log_oauth_security_event('unauthorized_redirect_uri', 'apple', details={'redirect_uri': redirect_uri})
                     raise HTTPException(status_code=400, detail="Unauthorized redirect URI")
             
             state_data['redirect_uri'] = redirect_uri
@@ -705,7 +705,7 @@ async def oauth_facebook_login(
         # Add security monitoring for OAuth initiation
         SecurityAuditor.log_oauth_event(
             event_type=SecurityEventType.OAUTH_LOGIN_INITIATED,
-            provider='facebook',
+            provider='apple',
             request=request,
             details={
                 'callback_uri': callback_uri,
@@ -715,17 +715,17 @@ async def oauth_facebook_login(
             }
         )
         
-        log_oauth_security_event('login_initiated', 'facebook')
-        logger.info("Facebook OAuth login initiated")
+        log_oauth_security_event('login_initiated', 'apple')
+        logger.info("Apple OAuth login initiated")
         
         return RedirectResponse(url=authorization_url)
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error initiating Facebook OAuth login: {e}")
-        log_oauth_security_event('login_error', 'facebook', details={'error': str(e)})
-        raise HTTPException(status_code=500, detail="Failed to initiate Facebook OAuth login") from e
+        logger.error(f"Error initiating Apple OAuth login: {e}")
+        log_oauth_security_event('login_error', 'apple', details={'error': str(e)})
+        raise HTTPException(status_code=500, detail="Failed to initiate Apple OAuth login") from e
 
 
 @router.get("/oauth/callback", response_model=AuthResponse)
@@ -766,7 +766,7 @@ async def _handle_oauth_callback(
         request: FastAPI request object
         code: Authorization code from OAuth provider
         state: State parameter for CSRF protection
-        provider: OAuth provider name ('google' or 'facebook')
+        provider: OAuth provider name ('google' or 'apple')
         db: Database session
         
     Returns:
@@ -1060,7 +1060,7 @@ async def get_oauth_providers(request: Request):
             return success_response({
                 'providers': {
                     'google': False,
-                    'facebook': False
+                    'apple': False
                 },
                 'redirect_uri': 'http://localhost:3000/auth/callback',
                 'environment': 'development',
@@ -1070,7 +1070,7 @@ async def get_oauth_providers(request: Request):
         # Get provider availability from OAuth config
         providers_status = {
             'google': oauth_config.is_provider_available('google'),
-            'facebook': oauth_config.is_provider_available('facebook')
+            'apple': oauth_config.is_provider_available('apple')
         }
         
         # Get redirect URI and environment from OAuth config
@@ -1093,7 +1093,7 @@ async def get_oauth_providers(request: Request):
         return success_response({
             'providers': {
                 'google': False,
-                'facebook': False
+                'apple': False
             },
             'redirect_uri': 'http://localhost:3000/auth/callback',
             'environment': 'development',

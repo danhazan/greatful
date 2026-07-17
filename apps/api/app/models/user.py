@@ -34,7 +34,7 @@ class User(Base):
     last_feed_view = Column(DateTime(timezone=True), nullable=True, index=True)
     
     # OAuth fields
-    oauth_provider = Column(String(50), nullable=True, index=True)  # 'google', 'facebook', etc.
+    oauth_provider = Column(String(50), nullable=True, index=True)  # 'google', 'apple', etc.
     oauth_id = Column(String(255), nullable=True, index=True)  # Provider-specific user ID
     oauth_data = Column(JSON, nullable=True)  # Additional OAuth data (profile info, etc.)
 

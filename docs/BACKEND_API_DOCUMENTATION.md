@@ -821,13 +821,13 @@ PUT    /api/v1/users/me/password         # Change password for authenticated use
 
 ### OAuth 2.0 Social Authentication ✅ **PRODUCTION READY**
 
-The OAuth system provides secure social authentication with Google and Facebook, featuring comprehensive security measures, error handling, and production monitoring.
+The OAuth system provides secure social authentication with Google and Apple, featuring comprehensive security measures, error handling, and production monitoring.
 
 #### OAuth Endpoints
 
 ```
 GET    /api/v1/oauth/providers           # Get available OAuth providers and configuration status
-GET    /api/v1/oauth/login/{provider}    # Initiate OAuth login flow (Google, Facebook)
+GET    /api/v1/oauth/login/{provider}    # Initiate OAuth login flow (Google, Apple)
 POST   /api/v1/oauth/callback/{provider} # Handle OAuth callback and create/authenticate user session
 GET    /api/v1/oauth/health              # OAuth system health check and configuration validation
 ```
@@ -843,11 +843,11 @@ Returns the current status and configuration of OAuth providers.
 {
   "providers": {
     "google": true,
-    "facebook": true
+    "apple": true
   },
   "redirect_uri": "https://grateful-net.vercel.app/auth/callback/google",
   "google_redirect_uri": "https://grateful-net.vercel.app/auth/callback/google",
-  "facebook_redirect_uri": "https://grateful-net.vercel.app/auth/callback/facebook",
+  "apple_redirect_uri": "https://grateful-net.vercel.app/auth/callback/apple",
   "frontend_success_url": "https://grateful-net.vercel.app/auth/callback/success",
   "frontend_error_url": "https://grateful-net.vercel.app/auth/callback/error",
   "allowed_origins": [
@@ -868,7 +868,7 @@ Returns the current status and configuration of OAuth providers.
 Initiates OAuth login flow by redirecting to the specified provider's authorization URL.
 
 **Parameters:**
-- `provider` (path): OAuth provider name (`google` or `facebook`)
+- `provider` (path): OAuth provider name (`google` or `apple`)
 - `redirect_uri` (query, optional): Custom redirect URI (must be whitelisted)
 
 **Response:**
@@ -964,11 +964,11 @@ Provides comprehensive health status of the OAuth system for monitoring and diag
       "redirect_uri": "https://grateful-net.vercel.app/auth/callback/google",
       "last_successful_auth": "2025-01-08T09:45:00Z"
     },
-    "facebook": {
+    "apple": {
       "configured": true,
       "client_id_set": true,
       "client_secret_set": true,
-      "redirect_uri": "https://grateful-net.vercel.app/auth/callback/facebook",
+      "redirect_uri": "https://grateful-net.vercel.app/auth/callback/apple",
       "last_successful_auth": "2025-01-08T09:30:00Z"
     }
   },
@@ -990,7 +990,7 @@ Provides comprehensive health status of the OAuth system for monitoring and diag
 #### OAuth Implementation Status
 
 - ✅ **Google OAuth**: Fully implemented and tested (25/25 service tests passing)
-- ✅ **Facebook OAuth**: Fully implemented and tested (26/26 integration tests passing)
+- ✅ **Apple OAuth**: Fully implemented and tested (26/26 integration tests passing)
 - ✅ **Frontend Integration**: Complete OAuth flow with 43/43 tests passing
 - ✅ **Security Features**: CSRF protection, state validation, secure token handling
 - ✅ **Error Handling**: Comprehensive error handling with user-friendly messages
@@ -1000,7 +1000,7 @@ Provides comprehensive health status of the OAuth system for monitoring and diag
 #### OAuth Authentication Flow
 
 1. **Initiate Login**: User clicks OAuth provider button → GET `/api/v1/oauth/login/{provider}`
-2. **Provider Redirect**: Backend redirects to OAuth provider (Google/Facebook) with state parameter
+2. **Provider Redirect**: Backend redirects to OAuth provider (Google/Apple) with state parameter
 3. **User Authentication**: User authenticates with OAuth provider
 4. **Callback Handling**: Provider redirects to frontend callback URL with authorization code
 5. **Token Exchange**: Frontend sends code to POST `/api/v1/oauth/callback/{provider}`
@@ -1051,9 +1051,9 @@ Provides comprehensive health status of the OAuth system for monitoring and diag
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 
-# Facebook OAuth Configuration (Optional)
-FACEBOOK_CLIENT_ID=your_facebook_client_id
-FACEBOOK_CLIENT_SECRET=your_facebook_client_secret
+# Apple OAuth Configuration (Optional)
+APPLE_CLIENT_ID=your_apple_client_id
+APPLE_CLIENT_SECRET=your_apple_client_secret
 
 # OAuth Security Configuration
 OAUTH_SESSION_TIMEOUT=600  # 10 minutes
@@ -1069,9 +1069,9 @@ BACKEND_URL=https://grateful-production.up.railway.app
 
 **OAuth Provider Setup:**
 - Google: Configure OAuth 2.0 credentials in Google Cloud Console
-- Facebook: Configure Facebook App with Facebook for Developers
+- Apple: Configure Apple App with Apple for Developers
 - Redirect URIs must be configured in provider settings
-- Scopes: `openid email profile` (Google), `email public_profile` (Facebook)
+- Scopes: `openid email profile` (Google), `email public_profile` (Apple)
 
 ### Users
 ```

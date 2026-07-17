@@ -13,7 +13,7 @@ interface AccountLinkingDialogProps {
     username: string
     provider?: string
   }
-  oauthProvider: 'google' | 'facebook'
+  oauthProvider: 'google' | 'apple'
   isLoading?: boolean
 }
 
@@ -28,8 +28,8 @@ const AccountLinkingDialog: React.FC<AccountLinkingDialogProps> = ({
 }) => {
   if (!isOpen) return null
 
-  const getProviderName = (provider: 'google' | 'facebook') => {
-    return provider === 'google' ? 'Google' : 'Facebook'
+  const getProviderName = (provider: 'google' | 'apple') => {
+    return provider === 'google' ? 'Google' : 'Apple'
   }
 
   return (
@@ -85,7 +85,7 @@ const AccountLinkingDialog: React.FC<AccountLinkingDialogProps> = ({
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {getProviderName(existingUser.provider as 'google' | 'facebook')} Account
+                    {getProviderName(existingUser.provider as 'google' | 'apple')} Account
                   </p>
                   <p className="text-xs text-gray-500">Already linked</p>
                 </div>

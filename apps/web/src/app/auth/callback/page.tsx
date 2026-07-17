@@ -38,11 +38,11 @@ export default function OAuthCallbackPage() {
         const errorDescription = searchParams.get('error_description')
 
         // Extract provider from state parameter (format: "provider:randomstate")
-        let provider: 'google' | 'facebook' | null = null
+        let provider: 'google' | 'apple' | null = null
         if (state && state.includes(':')) {
           const [stateProvider] = state.split(':')
-          if (['google', 'facebook'].includes(stateProvider)) {
-            provider = stateProvider as 'google' | 'facebook'
+          if (['google', 'apple'].includes(stateProvider)) {
+            provider = stateProvider as 'google' | 'apple'
           }
         }
 
@@ -68,7 +68,7 @@ export default function OAuthCallbackPage() {
           return
         }
 
-        if (!['google', 'facebook'].includes(provider)) {
+        if (!['google', 'apple'].includes(provider)) {
           setStatus('error')
           setMessage('Unsupported login provider. Please try a different method.')
           return

@@ -367,7 +367,7 @@ The reverse order (commit → fill → flush → no commit) silently loses the p
 
 **Fingerprint:** OAuth profile photos show as default/placeholder avatars. Display name imports correctly. The stored `profile_image_url` column contains a valid `https://...` URL, but the frontend receives a broken local URL like `http://localhost:5000/uploads/lh3.googleusercontent.com/...`.
 
-**Root cause:** External URLs from OAuth providers (Google `https://lh3.googleusercontent.com/...`, Facebook `https://graph.facebook.com/...`) are stored directly in `User.profile_image_url`. When serialized for API responses, `serialize_image_url()` passes them to `storage.get_url()` which calls `normalize_path()` — this strips the scheme/domain and prepends the local storage base URL, producing a mangled, non-loadable URL.
+**Root cause:** External URLs from OAuth providers (Google `https://lh3.googleusercontent.com/...`) are stored directly in `User.profile_image_url`. When serialized for API responses, `serialize_image_url()` passes them to `storage.get_url()` which calls `normalize_path()` — this strips the scheme/domain and prepends the local storage base URL, producing a mangled, non-loadable URL.
 
 **Key invariant:** Relative paths and absolute URLs are different concepts. Storage utilities must preserve absolute HTTP(S) URLs unchanged.
 

@@ -166,7 +166,7 @@ Uses Jest with Testing Library. 137 test files organized to mirror component/uti
 Reactions update immediately via API calls without page refresh. PostCard fetches updated counts after mutations.
 
 ### Authentication
-JWT-based auth with tokens stored in cookies. Backend validates via `app/core/security.py`. OAuth integration available for Google/Facebook via `app/core/oauth_config.py` and `app/services/oauth_service.py`.
+JWT-based auth with tokens stored in cookies. Backend validates via `app/core/security.py`. OAuth integration available for Google/Apple via `app/core/oauth_config.py` and `app/services/oauth_service.py`.
 
 ### Post Privacy
 Posts support privacy/visibility settings. Backend: `app/services/post_privacy_service.py`. Frontend: `PostPrivacySelector.tsx`, `PostPrivacyBadge.tsx`, `src/utils/privacyUtils.ts`.

@@ -44,8 +44,8 @@ class OAuthHealthService(BaseService):
             if oauth_config.google_enabled:
                 health_status['providers']['google'] = await self._check_google_provider()
             
-            if oauth_config.facebook_enabled:
-                health_status['providers']['facebook'] = await self._check_facebook_provider()
+            if oauth_config.apple_enabled:
+                health_status['providers']['apple'] = await self._check_apple_provider()
             
             # Determine overall status
             health_status['overall_status'] = self._determine_overall_status(health_status)
@@ -71,9 +71,9 @@ class OAuthHealthService(BaseService):
                 'status': 'healthy' if oauth_config.is_initialized else 'unhealthy',
                 'initialized': oauth_config.is_initialized,
                 'google_enabled': oauth_config.google_enabled,
-                'facebook_enabled': oauth_config.facebook_enabled,
+                'apple_enabled': oauth_config.apple_enabled,
                 'has_google_credentials': bool(oauth_config.google_client_id and oauth_config.google_client_secret),
-                'has_facebook_credentials': bool(oauth_config.facebook_client_id and oauth_config.facebook_client_secret)
+                'has_apple_credentials': bool(oauth_config.apple_client_id and oauth_config.apple_client_secret)
             }
         except Exception as e:
             logger.error(f"OAuth config check failed: {e}")
@@ -119,35 +119,35 @@ class OAuthHealthService(BaseService):
                 'error': str(e)
             }
     
-    async def _check_facebook_provider(self) -> Dict[str, Any]:
-        """Check Facebook OAuth provider health."""
+    async def _check_apple_provider(self) -> Dict[str, Any]:
+        """Check Apple OAuth provider health."""
         try:
-            # Test Facebook's OAuth endpoint availability
+            # Test Apple's OAuth endpoint availability
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                # Check Facebook's OAuth dialog endpoint
-                response = await client.head('https://www.facebook.com/v18.0/dialog/oauth')
+                # Check Apple's OAuth dialog endpoint
+                response = await client.head('https://apple.placeholder.com/auth/authorize')
                 
                 if response.status_code in [200, 405]:  # 405 is expected for HEAD request
                     return {
                         'status': 'healthy',
                         'response_time_ms': int(response.elapsed.total_seconds() * 1000),
-                        'oauth_dialog_endpoint': 'https://www.facebook.com/v18.0/dialog/oauth',
-                        'token_endpoint': 'https://graph.facebook.com/v18.0/oauth/access_token'
+                        'oauth_dialog_endpoint': 'https://apple.placeholder.com/auth/authorize',
+                        'token_endpoint': 'https://apple.placeholder.com/auth/token'
                     }
                 else:
                     return {
                         'status': 'unhealthy',
-                        'error': f'Facebook OAuth endpoint returned {response.status_code}',
+                        'error': f'Apple OAuth endpoint returned {response.status_code}',
                         'response_time_ms': int(response.elapsed.total_seconds() * 1000)
                     }
                     
         except asyncio.TimeoutError:
             return {
                 'status': 'unhealthy',
-                'error': 'Timeout connecting to Facebook OAuth endpoints'
+                'error': 'Timeout connecting to Apple OAuth endpoints'
             }
         except Exception as e:
-            logger.error(f"Facebook provider health check failed: {e}")
+            logger.error(f"Apple provider health check failed: {e}")
             return {
                 'status': 'error',
                 'error': str(e)
@@ -189,10 +189,10 @@ class OAuthHealthService(BaseService):
                     '/api/v1/oauth/callback/google'
                 ])
             
-            if oauth_config.facebook_enabled:
+            if oauth_config.apple_enabled:
                 endpoints_status['available_endpoints'].extend([
-                    '/api/v1/oauth/login/facebook',
-                    '/api/v1/oauth/callback/facebook'
+                    '/api/v1/oauth/login/apple',
+                    '/api/v1/oauth/callback/apple'
                 ])
             
             endpoints_status['available_endpoints'].append('/api/v1/oauth/providers')

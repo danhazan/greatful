@@ -31,7 +31,7 @@ export async function GET() {
           data: {
             providers: {
               google: true,  // Always show Google button
-              facebook: false  // Facebook not implemented yet
+              apple: false  // Apple not implemented yet
             },
             redirectUri: `${process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'}/auth/callback`,
             environment: process.env['NODE_ENV'] || 'development',
@@ -46,7 +46,7 @@ export async function GET() {
         data: {
           providers: {
             google: true,
-            facebook: false
+            apple: false
           },
           redirectUri: `${process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'}/auth/callback`,
           environment: process.env['NODE_ENV'] || 'development',
@@ -61,7 +61,7 @@ export async function GET() {
         data: {
           providers: {
             google: true,
-            facebook: false
+            apple: false
           },
           redirectUri: `${process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'}/auth/callback`,
           environment: process.env['NODE_ENV'] || 'development',
@@ -77,7 +77,7 @@ export async function GET() {
       data: {
         providers: {
           google: true,
-          facebook: false
+          apple: false
         },
         redirectUri: `${process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'}/auth/callback`,
         environment: process.env['NODE_ENV'] || 'development',

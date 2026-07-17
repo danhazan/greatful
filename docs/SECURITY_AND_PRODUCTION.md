@@ -422,11 +422,11 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 - **Security**: PKCE enabled, account selection forced
 - **Validation**: Email verification status checked
 
-**Facebook OAuth 2.0**:
+**Apple OAuth 2.0**:
 ```bash
 # Configuration  
-FACEBOOK_CLIENT_ID=your-facebook-client-id
-FACEBOOK_CLIENT_SECRET=your-facebook-client-secret
+APPLE_CLIENT_ID=your-apple-client-id
+APPLE_CLIENT_SECRET=your-apple-client-secret
 ```
 - **Scopes**: `email public_profile` (minimal data collection)
 - **Security**: PKCE enabled, secure API endpoints

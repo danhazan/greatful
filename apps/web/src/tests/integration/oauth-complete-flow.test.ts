@@ -42,7 +42,7 @@ describe('Complete OAuth Demo Flow', () => {
     process.env = { ...originalEnv }
     process.env['NODE_ENV'] = 'development'
     delete process.env['GOOGLE_CLIENT_ID']
-    delete process.env['FACEBOOK_APP_ID']
+    delete process.env['APPLE_APP_ID']
     global.fetch = jest.fn()
     jest.clearAllMocks()
   })
@@ -54,14 +54,14 @@ describe('Complete OAuth Demo Flow', () => {
   it('should complete full OAuth demo flow from providers to callback', async () => {
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
-    // Step 1: Get OAuth providers (should show Google and Facebook in demo mode)
+    // Step 1: Get OAuth providers (should show Google and Apple in demo mode)
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         data: {
           providers: {
             google: true,
-            facebook: true
+            apple: true
           },
           redirect_uri: 'http://localhost:3000/auth/callback',
           environment: 'development',
@@ -74,7 +74,7 @@ describe('Complete OAuth Demo Flow', () => {
     const providersData = await providersResponse.json()
 
     expect(providersData.data.providers.google).toBe(true)
-    expect(providersData.data.providers.facebook).toBe(true)
+    expect(providersData.data.providers.apple).toBe(true)
     expect(providersData.data.initialized).toBe(true)
 
     // Step 2: Simulate OAuth callback with demo data
@@ -140,7 +140,7 @@ describe('Complete OAuth Demo Flow', () => {
     expect(loginResponse.status).toBe(302) // Should redirect to callback with demo parameters
   })
 
-  it('should work with Facebook provider in demo mode', async () => {
+  it('should work with Apple provider in demo mode', async () => {
     const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
     
     mockFetch.mockResolvedValueOnce({
@@ -148,14 +148,14 @@ describe('Complete OAuth Demo Flow', () => {
       json: async () => ({
         data: {
           user: {
-            id: 'demo_user_facebook',
-            username: 'demo_facebook_user',
-            email: 'demo@facebook.com',
-            display_name: 'Demo Facebook User',
+            id: 'demo_user_apple',
+            username: 'demo_apple_user',
+            email: 'demo@apple.com',
+            display_name: 'Demo Apple User',
             profile_image_url: null
           },
           tokens: {
-            access_token: 'demo_access_token_facebook_123',
+            access_token: 'demo_access_token_apple_123',
             token_type: 'Bearer'
           },
           is_new_user: false
@@ -163,7 +163,7 @@ describe('Complete OAuth Demo Flow', () => {
       })
     } as Response)
 
-    const callbackResponse = await fetch('/api/oauth/callback/facebook', {
+    const callbackResponse = await fetch('/api/oauth/callback/apple', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -174,9 +174,9 @@ describe('Complete OAuth Demo Flow', () => {
 
     const callbackData = await callbackResponse.json()
 
-    expect(callbackData.data.user.id).toBe('demo_user_facebook')
-    expect(callbackData.data.user.username).toBe('demo_facebook_user')
-    expect(callbackData.data.user.email).toBe('demo@facebook.com')
+    expect(callbackData.data.user.id).toBe('demo_user_apple')
+    expect(callbackData.data.user.username).toBe('demo_apple_user')
+    expect(callbackData.data.user.email).toBe('demo@apple.com')
     expect(callbackData.data.is_new_user).toBe(false)
   })
 
@@ -191,7 +191,7 @@ describe('Complete OAuth Demo Flow', () => {
         data: {
           providers: {
             google: false,
-            facebook: false
+            apple: false
           },
           redirect_uri: 'http://localhost:3000/auth/callback',
           environment: 'production',
@@ -204,7 +204,7 @@ describe('Complete OAuth Demo Flow', () => {
     const providersData = await providersResponse.json()
 
     expect(providersData.data.providers.google).toBe(false)
-    expect(providersData.data.providers.facebook).toBe(false)
+    expect(providersData.data.providers.apple).toBe(false)
     expect(providersData.data.initialized).toBe(false)
     expect(providersData.data.environment).toBe('production')
   })

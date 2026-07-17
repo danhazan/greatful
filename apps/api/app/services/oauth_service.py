@@ -24,7 +24,7 @@ from app.core.oauth_config import (
     log_oauth_security_event, 
     log_oauth_production_error,
     GOOGLE_REDIRECT_URI,
-    FACEBOOK_REDIRECT_URI,
+    APPLE_REDIRECT_URI,
     FRONTEND_SUCCESS_URL,
     FRONTEND_ERROR_URL,
     ALLOWED_ORIGINS,
@@ -60,7 +60,7 @@ class OAuthService(BaseService):
         Authenticate user via OAuth provider with enhanced account management.
         
         Args:
-            provider: OAuth provider name ('google' or 'facebook')
+            provider: OAuth provider name ('google' or 'apple')
             oauth_token: OAuth token from provider
             state: OAuth state parameter for CSRF protection
             request: FastAPI request object for security logging
@@ -365,7 +365,7 @@ class OAuthService(BaseService):
                 if 's96-c' in picture_url:
                     picture_url = picture_url.replace('s96-c', 's200-c')
                 profile_data['profile_image_url'] = picture_url
-        elif provider == 'facebook':
+        elif provider == 'apple':
             picture_data = oauth_user_info.get('picture', {})
             if isinstance(picture_data, dict):
                 picture_url = picture_data.get('data', {}).get('url')
@@ -1162,7 +1162,7 @@ class OAuthService(BaseService):
                 },
                 'provider_breakdown': {
                     'google': {'attempts': 0, 'successes': 0, 'failures': 0},
-                    'facebook': {'attempts': 0, 'successes': 0, 'failures': 0}
+                    'apple': {'attempts': 0, 'successes': 0, 'failures': 0}
                 },
                 'top_failure_reasons': [],
                 'suspicious_activity': {

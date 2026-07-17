@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 # OAuth configuration from environment variables
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-FACEBOOK_CLIENT_ID = os.getenv("FACEBOOK_CLIENT_ID")
-FACEBOOK_CLIENT_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET")
+APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID")
+APPLE_CLIENT_SECRET = os.getenv("APPLE_CLIENT_SECRET")
 
 # Environment
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -28,7 +28,7 @@ BACKEND_BASE_URL = os.getenv("BACKEND_URL", os.getenv("BACKEND_BASE_URL", "http:
 
 # OAuth redirect URIs (where OAuth providers redirect back to)
 GOOGLE_REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI", f"{FRONTEND_BASE_URL}/auth/callback/google")
-FACEBOOK_REDIRECT_URI = os.getenv("FACEBOOK_REDIRECT_URI", f"{FRONTEND_BASE_URL}/auth/callback/facebook")
+APPLE_REDIRECT_URI = os.getenv("APPLE_REDIRECT_URI", f"{FRONTEND_BASE_URL}/auth/callback/apple")
 OAUTH_REDIRECT_URI = GOOGLE_REDIRECT_URI
 
 # Frontend callback URLs
@@ -91,8 +91,8 @@ class OAuthConfig:
             config = Config(environ={
                 'GOOGLE_CLIENT_ID': GOOGLE_CLIENT_ID or '',
                 'GOOGLE_CLIENT_SECRET': GOOGLE_CLIENT_SECRET or '',
-                'FACEBOOK_CLIENT_ID': FACEBOOK_CLIENT_ID or '',
-                'FACEBOOK_CLIENT_SECRET': FACEBOOK_CLIENT_SECRET or '',
+                'APPLE_CLIENT_ID': APPLE_CLIENT_ID or '',
+                'APPLE_CLIENT_SECRET': APPLE_CLIENT_SECRET or '',
             })
             
             self.oauth = OAuth(config)
@@ -118,25 +118,25 @@ class OAuthConfig:
             else:
                 self.providers['google'] = False
             
-            # Register Facebook OAuth
-            if FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET and FACEBOOK_CLIENT_ID != "placeholder":
+            # Register Apple OAuth
+            if APPLE_CLIENT_ID and APPLE_CLIENT_SECRET and APPLE_CLIENT_ID != "placeholder":
                 try:
                     self.oauth.register(
-                        name='facebook',
-                        client_id=FACEBOOK_CLIENT_ID,
-                        client_secret=FACEBOOK_CLIENT_SECRET,
-                        access_token_url='https://graph.facebook.com/oauth/access_token',
-                        authorize_url='https://www.facebook.com/dialog/oauth',
-                        api_base_url='https://graph.facebook.com/',
+                        name='apple',
+                        client_id=APPLE_CLIENT_ID,
+                        client_secret=APPLE_CLIENT_SECRET,
+                        access_token_url='https://apple.placeholder.com/auth/token',
+                        authorize_url='https://apple.placeholder.com/auth/authorize',
+                        api_base_url='https://apple.placeholder.com/',
                         client_kwargs={'scope': 'email public_profile'},
                     )
-                    self.providers['facebook'] = True
-                    logger.info("Facebook OAuth provider registered successfully")
+                    self.providers['apple'] = True
+                    logger.info("Apple OAuth provider registered successfully")
                 except Exception as e:
-                    logger.error(f"Failed to register Facebook OAuth provider: {e}")
-                    self.providers['facebook'] = False
+                    logger.error(f"Failed to register Apple OAuth provider: {e}")
+                    self.providers['apple'] = False
             else:
-                self.providers['facebook'] = False
+                self.providers['apple'] = False
             
             active_providers = [name for name, active in self.providers.items() if active]
             if active_providers:
@@ -156,7 +156,7 @@ class OAuthConfig:
             'providers': self.providers.copy(),
             'redirect_uri': OAUTH_REDIRECT_URI,
             'google_redirect_uri': GOOGLE_REDIRECT_URI,
-            'facebook_redirect_uri': FACEBOOK_REDIRECT_URI,
+            'apple_redirect_uri': APPLE_REDIRECT_URI,
             'frontend_success_url': FRONTEND_SUCCESS_URL,
             'frontend_error_url': FRONTEND_ERROR_URL,
             'frontend_base_url': FRONTEND_BASE_URL,
@@ -243,7 +243,7 @@ async def get_oauth_user_info(provider: str, token: Dict[str, Any]) -> Dict[str,
             
             return normalized_data
             
-        elif provider == 'facebook':
+        elif provider == 'apple':
             resp = await oauth_client.get('me?fields=id,name,email,first_name,last_name,picture', token=token)
             user_info = resp.json()
             
@@ -256,7 +256,7 @@ async def get_oauth_user_info(provider: str, token: Dict[str, Any]) -> Dict[str,
                 'picture': user_info.get('picture', {}).get('data', {}).get('url'),
                 'email_verified': True,
                 'locale': None,
-                'provider': 'facebook'
+                'provider': 'apple'
             }
             
         else:
@@ -274,8 +274,8 @@ def get_oauth_redirect_uri(provider: str) -> str:
     """Get the OAuth redirect URI for a specific provider."""
     if provider == 'google':
         return GOOGLE_REDIRECT_URI
-    elif provider == 'facebook':
-        return FACEBOOK_REDIRECT_URI
+    elif provider == 'apple':
+        return APPLE_REDIRECT_URI
     return OAUTH_REDIRECT_URI
 
 

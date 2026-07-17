@@ -66,7 +66,7 @@ The `token_version` field on the `User` model provides server-side auth invalida
 
 The Grateful platform supports two authentication methods with comprehensive password management:
 1. **Traditional Email/Password Authentication** - Standard signup, login, password change, and reset flow
-2. **OAuth 2.0 Social Authentication** - Login with Google (and Facebook support ready)
+2. **OAuth 2.0 Social Authentication** - Login with Google (and Apple support ready)
 
 ### Authentication Method Segregation
 
@@ -100,7 +100,7 @@ User → Frontend → Backend → Google OAuth → Backend → Frontend → User
 **Backend OAuth Endpoints**:
 - `GET /api/v1/oauth/providers` - Get available OAuth providers
 - `POST /api/v1/oauth/google` - Initiate Google OAuth flow
-- `POST /api/v1/oauth/facebook` - Initiate Facebook OAuth flow
+- `POST /api/v1/oauth/apple` - Initiate Apple OAuth flow
 - `POST /api/v1/oauth/callback/{provider}` - Handle OAuth callback
 
 **Frontend OAuth Pages**:
@@ -187,7 +187,7 @@ Frontend → /api/auth/login → FastAPI /api/v1/auth/login
 Frontend → OAuth Provider → OAuth Callback → FastAPI /api/v1/oauth/callback → JWT Token
 ```
 
-The OAuth flow provides secure authentication through trusted providers like Google and Facebook, eliminating the need for users to create and remember passwords.
+The OAuth flow provides secure authentication through trusted providers like Google and Apple, eliminating the need for users to create and remember passwords.
 
 #### Supported OAuth Providers
 
@@ -197,8 +197,8 @@ The OAuth flow provides secure authentication through trusted providers like Goo
 - **Features**: PKCE (Proof Key for Code Exchange) for enhanced security
 - **Status**: ✅ Configured and Ready
 
-**Facebook OAuth 2.0**:
-- **Provider**: Facebook Login
+**Apple OAuth 2.0**:
+- **Provider**: Apple Login
 - **Scopes**: `email public_profile`
 - **Features**: PKCE support
 - **Status**: ⚠️ Ready for configuration (credentials needed)
@@ -211,7 +211,7 @@ GET /api/v1/oauth/{provider}/login
 ```
 
 **Parameters**:
-- `provider`: OAuth provider (`google` or `facebook`)
+- `provider`: OAuth provider (`google` or `apple`)
 - `redirect_uri`: Optional custom redirect URI
 
 **Response**: Redirects to OAuth provider authorization URL
@@ -249,9 +249,9 @@ GET /api/v1/oauth/{provider}/callback
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
-# Facebook OAuth Configuration  
-FACEBOOK_CLIENT_ID=your-facebook-client-id
-FACEBOOK_CLIENT_SECRET=your-facebook-client-secret
+# Apple OAuth Configuration  
+APPLE_CLIENT_ID=your-apple-client-id
+APPLE_CLIENT_SECRET=your-apple-client-secret
 
 # OAuth Redirect URIs
 OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback/google
