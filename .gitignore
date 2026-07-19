@@ -173,3 +173,5 @@ agent/plans/*
 !agent/plans/.gitkeep
 agent/tasks/*
 !agent/tasks/TEMPLATE.md
+agent/reviews/*
+!agent/reviews/.gitkeep
