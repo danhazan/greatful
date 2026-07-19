@@ -186,7 +186,7 @@ export default function ReactionViewer({
                           user={{
                             id: Number(reaction.userId),
                             username: reaction.userName,
-                            displayName: reaction.userName,
+                            displayName: reaction.displayName,
                             profileImageUrl: reaction.userImage,
                             createdAt: reaction.createdAt
                           }}
@@ -194,7 +194,7 @@ export default function ReactionViewer({
                           showTimestamp={true}
                           rightElement={<span className="text-lg">{emoji}</span>}
                           className="min-h-[44px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset"
-                          ariaLabel={`${reaction.userName} reacted with ${emoji}. Click to view profile.`}
+                          ariaLabel={`${reaction.displayName} reacted with ${emoji}. Click to view profile.`}
                         />
                       ))}
                     </div>

@@ -9,6 +9,7 @@ const mockReactions = [
     id: '1',
     userId: '1',
     userName: 'john_doe',
+    displayName: 'John Doe',
     userImage: 'https://example.com/john.jpg',
     emojiCode: 'heart_eyes',
     createdAt: '2024-01-15T10:00:00Z'
@@ -17,6 +18,7 @@ const mockReactions = [
     id: '2',
     userId: '2',
     userName: 'jane_smith',
+    displayName: 'Jane Smith',
     userImage: 'https://example.com/jane.jpg',
     emojiCode: 'heart_eyes',
     createdAt: '2024-01-15T11:00:00Z'
@@ -25,6 +27,7 @@ const mockReactions = [
     id: '3',
     userId: '3',
     userName: 'bob_wilson',
+    displayName: 'Bob Wilson',
     userImage: undefined,
     emojiCode: 'fire',
     createdAt: '2024-01-15T12:00:00Z'
@@ -33,6 +36,7 @@ const mockReactions = [
     id: '4',
     userId: '4',
     userName: 'alice_brown',
+    displayName: 'Alice Brown',
     userImage: 'https://example.com/alice.jpg',
     emojiCode: 'pray',
     createdAt: '2024-01-15T13:00:00Z'
@@ -90,16 +94,16 @@ describe('ReactionViewer', () => {
 
     // Should show heart_eyes group with 2 users
     expect(screen.getAllByText('😍')).toHaveLength(3) // One in header, two in individual reactions
-    expect(screen.getByText('john_doe')).toBeInTheDocument()
-    expect(screen.getByText('jane_smith')).toBeInTheDocument()
+    expect(screen.getByText('John Doe')).toBeInTheDocument()
+    expect(screen.getByText('Jane Smith')).toBeInTheDocument()
 
     // Should show fire group with 1 user
     expect(screen.getAllByText('🔥')).toHaveLength(2) // One in header, one in individual reaction
-    expect(screen.getByText('bob_wilson')).toBeInTheDocument()
+    expect(screen.getByText('Bob Wilson')).toBeInTheDocument()
 
     // Should show pray group with 1 user
     expect(screen.getAllByText('🙏')).toHaveLength(2) // One in header, one in individual reaction
-    expect(screen.getByText('alice_brown')).toBeInTheDocument()
+    expect(screen.getByText('Alice Brown')).toBeInTheDocument()
   })
 
   it('should show user profile images when available', () => {
@@ -178,6 +182,7 @@ describe('ReactionViewer', () => {
         id: '5',
         userId: '5',
         userName: 'user5',
+        displayName: 'User Five',
         userImage: undefined,
         emojiCode: 'heart_eyes',
         createdAt: '2024-01-15T14:00:00Z'
@@ -199,9 +204,9 @@ describe('ReactionViewer', () => {
     expect(heartEyesEmojis.length).toBeGreaterThan(0)
     
     // Should show all 3 users in heart_eyes group
-    expect(screen.getByText('john_doe')).toBeInTheDocument()
-    expect(screen.getByText('jane_smith')).toBeInTheDocument()
-    expect(screen.getByText('user5')).toBeInTheDocument()
+    expect(screen.getByText('John Doe')).toBeInTheDocument()
+    expect(screen.getByText('Jane Smith')).toBeInTheDocument()
+    expect(screen.getByText('User Five')).toBeInTheDocument()
   })
 
   it('should handle keyboard navigation', () => {

@@ -206,6 +206,7 @@ export interface BackendReaction {
   user?: {
     id: number
     username: string
+    display_name?: string
     profile_image_url?: string
   }
 }
@@ -214,6 +215,7 @@ export interface FrontendReaction {
   id: string
   userId: string
   userName: string
+  displayName: string
   userImage?: string
   emojiCode: string
   createdAt: string
@@ -227,6 +229,7 @@ export function transformReaction(reaction: BackendReaction): FrontendReaction {
     id: reaction.id || '',
     userId: reaction.user_id?.toString() || '0',
     userName: reaction.user?.username || 'Unknown User',
+    displayName: reaction.user?.display_name || reaction.user?.username || 'Unknown User',
     userImage: reaction.user?.profile_image_url,
     emojiCode: reaction.emoji_code || '',
     createdAt: ensureTimezoneIndicator(reaction.created_at || ''),

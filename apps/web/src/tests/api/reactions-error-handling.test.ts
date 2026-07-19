@@ -75,6 +75,7 @@ describe('Reactions API Bug Regression Test', () => {
       id: '1',
       userId: '123',
       userName: 'testuser',
+      displayName: 'testuser',
       userImage: undefined,
       emojiCode: 'heart_eyes',
       createdAt: '2025-01-01T00:00:00Z'
@@ -100,6 +101,7 @@ describe('Reactions API Bug Regression Test', () => {
       id: '',
       userId: '0',
       userName: 'Unknown User',
+      displayName: 'Unknown User',
       userImage: undefined,
       emojiCode: '',
       createdAt: ''

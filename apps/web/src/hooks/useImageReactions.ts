@@ -13,6 +13,7 @@ export interface Reaction {
   id: string
   userId: string | number
   userName: string
+  displayName: string
   userImage?: string
   emojiCode: string
   createdAt: string

@@ -61,6 +61,7 @@ describe('/api/posts/[id]/reactions', () => {
         id: 'reaction-1',
         userId: '1',
         userName: 'john_doe',
+        displayName: 'john_doe',
         userImage: 'https://example.com/john.jpg',
         emojiCode: 'heart_eyes',
         createdAt: '2025-01-08T12:00:00Z'
@@ -171,6 +172,7 @@ describe('/api/posts/[id]/reactions', () => {
         id: 'reaction-123',
         userId: '1',
         userName: 'testuser',
+        displayName: 'testuser',
         userImage: null,
         emojiCode: 'heart_eyes',
         createdAt: '2025-01-08T12:00:00Z'

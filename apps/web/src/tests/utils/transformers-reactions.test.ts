@@ -25,6 +25,7 @@ describe('Reaction Transformers', () => {
         id: '1',
         userId: '123',
         userName: 'testuser',
+        displayName: 'testuser',
         userImage: 'https://example.com/avatar.jpg',
         emojiCode: 'heart_eyes',
         createdAt: '2025-01-01T00:00:00Z'
@@ -119,6 +120,45 @@ describe('Reaction Transformers', () => {
       expect(result.userId).toBe('123')
     })
 
+    it('should map display_name from backend to displayName', () => {
+      const backendReaction: BackendReaction = {
+        id: '1',
+        user_id: 123,
+        emoji_code: 'heart_eyes',
+        created_at: '2025-01-01T00:00:00Z',
+        user: {
+          id: 123,
+          username: 'john',
+          display_name: 'John Smith',
+          profile_image_url: 'https://example.com/avatar.jpg'
+        }
+      }
+
+      const result = transformReaction(backendReaction)
+
+      expect(result.displayName).toBe('John Smith')
+      expect(result.userName).toBe('john')
+    })
+
+    it('should fall back to username when display_name is missing', () => {
+      const backendReaction: BackendReaction = {
+        id: '1',
+        user_id: 123,
+        emoji_code: 'heart_eyes',
+        created_at: '2025-01-01T00:00:00Z',
+        user: {
+          id: 123,
+          username: 'jane',
+          profile_image_url: 'https://example.com/avatar.jpg'
+        }
+      }
+
+      const result = transformReaction(backendReaction)
+
+      expect(result.displayName).toBe('jane')
+      expect(result.userName).toBe('jane')
+    })
+
     it('should handle completely malformed data', () => {
       const backendReaction: BackendReaction = {
         id: undefined as any,
@@ -134,6 +174,7 @@ describe('Reaction Transformers', () => {
         id: '',
         userId: '0',
         userName: 'Unknown User',
+        displayName: 'Unknown User',
         userImage: undefined,
         emojiCode: '',
         createdAt: ''
