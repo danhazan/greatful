@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { X, Heart, Smile, Hand, Flower } from "lucide-react"
+import { X, Heart, Smile, Hand, Flower2, Cat, Apple, Flame } from "lucide-react"
 import { 
   composeCompactRow,
   ReactionGroup,
@@ -13,6 +13,7 @@ import {
 import { triggerHaptic } from "@/utils/hapticFeedback"
 import { useModal } from "@/hooks/useModal"
 import { useRecentReactions } from "@/hooks/useRecentReactions"
+import { useDragScroll } from "@/hooks/useDragScroll"
 
 interface EmojiPickerProps {
   isOpen: boolean
@@ -24,8 +25,8 @@ interface EmojiPickerProps {
   isLoading?: boolean
 }
 
-const GROUP_ICONS: Record<ReactionGroup, typeof Heart> = { heart: Heart, face: Smile, hands: Hand, misc: Flower }
-const GROUP_LABELS: Record<ReactionGroup, string> = { heart: 'Heart', face: 'Face', hands: 'Hands', misc: 'Misc' }
+const GROUP_ICONS: Record<ReactionGroup, typeof Heart> = { heart: Heart, face: Smile, hands: Hand, nature: Flower2, animals: Cat, food: Apple, misc: Flame }
+const GROUP_LABELS: Record<ReactionGroup, string> = { heart: 'Heart', face: 'Face', hands: 'Hands', nature: 'Nature', animals: 'Animals', food: 'Food', misc: 'Misc' }
 
 export default function EmojiPicker({
   isOpen,
@@ -45,6 +46,7 @@ export default function EmojiPicker({
   const [activeGroup, setActiveGroup] = useState<ReactionGroup | null>(null)
 
   const { recentReactions, addRecentReaction } = useRecentReactions()
+  const { ref: headerRef, dragHandlers } = useDragScroll()
 
   const isScrollingRef = useRef(false)
   const touchStartRef = useRef({ x: 0, y: 0 })
@@ -159,7 +161,7 @@ export default function EmojiPicker({
     const Icon = GROUP_ICONS[group]
     return (
       <div key={group} className="flex items-center mb-1 last:mb-0">
-        <div className="flex items-center space-x-1 flex-1 min-w-0 overflow-hidden">
+        <div className="flex items-center space-x-1 flex-1 min-w-0 overflow-hidden py-0.5 px-0.5">
           {items.map(item => (
             <button
               key={item.code}
@@ -173,7 +175,7 @@ export default function EmojiPicker({
               className={`
                 relative p-2 rounded-full transition-transform hover:scale-110 active:scale-95
                 flex-1 flex items-center justify-center text-2xl min-w-0
-                ${currentReaction === item.code ? 'bg-purple-100 ring-2 ring-purple-500 ring-offset-1' : 'hover:bg-gray-50'}
+                ${currentReaction === item.code ? 'bg-purple-100 ring-2 ring-purple-500' : 'hover:bg-gray-50'}
                 ${selectedEmoji === item.code ? 'bg-purple-200' : ''}
               `}
               title={item.label}
@@ -193,24 +195,6 @@ export default function EmojiPicker({
           <Icon className="w-4 h-4" />
         </button>
       </div>
-    )
-  }
-
-  const renderGroupButton = (group: ReactionGroup) => {
-    const Icon = GROUP_ICONS[group]
-    const isActive = activeGroup === group
-    return (
-      <button
-        key={group}
-        onClick={() => setActiveGroup(group)}
-        className={`p-2 rounded-lg transition-colors ${
-          isActive ? 'bg-purple-100 text-purple-700' : 'text-gray-500 hover:bg-gray-100'
-        }`}
-        aria-label={GROUP_LABELS[group]}
-        title={GROUP_LABELS[group]}
-      >
-        <Icon className="w-5 h-5" />
-      </button>
     )
   }
 
@@ -243,8 +227,29 @@ export default function EmojiPicker({
         tabIndex={-1}
       >
         <div className="flex justify-between items-center mb-2 flex-shrink-0">
-          <div className="flex space-x-1">
-            {VALID_GROUPS.map(renderGroupButton)}
+          <div
+            ref={headerRef}
+            {...dragHandlers}
+            className="flex space-x-1 overflow-x-auto cursor-grab active:cursor-grabbing"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {VALID_GROUPS.map(group => {
+              const Icon = GROUP_ICONS[group]
+              const isActive = activeGroup === group
+              return (
+                <button
+                  key={group}
+                  onClick={() => setActiveGroup(group)}
+                  className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                    isActive ? 'bg-purple-100 text-purple-700' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                  aria-label={GROUP_LABELS[group]}
+                  title={GROUP_LABELS[group]}
+                >
+                  <Icon className="w-5 h-5" />
+                </button>
+              )
+            })}
           </div>
           <button
             onClick={handleXButtonClick}
@@ -256,12 +261,9 @@ export default function EmojiPicker({
         </div>
 
         <div
-          ref={activeGroup ? scrollContainerRef : undefined}
-          data-allow-scroll={activeGroup ? 'true' : undefined}
-          className={activeGroup
-            ? 'overflow-y-auto overflow-x-hidden p-1 border-t border-gray-100 pt-3'
-            : 'flex flex-col justify-center p-1 border-t border-gray-100 pt-3'
-          }
+          ref={scrollContainerRef}
+          data-allow-scroll="true"
+          className="overflow-y-auto overflow-x-hidden p-1 border-t border-gray-100 pt-3"
           style={{
             height: contentHeight,
             overscrollBehavior: 'contain',
@@ -269,7 +271,7 @@ export default function EmojiPicker({
           }}
         >
           {!activeGroup && (
-            <div className="flex flex-col justify-center h-full">
+            <div className="flex flex-col">
               {VALID_GROUPS.map((group, i) => renderCompactRow(group, i))}
             </div>
           )}

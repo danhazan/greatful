@@ -31,7 +31,7 @@ class TestEmojiReactionModel:
 
     def test_invalid_emojis(self):
         """Test that invalid emoji codes are rejected."""
-        invalid_codes = ['angry', 'sad', 'thumbs_down', 'invalid', 'crying', 'rage', 'poop', 'pray']
+        invalid_codes = ['angry', 'sad', 'thumbs_down', 'invalid', 'rage', 'poop']
         
         for code in invalid_codes:
             assert not EmojiReaction.is_valid_emoji(code)

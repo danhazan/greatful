@@ -10,6 +10,9 @@ jest.mock('@/hooks/useRecentReactions', () => ({
       heart: ['heart', 'sparkling_heart'],
       face: ['blush'],
       hands: [],
+      nature: [],
+      animals: [],
+      food: [],
       misc: []
     },
     addRecentReaction: mockAddRecentReaction,
@@ -52,7 +55,7 @@ describe('EmojiPicker', () => {
     })
   })
 
-  it('renders when open and shows four compact group rows', () => {
+  it('renders when open and shows seven compact group rows', () => {
     render(
       <EmojiPicker
         isOpen={true}
@@ -64,12 +67,13 @@ describe('EmojiPicker', () => {
     )
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    // Four + buttons for each group
     expect(screen.getByLabelText('Show all Heart emojis')).toBeInTheDocument()
     expect(screen.getByLabelText('Show all Face emojis')).toBeInTheDocument()
     expect(screen.getByLabelText('Show all Hands emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Nature emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Animals emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Food emojis')).toBeInTheDocument()
     expect(screen.getByLabelText('Show all Misc emojis')).toBeInTheDocument()
-    // No expanded grid in overview mode
     expect(screen.queryByRole('grid')).not.toBeInTheDocument()
   })
 
@@ -146,6 +150,18 @@ describe('EmojiPicker', () => {
     fireEvent.click(screen.getByLabelText('Hands'))
     expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Hands emoji reactions')
 
+    // Nature
+    fireEvent.click(screen.getByLabelText('Nature'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Nature emoji reactions')
+
+    // Animals
+    fireEvent.click(screen.getByLabelText('Animals'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Animals emoji reactions')
+
+    // Food
+    fireEvent.click(screen.getByLabelText('Food'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Food emoji reactions')
+
     // Misc
     fireEvent.click(screen.getByLabelText('Misc'))
     expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Misc emoji reactions')
@@ -172,6 +188,9 @@ describe('EmojiPicker', () => {
     expect(screen.getByLabelText('Heart')).toBeInTheDocument()
     expect(screen.getByLabelText('Face')).toBeInTheDocument()
     expect(screen.getByLabelText('Hands')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nature')).toBeInTheDocument()
+    expect(screen.getByLabelText('Animals')).toBeInTheDocument()
+    expect(screen.getByLabelText('Food')).toBeInTheDocument()
     expect(screen.getByLabelText('Misc')).toBeInTheDocument()
   })
 
@@ -195,7 +214,7 @@ describe('EmojiPicker', () => {
     expect(screen.getByLabelText('Face').className).not.toContain('bg-purple-100')
   })
 
-  it('closing and reopening resets to four-row overview', () => {
+  it('closing and reopening resets to seven-row overview', () => {
     const { rerender } = render(
       <EmojiPicker
         isOpen={true}
@@ -233,10 +252,12 @@ describe('EmojiPicker', () => {
 
     // Should be back to overview - no grid
     expect(screen.queryByRole('grid')).not.toBeInTheDocument()
-    // Should have all four + buttons again
     expect(screen.getByLabelText('Show all Heart emojis')).toBeInTheDocument()
     expect(screen.getByLabelText('Show all Face emojis')).toBeInTheDocument()
     expect(screen.getByLabelText('Show all Hands emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Nature emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Animals emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Food emojis')).toBeInTheDocument()
     expect(screen.getByLabelText('Show all Misc emojis')).toBeInTheDocument()
   })
 
@@ -296,5 +317,17 @@ describe('EmojiPicker', () => {
     // Navigate to Hands
     fireEvent.click(screen.getByLabelText('Hands'))
     expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Hands emoji reactions')
+
+    // Navigate to Nature
+    fireEvent.click(screen.getByLabelText('Nature'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Nature emoji reactions')
+
+    // Navigate to Animals
+    fireEvent.click(screen.getByLabelText('Animals'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Animals emoji reactions')
+
+    // Navigate to Food
+    fireEvent.click(screen.getByLabelText('Food'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Food emoji reactions')
   })
 })

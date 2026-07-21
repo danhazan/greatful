@@ -33,9 +33,7 @@ describe('useRecentReactions', () => {
   it('loads from localStorage on mount', () => {
     const existing = {
       heart: ['heart', 'sparkling_heart'],
-      face: [],
-      hands: [],
-      misc: []
+      face: [], hands: [], nature: [], animals: [], food: [], misc: []
     }
     localStorageMock.setItem(STORAGE_KEY, JSON.stringify(existing))
 
@@ -46,7 +44,7 @@ describe('useRecentReactions', () => {
   it('starts empty when nothing stored', () => {
     const { result } = renderHook(() => useRecentReactions())
     expect(result.current.recentReactions).toEqual({
-      heart: [], face: [], hands: [], misc: []
+      heart: [], face: [], hands: [], nature: [], animals: [], food: [], misc: []
     })
   })
 
@@ -67,7 +65,7 @@ describe('useRecentReactions', () => {
   it('moves existing reaction to front (dedup + reorder)', async () => {
     const existing = {
       heart: ['sparkling_heart', 'heart', 'blue_heart'],
-      face: [], hands: [], misc: []
+      face: [], hands: [], nature: [], animals: [], food: [], misc: []
     }
     localStorageMock.setItem(STORAGE_KEY, JSON.stringify(existing))
 
@@ -97,8 +95,7 @@ describe('useRecentReactions', () => {
     const existing = {
       heart: ['heart', 'sparkling_heart'],
       face: ['blush'],
-      hands: [],
-      misc: []
+      hands: [], nature: [], animals: [], food: [], misc: []
     }
     localStorageMock.setItem(STORAGE_KEY, JSON.stringify(existing))
 

@@ -18,7 +18,7 @@ def main():
     popular_by_group = data.get('popular_by_group', {})
     legacy_mappings = data.get('legacy_mappings', {})
     
-    valid_groups = {'heart', 'face', 'hands', 'misc'}
+    valid_groups = {'heart', 'face', 'hands', 'nature', 'animals', 'food', 'misc'}
     canonical_codes = set()
     
     # 1. Validation
@@ -108,7 +108,7 @@ def main():
         json.dump(legacy_mappings, f, indent=2)
         f.write(";\n\n")
         
-        f.write("export const VALID_GROUPS = ['heart', 'face', 'hands', 'misc'] as const;\n")
+        f.write("export const VALID_GROUPS = ['heart', 'face', 'hands', 'nature', 'animals', 'food', 'misc'] as const;\n")
         f.write("export type ReactionGroup = typeof VALID_GROUPS[number];\n\n")
         
         f.write("const inventoryByCode = new Map(REACTION_INVENTORY.map(item => [item.code, item]));\n\n")
