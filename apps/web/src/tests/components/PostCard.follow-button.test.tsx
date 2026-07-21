@@ -11,8 +11,11 @@ jest.mock('@/services/analytics', () => ({
 }))
 
 // Mock the emoji mapping utility
-jest.mock('@/utils/emojiMapping', () => ({
-  getEmojiFromCode: jest.fn((code) => {
+jest.mock('@/generated/reactions', () => {
+  const actual = jest.requireActual('@/generated/reactions') as any;
+  return {
+    ...actual,
+    getEmojiFromCode: jest.fn((code) => {
     const mapping: {[key: string]: string} = {
       'heart_eyes': '😍',
       'joy': '😂',
@@ -32,7 +35,8 @@ jest.mock('@/utils/emojiMapping', () => ({
     { code: 'thinking', emoji: '🤔', label: 'Thinking' },
     { code: 'star', emoji: '⭐', label: 'Amazing' }
   ]),
-}))
+  };
+})
 
 // Mock the auth utilities
 jest.mock('@/utils/auth', () => ({

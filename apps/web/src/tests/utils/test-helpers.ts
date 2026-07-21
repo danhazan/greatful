@@ -96,28 +96,32 @@ export const setupServiceMocks = () => {
   jest.mock('@/services/analytics', () => createMockAnalyticsService())
 
   // Mock emoji mapping utility
-  jest.mock('@/utils/emojiMapping', () => ({
-    getEmojiFromCode: jest.fn((code: string) => {
-      const mapping: {[key: string]: string} = {
-        'heart_eyes': '😍',
-        'joy': '😂',
-        'thinking': '🤔',
-        'fire': '🔥',
-        'pray': '🙏'
-      }
-      return mapping[code] || '😊'
-    }),
-    getAvailableEmojis: jest.fn(() => [
-      { code: 'heart_eyes', emoji: '😍', label: 'Love it' },
-      { code: 'fire', emoji: '🔥', label: 'Fire' },
-      { code: 'pray', emoji: '🙏', label: 'Grateful' },
-      { code: 'muscle', emoji: '💪', label: 'Strong' },
-      { code: 'clap', emoji: '👏', label: 'Applause' },
-      { code: 'joy', emoji: '😂', label: 'Funny' },
-      { code: 'thinking', emoji: '🤔', label: 'Thinking' },
-      { code: 'star', emoji: '⭐', label: 'Amazing' }
-    ]),
-  }))
+  jest.mock('@/generated/reactions', () => {
+    const actual = jest.requireActual('@/generated/reactions') as any;
+    return {
+      ...actual,
+      getEmojiFromCode: jest.fn((code: string) => {
+        const mapping: {[key: string]: string} = {
+          'heart_eyes': '😍',
+          'joy': '😂',
+          'thinking': '🤔',
+          'fire': '🔥',
+          'pray': '🙏'
+        }
+        return mapping[code] || '😊'
+      }),
+      getAvailableEmojis: jest.fn(() => [
+        { code: 'heart_eyes', emoji: '😍', label: 'Love it' },
+        { code: 'fire', emoji: '🔥', label: 'Fire' },
+        { code: 'pray', emoji: '🙏', label: 'Grateful' },
+        { code: 'muscle', emoji: '💪', label: 'Strong' },
+        { code: 'clap', emoji: '👏', label: 'Applause' },
+        { code: 'joy', emoji: '😂', label: 'Funny' },
+        { code: 'thinking', emoji: '🤔', label: 'Thinking' },
+        { code: 'star', emoji: '⭐', label: 'Amazing' }
+      ]),
+    };
+  })
 }
 
 // ============================================================================

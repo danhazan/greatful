@@ -47,83 +47,7 @@ class EmojiReaction(Base):
         Index('idx_emoji_reactions_post_object', 'post_id', 'object_type', 'object_id'),
     )
 
-    # Valid emoji codes mapping to actual emojis
-    # Expanded set with 56 positive emojis organized by category
-    # Note: Database CHECK constraint is NOT updated - Python validation is sufficient
-    VALID_EMOJIS = {
-        # Row 1 - Original emojis
-        'heart': '💜',           # Purple heart (unified with likes)
-        'heart_eyes': '😍',      # Heart eyes
-        'hug': '🤗',             # Hug
-        'touched': '🥹',         # Touched/emotional - Position 4 "Grateful" (bug fix)
-        'muscle': '💪',          # Muscle/strength
-        'grateful': '🙏',        # Grateful hands - Position 6 "Thankful"
-        'praise': '🙌',          # Praise hands
-        'clap': '👏',            # Clap
-
-        # Row 2 - Love/Warmth
-        'star': '⭐',
-        'fire': '🔥',
-        'sparkles': '✨',
-        'heart_face': '🥰',
-        'sparkling_heart': '💖',
-        'gift_heart': '💝',
-        'two_hearts': '💕',
-        'growing_heart': '💗',
-
-        # Row 3 - Joy/Celebration
-        'party': '🎉',
-        'confetti': '🎊',
-        'partying_face': '🥳',
-        'blush': '😊',
-        'grinning': '😄',
-        'beaming': '😁',
-        'starstruck': '🤩',
-        'smile': '🙂',
-
-        # Row 4 - Encouragement
-        'hundred': '💯',
-        'trophy': '🏆',
-        'glowing_star': '🌟',
-        'crown': '👑',
-        'gem': '💎',
-        'bullseye': '🎯',
-        'check': '✅',
-        'dizzy': '💫',
-
-        # Row 5 - Nature/Peace
-        'rainbow': '🌈',
-        'sunflower': '🌻',
-        'cherry_blossom': '🌸',
-        'four_leaf_clover': '🍀',
-        'hibiscus': '🌺',
-        'tulip': '🌷',
-        'blossom': '🌼',
-        'butterfly': '🦋',
-
-        # Row 6 - Affection
-        'heart_hands': '🫶',
-        'handshake': '🤝',
-        'open_hands': '👐',
-        'hugging_people': '🫂',
-        'bouquet': '💐',
-        'gift': '🎁',
-        'dove': '🕊️',
-        'sun': '☀️',
-
-        # Row 7 - Expressions
-        'innocent': '😇',
-        'holding_back_tears': '🥲',
-        'relieved': '😌',
-        'face_with_hand': '🤭',
-        'cool': '😎',
-        'warm_hug': '🤗',
-        'yum': '😋',
-        'salute': '🫡',
-
-        # Legacy codes for backward compatibility with existing reactions
-        'pray': '🙏',            # Keep for existing reactions using 'pray' code
-    }
+    from app.generated.reactions import VALID_EMOJIS, LEGACY_MAPPINGS
 
     def __repr__(self):
         return f"<EmojiReaction(user_id={self.user_id}, post_id={self.post_id}, emoji={self.emoji_code})>"
@@ -131,12 +55,15 @@ class EmojiReaction(Base):
     @property
     def emoji_display(self):
         """Get the actual emoji character for display."""
-        return self.VALID_EMOJIS.get(self.emoji_code, '❓')
+        # Use imported VALID_EMOJIS
+        from app.generated.reactions import VALID_EMOJIS
+        return VALID_EMOJIS.get(self.emoji_code, '❓')
 
     @classmethod
     def is_valid_emoji(cls, emoji_code: str) -> bool:
         """Check if the emoji code is valid."""
-        return emoji_code in cls.VALID_EMOJIS
+        from app.generated.reactions import VALID_EMOJIS
+        return emoji_code in VALID_EMOJIS
 
     # Relationships
     user = relationship("User", backref="emoji_reactions")

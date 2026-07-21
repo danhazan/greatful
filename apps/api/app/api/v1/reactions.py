@@ -40,9 +40,11 @@ class ReactionRequest(BaseModel):
             logger.warning("Invalid emoji payload rejected: null or empty", extra={"invalid_payload": v})
             raise ValueError("emoji_code must be a non-empty string")
             
-        from app.models.emoji_reaction import EmojiReaction
-        if not EmojiReaction.is_valid_emoji(v):
-            valid_emojis = list(EmojiReaction.VALID_EMOJIS.keys())
+        from app.generated.reactions import VALID_EMOJIS, LEGACY_MAPPINGS
+        v = LEGACY_MAPPINGS.get(v, v)
+        
+        if v not in VALID_EMOJIS:
+            valid_emojis = list(VALID_EMOJIS.keys())
             
             # Log structured error for invalid emoji code
             logger.warning(
@@ -68,12 +70,13 @@ class ReactionResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator('emoji_code')
+    @field_validator('emoji_code', mode='before')
     @classmethod
     def validate_emoji_code(cls, v):
-        from app.models.emoji_reaction import EmojiReaction
-        if not EmojiReaction.is_valid_emoji(v):
-            valid_emojis = list(EmojiReaction.VALID_EMOJIS.keys())
+        from app.generated.reactions import VALID_EMOJIS, LEGACY_MAPPINGS
+        v = LEGACY_MAPPINGS.get(v, v)
+        if v not in VALID_EMOJIS:
+            valid_emojis = list(VALID_EMOJIS.keys())
             raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
         return v
 

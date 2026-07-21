@@ -9,7 +9,7 @@ import { useReactionMutation } from '@/hooks/useReactionMutation'
 import { useLongPress } from '@/hooks/useLongPress'
 import EmojiPicker from './EmojiPicker'
 import ReactionViewer from './ReactionViewer'
-import { getEmojiFromCode, getTopEmojis } from '@/utils/emojiMapping'
+import { getEmojiFromCode, getTopEmojis } from '@/generated/reactions'
 import { SharedImageZoom, SharedImageZoomRef } from './SharedImageZoom'
 import { isAtDefaultScale } from '@/config/imageGalleryConfig'
 

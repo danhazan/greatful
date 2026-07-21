@@ -386,7 +386,7 @@ class TestNotificationIntegration:
         await reaction_service.add_reaction(
             user_id=reactor2.id,
             post_id=post.id,
-            emoji_code="pray"
+            emoji_code="grateful"
         )
 
         # Check that notifications were created with new batching behavior
@@ -486,7 +486,7 @@ class TestNotificationIntegration:
         await reaction_service.add_reaction(
             user_id=reactor.id,
             post_id=post.id,
-            emoji_code="pray"
+            emoji_code="grateful"
         )
 
         notifications = await NotificationService.get_user_notifications(

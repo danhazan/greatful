@@ -123,15 +123,19 @@ jest.mock('@/contexts/ToastContext', () => ({
 }))
 
 // Mock utilities
-jest.mock('@/utils/emojiMapping', () => ({
-  getEmojiFromCode: (code: string) => {
+jest.mock('@/generated/reactions', () => {
+  const actual = jest.requireActual('@/generated/reactions') as any;
+  return {
+    ...actual,
+    getEmojiFromCode: (code: string) => {
     const mapping: {[key: string]: string} = {
       'heart': '💜',
       'pray': '🙏'
     }
     return mapping[code] || '😊'
   }
-}))
+  };
+})
 
 jest.mock('@/utils/imageUtils', () => ({
   getImageUrl: (url: string) => url

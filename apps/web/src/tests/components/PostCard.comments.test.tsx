@@ -11,10 +11,14 @@ jest.mock('@/services/analytics', () => ({
 }))
 
 // Mock the emoji mapping utility
-jest.mock('@/utils/emojiMapping', () => ({
-  getEmojiFromCode: jest.fn((code) => '😊'),
+jest.mock('@/generated/reactions', () => {
+  const actual = jest.requireActual('@/generated/reactions') as any;
+  return {
+    ...actual,
+    getEmojiFromCode: jest.fn((code) => '😊'),
   getAvailableEmojis: jest.fn(() => []),
-}))
+  };
+})
 
 // Mock the auth utilities
 jest.mock('@/utils/auth', () => ({

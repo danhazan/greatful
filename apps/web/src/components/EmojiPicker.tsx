@@ -1,11 +1,18 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { X } from "lucide-react"
-import { getAvailableEmojis } from "@/utils/emojiMapping"
+import { X, Heart, Smile, Hand, Flower } from "lucide-react"
+import { 
+  composeCompactRow,
+  ReactionGroup,
+  VALID_GROUPS,
+  REACTION_INVENTORY,
+  POPULAR_BY_GROUP
+} from "@/generated/reactions"
 import { triggerHaptic } from "@/utils/hapticFeedback"
 import { useModal } from "@/hooks/useModal"
+import { useRecentReactions } from "@/hooks/useRecentReactions"
 
 interface EmojiPickerProps {
   isOpen: boolean
@@ -15,10 +22,10 @@ interface EmojiPickerProps {
   currentReaction?: string | null
   triggerRef: React.RefObject<HTMLElement>
   isLoading?: boolean
-  compact?: boolean
 }
 
-const EMOJI_OPTIONS = getAvailableEmojis()
+const GROUP_ICONS: Record<ReactionGroup, typeof Heart> = { heart: Heart, face: Smile, hands: Hand, misc: Flower }
+const GROUP_LABELS: Record<ReactionGroup, string> = { heart: 'Heart', face: 'Face', hands: 'Hands', misc: 'Misc' }
 
 export default function EmojiPicker({
   isOpen,
@@ -28,7 +35,6 @@ export default function EmojiPicker({
   currentReaction,
   triggerRef,
   isLoading = false,
-  compact = false
 }: EmojiPickerProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -36,22 +42,9 @@ export default function EmojiPicker({
   const [visible, setVisible] = useState(false)
   const [position, setPosition] = useState({ left: 0, top: 0 })
   const hasPositionedRef = useRef(false)
+  const [activeGroup, setActiveGroup] = useState<ReactionGroup | null>(null)
 
-  const density = compact
-    ? {
-        cellPadding: 'p-2',
-        gap: 'gap-1',
-        modalPadding: 'p-2',
-        scrollMaxHeight: '180px',
-        emojiFontSize: 'text-xl',
-      }
-    : {
-        cellPadding: 'p-3',
-        gap: 'gap-2',
-        modalPadding: 'p-4',
-        scrollMaxHeight: '280px',
-        emojiFontSize: 'text-2xl',
-      }
+  const { recentReactions, addRecentReaction } = useRecentReactions()
 
   const isScrollingRef = useRef(false)
   const touchStartRef = useRef({ x: 0, y: 0 })
@@ -75,6 +68,7 @@ export default function EmojiPicker({
   useEffect(() => {
     if (isOpen) {
       setSelectedEmoji(null)
+      setActiveGroup(null)
     }
   }, [isOpen])
 
@@ -85,7 +79,8 @@ export default function EmojiPicker({
     }
   }, [isOpen])
 
-  // Self-position: measure trigger + own DOM, compute position, reveal
+  const isExpanded = activeGroup !== null
+
   useLayoutEffect(() => {
     if (!isOpen) return
     if (hasPositionedRef.current) return
@@ -120,14 +115,23 @@ export default function EmojiPicker({
     setPosition({ left, top })
     setVisible(true)
     hasPositionedRef.current = true
-  }, [isOpen, triggerRef])
+  }, [isOpen, triggerRef, isExpanded])
 
   useModal(modalRef, isOpen, onCancel, { enableTabTrap: true })
 
-  if (!isOpen) return null
-  if (typeof document === 'undefined') return null
+  const currentGroupEmojis = useMemo(() => {
+    if (!activeGroup) return []
+    return REACTION_INVENTORY.filter(item => item.group === activeGroup)
+  }, [activeGroup])
 
-  const handleEmojiClick = (emojiCode: string) => {
+  const compactRows = useMemo(() => {
+    return VALID_GROUPS.map(group => {
+      const codes = composeCompactRow(recentReactions[group] || [], POPULAR_BY_GROUP[group] || [], 4)
+      return codes.map(code => REACTION_INVENTORY.find(r => r.code === code)!)
+    })
+  }, [recentReactions])
+
+  const handleEmojiClick = useCallback((emojiCode: string) => {
     if (isLoading) return
     if (currentReaction === emojiCode) {
       onCancel()
@@ -135,13 +139,82 @@ export default function EmojiPicker({
     }
     triggerHaptic('light')
     setSelectedEmoji(emojiCode)
+    
+    const reactionItem = REACTION_INVENTORY.find(item => item.code === emojiCode)
+    if (reactionItem) {
+      addRecentReaction(reactionItem.group as ReactionGroup, emojiCode)
+    }
+
     onEmojiSelect(emojiCode)
     onClose()
+  }, [isLoading, currentReaction, onCancel, onEmojiSelect, onClose, addRecentReaction])
+
+  if (!isOpen) return null
+  if (typeof document === 'undefined') return null
+
+  const handleXButtonClick = () => onCancel()
+
+  const renderCompactRow = (group: ReactionGroup, index: number) => {
+    const items = compactRows[index]
+    const Icon = GROUP_ICONS[group]
+    return (
+      <div key={group} className="flex items-center mb-1 last:mb-0">
+        <div className="flex items-center space-x-1 flex-1 min-w-0 overflow-hidden">
+          {items.map(item => (
+            <button
+              key={item.code}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (isScrollingRef.current) return
+                handleEmojiClick(item.code)
+              }}
+              disabled={isLoading}
+              className={`
+                relative p-2 rounded-full transition-transform hover:scale-110 active:scale-95
+                flex-1 flex items-center justify-center text-2xl min-w-0
+                ${currentReaction === item.code ? 'bg-purple-100 ring-2 ring-purple-500 ring-offset-1' : 'hover:bg-gray-50'}
+                ${selectedEmoji === item.code ? 'bg-purple-200' : ''}
+              `}
+              title={item.label}
+              aria-label={`React with ${item.label}`}
+              aria-pressed={currentReaction === item.code}
+            >
+              <span className="block pointer-events-none">{item.character}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setActiveGroup(group)}
+          className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-purple-100 hover:text-purple-600 transition-colors flex-shrink-0 ml-1"
+          aria-label={`Show all ${GROUP_LABELS[group]} emojis`}
+          title={GROUP_LABELS[group]}
+        >
+          <Icon className="w-4 h-4" />
+        </button>
+      </div>
+    )
   }
 
-  const handleXButtonClick = () => {
-    onCancel()
+  const renderGroupButton = (group: ReactionGroup) => {
+    const Icon = GROUP_ICONS[group]
+    const isActive = activeGroup === group
+    return (
+      <button
+        key={group}
+        onClick={() => setActiveGroup(group)}
+        className={`p-2 rounded-lg transition-colors ${
+          isActive ? 'bg-purple-100 text-purple-700' : 'text-gray-500 hover:bg-gray-100'
+        }`}
+        aria-label={GROUP_LABELS[group]}
+        title={GROUP_LABELS[group]}
+      >
+        <Icon className="w-5 h-5" />
+      </button>
+    )
   }
+
+  const contentHeight = '200px'
 
   return createPortal(
     <>
@@ -149,6 +222,7 @@ export default function EmojiPicker({
         className="fixed inset-0 bg-gray-900 bg-opacity-20 z-[80]"
         data-emoji-picker
         style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+        onClick={onCancel}
       />
 
       <div
@@ -157,82 +231,83 @@ export default function EmojiPicker({
         role="dialog"
         aria-modal="true"
         aria-label="Emoji picker"
-        className="fixed z-[81] bg-white rounded-lg shadow-lg border border-gray-200"
+        className="fixed z-[81] bg-white rounded-xl shadow-xl border border-gray-100 flex flex-col"
         style={{
           left: position.left,
           top: position.top,
           visibility: visible ? 'visible' : 'hidden',
           pointerEvents: visible ? 'auto' : 'none',
-          padding: compact ? '8px' : '16px',
+          padding: '12px',
+          width: '320px',
         }}
         tabIndex={-1}
       >
-        <div className="flex justify-end mb-0">
+        <div className="flex justify-between items-center mb-2 flex-shrink-0">
+          <div className="flex space-x-1">
+            {VALID_GROUPS.map(renderGroupButton)}
+          </div>
           <button
             onClick={handleXButtonClick}
-            className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-md p-1"
-            aria-label="Cancel and close emoji picker"
+            className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none rounded-full p-1 ml-2"
+            aria-label="Close emoji picker"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         <div
-          ref={scrollContainerRef}
-          data-allow-scroll="true"
-          className="overflow-y-auto overflow-x-hidden overscroll-contain p-2"
+          ref={activeGroup ? scrollContainerRef : undefined}
+          data-allow-scroll={activeGroup ? 'true' : undefined}
+          className={activeGroup
+            ? 'overflow-y-auto overflow-x-hidden p-1 border-t border-gray-100 pt-3'
+            : 'flex flex-col justify-center p-1 border-t border-gray-100 pt-3'
+          }
           style={{
-            maxHeight: density.scrollMaxHeight,
+            height: contentHeight,
             overscrollBehavior: 'contain',
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#d1d5db transparent'
+            scrollbarWidth: 'none',
           }}
         >
-          <div
-            className={`grid grid-cols-4 ${density.gap}`}
-            role="grid"
-            aria-label="Emoji reactions"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-          >
-            {EMOJI_OPTIONS.map((option) => (
-              <div key={option.code} role="gridcell">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    if (isScrollingRef.current) {
-                      isScrollingRef.current = false
-                      return
-                    }
-                    handleEmojiClick(option.code)
-                  }}
-                  disabled={isLoading}
+          {!activeGroup && (
+            <div className="flex flex-col justify-center h-full">
+              {VALID_GROUPS.map((group, i) => renderCompactRow(group, i))}
+            </div>
+          )}
+
+          {activeGroup && (
+            <div
+              className="grid grid-cols-6 gap-2"
+              role="grid"
+              aria-label={`${GROUP_LABELS[activeGroup]} emoji reactions`}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+            >
+              {currentGroupEmojis.map((item) => (
+                <div key={item.code} role="gridcell">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      if (isScrollingRef.current) return
+                      handleEmojiClick(item.code)
+                    }}
+                    disabled={isLoading}
                     className={`
-                    relative ${density.cellPadding} rounded-lg transition-all duration-200 hover:scale-110 hover:bg-purple-50
-                    min-h-[44px] min-w-[44px] flex items-center justify-center
-                    touch-manipulation select-none
-                    active:scale-95 active:bg-purple-100
-                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
-                    focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
-                    ${currentReaction === option.code
-                      ? 'bg-purple-100 ring-2 ring-purple-500 ring-offset-1'
-                      : 'hover:bg-gray-50 active:bg-purple-50'
-                    }
-                    ${selectedEmoji === option.code ? 'bg-purple-200' : ''}
-                  `}
-                  title={option.label}
-                  aria-label={`React with ${option.label}.${currentReaction === option.code ? ' Currently selected.' : ''}`}
-                  aria-pressed={currentReaction === option.code}
-                >
-                  <span className={`block pointer-events-none ${density.emojiFontSize}`}>{option.emoji}</span>
-                  {currentReaction === option.code && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
-                  )}
-                </button>
-              </div>
-            ))}
-          </div>
+                      relative p-2 rounded-lg transition-transform hover:scale-110 active:scale-95
+                      w-full aspect-square flex items-center justify-center text-2xl
+                      ${currentReaction === item.code ? 'bg-purple-100 ring-1 ring-purple-500' : 'hover:bg-gray-50'}
+                      ${selectedEmoji === item.code ? 'bg-purple-200' : ''}
+                    `}
+                    title={item.label}
+                    aria-label={`React with ${item.label}`}
+                    aria-pressed={currentReaction === item.code}
+                  >
+                    <span className="block pointer-events-none">{item.character}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </>,

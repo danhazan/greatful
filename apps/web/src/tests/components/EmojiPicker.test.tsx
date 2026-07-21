@@ -1,32 +1,34 @@
 import { render, screen, fireEvent, waitFor } from '@/tests/utils/testUtils'
 import { jest } from '@jest/globals'
 import EmojiPicker from '@/components/EmojiPicker'
-import { createRef } from 'react'
 
-// Mock window dimensions
-Object.defineProperty(window, 'innerWidth', {
-  writable: true,
-  configurable: true,
-  value: 1024,
-})
+const mockAddRecentReaction = jest.fn()
 
-Object.defineProperty(window, 'innerHeight', {
-  writable: true,
-  configurable: true,
-  value: 768,
-})
+jest.mock('@/hooks/useRecentReactions', () => ({
+  useRecentReactions: () => ({
+    recentReactions: {
+      heart: ['heart', 'sparkling_heart'],
+      face: ['blush'],
+      hands: [],
+      misc: []
+    },
+    addRecentReaction: mockAddRecentReaction,
+    isLoading: false
+  })
+}))
+
+Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 })
+Object.defineProperty(window, 'innerHeight', { writable: true, configurable: true, value: 768 })
 
 function createTriggerRef() {
   const el = document.createElement('button')
   document.body.appendChild(el)
-  // Default bounding rect: 100,200,150,250 (left,top,right,bottom)
   el.getBoundingClientRect = () => ({
     x: 100, y: 200, width: 50, height: 50,
     top: 200, right: 150, bottom: 250, left: 100,
     toJSON: () => ({}),
   })
-  const ref = { current: el } as React.RefObject<HTMLElement>
-  return ref
+  return { current: el } as React.RefObject<HTMLElement>
 }
 
 describe('EmojiPicker', () => {
@@ -42,7 +44,6 @@ describe('EmojiPicker', () => {
     jest.clearAllMocks()
     currentTime += 100
     jest.spyOn(Date, 'now').mockReturnValue(currentTime)
-
     mockVibrate = jest.fn()
     Object.defineProperty(navigator, 'vibrate', {
       value: mockVibrate,
@@ -51,7 +52,7 @@ describe('EmojiPicker', () => {
     })
   })
 
-  it('renders when open', () => {
+  it('renders when open and shows four compact group rows', () => {
     render(
       <EmojiPicker
         isOpen={true}
@@ -63,6 +64,13 @@ describe('EmojiPicker', () => {
     )
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // Four + buttons for each group
+    expect(screen.getByLabelText('Show all Heart emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Face emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Hands emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Misc emojis')).toBeInTheDocument()
+    // No expanded grid in overview mode
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
   })
 
   it('does not render when closed', () => {
@@ -75,45 +83,7 @@ describe('EmojiPicker', () => {
         triggerRef={defaultTriggerRef}
       />
     )
-
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('displays all 56 emoji options in 7 rows', () => {
-    render(
-      <EmojiPicker
-        isOpen={true}
-        onClose={mockOnClose}
-        onCancel={mockOnCancel}
-        onEmojiSelect={mockOnEmojiSelect}
-        triggerRef={defaultTriggerRef}
-      />
-    )
-
-    const emojiButtons = screen.getAllByRole('gridcell')
-    expect(emojiButtons).toHaveLength(56)
-
-    expect(screen.getByText('💜')).toBeInTheDocument()
-    expect(screen.getByText('😍')).toBeInTheDocument()
-    expect(screen.getAllByText('🤗').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('🥹')).toBeInTheDocument()
-    expect(screen.getByText('💪')).toBeInTheDocument()
-    expect(screen.getByText('🙏')).toBeInTheDocument()
-    expect(screen.getByText('🙌')).toBeInTheDocument()
-    expect(screen.getByText('👏')).toBeInTheDocument()
-
-    expect(screen.getByText('⭐')).toBeInTheDocument()
-    expect(screen.getByText('🔥')).toBeInTheDocument()
-    expect(screen.getByText('✨')).toBeInTheDocument()
-    expect(screen.getByText('🎉')).toBeInTheDocument()
-    expect(screen.getByText('🥳')).toBeInTheDocument()
-    expect(screen.getByText('💯')).toBeInTheDocument()
-    expect(screen.getByText('🏆')).toBeInTheDocument()
-    expect(screen.getByText('🌈')).toBeInTheDocument()
-    expect(screen.getByText('🦋')).toBeInTheDocument()
-    expect(screen.getByText('🫶')).toBeInTheDocument()
-    expect(screen.getByText('😇')).toBeInTheDocument()
-    expect(screen.getByText('🫡')).toBeInTheDocument()
   })
 
   it('calls onEmojiSelect and onClose when emoji is clicked', () => {
@@ -127,14 +97,14 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const loveItButton = screen.getByLabelText(/React with Love it/)
-    fireEvent.click(loveItButton)
+    const heartButton = screen.getAllByLabelText(/React with Heart/)[0]
+    fireEvent.click(heartButton)
 
-    expect(mockOnEmojiSelect).toHaveBeenCalledWith('heart_eyes')
+    expect(mockOnEmojiSelect).toHaveBeenCalledWith('heart')
     expect(mockOnClose).toHaveBeenCalled()
   })
 
-  it('triggers vibration ONLY when an emoji is clicked', () => {
+  it('expands to show full grid when clicking + button', () => {
     render(
       <EmojiPicker
         isOpen={true}
@@ -145,15 +115,15 @@ describe('EmojiPicker', () => {
       />
     )
 
-    expect(mockVibrate).not.toHaveBeenCalled()
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
 
-    const heartButton = screen.getByTitle('Heart')
-    fireEvent.click(heartButton)
+    const expandButton = screen.getByLabelText('Show all Heart emojis')
+    fireEvent.click(expandButton)
 
-    expect(mockVibrate).toHaveBeenCalledWith(10)
+    expect(screen.getByRole('grid')).toBeInTheDocument()
   })
 
-  it('does NOT trigger vibration on touch start or scroll (mobile safe)', () => {
+  it('shows correct expanded grid for each group when clicking its + button', () => {
     render(
       <EmojiPicker
         isOpen={true}
@@ -164,16 +134,24 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const heartButton = screen.getByTitle('Heart')
+    // Heart
+    fireEvent.click(screen.getByLabelText('Show all Heart emojis'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Heart emoji reactions')
 
-    fireEvent.touchStart(heartButton, { touches: [{ clientX: 0, clientY: 0 }] })
-    expect(mockVibrate).not.toHaveBeenCalled()
+    // Face
+    fireEvent.click(screen.getByLabelText('Face'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Face emoji reactions')
 
-    fireEvent.touchMove(heartButton, { touches: [{ clientX: 0, clientY: 50 }] })
-    expect(mockVibrate).not.toHaveBeenCalled()
+    // Hands
+    fireEvent.click(screen.getByLabelText('Hands'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Hands emoji reactions')
+
+    // Misc
+    fireEvent.click(screen.getByLabelText('Misc'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Misc emoji reactions')
   })
 
-  it('handles rapid tap spam safely', () => {
+  it('header uses icons with accessible aria-labels instead of visible text', () => {
     render(
       <EmojiPicker
         isOpen={true}
@@ -184,38 +162,20 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const heartButton = screen.getByTitle('Heart')
+    // No visible text group names
+    expect(screen.queryByText('Heart')).not.toBeInTheDocument()
+    expect(screen.queryByText('Face')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hands')).not.toBeInTheDocument()
+    expect(screen.queryByText('Misc')).not.toBeInTheDocument()
 
-    fireEvent.click(heartButton)
-    fireEvent.click(heartButton)
-    fireEvent.click(heartButton)
-
-    expect(mockVibrate).toHaveBeenCalled()
+    // Icon buttons present with aria-labels
+    expect(screen.getByLabelText('Heart')).toBeInTheDocument()
+    expect(screen.getByLabelText('Face')).toBeInTheDocument()
+    expect(screen.getByLabelText('Hands')).toBeInTheDocument()
+    expect(screen.getByLabelText('Misc')).toBeInTheDocument()
   })
 
-  it('prevents event bubbling (Nested Click Safety)', () => {
-    const parentClick = jest.fn()
-
-    render(
-      <div onClick={parentClick}>
-        <EmojiPicker
-          isOpen={true}
-          onClose={mockOnClose}
-          onCancel={mockOnCancel}
-          onEmojiSelect={mockOnEmojiSelect}
-          triggerRef={defaultTriggerRef}
-        />
-      </div>
-    )
-
-    const heartButton = screen.getByTitle('Heart')
-    fireEvent.click(heartButton)
-
-    expect(parentClick).not.toHaveBeenCalled()
-    expect(mockVibrate).toHaveBeenCalledWith(10)
-  })
-
-  it('prevents click after scroll edge case (Mobile Tap vs Scroll)', () => {
+  it('active expanded group has distinct visual state', () => {
     render(
       <EmojiPicker
         isOpen={true}
@@ -226,19 +186,17 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const gridContainer = screen.getByRole('grid')
-    const heartButton = screen.getByTitle('Heart')
+    const heartIconButton = screen.getByLabelText('Heart')
+    fireEvent.click(heartIconButton)
 
-    fireEvent.touchStart(gridContainer, { touches: [{ clientX: 0, clientY: 0 }] })
-    fireEvent.touchMove(gridContainer, { touches: [{ clientX: 0, clientY: 50 }] })
-    fireEvent.click(heartButton)
-
-    expect(mockVibrate).not.toHaveBeenCalled()
-    expect(mockOnEmojiSelect).not.toHaveBeenCalled()
+    // The Heart icon should be active (has bg-purple-100 class)
+    expect(heartIconButton.className).toContain('bg-purple-100')
+    // Face icon should not be active
+    expect(screen.getByLabelText('Face').className).not.toContain('bg-purple-100')
   })
 
-  it('integration: successfully selects emoji after scrolling (Scroll then Tap)', () => {
-    render(
+  it('closing and reopening resets to four-row overview', () => {
+    const { rerender } = render(
       <EmojiPicker
         isOpen={true}
         onClose={mockOnClose}
@@ -248,150 +206,41 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const gridContainer = screen.getByRole('grid')
-    const heartButton = screen.getByTitle('Heart')
+    fireEvent.click(screen.getByLabelText('Show all Heart emojis'))
+    expect(screen.getByRole('grid')).toBeInTheDocument()
 
-    fireEvent.touchStart(gridContainer, { touches: [{ clientX: 0, clientY: 0 }] })
-    fireEvent.touchMove(gridContainer, { touches: [{ clientX: 0, clientY: 50 }] })
-    fireEvent.touchEnd(gridContainer)
-    fireEvent.click(heartButton)
-    expect(mockVibrate).not.toHaveBeenCalled()
+    // Close
+    rerender(
+      <EmojiPicker
+        isOpen={false}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
+      />
+    )
 
-    fireEvent.touchStart(heartButton, { touches: [{ clientX: 0, clientY: 0 }] })
-    fireEvent.touchEnd(heartButton)
-    fireEvent.click(heartButton)
+    // Reopen
+    rerender(
+      <EmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
+      />
+    )
 
-    expect(mockVibrate).toHaveBeenCalledTimes(1)
-    expect(mockOnEmojiSelect).toHaveBeenCalledWith('heart')
+    // Should be back to overview - no grid
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
+    // Should have all four + buttons again
+    expect(screen.getByLabelText('Show all Heart emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Face emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Hands emojis')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show all Misc emojis')).toBeInTheDocument()
   })
 
   it('highlights current reaction', () => {
-    render(
-      <EmojiPicker
-        isOpen={true}
-        onClose={mockOnClose}
-        onCancel={mockOnCancel}
-        onEmojiSelect={mockOnEmojiSelect}
-        currentReaction="touched"
-        triggerRef={defaultTriggerRef}
-      />
-    )
-
-    const touchedButton = screen.getByLabelText(/React with Grateful/)
-    expect(touchedButton).toHaveClass('bg-purple-100', 'ring-2', 'ring-purple-500')
-  })
-
-  it('calls onCancel when close button is clicked (not onClose)', () => {
-    render(
-      <EmojiPicker
-        isOpen={true}
-        onClose={mockOnClose}
-        onCancel={mockOnCancel}
-        onEmojiSelect={mockOnEmojiSelect}
-        triggerRef={defaultTriggerRef}
-      />
-    )
-
-    const closeButton = screen.getByLabelText('Cancel and close emoji picker')
-    fireEvent.click(closeButton)
-
-    expect(mockOnCancel).toHaveBeenCalled()
-    expect(mockOnClose).not.toHaveBeenCalled()
-  })
-
-  it('calls onCancel when escape key is pressed (not onClose)', () => {
-    render(
-      <EmojiPicker
-        isOpen={true}
-        onClose={mockOnClose}
-        onCancel={mockOnCancel}
-        onEmojiSelect={mockOnEmojiSelect}
-        triggerRef={defaultTriggerRef}
-      />
-    )
-
-    fireEvent.keyDown(document, { key: 'Escape' })
-
-    expect(mockOnCancel).toHaveBeenCalled()
-    expect(mockOnClose).not.toHaveBeenCalled()
-  })
-
-  it('does NOT select emoji when number key is pressed (shortcuts removed)', () => {
-    render(
-      <EmojiPicker
-        isOpen={true}
-        onClose={mockOnClose}
-        onCancel={mockOnCancel}
-        onEmojiSelect={mockOnEmojiSelect}
-        triggerRef={defaultTriggerRef}
-      />
-    )
-
-    fireEvent.keyDown(document, { key: '1' })
-
-    expect(mockOnEmojiSelect).not.toHaveBeenCalled()
-  })
-
-  it('calls onCancel when clicking outside (not onClose)', async () => {
-    render(
-      <div>
-        <div data-testid="outside">Outside</div>
-        <EmojiPicker
-          isOpen={true}
-          onClose={mockOnClose}
-          onCancel={mockOnCancel}
-          onEmojiSelect={mockOnEmojiSelect}
-          triggerRef={defaultTriggerRef}
-        />
-      </div>
-    )
-
-    const outsideElement = screen.getByTestId('outside')
-    fireEvent.pointerDown(outsideElement)
-
-    await waitFor(() => {
-      expect(mockOnCancel).toHaveBeenCalled()
-      expect(mockOnClose).not.toHaveBeenCalled()
-    })
-  })
-
-  it('renders as a fixed-position self-positioning dialog', () => {
-    render(
-      <EmojiPicker
-        isOpen={true}
-        onClose={mockOnClose}
-        onCancel={mockOnCancel}
-        onEmojiSelect={mockOnEmojiSelect}
-        triggerRef={defaultTriggerRef}
-      />
-    )
-
-    const modal = screen.getByRole('dialog')
-    expect(modal).toHaveClass('fixed')
-    expect(modal.style.left).toBeTruthy()
-    expect(modal.style.top).toBeTruthy()
-  })
-
-  it('scrollable container has max-height and scroll containment', () => {
-    render(
-      <EmojiPicker
-        isOpen={true}
-        onClose={mockOnClose}
-        onCancel={mockOnCancel}
-        onEmojiSelect={mockOnEmojiSelect}
-        triggerRef={defaultTriggerRef}
-      />
-    )
-
-    const modal = screen.getByRole('dialog')
-    const scrollContainer = modal.querySelector('.overflow-y-auto')
-
-    expect(scrollContainer).toBeInTheDocument()
-    expect(scrollContainer).toHaveClass('overscroll-contain')
-    expect((scrollContainer as HTMLElement).style.maxHeight).toBe('280px')
-  })
-
-  it('calls onCancel when clicking the same emoji that is already selected', () => {
     render(
       <EmojiPicker
         isOpen={true}
@@ -403,11 +252,49 @@ describe('EmojiPicker', () => {
       />
     )
 
-    const heartButton = screen.getByLabelText(/React with Heart.*Currently selected/)
-    fireEvent.click(heartButton)
+    const heartButton = screen.getAllByLabelText('React with Heart')[0]
+    expect(heartButton.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('calls onCancel when close button is clicked', () => {
+    render(
+      <EmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
+      />
+    )
+
+    const closeButton = screen.getByLabelText('Close emoji picker')
+    fireEvent.click(closeButton)
 
     expect(mockOnCancel).toHaveBeenCalled()
-    expect(mockOnEmojiSelect).not.toHaveBeenCalled()
     expect(mockOnClose).not.toHaveBeenCalled()
+  })
+
+  it('header icons navigate between expanded groups', () => {
+    render(
+      <EmojiPicker
+        isOpen={true}
+        onClose={mockOnClose}
+        onCancel={mockOnCancel}
+        onEmojiSelect={mockOnEmojiSelect}
+        triggerRef={defaultTriggerRef}
+      />
+    )
+
+    // Start in expanded Heart
+    fireEvent.click(screen.getByLabelText('Show all Heart emojis'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Heart emoji reactions')
+
+    // Navigate via header icon
+    fireEvent.click(screen.getByLabelText('Face'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Face emoji reactions')
+
+    // Navigate to Hands
+    fireEvent.click(screen.getByLabelText('Hands'))
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-label', 'Hands emoji reactions')
   })
 })

@@ -24,14 +24,14 @@ class TestEmojiReactionModel:
 
     def test_valid_emojis(self):
         """Test that valid emoji codes are recognized."""
-        valid_codes = ['heart', 'heart_eyes', 'hug', 'pray', 'muscle', 'grateful', 'praise', 'clap']
+        valid_codes = ['heart', 'heart_eyes', 'hug', 'muscle', 'grateful', 'praise', 'clap']
         
         for code in valid_codes:
             assert EmojiReaction.is_valid_emoji(code)
 
     def test_invalid_emojis(self):
         """Test that invalid emoji codes are rejected."""
-        invalid_codes = ['angry', 'sad', 'thumbs_down', 'invalid', 'joy', 'thinking', 'crying', 'rage', 'poop']
+        invalid_codes = ['angry', 'sad', 'thumbs_down', 'invalid', 'crying', 'rage', 'poop', 'pray']
         
         for code in invalid_codes:
             assert not EmojiReaction.is_valid_emoji(code)
@@ -56,8 +56,8 @@ class TestEmojiReactionModel:
         assert praise_reaction.emoji_display == '🙌'
         
         # Test other emojis as well
-        pray_reaction = EmojiReaction(emoji_code='pray')
-        assert pray_reaction.emoji_display == '🙏'
+        grateful_reaction = EmojiReaction(emoji_code='grateful')
+        assert grateful_reaction.emoji_display == '🙏'
         
         # Test invalid emoji fallback
         invalid_reaction = EmojiReaction(emoji_code='invalid')
@@ -146,12 +146,12 @@ class TestReactionService:
         reaction2 = await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
-            emoji_code='pray'
+            emoji_code='grateful'
         )
         
         # Should be the same reaction object, just updated
         assert reaction1["id"] == reaction2["id"]
-        assert reaction2["emoji_code"] == 'pray'
+        assert reaction2["emoji_code"] == 'grateful'
 
     async def test_remove_reaction_success(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test successfully removing a reaction."""
@@ -207,7 +207,7 @@ class TestReactionService:
         await service.add_reaction(
             user_id=test_user.id,
             post_id=test_post.id,
-            emoji_code='pray'
+            emoji_code='grateful'
         )
         
         # Get user's reaction
@@ -217,7 +217,7 @@ class TestReactionService:
         )
         
         assert reaction is not None
-        assert reaction.emoji_code == 'pray'
+        assert reaction.emoji_code == 'grateful'
 
     async def test_get_reaction_counts(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test getting reaction counts grouped by emoji."""

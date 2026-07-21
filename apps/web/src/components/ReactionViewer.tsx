@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { X, Loader2 } from "lucide-react"
-import { getEmojiFromCode } from "@/utils/emojiMapping"
+import { getEmojiFromCode } from "@/generated/reactions"
 import { apiClient } from "@/utils/apiClient"
 import { lockScroll, unlockScroll } from "@/utils/scrollLock"
 import UserItem from "./UserItem"
