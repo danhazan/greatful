@@ -96,8 +96,8 @@ export const setupServiceMocks = () => {
   jest.mock('@/services/analytics', () => createMockAnalyticsService())
 
   // Mock emoji mapping utility
-  jest.mock('@/generated/reactions', () => {
-    const actual = jest.requireActual('@/generated/reactions') as any;
+  jest.mock('@/constants/reactions', () => {
+    const actual = jest.requireActual('@/constants/reactions') as any;
     return {
       ...actual,
       getEmojiFromCode: jest.fn((code: string) => {

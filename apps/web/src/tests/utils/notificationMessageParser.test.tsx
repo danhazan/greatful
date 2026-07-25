@@ -8,7 +8,7 @@ import { parseNotificationMessage, formatNotificationWithEnhancedData } from '@/
 import { describe, it, expect, jest } from '@jest/globals'
 
 // Mock getEmojiFromCode
-jest.mock('@/generated/reactions', () => ({
+jest.mock('@/constants/reactions', () => ({
   getEmojiFromCode: (code: string) => {
     const map: Record<string, string> = {
       heart_eyes: '😍',

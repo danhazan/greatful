@@ -9,7 +9,7 @@ import {
   VALID_GROUPS,
   REACTION_INVENTORY,
   POPULAR_BY_GROUP
-} from "@/generated/reactions"
+} from "@/constants/reactions"
 import { triggerHaptic } from "@/utils/hapticFeedback"
 import { useModal } from "@/hooks/useModal"
 import { useRecentReactions } from "@/hooks/useRecentReactions"

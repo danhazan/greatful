@@ -1,6 +1,6 @@
 """Increase emoji_code length from 20 to 50.
 
-Canonical inventory (shared/reactions.json) has 401 codes.
+Canonical frontend inventory has 401 codes.
 Longest: backhand_index_pointing_right (29 chars).
 12 codes exceed the original String(20) limit.
 

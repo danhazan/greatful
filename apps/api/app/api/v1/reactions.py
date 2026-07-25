@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
 from app.services.reaction_service import ReactionService
-from app.models.emoji_reaction import EmojiReaction
 from app.core.responses import success_response
 import logging
 
@@ -39,20 +38,6 @@ class ReactionRequest(BaseModel):
         if not v or not isinstance(v, str):
             logger.warning("Invalid emoji payload rejected: null or empty", extra={"invalid_payload": v})
             raise ValueError("emoji_code must be a non-empty string")
-            
-        from app.generated.reactions import VALID_EMOJIS, LEGACY_MAPPINGS
-        v = LEGACY_MAPPINGS.get(v, v)
-        
-        if v not in VALID_EMOJIS:
-            valid_emojis = list(VALID_EMOJIS.keys())
-            
-            # Log structured error for invalid emoji code
-            logger.warning(
-                f"Invalid emoji code rejected: '{v}'",
-                extra={"invalid_emoji_code": v, "expected_codes": valid_emojis}
-            )
-            
-            raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
         return v
 
 
@@ -64,21 +49,10 @@ class ReactionResponse(BaseModel):
     object_type: str = Field(default="post", alias="objectType")
     object_id: str | None = Field(default=None, alias="objectId")
     emoji_code: str
-    emoji_display: str
     created_at: str
     user: dict = Field(..., description="User information")
 
     model_config = ConfigDict(from_attributes=True)
-
-    @field_validator('emoji_code', mode='before')
-    @classmethod
-    def validate_emoji_code(cls, v):
-        from app.generated.reactions import VALID_EMOJIS, LEGACY_MAPPINGS
-        v = LEGACY_MAPPINGS.get(v, v)
-        if v not in VALID_EMOJIS:
-            valid_emojis = list(VALID_EMOJIS.keys())
-            raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
-        return v
 
 
 class ReactionSummary(BaseModel):

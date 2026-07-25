@@ -150,10 +150,6 @@ class TestReactionsAPIContracts:
             "grateful", "praise", "clap"
         ]
         
-        assert "emoji_display" in data
-        assert isinstance(data["emoji_display"], str)
-        assert len(data["emoji_display"]) > 0
-        
         assert "created_at" in data
         assert isinstance(data["created_at"], str)
         
@@ -171,19 +167,18 @@ class TestReactionsAPIContracts:
         token = create_access_token({"sub": str(test_user.id)})
         headers = {"Authorization": f"Bearer {token}"}
         
-        invalid_reaction_data = {
-            "emoji_code": "invalid_emoji"  # Invalid enum value
+        # Backend treats emoji_code as opaque; any string is accepted
+        valid_reaction_data = {
+            "emoji_code": "any_opaque_code"
         }
         
         response = client.post(
             f"/api/v1/posts/{test_post.id}/reactions",
-            json=invalid_reaction_data,
+            json=valid_reaction_data,
             headers=headers
         )
         
-        assert response.status_code == 422  # FastAPI returns 422 for validation errors
-        error_data = response.json()
-        assert "detail" in error_data
+        assert response.status_code == 201  # Accepted as opaque string
 
 
 class TestAuthAPIContracts:

@@ -42,17 +42,17 @@ class TestReactionsAPI:
         _assert_serialized_image_url(data["user"]["profile_image_url"])
 
     @pytest.mark.asyncio
-    async def test_add_reaction_invalid_emoji(self, client, test_user_and_post):
-        """Test reaction addition with invalid emoji."""
+    async def test_add_reaction_accepts_opaque_code(self, client, test_user_and_post):
+        """Backend accepts any opaque emoji_code string."""
         user_data = test_user_and_post
         
         response = client.post(
             f"/api/v1/posts/{user_data['post'].id}/reactions",
-            json={"emoji_code": "invalid_emoji"},
+            json={"emoji_code": "any_opaque_code"},
             headers={"Authorization": f"Bearer {user_data['token']}"}
         )
         
-        assert response.status_code == 422  # FastAPI returns 422 for validation errors
+        assert response.status_code == 201  # Accepted as opaque string
 
     @pytest.mark.asyncio
     async def test_add_reaction_unauthorized(self, client, test_user_and_post):

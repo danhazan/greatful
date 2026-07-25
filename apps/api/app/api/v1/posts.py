@@ -151,11 +151,8 @@ class PostResponse(BaseModel):
     def validate_emoji_code(cls, v):
         if v is None:
             return v
-        # Use the single source of truth from EmojiReaction model
-        from app.models.emoji_reaction import EmojiReaction
-        if not EmojiReaction.is_valid_emoji(v):
-            valid_emojis = list(EmojiReaction.VALID_EMOJIS.keys())
-            raise ValueError(f'Invalid emoji code. Must be one of: {valid_emojis}')
+        if not isinstance(v, str) or len(v.strip()) == 0:
+            raise ValueError('emoji_code must be a non-empty string')
         return v
 
 

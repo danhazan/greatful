@@ -1,6 +1,6 @@
 import React from 'react'
 import ClickableUsername from '@/components/ClickableUsername'
-import { getEmojiFromCode } from '@/generated/reactions'
+import { getEmojiFromCode } from '@/constants/reactions'
 
 interface NotificationUser {
   id?: string | number

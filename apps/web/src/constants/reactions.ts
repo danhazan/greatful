@@ -1,6 +1,11 @@
 /**
- * AUTO-GENERATED FILE. DO NOT EDIT.
- * Generated from shared/reactions.json
+ * Canonical frontend reaction inventory and helpers.
+ *
+ * This is the single source of truth for reaction codes, Unicode characters,
+ * labels, groups, legacy mappings, and resolution logic.
+ *
+ * The backend treats emoji_code as an opaque string and does not maintain
+ * any inventory knowledge.
  */
 
 export interface ReactionItem {
@@ -2487,7 +2492,7 @@ export const LEGACY_MAPPINGS: Record<string, string> = {
   "default": "thumbs_up"
 };
 
-export const VALID_GROUPS = ['heart', 'face', 'hands', 'nature', 'animals', 'food', 'misc'] as const;
+export const VALID_GROUPS = ['heart', 'face', 'hands', 'misc', 'nature', 'animals', 'food'] as const;
 export type ReactionGroup = typeof VALID_GROUPS[number];
 
 const inventoryByCode = new Map(REACTION_INVENTORY.map(item => [item.code, item]));
@@ -2521,7 +2526,6 @@ export function composeCompactRow(recentList: string[], popularList: string[], s
   const result: string[] = [];
   const seen = new Set<string>();
 
-  // Add from recent first
   for (const code of recentList) {
     if (!seen.has(code) && inventoryByCode.has(code)) {
       result.push(code);
@@ -2530,7 +2534,6 @@ export function composeCompactRow(recentList: string[], popularList: string[], s
     }
   }
 
-  // Backfill with popular
   for (const code of popularList) {
     if (!seen.has(code) && inventoryByCode.has(code)) {
       result.push(code);

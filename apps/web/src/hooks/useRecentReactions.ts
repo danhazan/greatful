@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ReactionGroup } from '@/generated/reactions';
+import { ReactionGroup } from '@/constants/reactions';
 import { loadRecentReactions, saveRecentReactions, addRecentReactionToMap } from '@/utils/reactionRecents';
 
 export type RecentReactionsMap = Record<ReactionGroup, string[]>;

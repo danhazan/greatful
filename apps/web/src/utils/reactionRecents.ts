@@ -1,4 +1,4 @@
-import { ReactionGroup, VALID_GROUPS } from '@/generated/reactions'
+import { ReactionGroup, VALID_GROUPS } from '@/constants/reactions'
 import type { RecentReactionsMap } from '@/hooks/useRecentReactions'
 
 const STORAGE_KEY = 'grateful_reaction_recents'

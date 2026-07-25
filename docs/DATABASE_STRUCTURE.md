@@ -740,7 +740,7 @@ The database uses Alembic for migrations with proper versioning:
 - `008_create_follows_table.py` - Follow system implementation with status support
 - `dbf27ae66c7d_add_performance_indexes_and_engagement_.py` - Performance optimization indexes and engagement count caching
 - `457cde4eec06_fix_emoji_codes_constraint.py` - Fixed emoji codes CHECK constraint
-- `1ecc041272a4_remove_emoji_codes_check_constraint.py` - Removed emoji_code CHECK constraint (validation now handled by Python application layer via `EmojiReaction.is_valid_emoji()`)
+- `1ecc041272a4_remove_emoji_codes_check_constraint.py` - Removed emoji_code CHECK constraint (backend treats emoji_code as opaque string)
 
 ## Performance Optimizations
 

@@ -264,14 +264,10 @@ class ContractValidator:
         Raises:
             ValidationException: If emoji code is invalid
         """
-        # Import here to avoid circular imports
-        from app.models.emoji_reaction import EmojiReaction
-        
-        if not EmojiReaction.is_valid_emoji(emoji_code):
-            valid_emojis = list(EmojiReaction.VALID_EMOJIS.keys())
+        if not emoji_code or not isinstance(emoji_code, str):
             raise ValidationException(
                 message="Invalid emoji code",
-                fields={field_name: f"Must be one of: {', '.join(valid_emojis)}"}
+                fields={field_name: "emoji_code must be a non-empty string"}
             )
         
         return emoji_code

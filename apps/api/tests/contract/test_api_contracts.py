@@ -167,7 +167,7 @@ class TestAPIContracts:
         
         # Verify reaction response data structure
         reaction_response = data["data"]
-        required_fields = ["id", "user_id", "post_id", "emoji_code", "emoji_display", "created_at", "user"]
+        required_fields = ["id", "user_id", "post_id", "emoji_code", "created_at", "user"]
         for field in required_fields:
             assert field in reaction_response
         
@@ -176,7 +176,6 @@ class TestAPIContracts:
         assert isinstance(reaction_response["user_id"], int)
         assert isinstance(reaction_response["post_id"], str)
         assert reaction_response["emoji_code"] == "heart_eyes"
-        assert isinstance(reaction_response["emoji_display"], str)
         
         # Test get reactions endpoint
         response = await http_client.get(
@@ -272,21 +271,17 @@ class TestAPIContracts:
     async def test_enum_validation_contract(self, http_client: AsyncClient, auth_headers, test_post_dict):
         """Test that enum values are properly validated."""
         
-        # Test invalid emoji code
-        invalid_reaction_data = {
-            "emoji_code": "invalid_emoji"
+        # Backend treats emoji_code as opaque, so any string is accepted
+        valid_reaction_data = {
+            "emoji_code": "any_opaque_code"
         }
         
         response = await http_client.post(
             f"/api/v1/posts/{test_post_dict['id']}/reactions",
-            json=invalid_reaction_data,
+            json=valid_reaction_data,
             headers=auth_headers
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        
-        data = response.json()
-        # FastAPI returns validation errors in standard format
-        assert "detail" in data
+        assert response.status_code == status.HTTP_201_CREATED
         
         # Test invalid post type
         invalid_post_data = {
@@ -378,9 +373,9 @@ class TestContractValidation:
         result = contract_validator.validate_emoji_code("heart_eyes")
         assert result == "heart_eyes"
         
-        # Invalid emoji code should raise exception
-        with pytest.raises(Exception):
-            contract_validator.validate_emoji_code("invalid_emoji")
+        # Backend treats emoji_code as opaque; any string is valid
+        result = contract_validator.validate_emoji_code("any_opaque_code")
+        assert result == "any_opaque_code"
 
     def test_pagination_validation(self, contract_validator):
         """Test pagination parameter validation."""

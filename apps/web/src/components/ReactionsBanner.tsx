@@ -1,5 +1,5 @@
 import React from 'react'
-import { getEmojiFromCode } from '@/generated/reactions'
+import { getEmojiFromCode } from '@/constants/reactions'
 
 interface ReactionsBannerProps {
     totalCount: number

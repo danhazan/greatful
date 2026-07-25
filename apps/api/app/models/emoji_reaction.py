@@ -18,12 +18,8 @@ class EmojiReaction(Base):
     """
     EmojiReaction model for storing user emoji reactions on posts.
 
-    Supports 56 positive emoji reactions organized in 7 rows:
-    - Row 1: Heart, Love it, Hug, Grateful, Strong, Thankful, Praise, Applause
-    - Row 2-7: Additional love, celebration, encouragement, nature, affection, expression emojis
-
     The 'heart' emoji_code represents the unified heart/like system (purple heart 💜).
-    Validation is done in Python via VALID_EMOJIS dict (database CHECK constraint not updated).
+    emoji_code is treated as an opaque string by the backend.
     """
     __tablename__ = "emoji_reactions"
 
@@ -47,23 +43,8 @@ class EmojiReaction(Base):
         Index('idx_emoji_reactions_post_object', 'post_id', 'object_type', 'object_id'),
     )
 
-    from app.generated.reactions import VALID_EMOJIS, LEGACY_MAPPINGS
-
     def __repr__(self):
         return f"<EmojiReaction(user_id={self.user_id}, post_id={self.post_id}, emoji={self.emoji_code})>"
-
-    @property
-    def emoji_display(self):
-        """Get the actual emoji character for display."""
-        # Use imported VALID_EMOJIS
-        from app.generated.reactions import VALID_EMOJIS
-        return VALID_EMOJIS.get(self.emoji_code, '❓')
-
-    @classmethod
-    def is_valid_emoji(cls, emoji_code: str) -> bool:
-        """Check if the emoji code is valid."""
-        from app.generated.reactions import VALID_EMOJIS
-        return emoji_code in VALID_EMOJIS
 
     # Relationships
     user = relationship("User", backref="emoji_reactions")

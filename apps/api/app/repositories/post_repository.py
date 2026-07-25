@@ -201,7 +201,6 @@ class PostRepository(BaseRepository):
         from app.services.post_privacy_service import PostPrivacyService
         
         logger = logging.getLogger(__name__)
-        # ponytail: removed EMOJI_TO_SLUG reverse mapping — DB stores codes only, no Unicode chars
         
         dialect = self.db.bind.dialect.name if self.db.bind is not None else ""
 

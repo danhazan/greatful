@@ -1579,7 +1579,6 @@ Authorization: Bearer <token>
     "object_type": "image",
     "object_id": "img-uuid-123",
     "emoji_code": "heart_eyes",
-    "emoji_display": "😍",
     "created_at": "2025-12-16T10:00:00Z",
     "user": {
       "id": 123,
@@ -1590,9 +1589,9 @@ Authorization: Bearer <token>
 }
 ```
 
-**Valid Emoji Codes (57 total)**
+**Emoji Code Handling**
 
-Validation is performed at the Python application layer via `EmojiReaction.is_valid_emoji()`. The database CHECK constraint has been removed for flexibility.
+The backend treats `emoji_code` as an opaque string and stores it without validation against any inventory. Unicode resolution happens on the frontend via `getEmojiFromCode()` in `apps/web/src/constants/reactions.ts`. The database CHECK constraint has been removed for flexibility.
 
 | Row | Theme | Emoji Codes |
 |-----|-------|-------------|

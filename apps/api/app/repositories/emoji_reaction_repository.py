@@ -262,10 +262,8 @@ class EmojiReactionRepository(BaseRepository):
         
         popular_emojis = []
         for row in rows:
-            emoji_display = EmojiReaction.VALID_EMOJIS.get(row.emoji_code, '❓')
             popular_emojis.append({
                 "emoji_code": row.emoji_code,
-                "emoji_display": emoji_display,
                 "usage_count": int(row.usage_count),
                 "unique_users": int(row.unique_users),
                 "unique_posts": int(row.unique_posts)

@@ -78,17 +78,17 @@ class TestContractValidationMiddleware:
         )
         assert response.status_code == status.HTTP_201_CREATED
         
-        # Test with invalid emoji
-        invalid_reaction_data = {
-            "emoji_code": "invalid_emoji"
+        # Backend treats emoji_code as opaque; any string is accepted
+        any_code_data = {
+            "emoji_code": "any_opaque_code"
         }
         
         response = await http_client.post(
             f"/api/v1/posts/{test_post_dict['id']}/reactions",
-            json=invalid_reaction_data,
+            json=any_code_data,
             headers=auth_headers
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_201_CREATED
 
     async def test_response_structure_validation(self, http_client: AsyncClient, auth_headers):
         """Test that response structure validation is working."""

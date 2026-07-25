@@ -22,46 +22,11 @@ from sqlalchemy import event, select
 class TestEmojiReactionModel:
     """Test the EmojiReaction model."""
 
-    def test_valid_emojis(self):
-        """Test that valid emoji codes are recognized."""
-        valid_codes = ['heart', 'heart_eyes', 'hug', 'muscle', 'grateful', 'praise', 'clap']
-        
-        for code in valid_codes:
-            assert EmojiReaction.is_valid_emoji(code)
-
-    def test_invalid_emojis(self):
-        """Test that invalid emoji codes are rejected."""
-        invalid_codes = ['angry', 'sad', 'thumbs_down', 'invalid', 'rage', 'poop']
-        
-        for code in invalid_codes:
-            assert not EmojiReaction.is_valid_emoji(code)
-
-    def test_emoji_display_property(self):
-        """Test that emoji_display returns correct emoji characters."""
-        reaction = EmojiReaction(emoji_code='heart_eyes')
-        assert reaction.emoji_display == '😍'
-        
-    def test_new_unified_emojis_supported(self):
-        """Test that new unified emoji system emojis are supported."""
-        # Test the new heart emoji (unified with likes)
-        assert EmojiReaction.is_valid_emoji('heart')
-        assert EmojiReaction.is_valid_emoji('grateful')
-        assert EmojiReaction.is_valid_emoji('praise')
-        
-        # Test their display
-        heart_reaction = EmojiReaction(emoji_code='heart')
-        assert heart_reaction.emoji_display == '💜'
-        
-        praise_reaction = EmojiReaction(emoji_code='praise')
-        assert praise_reaction.emoji_display == '🙌'
-        
-        # Test other emojis as well
-        grateful_reaction = EmojiReaction(emoji_code='grateful')
-        assert grateful_reaction.emoji_display == '🙏'
-        
-        # Test invalid emoji fallback
-        invalid_reaction = EmojiReaction(emoji_code='invalid')
-        assert invalid_reaction.emoji_display == '❓'
+    def test_repr(self):
+        """Test repr."""
+        reaction = EmojiReaction(user_id=1, post_id='abc', emoji_code='heart')
+        assert 'EmojiReaction' in repr(reaction)
+        assert 'heart' in repr(reaction)
 
     async def test_create_emoji_reaction(self, db_session: AsyncSession, test_user: User, test_post: Post):
         """Test creating an emoji reaction."""
@@ -79,7 +44,6 @@ class TestEmojiReactionModel:
         assert reaction.user_id == test_user.id
         assert reaction.post_id == test_post.id
         assert reaction.emoji_code == 'heart_eyes'
-        assert reaction.emoji_display == '😍'
 
 
 class TestReactionService:
@@ -98,15 +62,15 @@ class TestReactionService:
         assert reaction_data["post_id"] == test_post.id
         assert reaction_data["emoji_code"] == 'heart_eyes'
 
-    async def test_add_reaction_invalid_emoji(self, db_session: AsyncSession, test_user: User, test_post: Post):
-        """Test adding reaction with invalid emoji code."""
+    async def test_add_reaction_empty_emoji_stored_as_opaque(self, db_session: AsyncSession, test_user: User, test_post: Post):
+        """Backend stores empty emoji_code as opaque string without validation."""
         service = ReactionService(db_session)
-        with pytest.raises(Exception, match="Invalid emoji code"):
-            await service.add_reaction(
-                user_id=test_user.id,
-                post_id=test_post.id,
-                emoji_code='invalid_emoji'
-            )
+        result = await service.add_reaction(
+            user_id=test_user.id,
+            post_id=test_post.id,
+            emoji_code=''
+        )
+        assert result['emoji_code'] == ''
 
     async def test_add_reaction_nonexistent_user(self, db_session: AsyncSession, test_post: Post):
         """Test adding reaction with nonexistent user."""

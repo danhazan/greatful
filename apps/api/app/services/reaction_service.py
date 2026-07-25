@@ -115,10 +115,6 @@ class ReactionService(BaseService):
             Exception: If user or post doesn't exist
         """
 
-        # Validate emoji code
-        if not EmojiReaction.is_valid_emoji(emoji_code):
-            raise ValidationException(f"Invalid emoji code: {emoji_code}")
-        
         # Check if user and post exist
         user = await self.user_repo.get_by_id_or_404(user_id)
         post = await self.post_repo.get_active_by_id_or_404(post_id)
@@ -183,7 +179,6 @@ class ReactionService(BaseService):
                 "object_type": updated_reaction.object_type,
                 "object_id": updated_reaction.object_id,
                 "emoji_code": updated_reaction.emoji_code,
-                "emoji_display": updated_reaction.emoji_display,
                 "created_at": updated_reaction.created_at.isoformat(),
                 "user": serialize_public_user_reference(user)
             }
@@ -239,7 +234,6 @@ class ReactionService(BaseService):
                 "object_type": reaction.object_type,
                 "object_id": reaction.object_id,
                 "emoji_code": reaction.emoji_code,
-                "emoji_display": reaction.emoji_display,
                 "created_at": reaction.created_at.isoformat(),
                 "user": serialize_public_user_reference(user)
             }
@@ -273,7 +267,6 @@ class ReactionService(BaseService):
                 "object_type": reaction.object_type,
                 "object_id": reaction.object_id,
                 "emoji_code": reaction.emoji_code,
-                "emoji_display": reaction.emoji_display,
                 "created_at": reaction.created_at.isoformat(),
                 "user": serialize_public_user_reference(reaction.user)
             }
@@ -339,7 +332,6 @@ class ReactionService(BaseService):
             return {
                 "type": "reaction",
                 "emoji_code": reaction.emoji_code,
-                "emoji_display": reaction.emoji_display,
                 "created_at": reaction.created_at.isoformat()
             }
         
