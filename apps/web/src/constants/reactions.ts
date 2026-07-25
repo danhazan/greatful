@@ -491,12 +491,6 @@ export const REACTION_INVENTORY: ReactionItem[] = [
     "group": "face"
   },
   {
-    "code": "hugging_people",
-    "character": "🫂",
-    "label": "Hugging",
-    "group": "face"
-  },
-  {
     "code": "face_with_open_mouth",
     "character": "😮",
     "label": "Surprised",
@@ -524,114 +518,6 @@ export const REACTION_INVENTORY: ReactionItem[] = [
     "code": "loudly_crying",
     "character": "😭",
     "label": "Sobbing",
-    "group": "face"
-  },
-  {
-    "code": "baby",
-    "character": "👶",
-    "label": "Baby",
-    "group": "face"
-  },
-  {
-    "code": "child",
-    "character": "🧒",
-    "label": "Child",
-    "group": "face"
-  },
-  {
-    "code": "boy",
-    "character": "👦",
-    "label": "Boy",
-    "group": "face"
-  },
-  {
-    "code": "girl",
-    "character": "👧",
-    "label": "Girl",
-    "group": "face"
-  },
-  {
-    "code": "adult",
-    "character": "🧑",
-    "label": "Adult",
-    "group": "face"
-  },
-  {
-    "code": "older_adult",
-    "character": "🧓",
-    "label": "Older Adult",
-    "group": "face"
-  },
-  {
-    "code": "man",
-    "character": "👨",
-    "label": "Man",
-    "group": "face"
-  },
-  {
-    "code": "woman",
-    "character": "👩",
-    "label": "Woman",
-    "group": "face"
-  },
-  {
-    "code": "person_blond_hair",
-    "character": "👱",
-    "label": "Blond",
-    "group": "face"
-  },
-  {
-    "code": "bearded_person",
-    "character": "🧔",
-    "label": "Bearded",
-    "group": "face"
-  },
-  {
-    "code": "man_red_hair",
-    "character": "👨‍🦰",
-    "label": "Man Red Hair",
-    "group": "face"
-  },
-  {
-    "code": "man_curly_hair",
-    "character": "👨‍🦱",
-    "label": "Man Curly Hair",
-    "group": "face"
-  },
-  {
-    "code": "man_white_hair",
-    "character": "👨‍🦳",
-    "label": "Man White Hair",
-    "group": "face"
-  },
-  {
-    "code": "man_bald",
-    "character": "👨‍🦲",
-    "label": "Man Bald",
-    "group": "face"
-  },
-  {
-    "code": "woman_red_hair",
-    "character": "👩‍🦰",
-    "label": "Woman Red Hair",
-    "group": "face"
-  },
-  {
-    "code": "woman_curly_hair",
-    "character": "👩‍🦱",
-    "label": "Woman Curly Hair",
-    "group": "face"
-  },
-  {
-    "code": "woman_white_hair",
-    "character": "👩‍🦳",
-    "label": "Woman White Hair",
-    "group": "face"
-  },
-  {
-    "code": "woman_bald",
-    "character": "👩‍🦲",
-    "label": "Woman Bald",
     "group": "face"
   },
   {
@@ -821,6 +707,270 @@ export const REACTION_INVENTORY: ReactionItem[] = [
     "group": "hands"
   },
   {
+    "code": "hugging_people",
+    "character": "🫂",
+    "label": "Hugging",
+    "group": "hands"
+  },
+  {
+    "code": "baby",
+    "character": "👶",
+    "label": "Baby",
+    "group": "hands"
+  },
+  {
+    "code": "child",
+    "character": "🧒",
+    "label": "Child",
+    "group": "hands"
+  },
+  {
+    "code": "boy",
+    "character": "👦",
+    "label": "Boy",
+    "group": "hands"
+  },
+  {
+    "code": "girl",
+    "character": "👧",
+    "label": "Girl",
+    "group": "hands"
+  },
+  {
+    "code": "adult",
+    "character": "🧑",
+    "label": "Adult",
+    "group": "hands"
+  },
+  {
+    "code": "older_adult",
+    "character": "🧓",
+    "label": "Older Adult",
+    "group": "hands"
+  },
+  {
+    "code": "man",
+    "character": "👨",
+    "label": "Man",
+    "group": "hands"
+  },
+  {
+    "code": "woman",
+    "character": "👩",
+    "label": "Woman",
+    "group": "hands"
+  },
+  {
+    "code": "person_blond_hair",
+    "character": "👱",
+    "label": "Blond",
+    "group": "hands"
+  },
+  {
+    "code": "bearded_person",
+    "character": "🧔",
+    "label": "Bearded",
+    "group": "hands"
+  },
+  {
+    "code": "man_red_hair",
+    "character": "👨‍🦰",
+    "label": "Man Red Hair",
+    "group": "hands"
+  },
+  {
+    "code": "man_curly_hair",
+    "character": "👨‍🦱",
+    "label": "Man Curly Hair",
+    "group": "hands"
+  },
+  {
+    "code": "man_white_hair",
+    "character": "👨‍🦳",
+    "label": "Man White Hair",
+    "group": "hands"
+  },
+  {
+    "code": "man_bald",
+    "character": "👨‍🦲",
+    "label": "Man Bald",
+    "group": "hands"
+  },
+  {
+    "code": "woman_red_hair",
+    "character": "👩‍🦰",
+    "label": "Woman Red Hair",
+    "group": "hands"
+  },
+  {
+    "code": "woman_curly_hair",
+    "character": "👩‍🦱",
+    "label": "Woman Curly Hair",
+    "group": "hands"
+  },
+  {
+    "code": "woman_white_hair",
+    "character": "👩‍🦳",
+    "label": "Woman White Hair",
+    "group": "hands"
+  },
+  {
+    "code": "woman_bald",
+    "character": "👩‍🦲",
+    "label": "Woman Bald",
+    "group": "hands"
+  },
+  {
+    "code": "sunflower",
+    "character": "🌻",
+    "label": "Sunflower",
+    "group": "nature"
+  },
+  {
+    "code": "rose",
+    "character": "🌹",
+    "label": "Rose",
+    "group": "nature"
+  },
+  {
+    "code": "wilted_flower",
+    "character": "🥀",
+    "label": "Wilted Flower",
+    "group": "nature"
+  },
+  {
+    "code": "hibiscus",
+    "character": "🌺",
+    "label": "Hibiscus",
+    "group": "nature"
+  },
+  {
+    "code": "cherry_blossom",
+    "character": "🌸",
+    "label": "Cherry Blossom",
+    "group": "nature"
+  },
+  {
+    "code": "tulip",
+    "character": "🌷",
+    "label": "Tulip",
+    "group": "nature"
+  },
+  {
+    "code": "blossom",
+    "character": "🌼",
+    "label": "Blossom",
+    "group": "nature"
+  },
+  {
+    "code": "lotus",
+    "character": "🪷",
+    "label": "Lotus",
+    "group": "nature"
+  },
+  {
+    "code": "four_leaf_clover",
+    "character": "🍀",
+    "label": "Lucky",
+    "group": "nature"
+  },
+  {
+    "code": "bouquet",
+    "character": "💐",
+    "label": "Bouquet",
+    "group": "nature"
+  },
+  {
+    "code": "seedling",
+    "character": "🌱",
+    "label": "Seedling",
+    "group": "nature"
+  },
+  {
+    "code": "herb",
+    "character": "🌿",
+    "label": "Herb",
+    "group": "nature"
+  },
+  {
+    "code": "leaf",
+    "character": "🍃",
+    "label": "Leaf",
+    "group": "nature"
+  },
+  {
+    "code": "fallen_leaf",
+    "character": "🍂",
+    "label": "Fallen Leaf",
+    "group": "nature"
+  },
+  {
+    "code": "maple_leaf",
+    "character": "🍁",
+    "label": "Maple Leaf",
+    "group": "nature"
+  },
+  {
+    "code": "evergreen_tree",
+    "character": "🌲",
+    "label": "Evergreen",
+    "group": "nature"
+  },
+  {
+    "code": "deciduous_tree",
+    "character": "🌳",
+    "label": "Tree",
+    "group": "nature"
+  },
+  {
+    "code": "palm_tree",
+    "character": "🌴",
+    "label": "Palm Tree",
+    "group": "nature"
+  },
+  {
+    "code": "cactus",
+    "character": "🌵",
+    "label": "Cactus",
+    "group": "nature"
+  },
+  {
+    "code": "sheaf_of_rice",
+    "character": "🌾",
+    "label": "Rice",
+    "group": "nature"
+  },
+  {
+    "code": "star",
+    "character": "⭐",
+    "label": "Star",
+    "group": "nature"
+  },
+  {
+    "code": "glowing_star",
+    "character": "🌟",
+    "label": "Glowing Star",
+    "group": "nature"
+  },
+  {
+    "code": "dizzy",
+    "character": "💫",
+    "label": "Dizzy",
+    "group": "nature"
+  },
+  {
+    "code": "sparkles",
+    "character": "✨",
+    "label": "Sparkles",
+    "group": "nature"
+  },
+  {
+    "code": "rainbow",
+    "character": "🌈",
+    "label": "Rainbow",
+    "group": "nature"
+  },
+  {
     "code": "sun",
     "character": "☀️",
     "label": "Sunshine",
@@ -836,6 +986,30 @@ export const REACTION_INVENTORY: ReactionItem[] = [
     "code": "full_moon",
     "character": "🌝",
     "label": "Full Moon",
+    "group": "nature"
+  },
+  {
+    "code": "crescent_moon",
+    "character": "🌙",
+    "label": "Crescent Moon",
+    "group": "nature"
+  },
+  {
+    "code": "new_moon_face",
+    "character": "🌚",
+    "label": "New Moon Face",
+    "group": "nature"
+  },
+  {
+    "code": "last_quarter_moon_face",
+    "character": "🌛",
+    "label": "Last Quarter Face",
+    "group": "nature"
+  },
+  {
+    "code": "first_quarter_moon_face",
+    "character": "🌜",
+    "label": "First Quarter Face",
     "group": "nature"
   },
   {
@@ -878,60 +1052,6 @@ export const REACTION_INVENTORY: ReactionItem[] = [
     "code": "waning_crescent_moon",
     "character": "🌘",
     "label": "Waning Crescent",
-    "group": "nature"
-  },
-  {
-    "code": "crescent_moon",
-    "character": "🌙",
-    "label": "Crescent Moon",
-    "group": "nature"
-  },
-  {
-    "code": "new_moon_face",
-    "character": "🌚",
-    "label": "New Moon Face",
-    "group": "nature"
-  },
-  {
-    "code": "last_quarter_moon_face",
-    "character": "🌛",
-    "label": "Last Quarter Face",
-    "group": "nature"
-  },
-  {
-    "code": "first_quarter_moon_face",
-    "character": "🌜",
-    "label": "First Quarter Face",
-    "group": "nature"
-  },
-  {
-    "code": "star",
-    "character": "⭐",
-    "label": "Star",
-    "group": "nature"
-  },
-  {
-    "code": "glowing_star",
-    "character": "🌟",
-    "label": "Glowing Star",
-    "group": "nature"
-  },
-  {
-    "code": "dizzy",
-    "character": "💫",
-    "label": "Dizzy",
-    "group": "nature"
-  },
-  {
-    "code": "sparkles",
-    "character": "✨",
-    "label": "Sparkles",
-    "group": "nature"
-  },
-  {
-    "code": "rainbow",
-    "character": "🌈",
-    "label": "Rainbow",
     "group": "nature"
   },
   {
@@ -998,126 +1118,6 @@ export const REACTION_INVENTORY: ReactionItem[] = [
     "code": "earth_asia",
     "character": "🌏",
     "label": "Earth Asia",
-    "group": "nature"
-  },
-  {
-    "code": "seedling",
-    "character": "🌱",
-    "label": "Seedling",
-    "group": "nature"
-  },
-  {
-    "code": "herb",
-    "character": "🌿",
-    "label": "Herb",
-    "group": "nature"
-  },
-  {
-    "code": "leaf",
-    "character": "🍃",
-    "label": "Leaf",
-    "group": "nature"
-  },
-  {
-    "code": "fallen_leaf",
-    "character": "🍂",
-    "label": "Fallen Leaf",
-    "group": "nature"
-  },
-  {
-    "code": "maple_leaf",
-    "character": "🍁",
-    "label": "Maple Leaf",
-    "group": "nature"
-  },
-  {
-    "code": "evergreen_tree",
-    "character": "🌲",
-    "label": "Evergreen",
-    "group": "nature"
-  },
-  {
-    "code": "deciduous_tree",
-    "character": "🌳",
-    "label": "Tree",
-    "group": "nature"
-  },
-  {
-    "code": "palm_tree",
-    "character": "🌴",
-    "label": "Palm Tree",
-    "group": "nature"
-  },
-  {
-    "code": "cactus",
-    "character": "🌵",
-    "label": "Cactus",
-    "group": "nature"
-  },
-  {
-    "code": "sheaf_of_rice",
-    "character": "🌾",
-    "label": "Rice",
-    "group": "nature"
-  },
-  {
-    "code": "sunflower",
-    "character": "🌻",
-    "label": "Sunflower",
-    "group": "nature"
-  },
-  {
-    "code": "rose",
-    "character": "🌹",
-    "label": "Rose",
-    "group": "nature"
-  },
-  {
-    "code": "wilted_flower",
-    "character": "🥀",
-    "label": "Wilted Flower",
-    "group": "nature"
-  },
-  {
-    "code": "hibiscus",
-    "character": "🌺",
-    "label": "Hibiscus",
-    "group": "nature"
-  },
-  {
-    "code": "cherry_blossom",
-    "character": "🌸",
-    "label": "Cherry Blossom",
-    "group": "nature"
-  },
-  {
-    "code": "tulip",
-    "character": "🌷",
-    "label": "Tulip",
-    "group": "nature"
-  },
-  {
-    "code": "blossom",
-    "character": "🌼",
-    "label": "Blossom",
-    "group": "nature"
-  },
-  {
-    "code": "lotus",
-    "character": "🪷",
-    "label": "Lotus",
-    "group": "nature"
-  },
-  {
-    "code": "four_leaf_clover",
-    "character": "🍀",
-    "label": "Lucky",
-    "group": "nature"
-  },
-  {
-    "code": "bouquet",
-    "character": "💐",
-    "label": "Bouquet",
     "group": "nature"
   },
   {
@@ -2421,6 +2421,1158 @@ export const REACTION_INVENTORY: ReactionItem[] = [
     "character": "🎳",
     "label": "Bowling",
     "group": "misc"
+  },
+  {
+    "code": "flag_al",
+    "character": "🇦🇱",
+    "label": "Albania",
+    "group": "flags"
+  },
+  {
+    "code": "flag_dz",
+    "character": "🇩🇿",
+    "label": "Algeria",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ad",
+    "character": "🇦🇩",
+    "label": "Andorra",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ao",
+    "character": "🇦🇴",
+    "label": "Angola",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ar",
+    "character": "🇦🇷",
+    "label": "Argentina",
+    "group": "flags"
+  },
+  {
+    "code": "flag_am",
+    "character": "🇦🇲",
+    "label": "Armenia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_au",
+    "character": "🇦🇺",
+    "label": "Australia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_at",
+    "character": "🇦🇹",
+    "label": "Austria",
+    "group": "flags"
+  },
+  {
+    "code": "flag_az",
+    "character": "🇦🇿",
+    "label": "Azerbaijan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bs",
+    "character": "🇧🇸",
+    "label": "Bahamas",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bh",
+    "character": "🇧🇭",
+    "label": "Bahrain",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bd",
+    "character": "🇧🇩",
+    "label": "Bangladesh",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bb",
+    "character": "🇧🇧",
+    "label": "Barbados",
+    "group": "flags"
+  },
+  {
+    "code": "flag_by",
+    "character": "🇧🇾",
+    "label": "Belarus",
+    "group": "flags"
+  },
+  {
+    "code": "flag_be",
+    "character": "🇧🇪",
+    "label": "Belgium",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bz",
+    "character": "🇧🇿",
+    "label": "Belize",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bj",
+    "character": "🇧🇯",
+    "label": "Benin",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bt",
+    "character": "🇧🇹",
+    "label": "Bhutan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bo",
+    "character": "🇧🇴",
+    "label": "Bolivia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ba",
+    "character": "🇧🇦",
+    "label": "Bosnia and Herzegovina",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bw",
+    "character": "🇧🇼",
+    "label": "Botswana",
+    "group": "flags"
+  },
+  {
+    "code": "flag_br",
+    "character": "🇧🇷",
+    "label": "Brazil",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bn",
+    "character": "🇧🇳",
+    "label": "Brunei",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bg",
+    "character": "🇧🇬",
+    "label": "Bulgaria",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bf",
+    "character": "🇧🇫",
+    "label": "Burkina Faso",
+    "group": "flags"
+  },
+  {
+    "code": "flag_bi",
+    "character": "🇧🇮",
+    "label": "Burundi",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cv",
+    "character": "🇨🇻",
+    "label": "Cabo Verde",
+    "group": "flags"
+  },
+  {
+    "code": "flag_kh",
+    "character": "🇰🇭",
+    "label": "Cambodia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cm",
+    "character": "🇨🇲",
+    "label": "Cameroon",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ca",
+    "character": "🇨🇦",
+    "label": "Canada",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cf",
+    "character": "🇨🇫",
+    "label": "Central African Republic",
+    "group": "flags"
+  },
+  {
+    "code": "flag_td",
+    "character": "🇹🇩",
+    "label": "Chad",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cl",
+    "character": "🇨🇱",
+    "label": "Chile",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cn",
+    "character": "🇨🇳",
+    "label": "China",
+    "group": "flags"
+  },
+  {
+    "code": "flag_co",
+    "character": "🇨🇴",
+    "label": "Colombia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_km",
+    "character": "🇰🇲",
+    "label": "Comoros",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cg",
+    "character": "🇨🇬",
+    "label": "Congo",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cr",
+    "character": "🇨🇷",
+    "label": "Costa Rica",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ci",
+    "character": "🇨🇮",
+    "label": "Côte d'Ivoire",
+    "group": "flags"
+  },
+  {
+    "code": "flag_hr",
+    "character": "🇭🇷",
+    "label": "Croatia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cu",
+    "character": "🇨🇺",
+    "label": "Cuba",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cy",
+    "character": "🇨🇾",
+    "label": "Cyprus",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cz",
+    "character": "🇨🇿",
+    "label": "Czech Republic",
+    "group": "flags"
+  },
+  {
+    "code": "flag_dk",
+    "character": "🇩🇰",
+    "label": "Denmark",
+    "group": "flags"
+  },
+  {
+    "code": "flag_dj",
+    "character": "🇩🇯",
+    "label": "Djibouti",
+    "group": "flags"
+  },
+  {
+    "code": "flag_dm",
+    "character": "🇩🇲",
+    "label": "Dominica",
+    "group": "flags"
+  },
+  {
+    "code": "flag_do",
+    "character": "🇩🇴",
+    "label": "Dominican Republic",
+    "group": "flags"
+  },
+  {
+    "code": "flag_cd",
+    "character": "🇨🇩",
+    "label": "DR Congo",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ec",
+    "character": "🇪🇨",
+    "label": "Ecuador",
+    "group": "flags"
+  },
+  {
+    "code": "flag_eg",
+    "character": "🇪🇬",
+    "label": "Egypt",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sv",
+    "character": "🇸🇻",
+    "label": "El Salvador",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gq",
+    "character": "🇬🇶",
+    "label": "Equatorial Guinea",
+    "group": "flags"
+  },
+  {
+    "code": "flag_er",
+    "character": "🇪🇷",
+    "label": "Eritrea",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ee",
+    "character": "🇪🇪",
+    "label": "Estonia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sz",
+    "character": "🇸🇿",
+    "label": "Eswatini",
+    "group": "flags"
+  },
+  {
+    "code": "flag_et",
+    "character": "🇪🇹",
+    "label": "Ethiopia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_fj",
+    "character": "🇫🇯",
+    "label": "Fiji",
+    "group": "flags"
+  },
+  {
+    "code": "flag_fi",
+    "character": "🇫🇮",
+    "label": "Finland",
+    "group": "flags"
+  },
+  {
+    "code": "flag_fr",
+    "character": "🇫🇷",
+    "label": "France",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ga",
+    "character": "🇬🇦",
+    "label": "Gabon",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gm",
+    "character": "🇬🇲",
+    "label": "Gambia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ge",
+    "character": "🇬🇪",
+    "label": "Georgia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_de",
+    "character": "🇩🇪",
+    "label": "Germany",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gh",
+    "character": "🇬🇭",
+    "label": "Ghana",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gr",
+    "character": "🇬🇷",
+    "label": "Greece",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gd",
+    "character": "🇬🇩",
+    "label": "Grenada",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gt",
+    "character": "🇬🇹",
+    "label": "Guatemala",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gn",
+    "character": "🇬🇳",
+    "label": "Guinea",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gw",
+    "character": "🇬🇼",
+    "label": "Guinea-Bissau",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gy",
+    "character": "🇬🇾",
+    "label": "Guyana",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ht",
+    "character": "🇭🇹",
+    "label": "Haiti",
+    "group": "flags"
+  },
+  {
+    "code": "flag_hn",
+    "character": "🇭🇳",
+    "label": "Honduras",
+    "group": "flags"
+  },
+  {
+    "code": "flag_hu",
+    "character": "🇭🇺",
+    "label": "Hungary",
+    "group": "flags"
+  },
+  {
+    "code": "flag_is",
+    "character": "🇮🇸",
+    "label": "Iceland",
+    "group": "flags"
+  },
+  {
+    "code": "flag_in",
+    "character": "🇮🇳",
+    "label": "India",
+    "group": "flags"
+  },
+  {
+    "code": "flag_id",
+    "character": "🇮🇩",
+    "label": "Indonesia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ir",
+    "character": "🇮🇷",
+    "label": "Iran",
+    "group": "flags"
+  },
+  {
+    "code": "flag_iq",
+    "character": "🇮🇶",
+    "label": "Iraq",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ie",
+    "character": "🇮🇪",
+    "label": "Ireland",
+    "group": "flags"
+  },
+  {
+    "code": "flag_il",
+    "character": "🇮🇱",
+    "label": "Israel",
+    "group": "flags"
+  },
+  {
+    "code": "flag_it",
+    "character": "🇮🇹",
+    "label": "Italy",
+    "group": "flags"
+  },
+  {
+    "code": "flag_jm",
+    "character": "🇯🇲",
+    "label": "Jamaica",
+    "group": "flags"
+  },
+  {
+    "code": "flag_jp",
+    "character": "🇯🇵",
+    "label": "Japan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_jo",
+    "character": "🇯🇴",
+    "label": "Jordan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_kz",
+    "character": "🇰🇿",
+    "label": "Kazakhstan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ke",
+    "character": "🇰🇪",
+    "label": "Kenya",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ki",
+    "character": "🇰🇮",
+    "label": "Kiribati",
+    "group": "flags"
+  },
+  {
+    "code": "flag_xk",
+    "character": "🇽🇰",
+    "label": "Kosovo",
+    "group": "flags"
+  },
+  {
+    "code": "flag_kw",
+    "character": "🇰🇼",
+    "label": "Kuwait",
+    "group": "flags"
+  },
+  {
+    "code": "flag_kg",
+    "character": "🇰🇬",
+    "label": "Kyrgyzstan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_la",
+    "character": "🇱🇦",
+    "label": "Laos",
+    "group": "flags"
+  },
+  {
+    "code": "flag_lv",
+    "character": "🇱🇻",
+    "label": "Latvia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_lb",
+    "character": "🇱🇧",
+    "label": "Lebanon",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ls",
+    "character": "🇱🇸",
+    "label": "Lesotho",
+    "group": "flags"
+  },
+  {
+    "code": "flag_lr",
+    "character": "🇱🇷",
+    "label": "Liberia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ly",
+    "character": "🇱🇾",
+    "label": "Libya",
+    "group": "flags"
+  },
+  {
+    "code": "flag_li",
+    "character": "🇱🇮",
+    "label": "Liechtenstein",
+    "group": "flags"
+  },
+  {
+    "code": "flag_lt",
+    "character": "🇱🇹",
+    "label": "Lithuania",
+    "group": "flags"
+  },
+  {
+    "code": "flag_lu",
+    "character": "🇱🇺",
+    "label": "Luxembourg",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mg",
+    "character": "🇲🇬",
+    "label": "Madagascar",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mw",
+    "character": "🇲🇼",
+    "label": "Malawi",
+    "group": "flags"
+  },
+  {
+    "code": "flag_my",
+    "character": "🇲🇾",
+    "label": "Malaysia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mv",
+    "character": "🇲🇻",
+    "label": "Maldives",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ml",
+    "character": "🇲🇱",
+    "label": "Mali",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mt",
+    "character": "🇲🇹",
+    "label": "Malta",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mr",
+    "character": "🇲🇷",
+    "label": "Mauritania",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mu",
+    "character": "🇲🇺",
+    "label": "Mauritius",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mx",
+    "character": "🇲🇽",
+    "label": "Mexico",
+    "group": "flags"
+  },
+  {
+    "code": "flag_fm",
+    "character": "🇫🇲",
+    "label": "Micronesia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_md",
+    "character": "🇲🇩",
+    "label": "Moldova",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mn",
+    "character": "🇲🇳",
+    "label": "Mongolia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_me",
+    "character": "🇲🇪",
+    "label": "Montenegro",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ma",
+    "character": "🇲🇦",
+    "label": "Morocco",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mz",
+    "character": "🇲🇿",
+    "label": "Mozambique",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mm",
+    "character": "🇲🇲",
+    "label": "Myanmar",
+    "group": "flags"
+  },
+  {
+    "code": "flag_na",
+    "character": "🇳🇦",
+    "label": "Namibia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_nr",
+    "character": "🇳🇷",
+    "label": "Nauru",
+    "group": "flags"
+  },
+  {
+    "code": "flag_np",
+    "character": "🇳🇵",
+    "label": "Nepal",
+    "group": "flags"
+  },
+  {
+    "code": "flag_nl",
+    "character": "🇳🇱",
+    "label": "Netherlands",
+    "group": "flags"
+  },
+  {
+    "code": "flag_nz",
+    "character": "🇳🇿",
+    "label": "New Zealand",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ni",
+    "character": "🇳🇮",
+    "label": "Nicaragua",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ne",
+    "character": "🇳🇪",
+    "label": "Niger",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ng",
+    "character": "🇳🇬",
+    "label": "Nigeria",
+    "group": "flags"
+  },
+  {
+    "code": "flag_kp",
+    "character": "🇰🇵",
+    "label": "North Korea",
+    "group": "flags"
+  },
+  {
+    "code": "flag_mk",
+    "character": "🇲🇰",
+    "label": "North Macedonia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_no",
+    "character": "🇳🇴",
+    "label": "Norway",
+    "group": "flags"
+  },
+  {
+    "code": "flag_om",
+    "character": "🇴🇲",
+    "label": "Oman",
+    "group": "flags"
+  },
+  {
+    "code": "flag_pk",
+    "character": "🇵🇰",
+    "label": "Pakistan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ps",
+    "character": "🇵🇸",
+    "label": "Palestine",
+    "group": "flags"
+  },
+  {
+    "code": "flag_pa",
+    "character": "🇵🇦",
+    "label": "Panama",
+    "group": "flags"
+  },
+  {
+    "code": "flag_pg",
+    "character": "🇵🇬",
+    "label": "Papua New Guinea",
+    "group": "flags"
+  },
+  {
+    "code": "flag_py",
+    "character": "🇵🇾",
+    "label": "Paraguay",
+    "group": "flags"
+  },
+  {
+    "code": "flag_pe",
+    "character": "🇵🇪",
+    "label": "Peru",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ph",
+    "character": "🇵🇭",
+    "label": "Philippines",
+    "group": "flags"
+  },
+  {
+    "code": "flag_pl",
+    "character": "🇵🇱",
+    "label": "Poland",
+    "group": "flags"
+  },
+  {
+    "code": "flag_pt",
+    "character": "🇵🇹",
+    "label": "Portugal",
+    "group": "flags"
+  },
+  {
+    "code": "flag_qa",
+    "character": "🇶🇦",
+    "label": "Qatar",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ro",
+    "character": "🇷🇴",
+    "label": "Romania",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ru",
+    "character": "🇷🇺",
+    "label": "Russia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_rw",
+    "character": "🇷🇼",
+    "label": "Rwanda",
+    "group": "flags"
+  },
+  {
+    "code": "flag_lc",
+    "character": "🇱🇨",
+    "label": "Saint Lucia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_vc",
+    "character": "🇻🇨",
+    "label": "Saint Vincent and the Grenadines",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ws",
+    "character": "🇼🇸",
+    "label": "Samoa",
+    "group": "flags"
+  },
+  {
+    "code": "flag_st",
+    "character": "🇸🇹",
+    "label": "São Tomé and Príncipe",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sa",
+    "character": "🇸🇦",
+    "label": "Saudi Arabia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sn",
+    "character": "🇸🇳",
+    "label": "Senegal",
+    "group": "flags"
+  },
+  {
+    "code": "flag_rs",
+    "character": "🇷🇸",
+    "label": "Serbia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sc",
+    "character": "🇸🇨",
+    "label": "Seychelles",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sl",
+    "character": "🇸🇱",
+    "label": "Sierra Leone",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sg",
+    "character": "🇸🇬",
+    "label": "Singapore",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sk",
+    "character": "🇸🇰",
+    "label": "Slovakia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_si",
+    "character": "🇸🇮",
+    "label": "Slovenia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sb",
+    "character": "🇸🇧",
+    "label": "Solomon Islands",
+    "group": "flags"
+  },
+  {
+    "code": "flag_so",
+    "character": "🇸🇴",
+    "label": "Somalia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_za",
+    "character": "🇿🇦",
+    "label": "South Africa",
+    "group": "flags"
+  },
+  {
+    "code": "flag_kr",
+    "character": "🇰🇷",
+    "label": "South Korea",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ss",
+    "character": "🇸🇸",
+    "label": "South Sudan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_es",
+    "character": "🇪🇸",
+    "label": "Spain",
+    "group": "flags"
+  },
+  {
+    "code": "flag_lk",
+    "character": "🇱🇰",
+    "label": "Sri Lanka",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sd",
+    "character": "🇸🇩",
+    "label": "Sudan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sr",
+    "character": "🇸🇷",
+    "label": "Suriname",
+    "group": "flags"
+  },
+  {
+    "code": "flag_se",
+    "character": "🇸🇪",
+    "label": "Sweden",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ch",
+    "character": "🇨🇭",
+    "label": "Switzerland",
+    "group": "flags"
+  },
+  {
+    "code": "flag_sy",
+    "character": "🇸🇾",
+    "label": "Syria",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tw",
+    "character": "🇹🇼",
+    "label": "Taiwan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tj",
+    "character": "🇹🇯",
+    "label": "Tajikistan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tz",
+    "character": "🇹🇿",
+    "label": "Tanzania",
+    "group": "flags"
+  },
+  {
+    "code": "flag_th",
+    "character": "🇹🇭",
+    "label": "Thailand",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tl",
+    "character": "🇹🇱",
+    "label": "Timor-Leste",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tg",
+    "character": "🇹🇬",
+    "label": "Togo",
+    "group": "flags"
+  },
+  {
+    "code": "flag_to",
+    "character": "🇹🇴",
+    "label": "Tonga",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tt",
+    "character": "🇹🇹",
+    "label": "Trinidad and Tobago",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tn",
+    "character": "🇹🇳",
+    "label": "Tunisia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tr",
+    "character": "🇹🇷",
+    "label": "Turkey",
+    "group": "flags"
+  },
+  {
+    "code": "flag_tm",
+    "character": "🇹🇲",
+    "label": "Turkmenistan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ug",
+    "character": "🇺🇬",
+    "label": "Uganda",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ua",
+    "character": "🇺🇦",
+    "label": "Ukraine",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ae",
+    "character": "🇦🇪",
+    "label": "United Arab Emirates",
+    "group": "flags"
+  },
+  {
+    "code": "flag_gb",
+    "character": "🇬🇧",
+    "label": "United Kingdom",
+    "group": "flags"
+  },
+  {
+    "code": "flag_us",
+    "character": "🇺🇸",
+    "label": "United States",
+    "group": "flags"
+  },
+  {
+    "code": "flag_uy",
+    "character": "🇺🇾",
+    "label": "Uruguay",
+    "group": "flags"
+  },
+  {
+    "code": "flag_uz",
+    "character": "🇺🇿",
+    "label": "Uzbekistan",
+    "group": "flags"
+  },
+  {
+    "code": "flag_vu",
+    "character": "🇻🇺",
+    "label": "Vanuatu",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ve",
+    "character": "🇻🇪",
+    "label": "Venezuela",
+    "group": "flags"
+  },
+  {
+    "code": "flag_vn",
+    "character": "🇻🇳",
+    "label": "Vietnam",
+    "group": "flags"
+  },
+  {
+    "code": "flag_eh",
+    "character": "🇪🇭",
+    "label": "Western Sahara",
+    "group": "flags"
+  },
+  {
+    "code": "flag_ye",
+    "character": "🇾🇪",
+    "label": "Yemen",
+    "group": "flags"
+  },
+  {
+    "code": "flag_zm",
+    "character": "🇿🇲",
+    "label": "Zambia",
+    "group": "flags"
+  },
+  {
+    "code": "flag_zw",
+    "character": "🇿🇼",
+    "label": "Zimbabwe",
+    "group": "flags"
+  },
+  {
+    "code": "rainbow_flag",
+    "character": "🏳️‍🌈",
+    "label": "Rainbow Flag",
+    "group": "flags"
+  },
+  {
+    "code": "transgender_flag",
+    "character": "🏳️‍⚧️",
+    "label": "Transgender Flag",
+    "group": "flags"
+  },
+  {
+    "code": "pirate_flag",
+    "character": "🏴‍☠️",
+    "label": "Pirate Flag",
+    "group": "flags"
   }
 ];
 
@@ -2480,6 +3632,14 @@ export const POPULAR_BY_GROUP: Record<string, string[]> = {
     "trophy",
     "check",
     "balloon"
+  ],
+  "flags": [
+    "flag_us",
+    "flag_gb",
+    "flag_jp",
+    "flag_fr",
+    "flag_de",
+    "rainbow_flag"
   ]
 };
 
@@ -2492,7 +3652,7 @@ export const LEGACY_MAPPINGS: Record<string, string> = {
   "default": "thumbs_up"
 };
 
-export const VALID_GROUPS = ['heart', 'face', 'hands', 'misc', 'nature', 'animals', 'food'] as const;
+export const VALID_GROUPS = ['heart', 'face', 'hands', 'misc', 'nature', 'animals', 'food', 'flags'] as const;
 export type ReactionGroup = typeof VALID_GROUPS[number];
 
 const inventoryByCode = new Map(REACTION_INVENTORY.map(item => [item.code, item]));

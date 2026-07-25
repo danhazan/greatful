@@ -1,5 +1,5 @@
 import React from 'react'
-import { getEmojiFromCode } from '@/constants/reactions'
+import { EmojiDisplay } from './EmojiDisplay'
 
 interface ReactionsBannerProps {
     totalCount: number
@@ -35,7 +35,7 @@ export function ReactionsBanner({ totalCount, emojiCodes, onClick, className = '
                         className="text-sm flex-shrink-0 leading-none"
                         aria-label={code}
                     >
-                        {getEmojiFromCode(code)}
+                        <EmojiDisplay code={code} />
                     </span>
                 ))}
             </span>

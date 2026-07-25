@@ -2,14 +2,15 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { X, Heart, Smile, Hand, Flower2, Cat, Apple, Flame } from "lucide-react"
-import { 
+import { X, Heart, Smile, Hand, Flower2, Cat, Apple, Flame, Flag } from "lucide-react"
+import {
   composeCompactRow,
   ReactionGroup,
   VALID_GROUPS,
   REACTION_INVENTORY,
   POPULAR_BY_GROUP
 } from "@/constants/reactions"
+import { EmojiDisplay } from "./EmojiDisplay"
 import { triggerHaptic } from "@/utils/hapticFeedback"
 import { useModal } from "@/hooks/useModal"
 import { useRecentReactions } from "@/hooks/useRecentReactions"
@@ -25,8 +26,8 @@ interface EmojiPickerProps {
   isLoading?: boolean
 }
 
-const GROUP_ICONS: Record<ReactionGroup, typeof Heart> = { heart: Heart, face: Smile, hands: Hand, nature: Flower2, animals: Cat, food: Apple, misc: Flame }
-const GROUP_LABELS: Record<ReactionGroup, string> = { heart: 'Heart', face: 'Face', hands: 'Hands', nature: 'Nature', animals: 'Animals', food: 'Food', misc: 'Misc' }
+const GROUP_ICONS: Record<ReactionGroup, typeof Heart> = { heart: Heart, face: Smile, hands: Hand, nature: Flower2, animals: Cat, food: Apple, misc: Flame, flags: Flag }
+const GROUP_LABELS: Record<ReactionGroup, string> = { heart: 'Heart', face: 'Face', hands: 'Hands', nature: 'Nature', animals: 'Animals', food: 'Food', misc: 'Misc', flags: 'Flags' }
 
 export default function EmojiPicker({
   isOpen,
@@ -182,7 +183,7 @@ export default function EmojiPicker({
               aria-label={`React with ${item.label}`}
               aria-pressed={currentReaction === item.code}
             >
-              <span className="block pointer-events-none">{item.character}</span>
+              <span className="block pointer-events-none"><EmojiDisplay code={item.code} /></span>
             </button>
           ))}
         </div>
@@ -304,7 +305,7 @@ export default function EmojiPicker({
                     aria-label={`React with ${item.label}`}
                     aria-pressed={currentReaction === item.code}
                   >
-                    <span className="block pointer-events-none">{item.character}</span>
+                    <span className="block pointer-events-none"><EmojiDisplay code={item.code} /></span>
                   </button>
                 </div>
               ))}

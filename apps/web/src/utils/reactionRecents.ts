@@ -4,7 +4,7 @@ import type { RecentReactionsMap } from '@/hooks/useRecentReactions'
 const STORAGE_KEY = 'grateful_reaction_recents'
 
 function emptyMap(): RecentReactionsMap {
-  return { heart: [], face: [], hands: [], nature: [], animals: [], food: [], misc: [] }
+  return { heart: [], face: [], hands: [], nature: [], animals: [], food: [], misc: [], flags: [] }
 }
 
 export function loadRecentReactions(): RecentReactionsMap {

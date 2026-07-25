@@ -24,7 +24,7 @@ import StackedImagePreview from "./StackedImagePreview"
 import MultiImageModal from "./MultiImageModal"
 import ReactionsBanner from "./ReactionsBanner"
 import analyticsService from "@/services/analytics"
-import { getEmojiFromCode } from "@/constants/reactions"
+import { EmojiDisplay } from "./EmojiDisplay"
 import { getImageUrl } from "@/utils/imageUtils"
 import { formatDate } from "@/utils/formatDate"
 import { useLocale } from "@/hooks/useLocale"
@@ -967,11 +967,11 @@ export default function PostCard({
               ) : pendingReaction ? (
                 // Show pending reaction (selected but not yet sent to API)
                 <span className={`flex-shrink-0 ${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
-                  {getEmojiFromCode(pendingReaction)}
+                  <EmojiDisplay code={pendingReaction} />
                 </span>
               ) : currentPost.currentUserReaction ? (
                 <span className={`flex-shrink-0 ${styling.iconSize.includes('h-6') ? 'text-xl' : styling.iconSize.includes('h-5') ? 'text-lg' : 'text-base'}`}>
-                  {getEmojiFromCode(currentPost.currentUserReaction)}
+                  <EmojiDisplay code={currentPost.currentUserReaction} />
                 </span>
               ) : (
                 // Show empty heart icon when no interaction exists

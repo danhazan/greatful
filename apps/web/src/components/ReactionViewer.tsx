@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { X, Loader2 } from "lucide-react"
 import { getEmojiFromCode } from "@/constants/reactions"
+import { EmojiDisplay } from "./EmojiDisplay"
 import { apiClient } from "@/utils/apiClient"
 import { lockScroll, unlockScroll } from "@/utils/scrollLock"
 import UserItem from "./UserItem"
@@ -90,11 +91,10 @@ export default function ReactionViewer({
 
   // Group reactions by emoji code
   const groupedReactions = reactions.reduce((acc: Record<string, Reaction[]>, reaction: Reaction) => {
-    const emoji = getEmojiFromCode(reaction.emojiCode)
-    if (!acc[emoji]) {
-      acc[emoji] = []
+    if (!acc[reaction.emojiCode]) {
+      acc[reaction.emojiCode] = []
     }
-    acc[emoji].push(reaction)
+    acc[reaction.emojiCode].push(reaction)
     return acc
   }, {} as Record<string, Reaction[]>)
 
@@ -167,18 +167,18 @@ export default function ReactionViewer({
                 <div className="sr-only" id="reaction-viewer-description">
                   List of users who reacted to this post, grouped by emoji type. Use tab to navigate through reactions.
                 </div>
-                {Object.entries(groupedReactions).map(([emoji, emojiReactions]) => (
-                  <div key={emoji} className="space-y-2" role="group" aria-labelledby={`emoji-${emoji}-header`}>
+                {Object.entries(groupedReactions).map(([code, emojiReactions]) => (
+                  <div key={code} className="space-y-2" role="group" aria-labelledby={`emoji-${code}-header`}>
                     {/* Emoji Header */}
                     <div className="flex items-center space-x-2 px-2">
-                      <span className="text-xl" aria-hidden="true">{emoji}</span>
-                      <span id={`emoji-${emoji}-header`} className="text-sm text-gray-500 font-medium">
+                      <span className="text-xl" aria-hidden="true"><EmojiDisplay code={code} /></span>
+                      <span id={`emoji-${code}-header`} className="text-sm text-gray-500 font-medium">
                         {emojiReactions.length} {emojiReactions.length === 1 ? 'reaction' : 'reactions'}
                       </span>
                     </div>
                     
                     {/* Users who reacted with this emoji */}
-                    <div className="space-y-2" role="list" aria-label={`Users who reacted with ${emoji}`}>
+                    <div className="space-y-2" role="list" aria-label={`Users who reacted with ${getEmojiFromCode(code)}`}>
                       {emojiReactions.map((reaction: Reaction) => (
                         <UserItem
                           key={reaction.id}
@@ -192,9 +192,9 @@ export default function ReactionViewer({
                           }}
                           href={`/profile/${reaction.userId}`}
                           showTimestamp={true}
-                          rightElement={<span className="text-lg">{emoji}</span>}
+                          rightElement={<EmojiDisplay code={code} className="text-lg" />}
                           className="min-h-[44px] touch-manipulation active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset"
-                          ariaLabel={`${reaction.displayName} reacted with ${emoji}. Click to view profile.`}
+                          ariaLabel={`${reaction.displayName} reacted with ${getEmojiFromCode(code)}. Click to view profile.`}
                         />
                       ))}
                     </div>

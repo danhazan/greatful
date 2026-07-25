@@ -44,7 +44,7 @@ describe('useRecentReactions', () => {
   it('starts empty when nothing stored', () => {
     const { result } = renderHook(() => useRecentReactions())
     expect(result.current.recentReactions).toEqual({
-      heart: [], face: [], hands: [], nature: [], animals: [], food: [], misc: []
+      heart: [], face: [], hands: [], nature: [], animals: [], food: [], misc: [], flags: []
     })
   })
 

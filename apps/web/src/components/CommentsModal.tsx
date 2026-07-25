@@ -15,7 +15,8 @@ import { useMobileKeyboardInset } from "@/hooks/useMobileKeyboardInset"
 import { useCommentReactions, type ReactionSummaryData } from "@/hooks/useImageReactions"
 import { useReactionMutation } from "@/hooks/useReactionMutation"
 import { useLongPress } from "@/hooks/useLongPress"
-import { getEmojiFromCode, getTopEmojis } from "@/constants/reactions"
+import { getTopEmojis } from "@/constants/reactions"
+import { EmojiDisplay } from "./EmojiDisplay"
 import { MAX_COMMENT_CHARS } from "@/constants/limits"
 import { useModalPortalRefs } from "@/hooks/useModalPortalRefs"
 import { getDirectionAttribute } from "@/utils/rtlUtils"
@@ -115,7 +116,7 @@ function CommentReactionButton({ postId, commentId, reactionState }: CommentReac
         title={hasUserReaction ? 'Remove reaction' : 'React'}
       >
         {hasUserReaction && reactionState.userReaction ? (
-          <span className="text-sm leading-none">{getEmojiFromCode(reactionState.userReaction)}</span>
+          <span className="text-sm leading-none"><EmojiDisplay code={reactionState.userReaction} /></span>
         ) : (
           <Heart className="h-3 w-3 flex-shrink-0" />
         )}

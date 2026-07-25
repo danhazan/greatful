@@ -9,7 +9,8 @@ import { useReactionMutation } from '@/hooks/useReactionMutation'
 import { useLongPress } from '@/hooks/useLongPress'
 import EmojiPicker from './EmojiPicker'
 import ReactionViewer from './ReactionViewer'
-import { getEmojiFromCode, getTopEmojis } from '@/constants/reactions'
+import { getTopEmojis } from '@/constants/reactions'
+import { EmojiDisplay } from './EmojiDisplay'
 import { SharedImageZoom, SharedImageZoomRef } from './SharedImageZoom'
 import { isAtDefaultScale } from '@/config/imageGalleryConfig'
 
@@ -296,7 +297,7 @@ export default function MultiImageModal({
             </div>
           ) : currentReactionState.userReaction ? (
             <span className="text-3xl leading-none">
-              {getEmojiFromCode(currentReactionState.userReaction)}
+              <EmojiDisplay code={currentReactionState.userReaction} />
             </span>
           ) : (
             <Heart className="h-8 w-8 text-white" />
@@ -412,7 +413,7 @@ export default function MultiImageModal({
             <div className="flex -space-x-1">
               {getTopEmojis(currentReactionState.emojiCounts, 3).map(({ code }) => (
                 <span key={code} className="text-base leading-none relative z-10 z-[1] drop-shadow-md">
-                  {getEmojiFromCode(code)}
+                  <EmojiDisplay code={code} />
                 </span>
               ))}
             </div>
