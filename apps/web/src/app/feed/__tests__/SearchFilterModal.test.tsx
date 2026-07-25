@@ -100,8 +100,8 @@ describe('SearchFilterModal', () => {
   it('keyword mode change calls onChange immediately', () => {
     const onChange = jest.fn()
     render(<SearchFilterModal {...baseProps} onChange={onChange} />)
-    const mostlyButtons = screen.getAllByText('Mostly')
-    fireEvent.click(mostlyButtons[0])
+    const preferButtons = screen.getAllByText('Prefer')
+    fireEvent.click(preferButtons[0])
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         keyword: expect.objectContaining({ mode: 'boost' }),

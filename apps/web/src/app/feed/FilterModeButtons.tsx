@@ -38,7 +38,7 @@ export default function FilterModeButtons({
               : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
           }`}
         >
-          {mode === 'off' ? 'Off' : mode === 'boost' ? 'Mostly' : 'Only'}
+          {mode === 'off' ? 'Off' : mode === 'boost' ? 'Prefer' : 'Only'}
         </button>
       ))}
     </div>

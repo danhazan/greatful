@@ -160,7 +160,7 @@ describe('DateFilterModal', () => {
   it('mode change calls onChange with current localRange', () => {
     const onChange = jest.fn()
     render(<DateFilterModal {...activeProps} onChange={onChange} />)
-    const modeButtons = screen.getAllByText('Mostly')
+    const modeButtons = screen.getAllByText('Prefer')
     fireEvent.click(modeButtons[0])
     expect(onChange).toHaveBeenCalledWith({
       mode: 'boost',
