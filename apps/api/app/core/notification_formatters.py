@@ -1,27 +1,10 @@
-"""
-Shared notification formatting helpers.
-"""
-
-from app.models.emoji_reaction import EmojiReaction
-
-
-def format_reaction_notification(
-    emoji_code: str,
-    object_type: str = "post",
-) -> tuple[str, str]:
+def format_reaction_notification(object_type: str = "post") -> tuple[str, str]:
     """Return the title and action text for reaction notifications."""
     normalized_object_type = object_type or "post"
 
-    if emoji_code == "heart":
-        if normalized_object_type == "image":
-            return "New Like 💜", "liked an image in your post 💜"
-        if normalized_object_type == "comment":
-            return "New Like 💜", "liked your comment 💜"
-        return "New Like 💜", "liked your post 💜"
-
-    emoji_display = EmojiReaction.VALID_EMOJIS.get(emoji_code, emoji_code)
-    if normalized_object_type == "image":
-        return "New Reaction", f"reacted to an image in your post with {emoji_display}"
-    if normalized_object_type == "comment":
-        return "New Reaction", f"reacted to your comment with {emoji_display}"
-    return "New Reaction", f"reacted to your post with {emoji_display}"
+    action_texts = {
+        "image": "reacted to an image in your post",
+        "comment": "reacted to your comment",
+    }
+    action = action_texts.get(normalized_object_type, "reacted to your post")
+    return "New Reaction", action

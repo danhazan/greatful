@@ -121,7 +121,7 @@ class TestBatchBehavior:
         # Test single notification
         title, message = notification.create_batch_summary(1)
         assert title == "New Reaction"
-        assert message == "reacted to your post with 😍"
+        assert message == "reacted to your post"
         
         # Test batch notification
         title, message = notification.create_batch_summary(3)

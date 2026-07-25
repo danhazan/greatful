@@ -74,7 +74,6 @@ class Notification(Base):
             data = self.data or {}
             from app.core.notification_formatters import format_reaction_notification
             title, message = format_reaction_notification(
-                data.get('emoji_code', ''),
                 data.get('object_type', 'post')
             )
             
@@ -119,7 +118,7 @@ class Notification(Base):
     ) -> "Notification":
         """Create a notification for emoji reaction."""
         from app.core.notification_formatters import format_reaction_notification
-        title, message = format_reaction_notification(emoji_code, 'post')
+        title, message = format_reaction_notification('post')
         
         notification = cls(
             user_id=user_id,

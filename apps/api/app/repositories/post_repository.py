@@ -201,9 +201,7 @@ class PostRepository(BaseRepository):
         from app.services.post_privacy_service import PostPrivacyService
         
         logger = logging.getLogger(__name__)
-        from app.models.emoji_reaction import EmojiReaction
-        # Create reverse mapping for legacy emoji characters to slugs
-        EMOJI_TO_SLUG = {v: k for k, v in EmojiReaction.VALID_EMOJIS.items()}
+        # ponytail: removed EMOJI_TO_SLUG reverse mapping — DB stores codes only, no Unicode chars
         
         dialect = self.db.bind.dialect.name if self.db.bind is not None else ""
 
@@ -330,7 +328,7 @@ class PostRepository(BaseRepository):
                 "reactions_count": int(row.reactions_count) if row.reactions_count else 0,
                 "comments_count": int(row.comments_count) if row.comments_count else 0,
                 "comments": [],
-                "current_user_reaction": EMOJI_TO_SLUG.get(row.current_user_reaction, row.current_user_reaction),
+                "current_user_reaction": row.current_user_reaction,
                 "reaction_emoji_codes": (
                     [code for code in (getattr(row, "reaction_emoji_codes", "") or "").split(",") if code]
                     if isinstance(getattr(row, "reaction_emoji_codes", None), str)

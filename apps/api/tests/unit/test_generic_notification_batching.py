@@ -68,21 +68,17 @@ class TestGenericNotificationBatcher:
 
     def test_reaction_notification_formatter(self):
         """Test canonical reaction notification captions."""
-        assert format_reaction_notification("heart", "post") == (
-            "New Like 💜",
-            "liked your post 💜"
-        )
-        assert format_reaction_notification("heart_eyes", "post") == (
+        assert format_reaction_notification("post") == (
             "New Reaction",
-            "reacted to your post with 😍"
+            "reacted to your post"
         )
-        assert format_reaction_notification("heart", "image") == (
-            "New Like 💜",
-            "liked an image in your post 💜"
-        )
-        assert format_reaction_notification("heart_eyes", "image") == (
+        assert format_reaction_notification("image") == (
             "New Reaction",
-            "reacted to an image in your post with 😍"
+            "reacted to an image in your post"
+        )
+        assert format_reaction_notification("comment") == (
+            "New Reaction",
+            "reacted to your comment"
         )
 
     def test_generate_batch_key(self, notification_batcher):
@@ -160,9 +156,10 @@ class TestPostInteractionBatcher:
         assert result == mock_created
         post_interaction_batcher.notification_repo.create.assert_called_once()
         
-        # Check that the notification has purple heart styling
+        # Check that the notification uses generic reaction text
         call_args = post_interaction_batcher.notification_repo.create.call_args
-        assert "💜" in call_args.kwargs["title"]
+        assert call_args.kwargs["title"] == "New Reaction"
+        assert call_args.kwargs["message"] == "reacted to your post"
 
     async def test_create_emoji_reaction_notification(self, post_interaction_batcher, mock_db):
         """Test creating an emoji reaction notification."""
@@ -184,7 +181,7 @@ class TestPostInteractionBatcher:
         post_interaction_batcher.notification_repo.create.assert_called_once()
         call_args = post_interaction_batcher.notification_repo.create.call_args
         assert call_args.kwargs["type"] == "emoji_reaction"
-        assert call_args.kwargs["message"] == "reacted to your post with 😍"
+        assert call_args.kwargs["message"] == "reacted to your post"
         assert call_args.kwargs["batch_key"] == "post_interaction:post:post-123"
         assert call_args.kwargs["data"]["object_type"] == "post"
         assert call_args.kwargs["data"]["object_id"] == "post-123"
@@ -215,7 +212,7 @@ class TestPostInteractionBatcher:
         post_interaction_batcher.notification_repo.create.assert_called_once()
         call_args = post_interaction_batcher.notification_repo.create.call_args
         assert call_args.kwargs["type"] == "emoji_reaction"
-        assert call_args.kwargs["message"] == "reacted to an image in your post with 😍"
+        assert call_args.kwargs["message"] == "reacted to an image in your post"
         assert call_args.kwargs["batch_key"] == "post_interaction:post:post-123"
         assert call_args.kwargs["data"]["post_id"] == "post-123"
         assert call_args.kwargs["data"]["object_type"] == "image"
@@ -617,8 +614,8 @@ class TestNotificationModelBatchSummary:
         )
         
         title, message = notification.create_batch_summary(1)
-        assert title == "New Like 💜"
-        assert message == "liked your post 💜"
+        assert title == "New Reaction"
+        assert message == "reacted to your post"
 
     def test_heart_emoji_batch_summary_multiple(self):
         """Test heart emoji reaction notification batch summary for multiple notifications."""

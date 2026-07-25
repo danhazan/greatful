@@ -37,7 +37,7 @@ class EmojiReaction(Base):
         server_default="post"
     )
     object_id = Column(String, nullable=True)  # Populated via backfill or upon creation
-    emoji_code = Column(String(20), nullable=False)  # 'heart_eyes', 'pray', 'star', etc.
+    emoji_code = Column(String(50), nullable=False)  # 'heart_eyes', 'pray', 'star', etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

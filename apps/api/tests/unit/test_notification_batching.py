@@ -89,7 +89,7 @@ class TestNotificationBatching:
         
         title, message = notification.create_batch_summary(1)
         assert title == "New Reaction"
-        assert message == "reacted to your post with 😍"
+        assert message == "reacted to your post"
 
     async def test_create_batch_summary_multiple(self):
         """Test batch summary creation for multiple notifications."""

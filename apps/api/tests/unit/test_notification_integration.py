@@ -68,7 +68,6 @@ class TestNotificationIntegration:
         assert notification.type == "emoji_reaction"
         assert notification.user_id == author.id
         assert "reacted to your post" in notification.message
-        assert "😍" in notification.message
         assert notification.data["post_id"] == post.id
         assert notification.data["emoji_code"] == "heart_eyes"
         assert notification.data["reactor_username"] == "reactor"
@@ -166,7 +165,7 @@ class TestNotificationIntegration:
         assert len(notifications) == 1
         notification = notifications[0]
         assert notification.type == "emoji_reaction"
-        assert notification.message == "reacted to an image in your post with 😍"
+        assert notification.message == "reacted to an image in your post"
         assert notification.batch_key == f"post_interaction:post:{post.id}"
         assert notification.data["post_id"] == post.id
         assert notification.data["object_type"] == "image"
@@ -229,8 +228,8 @@ class TestNotificationIntegration:
         )
         child_messages = {child.message for child in children}
         assert child_messages == {
-            "reacted to your post with 😍",
-            "reacted to an image in your post with 👏"
+            "reacted to your post",
+            "reacted to an image in your post"
         }
         child_object_types = {child.data["object_type"] for child in children}
         assert child_object_types == {"post", "image"}
@@ -461,8 +460,8 @@ class TestNotificationIntegration:
             user_id=author.id
         )
 
-        post_reaction_child = next(c for c in children if "reacted to your post with" in c.message and "image" not in c.message)
-        image_reaction_child = next(c for c in children if "reacted to an image in your post" in c.message)
+        post_reaction_child = next(c for c in children if c.data.get("object_type") == "post")
+        image_reaction_child = next(c for c in children if c.data.get("object_type") == "image")
 
         assert post_reaction_child.data.get("thumbnail_type") is None
         assert post_reaction_child.data.get("thumbnail_url") is None

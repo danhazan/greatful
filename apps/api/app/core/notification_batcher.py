@@ -294,7 +294,7 @@ class PostInteractionBatcher(NotificationBatcher):
             "target": "post"
         }
         object_type = target_data.get("object_type", "post")
-        title, message = format_reaction_notification(actor_data["emoji_code"], object_type)
+        title, message = format_reaction_notification(object_type)
 
         notification_data = {
             "post_id": post_id,
