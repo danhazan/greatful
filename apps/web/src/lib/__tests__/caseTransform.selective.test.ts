@@ -42,6 +42,30 @@ describe('Selective Case Transformation', () => {
         expect(transformed.reactionEmojiCodes).toEqual(['heart_eyes', 'partying_face']);
     });
 
+    it('should camelize notification data.emoji_code (not a protected key)', () => {
+        // Notification data contains emoji_code as a regular value field,
+        // NOT as a dynamic-key dictionary. It must be camelCased to emojiCode.
+        const apiPayload = {
+            id: 'n1',
+            type: 'emoji_reaction',
+            message: 'reacted to your post',
+            data: {
+                emoji_code: 'heart_eyes',
+                actor_user_id: '456',
+                reactor_username: 'reactor',
+            }
+        };
+
+        const transformed = transformApiResponse(apiPayload);
+
+        // emoji_code should be camelCased (not protected like emoji_counts)
+        expect(transformed.data.emojiCode).toBe('heart_eyes');
+        expect(transformed.data.actorUserId).toBe('456');
+        expect(transformed.data.reactorUsername).toBe('reactor');
+        // No snake_case should remain inside data
+        expect(transformed.data.emoji_code).toBeUndefined();
+    });
+
     it('should handle nested arrays and objects', () => {
         const apiPayload = {
             posts: [

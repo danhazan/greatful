@@ -1,5 +1,6 @@
 import React from 'react'
 import ClickableUsername from '@/components/ClickableUsername'
+import { getEmojiFromCode } from '@/generated/reactions'
 
 interface NotificationUser {
   id?: string | number
@@ -11,6 +12,7 @@ interface NotificationUser {
 interface NotificationData {
   actorUserId?: string
   actorUsername?: string
+  emojiCode?: string
   [key: string]: any
 }
 
@@ -112,6 +114,19 @@ export function formatNotificationWithEnhancedData(notification: Notification): 
   if (displayNameInMessage && notification.message.startsWith(displayNameInMessage)) {
     // Remove the display name from the beginning and trim any leading space
     actionPart = notification.message.substring(displayNameInMessage.length).replace(/^\s+/, '')
+  }
+
+  // Append reaction emoji from data.emojiCode
+  // The backend stores emoji_code as an opaque identifier; the frontend
+  // resolves it to a Unicode emoji via getEmojiFromCode().
+  // Old notification records already embed the emoji in the message text,
+  // so we check to avoid double-appending.
+  const emojiCode = notification.data?.['emojiCode']
+  if (emojiCode) {
+    const emoji = getEmojiFromCode(emojiCode)
+    if (!actionPart.endsWith(` ${emoji}`)) {
+      actionPart += ` with ${emoji}`
+    }
   }
 
   return formatNotificationWithClickableUser(
