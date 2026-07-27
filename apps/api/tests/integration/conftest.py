@@ -3,11 +3,19 @@ Integration test specific fixtures.
 These tests use the full API stack with FastAPI TestClient.
 """
 
+import os
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from main import app
+
+
+@pytest.fixture
+def uploads_dir():
+    return Path(os.getenv("UPLOAD_PATH", "uploads")).resolve()
 
 
 @pytest.fixture(scope="function")

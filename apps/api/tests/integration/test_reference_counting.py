@@ -3,7 +3,6 @@ Integration tests for reference counting system.
 """
 import pytest
 import io
-from pathlib import Path
 from PIL import Image
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -195,7 +194,7 @@ class TestReferenceCountingSystem:
         assert post2_data["content"] == "Second post with same image"
         assert post2_data["imageUrl"] is not None
 
-    def test_profile_photo_variant_cleanup(self, client, test_user, auth_headers):
+    def test_profile_photo_variant_cleanup(self, client, test_user, auth_headers, uploads_dir):
         """Test that profile photo variants are properly cleaned up when deleted."""
         # Create test image
         test_image = self.create_test_image(color='orange')
@@ -218,8 +217,7 @@ class TestReferenceCountingSystem:
         assert "large" in sizes_data
         
         # Check that variant files exist on disk
-        from pathlib import Path
-        upload_dir = Path("/home/danha/Projects/Kiro/greatful/apps/api/uploads") / "profile_photos"
+        upload_dir = uploads_dir / "profile_photos"
         variant_files = []
         for size_name, size_url in sizes_data.items():
             filename = size_url.split('/')[-1]
@@ -241,7 +239,7 @@ class TestReferenceCountingSystem:
         user_data = user_response.json()
         assert user_data["data"]["profile_image_url"] is None
 
-    def test_profile_photo_individual_variants_per_user(self, client, test_user, test_user_2, auth_headers, auth_headers_2):
+    def test_profile_photo_individual_variants_per_user(self, client, test_user, test_user_2, auth_headers, auth_headers_2, uploads_dir):
         """Test that profile photo variants are individual per user (not shared)."""
         # Create test image
         test_image1 = self.create_test_image(color='purple')
@@ -258,7 +256,7 @@ class TestReferenceCountingSystem:
         
         # Get variant file paths for user 1
         sizes_data1 = profile_data1.get("sizes", {})
-        upload_dir = Path("/home/danha/Projects/Kiro/greatful/apps/api/uploads") / "profile_photos"
+        upload_dir = uploads_dir / "profile_photos"
         variant_files_user1 = []
         for size_name, size_url in sizes_data1.items():
             filename = size_url.split('/')[-1]

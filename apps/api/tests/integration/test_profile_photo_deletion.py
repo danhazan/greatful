@@ -29,7 +29,8 @@ class TestProfilePhotoDeletion:
         self, 
         async_client: AsyncClient, 
         test_user: User,
-        auth_headers: dict
+        auth_headers: dict,
+        uploads_dir: Path
     ):
         """Test that profile photo deletion removes all variant files."""
         # Create test image
@@ -49,7 +50,7 @@ class TestProfilePhotoDeletion:
         
         # Get the uploaded file URLs
         sizes = response_data["data"]["sizes"]
-        upload_dir = Path("/home/danha/Projects/Kiro/greatful/apps/api/uploads") / "profile_photos"
+        upload_dir = uploads_dir / "profile_photos"
         
         # Verify all variant files exist
         variant_files = []
@@ -78,7 +79,8 @@ class TestProfilePhotoDeletion:
         test_user: User,
         test_user_2: User,
         auth_headers: dict,
-        auth_headers_2: dict
+        auth_headers_2: dict,
+        uploads_dir: Path
     ):
         """Test that deleting one user's profile photo doesn't affect another user's."""
         # Create test images
@@ -106,7 +108,7 @@ class TestProfilePhotoDeletion:
         # Get file paths for both users
         sizes1 = response1.json()["data"]["sizes"]
         sizes2 = response2.json()["data"]["sizes"]
-        upload_dir = Path("/home/danha/Projects/Kiro/greatful/apps/api/uploads") / "profile_photos"
+        upload_dir = uploads_dir / "profile_photos"
         
         user1_files = []
         user2_files = []
@@ -155,7 +157,8 @@ class TestProfilePhotoDeletion:
         self, 
         async_client: AsyncClient, 
         test_user: User,
-        auth_headers: dict
+        auth_headers: dict,
+        uploads_dir: Path
     ):
         """Test that uploading a new profile photo cleans up the old one."""
         # Upload first profile photo
@@ -171,7 +174,7 @@ class TestProfilePhotoDeletion:
         
         # Get first set of files
         sizes1 = response1.json()["data"]["sizes"]
-        upload_dir = Path("/home/danha/Projects/Kiro/greatful/apps/api/uploads") / "profile_photos"
+        upload_dir = uploads_dir / "profile_photos"
         
         first_files = []
         for size_url in sizes1.values():
