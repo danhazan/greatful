@@ -16,6 +16,7 @@ os.environ.update({
     'AUTH_RATE_LIMIT': '100',
     'UPLOAD_RATE_LIMIT': '200',
     'ALLOWED_ORIGINS': 'http://localhost:3000',
+    'FRONTEND_BASE_URL': 'http://localhost:3000',
     'SECRET_KEY': 'test-secret-key-for-testing-only-not-secure',
     'SSL_REDIRECT': 'false',
     'SECURE_COOKIES': 'false',
