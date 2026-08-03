@@ -5,10 +5,6 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 import os
-import sys
-
-# Add the project root to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'apps', 'api'))
 
 # Import your models here
 from app.core.database import Base

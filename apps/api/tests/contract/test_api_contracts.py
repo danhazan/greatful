@@ -427,3 +427,48 @@ class TestContractValidation:
         # Invalid ID (negative integer)
         with pytest.raises(Exception):
             contract_validator.validate_id_format(-1)
+
+
+class TestPostAuthorContract:
+    """Verify serialized PostResponse uses camelCase author keys with no snake_case leakage."""
+
+    def test_author_serialization_camelcase_contract(self):
+        from app.api.v1.posts import PostResponse
+
+        post = PostResponse(
+            id="1",
+            author_id=1,
+            content="Contract verification post",
+            is_public=True,
+            created_at="2024-01-01T00:00:00Z",
+            author={
+                "id": "1",
+                "username": "testuser",
+                "display_name": "Test User",
+                "name": "Test User",
+                "image": None,
+                "follower_count": 1,
+                "following_count": 2,
+                "posts_count": 3,
+                "is_following": False,
+            },
+        )
+
+        serialized = json.loads(post.model_dump_json(by_alias=True))
+        author = serialized["author"]
+
+        # Mandatory camelCase keys must exist
+        for key in ("isFollowing", "followerCount", "followingCount", "postsCount"):
+            assert key in author, f"Missing expected camelCase key '{key}'"
+
+        # No snake_case keys may remain in the serialized output
+        for key in ("is_following", "follower_count", "following_count", "posts_count"):
+            assert key not in author, f"Unwanted snake_case key '{key}' still present"
+
+        # Follow state is strictly nested under author, never top-level
+        assert "isFollowing" not in serialized
+        assert "is_following" not in serialized
+
+        # Guard: legacy hearts fields must never appear in serialized output
+        for legacy in ("hearts", "hearts_count", "heartsCount", "is_hearted", "isHearted"):
+            assert legacy not in serialized, f"Legacy hearts field '{legacy}' reintroduced"

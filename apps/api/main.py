@@ -327,11 +327,6 @@ if os.getenv("LOAD_TESTING", "").lower() == "true":
 
 # Debug endpoints removed after successful volume persistence testing
 
-# Include debug router for Railway volume debugging (temporary - remove in production)
-if os.getenv("ENVIRONMENT", "development") != "production":
-    from debug_uploads import router as debug_router
-    app.include_router(debug_router, tags=["debug"])
-
 
 @app.get("/")
 async def root():
