@@ -31,6 +31,15 @@ GOOGLE_REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI", f"{FRONTEND_BASE_URL}/auth
 APPLE_REDIRECT_URI = os.getenv("APPLE_REDIRECT_URI", f"{FRONTEND_BASE_URL}/auth/callback/apple")
 OAUTH_REDIRECT_URI = GOOGLE_REDIRECT_URI
 
+# Mobile OAuth configuration
+# OAUTH_MOBILE_REDIRECT_URI: exact Google OAuth redirect URI for the mobile
+# flow (must match the Google Console registration string, e.g.
+# https://<api-domain>/api/v1/oauth/callback/google). Required in production;
+# otherwise the mobile redirect URI falls back to BACKEND_BASE_URL.
+OAUTH_MOBILE_REDIRECT_URI = os.getenv("OAUTH_MOBILE_REDIRECT_URI")
+# MOBILE_OAUTH_APP_SCHEME: custom URI scheme the GET relay redirects into.
+MOBILE_OAUTH_APP_SCHEME = os.getenv("MOBILE_OAUTH_APP_SCHEME", "grateful")
+
 # Frontend callback URLs
 FRONTEND_SUCCESS_URL = os.getenv("FRONTEND_SUCCESS_URL", f"{FRONTEND_BASE_URL}/auth/callback/success")
 FRONTEND_ERROR_URL = os.getenv("FRONTEND_ERROR_URL", f"{FRONTEND_BASE_URL}/auth/callback/error")
@@ -218,12 +227,11 @@ async def get_oauth_user_info(provider: str, token: Dict[str, Any]) -> Dict[str,
                     raise OAuthError(f"Failed to get user info: {resp.status_code}")
                 user_info = resp.json()
                 
-                debug_info = {k: v if k not in ['email', 'name'] else '***' for k, v in user_info.items()}
+                debug_info = {k: '***' if k in ['id', 'email', 'name', 'given_name', 'family_name', 'picture'] else v for k, v in user_info.items()}
                 logger.info(f"=== GOOGLE USER INFO DEBUG ===")
                 logger.info(f"Raw user info keys: {list(user_info.keys())}")
                 logger.info(f"Raw user info structure: {debug_info}")
                 logger.info(f"Email field exists: {'email' in user_info}")
-                logger.info(f"Email value: {user_info.get('email', 'NOT_FOUND')}")
             
             normalized_data = {
                 'id': user_info.get('id'),
@@ -239,7 +247,6 @@ async def get_oauth_user_info(provider: str, token: Dict[str, Any]) -> Dict[str,
             
             logger.info(f"=== NORMALIZED DATA DEBUG ===")
             logger.info(f"Normalized data keys: {list(normalized_data.keys())}")
-            logger.info(f"Normalized email: {normalized_data.get('email', 'NOT_FOUND')}")
             
             return normalized_data
             
@@ -270,8 +277,32 @@ async def get_oauth_user_info(provider: str, token: Dict[str, Any]) -> Dict[str,
         raise
 
 
-def get_oauth_redirect_uri(provider: str) -> str:
-    """Get the OAuth redirect URI for a specific provider."""
+def get_oauth_redirect_uri(provider: str, client: str = "web") -> str:
+    """
+    Get the OAuth redirect URI for a specific provider and client type.
+
+    The mobile redirect URI is always server-derived: it is either the
+    configured OAUTH_MOBILE_REDIRECT_URI (the exact Google Console string)
+    or, outside production, a deterministic default built from
+    BACKEND_BASE_URL. It is never taken from client input.
+
+    Args:
+        provider: OAuth provider name ('google' or 'apple')
+        client: OAuth client type ('web' default, or 'mobile')
+
+    Returns:
+        str: Redirect URI used both in the authorize URL and the token exchange
+
+    Raises:
+        ValueError: If client='mobile' is used in production without
+            OAUTH_MOBILE_REDIRECT_URI configured (fail-safe).
+    """
+    if client == "mobile":
+        if OAUTH_MOBILE_REDIRECT_URI:
+            return OAUTH_MOBILE_REDIRECT_URI
+        if ENVIRONMENT == "production":
+            raise ValueError("OAUTH_MOBILE_REDIRECT_URI must be configured for production mobile OAuth")
+        return f"{BACKEND_BASE_URL}/api/v1/oauth/callback/{provider}"
     if provider == 'google':
         return GOOGLE_REDIRECT_URI
     elif provider == 'apple':
@@ -282,6 +313,51 @@ def get_oauth_redirect_uri(provider: str) -> str:
 def validate_oauth_state(state: str) -> bool:
     """Validate OAuth state parameter for CSRF protection."""
     return bool(state and len(state) >= 16)
+
+
+def validate_mobile_oauth_state(state: str, *, provider: str) -> Dict[str, Any]:
+    """
+    Strictly validate a mobile OAuth state JWT and verify provider/client binding.
+
+    The web validate_oauth_state (format-only) is intentionally NOT used here;
+    mobile state is a signed JWT with a disjoint format.
+
+    Args:
+        state: Signed JWT state issued by create_oauth_state_token
+        provider: Expected OAuth provider (from the callback path param)
+
+    Returns:
+        Dict[str, Any]: Validated state payload (provider, client,
+            code_challenge, exp, iat, nbf, jti)
+
+    Raises:
+        jwt.PyJWTError: Invalid, expired, or tampered state.
+        ValueError: Wrong provider/client binding or invalid token type.
+    """
+    from app.core.security import decode_oauth_state_token
+
+    payload = decode_oauth_state_token(state)
+    if payload.get("provider") != provider:
+        raise ValueError("State provider mismatch")
+    if payload.get("client") != "mobile":
+        raise ValueError("State client mismatch")
+    return payload
+
+
+def compute_pkce_challenge(code_verifier: str) -> str:
+    """Compute the S256 PKCE code challenge for a code verifier (RFC 7636)."""
+    import base64
+    import hashlib
+
+    digest = hashlib.sha256(code_verifier.encode("utf-8")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def is_valid_code_verifier(code_verifier: str) -> bool:
+    """Validate a PKCE code verifier per RFC 7636 (43-128 chars, unreserved set)."""
+    import re
+
+    return bool(code_verifier and re.match(r"^[A-Za-z0-9\-._~]{43,128}$", code_verifier))
 
 
 def log_oauth_security_event(event_type: str, provider: str, user_id: Optional[int] = None, 

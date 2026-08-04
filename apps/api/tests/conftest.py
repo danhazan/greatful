@@ -27,7 +27,9 @@ os.environ.update({
     'GOOGLE_CLIENT_ID': 'test-google-client-id',
     'GOOGLE_CLIENT_SECRET': 'test-google-client-secret',
     'APPLE_CLIENT_ID': 'test-apple-client-id',
-    'APPLE_CLIENT_SECRET': 'test-apple-client-secret'
+    'APPLE_CLIENT_SECRET': 'test-apple-client-secret',
+    # Mobile OAuth test configuration
+    'OAUTH_MOBILE_REDIRECT_URI': 'https://api.test.local/api/v1/oauth/callback/google'
 })
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine

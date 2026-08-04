@@ -295,6 +295,92 @@ def decode_resurrection_token(token: str) -> Dict[str, Any]:
     return payload
 
 
+# OAuth mobile state token — short-lived signed JWT for the mobile OAuth flow.
+# Uses the same SECRET_KEY/HS256 infrastructure; NOT an auth token and NOT
+# decodable via decode_token (it intentionally has no "sub" claim).
+# Expiry comes from OAUTH_STATE_EXPIRY (app.core.oauth_config, default 300 s).
+
+
+def create_oauth_state_token(provider: str, client: str, code_challenge: str) -> str:
+    """
+    Create a short-lived signed JWT for the mobile OAuth state.
+
+    This is NOT an auth token — it is CSRF/PKCE state bound to the login
+    initiation. Payload contains ONLY provider, client, code_challenge and
+    the standard temporal/JWT claims. No email, no user identity, no "sub".
+
+    Args:
+        provider: OAuth provider name ('google' or 'apple')
+        client: OAuth client type (must be 'mobile')
+        code_challenge: S256 PKCE code challenge bound to this login attempt
+
+    Returns:
+        str: Signed JWT state token
+
+    Raises:
+        ValueError: If a required claim is missing.
+    """
+    if not provider or not client or not code_challenge:
+        raise ValueError("OAuth state token must contain 'provider', 'client' and 'code_challenge'")
+
+    from app.core.oauth_config import OAUTH_STATE_EXPIRY
+
+    current_time = datetime.now(timezone.utc)
+    to_encode = {
+        "provider": provider,
+        "client": client,
+        "code_challenge": code_challenge,
+        "exp": current_time + timedelta(seconds=OAUTH_STATE_EXPIRY),
+        "iat": current_time,
+        "nbf": current_time,
+        "jti": str(uuid.uuid4()),
+        "type": "oauth_state",
+        "iss": "grateful-api",
+        "aud": "grateful-client",
+    }
+
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def decode_oauth_state_token(token: str) -> Dict[str, Any]:
+    """
+    Strictly decode and validate a mobile OAuth state token.
+
+    Verifies signature, expiry, nbf/iat, issuer, audience, all required
+    claims, the 'oauth_state' type, and jti entropy.
+
+    Raises:
+        jwt.PyJWTError: If the token is invalid, expired, or wrong type.
+        ValueError: If the token type or jti is invalid.
+    """
+    payload = jwt.decode(
+        token,
+        SECRET_KEY,
+        algorithms=[ALGORITHM],
+        options={
+            "verify_signature": True,
+            "verify_exp": True,
+            "verify_nbf": True,
+            "verify_iat": True,
+            "verify_aud": True,
+            "verify_iss": True,
+            "require": ["exp", "iat", "nbf", "jti", "type", "provider", "client", "code_challenge"],
+        },
+        audience="grateful-client",
+        issuer="grateful-api",
+    )
+
+    if payload.get("type") != "oauth_state":
+        raise ValueError("Invalid token type — expected oauth_state token")
+
+    jti = payload.get("jti", "")
+    if len(jti) < 16:
+        raise ValueError("Invalid JWT ID (jti) - insufficient entropy")
+
+    return payload
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify a password against its hash.

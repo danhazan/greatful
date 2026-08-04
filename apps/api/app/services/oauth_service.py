@@ -90,14 +90,11 @@ class OAuthService(BaseService):
             # Get user info from OAuth provider
             oauth_user_info = await get_oauth_user_info(provider, oauth_token)
             
-            # Debug: Log what we received from get_oauth_user_info
+            # Debug: log keys/types only — never the userinfo values (PII)
             logger.info(f"=== OAUTH SERVICE DEBUG ===")
-            logger.info(f"Received oauth_user_info: {oauth_user_info}")
-            logger.info(f"oauth_user_info type: {type(oauth_user_info)}")
             if oauth_user_info:
                 logger.info(f"oauth_user_info keys: {list(oauth_user_info.keys())}")
-                logger.info(f"ID field: {oauth_user_info.get('id', 'NOT_FOUND')}")
-                logger.info(f"Email field: {oauth_user_info.get('email', 'NOT_FOUND')}")
+                logger.info(f"oauth_user_info type: {type(oauth_user_info)}")
             else:
                 logger.error("oauth_user_info is None or empty!")
             
@@ -283,7 +280,7 @@ class OAuthService(BaseService):
                     # Email already exists - this shouldn't happen as we checked, but handle race condition
                     existing_user = await User.get_by_email(self.db, oauth_user_info['email'])
                     if existing_user:
-                        logger.warning(f"Race condition detected: email {oauth_user_info['email']} already exists")
+                        logger.warning("Race condition detected: email already exists during OAuth user creation")
                         if request:
                             SecurityAuditor.log_security_event(
                                 event_type=SecurityEventType.OAUTH_LOGIN_FAILURE,
