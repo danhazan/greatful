@@ -35,6 +35,23 @@ describe('UserAvatar', () => {
     expect(screen.getByText('@johndoe')).toBeInTheDocument()
   })
 
+  it('anchors the tooltip to the right edge so it cannot overflow the viewport', () => {
+    render(<UserAvatar user={mockUser} showTooltip={true} onClick={jest.fn()} />)
+
+    // The tooltip is used by the far-right navbar avatar. A centered
+    // (left-1/2 -translate-x-1/2) tooltip grows with the username and
+    // overflows the document for long usernames on narrow viewports
+    // (measured 10px document overflow on a physical Pixel 8a). The
+    // right-0 anchor keeps the tooltip inside the viewport for any
+    // username length and any viewport width. The jsdom test stack has
+    // no layout engine, so this is a deterministic source-level guard
+    // against restoring the overflowing centering implementation.
+    const tooltip = screen.getByText('@johndoe')
+    expect(tooltip.className).toContain('right-0')
+    expect(tooltip.className).not.toContain('left-1/2')
+    expect(tooltip.className).not.toContain('-translate-x-1/2')
+  })
+
   it('uses displayName over name for initials', () => {
     const userWithoutImage = { ...mockUser, profileImageUrl: undefined }
     render(<UserAvatar user={userWithoutImage} />)
