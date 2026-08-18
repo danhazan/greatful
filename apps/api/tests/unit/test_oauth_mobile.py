@@ -202,9 +202,18 @@ class TestRedirectUri:
                     get_oauth_redirect_uri("google", client="mobile")
 
     def test_web_redirect_uri_unchanged(self):
-        # Web default remains the frontend URI — no mobile env leakage
-        assert get_oauth_redirect_uri("google") == "http://localhost:3000/auth/callback/google"
-        assert get_oauth_redirect_uri("apple") == "http://localhost:3000/auth/callback/apple"
+        # Web default remains the frontend URI — no mobile env leakage.
+        # Values are pinned independent of the ambient dev .env (a local
+        # device session may legitimately override FRONTEND_BASE_URL).
+        with patch(
+            "app.core.oauth_config.GOOGLE_REDIRECT_URI",
+            "http://localhost:3000/auth/callback/google",
+        ), patch(
+            "app.core.oauth_config.APPLE_REDIRECT_URI",
+            "http://localhost:3000/auth/callback/apple",
+        ):
+            assert get_oauth_redirect_uri("google") == "http://localhost:3000/auth/callback/google"
+            assert get_oauth_redirect_uri("apple") == "http://localhost:3000/auth/callback/apple"
 
 
 # ---------------------------------------------------------------------------

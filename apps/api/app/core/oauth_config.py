@@ -17,6 +17,26 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID")
 APPLE_CLIENT_SECRET = os.getenv("APPLE_CLIENT_SECRET")
 
+# Native Google Sign-In platform clients (SW2-P1). Google OAuth client IDs
+# registered for the Android app (package com.anonymous.gratefulmobile) and the
+# iOS app. They form the server-side `azp` allowlist for ID-token verification:
+# a token minted by the native flow MUST carry one of these as its `azp` claim.
+# Production fails closed when no allowlist is configured (see
+# app/services/google_id_token.py).
+GOOGLE_ANDROID_CLIENT_ID = os.getenv("ANDROID_GOOGLE_CLIENT_ID")
+GOOGLE_IOS_CLIENT_ID = os.getenv("IOS_GOOGLE_CLIENT_ID")
+
+# Accepted issuers for Google ID tokens (OpenID Connect discovery). Both forms
+# appear in practice depending on token origin.
+GOOGLE_ID_TOKEN_ISSUERS = (
+    "https://accounts.google.com",
+    "accounts.google.com",
+)
+
+# Google JWKS endpoint and cache TTL for ID-token signature verification.
+GOOGLE_ID_TOKEN_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+GOOGLE_ID_TOKEN_JWKS_CACHE_TTL_SECONDS = 24 * 60 * 60
+
 # Environment
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 

@@ -54,7 +54,8 @@ class OAuthService(BaseService):
         provider: str, 
         oauth_token: Dict[str, Any],
         state: Optional[str] = None,
-        request: Optional[Any] = None
+        request: Optional[Any] = None,
+        oauth_user_info: Optional[Dict[str, Any]] = None
     ) -> Tuple[Dict[str, Any], bool]:
         """
         Authenticate user via OAuth provider with enhanced account management.
@@ -64,6 +65,11 @@ class OAuthService(BaseService):
             oauth_token: OAuth token from provider
             state: OAuth state parameter for CSRF protection
             request: FastAPI request object for security logging
+            oauth_user_info: Pre-verified user info (native ID-token flow,
+                SW2-P1). When provided, the provider userinfo round-trip is
+                skipped entirely — the caller has already verified the claims
+                (signature, aud, azp, iss, exp, email_verified, sub, nonce).
+                Must match get_oauth_user_info's normalized shape.
             
         Returns:
             Tuple of (user_data, is_new_user)
@@ -82,13 +88,17 @@ class OAuthService(BaseService):
                     details={
                         'provider': provider,
                         'has_state': bool(state),
-                        'token_type': oauth_token.get('token_type', 'unknown')
+                        'token_type': oauth_token.get('token_type', 'unknown'),
+                        'verified_claims': oauth_user_info is not None
                     },
                     severity="INFO"
                 )
             
-            # Get user info from OAuth provider
-            oauth_user_info = await get_oauth_user_info(provider, oauth_token)
+            # Get user info from OAuth provider — unless the caller supplied
+            # already-verified claims (native ID-token flow), in which case the
+            # provider round-trip is skipped entirely.
+            if oauth_user_info is None:
+                oauth_user_info = await get_oauth_user_info(provider, oauth_token)
             
             # Debug: log keys/types only — never the userinfo values (PII)
             logger.info(f"=== OAUTH SERVICE DEBUG ===")
