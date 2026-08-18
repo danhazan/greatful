@@ -55,6 +55,11 @@ class SecurityEventType(Enum):
     OAUTH_PROVIDER_ERROR = "oauth_provider_error"
     OAUTH_CONFIGURATION_ERROR = "oauth_configuration_error"
     
+    # Session Bootstrap Events (SW2-P2)
+    BOOTSTRAP_ISSUED = "bootstrap_issued"
+    BOOTSTRAP_CONSUMED = "bootstrap_consumed"
+    BOOTSTRAP_REJECTED = "bootstrap_rejected"
+    
     # Authorization Events
     ACCESS_DENIED = "access_denied"
     PRIVILEGE_ESCALATION_ATTEMPT = "privilege_escalation_attempt"

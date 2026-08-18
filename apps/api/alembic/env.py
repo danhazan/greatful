@@ -13,6 +13,7 @@ from app.models.post import Post
 from app.models.post_privacy import PostPrivacyRule, PostPrivacyUser
 from app.models.emoji_reaction import EmojiReaction
 from app.models.deleted_user_auth_identity import DeletedUserAuthIdentity
+from app.models.web_session_bootstrap import WebSessionBootstrap
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

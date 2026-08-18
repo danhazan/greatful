@@ -328,6 +328,10 @@ class SecurityConfig:
                 "GET:/api/v1/users/*/follow-stats": 150,
                 "POST:/api/v1/users/search": 60,
                 "GET:/api/v1/notifications": 120,
+                # SW2-P2 bootstrap endpoints (per identifier — the middleware
+                # keys on request.state.user_id when present, else IP)
+                "POST:/api/v1/oauth/web-session/bootstrap": 5,
+                "POST:/api/v1/oauth/web-session/bootstrap/consume": 20,
             }
         else:
             # Use configured rate limits for development/production
@@ -348,6 +352,10 @@ class SecurityConfig:
                 "GET:/api/v1/users/*/follow-stats": 150,
                 "POST:/api/v1/users/search": 60,
                 "GET:/api/v1/notifications": 120,
+                # SW2-P2 bootstrap endpoints (per identifier — the middleware
+                # keys on request.state.user_id when present, else IP)
+                "POST:/api/v1/oauth/web-session/bootstrap": 5,
+                "POST:/api/v1/oauth/web-session/bootstrap/consume": 20,
             }
     
     def get_request_size_limits(self) -> Dict[str, int]:

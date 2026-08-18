@@ -16,6 +16,7 @@ from .user_interaction import UserInteraction
 from .image_hash import ImageHash
 from .comment import Comment
 from .deleted_user_auth_identity import DeletedUserAuthIdentity
+from .web_session_bootstrap import WebSessionBootstrap
 
 __all__ = [
     "User",
@@ -32,4 +33,5 @@ __all__ = [
     "ImageHash",
     "Comment",
     "DeletedUserAuthIdentity",
+    "WebSessionBootstrap",
 ]
