@@ -7,6 +7,7 @@ import * as auth from '@/utils/auth'
 import { AUTH_LOGOUT_KEY, buildLoginRedirectUrl } from '@/hooks/useAuthRedirect'
 import { onSessionExpired } from '@/utils/authFailureHandler'
 import { smartNotificationPoller } from '@/utils/smartNotificationPoller'
+import { emitSessionIdentity, emitSessionState } from '@/utils/webViewSessionBridge'
 
 export interface User {
   id: string
@@ -390,6 +391,21 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLastFetchTimes({})
     apiClient.setViewerScope(nextScope)
   }, [currentUser, viewerScope])
+
+  // SW2-P2: emit the authoritative web session state + identity to the native
+  // Social WebView bridge. Anonymous is only claimed when no credential exists
+  // at all (mirroring the injected probe semantics), so login/bootstrap
+  // transitions never emit a transient anonymous state. SESSION_IDENTITY is
+  // emitted only when the web app actually knows the authenticated user —
+  // stale identity is never exposed to anonymous states.
+  useEffect(() => {
+    if (currentUser) {
+      emitSessionState('authenticated')
+      emitSessionIdentity(currentUser.id)
+    } else if (!auth.getAccessToken()) {
+      emitSessionState('anonymous')
+    }
+  }, [currentUser])
 
   useEffect(() => {
     loadUser()
