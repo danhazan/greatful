@@ -742,6 +742,24 @@ The database uses Alembic for migrations with proper versioning:
 - `457cde4eec06_fix_emoji_codes_constraint.py` - Fixed emoji codes CHECK constraint
 - `1ecc041272a4_remove_emoji_codes_check_constraint.py` - Removed emoji_code CHECK constraint (backend treats emoji_code as opaque string)
 
+### SW2 Web-Session Bootstrap (native → Social WebView handoff — P2)
+
+#### `web_session_bootstraps` table
+| Column | Type | Notes |
+|---|---|---|
+| `id` | Integer PK | |
+| `user_id` | Integer FK (users.id), Not Null, Indexed | Native user the token was issued to |
+| `token_hash` | String(64), Unique, Not Null | **Salted SHA-256** of the raw token (SECRET_KEY pepper) — the raw token is never stored |
+| `purpose` | String(32), Not Null | `web_session` |
+| `audience` | String(256), Not Null | Configured web origin the token is bound to |
+| `expires_at` | DateTime(tz), Not Null, Indexed | TTL 300s |
+| `consumed_at` | DateTime(tz), Nullable | Set atomically on first consumption (single-use) |
+| `created_at` | DateTime(tz), Not Null | |
+
+Behavior: consumption is race-safe (`SELECT … FOR UPDATE` inside the transaction); the JWT pair for the
+web session is minted **after** the record is durably consumed (mint-after-commit); expired unconsumed
+records are deleted lazily on next issue for the same user. Migration: `b3500c2dcc55` (head).
+
 ## Performance Optimizations
 
 ### Database Indexes

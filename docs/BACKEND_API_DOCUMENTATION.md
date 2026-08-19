@@ -832,6 +832,35 @@ POST   /api/v1/oauth/callback/{provider} # Handle OAuth callback and create/auth
 GET    /api/v1/oauth/health              # OAuth system health check and configuration validation
 ```
 
+#### Native App Authentication (`POST /api/v1/oauth/native/google`) — SW2-P1
+
+Called by the native app with a Google ID token (no browser flow): `{ id_token, nonce?, client_platform? }`.
+Verifies the ID token via Google public JWKS (signature, `iss`, `aud` = configured Web/server client ID,
+`azp` allowlist, `exp`, `email_verified`, `sub`), then resolves the identity through the existing
+`authenticate_oauth_user` pipeline (new/returning user, provider mismatch, tombstone/resurrection, 409 conflict).
+Returns the standard `AuthResponse` (access + refresh tokens, user profile). Raw ID tokens are never logged.
+
+#### Web-Session Bootstrap — SW2-P2 (native → Social WebView session handoff)
+
+```
+POST   /api/v1/oauth/web-session/bootstrap         # Issue a single-use bootstrap token (Bearer native token; no body)
+POST   /api/v1/oauth/web-session/bootstrap/consume # Exchange a bootstrap token for a web session (no Bearer — the one-time token IS the credential)
+```
+
+- **Issue** (`POST /api/v1/oauth/web-session/bootstrap`): the user is derived **exclusively** from the authenticated
+  identity — a client-supplied user id is never accepted. Returns `{ bootstrap_token, expires_in }` (TTL 300s).
+  The raw token is returned exactly once and is stored only as a **salted SHA-256 hash** (SECRET_KEY pepper);
+  logs carry a diagnostic 8-char hash prefix only, never the raw token. Rate limit: 5/min per IP.
+- **Consume** (`POST /api/v1/oauth/web-session/bootstrap/consume`, body `{ bootstrap_token }`): atomically consumes
+  the record (`FOR UPDATE` — concurrent consumers can never double-spend), validates purpose/audience/expiry/usage,
+  and builds the canonical `AuthResponse` (same JWT issuance, user validation, and `token_version` behavior as every
+  other auth path). **Mint-after-commit**: tokens are issued only after the record is durably consumed.
+  Every failure mode (unknown, expired, consumed, wrong purpose/audience, inactive user) returns the same generic
+  401 so the server never reveals which case occurred. Rate limit: 20/min per IP. Security events:
+  `BOOTSTRAP_ISSUED`, `BOOTSTRAP_CONSUMED`, `BOOTSTRAP_REJECTED`.
+- The web app transports the token **only as a URL fragment** (`/social-session#bootstrap=<token>`), strips it via
+  `history.replaceState` before exchange, and never stores it. The WebView never receives native tokens.
+
 #### OAuth Provider Status Endpoint
 
 **GET** `/api/v1/oauth/providers`
