@@ -24,15 +24,32 @@ describe('webViewSessionBridge', () => {
     global.window = originalWindow
   })
 
-  it('posts SESSION_STATE with the correct shape', () => {
+  it('posts SESSION_STATE v2 with the correct shape', () => {
     emitSessionState('authenticated')
     expect(messages).toHaveLength(1)
     const msg = JSON.parse(messages[0])
     expect(msg.type).toBe('SESSION_STATE')
-    expect(msg.v).toBe(1)
+    expect(msg.v).toBe(2)
     expect(msg.payload).toEqual({ state: 'authenticated' })
     expect(typeof msg.id).toBe('string')
     expect(typeof msg.ts).toBe('number')
+  })
+
+  it('posts anonymous SESSION_STATE v2 with the logout discriminator (SW2-P3.0)', () => {
+    emitSessionState('anonymous', 'explicit_logout')
+    expect(messages).toHaveLength(1)
+    const msg = JSON.parse(messages[0])
+    expect(msg.type).toBe('SESSION_STATE')
+    expect(msg.v).toBe(2)
+    expect(msg.payload).toEqual({ state: 'anonymous', reason: 'explicit_logout' })
+
+    messages = []
+    emitSessionState('anonymous', 'passive_loss')
+    expect(messages).toHaveLength(1)
+    expect(JSON.parse(messages[0]).payload).toEqual({
+      state: 'anonymous',
+      reason: 'passive_loss',
+    })
   })
 
   it('posts SESSION_IDENTITY with only the user id', () => {

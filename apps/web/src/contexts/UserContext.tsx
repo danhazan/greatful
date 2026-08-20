@@ -7,7 +7,7 @@ import * as auth from '@/utils/auth'
 import { AUTH_LOGOUT_KEY, buildLoginRedirectUrl } from '@/hooks/useAuthRedirect'
 import { onSessionExpired } from '@/utils/authFailureHandler'
 import { smartNotificationPoller } from '@/utils/smartNotificationPoller'
-import { emitSessionIdentity, emitSessionState } from '@/utils/webViewSessionBridge'
+import { emitSessionIdentity, emitSessionState, type WebViewSessionLogoutReason } from '@/utils/webViewSessionBridge'
 
 export interface User {
   id: string
@@ -154,6 +154,14 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isLoadingRef = useRef(isLoading)
   const userProfilesRef = useRef(userProfiles)
   const isHandlingSessionExpiryRef = useRef(false)
+  /**
+   * SW2-P3.0: why the web session went anonymous — set at the auth-lifecycle
+   * boundary where the cause is actually known (explicit logout action vs
+   * passive expiry/refresh failure) and consumed by the SESSION_STATE bridge
+   * emission. Unknown cause defaults to 'passive_loss'; the mobile side treats
+   * an explicit_logout as never-reconnectable.
+   */
+  const logoutReasonRef = useRef<WebViewSessionLogoutReason | null>(null)
 
   currentUserRef.current = currentUser
   isLoadingRef.current = isLoading
@@ -232,6 +240,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           [user.id]: userProfile
         }))
       } else {
+        logoutReasonRef.current = 'passive_loss'
         auth.logout()
         clearCurrentUserBootstrap(token)
         setCurrentUserWithTrace(null, 'loadUser:nullUserData')
@@ -240,6 +249,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('[UserContext] loadUser error', error)
       const errorMessage = error instanceof Error ? error.message : String(error)
       if (errorMessage.includes('401')) {
+        logoutReasonRef.current = 'passive_loss'
         auth.logout()
       }
       clearCurrentUserBootstrap(auth.getAccessToken())
@@ -366,6 +376,10 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [lastFetchTimes])
 
   const logout = useCallback(() => {
+    // SW2-P3.0: explicit user-initiated logout — the bridge emission must
+    // carry 'explicit_logout' so the native coordinator never silently
+    // re-authenticates the WebView.
+    logoutReasonRef.current = 'explicit_logout'
     try { sessionStorage.setItem(AUTH_LOGOUT_KEY, '1') } catch {}
     clearCurrentUserBootstrap(auth.getAccessToken())
     auth.logout()
@@ -392,18 +406,24 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     apiClient.setViewerScope(nextScope)
   }, [currentUser, viewerScope])
 
-  // SW2-P2: emit the authoritative web session state + identity to the native
-  // Social WebView bridge. Anonymous is only claimed when no credential exists
-  // at all (mirroring the injected probe semantics), so login/bootstrap
+  // SW2-P2/P3.0: emit the authoritative web session state + identity to the
+  // native Social WebView bridge. Anonymous is only claimed when no credential
+  // exists at all (mirroring the injected probe semantics), so login/bootstrap
   // transitions never emit a transient anonymous state. SESSION_IDENTITY is
   // emitted only when the web app actually knows the authenticated user —
-  // stale identity is never exposed to anonymous states.
+  // stale identity is never exposed to anonymous states. SW2-P3.0: anonymous
+  // ALWAYS carries the logout reason recorded at the auth-lifecycle boundary
+  // (explicit logout action vs passive loss); an unknown cause defaults to
+  // 'passive_loss' (initial load, state lost with the page). SESSION_STATE v2.
   useEffect(() => {
     if (currentUser) {
+      logoutReasonRef.current = null
       emitSessionState('authenticated')
       emitSessionIdentity(currentUser.id)
     } else if (!auth.getAccessToken()) {
-      emitSessionState('anonymous')
+      const reason = logoutReasonRef.current ?? 'passive_loss'
+      logoutReasonRef.current = null
+      emitSessionState('anonymous', reason)
     }
   }, [currentUser])
 
@@ -436,6 +456,10 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       smartNotificationPoller.stop()
 
+      // SW2-P3.0: passive session loss — refresh failed irrecoverably; the
+      // bridge emission must carry 'passive_loss' so automatic reconnect
+      // remains permitted for this failure class.
+      logoutReasonRef.current = 'passive_loss'
       clearCurrentUserBootstrap()
       auth.logout()
       setCurrentUserWithTrace(null, 'sessionExpired')

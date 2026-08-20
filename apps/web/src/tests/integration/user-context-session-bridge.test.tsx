@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import {
   UserProvider,
   useUser,
@@ -7,6 +7,7 @@ import {
 } from '@/contexts/UserContext'
 import { apiClient } from '@/utils/apiClient'
 import * as auth from '@/utils/auth'
+import { handleSessionExpired } from '@/utils/authFailureHandler'
 import {
   emitSessionIdentity,
   emitSessionState,
@@ -55,7 +56,7 @@ describe('UserContext -> WebView session bridge (SW2-P2)', () => {
     expect(mockedEmitIdentity).toHaveBeenCalledWith('123')
   })
 
-  it('emits SESSION_STATE=anonymous when no credential exists', async () => {
+  it('emits SESSION_STATE=anonymous + passive_loss when no credential exists', async () => {
     mockedAuth.getAccessToken.mockReturnValue(null)
 
     render(
@@ -64,11 +65,13 @@ describe('UserContext -> WebView session bridge (SW2-P2)', () => {
       </UserProvider>,
     )
 
-    await waitFor(() => expect(mockedEmitState).toHaveBeenCalledWith('anonymous'))
+    // Initial load with no credential: no explicit logout happened, so the
+    // reason defaults to passive_loss (never a reconnect-blocking reason).
+    await waitFor(() => expect(mockedEmitState).toHaveBeenCalledWith('anonymous', 'passive_loss'))
     expect(mockedEmitIdentity).not.toHaveBeenCalled()
   })
 
-  it('clears identity on logout — anonymous state never exposes stale identity', async () => {
+  it('clears identity on logout — anonymous + explicit_logout never exposes stale identity', async () => {
     mockedAuth.getAccessToken.mockReturnValue('mock-token')
     mockedApiClient.getCurrentUserProfile.mockResolvedValue({
       id: 123,
@@ -86,13 +89,47 @@ describe('UserContext -> WebView session bridge (SW2-P2)', () => {
     await waitFor(() => expect(mockedEmitState).toHaveBeenCalledWith('authenticated'))
     expect(mockedEmitIdentity).toHaveBeenCalledWith('123')
 
-    // Explicit logout: token removed + currentUser null -> anonymous
+    // Explicit logout: token removed + currentUser null -> anonymous with the
+    // explicit_logout discriminator (SW2-P3.0) so the native coordinator
+    // never silently re-authenticates the WebView.
     mockedAuth.getAccessToken.mockReturnValue(null)
     getByTestId('logout').click()
 
-    await waitFor(() => expect(mockedEmitState).toHaveBeenCalledWith('anonymous'))
+    await waitFor(() =>
+      expect(mockedEmitState).toHaveBeenCalledWith('anonymous', 'explicit_logout'),
+    )
     // No NEW identity emission after logout — the authenticated emission
     // (with '123') remains the only one; anonymous never re-emits identity.
     expect(mockedEmitIdentity).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits anonymous + passive_loss on passive session expiry (refresh failure)', async () => {
+    mockedAuth.getAccessToken.mockReturnValue('mock-token')
+    mockedApiClient.getCurrentUserProfile.mockResolvedValue({
+      id: 123,
+      name: 'Test User',
+      username: 'testuser',
+      email: 'test@example.com',
+    })
+
+    render(
+      <UserProvider>
+        <SessionProbe />
+      </UserProvider>,
+    )
+
+    await waitFor(() => expect(mockedEmitState).toHaveBeenCalledWith('authenticated'))
+
+    // Passive session loss: apiClient dispatches the session-expired event
+    // after an irrecoverable refresh failure; the cleanup must carry the
+    // passive_loss discriminator (automatic reconnect stays permitted).
+    mockedAuth.getAccessToken.mockReturnValue(null)
+    await act(async () => {
+      handleSessionExpired()
+    })
+
+    await waitFor(() =>
+      expect(mockedEmitState).toHaveBeenCalledWith('anonymous', 'passive_loss'),
+    )
   })
 })

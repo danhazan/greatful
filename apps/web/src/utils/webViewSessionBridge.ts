@@ -8,9 +8,12 @@
  *
  * This module emits two additive bridge messages:
  *
- *   SESSION_STATE    { v, id, type: 'SESSION_STATE', ts, payload: { state } }
- *                    state is 'authenticated' | 'anonymous' — the authoritative
- *                    web session state for P2 lifecycle decisions.
+ *   SESSION_STATE    { v, id, type: 'SESSION_STATE', ts, payload: { state, reason? } }
+ *                    v2. state is 'authenticated' | 'anonymous' — the
+ *                    authoritative web session state for P2/P3.0 lifecycle
+ *                    decisions. Anonymous events ALWAYS carry a reason
+ *                    ('explicit_logout' | 'passive_loss') sourced from the
+ *                    actual web auth lifecycle (SW2-P3.0).
  *
  *   SESSION_IDENTITY { v, id, type: 'SESSION_IDENTITY', ts, payload: { userId } }
  *                    emitted only when the web app actually knows the
@@ -19,11 +22,20 @@
  *
  * Messages are posted ONLY when window.ReactNativeWebView.postMessage exists.
  * Payload values are never logged (the bridge logs nothing at all).
+ *
+ * Version history: v1 = boolean-only SESSION_STATE (SW2-P2, pre-discriminator;
+ * the fixed injected SessionProbe still emits v1). v2 = SESSION_STATE gains the
+ * additive anonymous reason discriminator (SW2-P3.0). The mobile bridge treats
+ * v1 messages as observed-but-non-authoritative for reconnect decisions and
+ * accepts the envelope version from the web app's authoritative emission.
  */
 
 export type WebViewSessionState = 'authenticated' | 'anonymous'
 
-const SESSION_BRIDGE_VERSION = 1
+/** SW2-P3.0 logout discriminator — why the web session went anonymous. */
+export type WebViewSessionLogoutReason = 'explicit_logout' | 'passive_loss'
+
+const SESSION_BRIDGE_VERSION = 2
 
 interface ReactNativeWebView {
   postMessage(message: string): void
@@ -55,8 +67,16 @@ function postBridgeMessage(
 }
 
 /** Emit the authoritative web session state to the native WebView. */
-export function emitSessionState(state: WebViewSessionState): void {
-  postBridgeMessage('SESSION_STATE', { state })
+export function emitSessionState(state: 'authenticated'): void
+export function emitSessionState(state: 'anonymous', reason: WebViewSessionLogoutReason): void
+export function emitSessionState(
+  state: WebViewSessionState,
+  reason?: WebViewSessionLogoutReason,
+): void {
+  // Anonymous MUST carry a reason (SW2-P3.0): the native coordinator uses it
+  // to decide whether automatic reconnect is permitted. The overloads enforce
+  // this at compile time.
+  postBridgeMessage('SESSION_STATE', reason ? { state, reason } : { state })
 }
 
 /** Emit the authenticated user identity (Grateful user id only). */
