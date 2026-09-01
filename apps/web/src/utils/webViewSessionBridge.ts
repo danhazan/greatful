@@ -6,7 +6,7 @@
  * SESSION_PROBE_SCRIPT only observes localStorage token presence, which
  * cannot detect an expired token whose refresh attempt subsequently fails.
  *
- * This module emits two additive bridge messages:
+ * This module emits three additive bridge messages:
  *
  *   SESSION_STATE    { v, id, type: 'SESSION_STATE', ts, payload: { state, reason? } }
  *                    v2. state is 'authenticated' | 'anonymous' — the
@@ -19,6 +19,12 @@
  *                    emitted only when the web app actually knows the
  *                    authenticated current user (Grateful user id only —
  *                    never email, username, profile data, or tokens).
+ *
+ *   SOCIAL_READY     { v, id, type: 'SOCIAL_READY', ts, payload: { ready: true } }
+ *                    N4 follow-up: presentation readiness — the feed (or other
+ *                    authenticated destination) has rendered enough that the
+ *                    native branded veil can be lifted without a white flash.
+ *                    Distinct from SESSION_STATE auth readiness; no sensitive data.
  *
  * Messages are posted ONLY when window.ReactNativeWebView.postMessage exists.
  * Payload values are never logged (the bridge logs nothing at all).
@@ -49,7 +55,7 @@ function getReactNativeWebView(): ReactNativeWebView | null {
 }
 
 function postBridgeMessage(
-  type: 'SESSION_STATE' | 'SESSION_IDENTITY',
+  type: 'SESSION_STATE' | 'SESSION_IDENTITY' | 'SOCIAL_READY',
   payload: Record<string, unknown>,
 ): void {
   const rn = getReactNativeWebView()
@@ -82,4 +88,16 @@ export function emitSessionState(
 /** Emit the authenticated user identity (Grateful user id only). */
 export function emitSessionIdentity(userId: string): void {
   postBridgeMessage('SESSION_IDENTITY', { userId })
+}
+
+/**
+ * N4 follow-up: presentation readiness — the web's authenticated Social
+ * destination (feed) has rendered enough to be visually ready (no blank).
+ * Distinct from SESSION_STATE authentication readiness. Payload is empty
+ * apart from a constant marker; no tokens, cookies, PII, or user data.
+ * The native side gates its branded veil on linked (auth) && this signal
+ * (or native onLoadEnd) to avoid the white interval between auth and paint.
+ */
+export function emitSocialReady(): void {
+  postBridgeMessage('SOCIAL_READY', { ready: true })
 }

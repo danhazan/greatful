@@ -13,6 +13,7 @@ import { Post } from '@/types/post'
 import { useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { queryTags } from "@/utils/queryKeys"
 import { useRequireAuth } from "@/hooks/useAuthRedirect"
+import { emitSocialReady } from "@/utils/webViewSessionBridge"
 import { perfLog } from "@/utils/perf"
 import {
   getScrollDirection,
@@ -300,6 +301,23 @@ function FeedPage() {
       return () => clearTimeout(t)
     }
   }, [currentUser, userLoading, requireAuth])
+
+  // N4 follow-up: presentation readiness — distinct from auth readiness.
+  // After the web session is authenticated and the feed shell has mounted,
+  // notify the native WebView that it is safe to lift the branded veil
+  // (no blank). This is the web-side complement to the native onLoadEnd
+  // readiness; either signal lifts the veil, so the transition is
+  // deterministic without an arbitrary sleep.
+  const hasEmittedReadyRef = useRef(false)
+  useEffect(() => {
+    if (userLoading || isAuthTransitioning || !currentUser) return
+    if (hasEmittedReadyRef.current) return
+    const id = setTimeout(() => {
+      hasEmittedReadyRef.current = true
+      emitSocialReady()
+    }, 150)
+    return () => clearTimeout(id)
+  }, [userLoading, isAuthTransitioning, currentUser])
 
   useEffect(() => {
     const handleScroll = () => {
