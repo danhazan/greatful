@@ -318,3 +318,25 @@ class TestPostStyleValidator:
         
         with pytest.raises(ValueError, match="Invalid background blend mode"):
             PostStyleValidator.validate_post_style(invalid_style)
+
+    def test_validate_post_style_accepts_snake_case_keys(self):
+        """J7 Slice 6: mobile JSON passes through a generic camelCase→snake_case
+        request transform, so the validator must tolerate snake_case spellings
+        of its own known fields (canonical output stays camelCase)."""
+        result = PostStyleValidator.validate_post_style({
+            "id": "sunset",
+            "name": "sunset",
+            "background_color": "#FFDAB9",
+        })
+        assert result["backgroundColor"] == "#FFDAB9"
+        assert "background_color" not in result
+
+    def test_validate_post_style_prefers_explicit_camel_case(self):
+        """An explicitly provided camelCase field is never overwritten."""
+        result = PostStyleValidator.validate_post_style({
+            "id": "sunset",
+            "name": "sunset",
+            "backgroundColor": "#FFDAB9",
+            "background_color": "#000000",
+        })
+        assert result["backgroundColor"] == "#FFDAB9"

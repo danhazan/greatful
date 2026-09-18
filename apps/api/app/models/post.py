@@ -2,7 +2,7 @@
 Post model for gratitude posts.
 """
 
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, ForeignKey, JSON
+from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, ForeignKey, JSON, Index, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -18,6 +18,20 @@ class PostPrivacyLevel(str, enum.Enum):
 
 class Post(Base):
     __tablename__ = "posts"
+
+    __table_args__ = (
+        # Ownership-scoped idempotency: at most one NON-DELETED post per
+        # author may hold a given client key. NULL keys and tombstoned rows
+        # never conflict, so history coexists and keys are reusable.
+        Index(
+            "uq_posts_author_client_key",
+            "author_id",
+            "client_key",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL AND client_key IS NOT NULL"),
+            sqlite_where=text("deleted_at IS NULL AND client_key IS NOT NULL"),
+        ),
+    )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -38,6 +52,10 @@ class Post(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
     deletion_source = Column(String(20), nullable=True)
+    # Opaque client-supplied publication key (J7 Slice 6a idempotency).
+    # Nullable for backward compatibility; scoped per author by the partial
+    # unique index below. Tombstoned posts never reserve the key.
+    client_key = Column(String(128), nullable=True)
     # Represents intentional author edits to post content/state.
     # Engagement/system maintenance updates (e.g., comments_count) must not modify this field.
     updated_at = Column(DateTime(timezone=True), nullable=True)

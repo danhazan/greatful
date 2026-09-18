@@ -64,6 +64,24 @@ class PostRepository(BaseRepository):
             raise NotFoundError("Post not found")
         return post
 
+    async def get_active_by_author_and_client_key(
+        self, author_id: int, client_key: str
+    ) -> Optional[Post]:
+        """Non-tombstoned post by (author, client_key) for idempotent replay.
+
+        Backs the J7 Slice 6a client-key contract: at most one non-deleted
+        post per author may hold a given key.
+        """
+        builder = (
+            self.query()
+            .filter(Post.author_id == author_id)
+            .filter(Post.client_key == client_key)
+            .filter(Post.deleted_at.is_(None))
+        )
+        query = builder.build()
+        result = await self._execute_query(query, "get active Post by author and client key")
+        return result.scalar_one_or_none()
+
     async def get_by_author(
         self, 
         author_id: int, 

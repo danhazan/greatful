@@ -10,9 +10,10 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -49,6 +50,19 @@ def _normalize_reaction_emoji_codes(value: Any) -> List[str]:
     return []
 
 
+# J7 Slice 6a: bound for the opaque client publication key. The mobile client
+# sends a UUIDv7 publication id; the bound only guards abuse, not grammar.
+CLIENT_KEY_MAX_LENGTH = 128
+
+
+def normalize_client_key(value: Optional[str]) -> Optional[str]:
+    """Normalize an opaque client publication key: blank is treated as absent."""
+    if value is None:
+        return None
+    key = value.strip()
+    return key or None
+
+
 class PostCreate(BaseModel):
     """Post creation request model with automatic type detection and rich content support."""
     content: str = Field(default="", min_length=0)
@@ -61,6 +75,9 @@ class PostCreate(BaseModel):
     privacy_level: Optional[str] = Field(None, description="Post privacy: public, private, custom")
     rules: List[str] = Field(default_factory=list, description="Custom privacy rules")
     specific_users: List[int] = Field(default_factory=list, description="Explicit user IDs for custom privacy")
+    # J7 Slice 6a: opaque client publication key for idempotent retries.
+    # Blank is treated as absent; oversized is rejected by max_length (422).
+    client_key: Optional[str] = Field(None, max_length=128, description="Opaque client publication key for idempotent retries")
 
     @field_validator('post_style')
     @classmethod
@@ -82,6 +99,10 @@ class PostCreate(BaseModel):
             )
         return normalized
 
+    @field_validator("client_key")
+    @classmethod
+    def normalize_client_key_value(cls, value):
+        return normalize_client_key(value)
 
 
 
@@ -123,6 +144,7 @@ class PostResponse(BaseModel):
     privacy_level: Optional[str] = Field(None, alias="privacyLevel")
     privacy_rules: Optional[List[str]] = Field(None, alias="privacyRules")
     specific_users: Optional[List[int]] = Field(None, alias="specificUsers")
+    client_key: Optional[str] = Field(None, alias="clientKey")
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -464,9 +486,75 @@ async def _fetch_post_images(db: AsyncSession, post_id: str) -> List[Dict[str, A
     ]
 
 
+async def _build_idempotent_replay_response(
+    db: AsyncSession, db_post: Post, author: Dict[str, Any]
+) -> PostResponse:
+    """Faithful PostResponse for an idempotent client-key replay.
+
+    Loads the post's actual images and privacy details — unlike the create
+    paths, which know what they just wrote.
+    """
+    images = await _fetch_post_images(db, db_post.id)
+    privacy_service = PostPrivacyService(db)
+    details = await privacy_service.get_privacy_details_for_posts([db_post.id])
+    entry = details.get(db_post.id, {})
+    return PostResponse(
+        id=db_post.id,
+        author_id=db_post.author_id,
+        content=db_post.content,
+        rich_content=db_post.rich_content,
+        post_style=db_post.post_style,
+        image_url=serialize_image_url(db_post.image_url),
+        images=images,
+        location=db_post.location,
+        location_data=db_post.location_data,
+        is_public=db_post.is_public,
+        privacy_level=db_post.privacy_level,
+        privacy_rules=entry.get("privacy_rules", []),
+        specific_users=entry.get("specific_users", []),
+        client_key=db_post.client_key,
+        created_at=db_post.created_at.isoformat() if db_post.created_at else None,
+        updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
+        author=author,
+        reactions_count=db_post.reactions_count or 0,
+        comments_count=db_post.comments_count or 0,
+        current_user_reaction=None,
+    )
+
+
+async def _find_replay_post(
+    db: AsyncSession, author_id: int, client_key: Optional[str]
+) -> Optional[Post]:
+    """Existing non-deleted post for (author, key), or None when absent."""
+    if client_key is None:
+        return None
+    from app.repositories.post_repository import PostRepository
+    return await PostRepository(db).get_active_by_author_and_client_key(author_id, client_key)
+
+
+async def _replay_on_key_conflict(
+    db: AsyncSession,
+    response: Response,
+    author_id: int,
+    client_key: Optional[str],
+    author: Dict[str, Any],
+) -> Optional[PostResponse]:
+    """Concurrent-insert fallback: a racing request won the key — replay it.
+
+    Returns None when there is nothing to replay (caller re-raises).
+    """
+    await db.rollback()
+    existing = await _find_replay_post(db, author_id, client_key)
+    if existing is None:
+        return None
+    response.status_code = status.HTTP_200_OK
+    return await _build_idempotent_replay_response(db, existing, author)
+
+
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_json(
     post_data: PostCreate,
+    response: Response,
     current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db)
 ):
@@ -476,6 +564,22 @@ async def create_post_json(
         from app.repositories.user_repository import UserRepository
         user_repo = UserRepository(db)
         user = await user_repo.get_by_id_or_404(current_user_id)
+        author_payload = {
+            "id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+            "name": user.display_name or user.username,
+            "email": user.email,
+        }
+
+        # Idempotent replay: this key was already processed for this author.
+        # Return the existing post instead of a duplicate — even if the
+        # accompanying body differs (stable-key replay, no body hashing).
+        client_key = post_data.client_key
+        existing = await _find_replay_post(db, current_user_id, client_key)
+        if existing is not None:
+            response.status_code = status.HTTP_200_OK
+            return await _build_idempotent_replay_response(db, existing, author_payload)
 
         # Validate that either content or image is provided
         if not post_data.content.strip() and not post_data.image_url:
@@ -556,11 +660,21 @@ async def create_post_json(
             location_data=post_data.location_data,
             is_public=privacy_config.is_public,
             privacy_level=privacy_config.level,
+            client_key=client_key,
             created_at=datetime.now(timezone.utc)
         )
-        
+
         db.add(db_post)
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError:
+            # Lost a same-key race: replay the winner instead of failing.
+            replayed = await _replay_on_key_conflict(
+                db, response, current_user_id, client_key, author_payload
+            )
+            if replayed is not None:
+                return replayed
+            raise
         await privacy_service.apply_post_config(db_post, privacy_config)
         await db.commit()
         await db.refresh(db_post)
@@ -599,15 +713,10 @@ async def create_post_json(
             privacy_level=privacy_config.level,
             privacy_rules=privacy_config.rules,
             specific_users=privacy_config.specific_user_ids,
+            client_key=db_post.client_key,
             created_at=db_post.created_at.isoformat() if db_post.created_at else None,
             updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
-            author={
-                "id": user.id,
-                "username": user.username,
-                "display_name": user.display_name,
-                "name": user.display_name or user.username,
-                "email": user.email
-            },
+            author=author_payload,
             reactions_count=0,
             comments_count=0,
             current_user_reaction=None
@@ -671,6 +780,7 @@ async def check_post_image_duplicate(
 
 @router.post("/upload", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_with_file(
+    response: Response,
     current_user_id: int = Depends(get_authenticated_user_id),
     db: AsyncSession = Depends(get_db),
     # FormData parameters
@@ -683,6 +793,7 @@ async def create_post_with_file(
     privacy_level: Optional[str] = Form(None),
     rules: Optional[str] = Form(None),  # JSON array string
     specific_users: Optional[str] = Form(None),  # JSON array string
+    client_key: Optional[str] = Form(None),  # J7 Slice 6a opaque key, blank = absent
     force_upload: bool = Form(False),
     # Multi-image support: accepts multiple files via 'images' field
     images: List[UploadFile] = File(default=[]),
@@ -782,6 +893,28 @@ async def create_post_with_file(
         from app.repositories.user_repository import UserRepository
         user_repo = UserRepository(db)
         user = await user_repo.get_by_id_or_404(current_user_id)
+        author_payload = {
+            "id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+            "name": user.display_name or user.username,
+            "email": user.email,
+        }
+
+        # J7 Slice 6a key: blank = absent, oversized = 422 (mirrors PostCreate).
+        normalized_key = normalize_client_key(client_key)
+        if normalized_key is not None and len(normalized_key) > CLIENT_KEY_MAX_LENGTH:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"client_key too long. Maximum {CLIENT_KEY_MAX_LENGTH} characters.",
+            )
+
+        # Idempotent replay before any image work: this key was already
+        # processed for this author, so return the existing post.
+        existing = await _find_replay_post(db, current_user_id, normalized_key)
+        if existing is not None:
+            response.status_code = status.HTTP_200_OK
+            return await _build_idempotent_replay_response(db, existing, author_payload)
 
         # Collect all images (from both new multi-image and legacy single-image params)
         all_images: List[UploadFile] = []
@@ -913,15 +1046,25 @@ async def create_post_with_file(
             location_data=post_data.location_data,
             is_public=privacy_config.is_public,
             privacy_level=privacy_config.level,
+            client_key=normalized_key,
             created_at=datetime.now(timezone.utc)
         )
 
         db.add(db_post)
-        await db.flush()
-        if post_images:
-            for post_image in post_images:
-                db.add(post_image)
+        try:
             await db.flush()
+            if post_images:
+                for post_image in post_images:
+                    db.add(post_image)
+                await db.flush()
+        except IntegrityError:
+            # Lost a same-key race: replay the winner instead of failing.
+            replayed = await _replay_on_key_conflict(
+                db, response, current_user_id, normalized_key, author_payload
+            )
+            if replayed is not None:
+                return replayed
+            raise
         await privacy_service.apply_post_config(db_post, privacy_config)
         await db.commit()
         await db.refresh(db_post)
@@ -960,15 +1103,10 @@ async def create_post_with_file(
             privacy_level=privacy_config.level,
             privacy_rules=privacy_config.rules,
             specific_users=privacy_config.specific_user_ids,
+            client_key=db_post.client_key,
             created_at=db_post.created_at.isoformat() if db_post.created_at else None,
             updated_at=db_post.updated_at.isoformat() if db_post.updated_at else None,
-            author={
-                "id": user.id,
-                "username": user.username,
-                "display_name": user.display_name,
-                "name": user.display_name or user.username,
-                "email": user.email
-            },
+            author=author_payload,
             reactions_count=0,
             comments_count=0,
             current_user_reaction=None

@@ -29,6 +29,18 @@ class PostStyleValidator:
     
     # Required fields for post style
     REQUIRED_FIELDS = {'id', 'name', 'backgroundColor'}
+
+    # J7 Slice 6: mobile JSON create passes through a generic camelCase→
+    # snake_case request transform, which rewrites nested post_style keys too.
+    # Tolerate snake_case spellings of the validator's own known fields
+    # (canonical output stays camelCase; explicit camelCase always wins).
+    SNAKE_CASE_STYLE_KEYS = {
+        'background_color': 'backgroundColor',
+        'background_gradient': 'backgroundGradient',
+        'background_image': 'backgroundImage',
+        'background_opacity': 'backgroundOpacity',
+        'background_blend_mode': 'backgroundBlendMode',
+    }
     
     @classmethod
     def validate_hex_color(cls, color: str) -> bool:
@@ -159,9 +171,14 @@ class PostStyleValidator:
         
         if not isinstance(post_style, dict):
             raise ValueError("Post style must be a dictionary")
+
+        normalized = dict(post_style)
+        for snake_key, camel_key in cls.SNAKE_CASE_STYLE_KEYS.items():
+            if snake_key in normalized and camel_key not in normalized:
+                normalized[camel_key] = normalized.pop(snake_key)
         
         # Clean the post style first (remove font properties)
-        cleaned_style = cls.clean_post_style(post_style)
+        cleaned_style = cls.clean_post_style(normalized)
         
         # Validate required fields
         missing_fields = cls.REQUIRED_FIELDS - set(cleaned_style.keys())
