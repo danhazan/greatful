@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 from app.schemas.user import AuthorResponse
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id as get_authenticated_user_id
+from app.core.exceptions import AuthenticationError
 from app.core.security import decode_token
 from app.models.post import Post
 from app.models.user import User
@@ -261,52 +262,48 @@ class DeleteResponse(BaseModel):
 
 async def get_optional_user_id(request: Request) -> Optional[int]:
     """
-    Extract user ID from JWT token if present, otherwise return None.
+    Extract user ID from JWT token when a valid one is present, otherwise None.
+
+    No Authorization header -> anonymous (public content only).
+    Header present but expired/invalid/malformed -> 401 so the client's
+    refresh flow runs; never a silent anonymous fallback (J7.6 Issue 1:
+    that produced false 404s the mobile client reads as authoritative
+    remote-missing).
     Handles 'Bearer' case-insensitively and provides structured logging.
     """
+    auth_header = request.headers.get("authorization")
+    if auth_header is None:
+        return None
+
+    # Robust parsing: split on whitespace and validate scheme
+    parts = auth_header.strip().split()
+
+    if len(parts) != 2:
+        logger.warning(
+            "Malformed Authorization header",
+            extra={
+                "auth_header_present": True,
+                "auth_scheme": "invalid_format",
+                "part_count": len(parts)
+            }
+        )
+        raise AuthenticationError("Malformed Authorization header")
+
+    scheme, token = parts
+    if scheme.lower() != "bearer":
+        logger.warning(
+            "Unsupported auth scheme",
+            extra={
+                "auth_header_present": True,
+                "auth_scheme": scheme.lower(),
+            }
+        )
+        raise AuthenticationError("Unsupported authentication scheme")
+
     try:
-        auth_header = request.headers.get("authorization")
-        if not auth_header:
-            return None
-        
-        # Robust parsing: split on whitespace and validate scheme
-        parts = auth_header.strip().split()
-        
-        if len(parts) != 2:
-            logger.warning(
-                "Malformed Authorization header",
-                extra={
-                    "auth_header_present": True,
-                    "auth_scheme": "invalid_format",
-                    "part_count": len(parts)
-                }
-            )
-            return None
-            
-        scheme, token = parts
-        if scheme.lower() != "bearer":
-            logger.warning(
-                "Unsupported auth scheme",
-                extra={
-                    "auth_header_present": True,
-                    "auth_scheme": scheme.lower(),
-                }
-            )
-            return None
-            
         # Decode and extract sub
         payload = decode_token(token)
         user_id = int(payload.get("sub"))
-        
-        logger.debug(
-            "Optional auth successful",
-            extra={
-                "auth_header_present": True,
-                "auth_scheme": "bearer",
-                "viewer_id": user_id
-            }
-        )
-        return user_id
     except Exception as e:
         logger.warning(
             "Optional auth failed",
@@ -316,7 +313,17 @@ async def get_optional_user_id(request: Request) -> Optional[int]:
                 "error": str(e)
             }
         )
-        return None
+        raise AuthenticationError("Invalid authentication token") from e
+
+    logger.debug(
+        "Optional auth successful",
+        extra={
+            "auth_header_present": True,
+            "auth_scheme": "bearer",
+            "viewer_id": user_id
+        }
+    )
+    return user_id
 
 
 def get_share_service(db: AsyncSession):
